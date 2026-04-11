@@ -5,7 +5,7 @@ import com.openggf.game.AnimationId;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
@@ -366,6 +366,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         // Physics provider fields — populated from GameModule when available
         private PhysicsProfile physicsProfile;
+        private GameModule runtimeBoundStateModule;
         private PhysicsModifiers physicsModifiers;
         private PhysicsFeatureSet physicsFeatureSet;
 
@@ -759,42 +760,63 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final Camera currentCamera() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getCamera() : Camera.getInstance();
+                return GameServices.camera();
         }
 
         public final LevelManager currentLevelManager() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+                return GameServices.level();
+        }
+
+        public final LevelManager currentLevelManagerIfAvailable() {
+                var runtime = RuntimeManager.getActiveRuntime();
+                return runtime != null ? runtime.getLevelManager() : null;
+        }
+
+        public final GameModule currentGameModule() {
+                return RuntimeManager.resolveCurrentOrBootstrapGameModule();
+        }
+
+        public final CrossGameFeatureProvider currentCrossGameFeatures() {
+                return GameServices.crossGameFeatures();
+        }
+
+        public final int resolveAnimationId(CanonicalAnimation animation) {
+                refreshRuntimeBoundStateIfNeeded();
+                GameModule module = currentGameModule();
+                return module != null ? module.resolveAnimationId(animation) : -1;
         }
 
         public final LevelState currentLevelState() {
-                LevelManager levelManager = currentLevelManager();
+                LevelManager levelManager = currentLevelManagerIfAvailable();
                 return levelManager != null ? levelManager.getLevelGamestate() : null;
         }
 
         public final TimerManager currentTimerManager() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
+                return GameServices.timers();
         }
 
         public final GameStateManager currentGameState() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+                return GameServices.gameState();
+        }
+
+        public final GameStateManager currentGameStateOrNull() {
+                return GameServices.gameStateOrNull();
         }
 
         public final CollisionSystem currentCollisionSystem() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getCollisionSystem() : CollisionSystem.getInstance();
+                return GameServices.collision();
+        }
+
+        public final CollisionSystem currentCollisionSystemOrNull() {
+                return GameServices.collisionOrNull();
         }
 
         public final AudioManager currentAudioManager() {
-                return AudioManager.getInstance();
+                return GameServices.audio();
         }
 
         public final WaterSystem currentWaterSystem() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+                return GameServices.water();
         }
 
         /**
@@ -1335,6 +1357,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void tickStatus() {
+                refreshRuntimeBoundStateIfNeeded();
                 // ROM: invulnerable_time only decrements in Sonic_Display (routine 2).
                 // During hurt routine (routine 4), DisplaySprite is called directly,
                 // so the timer stays frozen until Sonic lands.
@@ -2076,9 +2099,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Falls back gracefully if no provider is available (defineSpeeds() values remain).
          */
         private void resolvePhysicsProfile() {
+                resolvePhysicsProfile(bootstrapSafeGameModule());
+        }
+
+        private void resolvePhysicsProfile(GameModule module) {
+                runtimeBoundStateModule = module;
                 try {
-                        PhysicsProvider provider = GameModuleRegistry.getCurrent().getPhysicsProvider();
+                        PhysicsProvider provider = module != null ? module.getPhysicsProvider() : null;
                         if (provider == null) {
+                                bubbleAnimId = module != null ? module.resolveAnimationId(CanonicalAnimation.BUBBLE) : -1;
                                 return;
                         }
                         String charType;
@@ -2124,7 +2153,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
                 // Cross-game donation: override only the feature set with hybrid (donor spindash + base physics)
                 if (CrossGameFeatureProvider.isActive()) {
-                        this.physicsFeatureSet = CrossGameFeatureProvider.getInstance().getHybridFeatureSet();
+                        this.physicsFeatureSet = currentCrossGameFeatures().getHybridFeatureSet();
                 }
                 // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
                 // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
@@ -2141,7 +2170,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
-                bubbleAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.BUBBLE);
+                bubbleAnimId = module != null ? module.resolveAnimationId(CanonicalAnimation.BUBBLE) : -1;
+        }
+
+        private void refreshRuntimeBoundStateIfNeeded() {
+                GameModule module = currentGameModule();
+                if (module == null || module == runtimeBoundStateModule) {
+                        return;
+                }
+                resolvePhysicsProfile(module);
+        }
+
+        private GameModule bootstrapSafeGameModule() {
+                return RuntimeManager.resolveBootstrapGameModule();
         }
 
         /**
@@ -2946,7 +2987,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected void onEnterWater() {
                 LOGGER.fine("Player entered water");
                 // Increment global Water_entered_counter so objects can detect water transitions
-                WaterSystem.getInstance().incrementWaterEnteredCounter();
+                currentWaterSystem().incrementWaterEnteredCounter();
                 // S3K: water entry resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22225-22227 sets absolute values, not relative to init)
                 clearInitOverride();
@@ -2996,7 +3037,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected void onExitWater() {
                 LOGGER.fine("Player exited water");
                 // Increment global Water_entered_counter so objects can detect water transitions
-                WaterSystem.getInstance().incrementWaterEnteredCounter();
+                currentWaterSystem().incrementWaterEnteredCounter();
                 // S3K: water exit resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22253-22255 sets absolute $600/$C/$80, not relative to init)
                 clearInitOverride();

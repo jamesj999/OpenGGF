@@ -1,15 +1,18 @@
 package com.openggf.tests.physics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
+import com.openggf.level.LevelManager;
 import com.openggf.physics.*;
 import com.openggf.tests.TestEnvironment;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for CollisionSystem behavior and trace recording.
@@ -21,7 +24,7 @@ public class CollisionSystemTest {
     private CollisionSystem collisionSystem;
     private RecordingCollisionTrace trace;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestEnvironment.resetAll();
         GameServices.collision().resetState();
@@ -73,7 +76,7 @@ public class CollisionSystemTest {
         other.onTerrainProbesComplete(100, 200, (byte) 0);
 
         List<String> differences = trace.compareWith(other);
-        assertTrue("Identical traces should have no differences", differences.isEmpty());
+        assertTrue(differences.isEmpty(), "Identical traces should have no differences");
     }
 
     @Test
@@ -84,7 +87,7 @@ public class CollisionSystemTest {
         other.onTerrainProbesStart(150, 200, false); // Different X
 
         List<String> differences = trace.compareWith(other);
-        assertFalse("Different traces should have differences", differences.isEmpty());
+        assertFalse(differences.isEmpty(), "Different traces should have differences");
     }
 
     @Test
@@ -95,7 +98,7 @@ public class CollisionSystemTest {
         other.onTerrainProbesStart(101, 200, false); // 1 pixel diff
 
         List<String> differences = trace.compareWith(other);
-        assertTrue("1-pixel difference should be tolerated", differences.isEmpty());
+        assertTrue(differences.isEmpty(), "1-pixel difference should be tolerated");
     }
 
     @Test
@@ -250,7 +253,7 @@ public class CollisionSystemTest {
         other.onTerrainProbesComplete(100, 200, (byte) 0x40);
 
         List<String> differences = trace.compareWith(other);
-        assertFalse("Angle mismatch should be reported", differences.isEmpty());
+        assertFalse(differences.isEmpty(), "Angle mismatch should be reported");
     }
 
     @Test
@@ -261,7 +264,7 @@ public class CollisionSystemTest {
         other.onTerrainProbesStart(100, 200, false);
 
         List<String> differences = trace.compareWith(other);
-        assertFalse("Flag mismatch should be reported", differences.isEmpty());
+        assertFalse(differences.isEmpty(), "Flag mismatch should be reported");
     }
 
     @Test
@@ -387,7 +390,7 @@ public class CollisionSystemTest {
         other.onTerrainProbeResult("ground_A", result2);
 
         List<String> differences = trace.compareWith(other);
-        assertTrue("1-pixel distance difference should be tolerated", differences.isEmpty());
+        assertTrue(differences.isEmpty(), "1-pixel distance difference should be tolerated");
     }
 
     @Test
@@ -401,7 +404,7 @@ public class CollisionSystemTest {
         other.onTerrainProbeResult("ground_A", result2);
 
         List<String> differences = trace.compareWith(other);
-        assertFalse("5-pixel distance difference should not be tolerated", differences.isEmpty());
+        assertFalse(differences.isEmpty(), "5-pixel distance difference should not be tolerated");
     }
 
     @Test
@@ -422,7 +425,7 @@ public class CollisionSystemTest {
     public void testEmptyTraceComparison() {
         RecordingCollisionTrace other = new RecordingCollisionTrace();
         List<String> differences = trace.compareWith(other);
-        assertTrue("Two empty traces should have no differences", differences.isEmpty());
+        assertTrue(differences.isEmpty(), "Two empty traces should have no differences");
     }
 
     @Test
@@ -430,21 +433,43 @@ public class CollisionSystemTest {
         CollisionSystem first = GameServices.collision();
         first.resetState();
         CollisionSystem second = GameServices.collision();
-        assertSame("resetState() should not change instance", first, second);
+        assertSame(first, second, "resetState() should not change instance");
     }
 
     @Test
     public void testSameInstanceReturned() {
         CollisionSystem first = GameServices.collision();
         CollisionSystem second = GameServices.collision();
-        assertSame("Without reset, same instance should be returned", first, second);
+        assertSame(first, second, "Without reset, same instance should be returned");
+    }
+
+    @Test
+    public void testGroundSensorDefaultLevelManagerTracksRuntimeRecreation() {
+        GroundSensor.setLevelManager(null);
+
+        GameRuntime firstRuntime = RuntimeManager.getCurrent();
+        LevelManager firstLevelManager = invokeGroundSensorLevelManager();
+        assertSame(firstRuntime.getLevelManager(), firstLevelManager, "GroundSensor should resolve the current runtime LevelManager");
+
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.createGameplay();
+
+        try {
+            GameRuntime secondRuntime = RuntimeManager.getCurrent();
+            LevelManager secondLevelManager = invokeGroundSensorLevelManager();
+
+            assertSame(secondRuntime.getLevelManager(), secondLevelManager, "GroundSensor should resolve the recreated runtime LevelManager");
+            assertNotSame(firstLevelManager, secondLevelManager, "GroundSensor should not retain the destroyed runtime LevelManager");
+        } finally {
+            GroundSensor.setLevelManager(null);
+        }
     }
 
     @Test
     public void testCalcRoomInFrontProbeOnFloorMovingRightUsesRightWallProbe() {
         Object probe = describeCalcRoomInFrontProbe(0x00, (short) 0x400);
 
-        assertEquals("Expected right-wall mode dispatch", 0xC0, readProbeInt(probe, "mode"));
+        assertEquals(0xC0, readProbeInt(probe, "mode"), "Expected right-wall mode dispatch");
         assertEquals(Direction.RIGHT, readProbeDirection(probe, "globalDirection"));
         assertEquals(10, readProbeInt(probe, "offsetX"));
         assertEquals(0, readProbeInt(probe, "offsetY"));
@@ -455,7 +480,7 @@ public class CollisionSystemTest {
     public void testCalcRoomInFrontProbeOnRightWallMovingUpUsesCeilingProbe() {
         Object probe = describeCalcRoomInFrontProbe(0xC0, (short) 0x400);
 
-        assertEquals("Expected ceiling-mode dispatch from right wall", 0x80, readProbeInt(probe, "mode"));
+        assertEquals(0x80, readProbeInt(probe, "mode"), "Expected ceiling-mode dispatch from right wall");
         assertEquals(Direction.UP, readProbeDirection(probe, "globalDirection"));
         assertEquals(0, readProbeInt(probe, "offsetX"));
         assertEquals(-10, readProbeInt(probe, "offsetY"));
@@ -466,7 +491,7 @@ public class CollisionSystemTest {
     public void testCalcRoomInFrontProbeOnCeilingMovingLeftUsesRightWallProbe() {
         Object probe = describeCalcRoomInFrontProbe(0x80, (short) -0x400);
 
-        assertEquals("Expected right-wall mode dispatch from ceiling", 0xC0, readProbeInt(probe, "mode"));
+        assertEquals(0xC0, readProbeInt(probe, "mode"), "Expected right-wall mode dispatch from ceiling");
         assertEquals(Direction.RIGHT, readProbeDirection(probe, "globalDirection"));
         assertEquals(10, readProbeInt(probe, "offsetX"));
         assertEquals(0, readProbeInt(probe, "offsetY"));
@@ -477,7 +502,7 @@ public class CollisionSystemTest {
     public void testCalcRoomInFrontProbeOnLeftWallMovingDownUsesCeilingProbe() {
         Object probe = describeCalcRoomInFrontProbe(0x40, (short) -0x400);
 
-        assertEquals("Expected ceiling-mode dispatch from left wall", 0x80, readProbeInt(probe, "mode"));
+        assertEquals(0x80, readProbeInt(probe, "mode"), "Expected ceiling-mode dispatch from left wall");
         assertEquals(Direction.UP, readProbeDirection(probe, "globalDirection"));
         assertEquals(0, readProbeInt(probe, "offsetX"));
         assertEquals(-10, readProbeInt(probe, "offsetY"));
@@ -492,6 +517,16 @@ public class CollisionSystemTest {
             return method.invoke(null, angle, gSpeed);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Failed to invoke describeCalcRoomInFrontProbe", e);
+        }
+    }
+
+    private static LevelManager invokeGroundSensorLevelManager() {
+        try {
+            Method method = GroundSensor.class.getDeclaredMethod("getLevelManager");
+            method.setAccessible(true);
+            return (LevelManager) method.invoke(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to invoke GroundSensor.getLevelManager", e);
         }
     }
 
@@ -515,3 +550,5 @@ public class CollisionSystemTest {
         }
     }
 }
+
+

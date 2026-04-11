@@ -4,6 +4,7 @@ import com.openggf.control.InputHandler;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic1.Sonic1ObjectArt;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenDataLoader;
@@ -131,7 +132,7 @@ public class TryAgainEndManager {
 
         // Initialize text renderer
         textRenderer = new Sonic1CreditsTextRenderer();
-        Sonic1TitleScreenDataLoader dataLoader = Sonic1TitleScreenManager.getInstance().getDataLoader();
+        Sonic1TitleScreenDataLoader dataLoader = resolveTitleScreenDataLoader();
         if (dataLoader != null && !dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
@@ -195,7 +196,7 @@ public class TryAgainEndManager {
             Rom rom = GameServices.rom().getRom();
             RomByteReader reader = new RomByteReader(rom.readAllBytes());
             Sonic1ObjectArt art = new Sonic1ObjectArt(rom, reader);
-            GraphicsManager gm = GraphicsManager.getInstance();
+            GraphicsManager gm = GameServices.graphics();
 
             // Load ending palette (ROM: PalLoad_Fade palid_Ending)
             loadEndingPalette(rom, gm);
@@ -340,7 +341,7 @@ public class TryAgainEndManager {
         }
 
         // Check START press (mapped to configured jump key, matching ROM's Start button)
-        int startKey = SonicConfigurationService.getInstance().getInt(SonicConfiguration.JUMP);
+        int startKey = GameServices.configuration().getInt(SonicConfiguration.JUMP);
         if (inputHandler != null && startKey > 0 && inputHandler.isKeyPressed(startKey)) {
             exitRequested = true;
             return;
@@ -467,7 +468,7 @@ public class TryAgainEndManager {
         }
 
         // Draw emeralds and Eggman in a single batch
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();
@@ -648,5 +649,15 @@ public class TryAgainEndManager {
                                             int tile, boolean hFlip, boolean vFlip,
                                             int palette, boolean priority) {
         return new SpriteMappingPiece(xOff, yOff, w, h, tile, hFlip, vFlip, palette, priority);
+    }
+
+    private Sonic1TitleScreenDataLoader resolveTitleScreenDataLoader() {
+        TitleScreenProvider provider = GameServices.module().getTitleScreenProvider();
+        if (provider instanceof Sonic1TitleScreenManager manager) {
+            return manager.getDataLoader();
+        }
+        Sonic1TitleScreenDataLoader fallback = new Sonic1TitleScreenDataLoader();
+        fallback.loadData();
+        return fallback;
     }
 }

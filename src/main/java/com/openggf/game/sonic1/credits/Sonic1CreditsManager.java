@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.credits;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenDataLoader;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenManager;
@@ -73,7 +74,7 @@ public class Sonic1CreditsManager {
 
         // Initialize text renderer from title screen data.
         // Ensure data is loaded (it normally is from the title screen, but be safe).
-        Sonic1TitleScreenDataLoader dataLoader = Sonic1TitleScreenManager.getInstance().getDataLoader();
+        Sonic1TitleScreenDataLoader dataLoader = resolveTitleScreenDataLoader();
         if (dataLoader != null && !dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
@@ -394,5 +395,15 @@ public class Sonic1CreditsManager {
             return 0;
         }
         return Sonic1CreditsDemoData.TEXT_PACING_DELAY_FRAMES[creditIndex];
+    }
+
+    private Sonic1TitleScreenDataLoader resolveTitleScreenDataLoader() {
+        TitleScreenProvider provider = GameServices.module().getTitleScreenProvider();
+        if (provider instanceof Sonic1TitleScreenManager manager) {
+            return manager.getDataLoader();
+        }
+        Sonic1TitleScreenDataLoader fallback = new Sonic1TitleScreenDataLoader();
+        fallback.loadData();
+        return fallback;
     }
 }

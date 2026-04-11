@@ -8,17 +8,15 @@ import com.openggf.level.Pattern;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * Verifies that HCZ AniPLC scripts are loaded and mutate the level pattern buffer.
@@ -29,18 +27,15 @@ import static org.junit.Assert.assertNotNull;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kHczPatternAnimation {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private HeadlessTestFixture fixture;
 
-    @BeforeClass
+    @BeforeAll
     public static void configure() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         fixture = null;
     }
@@ -63,14 +58,14 @@ public class TestS3kHczPatternAnimation {
 
     private void assertAnimatedTileChanges(int tileIndex, int maxFrames) {
         Level level = GameServices.level().getCurrentLevel();
-        assertNotNull("Level must be loaded", level);
+        assertNotNull(level, "Level must be loaded");
 
         Pattern pattern = level.getPattern(tileIndex);
-        assertNotNull("Pattern tile must exist at $" + Integer.toHexString(tileIndex), pattern);
+        assertNotNull(pattern, "Pattern tile must exist at $" + Integer.toHexString(tileIndex));
 
         byte[] initial = snapshot(pattern);
         AnimatedPatternManager apm = GameServices.level().getAnimatedPatternManager();
-        assertNotNull("AnimatedPatternManager must be present", apm);
+        assertNotNull(apm, "AnimatedPatternManager must be present");
 
         boolean changed = false;
         for (int frame = 0; frame < maxFrames; frame++) {
@@ -82,8 +77,8 @@ public class TestS3kHczPatternAnimation {
             }
         }
 
-        assertFalse("Expected animated HCZ tile $" + Integer.toHexString(tileIndex)
-                + " to remain static over " + maxFrames + " frames", !changed);
+        assertFalse(!changed, "Expected animated HCZ tile $" + Integer.toHexString(tileIndex)
+                + " to remain static over " + maxFrames + " frames");
     }
 
     private static byte[] snapshot(Pattern pattern) {
@@ -97,3 +92,5 @@ public class TestS3kHczPatternAnimation {
         return data;
     }
 }
+
+

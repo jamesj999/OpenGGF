@@ -1,6 +1,9 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.CustomPlayablePhysics;
@@ -8,6 +11,7 @@ import com.openggf.sprites.playable.Knuckles;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,9 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotBonusPlayer {
 
+    @BeforeEach
+    void setUp() {
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
+    }
+
     @AfterEach
     void tearDown() {
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        GameModuleRegistry.reset();
     }
 
     @Test
@@ -153,3 +166,5 @@ class TestS3kSlotBonusPlayer {
         return new S3kSlotPlayerRuntime(state, new S3kSlotCollisionSystem(buffers, state));
     }
 }
+
+

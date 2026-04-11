@@ -2,7 +2,6 @@ package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.CanonicalAnimation;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
@@ -70,8 +69,8 @@ public class SidekickCpuController {
         this.sidekick = sidekick;
         this.leader = leader;
         this.respawnStrategy = new TailsRespawnStrategy(this);
-        this.flyAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.FLY);
-        this.duckAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.DUCK);
+        this.flyAnimId = sidekick.resolveAnimationId(CanonicalAnimation.FLY);
+        this.duckAnimId = sidekick.resolveAnimationId(CanonicalAnimation.DUCK);
     }
 
     public void update(int frameCount) {
@@ -519,6 +518,10 @@ public class SidekickCpuController {
         if (maxY != null) {
             maxYBound = maxY;
         }
+    }
+
+    int resolveAnimationId(CanonicalAnimation animation) {
+        return sidekick.resolveAnimationId(animation);
     }
 
     public void reset() {

@@ -1,9 +1,29 @@
 package com.openggf.sprites.playable;
 
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestRespawnStrategies {
+
+    @BeforeEach
+    void setUp() {
+        GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        GameModuleRegistry.reset();
+    }
 
     static class TestableSprite extends AbstractPlayableSprite {
         TestableSprite(String code) { super(code, (short) 0, (short) 0); }
@@ -64,3 +84,5 @@ class TestRespawnStrategies {
         assertFalse(complete, "Should not complete until landed");
     }
 }
+
+

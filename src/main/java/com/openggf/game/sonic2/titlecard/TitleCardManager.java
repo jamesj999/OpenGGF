@@ -211,7 +211,7 @@ public class TitleCardManager implements TitleCardProvider {
     private boolean artCached = false;
     private int lastLoadedZone = -1;  // Track which zone's letters we've loaded
 
-    private TitleCardManager() {}
+    public TitleCardManager() {}
 
     public static synchronized TitleCardManager getInstance() {
         if (instance == null) {
@@ -424,7 +424,7 @@ public class TitleCardManager implements TitleCardProvider {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null) {
             return;
         }
@@ -671,7 +671,7 @@ public class TitleCardManager implements TitleCardProvider {
     public void draw() {
         ensureArtCached();
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null) {
             return;
         }

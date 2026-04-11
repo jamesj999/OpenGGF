@@ -1,12 +1,20 @@
 package com.openggf.game.sonic3k;
 
-import org.junit.Test;
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kBootstrapResolver {
+
+    @BeforeEach
+    public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
 
     @Test
     public void resolvesSkipIntroWhenFlagEnabled() {
@@ -78,3 +86,5 @@ public class TestSonic3kBootstrapResolver {
         }
     }
 }
+
+

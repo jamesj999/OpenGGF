@@ -38,8 +38,6 @@ import java.util.logging.Logger;
 public class Sonic3kTitleCardManager implements TitleCardProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kTitleCardManager.class.getName());
 
-    private static Sonic3kTitleCardManager instance;
-
     // Animation speeds (pixels per frame, matching disasm $10 / $20)
     private static final int SLIDE_SPEED_IN = 16;
     private static final int SLIDE_SPEED_OUT = 32;
@@ -120,14 +118,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private int lastLoadedZone = -1;
     private int lastLoadedAct = -1;
 
-    private Sonic3kTitleCardManager() {}
-
-    public static synchronized Sonic3kTitleCardManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic3kTitleCardManager();
-        }
-        return instance;
-    }
+    public Sonic3kTitleCardManager() {}
 
     // ---- TitleCardProvider interface ----
 
@@ -264,7 +255,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     public void draw() {
         ensureArtCached();
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null) return;
 
         // Black background during SLIDE_IN and DISPLAY (not in-level mode).
@@ -320,6 +311,23 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         state = Sonic3kTitleCardState.COMPLETE;
         stateTimer = 0;
         phaseCounter = 0;
+        inLevelMode = false;
+        bonusMode = false;
+        bonusFadeProgress = 0f;
+        currentZone = 0;
+        currentAct = 0;
+        actNumberVisible = false;
+        artLoaded = false;
+        artCached = false;
+        lastLoadedZone = -1;
+        lastLoadedAct = -1;
+        combinedPatterns = null;
+        Arrays.fill(elemX, 0);
+        Arrays.fill(elemY, 0);
+        Arrays.fill(elemFrame, 0);
+        Arrays.fill(elemAtTarget, false);
+        Arrays.fill(elemExiting, false);
+        Arrays.fill(elemExited, false);
     }
 
     @Override
@@ -578,7 +586,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private void ensureArtCached() {
         if (artCached || !artLoaded || combinedPatterns == null) return;
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null) return;
 
         for (int i = 0; i < combinedPatterns.length; i++) {

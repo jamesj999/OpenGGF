@@ -4,26 +4,26 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.camera.Camera;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class TestObjectManagerChildSlotAllocation {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphicsManager.getInstance().initHeadless();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GraphicsManager.getInstance().resetState();
     }
@@ -94,3 +94,5 @@ public class TestObjectManagerChildSlotAllocation {
         }
     }
 }
+
+

@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.animation.AnimatedPatternManager;
@@ -72,7 +73,6 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
     };
 
     private final Level level;
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final List<AniPlcScriptState> scripts;
     private int tableAddr = -1;
 
@@ -114,6 +114,7 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
         if (scripts == null || scripts.isEmpty()) {
             return;
         }
+        GraphicsManager graphicsManager = GameServices.graphics();
         for (AniPlcScriptState script : scripts) {
             script.tick(level, graphicsManager);
         }
@@ -134,7 +135,7 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
 
         List<AniPlcScriptState> scripts = AniPlcParser.parseScripts(reader, scriptAddr);
         AniPlcParser.ensurePatternCapacity(scripts, level);
-        AniPlcParser.primeScripts(scripts, level, graphicsManager);
+        AniPlcParser.primeScripts(scripts, level, GameServices.graphics());
         return scripts;
     }
 

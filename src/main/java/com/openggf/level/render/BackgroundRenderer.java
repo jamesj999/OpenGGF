@@ -1,5 +1,6 @@
 package com.openggf.level.render;
 
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
@@ -8,6 +9,7 @@ import com.openggf.graphics.VScrollBuffer;
 import com.openggf.util.FboHelper;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -56,6 +58,7 @@ public class BackgroundRenderer {
     private VScrollBuffer vScrollColumnBuffer;
     private ParallaxShaderProgram parallaxShader;
     private final QuadRenderer quadRenderer = new QuadRenderer();
+    private final GraphicsManager graphicsManager;
 
     private boolean initialized = false;
     private final int[] savedViewport = new int[4];
@@ -67,6 +70,14 @@ public class BackgroundRenderer {
     private int shimmerFrameCounter = 0;
     private int shimmerStyle = 0;
     private float shimmerWaterlineScreenY = 9999.0f;
+
+    public BackgroundRenderer() {
+        this(GameServices.graphics());
+    }
+
+    public BackgroundRenderer(GraphicsManager graphicsManager) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+    }
 
     /**
      * Initialize the background renderer with FBO and shader.
@@ -147,7 +158,7 @@ public class BackgroundRenderer {
         this.renderHeight = height;
 
         // Save current viewport to restore later
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = this.graphicsManager;
         savedViewport[0] = gm.getViewportX();
         savedViewport[1] = gm.getViewportY();
         savedViewport[2] = gm.getViewportWidth();
@@ -270,7 +281,7 @@ public class BackgroundRenderer {
         parallaxShader.setVScrollColumnTexture(3);
 
         // Get viewport for resolution independence
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = this.graphicsManager;
         float viewportX = gm.getViewportX();
         float viewportY = gm.getViewportY();
         float realWidth = gm.getViewportWidth();

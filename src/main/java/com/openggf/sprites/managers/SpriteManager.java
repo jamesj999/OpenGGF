@@ -9,15 +9,17 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
+import com.openggf.game.GameId;
+import com.openggf.game.GameModule;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -42,8 +44,6 @@ import java.util.Map;
  */
 public class SpriteManager {
 	private final SonicConfigurationService configService;
-
-	private static SpriteManager bootstrapInstance;
 
 	private Map<String, Sprite> sprites;
 
@@ -83,7 +83,7 @@ public class SpriteManager {
 	private boolean playbackInputSuppressed;
 
 	public SpriteManager() {
-		this(SonicConfigurationService.getInstance());
+		this(GameServices.configuration());
 	}
 
 	public SpriteManager(SonicConfigurationService configService) {
@@ -177,6 +177,7 @@ public class SpriteManager {
 		frameCounter = 0;
 		inputSuppressed = false;
 		playbackInputSuppressed = false;
+		lastSidekickSuppressed = false;
 	}
 
 	/**
@@ -578,7 +579,7 @@ public class SpriteManager {
 	private boolean enableVerticalWrapIfNeeded() {
 		Camera camera = currentCamera();
 		if (camera.isVerticalWrapEnabled()) {
-			GraphicsManager.getInstance().enableVerticalWrapAdjust(
+			GameServices.graphics().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
 			return true;
 		}
@@ -586,7 +587,7 @@ public class SpriteManager {
 	}
 
 	private void disableVerticalWrap() {
-		GraphicsManager.getInstance().disableVerticalWrapAdjust();
+		GameServices.graphics().disableVerticalWrapAdjust();
 	}
 
 	private boolean removeSprite(Sprite sprite) {
@@ -659,21 +660,19 @@ public class SpriteManager {
 	}
 
 	private LevelManager getLevelManager() {
-		if (levelManager == null) {
-			var runtime = RuntimeManager.getCurrent();
-			levelManager = runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+		LevelManager runtimeLevelManager = GameServices.level();
+		if (levelManager != runtimeLevelManager) {
+			levelManager = runtimeLevelManager;
 		}
 		return levelManager;
 	}
 
 	private Camera currentCamera() {
-		var runtime = RuntimeManager.getCurrent();
-		return runtime != null ? runtime.getCamera() : Camera.getInstance();
+		return GameServices.camera();
 	}
 
 	private GameStateManager currentGameStateManager() {
-		var runtime = RuntimeManager.getCurrent();
-		return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+		return GameServices.gameState();
 	}
 
 	/**
@@ -693,10 +692,30 @@ public class SpriteManager {
 	}
 
 	private boolean isCpuSidekickSuppressed() {
-		LevelManager lm = getLevelManager();
+		LevelManager lm = null;
+		GameModule module = null;
+		GameRuntime runtime = GameServices.runtimeOrNull();
+		if (runtime != null) {
+			lm = runtime.getLevelManager();
+			if (runtime.getWorldSession() != null) {
+				module = runtime.getWorldSession().getGameModule();
+			}
+		}
+		if (lm == null) {
+			lm = getLevelManager();
+		}
 		if (lm == null) return false;
-		if (GameModuleRegistry.getCurrent().isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
-		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
+		if (module == null) {
+			module = lm.getGameModule();
+		}
+		int currentZone = lm.getCurrentZone();
+		if (module != null && module.isSidekickSuppressedForZone(currentZone)) return true;
+		if (module != null
+				&& module.getGameId() == GameId.S3K
+				&& currentZone == Sonic3kZoneIds.ZONE_AIZ
+				&& AizPlaneIntroInstance.isSidekickSuppressed()) {
+			return true;
+		}
 		return false;
 	}
 
@@ -816,14 +835,4 @@ public class SpriteManager {
 		return MOVEMENT_MAPPING_ARRAY[groundMode.ordinal()][direction.ordinal()];
 	}
 
-	public synchronized static SpriteManager getInstance() {
-		var runtime = RuntimeManager.getCurrent();
-		if (runtime != null) {
-			return runtime.getSpriteManager();
-		}
-		if (bootstrapInstance == null) {
-			bootstrapInstance = new SpriteManager();
-		}
-		return bootstrapInstance;
-	}
 }

@@ -8,6 +8,7 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
@@ -67,6 +68,9 @@ public class PerformancePanelRenderer {
     /** Font size for performance stats (small for compact display) */
     private static final FontSize PERF_FONT = FontSize.SMALL;
 
+    private final GraphicsManager graphicsManager;
+    private final PerformanceProfiler profiler;
+
     /** Base dimensions (game screen size) */
     private final int baseWidth;
     private final int baseHeight;
@@ -92,10 +96,13 @@ public class PerformancePanelRenderer {
     private int cachedCameraOffsetLoc = -1;
     private int lastProgramId = -1;
 
-    public PerformancePanelRenderer(int baseWidth, int baseHeight, GlyphBatchRenderer glyphBatch) {
+    public PerformancePanelRenderer(int baseWidth, int baseHeight, GlyphBatchRenderer glyphBatch,
+                                    GraphicsManager graphicsManager, PerformanceProfiler profiler) {
         this.baseWidth = baseWidth;
         this.baseHeight = baseHeight;
-        this.glyphBatch = glyphBatch;
+        this.glyphBatch = Objects.requireNonNull(glyphBatch, "glyphBatch");
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+        this.profiler = Objects.requireNonNull(profiler, "profiler");
     }
 
     /**
@@ -117,7 +124,7 @@ public class PerformancePanelRenderer {
     }
 
     private void setupShader() {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = graphicsManager;
         ShaderProgram debugShader = gm.getDebugShaderProgram();
         if (debugShader == null) {
             return;
@@ -213,7 +220,7 @@ public class PerformancePanelRenderer {
         drawFrameHistoryGraph(graphX, graphY, graphWidth, graphHeight, snapshot);
 
         // Draw memory stats below the frame graph
-        MemoryStats.Snapshot memSnapshot = MemoryStats.getInstance().snapshot();
+        MemoryStats.Snapshot memSnapshot = profiler.memoryStats().snapshot();
 
         // Draw text stats (uses viewport coordinates via uiX/uiY)
         glyphBatch.begin();

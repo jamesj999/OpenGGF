@@ -173,7 +173,7 @@ public final class Sonic1SpecialStageManager {
 
         // Initialize subsystems
         Rom rom = GameServices.rom().getRom();
-        this.graphicsManager = GraphicsManager.getInstance();
+        this.graphicsManager = GameServices.graphics();
         this.graphicsManager.setUseWaterShader(false);
         this.graphicsManager.setUseSpritePriorityShader(false);
         this.graphicsManager.setCurrentSpriteHighPriority(false);
@@ -1548,13 +1548,13 @@ public final class Sonic1SpecialStageManager {
             return;
         }
         try {
-            bgRenderer = new Sonic1SpecialStageBackgroundRenderer();
+            bgRenderer = new Sonic1SpecialStageBackgroundRenderer(graphicsManager);
             bgRenderer.init();
             bgRenderer.setPatternBases(bgCloudBase, bgFishBase);
             bgRenderer.setTilemap(bgPlane6Tilemap); // BG starts on plane 6.
             bgRenderer.setFillTransparentWithBackdrop(true);
 
-            fgRenderer = new Sonic1SpecialStageBackgroundRenderer();
+            fgRenderer = new Sonic1SpecialStageBackgroundRenderer(graphicsManager);
             fgRenderer.init();
             fgRenderer.setPatternBases(bgCloudBase, bgFishBase);
             fgRenderer.setFillTransparentWithBackdrop(false);

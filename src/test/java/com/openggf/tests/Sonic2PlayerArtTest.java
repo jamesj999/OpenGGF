@@ -1,8 +1,7 @@
 package com.openggf.tests;
 
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -10,24 +9,19 @@ import com.openggf.game.sonic2.Sonic2PlayerArt;
 import com.openggf.level.Pattern;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @RequiresRom(SonicGame.SONIC_2)
 public class Sonic2PlayerArtTest {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Rom rom;
     private RomByteReader reader;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        rom = romRule.rom();
+        rom = com.openggf.tests.TestEnvironment.currentRom();
         reader = RomByteReader.fromRom(rom);
     }
 
@@ -54,3 +48,5 @@ public class Sonic2PlayerArtTest {
         assertFalse(tails.mappingFrames().isEmpty());
     }
 }
+
+

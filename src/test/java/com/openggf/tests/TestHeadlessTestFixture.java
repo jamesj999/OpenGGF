@@ -3,14 +3,12 @@ package com.openggf.tests;
 import com.openggf.camera.Camera;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link HeadlessTestFixture} builder.
@@ -21,18 +19,14 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestHeadlessTestFixture {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static SharedLevel shared;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         shared = SharedLevel.load(SonicGame.SONIC_2, 0, 0); // EHZ Act 1
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (shared != null) shared.dispose();
     }
@@ -45,9 +39,9 @@ public class TestHeadlessTestFixture {
                 .build();
 
         AbstractPlayableSprite sprite = fixture.sprite();
-        assertNotNull("Fixture should create a non-null sprite", sprite);
-        assertEquals("Sprite X should match start position", 96, sprite.getX());
-        assertEquals("Sprite Y should match start position", 655, sprite.getY());
+        assertNotNull(sprite, "Fixture should create a non-null sprite");
+        assertEquals(96, sprite.getX(), "Sprite X should match start position");
+        assertEquals(655, sprite.getY(), "Sprite Y should match start position");
     }
 
     @Test
@@ -58,9 +52,9 @@ public class TestHeadlessTestFixture {
                 .build();
 
         Camera camera = fixture.camera();
-        assertNotNull("Fixture should provide a non-null camera", camera);
-        assertFalse("Camera should not be frozen after fixture build", camera.getFrozen());
-        assertTrue("Camera maxX should be non-zero after fixture build", camera.getMaxX() > 0);
+        assertNotNull(camera, "Fixture should provide a non-null camera");
+        assertFalse(camera.getFrozen(), "Camera should not be frozen after fixture build");
+        assertTrue(camera.getMaxX() > 0, "Camera maxX should be non-zero after fixture build");
     }
 
     @Test
@@ -78,10 +72,9 @@ public class TestHeadlessTestFixture {
         }
 
         short finalX = fixture.sprite().getX();
-        assertTrue("Sprite should have moved right after 10 frames. "
-                + "Initial=" + initialX + ", Final=" + finalX,
-                finalX > initialX);
-        assertEquals("Frame counter should be 10", 10, fixture.frameCount());
+        assertTrue(finalX > initialX, "Sprite should have moved right after 10 frames. "
+                + "Initial=" + initialX + ", Final=" + finalX);
+        assertEquals(10, fixture.frameCount(), "Frame counter should be 10");
     }
 
     @Test
@@ -101,7 +94,7 @@ public class TestHeadlessTestFixture {
             fixture1.stepFrame(false, false, false, true, false);
         }
         short fixture1X = fixture1.sprite().getX();
-        assertTrue("Fixture1 should have moved from start", fixture1X > 96);
+        assertTrue(fixture1X > 96, "Fixture1 should have moved from start");
 
         // Create a second fixture at the same start position
         HeadlessTestFixture fixture2 = HeadlessTestFixture.builder()
@@ -111,14 +104,13 @@ public class TestHeadlessTestFixture {
 
         // Fixture2 should have its own sprite at the original position,
         // unaffected by fixture1's movement
-        assertEquals("Fixture2 sprite should be at its own start X",
-                96, fixture2.sprite().getX());
-        assertEquals("Fixture2 sprite should be at its own start Y",
-                655, fixture2.sprite().getY());
-        assertEquals("Fixture2 frame counter should be 0", 0, fixture2.frameCount());
+        assertEquals(96, fixture2.sprite().getX(), "Fixture2 sprite should be at its own start X");
+        assertEquals(655, fixture2.sprite().getY(), "Fixture2 sprite should be at its own start Y");
+        assertEquals(0, fixture2.frameCount(), "Fixture2 frame counter should be 0");
 
         // Fixture2's sprite is a different object than fixture1's
-        assertNotSame("Fixtures should have different sprite instances",
-                fixture1.sprite(), fixture2.sprite());
+        assertNotSame(fixture1.sprite(), fixture2.sprite(), "Fixtures should have different sprite instances");
     }
 }
+
+

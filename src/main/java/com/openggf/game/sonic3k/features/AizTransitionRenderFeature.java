@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.features;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
@@ -11,7 +12,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternRenderCommand;
 import com.openggf.level.LevelManager;
-import com.openggf.game.GameServices;
 
 /**
  * Encapsulates AIZ transition visual behavior:
@@ -22,12 +22,12 @@ public final class AizTransitionRenderFeature {
     private static final java.util.logging.Logger LOG =
             java.util.logging.Logger.getLogger(AizTransitionRenderFeature.class.getName());
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final AizFireCurtainRenderer fireCurtainRenderer = new AizFireCurtainRenderer();
     private final GLCommand disableWaterShaderForCurtain = new GLCommand(
             GLCommand.CommandType.CUSTOM,
             (cx, cy, cw, ch) -> {
-                GraphicsManager.getInstance().setUseWaterShader(false);
+                GameServices.graphics().setUseWaterShader(false);
                 PatternRenderCommand.resetFrameState();
             });
     private boolean loggedFirstRender;
@@ -86,12 +86,18 @@ public final class AizTransitionRenderFeature {
 
         // The curtain is a scene overlay, not a water-surface effect. Render it
         // through the normal pattern path so it does not inherit water shader state.
-        GraphicsManager.getInstance().registerCommand(disableWaterShaderForCurtain);
+        GameServices.graphics().registerCommand(disableWaterShaderForCurtain);
         fireCurtainRenderer.render(camera, renderState, screenWidth, screenHeight);
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager lem = resolveLevelEventManager();
         return lem != null ? lem.getAizEvents() : null;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 }

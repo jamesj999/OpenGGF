@@ -339,7 +339,7 @@ public class TitleScreenDataLoader {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }
@@ -395,7 +395,7 @@ public class TitleScreenDataLoader {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

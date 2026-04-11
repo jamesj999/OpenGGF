@@ -22,6 +22,11 @@ import com.openggf.game.GameServices;
  * </ul>
  */
 public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
+    private final Sonic3kLevelEventManager levelEventManager;
+
+    public Sonic3kLevelInitProfile(Sonic3kLevelEventManager levelEventManager) {
+        this.levelEventManager = levelEventManager;
+    }
 
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
@@ -49,7 +54,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep initZonePlayerStateStep() {
         return new InitStep("InitZonePlayerState",
             "S3K: SpawnLevelMainSprites — zone-specific player animation/air state",
-            () -> Sonic3kLevelEventManager.getInstance().applyZonePlayerState());
+            levelEventManager::applyZonePlayerState);
     }
 
     /** S3K sidekick: -32px X, +4px Y (ROM: {@code player_pos - $20}, {@code player_pos + 4}). */
@@ -76,7 +81,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep levelEventTeardownStep() {
         return new InitStep("ResetS3kLevelEvents",
                 "Undoes S3K LevelSetupArray dispatch and per-zone event handlers (AIZ, HCZ, etc.)",
-                () -> Sonic3kLevelEventManager.getInstance().resetState());
+                levelEventManager::resetState);
     }
 
     @Override

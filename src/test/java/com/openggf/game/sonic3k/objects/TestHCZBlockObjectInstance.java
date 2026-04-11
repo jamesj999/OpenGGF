@@ -7,11 +7,11 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestHCZBlockObjectInstance {
 
@@ -69,3 +69,5 @@ public class TestHCZBlockObjectInstance {
         assertEquals(2, block.palette());
     }
 }
+
+

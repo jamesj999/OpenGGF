@@ -78,7 +78,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
     private boolean artLoaded = false;
     private boolean artCached = false;
 
-    private Sonic1TitleCardManager() {}
+    public Sonic1TitleCardManager() {}
 
     public static synchronized Sonic1TitleCardManager getInstance() {
         if (instance == null) {
@@ -189,12 +189,11 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
     }
 
 
-    private void ensureArtCached() {
+    private void ensureArtCached(GraphicsManager graphicsManager) {
         if (artCached || !artLoaded || patterns == null) {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null) {
             return;
         }
@@ -274,9 +273,8 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
 
     @Override
     public void draw() {
-        ensureArtCached();
-
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
+        ensureArtCached(graphicsManager);
         if (graphicsManager == null) {
             return;
         }

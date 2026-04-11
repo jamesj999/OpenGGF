@@ -52,7 +52,7 @@ ROM filenames can be changed in `config.json` if yours differ. See
 3. Place your ROM files in the project root directory (next to `pom.xml`).
 4. Run:
    ```
-   java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar
+   java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar
    ```
 
 ## First Launch

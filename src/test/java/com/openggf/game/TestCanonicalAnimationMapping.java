@@ -146,3 +146,5 @@ public class TestCanonicalAnimationMapping {
         assertEquals(CanonicalAnimation.SUPER_TRANSFORM, Sonic2AnimationIds.SUPER_TRANSFORM.toCanonical());
     }
 }
+
+

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
@@ -234,7 +233,7 @@ public class Sonic3kTwistedRampObjectInstance extends AbstractObjectInstance {
     }
 
     private boolean isDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
+        return services().configuration()
                 .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 }

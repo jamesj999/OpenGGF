@@ -25,8 +25,6 @@ import com.openggf.game.GameServices;
  * counter, which is needed because S1 zones can revert routines independently.
  */
 public class Sonic1LevelEventManager extends AbstractLevelEventManager {
-    private static Sonic1LevelEventManager instance;
-
     // Zone event handlers (one per zone, each owns its own eventRoutine)
     private final Sonic1GHZEvents ghzEvents;
     private final Sonic1LZEvents lzEvents;
@@ -42,7 +40,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
     // Guard against re-triggering the SBZ2->SBZ3 pit death intercept during fade
     private boolean sbz3TransitionRequested;
 
-    private Sonic1LevelEventManager() {
+    public Sonic1LevelEventManager() {
         super();
         ghzEvents = new Sonic1GHZEvents();
         lzEvents = new Sonic1LZEvents();
@@ -174,12 +172,5 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
 
     public Sonic1LoopManager getLoopManager() {
         return loopManager;
-    }
-
-    public static synchronized Sonic1LevelEventManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic1LevelEventManager();
-        }
-        return instance;
     }
 }

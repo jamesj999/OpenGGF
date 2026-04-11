@@ -16,33 +16,28 @@ import com.openggf.level.resources.LoadOp;
 import com.openggf.level.resources.ResourceLoader;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestAizFireCurtainRendererRom {
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) {
             sharedLevel.dispose();
@@ -88,8 +83,8 @@ public class TestAizFireCurtainRendererRom {
             }
         }
 
-        assertTrue("Expected non-empty curtain plan during AIZ1 rising fire", sawRisingCurtain);
-        assertTrue("Expected non-empty curtain plan during AIZ1 refresh fire", sawRefreshCurtain);
+        assertTrue(sawRisingCurtain, "Expected non-empty curtain plan during AIZ1 rising fire");
+        assertTrue(sawRefreshCurtain, "Expected non-empty curtain plan during AIZ1 refresh fire");
     }
 
     @Test
@@ -148,10 +143,8 @@ public class TestAizFireCurtainRendererRom {
             }
         }
 
-        assertTrue("Expected sampled fire curtain tiles to reference the staged flame overlay range",
-                sawOverlayBackedCurtain);
-        assertTrue("Expected fire curtain to provide a dense visible wall using palette line 4",
-                sawDenseCurtain);
+        assertTrue(sawOverlayBackedCurtain, "Expected sampled fire curtain tiles to reference the staged flame overlay range");
+        assertTrue(sawDenseCurtain, "Expected fire curtain to provide a dense visible wall using palette line 4");
     }
 
     @Test
@@ -202,14 +195,10 @@ public class TestAizFireCurtainRendererRom {
                     + " sawOverlayPattern=" + stats.sawOverlayPattern);
         }
 
-        assertTrue("Expected to gather stage stats for the AIZ1 rising curtain",
-                statsByStage.containsKey(FireCurtainStage.AIZ1_RISING));
-        assertTrue("Expected to gather stage stats for the AIZ1 refresh curtain",
-                statsByStage.containsKey(FireCurtainStage.AIZ1_REFRESH));
-        assertTrue("Expected to gather stage stats for the AIZ2 redraw curtain",
-                statsByStage.containsKey(FireCurtainStage.AIZ2_REDRAW));
-        assertTrue("Expected to gather stage stats for the AIZ2 wait-fire curtain",
-                statsByStage.containsKey(FireCurtainStage.AIZ2_WAIT_FIRE));
+        assertTrue(statsByStage.containsKey(FireCurtainStage.AIZ1_RISING), "Expected to gather stage stats for the AIZ1 rising curtain");
+        assertTrue(statsByStage.containsKey(FireCurtainStage.AIZ1_REFRESH), "Expected to gather stage stats for the AIZ1 refresh curtain");
+        assertTrue(statsByStage.containsKey(FireCurtainStage.AIZ2_REDRAW), "Expected to gather stage stats for the AIZ2 redraw curtain");
+        assertTrue(statsByStage.containsKey(FireCurtainStage.AIZ2_WAIT_FIRE), "Expected to gather stage stats for the AIZ2 wait-fire curtain");
     }
 
     /**
@@ -238,11 +227,10 @@ public class TestAizFireCurtainRendererRom {
         levelManager.loadZoneAndAct(0, 1);
         Sonic3kAIZEvents act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         act2Events.init(1);
-        assertTrue("Expected active fire continuation after the act 1 fake-out reload",
-                act2Events.isFireTransitionActive());
+        assertTrue(act2Events.isFireTransitionActive(), "Expected active fire continuation after the act 1 fake-out reload");
 
         AnimatedPaletteManager paletteManager = levelManager.getAnimatedPaletteManager();
-        assertTrue("Expected an animated palette manager for AIZ2", paletteManager != null);
+        assertTrue(paletteManager != null, "Expected an animated palette manager for AIZ2");
         // Palette cycling should run without error during fire continuation
         for (int i = 0; i < 8; i++) {
             paletteManager.update();
@@ -305,3 +293,5 @@ public class TestAizFireCurtainRendererRom {
         }
     }
 }
+
+

@@ -2,27 +2,27 @@ package com.openggf.graphics;
 
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpritePieceRenderer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestGraphicsManagerSpriteSatReplay {
 
     private GraphicsManager graphicsManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphicsManager.destroyForReinit();
         graphicsManager = GraphicsManager.getInstance();
         graphicsManager.initHeadless();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GraphicsManager.destroyForReinit();
     }
@@ -98,3 +98,5 @@ public class TestGraphicsManagerSpriteSatReplay {
         return field.getInt(target);
     }
 }
+
+

@@ -1,6 +1,6 @@
 package com.openggf.physics;
 
-import com.openggf.game.RuntimeManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.GroundMode;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.level.objects.ObjectManager;
@@ -24,8 +24,6 @@ import java.util.logging.Logger;
 public class CollisionSystem {
     private static final Logger LOGGER = Logger.getLogger(CollisionSystem.class.getName());
 
-    private static CollisionSystem bootstrapInstance;
-
     private final TerrainCollisionManager terrainCollisionManager;
     private final GroundSensor calcRoomProbe = new GroundSensor(null, Direction.DOWN, (byte) 0, (byte) 0, true);
     private ObjectManager objectManager;
@@ -35,22 +33,11 @@ public class CollisionSystem {
 
 
     public CollisionSystem() {
-        this(TerrainCollisionManager.getInstance());
+        this(GameServices.terrainCollision());
     }
 
     public CollisionSystem(TerrainCollisionManager terrainCollisionManager) {
         this.terrainCollisionManager = terrainCollisionManager;
-    }
-
-    public static synchronized CollisionSystem getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getCollisionSystem();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new CollisionSystem();
-        }
-        return bootstrapInstance;
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
@@ -127,7 +126,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         try {
             int zone = services().romZoneId();
             int act = services().currentAct();
-            var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
+            var zoneRegistry = services().gameModule().getZoneRegistry();
             int musicId = zoneRegistry.getMusicId(zone, act);
             if (musicId >= 0) {
                 services().playMusic(musicId);

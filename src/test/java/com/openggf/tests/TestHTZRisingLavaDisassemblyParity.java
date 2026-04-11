@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -15,9 +15,9 @@ import com.openggf.level.objects.TestObjectServices;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression checks for HTZ rising lava behavior against s2.asm.
@@ -27,18 +27,17 @@ public class TestHTZRisingLavaDisassemblyParity {
     private Camera camera;
     private Sonic2LevelEventManager levelEvents;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() {
         RuntimeManager.createGameplay();
-        resetSonic2LevelEventManagerSingleton();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
         camera = GameServices.camera();
-        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents = (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -157,13 +156,6 @@ public class TestHTZRisingLavaDisassemblyParity {
         field.setAccessible(true);
         field.setBoolean(target, value);
     }
-
-    private static void resetSonic2LevelEventManagerSingleton() throws Exception {
-        Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
-        instanceField.setAccessible(true);
-        instanceField.set(null, null);
-    }
-
     @SuppressWarnings("unchecked")
     private static void setConstructionContext(ObjectServices svc) {
         try {
@@ -186,3 +178,5 @@ public class TestHTZRisingLavaDisassemblyParity {
         }
     }
 }
+
+

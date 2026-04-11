@@ -15,8 +15,6 @@ public class GameStateManager {
     private static final int DEFAULT_SPECIAL_STAGE_COUNT = 7;
     private static final int DEFAULT_CHAOS_EMERALD_COUNT = 7;
 
-    private static GameStateManager bootstrapInstance;
-
     private int score;
     private int lives;
 
@@ -39,6 +37,25 @@ public class GameStateManager {
      * Used by boss fights and events like pillar rising in ARZ.
      */
     private boolean screenShakeActive;
+
+    /**
+     * Background collision flag (ROM: Background_collision_flag at $FFFFF7C7).
+     * When set, terrain collision routines (FindFloor, FindWall) perform a dual-path
+     * scan: first against FG collision data, then against BG collision data. The
+     * result with the greater distance (more lenient) is used. This allows the
+     * player to collide with background-layer terrain during specific sequences
+     * (e.g., HCZ2 wall chase, SSZ moving platforms).
+     */
+    private boolean backgroundCollisionFlag;
+
+    /**
+     * BG high-priority overlay flag. When set, the renderer performs an extra
+     * BG pass (high-priority tiles only) between FG-low and FG-high, matching
+     * hardware VDP layer compositing where high-priority Plane B tiles render
+     * in front of low-priority Plane A tiles. Used by HCZ2 wall chase (wall
+     * rendered as high-priority BG tiles in front of FG terrain).
+     */
+    private boolean bgHighPriorityOverlayActive;
 
     /**
      * HTZ-specific screen shake flag (ROM: Screen_Shaking_Flag_HTZ at $FFFFF7C3).
@@ -108,17 +125,6 @@ public class GameStateManager {
         resetSession();
     }
 
-    public static synchronized GameStateManager getInstance() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getGameState();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new GameStateManager();
-        }
-        return bootstrapInstance;
-    }
-
     /**
      * Resets the game session state to defaults (Score: 0, Lives: 3, no emeralds).
      */
@@ -134,6 +140,8 @@ public class GameStateManager {
 
         this.currentBossId = 0;
         this.screenShakeActive = false;
+        this.backgroundCollisionFlag = false;
+        this.bgHighPriorityOverlayActive = false;
         this.htzScreenShakeActive = false;
         this.bigRingCollected = false;
         this.wfzFireToggle = false;
@@ -334,6 +342,34 @@ public class GameStateManager {
      */
     public void setScreenShakeActive(boolean active) {
         this.screenShakeActive = active;
+    }
+
+    /**
+     * Gets the background collision flag.
+     * ROM: tst.b (Background_collision_flag).w
+     *
+     * @return true if background collision is enabled
+     */
+    public boolean isBackgroundCollisionFlag() {
+        return backgroundCollisionFlag;
+    }
+
+    /**
+     * Sets the background collision flag.
+     * ROM: st (Background_collision_flag).w / clr.b (Background_collision_flag).w
+     *
+     * @param flag true to enable dual-path BG collision, false to disable
+     */
+    public void setBackgroundCollisionFlag(boolean flag) {
+        this.backgroundCollisionFlag = flag;
+    }
+
+    public boolean isBgHighPriorityOverlayActive() {
+        return bgHighPriorityOverlayActive;
+    }
+
+    public void setBgHighPriorityOverlayActive(boolean active) {
+        this.bgHighPriorityOverlayActive = active;
     }
 
     /**

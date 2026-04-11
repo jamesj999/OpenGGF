@@ -1,7 +1,7 @@
 package com.openggf.tests;
 
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.tools.KosinskiReader;
 
 import java.io.ByteArrayInputStream;
@@ -11,7 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
 
-import static org.junit.Assert.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 
 public class TestKosinskiDecompressor {
@@ -97,3 +97,5 @@ public class TestKosinskiDecompressor {
         return hexString.toString();
     }
 }
+
+

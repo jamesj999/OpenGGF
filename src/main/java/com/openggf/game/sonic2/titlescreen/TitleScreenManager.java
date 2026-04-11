@@ -46,7 +46,7 @@ public class TitleScreenManager implements TitleScreenProvider {
 
     private static TitleScreenManager instance;
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final TitleScreenDataLoader dataLoader = new TitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -214,7 +214,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     private int tailsHandPosIndex = 0;
     private int tailsHandPosCounter = 0;
 
-    private TitleScreenManager() {
+    public TitleScreenManager() {
     }
 
     public static synchronized TitleScreenManager getInstance() {
@@ -767,7 +767,7 @@ public class TitleScreenManager implements TitleScreenProvider {
             dataLoader.loadData();
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

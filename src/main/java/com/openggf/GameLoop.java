@@ -1,6 +1,8 @@
 package com.openggf;
 
 import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.editor.EditorInputHandler;
 import com.openggf.game.*;
 
 import com.openggf.control.InputHandler;
@@ -42,9 +44,13 @@ import com.openggf.game.DemoLamppostState;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import com.openggf.data.RomManager;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -78,19 +84,23 @@ public class GameLoop {
 
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-    private SpriteManager spriteManager = SpriteManager.getInstance();
-    private Camera camera = Camera.getInstance();
-    private TimerManager timerManager = TimerManager.getInstance();
-    private LevelManager levelManager = LevelManager.getInstance();
-    private GameStateManager gameState = GameStateManager.getInstance();
-    private FadeManager fadeManager = FadeManager.getInstance();
-    private WaterSystem waterSystem = WaterSystem.getInstance();
-    private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
-    private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
+    private final EngineServices engineServices;
+    private final SonicConfigurationService configService;
+    private final AudioManager audioManager;
+    private final RomManager romManager;
+    private final DebugOverlayManager debugOverlayManager;
+    private SpriteManager spriteManager;
+    private Camera camera;
+    private TimerManager timerManager;
+    private LevelManager levelManager;
+    private GameStateManager gameState;
+    private FadeManager fadeManager;
+    private WaterSystem waterSystem;
+    private final PerformanceProfiler profiler;
+    private final PlaybackDebugManager playbackDebugManager;
 
-    // The gameplay runtime — set by Engine after RuntimeManager.createGameplay().
-    // When non-null, cached fields above are sourced from this runtime.
+    // The gameplay runtime facade — set by Engine after RuntimeManager.createGameplay(...).
+    // When non-null, cached fields above are sourced from the runtime's gameplay context.
     private com.openggf.game.GameRuntime runtime;
     private SpecialStageProvider activeSpecialStageProvider = NoOpSpecialStageProvider.INSTANCE;
 
@@ -98,7 +108,13 @@ public class GameLoop {
     private TitleCardProvider titleCardProvider;
 
     private InputHandler inputHandler;
+    private EditorInputHandler editorInputHandler;
+    private Runnable editorPlaytestToggleHandler;
+    private Runnable editorFreshStartHandler;
     private GameMode currentGameMode = GameMode.LEVEL;
+    private Runnable editorStateSyncHandler;
+    private Supplier<MasterTitleScreen> masterTitleScreenSupplier;
+    private Consumer<String> masterTitleExitHandler;
 
     // Special stage results screen
     private ResultsScreen resultsScreen;
@@ -157,31 +173,89 @@ public class GameLoop {
     private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
+        this(RuntimeManager.currentEngineServices());
+    }
+
+    public GameLoop(EngineServices engineServices) {
+        this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
+        RuntimeManager.configureEngineServices(this.engineServices);
+        this.configService = this.engineServices.configuration();
+        this.audioManager = this.engineServices.audio();
+        this.romManager = this.engineServices.roms();
+        this.debugOverlayManager = this.engineServices.debugOverlay();
+        this.profiler = this.engineServices.profiler();
+        this.playbackDebugManager = this.engineServices.playbackDebug();
+        refreshRuntimeBindings();
     }
 
     public GameLoop(InputHandler inputHandler) {
+        this(RuntimeManager.currentEngineServices(), inputHandler);
+    }
+
+    public GameLoop(EngineServices engineServices, InputHandler inputHandler) {
+        this(engineServices);
         this.inputHandler = inputHandler;
     }
 
     /**
-     * Sets the gameplay runtime. Cached manager fields are re-assigned from
-     * the runtime so all existing field-based code continues to work.
+     * Sets the gameplay runtime facade. Cached manager fields are re-assigned
+     * from the runtime so all existing field-based code continues to work.
      */
     public void setRuntime(com.openggf.game.GameRuntime runtime) {
         this.runtime = runtime;
-        if (runtime != null) {
-            this.spriteManager = runtime.getSpriteManager();
-            this.camera = runtime.getCamera();
-            this.timerManager = runtime.getTimers();
-            this.levelManager = runtime.getLevelManager();
-            this.gameState = runtime.getGameState();
-            this.fadeManager = runtime.getFadeManager();
-            this.waterSystem = runtime.getWaterSystem();
+        refreshRuntimeBindings();
+    }
+
+    private void refreshRuntimeBindings() {
+        GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent(engineServices);
+        if (currentRuntime == null) {
+            return;
         }
+        this.runtime = currentRuntime;
+        this.spriteManager = currentRuntime.getSpriteManager();
+        this.camera = currentRuntime.getCamera();
+        this.timerManager = currentRuntime.getTimers();
+        this.levelManager = currentRuntime.getLevelManager();
+        this.gameState = currentRuntime.getGameState();
+        this.fadeManager = currentRuntime.getFadeManager();
+        this.waterSystem = currentRuntime.getWaterSystem();
     }
 
     public void setInputHandler(InputHandler inputHandler) {
         this.inputHandler = inputHandler;
+    }
+
+    public void setEditorInputHandler(EditorInputHandler editorInputHandler) {
+        this.editorInputHandler = editorInputHandler;
+    }
+
+    public void setEditorPlaytestToggleHandler(Runnable editorPlaytestToggleHandler) {
+        this.editorPlaytestToggleHandler = editorPlaytestToggleHandler;
+    }
+
+    public void setEditorFreshStartHandler(Runnable editorFreshStartHandler) {
+        this.editorFreshStartHandler = editorFreshStartHandler;
+    }
+
+    public void setEditorStateSyncHandler(Runnable editorStateSyncHandler) {
+        this.editorStateSyncHandler = editorStateSyncHandler;
+    }
+
+    public void setMasterTitleScreenSupplier(Supplier<MasterTitleScreen> masterTitleScreenSupplier) {
+        this.masterTitleScreenSupplier = masterTitleScreenSupplier;
+    }
+
+    public void setMasterTitleExitHandler(Consumer<String> masterTitleExitHandler) {
+        this.masterTitleExitHandler = masterTitleExitHandler;
+    }
+
+    private void updateEditorMode() {
+        if (editorInputHandler != null) {
+            editorInputHandler.update(inputHandler);
+        }
+        if (editorStateSyncHandler != null) {
+            editorStateSyncHandler.run();
+        }
     }
 
     /**
@@ -192,7 +266,7 @@ public class GameLoop {
      */
     private TitleCardProvider getTitleCardProviderLazy() {
         if (titleCardProvider == null) {
-            titleCardProvider = GameModuleRegistry.getCurrent().getTitleCardProvider();
+            titleCardProvider = GameServices.module().getTitleCardProvider();
         }
         return titleCardProvider;
     }
@@ -271,9 +345,9 @@ public class GameLoop {
      */
     private synchronized void updateAudioPauseState() {
         if (paused || userPaused) {
-            AudioManager.getInstance().pause();
+            audioManager.pause();
         } else {
-            AudioManager.getInstance().resume();
+            audioManager.resume();
         }
     }
 
@@ -285,6 +359,7 @@ public class GameLoop {
         if (inputHandler == null) {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
+        refreshRuntimeBindings();
         playbackDebugManager.handleInput(inputHandler);
         syncPlaybackInputBridge();
         playbackDebugManager.setObservedMode(currentGameMode);
@@ -292,14 +367,39 @@ public class GameLoop {
         // Master title screen mode - runs before any ROM/game systems are loaded.
         // Must be checked before pause handling since Enter is both confirm and pause.
         if (currentGameMode == GameMode.MASTER_TITLE_SCREEN) {
-            MasterTitleScreen masterScreen =
-                    Engine.getInstance().getMasterTitleScreen();
+            MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
+                    ? masterTitleScreenSupplier.get()
+                    : null;
             if (masterScreen != null) {
                 masterScreen.update(inputHandler);
                 if (masterScreen.isGameSelected()) {
                     exitMasterTitleScreen(masterScreen);
                 }
             }
+            inputHandler.update();
+            return;
+        }
+
+        if (!isPaused()
+                && (currentGameMode == GameMode.EDITOR
+                || (currentGameMode == GameMode.LEVEL
+                && configService.getBoolean(SonicConfiguration.EDITOR_ENABLED)))
+                && inputHandler.isKeyPressed(GLFW_KEY_TAB)
+                && (inputHandler.isKeyDown(GLFW_KEY_LEFT_SHIFT)
+                || inputHandler.isKeyDown(GLFW_KEY_RIGHT_SHIFT))
+                && editorPlaytestToggleHandler != null) {
+            editorPlaytestToggleHandler.run();
+            inputHandler.update();
+            return;
+        }
+
+        if (currentGameMode == GameMode.EDITOR) {
+            if (inputHandler.isKeyPressed(GLFW_KEY_F5) && editorFreshStartHandler != null) {
+                editorFreshStartHandler.run();
+                inputHandler.update();
+                return;
+            }
+            updateEditorMode();
             inputHandler.update();
             return;
         }
@@ -323,7 +423,7 @@ public class GameLoop {
         }
 
         profiler.beginSection("audio");
-        AudioManager.getInstance().update();
+        audioManager.update();
         profiler.endSection("audio");
 
         profiler.beginSection("timers");
@@ -331,8 +431,8 @@ public class GameLoop {
         profiler.endSection("timers");
 
         profiler.beginSection("input");
-        GameServices.debugOverlay().updateInput(inputHandler);
-        DebugObjectArtViewer.getInstance().updateInput(inputHandler);
+        debugOverlayManager.updateInput(inputHandler);
+        debugOverlayManager.getObjectArtViewer().updateInput(inputHandler);
 
         // Check for Special Stage toggle (TAB by default)
         if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_KEY))) {
@@ -550,8 +650,7 @@ public class GameLoop {
                 }
             }
 
-            boolean freezeForArtViewer = GameServices.debugOverlay()
-                    .isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER);
+            boolean freezeForArtViewer = debugOverlayManager.isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER);
             // Freeze level updates during special/bonus stage entry transitions
             boolean freezeForSpecialStage = specialStageTransitionPending;
             boolean freezeForBonusStage = bonusStageTransitionPending;
@@ -771,7 +870,7 @@ public class GameLoop {
         }
 
         // Find the furthest right checkpoint (game-agnostic)
-        int checkpointId = GameModuleRegistry.getCurrent().getCheckpointObjectId();
+        int checkpointId = GameServices.module().getCheckpointObjectId();
         if (checkpointId == 0) {
             LOGGER.info("DEBUG: Current game has no checkpoint object ID configured");
             return;
@@ -959,7 +1058,7 @@ public class GameLoop {
 
         // Fade out the current music gradually (ROM: MusID_FadeOut / zFadeOutMusic)
         // This preserves the SFX we just started, unlike stopMusic() which silences all
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Determine which stage to enter
         GameStateManager gsm = this.gameState;
@@ -1037,7 +1136,7 @@ public class GameLoop {
             return;
         }
 
-        BonusStageProvider provider = GameModuleRegistry.getCurrent().getBonusStageProvider();
+        BonusStageProvider provider = GameServices.module().getBonusStageProvider();
         if (!provider.hasBonusStages()) {
             LOGGER.fine("Current game module has no bonus stages; ignoring entry request");
             return;
@@ -1069,7 +1168,7 @@ public class GameLoop {
             savedShieldStatus = encodeSavedShieldStatus(playable);
         }
 
-        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
         int resizeFg = 0, resizeBg = 0;
         if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
             resizeFg = eventMgr.getEventRoutineFg();
@@ -1109,7 +1208,7 @@ public class GameLoop {
         );
 
         // Fade out music
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         bonusStageTransitionPending = true;
         fadeManager.startFadeToBlack(() -> {
@@ -1132,7 +1231,7 @@ public class GameLoop {
 
         // Register provider on GameRuntime so objects can access via GameServices.bonusStage()
         activeBonusStageProvider = provider;
-        GameRuntime rt = RuntimeManager.getCurrent();
+        GameRuntime rt = GameServices.runtimeOrNull();
         if (rt != null) {
             rt.setActiveBonusStageProvider(provider);
         }
@@ -1177,7 +1276,7 @@ public class GameLoop {
         // Play bonus stage music at title card start (ROM: Restore_LevelMusic during title card)
         int musicId = provider.getMusicId(type);
         if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
+            audioManager.playMusic(musicId);
         }
 
         // Enter TITLE_CARD mode — exitTitleCard will transition to BONUS_STAGE
@@ -1277,7 +1376,7 @@ public class GameLoop {
         BonusStageProvider provider = activeBonusStageProvider;
         BonusStageState savedState = provider.getSavedState();
 
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         bonusStageTransitionPending = true;
         if (shouldStartBonusStageExitFade(provider)) {
@@ -1309,7 +1408,7 @@ public class GameLoop {
         levelManager.setBonusStageHudLayout(false);
 
         // Clear from GameRuntime
-        GameRuntime rt = RuntimeManager.getCurrent();
+        GameRuntime rt = GameServices.runtimeOrNull();
         if (rt != null) {
             rt.setActiveBonusStageProvider(null);
         }
@@ -1356,7 +1455,7 @@ public class GameLoop {
         }
 
         // Restore event routine state (prevents camera lock replay)
-        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
         if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
             eventMgr.restoreEventRoutineState(
                     savedState.dynamicResizeRoutineFg(),
@@ -1429,7 +1528,7 @@ public class GameLoop {
         // Play zone music (ROM: Restore_LevelMusic during title card wait)
         int zoneMusicId = levelManager.getCurrentLevelMusicId();
         if (zoneMusicId >= 0) {
-            AudioManager.getInstance().playMusic(zoneMusicId);
+            audioManager.playMusic(zoneMusicId);
         }
 
         // Fade from black — level + zone title card become visible together
@@ -1705,7 +1804,7 @@ public class GameLoop {
                 // Without this, the resize state machine restarts from routine 0 and
                 // rapidly re-processes all boundary thresholds with the camera already
                 // deep in the level, causing incorrect camera locks.
-                LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+                LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
                 if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
                     eventMgr.restoreEventRoutineState(br.dynamicResizeRoutine(), 0);
                 }
@@ -1766,7 +1865,7 @@ public class GameLoop {
         // Start zone music immediately when title card begins (not at the end)
         int zoneMusicId = levelManager.getCurrentLevelMusicId();
         if (zoneMusicId >= 0) {
-            AudioManager.getInstance().playMusic(zoneMusicId);
+            audioManager.playMusic(zoneMusicId);
             LOGGER.fine("Started zone music at title card: 0x" + Integer.toHexString(zoneMusicId));
         }
 
@@ -1871,7 +1970,7 @@ public class GameLoop {
             applyPendingBonusStageShieldRestore(resolveMainPlayableSprite());
 
             // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1)
-            LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+            LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
             if (levelEvents instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
                 s3kEvents.applyZonePlayerState();
             }
@@ -1933,9 +2032,8 @@ public class GameLoop {
      * Actually performs the master title screen exit after fade-to-black completes.
      */
     private void doExitMasterTitleScreen(String selectedGameId) {
-        Engine engine = Engine.getInstance();
-        if (engine != null) {
-            engine.exitMasterTitleScreen(selectedGameId);
+        if (masterTitleExitHandler != null) {
+            masterTitleExitHandler.accept(selectedGameId);
         }
 
         // When TITLE_SCREEN_ON_STARTUP or LEVEL_SELECT_ON_STARTUP is true,
@@ -1963,10 +2061,9 @@ public class GameLoop {
 
         // Ensure the ROM is loaded and audio is initialized
         try {
-            var rom = GameServices.rom().getRom();
-            var gameModule = GameModuleRegistry.getCurrent();
+            var rom = romManager.getRom();
+            var gameModule = GameServices.module();
 
-            AudioManager audioManager = AudioManager.getInstance();
             audioManager.setAudioProfile(gameModule.getAudioProfile());
             audioManager.setRom(rom);
         } catch (IOException e) {
@@ -2023,7 +2120,7 @@ public class GameLoop {
         }
 
         // Fade out title music
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Start fade-to-black, then transition
         fadeManager.startFadeToBlack(() -> {
@@ -2107,11 +2204,24 @@ public class GameLoop {
     }
 
     private TitleScreenProvider getTitleScreenProviderLazy() {
-        var gameModule = GameModuleRegistry.getCurrent();
+        var gameModule = GameServices.module();
         if (gameModule != null) {
-            return gameModule.getTitleScreenProvider();
+            TitleScreenProvider titleScreenProvider = gameModule.getTitleScreenProvider();
+            if (titleScreenProvider != null) {
+                titleScreenProvider.setExitToLevelHandler(this::startLevelFromTitleScreenImmediate);
+            }
+            return titleScreenProvider;
         }
         return null;
+    }
+
+    private void startLevelFromTitleScreenImmediate() {
+        setGameMode(GameMode.LEVEL);
+        try {
+            levelManager.loadZoneAndAct(0, 0);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load title screen start level", e);
+        }
     }
 
     // ==================== Level Select Methods ====================
@@ -2127,11 +2237,10 @@ public class GameLoop {
 
         // Ensure the ROM is loaded and audio is initialized before level select
         try {
-            var rom = GameServices.rom().getRom();
-            var gameModule = GameModuleRegistry.getCurrent();
+            var rom = romManager.getRom();
+            var gameModule = GameServices.module();
 
             // Initialize audio system with game module's audio profile
-            AudioManager audioManager = AudioManager.getInstance();
             audioManager.setAudioProfile(gameModule.getAudioProfile());
             audioManager.setRom(rom);
         } catch (IOException e) {
@@ -2175,7 +2284,7 @@ public class GameLoop {
         }
 
         // Fade out current music
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Start fade-to-black, then enter level select when complete
         fadeManager.startFadeToBlack(() -> {
@@ -2257,7 +2366,7 @@ public class GameLoop {
             levelSelect.reset();
 
             // Fade out level select music
-            AudioManager.getInstance().fadeOutMusic();
+            audioManager.fadeOutMusic();
 
             // Start fade-to-black, then load level
             fadeManager.startFadeToBlack(() -> {
@@ -2307,7 +2416,7 @@ public class GameLoop {
      * Lazily retrieves the level select provider from the current game module.
      */
     private LevelSelectProvider getLevelSelectProviderLazy() {
-        var gameModule = GameModuleRegistry.getCurrent();
+        var gameModule = GameServices.module();
         if (gameModule != null) {
             return gameModule.getLevelSelectProvider();
         }
@@ -2323,7 +2432,7 @@ public class GameLoop {
         LOGGER.info("Starting fade-to-black for respawn");
 
         // Fade out current music (ROM: s2.asm:4757 - level entry with title card)
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Start fade-to-black, then respawn when complete
         fadeManager.startFadeToBlack(() -> {
@@ -2351,7 +2460,7 @@ public class GameLoop {
         LOGGER.info("Starting fade-to-black for next act");
 
         // Fade out current music (ROM: s2.asm:4757 - level entry with title card)
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Start fade-to-black, then load next act when complete
         fadeManager.startFadeToBlack(() -> {
@@ -2382,7 +2491,7 @@ public class GameLoop {
         LOGGER.info("Starting fade-to-black for next zone");
 
         // Fade out current music (ROM: s2.asm:4757 - level entry with title card)
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         // Start fade-to-black, then load next zone when complete
         fadeManager.startFadeToBlack(() -> {
@@ -2412,7 +2521,7 @@ public class GameLoop {
     private void startZoneActFade(int zone, int act) {
         LOGGER.info("Starting fade-to-black for zone " + zone + " act " + act);
 
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         fadeManager.startFadeToBlack(() -> {
             doZoneAct(zone, act);
@@ -2460,7 +2569,7 @@ public class GameLoop {
     }
 
     private SpecialStageProvider getCurrentModuleSpecialStageProvider() {
-        var module = GameModuleRegistry.getCurrent();
+        var module = GameServices.module();
         if (module == null) {
             return NoOpSpecialStageProvider.INSTANCE;
         }
@@ -2470,21 +2579,21 @@ public class GameLoop {
     private void playSpecialStageTransitionSfx(SpecialStageProvider ssProvider) {
         int sfxId = ssProvider.getTransitionSfxId();
         if (sfxId >= 0) {
-            AudioManager.getInstance().playSfx(sfxId);
+            audioManager.playSfx(sfxId);
         }
     }
 
     private void playSpecialStageStageMusic(SpecialStageProvider ssProvider) {
         int musicId = ssProvider.getStageMusicId();
         if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
+            audioManager.playMusic(musicId);
         }
     }
 
     private void playSpecialStageResultsMusic(SpecialStageProvider ssProvider) {
         int musicId = ssProvider.getResultsMusicId();
         if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
+            audioManager.playMusic(musicId);
         }
     }
 
@@ -2625,7 +2734,7 @@ public class GameLoop {
      */
     private void startEndingFade() {
         LOGGER.info("Starting fade-to-white for ending sequence");
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
         fadeManager.startFadeToWhite(this::doEnterEnding);
     }
 
@@ -2634,7 +2743,7 @@ public class GameLoop {
      * Initializes the EndingProvider from the current GameModule.
      */
     private void doEnterEnding() {
-        endingProvider = GameModuleRegistry.getCurrent().getEndingProvider();
+        endingProvider = GameServices.module().getEndingProvider();
         if (endingProvider == null) {
             // No ending provider for this game — return to title screen
             LOGGER.warning("No EndingProvider available, returning to title screen");
@@ -2760,7 +2869,7 @@ public class GameLoop {
             levelManager.updateObjectPositions();
             spriteManager.update(inputHandler);
         }
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();
         }
@@ -2951,7 +3060,7 @@ public class GameLoop {
             player.clearForcedInputMask();
         }
 
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager.fadeOutMusic();
 
         FadeManager fadeManager = this.fadeManager;
         if (!fadeManager.isActive()) {

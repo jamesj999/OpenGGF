@@ -130,7 +130,9 @@ public class Sonic2EndingArt {
 
         // Query actual PlayerCharacter from level event manager (matches ROM's Player_mode check)
         boolean tailsAlone = false;
-        Sonic2LevelEventManager lem = Sonic2LevelEventManager.getInstance();
+        Sonic2LevelEventManager lem = GameServices.hasRuntime()
+                ? (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
         if (lem != null) {
             tailsAlone = (lem.getPlayerCharacter() == PlayerCharacter.TAILS_ALONE);
         }
@@ -299,7 +301,7 @@ public class Sonic2EndingArt {
      * Must be called after {@link #loadArt} and {@link #loadPalettes}.
      */
     public void cacheToGpu() {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

@@ -3,17 +3,25 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.rings.RingManager;
@@ -32,6 +40,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public ObjectRenderManager renderManager() { return null; }
     @Override public LevelState levelGamestate() { return null; }
     @Override public RespawnState checkpointState() { return null; }
+    @Override public LevelManager levelManager() { return null; }
     @Override public Level currentLevel() { return null; }
     @Override public int romZoneId() { return 0; }
     @Override public int currentAct() { return 0; }
@@ -47,10 +56,17 @@ public class StubObjectServices implements ObjectServices {
     @Override public void spawnLostRings(PlayableEntity player, int frameCounter) {}
     @Override public Camera camera() { return null; }
     @Override public GameStateManager gameState() { return null; }
+    @Override public WorldSession worldSession() { return null; }
+    @Override public GameModule gameModule() { return null; }
     @Override public List<PlayableEntity> sidekicks() { return List.of(); }
     @Override public SpriteManager spriteManager() { return null; }
     @Override public GraphicsManager graphicsManager() { return null; }
     @Override public FadeManager fadeManager() { return null; }
+    @Override public EngineServices engineServices() { return null; }
+    @Override public SonicConfigurationService configuration() { return null; }
+    @Override public DebugOverlayManager debugOverlay() { return null; }
+    @Override public RomManager romManager() { return null; }
+    @Override public CrossGameFeatureProvider crossGameFeatures() { return null; }
     @Override public Rom rom() { return null; }
     @Override public RomByteReader romReader() { return null; }
     @Override public WaterSystem waterSystem() { return null; }
@@ -75,3 +91,5 @@ public class StubObjectServices implements ObjectServices {
     @Override public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) { return null; }
     @Override public void saveBigRingReturn(com.openggf.level.BigRingReturnState state) {}
 }
+
+

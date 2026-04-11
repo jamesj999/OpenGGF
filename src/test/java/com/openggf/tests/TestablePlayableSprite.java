@@ -58,3 +58,5 @@ public class TestablePlayableSprite extends AbstractPlayableSprite {
         setShieldState(hasShield, type);
     }
 }
+
+

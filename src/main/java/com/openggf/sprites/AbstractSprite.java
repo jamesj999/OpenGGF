@@ -7,10 +7,10 @@ import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 
 public abstract class AbstractSprite implements Sprite {
-	protected final SonicConfigurationService configService = SonicConfigurationService
-			.getInstance();
-	protected final GraphicsManager graphicsManager = GraphicsManager
-			.getInstance();
+	protected final SonicConfigurationService configService = com.openggf.game.RuntimeManager
+			.getEngineServices().configuration();
+	protected final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager
+			.getEngineServices().graphics();
 
 	protected String code;
 

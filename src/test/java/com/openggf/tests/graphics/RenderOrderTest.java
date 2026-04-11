@@ -3,23 +3,23 @@ package com.openggf.tests.graphics;
 import com.openggf.graphics.pipeline.RenderCommand;
 import com.openggf.graphics.pipeline.RenderOrderRecorder;
 import com.openggf.graphics.pipeline.RenderPhase;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for render order compliance.
  * These tests ensure the rendering pipeline maintains correct ordering:
- * SCENE → OVERLAY → FADE_PASS
+ * SCENE â†’ OVERLAY â†’ FADE_PASS
  */
 public class RenderOrderTest {
     
     private RenderOrderRecorder recorder;
     
-    @Before
+    @BeforeEach
     public void setUp() {
         recorder = RenderOrderRecorder.getInstance();
         recorder.clear();
@@ -31,7 +31,7 @@ public class RenderOrderTest {
         RenderOrderRecorder fresh = new RenderOrderRecorder() {
             // Create new instance to test default state
         };
-        assertFalse("New RenderOrderRecorder should be disabled by default", fresh.isEnabled());
+        assertFalse(fresh.isEnabled(), "New RenderOrderRecorder should be disabled by default");
         assertNotNull(RenderOrderRecorder.getInstance());
     }
     
@@ -86,7 +86,7 @@ public class RenderOrderTest {
         recorder.record(RenderPhase.FADE_PASS, "Fade");
         
         List<String> violations = recorder.verifyOrder();
-        assertTrue("Correct order should have no violations", violations.isEmpty());
+        assertTrue(violations.isEmpty(), "Correct order should have no violations");
     }
     
     @Test
@@ -96,8 +96,8 @@ public class RenderOrderTest {
         recorder.record(RenderPhase.OVERLAY, "HUD");
         
         List<String> violations = recorder.verifyOrder();
-        assertFalse("Should detect order violation", violations.isEmpty());
-        assertTrue("Should mention HUD", violations.get(0).contains("HUD"));
+        assertFalse(violations.isEmpty(), "Should detect order violation");
+        assertTrue(violations.get(0).contains("HUD"), "Should mention HUD");
     }
     
     @Test
@@ -107,7 +107,7 @@ public class RenderOrderTest {
         recorder.record(RenderPhase.FADE_PASS, "Fade");
         
         List<String> violations = recorder.verifyOrder();
-        assertFalse("Should detect order violation", violations.isEmpty());
+        assertFalse(violations.isEmpty(), "Should detect order violation");
     }
     
     @Test
@@ -130,7 +130,7 @@ public class RenderOrderTest {
     
     @Test
     public void testFadeRenderedLast_emptyIsTrue() {
-        assertTrue("Empty recorder should return true", recorder.fadeRenderedLast());
+        assertTrue(recorder.fadeRenderedLast(), "Empty recorder should return true");
     }
     
     @Test
@@ -167,7 +167,7 @@ public class RenderOrderTest {
         recorder.record(RenderPhase.FADE_PASS, "Fade");
         
         List<String> violations = recorder.verifyOrder();
-        assertTrue("Multiple SCENE components should be allowed", violations.isEmpty());
+        assertTrue(violations.isEmpty(), "Multiple SCENE components should be allowed");
     }
     
     @Test
@@ -178,6 +178,8 @@ public class RenderOrderTest {
         recorder.record(RenderPhase.FADE_PASS, "Fade");
         
         List<String> violations = recorder.verifyOrder();
-        assertTrue("Multiple OVERLAY components should be allowed", violations.isEmpty());
+        assertTrue(violations.isEmpty(), "Multiple OVERLAY components should be allowed");
     }
 }
+
+

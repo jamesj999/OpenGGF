@@ -5,12 +5,17 @@ import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.configuration.SonicConfiguration;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Palette;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.managers.SpriteManager;
@@ -18,6 +23,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.function.Supplier;
 
 /**
  * Base class for Sonic 3&K per-zone dynamic level events.
@@ -75,6 +81,52 @@ public abstract class Sonic3kZoneEvents {
         return GameServices.sprites();
     }
 
+    protected GraphicsManager graphics() {
+        return GameServices.graphics();
+    }
+
+    protected com.openggf.level.ParallaxManager parallaxOrNull() {
+        return GameServices.parallaxOrNull();
+    }
+
+    protected boolean hasRuntime() {
+        return GameServices.hasRuntime();
+    }
+
+    protected void cachePaletteTextureIfReady(Palette palette, int paletteLine) {
+        GraphicsManager graphicsManager = graphics();
+        if (graphicsManager.isGlInitialized()) {
+            graphicsManager.cachePaletteTexture(palette, paletteLine);
+        }
+    }
+
+    protected Sonic3kLevelEventManager levelEventManagerOrNull() {
+        Object provider = GameServices.module().getLevelEventProvider();
+        return provider instanceof Sonic3kLevelEventManager s3k ? s3k : null;
+    }
+
+    protected PlayerCharacter playerCharacter() {
+        Sonic3kLevelEventManager levelEventManager = levelEventManagerOrNull();
+        if (levelEventManager != null) {
+            return levelEventManager.getPlayerCharacter();
+        }
+
+        String mainChar = GameServices.configuration()
+                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("knuckles".equalsIgnoreCase(mainChar)) {
+            return PlayerCharacter.KNUCKLES;
+        } else if ("tails".equalsIgnoreCase(mainChar)) {
+            return PlayerCharacter.TAILS_ALONE;
+        }
+
+        String sidekick = GameServices.configuration()
+                .getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+        if (sidekick == null || sidekick.isBlank()) {
+            return PlayerCharacter.SONIC_ALONE;
+        }
+        return PlayerCharacter.SONIC_AND_TAILS;
+    }
+
     /** Reset event state for a new level load. */
     public void init(int act) {
         eventRoutine = 0;
@@ -117,6 +169,14 @@ public abstract class Sonic3kZoneEvents {
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
+    }
+
+    protected <T extends ObjectInstance> T spawnObject(Supplier<T> factory) {
+        LevelManager lm = levelManager();
+        if (lm == null || lm.getObjectManager() == null) {
+            return null;
+        }
+        return lm.getObjectManager().createDynamicObject(factory);
     }
 
     /**

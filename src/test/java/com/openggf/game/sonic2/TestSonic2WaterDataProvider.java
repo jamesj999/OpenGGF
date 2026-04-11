@@ -2,9 +2,9 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link Sonic2WaterDataProvider}.
@@ -130,3 +130,5 @@ public class TestSonic2WaterDataProvider {
         assertEquals(1, provider.getWaterSpeed(ZONE_CPZ, 1));
     }
 }
+
+

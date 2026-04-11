@@ -54,7 +54,7 @@ The project is in an **alpha** state. Core systems are functional with extensive
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4 + JUnit 5).
 *   **Maven output for agents:** `.mvn/extensions.xml` installs Maven Silent Extension (MSE) and `.mvn/maven.config` enables `-Dmse=relaxed` by default for all repo-local Maven commands. Use `-Dmse=off` when full Maven logs are required for debugging.
-*   **Run:** `java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar`.
+*   **Run:** `java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
 *   **Important packages** under `src/main/java/com/openggf`:
     *   `control` – input handling

@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -11,6 +11,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 
 import java.lang.reflect.Field;
@@ -24,25 +25,24 @@ import static org.mockito.Mockito.when;
 
 public class TestS1FlamethrowerObjectRendering {
 
-    private Field levelManagerField;
-    private LevelManager originalLevelManager;
-    private LevelManager mockLevelManager;
+    private Field objectRenderManagerField;
+    private ObjectRenderManager originalRenderManager;
     private GameRuntime originalRuntime;
+    private LevelManager runtimeLevelManager;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        // Save original state
-        levelManagerField = LevelManager.class.getDeclaredField("levelManager");
-        levelManagerField.setAccessible(true);
-        originalLevelManager = (LevelManager) levelManagerField.get(null);
         originalRuntime = RuntimeManager.getCurrent();
-
-        mockLevelManager = mock(LevelManager.class);
+        RuntimeManager.destroyCurrent();
+        runtimeLevelManager = RuntimeManager.createGameplay().getLevelManager();
+        objectRenderManagerField = LevelManager.class.getDeclaredField("objectRenderManager");
+        objectRenderManagerField.setAccessible(true);
+        originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
-        levelManagerField.set(null, originalLevelManager);
+        objectRenderManagerField.set(runtimeLevelManager, originalRenderManager);
         RuntimeManager.setCurrent(originalRuntime);
     }
 
@@ -51,20 +51,19 @@ public class TestS1FlamethrowerObjectRendering {
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
 
-        when(mockLevelManager.getObjectRenderManager()).thenReturn(renderManager);
         when(renderManager.getRenderer(ObjectArtKeys.SBZ_FLAMETHROWER)).thenReturn(renderer);
         when(renderer.isReady()).thenReturn(true);
 
-        // Install mock via both singleton field and RuntimeManager
-        levelManagerField.set(null, mockLevelManager);
-        // Clear the runtime so GameServices.level() falls back to LevelManager.getInstance()
-        RuntimeManager.setCurrent(null);
+        objectRenderManagerField.set(runtimeLevelManager, renderManager);
 
         ObjectSpawn spawn = new ObjectSpawn(0x1234, 0x0560,
                 Sonic1ObjectIds.FLAMETHROWER, 0x43, 0x03, false, 0);
         Sonic1FlamethrowerObjectInstance flamethrower = new Sonic1FlamethrowerObjectInstance(spawn);
+        flamethrower.setServices(new TestObjectServices().withLevelManager(runtimeLevelManager));
         flamethrower.appendRenderCommands(new ArrayList<>());
 
         verify(renderer).drawFrameIndex(anyInt(), eq(0x1234), eq(0x0560), eq(true), eq(true));
     }
 }
+
+

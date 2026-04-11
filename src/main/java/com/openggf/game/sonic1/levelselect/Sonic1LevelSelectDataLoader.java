@@ -134,12 +134,10 @@ public class Sonic1LevelSelectDataLoader {
     /**
      * Caches font patterns and palettes to the GPU.
      */
-    public void cacheToGpu() {
+    public void cacheToGpu(GraphicsManager gm) {
         if (artCached || !dataLoaded) {
             return;
         }
-
-        GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

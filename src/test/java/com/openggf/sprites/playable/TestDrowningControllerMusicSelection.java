@@ -18,6 +18,8 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.level.LevelManager;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 
 import java.util.stream.Stream;
 
@@ -31,7 +33,7 @@ class TestDrowningControllerMusicSelection {
         AudioManager audioManager = AudioManager.getInstance();
         audioManager.setBackend(new NullAudioBackend());
         audioManager.resetState();
-        LevelManager.getInstance().resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     static Stream<Arguments> drowningMusicProvider() {
@@ -49,7 +51,9 @@ class TestDrowningControllerMusicSelection {
         CapturingBackend backend = new CapturingBackend();
         audioManager.setBackend(backend);
         audioManager.setAudioProfile(profile);
-        LevelManager.getInstance().resetState();
+        GameRuntime runtime = RuntimeManager.createGameplay();
+        LevelManager levelManager = runtime.getLevelManager();
+        levelManager.resetState();
 
         DrowningController controller = new DrowningController(new Sonic("test", (short) 0, (short) 0));
 
@@ -173,3 +177,5 @@ class TestDrowningControllerMusicSelection {
         }
     }
 }
+
+

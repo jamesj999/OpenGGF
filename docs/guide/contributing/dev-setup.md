@@ -22,9 +22,9 @@ cd sonic-engine
 mvn package
 ```
 
-The build produces an executable JAR with all dependencies at:
+The build produces an executable OpenGGF JAR with all dependencies at:
 ```
-target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar
+target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar
 ```
 
 Maven Silent Extension (MSE) is configured via `.mvn/extensions.xml`. By default, Maven
@@ -51,7 +51,7 @@ mvn test -Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"
 ## Run the Engine
 
 ```bash
-java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar
+java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar
 ```
 
 On Windows, you can also use the included `run.cmd`.

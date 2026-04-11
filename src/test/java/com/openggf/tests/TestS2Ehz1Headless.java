@@ -1,10 +1,9 @@
 package com.openggf.tests;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.ResultsScreenObjectInstance;
@@ -22,17 +21,16 @@ import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Grouped headless tests for Sonic 2 EHZ Act 1.
  *
- * Level data is loaded once via {@code @BeforeClass}; sprite, camera, and game
+ * Level data is loaded once via {@code @BeforeAll}; sprite, camera, and game
  * state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
@@ -45,19 +43,16 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestS2Ehz1Headless {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_EHZ = 0;
     private static final int ACT_1 = 0;
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_EHZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
@@ -66,7 +61,7 @@ public class TestS2Ehz1Headless {
     private Sonic sprite;
     private Sonic sonic;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -86,7 +81,7 @@ public class TestS2Ehz1Headless {
         sprite.setAir(false);
 
         // Verify initial state
-        assertFalse("Sprite should start on ground after level load", sprite.getAir());
+        assertFalse(sprite.getAir(), "Sprite should start on ground after level load");
 
         // Let Sonic settle onto the ground (5 frames with no input)
         for (int frame = 0; frame < 5; frame++) {
@@ -94,7 +89,7 @@ public class TestS2Ehz1Headless {
         }
 
         // Verify sprite is still on ground after settling
-        assertFalse("Sprite should remain on ground after settling frames", sprite.getAir());
+        assertFalse(sprite.getAir(), "Sprite should remain on ground after settling frames");
 
         // Record position before walking
         short initialX = sprite.getX();
@@ -105,15 +100,14 @@ public class TestS2Ehz1Headless {
         }
 
         // Verify sprite stayed on ground while walking
-        assertFalse("Sprite should remain on ground while walking left", sprite.getAir());
+        assertFalse(sprite.getAir(), "Sprite should remain on ground while walking left");
 
         // Verify X position decreased (moved left)
         short finalX = sprite.getX();
-        assertTrue("Sprite should have moved left (X decreased). Initial=" + initialX + ", Final=" + finalX,
-                finalX < initialX);
+        assertTrue(finalX < initialX, "Sprite should have moved left (X decreased). Initial=" + initialX + ", Final=" + finalX);
 
         // Verify gSpeed is negative (moving left)
-        assertTrue("Ground speed should be negative when walking left", sprite.getGSpeed() < 0);
+        assertTrue(sprite.getGSpeed() < 0, "Ground speed should be negative when walking left");
     }
 
     // ========== From TestHeadlessStaticObjectPushStability ==========
@@ -166,7 +160,7 @@ public class TestS2Ehz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on the static floor testbed", landed);
+        assertTrue(landed, "Sonic should land on the static floor testbed");
 
         int objectX = sprite.getCentreX()
                 + (pushRight ? WALL_HALF_WIDTH + OBJECT_GAP : -(WALL_HALF_WIDTH + OBJECT_GAP));
@@ -188,7 +182,7 @@ public class TestS2Ehz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should reach side-pushing contact (" + directionName(pushRight) + ")", contactReached);
+        assertTrue(contactReached, "Sonic should reach side-pushing contact (" + directionName(pushRight) + ")");
 
         for (int frame = 0; frame < CONTACT_WARMUP_FRAMES; frame++) {
             fixture.stepFrame(false, false, pressingLeft, pushRight, false);
@@ -207,14 +201,12 @@ public class TestS2Ehz1Headless {
                 transitionCount++;
             }
             previousX = x;
-            assertFalse("Sonic should stay grounded while pushing (" + directionName(pushRight) + ")", sprite.getAir());
+            assertFalse(sprite.getAir(), "Sonic should stay grounded while pushing (" + directionName(pushRight) + ")");
         }
 
-        assertEquals("Sonic X position should stay stable while pushing static object (" + directionName(pushRight)
-                        + "), minX=" + minX + ", maxX=" + maxX + ", transitions=" + transitionCount,
-                minX, maxX);
-        assertEquals("Sonic X should not oscillate while pushing static object (" + directionName(pushRight) + ")",
-                0, transitionCount);
+        assertEquals(minX, maxX, "Sonic X position should stay stable while pushing static object (" + directionName(pushRight)
+                        + "), minX=" + minX + ", maxX=" + maxX + ", transitions=" + transitionCount);
+        assertEquals(0, transitionCount, "Sonic X should not oscillate while pushing static object (" + directionName(pushRight) + ")");
     }
 
     private static String directionName(boolean pushRight) {
@@ -288,16 +280,14 @@ public class TestS2Ehz1Headless {
     @Test
     public void testInitialState() {
         createTailsForTest();
-        assertEquals("Controller should start in INIT state",
-                SidekickCpuController.State.INIT, controller.getState());
+        assertEquals(SidekickCpuController.State.INIT, controller.getState(), "Controller should start in INIT state");
     }
 
     @Test
     public void testInitTransitionsToNormal() {
         createTailsForTest();
         controller.update(0);
-        assertEquals("INIT should immediately transition to NORMAL",
-                SidekickCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState(), "INIT should immediately transition to NORMAL");
     }
 
     @Test
@@ -308,9 +298,8 @@ public class TestS2Ehz1Headless {
         assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
 
         controller.reset();
-        assertEquals("Reset should return to INIT",
-                SidekickCpuController.State.INIT, controller.getState());
-        assertFalse("Reset should clear all inputs", controller.getInputLeft());
+        assertEquals(SidekickCpuController.State.INIT, controller.getState(), "Reset should return to INIT");
+        assertFalse(controller.getInputLeft(), "Reset should clear all inputs");
         assertFalse(controller.getInputRight());
         assertFalse(controller.getInputJump());
     }
@@ -334,8 +323,8 @@ public class TestS2Ehz1Headless {
 
         controller.update(fixture.frameCount());
 
-        assertFalse("No left input when close to target", controller.getInputLeft());
-        assertFalse("No right input when close to target", controller.getInputRight());
+        assertFalse(controller.getInputLeft(), "No left input when close to target");
+        assertFalse(controller.getInputRight(), "No right input when close to target");
     }
 
     @Test
@@ -363,10 +352,8 @@ public class TestS2Ehz1Headless {
         short targetX = sonic.getCentreX(16);
 
         if (targetX - tailsX > 16) {
-            assertTrue("Should input right when target is to the right",
-                    controller.getInputRight());
-            assertFalse("Should not input left when target is right",
-                    controller.getInputLeft());
+            assertTrue(controller.getInputRight(), "Should input right when target is to the right");
+            assertFalse(controller.getInputLeft(), "Should not input left when target is right");
         }
     }
 
@@ -385,10 +372,8 @@ public class TestS2Ehz1Headless {
 
         controller.update(fixture.frameCount());
 
-        assertTrue("Should input left when target is to the left",
-                controller.getInputLeft());
-        assertFalse("Should not input right when target is left",
-                controller.getInputRight());
+        assertTrue(controller.getInputLeft(), "Should input left when target is to the left");
+        assertFalse(controller.getInputRight(), "Should not input right when target is left");
     }
 
     @Test
@@ -410,8 +395,7 @@ public class TestS2Ehz1Headless {
         // Frame 256: (256 & 0xFF) == 0 skips distance gate, (256 & 0x3F) == 0 passes timing
         controller.update(256);
 
-        assertTrue("Should trigger AI jump when Sonic is above by >= 32px on 256-frame boundary",
-                controller.getInputJump());
+        assertTrue(controller.getInputJump(), "Should trigger AI jump when Sonic is above by >= 32px on 256-frame boundary");
     }
 
     @Test
@@ -433,8 +417,7 @@ public class TestS2Ehz1Headless {
         // Even on a 256-frame boundary (skips distance gate), vertical check fails
         controller.update(256);
 
-        assertFalse("Should NOT jump when at same height, even with large horizontal gap",
-                controller.getInputJump());
+        assertFalse(controller.getInputJump(), "Should NOT jump when at same height, even with large horizontal gap");
     }
 
     @Test
@@ -453,8 +436,7 @@ public class TestS2Ehz1Headless {
 
         controller.update(fixture.frameCount());
 
-        assertFalse("Should not trigger jump when already airborne",
-                controller.getInputJump());
+        assertFalse(controller.getInputJump(), "Should not trigger jump when already airborne");
     }
 
     // -- Despawn / Respawn Tests --
@@ -470,8 +452,7 @@ public class TestS2Ehz1Headless {
         // Must be airborne to avoid triggering PANIC (stuck detection) before despawn
         forceDespawn();
 
-        assertEquals("Should transition to SPAWNING after being off-screen for 300 frames",
-                SidekickCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState(), "Should transition to SPAWNING after being off-screen for 300 frames");
     }
 
     @Test
@@ -486,15 +467,12 @@ public class TestS2Ehz1Headless {
         sonic.setDead(false);
 
         controller.update(311);
-        assertEquals("Respawn should still wait off the 64-frame cadence",
-                SidekickCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState(), "Respawn should still wait off the 64-frame cadence");
         controller.update(320);
 
         // After respawn, should be in APPROACHING state
-        assertEquals("Should transition to APPROACHING after respawn",
-                SidekickCpuController.State.APPROACHING, controller.getState());
-        assertTrue("isApproaching() should return true in APPROACHING state",
-                controller.isApproaching());
+        assertEquals(SidekickCpuController.State.APPROACHING, controller.getState(), "Should transition to APPROACHING after respawn");
+        assertTrue(controller.isApproaching(), "isApproaching() should return true in APPROACHING state");
     }
 
     @Test
@@ -508,8 +486,7 @@ public class TestS2Ehz1Headless {
         sonic.setDead(true);
         controller.update(320);
 
-        assertEquals("Should stay in SPAWNING while Sonic is dead",
-                SidekickCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState(), "Should stay in SPAWNING while Sonic is dead");
     }
 
     @Test
@@ -524,8 +501,7 @@ public class TestS2Ehz1Headless {
         sonic.setDead(false);
         controller.update(320);
 
-        assertEquals("Should stay in SPAWNING while Sonic is airborne",
-                SidekickCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState(), "Should stay in SPAWNING while Sonic is airborne");
     }
 
     // -- Flying State Tests --
@@ -533,7 +509,7 @@ public class TestS2Ehz1Headless {
     @Test
     public void testFlyingStateBypassesNormalPhysics() {
         createTailsForTest();
-        assertFalse("isApproaching() should be false initially", controller.isApproaching());
+        assertFalse(controller.isApproaching(), "isApproaching() should be false initially");
 
         // Get to APPROACHING state via despawn/respawn
         controller.update(0);
@@ -544,7 +520,7 @@ public class TestS2Ehz1Headless {
         controller.update(320);
 
         assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
-        assertTrue("isApproaching() should return true", controller.isApproaching());
+        assertTrue(controller.isApproaching(), "isApproaching() should return true");
     }
 
     @Test
@@ -570,10 +546,8 @@ public class TestS2Ehz1Headless {
 
         controller.update(312);
 
-        assertEquals("Should transition from APPROACHING to NORMAL when at target and Sonic grounded",
-                SidekickCpuController.State.NORMAL, controller.getState());
-        assertFalse("isApproaching() should be false after landing",
-                controller.isApproaching());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState(), "Should transition from APPROACHING to NORMAL when at target and Sonic grounded");
+        assertFalse(controller.isApproaching(), "isApproaching() should be false after landing");
     }
 
     // -- Panic State Tests --
@@ -590,8 +564,7 @@ public class TestS2Ehz1Headless {
         tails.setMoveLockTimer(10);
         controller.update(1);
 
-        assertEquals("Should enter PANIC state when move lock is active and inertia is zero",
-                SidekickCpuController.State.PANIC, controller.getState());
+        assertEquals(SidekickCpuController.State.PANIC, controller.getState(), "Should enter PANIC state when move lock is active and inertia is zero");
     }
 
     @Test
@@ -610,8 +583,7 @@ public class TestS2Ehz1Headless {
         tails.setMoveLockTimer(0);
         controller.update(2);
 
-        assertEquals("Should face right toward Sonic during panic",
-                com.openggf.physics.Direction.RIGHT, tails.getDirection());
+        assertEquals(com.openggf.physics.Direction.RIGHT, tails.getDirection(), "Should face right toward Sonic during panic");
     }
 
     @Test
@@ -626,12 +598,11 @@ public class TestS2Ehz1Headless {
 
         tails.setMoveLockTimer(0);
         controller.update(2);
-        assertTrue("Should hold down during panic", controller.getInputDown());
+        assertTrue(controller.getInputDown(), "Should hold down during panic");
 
         controller.update(128);
 
-        assertEquals("Should return to NORMAL on the 128-frame boundary",
-                SidekickCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState(), "Should return to NORMAL on the 128-frame boundary");
     }
 
     @Test
@@ -659,21 +630,19 @@ public class TestS2Ehz1Headless {
 
         // If Sonic wasn't found, all inputs would be cleared and state unchanged
         // Since state transitions to NORMAL, Sonic was found
-        assertEquals("Should find Sonic and transition to NORMAL",
-                SidekickCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState(), "Should find Sonic and transition to NORMAL");
     }
 
     @Test
     public void testClearsInputsWhenNoLeader() {
         createTailsForTest();
-        // Explicitly clear leader — simulates a disconnected sidekick.
+        // Explicitly clear leader â€” simulates a disconnected sidekick.
         // With explicit leader assignment (no scan), null leader = idle.
         controller.setLeader(null);
         controller.update(0);
 
         // Should stay in INIT (leader is null, update() returns early)
-        assertEquals("Should stay in INIT when no leader set",
-                SidekickCpuController.State.INIT, controller.getState());
+        assertEquals(SidekickCpuController.State.INIT, controller.getState(), "Should stay in INIT when no leader set");
         assertFalse(controller.getInputLeft());
         assertFalse(controller.getInputRight());
         assertFalse(controller.getInputJump());
@@ -704,10 +673,8 @@ public class TestS2Ehz1Headless {
         // (since Sonic was walking right for all 25 frames)
         short replayedInput = sonic.getInputHistory(17);
         boolean replayedRight = (replayedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        assertTrue("Sonic's recorded input from 17 frames ago should have RIGHT pressed",
-                replayedRight);
-        assertTrue("Tails should replay Sonic's right input",
-                controller.getInputRight());
+        assertTrue(replayedRight, "Sonic's recorded input from 17 frames ago should have RIGHT pressed");
+        assertTrue(controller.getInputRight(), "Tails should replay Sonic's right input");
     }
 
     @Test
@@ -739,10 +706,8 @@ public class TestS2Ehz1Headless {
 
         short replayedInput = sonic.getInputHistory(17);
         boolean replayedJump = (replayedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
-        assertTrue("Sonic's recorded input from 17 frames ago should have JUMP pressed",
-                replayedJump);
-        assertTrue("Tails should replay Sonic's jump input",
-                controller.getInputJump());
+        assertTrue(replayedJump, "Sonic's recorded input from 17 frames ago should have JUMP pressed");
+        assertTrue(controller.getInputJump(), "Tails should replay Sonic's jump input");
     }
 
     // -- Position History / Delay Tests --
@@ -760,9 +725,8 @@ public class TestS2Ehz1Headless {
 
         // After walking right for 20 frames, current position should be
         // to the right of the 16-frame-delayed position
-        assertTrue("Current position should be further right than delayed position. " +
-                        "Current=" + currentX + ", Delayed(16)=" + delayedX,
-                currentX > delayedX);
+        assertTrue(currentX > delayedX, "Current position should be further right than delayed position. " +
+                        "Current=" + currentX + ", Delayed(16)=" + delayedX);
     }
 
     // -- SpriteManager Integration Test --
@@ -771,9 +735,9 @@ public class TestS2Ehz1Headless {
     public void testSpriteManagerGetSidekick() {
         createTailsForTest();
         AbstractPlayableSprite sidekick = GameServices.sprites().getSidekicks().getFirst();
-        assertNotNull("getSidekicks() should return Tails", sidekick);
-        assertTrue("Sidekick should be CPU controlled", sidekick.isCpuControlled());
-        assertSame("Sidekick should be our Tails instance", tails, sidekick);
+        assertNotNull(sidekick, "getSidekicks() should return Tails");
+        assertTrue(sidekick.isCpuControlled(), "Sidekick should be CPU controlled");
+        assertSame(tails, sidekick, "Sidekick should be our Tails instance");
     }
 
     // -- Tails Helper Methods --
@@ -890,13 +854,13 @@ public class TestS2Ehz1Headless {
         System.out.println("Walked off screen: " + walkedOffScreen);
         System.out.println("Results spawned: " + resultsSpawned);
 
-        assertTrue("Signpost should have triggered (forceInputRight=true) but Sonic never reached it. "
-                + "Final X=" + sprite.getX(), signpostTriggered);
-        assertTrue("Sonic should walk off the right edge of the screen after signpost, "
+        assertTrue(signpostTriggered, "Signpost should have triggered (forceInputRight=true) but Sonic never reached it. "
+                + "Final X=" + sprite.getX());
+        assertTrue(walkedOffScreen, "Sonic should walk off the right edge of the screen after signpost, "
                 + "but final X=" + sprite.getX() + " is still on screen. "
-                + "This indicates the forced-right input is being cancelled by controlLocked.",
-                walkedOffScreen);
-        assertTrue("A ResultsScreenObjectInstance should have been spawned after walk-off",
-                resultsSpawned);
+                + "This indicates the forced-right input is being cancelled by controlLocked.");
+        assertTrue(resultsSpawned, "A ResultsScreenObjectInstance should have been spawned after walk-off");
     }
 }
+
+

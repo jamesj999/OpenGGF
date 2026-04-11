@@ -66,3 +66,5 @@ class TestGameServicesNullableAccessors {
         assertThrows(IllegalStateException.class, GameServices::bonusStage);
     }
 }
+
+

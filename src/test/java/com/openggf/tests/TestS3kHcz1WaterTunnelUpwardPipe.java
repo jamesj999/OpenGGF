@@ -7,15 +7,13 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Headless regression for HCZ Act 1 upward water tunnel pipe.
@@ -27,10 +25,6 @@ import static org.junit.Assert.fail;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kHcz1WaterTunnelUpwardPipe {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final short START_X = 12107;
     private static final short START_Y = 1715;
     private static final int TARGET_Y = 1100;
@@ -42,7 +36,7 @@ public class TestS3kHcz1WaterTunnelUpwardPipe {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
@@ -54,7 +48,7 @@ public class TestS3kHcz1WaterTunnelUpwardPipe {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, Sonic3kZoneIds.ZONE_HCZ, 0);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS,
@@ -66,7 +60,7 @@ public class TestS3kHcz1WaterTunnelUpwardPipe {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -77,7 +71,7 @@ public class TestS3kHcz1WaterTunnelUpwardPipe {
         sprite.setY(START_Y);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        // Do NOT zero gSpeed — ROM tunnel handler doesn't touch ground_vel.
+        // Do NOT zero gSpeed â€” ROM tunnel handler doesn't touch ground_vel.
         // The twisting loop's flipped-entry detection needs gSpeed < 0.
         sprite.setGSpeed((short) 0);
         sprite.setAngle((byte) 0);
@@ -129,3 +123,5 @@ public class TestS3kHcz1WaterTunnelUpwardPipe {
                 + " objCtrl=" + sprite.isObjectControlled());
     }
 }
+
+
