@@ -221,7 +221,9 @@ class TestEditorRenderingSmoke {
         assertEquals("One", commands.get(0).text());
         assertEquals("Two", commands.get(1).text());
         assertEquals(10, commands.get(0).lineHeight());
-        assertTrue(commands.get(1).y() > commands.get(0).y());
+        assertEquals(12, commands.get(0).y());
+        assertEquals(32, commands.get(1).y());
+        assertEquals(commands.get(0).y() + commands.get(0).lineHeight() * 2, commands.get(1).y());
     }
 
     @Test
