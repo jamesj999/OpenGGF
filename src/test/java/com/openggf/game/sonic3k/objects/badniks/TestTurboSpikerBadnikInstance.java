@@ -10,8 +10,13 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.StubObjectServices;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
+import com.openggf.tests.FullReset;
+import com.openggf.tests.SingletonResetExtension;
 import com.openggf.tests.TestablePlayableSprite;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
@@ -26,14 +31,16 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
+@ExtendWith(SingletonResetExtension.class)
+@FullReset
 public class TestTurboSpikerBadnikInstance {
 
-    @org.junit.Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.destroyCurrent();
     }
 
-    @org.junit.After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -140,5 +147,3 @@ public class TestTurboSpikerBadnikInstance {
         }
     }
 }
-
-
