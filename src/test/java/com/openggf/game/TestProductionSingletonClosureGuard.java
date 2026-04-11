@@ -80,6 +80,8 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic2/titlecard/";
     private static final String SONIC2_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic2/levelselect/";
+    private static final String SONIC2_CREDITS_PACKAGE =
+            "com/openggf/game/sonic2/credits/";
     private static final String SONIC3K_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic3k/levelselect/";
     private static final String SONIC1_LEVELSELECT_PACKAGE =
@@ -366,6 +368,25 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 2 title packages:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic2CreditsPackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC2_CREDITS_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 2 credits package:\n  "
                     + String.join("\n  ", violations));
         }
     }
