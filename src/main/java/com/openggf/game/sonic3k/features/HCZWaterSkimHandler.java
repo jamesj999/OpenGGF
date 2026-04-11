@@ -204,24 +204,40 @@ public final class HCZWaterSkimHandler {
             return exitWithJump(player);
         }
 
-        // Pin player Y to water surface
-        // ROM: move.w d0,y_pos(a1) where d0 = Water_level - y_radius - 1
+        // Calculate pin position BEFORE checking/applying it
+        // ROM: d0 = Water_level - y_radius - 1 (sonic3k.asm:75428-75432)
         int pinnedY = waterLevel - player.getYRadius() - 1;
-        // ROM sets y_pos (centre Y in ROM). Engine: setCentreY expects centre.
-        // But ROM's y_pos IS the centre coordinate, so:
-        player.setCentreY((short) pinnedY);
-        player.setYSpeed((short) 0);
+
+        // ROM: cmp.w y_pos(a1),d0 / bhi.s loc_38646 (sonic3k.asm:75433-75434)
+        // Exit skim if terrain has pushed the player ABOVE the water pin position.
+        // In Y-down coordinates, pinnedY > centreY means the pin is below the player,
+        // i.e. terrain raised the player above the water surface (e.g. running into a curve).
+        // Using unsigned comparison to match ROM's bhi (branch if higher, unsigned).
+        if (Integer.compareUnsigned(pinnedY, player.getCentreY()) > 0) {
+            return exitBySpeedLoss(player);
+        }
 
         // Check speed threshold — exit if too slow
+        // ROM: cmpi.w #$700,d1 / blo.s loc_38646 (sonic3k.asm:75440-75441)
         int absXSpeed = Math.abs(player.getXSpeed());
         if (absXSpeed < SPEED_THRESHOLD) {
             return exitBySpeedLoss(player);
         }
 
+        // NOW pin player Y to water surface (only if still skimming)
+        // ROM: move.w d0,y_pos(a1) / move.w #0,y_vel(a1) (sonic3k.asm:75442-75443)
+        player.setCentreY((short) pinnedY);
+        player.setYSpeed((short) 0);
+
         // Apply friction when airborne and no directional input
         // ROM: btst #Status_InAir,status(a1) / andi.w #(left|right)<<8,d5
         if (player.getAir() && !player.isLeftPressed() && !player.isRightPressed()) {
             applySkimFriction(player);
+            // ROM: move.w x_vel(a1),d0 / beq.s loc_38646 (sonic3k.asm:75452)
+            // If friction reduced x_vel to zero, exit skim immediately
+            if (player.getXSpeed() == 0) {
+                return exitBySpeedLoss(player);
+            }
         }
 
         // Play SFX periodically
