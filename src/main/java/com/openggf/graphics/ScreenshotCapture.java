@@ -251,7 +251,7 @@ public final class ScreenshotCapture {
 
     /**
      * Capture the framebuffer and save directly to a PNG file using STBImageWrite.
-     * This method does NOT depend on java.awt and is safe for GraalVM native-image builds.
+     * This method does NOT depend on AWT and is safe for GraalVM native-image builds.
      *
      * @param width  Width of the capture area in pixels
      * @param height Height of the capture area in pixels
