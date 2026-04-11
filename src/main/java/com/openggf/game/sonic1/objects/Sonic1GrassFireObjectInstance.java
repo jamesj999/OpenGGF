@@ -381,11 +381,9 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isPersistent() {
-        // Fire objects are cleaned up by their parent platform (LGrass_DelFlames).
-        // They should persist as long as not destroyed and visible.
-        if (isDestroyed()) {
-            return false;
-        }
-        return isOnScreen(64);
+        // ROM parity: GrassFire has NO out-of-range check. Fire objects persist
+        // until the parent platform explicitly destroys them via LGrass_DelFlames.
+        // The parent handles cleanup when IT goes off-screen.
+        return !isDestroyed();
     }
 }

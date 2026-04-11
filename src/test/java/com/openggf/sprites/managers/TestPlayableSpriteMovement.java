@@ -6,9 +6,12 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.tests.FullReset;
+import com.openggf.tests.SingletonResetExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
 import com.openggf.game.GroundMode;
@@ -19,6 +22,8 @@ import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ExtendWith(SingletonResetExtension.class)
+@FullReset
 public class TestPlayableSpriteMovement {
 
         private PlayableSpriteMovement manager;
