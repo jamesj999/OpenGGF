@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.OscillationManager;
+import com.openggf.game.RuntimeManager;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.RomByteReader;
@@ -33,25 +34,30 @@ public class TestSonic1PatternAnimatorMagma {
     @Test
     public void marbleMagmaBodyTilesAreGeneratedAndAnimated() throws IOException {
         OscillationManager.reset();
+        RuntimeManager.createGameplay();
 
-        int required = Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA + 16;
-        TestLevel level = new TestLevel(required + 32);
+        try {
+            int required = Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA + 16;
+            TestLevel level = new TestLevel(required + 32);
 
-        Sonic1PatternAnimator animator = new Sonic1PatternAnimator(
-                RomByteReader.fromRom(romRule.rom()),
-                level,
-                Sonic1Constants.ZONE_MZ);
+            Sonic1PatternAnimator animator = new Sonic1PatternAnimator(
+                    RomByteReader.fromRom(romRule.rom()),
+                    level,
+                    Sonic1Constants.ZONE_MZ);
 
-        int magmaTile = Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA;
-        byte[] initial = dumpMagmaBlock(level, magmaTile);
+            int magmaTile = Sonic1Constants.ARTTILE_MZ_ANIMATED_MAGMA;
+            byte[] initial = dumpMagmaBlock(level, magmaTile);
 
-        for (int frame = 1; frame <= 13; frame++) {
-            OscillationManager.update(frame);
-            animator.update();
+            for (int frame = 1; frame <= 13; frame++) {
+                OscillationManager.update(frame);
+                animator.update();
+            }
+
+            byte[] animated = dumpMagmaBlock(level, magmaTile);
+            assertFalse("MZ magma block should animate over time", Arrays.equals(initial, animated));
+        } finally {
+            RuntimeManager.destroyCurrent();
         }
-
-        byte[] animated = dumpMagmaBlock(level, magmaTile);
-        assertFalse("MZ magma block should animate over time", Arrays.equals(initial, animated));
     }
 
     private static byte[] dumpPattern(Pattern pattern) {

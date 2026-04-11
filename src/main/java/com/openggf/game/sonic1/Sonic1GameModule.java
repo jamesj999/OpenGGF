@@ -41,6 +41,7 @@ import com.openggf.game.GameId;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.titlecard.Sonic1TitleCardManager;
 import com.openggf.level.objects.ObjectRegistry;
@@ -267,7 +268,7 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public SuperStateController createSuperStateController(AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {
-            return com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures().createSuperStateController(player);
+            return GameServices.crossGameFeatures().createSuperStateController(player);
         }
         return null; // Vanilla S1 has no Super Sonic
     }
