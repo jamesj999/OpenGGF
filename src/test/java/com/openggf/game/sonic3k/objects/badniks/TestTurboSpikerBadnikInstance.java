@@ -11,6 +11,8 @@ import com.openggf.level.objects.StubObjectServices;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.TestablePlayableSprite;
+import com.openggf.tests.rules.SingletonResetRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 
@@ -27,6 +29,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
 public class TestTurboSpikerBadnikInstance {
+
+    @Rule
+    public SingletonResetRule resetRule = new SingletonResetRule();
 
     @org.junit.Before
     public void setUp() {
