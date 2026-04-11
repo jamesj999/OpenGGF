@@ -14,6 +14,7 @@ public class PixelFontTextRenderer {
 
     private final PixelFont font;
     private TexturedQuadRenderer renderer;
+    private float[] projectionMatrix;
 
     public PixelFontTextRenderer() {
         this(new PixelFont());
@@ -31,9 +32,24 @@ public class PixelFontTextRenderer {
         return font.measureWidth(text);
     }
 
+    public void setProjectionMatrix(float[] projectionMatrix) {
+        this.projectionMatrix = Objects.requireNonNull(projectionMatrix, "projectionMatrix");
+        if (renderer != null) {
+            renderer.setProjectionMatrix(this.projectionMatrix);
+        }
+    }
+
     public void drawShadowedText(String text, int x, int y, DebugColor color) {
         drawRawText(text, x + 1, y + 1, DebugColor.BLACK);
         drawRawText(text, x, y, color);
+    }
+
+    public void cleanup() {
+        if (renderer != null) {
+            renderer.cleanup();
+            renderer = null;
+        }
+        font.cleanup();
     }
 
     protected void drawRawText(String text, int x, int y, DebugColor color) {
@@ -51,12 +67,22 @@ public class PixelFontTextRenderer {
             return;
         }
         try {
-            renderer = new TexturedQuadRenderer();
+            renderer = createRenderer();
             renderer.init();
             font.init(FONT_PATH, renderer);
+            if (projectionMatrix != null) {
+                renderer.setProjectionMatrix(projectionMatrix);
+            }
         } catch (IOException e) {
-            renderer = null;
+            if (renderer != null) {
+                renderer.cleanup();
+                renderer = null;
+            }
             throw new IllegalStateException("Failed to initialize pixel font renderer", e);
         }
+    }
+
+    protected TexturedQuadRenderer createRenderer() {
+        return new TexturedQuadRenderer();
     }
 }
