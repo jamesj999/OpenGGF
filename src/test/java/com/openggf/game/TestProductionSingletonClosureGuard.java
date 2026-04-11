@@ -86,6 +86,14 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic1/credits/";
     private static final String SONIC1_TITLECARD_PACKAGE =
             "com/openggf/game/sonic1/titlecard/";
+    private static final String SONIC1_SPECIAL_STAGE_PACKAGE =
+            "com/openggf/game/sonic1/specialstage/";
+    private static final List<String> SONIC1_REMAINING_RUNTIME_FILES = List.of(
+            "com/openggf/game/sonic1/Sonic1PatternAnimator.java",
+            "com/openggf/game/sonic1/Sonic1PaletteCycler.java",
+            "com/openggf/game/sonic1/Sonic1Level.java",
+            "com/openggf/game/sonic1/Sonic1GameModule.java"
+    );
     private static final List<String> LEVEL_AND_OBJECT_CORE_FILES = List.of(
             "com/openggf/level/LevelManager.java",
             "com/openggf/level/AbstractLevel.java",
@@ -426,6 +434,28 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 1 title-card package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic1RemainingRuntimePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> {
+                    String rel = srcMain.relativize(path).toString().replace('\\', '/');
+                    return rel.startsWith(SONIC1_SPECIAL_STAGE_PACKAGE) || SONIC1_REMAINING_RUNTIME_FILES.contains(rel);
+                })
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in remaining Sonic 1 runtime packages:\n  "
                     + String.join("\n  ", violations));
         }
     }

@@ -9,6 +9,7 @@ import com.openggf.level.Pattern;
 import com.openggf.level.SolidTile;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -55,51 +56,66 @@ public class TestSonic1PaletteCyclerLz {
 
     @Test
     public void firstUpdateAppliesLzWaterfallAndConveyorToNormalPalettes() {
-        TestLevel level = new TestLevel();
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
+        RuntimeManager.createGameplay();
+        try {
+            TestLevel level = new TestLevel();
+            Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
-        cycler.update();
+            cycler.update();
 
-        assertColorMatches(PAL_LZ_CYC1, 0, level.getPalette(2), 11);
-        assertColorMatches(PAL_LZ_CYC1, 2, level.getPalette(2), 12);
-        assertColorMatches(PAL_LZ_CYC1, 4, level.getPalette(2), 13);
-        assertColorMatches(PAL_LZ_CYC1, 6, level.getPalette(2), 14);
+            assertColorMatches(PAL_LZ_CYC1, 0, level.getPalette(2), 11);
+            assertColorMatches(PAL_LZ_CYC1, 2, level.getPalette(2), 12);
+            assertColorMatches(PAL_LZ_CYC1, 4, level.getPalette(2), 13);
+            assertColorMatches(PAL_LZ_CYC1, 6, level.getPalette(2), 14);
 
-        assertColorMatches(PAL_LZ_CYC2, 6, level.getPalette(3), 11);
-        assertColorMatches(PAL_LZ_CYC2, 8, level.getPalette(3), 12);
-        assertColorMatches(PAL_LZ_CYC2, 10, level.getPalette(3), 13);
+            assertColorMatches(PAL_LZ_CYC2, 6, level.getPalette(3), 11);
+            assertColorMatches(PAL_LZ_CYC2, 8, level.getPalette(3), 12);
+            assertColorMatches(PAL_LZ_CYC2, 10, level.getPalette(3), 13);
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
     }
 
     @Test
     public void firstUpdateAppliesUnderwaterWaterfallAndConveyorPalettes() throws Exception {
-        TestLevel level = new TestLevel();
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
+        RuntimeManager.createGameplay();
+        try {
+            TestLevel level = new TestLevel();
+            Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
-        cycler.update();
+            cycler.update();
 
-        Palette[] underwater = extractUnderwaterPalettes(cycler, 0);
+            Palette[] underwater = extractUnderwaterPalettes(cycler, 0);
 
-        assertColorMatches(PAL_LZ_CYC1, 0, underwater[2], 11);
-        assertColorMatches(PAL_LZ_CYC1, 2, underwater[2], 12);
-        assertColorMatches(PAL_LZ_CYC1, 4, underwater[2], 13);
-        assertColorMatches(PAL_LZ_CYC1, 6, underwater[2], 14);
+            assertColorMatches(PAL_LZ_CYC1, 0, underwater[2], 11);
+            assertColorMatches(PAL_LZ_CYC1, 2, underwater[2], 12);
+            assertColorMatches(PAL_LZ_CYC1, 4, underwater[2], 13);
+            assertColorMatches(PAL_LZ_CYC1, 6, underwater[2], 14);
 
-        assertColorMatches(PAL_LZ_CYC3, 6, underwater[3], 11);
-        assertColorMatches(PAL_LZ_CYC3, 8, underwater[3], 12);
-        assertColorMatches(PAL_LZ_CYC3, 10, underwater[3], 13);
+            assertColorMatches(PAL_LZ_CYC3, 6, underwater[3], 11);
+            assertColorMatches(PAL_LZ_CYC3, 8, underwater[3], 12);
+            assertColorMatches(PAL_LZ_CYC3, 10, underwater[3], 13);
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
     }
 
     @Test
     public void reversedConveyorUsesOppositeFrameOrder() {
-        TestLevel level = new TestLevel();
-        conveyorState.setReversed(true);
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
+        RuntimeManager.createGameplay();
+        try {
+            TestLevel level = new TestLevel();
+            conveyorState.setReversed(true);
+            Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
-        cycler.update();
+            cycler.update();
 
-        assertColorMatches(PAL_LZ_CYC2, 12, level.getPalette(3), 11);
-        assertColorMatches(PAL_LZ_CYC2, 14, level.getPalette(3), 12);
-        assertColorMatches(PAL_LZ_CYC2, 16, level.getPalette(3), 13);
+            assertColorMatches(PAL_LZ_CYC2, 12, level.getPalette(3), 11);
+            assertColorMatches(PAL_LZ_CYC2, 14, level.getPalette(3), 12);
+            assertColorMatches(PAL_LZ_CYC2, 16, level.getPalette(3), 13);
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
     }
 
     private static void assertColorMatches(byte[] data, int offset, Palette palette, int colorIndex) {

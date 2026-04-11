@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
@@ -38,7 +39,6 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
     private static final Logger LOG = Logger.getLogger(Sonic1PatternAnimator.class.getName());
 
     private final Level level;
-    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
     private final List<AnimHandler> handlers;
 
     Sonic1PatternAnimator(RomByteReader reader, Level level, int zoneIndex) {
@@ -50,6 +50,7 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
 
     @Override
     public void update() {
+        GraphicsManager graphicsManager = GameServices.graphics();
         for (AnimHandler handler : handlers) {
             handler.tick(level, graphicsManager);
         }
@@ -309,6 +310,7 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
     }
 
     private void primeAll() {
+        GraphicsManager graphicsManager = GameServices.graphics();
         for (AnimHandler handler : handlers) {
             handler.prime(level, graphicsManager);
         }
