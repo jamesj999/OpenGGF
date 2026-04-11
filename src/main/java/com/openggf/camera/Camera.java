@@ -2,6 +2,7 @@ package com.openggf.camera;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
@@ -90,7 +91,7 @@ public class Camera {
 	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
 
 	public Camera() {
-		this(com.openggf.game.RuntimeManager.getEngineServices().configuration());
+		this(GameServices.configuration());
 	}
 
 	public Camera(SonicConfigurationService configService) {

@@ -4,6 +4,7 @@ import com.openggf.Engine;
 import com.openggf.GameLoop;
 import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.control.InputHandler;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.PerformanceProfiler;
@@ -66,6 +67,28 @@ class TestEngineServices {
         new GameLoop(injectedRoot);
 
         assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+    }
+
+    @Test
+    void defaultEngineConstructorUsesCurrentlyConfiguredEngineServicesRoot() {
+        EngineServices configuredRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        RuntimeManager.configureEngineServices(configuredRoot);
+
+        new Engine();
+
+        assertSame(configuredRoot, RuntimeManager.currentEngineServices());
+    }
+
+    @Test
+    void defaultGameLoopConstructorsUseCurrentlyConfiguredEngineServicesRoot() {
+        EngineServices configuredRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        RuntimeManager.configureEngineServices(configuredRoot);
+
+        new GameLoop();
+        assertSame(configuredRoot, RuntimeManager.currentEngineServices());
+
+        new GameLoop(new InputHandler());
+        assertSame(configuredRoot, RuntimeManager.currentEngineServices());
     }
 
     @Test

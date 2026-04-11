@@ -3,6 +3,7 @@ package com.openggf.data;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -36,7 +37,7 @@ public class RomManager implements AutoCloseable {
     }
 
     private SonicConfigurationService configService() {
-        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        return GameServices.configuration();
     }
 
     /**
@@ -145,7 +146,7 @@ public class RomManager implements AutoCloseable {
      * @return the configured ROM filename for that game
      */
     public static String resolveRomForGame(String gameId) {
-        SonicConfigurationService svc = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        SonicConfigurationService svc = GameServices.configuration();
         return switch (gameId != null ? gameId.toLowerCase() : "s2") {
             case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
             case "s3k" -> svc.getString(SonicConfiguration.SONIC_3K_ROM);

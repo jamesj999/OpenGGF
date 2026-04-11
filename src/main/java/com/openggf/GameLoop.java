@@ -173,7 +173,7 @@ public class GameLoop {
     private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
-        this(com.openggf.game.RuntimeManager.getEngineServices());
+        this(RuntimeManager.currentEngineServices());
     }
 
     public GameLoop(EngineServices engineServices) {
@@ -189,7 +189,7 @@ public class GameLoop {
     }
 
     public GameLoop(InputHandler inputHandler) {
-        this(com.openggf.game.RuntimeManager.getEngineServices(), inputHandler);
+        this(RuntimeManager.currentEngineServices(), inputHandler);
     }
 
     public GameLoop(EngineServices engineServices, InputHandler inputHandler) {

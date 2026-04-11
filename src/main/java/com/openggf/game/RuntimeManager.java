@@ -46,6 +46,10 @@ public final class RuntimeManager {
         return engineServices;
     }
 
+    public static synchronized EngineServices currentEngineServices() {
+        return getEngineServices();
+    }
+
     /**
      * Returns the current gameplay runtime, or {@code null} if none exists
      * (e.g. during master title screen before any game is loaded).

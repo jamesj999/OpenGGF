@@ -85,6 +85,13 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic1/credits/";
     private static final String SONIC1_TITLECARD_PACKAGE =
             "com/openggf/game/sonic1/titlecard/";
+    private static final List<String> COMPOSITION_ROOT_FILES = List.of(
+            "com/openggf/Engine.java",
+            "com/openggf/GameLoop.java",
+            "com/openggf/game/GameServices.java",
+            "com/openggf/camera/Camera.java",
+            "com/openggf/data/RomManager.java"
+    );
     private static final List<String> LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST = List.of(
             "com/openggf/game/EngineServices.java",
             "com/openggf/game/RuntimeManager.java"
@@ -224,6 +231,26 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in bootstrap-adjacent helpers:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void compositionRootsDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> COMPOSITION_ROOT_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in composition-root files:\n  "
                     + String.join("\n  ", violations));
         }
     }

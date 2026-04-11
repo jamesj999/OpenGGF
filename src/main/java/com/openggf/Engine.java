@@ -163,7 +163,7 @@ public class Engine {
 	}
 
 	public Engine() {
-		this(com.openggf.game.RuntimeManager.getEngineServices());
+		this(RuntimeManager.currentEngineServices());
 	}
 
 	public Engine(EngineServices engineServices) {
