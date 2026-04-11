@@ -74,6 +74,10 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/MasterTitleScreen.java";
     private static final String SONIC2_MENU_PACKAGE =
             "com/openggf/game/sonic2/menu/";
+    private static final String SONIC2_TITLESCREEN_PACKAGE =
+            "com/openggf/game/sonic2/titlescreen/";
+    private static final String SONIC2_TITLECARD_PACKAGE =
+            "com/openggf/game/sonic2/titlecard/";
     private static final String SONIC2_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic2/levelselect/";
     private static final String SONIC3K_LEVELSELECT_PACKAGE =
@@ -339,6 +343,29 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 2 level-select package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic2TitlePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> {
+                    String rel = srcMain.relativize(path).toString().replace('\\', '/');
+                    return rel.startsWith(SONIC2_TITLESCREEN_PACKAGE)
+                            || rel.startsWith(SONIC2_TITLECARD_PACKAGE);
+                })
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 2 title packages:\n  "
                     + String.join("\n  ", violations));
         }
     }

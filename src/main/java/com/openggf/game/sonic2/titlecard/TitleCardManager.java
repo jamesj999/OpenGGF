@@ -424,7 +424,7 @@ public class TitleCardManager implements TitleCardProvider {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null) {
             return;
         }
@@ -671,7 +671,7 @@ public class TitleCardManager implements TitleCardProvider {
     public void draw() {
         ensureArtCached();
 
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (graphicsManager == null) {
             return;
         }
