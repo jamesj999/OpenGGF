@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.LevelGamestate;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.LevelManager;
@@ -18,18 +19,13 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class TestMegaChopperBadnikInstance {
 
     @Test
     public void captureKeepsPlayerMobileAndDrainsOneRingAfterSixtyFrames() throws Exception {
-        LevelManager levelManager = mock(LevelManager.class);
         LevelGamestate levelState = new LevelGamestate();
-        when(levelManager.getLevelGamestate()).thenReturn(levelState);
-
-        LevelManager original = installLevelManager(levelManager);
+        installLevelGamestate(levelState);
         try {
             RecordingServices services = new RecordingServices();
             MegaChopperBadnikInstance megaChopper = new MegaChopperBadnikInstance(
@@ -62,17 +58,14 @@ public class TestMegaChopperBadnikInstance {
             assertEquals(2, player.getRingCount());
             assertTrue(services.playedSfx.contains(Sonic3kSfx.RING_RIGHT.id));
         } finally {
-            restoreLevelManager(original);
+            installLevelGamestate(null);
         }
     }
 
     @Test
     public void alternatingLeftRightInputReleasesCapturedPlayer() throws Exception {
-        LevelManager levelManager = mock(LevelManager.class);
         LevelGamestate levelState = new LevelGamestate();
-        when(levelManager.getLevelGamestate()).thenReturn(levelState);
-
-        LevelManager original = installLevelManager(levelManager);
+        installLevelGamestate(levelState);
         try {
             MegaChopperBadnikInstance megaChopper = new MegaChopperBadnikInstance(
                     new ObjectSpawn(0x200, 0x180, Sonic3kObjectIds.MEGA_CHOPPER, 0, 0, false, 0));
@@ -96,7 +89,7 @@ public class TestMegaChopperBadnikInstance {
             assertEquals("RELEASED", readState(megaChopper));
             assertTrue(megaChopper.getCollisionFlags() != 0);
         } finally {
-            restoreLevelManager(original);
+            installLevelGamestate(null);
         }
     }
 
@@ -106,18 +99,21 @@ public class TestMegaChopperBadnikInstance {
         return String.valueOf(field.get(megaChopper));
     }
 
-    private static LevelManager installLevelManager(LevelManager replacement) throws Exception {
-        Field field = LevelManager.class.getDeclaredField("levelManager");
+    /**
+     * Installs a LevelGamestate on the runtime's LevelManager so that
+     * {@code AbstractPlayableSprite.currentLevelState()} returns it.
+     * The runtime path takes priority over the static singleton, so we
+     * must set the field on the runtime's LevelManager instance.
+     */
+    private static void installLevelGamestate(LevelGamestate gamestate) throws Exception {
+        // Ensure a runtime exists (tests may run before any runtime is created)
+        if (RuntimeManager.getCurrent() == null) {
+            RuntimeManager.createGameplay();
+        }
+        LevelManager lm = RuntimeManager.getCurrent().getLevelManager();
+        Field field = LevelManager.class.getDeclaredField("levelGamestate");
         field.setAccessible(true);
-        LevelManager original = (LevelManager) field.get(null);
-        field.set(null, replacement);
-        return original;
-    }
-
-    private static void restoreLevelManager(LevelManager original) throws Exception {
-        Field field = LevelManager.class.getDeclaredField("levelManager");
-        field.setAccessible(true);
-        field.set(null, original);
+        field.set(lm, gamestate);
     }
 
     private static final class RecordingServices extends StubObjectServices {
