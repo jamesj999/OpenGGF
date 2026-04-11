@@ -1,10 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
-import com.openggf.level.objects.ObjectSpawn;
-
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
 
@@ -14,6 +9,7 @@ import java.util.logging.Logger;
 public class ExplosionObjectInstance extends AbstractObjectInstance {
     private static final Logger LOGGER = Logger.getLogger(ExplosionObjectInstance.class.getName());
     private final ObjectRenderManager renderManager;
+    private int pendingSfxId = -1;
     private int animTimer = 0;
     private int animFrame = 0;
     // S1 disassembly: obTimeFrame = 7, counts 7→0 then advances = 8 game frames per sprite frame
@@ -33,12 +29,28 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
     public ExplosionObjectInstance(int id, int x, int y, ObjectRenderManager renderManager, int sfxId) {
         super(new ObjectSpawn(x, y, id, 0, 0, false, 0), "Explosion");
         this.renderManager = renderManager;
-        if (sfxId >= 0) {
-            try {
-                com.openggf.game.RuntimeManager.getEngineServices().audio().playSfx(sfxId);
-            } catch (Exception e) {
-                LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
+        this.pendingSfxId = sfxId;
+        playPendingSfxIfPossible();
+    }
+
+    @Override
+    public void setServices(ObjectServices services) {
+        super.setServices(services);
+        playPendingSfxIfPossible();
+    }
+
+    private void playPendingSfxIfPossible() {
+        if (pendingSfxId < 0) {
+            return;
+        }
+        try {
+            ObjectServices ctx = tryServices();
+            if (ctx != null) {
+                ctx.playSfx(pendingSfxId);
+                pendingSfxId = -1;
             }
+        } catch (Exception e) {
+            LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
         }
     }
 

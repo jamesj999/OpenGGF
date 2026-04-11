@@ -27,7 +27,8 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
         private StubLevelManager(GameRuntime runtime) {
             super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
-                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState());
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState(),
+                    runtime.getEngineServices());
         }
 
         @Override

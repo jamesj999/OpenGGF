@@ -63,7 +63,8 @@ public class TestLevelManagerSlotBackgroundCopy {
     private static final class TestLevelManager extends LevelManager {
         private TestLevelManager(GameRuntime runtime) {
             super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
-                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState());
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState(),
+                    runtime.getEngineServices());
         }
 
         @Override

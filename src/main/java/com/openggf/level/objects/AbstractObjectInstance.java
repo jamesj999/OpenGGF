@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.configuration.SonicConfiguration;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
@@ -284,12 +285,6 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Returns the application configuration service.
-     * <p>
-     * This is a convenience accessor that keeps {@code com.openggf.game.RuntimeManager.getEngineServices().configuration()}
-     * out of leaf-class bytecode, preventing false positives in the migration guard test.
-     */
-    /**
      * Returns the construction-time services context.
      * Usable from static factory methods called during object construction.
      */
@@ -298,34 +293,35 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     protected SonicConfigurationService config() {
-        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        return services().configuration();
     }
 
     /**
      * Returns the debug overlay manager.
-     * <p>
-     * Convenience accessor that keeps {@code com.openggf.game.RuntimeManager.getEngineServices().debugOverlay()}
-     * out of leaf-class bytecode, preventing false positives in the migration guard test.
      */
     protected DebugOverlayManager debugOverlay() {
-        return com.openggf.game.RuntimeManager.getEngineServices().debugOverlay();
+        return services().debugOverlay();
     }
 
     /**
-     * Static accessor for debug view config check, usable from static field initializers.
-     * Keeps {@code com.openggf.game.RuntimeManager.getEngineServices().configuration()} out of leaf-class bytecode.
+     * Static accessor for debug view config check, usable from field initializers.
      */
     protected static boolean staticDebugViewEnabled() {
-        return com.openggf.game.RuntimeManager.getEngineServices().configuration()
-                .getBoolean(com.openggf.configuration.SonicConfiguration.DEBUG_VIEW_ENABLED);
+        ObjectServices ctx = constructionContext();
+        SonicConfigurationService configuration = ctx != null ? ctx.configuration() : null;
+        if (configuration == null) {
+            configuration = GameServices.configuration();
+        }
+        return configuration.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 
     /**
-     * Static accessor for debug overlay manager, usable from static field initializers.
-     * Keeps {@code com.openggf.game.RuntimeManager.getEngineServices().debugOverlay()} out of leaf-class bytecode.
+     * Static accessor for debug overlay manager, usable from field initializers.
      */
     protected static DebugOverlayManager staticDebugOverlay() {
-        return com.openggf.game.RuntimeManager.getEngineServices().debugOverlay();
+        ObjectServices ctx = constructionContext();
+        DebugOverlayManager overlayManager = ctx != null ? ctx.debugOverlay() : null;
+        return overlayManager != null ? overlayManager : GameServices.debugOverlay();
     }
 
     /**
@@ -344,11 +340,12 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Static accessor for RomManager, usable from static helper methods.
-     * Keeps {@code com.openggf.game.RuntimeManager.getEngineServices().roms()} out of leaf-class bytecode.
+     * Static accessor for RomManager, usable from helper methods during object setup.
      */
     protected static RomManager staticRomManager() {
-        return com.openggf.game.RuntimeManager.getEngineServices().roms();
+        ObjectServices ctx = constructionContext();
+        RomManager romManager = ctx != null ? ctx.romManager() : null;
+        return romManager != null ? romManager : GameServices.rom();
     }
 
     /**
