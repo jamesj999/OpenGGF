@@ -10,6 +10,7 @@ import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -23,10 +24,20 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TestGameRuntime {
 
+    @BeforeEach
+    public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
+        GameModuleRegistry.reset();
+    }
+
     @AfterEach
     public void tearDown() {
-        // Clean up any runtime left by tests
-        RuntimeManager.setCurrent(null);
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
+        GameModuleRegistry.reset();
     }
 
     @Test
@@ -87,6 +98,22 @@ public class TestGameRuntime {
     public void runtimeManager_getCurrent_returnsNullBeforeCreate() {
         RuntimeManager.setCurrent(null);
         assertNull(RuntimeManager.getCurrent());
+    }
+
+    @Test
+    public void runtimeManager_getCurrent_throwsWhenEngineServicesMissing() throws Exception {
+        RuntimeManager.setCurrent(null);
+
+        Field engineServicesField = RuntimeManager.class.getDeclaredField("engineServices");
+        engineServicesField.setAccessible(true);
+        Object configuredRoot = engineServicesField.get(null);
+        try {
+            engineServicesField.set(null, null);
+            IllegalStateException ex = assertThrows(IllegalStateException.class, RuntimeManager::getCurrent);
+            assertTrue(ex.getMessage().contains("EngineServices have not been configured."));
+        } finally {
+            engineServicesField.set(null, configuredRoot);
+        }
     }
 
     @Test

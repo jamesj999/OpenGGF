@@ -235,7 +235,7 @@ public class GraphicsManager {
 	}
 
 	private void syncRuntimeManagedReferences() {
-		GameRuntime runtime = RuntimeManager.getCurrent();
+		GameRuntime runtime = RuntimeManager.getActiveRuntime();
 		Camera resolvedCamera = runtime != null ? runtime.getCamera() : getOrCreateBootstrapCamera();
 		if (camera != resolvedCamera) {
 			camera = resolvedCamera;
