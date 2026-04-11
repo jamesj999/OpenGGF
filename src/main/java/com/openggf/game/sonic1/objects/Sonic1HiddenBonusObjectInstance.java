@@ -173,14 +173,14 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
             state = State.DELETED;
             return;
         }
-        if (!isOnScreenX(0x80)) {
+        if (!isInRange()) {
             state = State.DELETED;
         }
     }
 
     private void checkOutOfRange() {
         // ROM: out_of_range.s .delete
-        if (!isOnScreenX(0x80)) {
+        if (!isInRange()) {
             state = State.DELETED;
         }
     }
