@@ -1,6 +1,5 @@
 package com.openggf.timer.timers;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.timer.AbstractTimer;
@@ -26,7 +25,7 @@ public class SpeedShoesTimer extends AbstractTimer {
         sprite.deactivateSpeedShoes();
 
         // Slow down the music
-        AudioManager audioManager = com.openggf.game.RuntimeManager.getEngineServices().audio();
+        var audioManager = sprite.currentAudioManager();
         GameAudioProfile audioProfile = audioManager.getAudioProfile();
         if (audioProfile != null) {
             audioManager.playMusic(audioProfile.getSpeedShoesOffCommandId());

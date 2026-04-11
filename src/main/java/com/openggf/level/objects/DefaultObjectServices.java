@@ -15,6 +15,7 @@ import com.openggf.game.GameModule;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
@@ -83,7 +84,7 @@ public class DefaultObjectServices implements ObjectServices {
                                  ParallaxManager parallaxManager) {
         this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem,
                 parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2),
-                com.openggf.game.RuntimeManager.getEngineServices());
+                engineServicesFromGameServices());
     }
 
     private DefaultObjectServices(LevelManager levelManager,
@@ -106,6 +107,19 @@ public class DefaultObjectServices implements ObjectServices {
         this.worldSession = worldSession;
         this.rng = Objects.requireNonNull(rng, "rng");
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
+    }
+
+    private static EngineServices engineServicesFromGameServices() {
+        return new EngineServices(
+                GameServices.configuration(),
+                GameServices.graphics(),
+                GameServices.audio(),
+                GameServices.rom(),
+                GameServices.profiler(),
+                GameServices.debugOverlay(),
+                GameServices.playbackDebug(),
+                GameServices.romDetection(),
+                GameServices.crossGameFeatures());
     }
 
     private LevelManager lm() {

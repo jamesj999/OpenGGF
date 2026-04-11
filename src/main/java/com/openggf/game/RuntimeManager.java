@@ -161,7 +161,7 @@ public final class RuntimeManager {
         CollisionSystem collisionSystem = new CollisionSystem(terrainCollisionManager);
         SpriteManager spriteManager = new SpriteManager();
         LevelManager levelManager = new LevelManager(
-                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState);
+                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState, services);
         GameModule currentModule = GameModuleRegistry.getCurrent();
         GameRng rng = new GameRng(currentModule != null
                 ? currentModule.rngFlavour()

@@ -62,6 +62,7 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/EngineServices.java";
     private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineServices.fromLegacySingletonsForBootstrap(";
     private static final String ENGINE_SERVICES_LOCATOR = "RuntimeManager.getEngineServices(";
+    private static final String ENGINE_SERVICES_LOCATOR_ALIAS = "RuntimeManager.currentEngineServices(";
     private static final String EDITOR_RENDERER_PACKAGE = "com/openggf/editor/render/";
     private static final String ABSTRACT_LEVEL_INIT_PROFILE =
             "com/openggf/game/AbstractLevelInitProfile.java";
@@ -85,6 +86,17 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic1/credits/";
     private static final String SONIC1_TITLECARD_PACKAGE =
             "com/openggf/game/sonic1/titlecard/";
+    private static final List<String> LEVEL_AND_OBJECT_CORE_FILES = List.of(
+            "com/openggf/level/LevelManager.java",
+            "com/openggf/level/AbstractLevel.java",
+            "com/openggf/level/rings/RingManager.java",
+            "com/openggf/level/objects/AbstractObjectInstance.java",
+            "com/openggf/level/objects/DefaultObjectServices.java",
+            "com/openggf/level/objects/ObjectManager.java",
+            "com/openggf/level/objects/ExplosionObjectInstance.java",
+            "com/openggf/level/objects/boss/AbstractBossInstance.java",
+            "com/openggf/timer/timers/SpeedShoesTimer.java"
+    );
     private static final List<String> GRAPHICS_INFRASTRUCTURE_FILES = List.of(
             "com/openggf/graphics/BatchedPatternRenderer.java",
             "com/openggf/graphics/InstancedPatternRenderer.java",
@@ -414,6 +426,27 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 1 title-card package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void levelAndObjectCoreDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> LEVEL_AND_OBJECT_CORE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in level/object core runtime:\n  "
                     + String.join("\n  ", violations));
         }
     }

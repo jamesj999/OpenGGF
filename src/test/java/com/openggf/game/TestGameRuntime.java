@@ -207,6 +207,8 @@ public class TestGameRuntime {
         assertNotNull("configuration", GameServices.configuration());
         assertNotNull("debugOverlay", GameServices.debugOverlay());
         assertNotNull("graphics", GameServices.graphics());
+        assertNotNull("profiler", GameServices.profiler());
+        assertNotNull("playbackDebug", GameServices.playbackDebug());
         assertNotNull("romDetection", GameServices.romDetection());
         assertNotNull("crossGameFeatures", GameServices.crossGameFeatures());
     }

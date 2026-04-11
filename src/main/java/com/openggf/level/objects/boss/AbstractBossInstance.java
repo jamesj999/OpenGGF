@@ -356,7 +356,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private void uploadPaletteToGpu(Palette palette) {
-            GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+            GraphicsManager gm = services().graphicsManager();
             if (gm.isGlInitialized()) {
                 int paletteIndex = getPaletteLineForFlash();
                 gm.cachePaletteTexture(palette, paletteIndex);

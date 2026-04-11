@@ -1,6 +1,7 @@
 package com.openggf.level;
 
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
@@ -84,7 +85,7 @@ public abstract class AbstractLevel implements Level {
             return;
         }
         patterns = Arrays.copyOf(patterns, minCount);
-        GraphicsManager graphicsMan = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsMan = GameServices.graphics();
         for (int i = patternCount; i < minCount; i++) {
             patterns[i] = new Pattern();
             if (graphicsMan.isGlInitialized()) {

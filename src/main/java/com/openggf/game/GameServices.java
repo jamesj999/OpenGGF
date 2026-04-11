@@ -5,6 +5,8 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.PerformanceProfiler;
+import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -200,6 +202,14 @@ public final class GameServices {
 
     public static GraphicsManager graphics() {
         return RuntimeManager.currentEngineServices().graphics();
+    }
+
+    public static PerformanceProfiler profiler() {
+        return RuntimeManager.currentEngineServices().profiler();
+    }
+
+    public static PlaybackDebugManager playbackDebug() {
+        return RuntimeManager.currentEngineServices().playbackDebug();
     }
 
     public static RomDetectionService romDetection() {

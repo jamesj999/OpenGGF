@@ -114,15 +114,17 @@ public class LevelManager {
         return tilemapManager;
     }
 
-    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+    private GraphicsManager graphicsManager;
+    private AudioManager audioManager;
     private SpriteManager spriteManager;
     private CollisionSystem collisionSystem;
     private WaterSystem waterSystem;
     private GameStateManager gameState;
-    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
-    private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
+    private SonicConfigurationService configService;
+    private DebugOverlayManager overlayManager;
     private LevelDebugRenderer debugRenderer;
-    private final PerformanceProfiler profiler = com.openggf.game.RuntimeManager.getEngineServices().profiler();
+    private PerformanceProfiler profiler;
+    private CrossGameFeatureProvider crossGameFeatures;
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
     private int apparentAct = 0;
@@ -155,8 +157,8 @@ public class LevelManager {
 
 
     // Cached screen dimensions (avoids repeated config service lookups)
-    private final int cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-    private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+    private int cachedScreenWidth;
+    private int cachedScreenHeight;
 
     // Camera reference for frustum culling
     private Camera camera;
@@ -167,14 +169,22 @@ public class LevelManager {
     // Pre-allocated GLCommand objects to avoid per-frame lambda/command allocations.
     // These are safe to reuse because the command list is cleared each frame in flushWithCamera().
 
+    private GraphicsManager graphics() {
+        return graphicsManager;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService;
+    }
+
     // Disable shimmer distortion for water surface sprites (no per-frame captures)
     private final GLCommand disableShimmerCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
+        WaterShaderProgram waterShader = graphics().getWaterShaderProgram();
         if (waterShader != null) {
             waterShader.use();
             waterShader.setShimmerStyle(0);
         }
-        WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
+        WaterShaderProgram instancedWaterShader = graphics().getInstancedWaterShaderProgram();
         if (instancedWaterShader != null) {
             instancedWaterShader.use();
             instancedWaterShader.setShimmerStyle(0);
@@ -187,7 +197,7 @@ public class LevelManager {
 
     // Revert to default shader for HUD rendering (no per-frame captures)
     private final GLCommand disableWaterShaderCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        graphicsManager.setUseWaterShader(false);
+        graphics().setUseWaterShader(false);
         PatternRenderCommand.resetFrameState();
     });
 
@@ -196,35 +206,35 @@ public class LevelManager {
     private int pendingWaterShimmerStyle;
     private boolean pendingSuppressUnderwaterPalette;
     private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        graphicsManager.setUseWaterShader(true);
+        graphics().setUseWaterShader(true);
 
-        WaterShaderProgram shader = graphicsManager.getWaterShaderProgram();
+        WaterShaderProgram shader = graphics().getWaterShaderProgram();
         shader.use();
 
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         float windowHeight = (float) viewportBuffer[3];
-        float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        float screenHeightPixels = (float) configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
         shader.setWindowHeight(windowHeight);
         shader.setWaterlineScreenY(pendingWaterlineScreenY);
         shader.setFrameCounter(frameCounter);
         shader.setDistortionAmplitude(0.0f);
         shader.setShimmerStyle(pendingWaterShimmerStyle);
-        shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-        shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+        shader.setIndexedTextureWidth(graphics().getPatternAtlasWidth());
+        shader.setScreenDimensions((float) configuration().getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                 screenHeightPixels);
 
-        graphicsManager.setWaterEnabled(!pendingSuppressUnderwaterPalette);
-        graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
-        graphicsManager.setWindowHeight(windowHeight);
-        graphicsManager.setScreenHeight(screenHeightPixels);
+        graphics().setWaterEnabled(!pendingSuppressUnderwaterPalette);
+        graphics().setWaterlineScreenY(pendingWaterlineScreenY);
+        graphics().setWindowHeight(windowHeight);
+        graphics().setScreenHeight(screenHeightPixels);
 
         int zoneId = getFeatureZoneId();
         Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
         if (underwater != null) {
             Palette normalLine0 = (level != null) ? level.getPalette(0) : null;
-            graphicsManager.cacheUnderwaterPaletteTexture(underwater, normalLine0);
-            Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+            graphics().cacheUnderwaterPaletteTexture(underwater, normalLine0);
+            Integer texId = graphics().getUnderwaterPaletteTextureId();
             int loc = shader.getUnderwaterPaletteLocation();
 
             if (texId != null && loc != -1) {
@@ -235,12 +245,12 @@ public class LevelManager {
             }
         }
 
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer != null) {
             tilemapRenderer.setShimmerState(frameCounter, pendingWaterShimmerStyle);
         }
 
-        WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
+        WaterShaderProgram instancedShader = graphics().getInstancedWaterShaderProgram();
         if (instancedShader != null) {
             instancedShader.use();
             instancedShader.cacheUniformLocations();
@@ -249,15 +259,15 @@ public class LevelManager {
             instancedShader.setFrameCounter(frameCounter);
             instancedShader.setDistortionAmplitude(0.0f);
             instancedShader.setShimmerStyle(pendingWaterShimmerStyle);
-            instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-            instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
-                    (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
+            instancedShader.setIndexedTextureWidth(graphics().getPatternAtlasWidth());
+            instancedShader.setScreenDimensions((float) configuration().getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                    (float) configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
 
             Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
             if (underwaterInstanced != null) {
                 Palette normalLine0Instanced = (level != null) ? level.getPalette(0) : null;
-                graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced, normalLine0Instanced);
-                Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+                graphics().cacheUnderwaterPaletteTexture(underwaterInstanced, normalLine0Instanced);
+                Integer texId = graphics().getUnderwaterPaletteTextureId();
                 int loc = instancedShader.getUnderwaterPaletteLocation();
                 if (texId != null && loc != -1) {
                     glActiveTexture(GL_TEXTURE2);
@@ -274,7 +284,7 @@ public class LevelManager {
     private int pendingBgRenderWidth;
     private int pendingBgRenderHeight;
     private final GLCommand bgEnsureCapacityCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer != null) {
             bgRenderer.ensureCapacity(pendingBgRenderWidth, pendingBgRenderHeight);
         }
@@ -289,7 +299,7 @@ public class LevelManager {
     private int pendingBgVOffset;
     private boolean pendingBgPerLineScroll;
     private final GLCommand bgRenderWithScrollCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer != null) {
             bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgVScrollData, pendingBgVScrollColumnData,
                     pendingBgShaderScrollMidpoint, pendingBgShaderExtraBuffer,
@@ -309,7 +319,7 @@ public class LevelManager {
     private Integer pendingFgPaletteId_low;
     private Integer pendingFgUnderwaterPaletteId_low;
     private final GLCommand fgTilemapPassLowCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer == null) {
             return;
         }
@@ -329,8 +339,8 @@ public class LevelManager {
                 viewportBuffer[3],
                 pendingFgWorldOffsetX_low,
                 pendingFgWorldOffsetY_low,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFgAtlasId_low,
                 pendingFgPaletteId_low,
                 pendingFgUnderwaterPaletteId_low != null ? pendingFgUnderwaterPaletteId_low : 0,
@@ -352,7 +362,7 @@ public class LevelManager {
     private Integer pendingFgPaletteId_high;
     private Integer pendingFgUnderwaterPaletteId_high;
     private final GLCommand fgTilemapPassHighCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer == null) {
             return;
         }
@@ -372,8 +382,8 @@ public class LevelManager {
                 viewportBuffer[3],
                 pendingFgWorldOffsetX_high,
                 pendingFgWorldOffsetY_high,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFgAtlasId_high,
                 pendingFgPaletteId_high,
                 pendingFgUnderwaterPaletteId_high != null ? pendingFgUnderwaterPaletteId_high : 0,
@@ -392,8 +402,8 @@ public class LevelManager {
     private Integer pendingFboAtlasId;
     private Integer pendingFboPaletteId;
     private final GLCommand highPriorityFboCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilePriorityFBO tileFbo = graphics().getTilePriorityFBO();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tileFbo == null || tilemapRenderer == null) {
             return;
         }
@@ -416,8 +426,8 @@ public class LevelManager {
                 0, 0, pendingFboScreenW, pendingFboScreenH,
                 pendingFboFgWorldOffsetX,
                 pendingFboFgWorldOffsetY,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFboAtlasId,
                 pendingFboPaletteId,
                 0, 1, verticalWrapEnabled, true, false, 0.0f);
@@ -441,19 +451,19 @@ public class LevelManager {
     private float pendingBgTilePassVdpWrapWidth;
     private float pendingBgTilePassNametableBase;
     private final GLCommand bgTilePassCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer == null) {
             return;
         }
         bgRenderer.beginTilePass(pendingBgTilePassRenderWidth, pendingBgTilePassRenderHeight, true);
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer != null) {
             int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
             tilemapRenderer.setShimmerState(frameCounter, 0);
 
-            Integer atlasId = graphicsManager.getPatternAtlasTextureId();
-            Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+            Integer atlasId = graphics().getPatternAtlasTextureId();
+            Integer paletteId = graphics().getCombinedPaletteTextureId();
+            Integer underwaterPaletteId = graphics().getUnderwaterPaletteTextureId();
             boolean useUnderwaterPalette = pendingBgTilePassHasWater && underwaterPaletteId != null;
             if (atlasId != null && paletteId != null) {
                 if (pendingBgTilePassPerLineScroll) {
@@ -476,8 +486,8 @@ public class LevelManager {
                         viewportBuffer[3],
                         pendingBgTilePassBgTilemapWorldOffsetX,
                         (float) pendingBgTilePassAlignedBgY,
-                        graphicsManager.getPatternAtlasWidth(),
-                        graphicsManager.getPatternAtlasHeight(),
+                        graphics().getPatternAtlasWidth(),
+                        graphics().getPatternAtlasHeight(),
                         atlasId,
                         paletteId,
                         underwaterPaletteId != null ? underwaterPaletteId : 0,
@@ -518,13 +528,22 @@ public class LevelManager {
      */
     public LevelManager(Camera camera, SpriteManager spriteManager,
                         ParallaxManager parallaxManager, CollisionSystem collisionSystem,
-                        WaterSystem waterSystem, GameStateManager gameState) {
+                        WaterSystem waterSystem, GameStateManager gameState,
+                        EngineServices engineServices) {
         this.camera = camera;
         this.spriteManager = spriteManager;
         this.parallaxManager = parallaxManager;
         this.collisionSystem = collisionSystem;
         this.waterSystem = waterSystem;
         this.gameState = gameState;
+        this.graphicsManager = engineServices.graphics();
+        this.audioManager = engineServices.audio();
+        this.configService = engineServices.configuration();
+        this.overlayManager = engineServices.debugOverlay();
+        this.profiler = engineServices.profiler();
+        this.crossGameFeatures = engineServices.crossGameFeatures();
+        this.cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+        this.cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
     }
 
     /**
@@ -622,7 +641,6 @@ public class LevelManager {
      * Phase C/F: Configure audio manager and play level music.
      */
     public void initAudio(int levelIndex) throws IOException {
-        AudioManager audioManager = com.openggf.game.RuntimeManager.getEngineServices().audio();
         audioManager.setAudioProfile(gameModule.getAudioProfile());
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
@@ -812,7 +830,7 @@ public class LevelManager {
      */
     public void initRings() {
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
-        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable, audioManager);
         ringManager.reset(camera.getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
     }
@@ -1236,8 +1254,7 @@ public class LevelManager {
         RenderContext.clearSidekickContexts();
         dustBankCount = 0;
         tailsTailBankCount = 0;
-        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
-        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
             artProvider = crossGame;
@@ -1455,8 +1472,7 @@ public class LevelManager {
     }
 
     private void initSpindashDust(AbstractPlayableSprite playable) {
-        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
-        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         SpindashDustArtProvider dustProv;
         if (CrossGameFeatureProvider.isActive()) {
             dustProv = crossGame;
@@ -1515,8 +1531,7 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
-        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         // Check donor game first (cross-game donation), then fall back to base game module
         boolean isS3k = CrossGameFeatureProvider.isActive()
                 ? crossGame.hasSeparateTailsTailArt()
@@ -2866,7 +2881,7 @@ public class LevelManager {
         level.setPalette(paletteIndex, newPalette);
 
         // Update the graphics manager's cached palette texture
-        GraphicsManager graphicsMan = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsMan = graphicsManager;
         if (graphicsMan.isGlInitialized()) {
             graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
         }
@@ -3298,7 +3313,7 @@ public class LevelManager {
         playable.setHighPriority(false);
         playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         playable.setRingCount(0);
-        com.openggf.game.RuntimeManager.getEngineServices().audio().getBackend().setSpeedShoes(false);
+        audioManager.getBackend().setSpeedShoes(false);
     }
 
     /**
@@ -3632,7 +3647,7 @@ public class LevelManager {
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
-            com.openggf.game.RuntimeManager.getEngineServices().audio().playMusic(request.musicOverrideId());
+            audioManager.playMusic(request.musicOverrideId());
         }
 
         // 10. In-level title card if requested
@@ -3723,7 +3738,7 @@ public class LevelManager {
 
         // Rebuild RingManager with the new act's ring spawns
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
-        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable, audioManager);
         ringManager.reset(cameraX);
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
 
