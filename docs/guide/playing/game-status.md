@@ -1,6 +1,6 @@
 # Game Status
 
-Last updated: 2026-03-25 (post-v0.4.20260304)
+Last updated: 2026-04-11 (v0.5.20260411)
 
 This page describes the current state of each supported game. It is intended to set
 expectations honestly -- what works well, what is incomplete, and what you might encounter.
@@ -80,36 +80,35 @@ expectations honestly -- what works well, what is incomplete, and what you might
 
 ## Sonic 3 & Knuckles (S3K)
 
-**Status: Early. Angel Island Zone with intro cutscene and first-act gameplay.**
+**Status: Expanding. AIZ is substantially playable and HCZ now has early gameplay coverage.**
 
 ### What works
 
-- Angel Island Zone Act 1 playable with gameplay objects.
-- AIZ intro cutscene (biplane sequence).
-- AIZ miniboss encounter.
-- Hollow tree traversal and vine mechanics.
-- Water system with underwater palettes.
-- AIZ fire transition (Act 1 to Act 2 seamless zone change).
-- Shield system (fire, electric, water) with PLC integration.
-- Initial badnik implementations for AIZ.
+- Angel Island Zone intro cutscene, Act 1 gameplay, miniboss defeat flow, signpost, and results.
+- AIZ fire transition, Flying Battery bombing sequence, AIZ2 end boss, post-boss capsule flow,
+  and AIZ-to-HCZ transition.
+- HCZ water rush, conveyor, fan, block, door, water skim, miniboss, and HCZ1-to-HCZ2 transition work.
+- Title screen and level select screen.
+- Knuckles as a playable character, including glide/climb support.
+- Blue Ball special stages and active bonus-stage work across Gumball, Glowing Sphere/Pachinko,
+  and Slots.
+- Shield system, water system, palette cycling, and expanding badnik/object coverage.
 - SMPS audio with S3K-specific driver configuration (Z80 bank-switching, DPCM).
 
 ### Known gaps
 
-- Only Angel Island Zone has meaningful gameplay support. Other zones may load but are
-  not playable.
+- S3K is not yet playable from start to finish.
+- Non-AIZ/HCZ zones may load but still need major object, event, scroll, boss, and PLC parity work.
 - Many S3K objects, badniks, and bosses are not yet implemented.
-- S3K's more complex PLC/art loading system has partial parity.
-- No Knuckles character support.
+- Bonus stages are still in active parity work rather than final polish.
+- S3K's more complex PLC/art loading system still has partial parity.
 - No save/load system.
-- No special stages.
-- Zone transitions beyond AIZ Act 1 -> Act 2 are not implemented.
 
 ### Notable quirks
 
 - S3K uses KosinskiM (Kosinski Moduled) compression, combined 1P+2P mapping tables,
   and a more complex Z80 sound driver than S1/S2.
-- S3K is the current development focus for v0.5 (see ROADMAP.md).
+- S3K remains the current development focus after v0.5; see ROADMAP.md for the v0.6+ direction.
 
 ---
 

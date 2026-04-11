@@ -173,7 +173,7 @@ behaviour.
 
 ## Releases
 
-### v0.5 (Unreleased, in progress on `develop`)
+### v0.5.20260411 (Released 2026-04-11)
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and multi-instance play-testing, while Sonic 3 & Knuckles

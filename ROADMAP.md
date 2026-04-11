@@ -37,7 +37,7 @@ A smaller number of fully coherent zones, cutscenes, and gameplay flows is more 
 
 Each release should have a narrow theme, explicit exit criteria, and documentation that matches reality.
 
-## v0.5 Retrospective (2026-03-25)
+## v0.5 Retrospective (2026-04-11)
 
 ### What the roadmap asked for
 
@@ -47,41 +47,26 @@ hygiene.
 
 ### What actually happened
 
-The release skewed heavily architectural. 1,805 commits delivered:
+The release became the largest modernization pass since the project was revived. It delivered:
 
 **Delivered against v0.5 goals:**
-- S3K object coverage is clearly broader: AIZ miniboss defeat flow completed, signpost and results
-  screen, Blue Ball special stages (WIP), insta-shield, ~10 new objects, per-character physics,
-  palette cycling for all zones.
-- S3K PLC art registry populated for all zone badniks; DPLC and mapping table fixes.
-- Shared systems hardened significantly (see below).
-- Release metadata, CI, user guide, and docs all aligned.
+- AIZ coverage is substantially deeper: AIZ miniboss defeat flow, signpost/results, Blue Ball
+  entry/return, AIZ2 Flying Battery bombing sequence, AIZ2 end boss, post-boss capsule/cutscene
+  flow, and the AIZ-to-HCZ transition are represented.
+- HCZ is no longer just a load/render target: HCZ water rush, conveyor, fan, block, door, water
+  skim, HCZ1 miniboss, and HCZ1-to-HCZ2 transition work landed.
+- S3K bonus-stage coverage expanded across Gumball, Glowing Sphere/Pachinko, and Slots.
+- S3K object/badnik coverage expanded with MegaChopper, Poindexter, Blastoid, Buggernaut, Bubbler,
+  TurboSpiker, InvisibleHurtBlockH, CollapsingBridge, and related art/PLC wiring.
+- Shared systems hardened significantly: two-tier services, GameRuntime ownership, LevelManager
+  decomposition, MutableLevel, common base classes/utilities, trace replay infrastructure, and
+  broader singleton lifecycle testing.
 
-**Not delivered against v0.5 goals:**
-- No second playable S3K zone. AIZ2 itself is incomplete: missing the Flying Battery event, the
-  AIZ2 boss fight, and the AIZ-to-HCZ transition. HCZ has palette cycling and a water surface
-  object but no scroll handler, events, or playable object set.
-- No new S3K scroll handlers beyond `SwScrlAiz`.
-- No zone-specific event scripting beyond AIZ.
-
-**Delivered ahead of schedule (v0.6/v0.7 items):**
-- **Two-tier service architecture**: all 180+ object classes migrated from singleton access to
-  `GameServices`/`ObjectServices` injection with NoOp sentinels. This was not in any roadmap
-  milestone.
-- **GameRuntime**: explicit mutable state owner with `resetState()` lifecycle on all singletons.
-  Enables safe editor mode enter/exit. This is v0.6 editor foundation work.
-- **LevelManager decomposition**: the engine's largest class broken into three focused components.
-  This is the kind of separation the v0.6 tooling theme requires.
-- **MutableLevel**: snapshot, mutation, and dirty-region tracking for level data. This is
-  directly v0.6 level editor foundation.
-- **Common code extraction (5 phases)**: 15+ abstract base classes, 10+ shared utilities,
-  systematic deduplication. This makes the engine materially easier to extend (v0.6 exit criterion).
-- **User guide**: comprehensive contributor documentation (v0.6 goal).
-- **Cross-game abstraction**: `PlayableEntity`, `DonorCapabilities`, `CanonicalAnimation`,
-  `AnimationTranslator`, bidirectional donation. More cross-game maturity than the roadmap
-  anticipated at any milestone.
-- **Multi-sidekick system** and **Tails AI rework**: these are v0.7 "close gameplay gaps" items.
-- **Insta-shield**: a complete new gameplay mechanic with ROM parity.
+**Still incomplete after v0.5:**
+- S3K is not yet a full-game path. Non-AIZ/HCZ zones still need object, event, scroll, boss, and
+  PLC parity work.
+- Bonus stages are active implementations, not pixel-perfect finished systems.
+- The level editor foundation exists, but the editor remains a future release goal.
 
 ### Assessment
 
@@ -89,27 +74,14 @@ The shared-system hardening goal was exceeded. The S3K expansion goal was partia
 depth but missed on zone breadth. The release pulled forward substantial v0.6 editor foundation
 and v0.7 gameplay gap work that was not originally planned for v0.5.
 
-The remaining v0.5 S3K work (complete AIZ2, begin HCZ) carries forward as the immediate priority.
-
 ---
 
-## Proposed Priorities (Updated 2026-03-25)
-
-## v0.5 Remaining: Complete AIZ
-
-Before tagging v0.5, the following must land:
-
-1. **Flying Battery event/cutscene** at end of AIZ2.
-2. **AIZ2 boss fight** (Eggman flame-craft).
-3. **AIZ-to-HCZ zone transition** (bridge burn, waterfall drop).
-
-These three items close AIZ as the first fully playable S3K zone from intro cutscene to zone
-transition. This is the minimum bar for the v0.5 exit criteria.
+## Proposed Priorities (Updated 2026-04-11)
 
 ## v0.6 Theme: S3K Zone Breadth and Level Editor
 
-The v0.6 scope now combines the remaining S3K zone expansion (originally v0.5) with the tooling
-foundation theme (originally v0.6), since much of the editor foundation was already delivered.
+The v0.6 scope continues the S3K zone expansion and turns the editor foundation from v0.5 into a
+usable prototype.
 
 ### Primary Goals
 
@@ -120,7 +92,7 @@ foundation theme (originally v0.6), since much of the editor foundation was alre
 
 ### Priority Areas
 
-#### 1. S3K Zone Expansion (carried from v0.5)
+#### 1. S3K Zone Expansion
 
 - HCZ scroll handlers, zone events, objects, and boss scaffolding.
 - At least one more zone (CNZ or MHZ) with scroll handler and basic playability.
@@ -187,5 +159,6 @@ These are all valid ideas, but they should not outrank the current roadmap theme
 
 ## Short Version
 
-Complete AIZ2 for v0.5. Then `v0.6` expands S3K zone breadth and delivers a level editor prototype,
-`v0.7` focuses on completion and parity closure.
+`v0.5.20260411` establishes the S3K AIZ-to-HCZ baseline and shared architecture hardening.
+`v0.6` expands S3K zone breadth and delivers a level editor prototype; `v0.7` focuses on completion
+and parity closure.
