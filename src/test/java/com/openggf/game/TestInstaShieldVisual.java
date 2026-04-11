@@ -7,6 +7,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.RgbaImage;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.ScreenshotCapture;
 import com.openggf.level.LevelManager;
@@ -24,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 
-import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -213,7 +213,7 @@ public class TestInstaShieldVisual {
             System.out.println("After extended jump: isAir=" + isAir);
         }
 
-        BufferedImage preFrame = renderFrame(lm, sm);
+        RgbaImage preFrame = renderFrame(lm, sm);
         ScreenshotCapture.savePNG(preFrame, OUT_DIR.resolve("frame_pre_activation.png"));
         System.out.println("Saved pre-activation frame");
 
@@ -234,7 +234,7 @@ public class TestInstaShieldVisual {
         for (int i = 0; i < 20; i++) {
             stepFrame(false, false, false, false, false);
 
-            BufferedImage frame = renderFrame(lm, sm);
+            RgbaImage frame = renderFrame(lm, sm);
             assertNotNull(frame, "Framebuffer capture returned null at frame " + i);
 
             String filename = String.format("frame_%02d.png", i);
@@ -292,7 +292,7 @@ public class TestInstaShieldVisual {
         });
     }
 
-    private BufferedImage renderFrame(LevelManager lm, SpriteManager sm) {
+    private RgbaImage renderFrame(LevelManager lm, SpriteManager sm) {
         glClearColor(0f, 0f, 0f, 1f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -316,21 +316,21 @@ public class TestInstaShieldVisual {
         return ScreenshotCapture.captureFramebuffer(W, H);
     }
 
-    private static int countNonBackgroundPixelsAround(BufferedImage img, int cx, int cy, int halfSize) {
-        int bgRgb = img.getRGB(0, 0);
+    private static int countNonBackgroundPixelsAround(RgbaImage img, int cx, int cy, int halfSize) {
+        int bgRgb = img.argb(0, 0);
         int bgR = (bgRgb >> 16) & 0xFF;
         int bgG = (bgRgb >> 8) & 0xFF;
         int bgB = bgRgb & 0xFF;
 
         int count = 0;
         int startX = Math.max(0, cx - halfSize);
-        int endX = Math.min(img.getWidth(), cx + halfSize);
+        int endX = Math.min(img.width(), cx + halfSize);
         int startY = Math.max(0, cy - halfSize);
-        int endY = Math.min(img.getHeight(), cy + halfSize);
+        int endY = Math.min(img.height(), cy + halfSize);
 
         for (int y = startY; y < endY; y++) {
             for (int x = startX; x < endX; x++) {
-                int rgb = img.getRGB(x, y);
+                int rgb = img.argb(x, y);
                 int r = (rgb >> 16) & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
