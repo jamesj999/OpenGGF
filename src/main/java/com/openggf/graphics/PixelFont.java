@@ -56,6 +56,14 @@ public class PixelFont {
         buildLookup(ROW4, 4);
     }
 
+    public static int glyphWidth() {
+        return GLYPH_W;
+    }
+
+    public static int glyphHeight() {
+        return GLYPH_H;
+    }
+
     private void buildLookup(String row, int rowIndex) {
         for (int col = 0; col < row.length() && col < COLS; col++) {
             char c = row.charAt(col);
