@@ -1,5 +1,6 @@
 package com.openggf.level;
 
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ public class TestLevelManagerSlotBackgroundCopy {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         runtime = RuntimeManager.createGameplay();
     }
 
@@ -81,7 +83,7 @@ public class TestLevelManagerSlotBackgroundCopy {
         private final Map<Integer, Integer> writes = new HashMap<>();
 
         RecordingTilemapManager() {
-            super(null, null);
+            super(null, null, null);
         }
 
         @Override
