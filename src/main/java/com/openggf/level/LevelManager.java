@@ -673,7 +673,7 @@ public class LevelManager {
                 level, blockPixelSize, overlayManager, graphicsManager,
                 cachedScreenWidth, cachedScreenHeight));
         cacheLevelDimensions();
-        tilemapManager = new LevelTilemapManager(buildGeometry(), graphicsManager);
+        tilemapManager = new LevelTilemapManager(buildGeometry(), graphicsManager, gameState);
         return loaded;
     }
 

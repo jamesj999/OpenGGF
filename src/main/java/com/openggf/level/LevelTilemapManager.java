@@ -1,6 +1,6 @@
 package com.openggf.level;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternAtlas;
@@ -27,6 +27,7 @@ public class LevelTilemapManager {
     // --- Dependencies ---
     private LevelGeometry geometry;
     private final GraphicsManager graphicsManager;
+    private final GameStateManager gameState;
 
     // --- Background tilemap data ---
     private byte[] backgroundTilemapData;
@@ -81,10 +82,12 @@ public class LevelTilemapManager {
      *
      * @param geometry        level geometry snapshot (dimensions, level reference)
      * @param graphicsManager graphics manager for pattern atlas access
+     * @param gameState       runtime game state retained across parked editor mode
      */
-    public LevelTilemapManager(LevelGeometry geometry, GraphicsManager graphicsManager) {
+    public LevelTilemapManager(LevelGeometry geometry, GraphicsManager graphicsManager, GameStateManager gameState) {
         this.geometry = geometry;
         this.graphicsManager = graphicsManager;
+        this.gameState = gameState;
     }
 
     // -----------------------------------------------------------------------
@@ -308,7 +311,7 @@ public class LevelTilemapManager {
         boolean bgWrap = layerIndex == 1
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
-                && !GameServices.gameState().isHtzScreenShakeActive();
+                && (gameState == null || !gameState.isHtzScreenShakeActive());
         // Use the scroll handler's required period width (may be wider than 512px
         // for zones with multi-speed parallax like GHZ).
         int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()

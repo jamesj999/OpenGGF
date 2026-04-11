@@ -4,17 +4,20 @@ import com.openggf.Engine;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
+import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.game.session.EditorPlaytestStash;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.AbstractLevel;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
@@ -24,6 +27,10 @@ import com.openggf.level.MutableLevel;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.SolidTile;
+import com.openggf.level.LevelGeometry;
+import com.openggf.level.LevelManager;
+import com.openggf.level.LevelTilemapManager;
+import com.openggf.level.ParallaxManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
@@ -54,6 +61,55 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 class TestEditorToggleIntegration {
+    private static final ParallaxManager SINGLE_CHUNK_BG_PERIOD = new ParallaxManager() {
+        @Override
+        public int getBgPeriodWidth() {
+            return 16;
+        }
+    };
+
+    private static final ZoneFeatureProvider BG_WRAPPING_ZONE_FEATURES = new ZoneFeatureProvider() {
+        @Override
+        public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) {
+        }
+
+        @Override
+        public void update(com.openggf.sprites.playable.AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        }
+
+        @Override
+        public void reset() {
+        }
+
+        @Override
+        public boolean hasCollisionFeatures(int zoneIndex) {
+            return false;
+        }
+
+        @Override
+        public boolean hasWater(int zoneIndex) {
+            return false;
+        }
+
+        @Override
+        public int getWaterLevel(int zoneIndex, int actIndex) {
+            return Integer.MAX_VALUE;
+        }
+
+        @Override
+        public void render(com.openggf.camera.Camera camera, int frameCounter) {
+        }
+
+        @Override
+        public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
+            return baseIndex;
+        }
+
+        @Override
+        public boolean bgWrapsHorizontally() {
+            return true;
+        }
+    };
 
     @BeforeEach
     void setUp() {
@@ -223,6 +279,37 @@ class TestEditorToggleIntegration {
         assertEquals(103, engine.getLevelEditorController().worldCursor().x());
         assertEquals(103, SessionManager.getCurrentEditorMode().getCursor().x());
         assertEquals(200, SessionManager.getCurrentEditorMode().getCursor().y());
+    }
+
+    @Test
+    void parkedRuntimeSpriteRendering_doesNotRequireActiveGameServicesRuntime() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+
+        assertNull(RuntimeManager.getCurrent());
+        assertDoesNotThrow(() -> runtime.getSpriteManager().drawLowPriority());
+    }
+
+    @Test
+    void parkedRuntimeBackgroundTilemapBuild_doesNotRequireActiveGameServicesRuntime() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        runtime.getLevelManager().setLevel(MutableLevel.snapshot(new BackgroundTilemapLevel()));
+        initializeTilemapManager(runtime.getLevelManager());
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+
+        assertNull(RuntimeManager.getCurrent());
+        assertDoesNotThrow(() -> runtime.getLevelManager().getTilemapManager().ensureBackgroundTilemapData(
+                (layer, x, y) -> lookupBlock(runtime.getLevelManager(), layer, x, y),
+                BG_WRAPPING_ZONE_FEATURES,
+                runtime.getLevelManager().getCurrentZone(),
+                SINGLE_CHUNK_BG_PERIOD,
+                runtime.getLevelManager().isVerticalWrapEnabled()));
     }
 
     @Test
@@ -640,6 +727,33 @@ class TestEditorToggleIntegration {
         setCurrent.invoke(null, runtime);
     }
 
+    private static Block lookupBlock(LevelManager levelManager, byte layer, int x, int y) {
+        try {
+            Method getBlockAtPosition = LevelManager.class.getDeclaredMethod("getBlockAtPosition", byte.class, int.class, int.class);
+            getBlockAtPosition.setAccessible(true);
+            return (Block) getBlockAtPosition.invoke(levelManager, layer, x, y);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to invoke LevelManager block lookup", e);
+        }
+    }
+
+    private static void initializeTilemapManager(LevelManager levelManager) {
+        try {
+            Method buildGeometry = LevelManager.class.getDeclaredMethod("buildGeometry");
+            buildGeometry.setAccessible(true);
+            LevelGeometry geometry = (LevelGeometry) buildGeometry.invoke(levelManager);
+
+            Field tilemapManagerField = LevelManager.class.getDeclaredField("tilemapManager");
+            tilemapManagerField.setAccessible(true);
+            tilemapManagerField.set(levelManager, new LevelTilemapManager(
+                    geometry,
+                    GraphicsManager.getInstance(),
+                    RuntimeManager.getActiveRuntime() != null ? RuntimeManager.getActiveRuntime().getGameState() : null));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to initialize tilemap manager for test", e);
+        }
+    }
+
     private static void forceControllerCursor(LevelEditorController controller, EditorCursorState cursor) throws Exception {
         Field field = LevelEditorController.class.getDeclaredField("worldCursor");
         field.setAccessible(true);
@@ -696,6 +810,61 @@ class TestEditorToggleIntegration {
         @Override
         public int getBlockPixelSize() {
             return 1;
+        }
+    }
+
+    private static final class BackgroundTilemapLevel extends AbstractLevel {
+        private BackgroundTilemapLevel() {
+            super(0);
+            patternCount = 1;
+            patterns = new Pattern[patternCount];
+            patterns[0] = new Pattern();
+            patterns[0].setPixel(0, 0, (byte) 1);
+
+            chunkCount = 1;
+            chunks = new Chunk[chunkCount];
+            chunks[0] = new Chunk();
+            chunks[0].restoreState(new int[8 * 8]);
+
+            blockCount = 1;
+            blocks = new Block[blockCount];
+            blocks[0] = new Block(8);
+            for (int y = 0; y < 8; y++) {
+                for (int x = 0; x < 8; x++) {
+                    blocks[0].setChunkDesc(x, y, new ChunkDesc(0));
+                }
+            }
+
+            solidTileCount = 1;
+            solidTiles = new SolidTile[] {
+                    new SolidTile(0, new byte[SolidTile.TILE_SIZE_IN_ROM], new byte[SolidTile.TILE_SIZE_IN_ROM], (byte) 0)
+            };
+
+            map = new Map(2, 1, 1);
+            map.setValue(0, 0, 0, (byte) 0);
+            map.setValue(1, 0, 0, (byte) 0);
+
+            palettes = new Palette[PALETTE_COUNT];
+            for (int i = 0; i < PALETTE_COUNT; i++) {
+                palettes[i] = new Palette();
+            }
+
+            objects = List.of();
+            rings = List.of();
+            minX = 0;
+            maxX = 127;
+            minY = 0;
+            maxY = 127;
+        }
+
+        @Override
+        public int getChunksPerBlockSide() {
+            return 8;
+        }
+
+        @Override
+        public int getBlockPixelSize() {
+            return 128;
         }
     }
 

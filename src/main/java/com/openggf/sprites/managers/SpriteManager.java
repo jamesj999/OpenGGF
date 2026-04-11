@@ -577,8 +577,8 @@ public class SpriteManager {
 	 * caller must disable it after drawing).
 	 */
 	private boolean enableVerticalWrapIfNeeded() {
-		Camera camera = currentCamera();
-		if (camera.isVerticalWrapEnabled()) {
+		Camera camera = GameServices.cameraOrNull();
+		if (camera != null && camera.isVerticalWrapEnabled()) {
 			GameServices.graphics().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
 			return true;
@@ -660,15 +660,11 @@ public class SpriteManager {
 	}
 
 	private LevelManager getLevelManager() {
-		LevelManager runtimeLevelManager = GameServices.level();
-		if (levelManager != runtimeLevelManager) {
+		LevelManager runtimeLevelManager = GameServices.levelOrNull();
+		if (runtimeLevelManager != null && levelManager != runtimeLevelManager) {
 			levelManager = runtimeLevelManager;
 		}
 		return levelManager;
-	}
-
-	private Camera currentCamera() {
-		return GameServices.camera();
 	}
 
 	private GameStateManager currentGameStateManager() {
