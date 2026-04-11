@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.sonic2.events.*;
 import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -95,7 +96,7 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     }
 
     private static PlayerCharacter resolvePlayerCharacterFromConfig() {
-        SonicConfigurationService config = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        SonicConfigurationService config = GameServices.configuration();
         if (config == null) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }
