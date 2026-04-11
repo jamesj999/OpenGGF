@@ -86,6 +86,18 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic2/specialstage/";
     private static final String SONIC2_SPECIAL_STAGE_DEBUG_FILE =
             "com/openggf/game/sonic2/debug/Sonic2SpecialStageSpriteDebug.java";
+    private static final List<String> SONIC2_CORE_FILES = List.of(
+            "com/openggf/game/sonic2/Sonic2LevelEventManager.java",
+            "com/openggf/game/sonic2/Sonic2Level.java",
+            "com/openggf/game/sonic2/Sonic2GameModule.java",
+            "com/openggf/game/sonic2/DynamicHtz.java",
+            "com/openggf/game/sonic2/OilSurfaceManager.java",
+            "com/openggf/game/sonic2/Sonic2ObjectArtProvider.java",
+            "com/openggf/game/sonic2/Sonic2PatternAnimator.java",
+            "com/openggf/game/sonic2/Sonic2PaletteCycler.java",
+            "com/openggf/game/sonic2/Sonic2ZoneFeatureProvider.java",
+            "com/openggf/game/sonic2/Sonic2SuperStateController.java"
+    );
     private static final String SONIC3K_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic3k/levelselect/";
     private static final String SONIC1_LEVELSELECT_PACKAGE =
@@ -413,6 +425,26 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 2 special-stage package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic2CorePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> SONIC2_CORE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 2 core packages:\n  "
                     + String.join("\n  ", violations));
         }
     }

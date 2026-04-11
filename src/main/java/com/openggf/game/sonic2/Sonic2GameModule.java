@@ -29,6 +29,7 @@ import com.openggf.game.EndingProvider;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.LevelInitProfile;
@@ -285,7 +286,7 @@ public class Sonic2GameModule implements GameModule {
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {
-            return com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures().createSuperStateController(player);
+            return GameServices.crossGameFeatures().createSuperStateController(player);
         }
         return new Sonic2SuperStateController(player);
     }
