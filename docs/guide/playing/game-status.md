@@ -1,6 +1,6 @@
 # Game Status
 
-Last updated: 2026-04-11 (v0.5.20260411)
+Last updated: 2026-04-11 (v0.6.prerelease development)
 
 This page describes the current state of each supported game. It is intended to set
 expectations honestly -- what works well, what is incomplete, and what you might encounter.
