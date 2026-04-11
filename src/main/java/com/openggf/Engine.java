@@ -225,6 +225,15 @@ public class Engine {
 	private void init() {
 		// === PHASE 1: Window, GL context, input (always runs) ===
 
+		// Temporary macOS workaround: the debug renderer's Java2D-backed glyph
+		// path is still initialized after GLFW, so pre-warm AWT before GLFW
+		// starts handling events. Skip in native-image builds where AWT is absent.
+		if (debugViewEnabled && !isNativeImage()) {
+			java.awt.Toolkit.getDefaultToolkit();
+			new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY)
+					.createGraphics().dispose();
+		}
+
 		// Setup an error callback
 		GLFWErrorCallback.createPrint(System.err).set();
 
