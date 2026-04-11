@@ -81,8 +81,6 @@ public class Engine {
 	private final PlaybackDebugManager playbackDebugManager;
 
 	private Camera camera;
-	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
-	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
 	private final PerformanceProfiler profiler;
 
@@ -191,7 +189,7 @@ public class Engine {
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
 
-		// Debug overlay uses Java2D (GlyphAtlas) which is unavailable in native images
+		// Some desktop-only debug helpers are still not native-safe.
 		if (isNativeImage()) {
 			debugViewEnabled = false;
 		}
@@ -224,15 +222,6 @@ public class Engine {
 
 	private void init() {
 		// === PHASE 1: Window, GL context, input (always runs) ===
-
-		// Temporary macOS workaround: the debug renderer's Java2D-backed glyph
-		// path is still initialized after GLFW, so pre-warm AWT before GLFW
-		// starts handling events. Skip in native-image builds where AWT is absent.
-		if (debugViewEnabled && !isNativeImage()) {
-			java.awt.Toolkit.getDefaultToolkit();
-			new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY)
-					.createGraphics().dispose();
-		}
 
 		// Setup an error callback
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -373,10 +362,7 @@ public class Engine {
 			initializeGame();
 		}
 
-		// Eagerly initialize debug renderer BEFORE the main loop starts.
-		// This is critical on macOS: the GlyphAtlas uses Java2D which conflicts
-		// with GLFW's event loop if initialized lazily during glfwPollEvents().
-		// Skip in native-image builds where AWT/Java2D is not available.
+		// Eagerly initialize debug renderer resources before the main loop starts.
 		if (debugViewEnabled && !isNativeImage()) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().eagerInit();

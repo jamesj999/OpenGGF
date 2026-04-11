@@ -22,13 +22,13 @@ import com.openggf.level.objects.TouchResponseDebugState;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
+import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
-import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +39,7 @@ public class DebugRenderer {
         private final DebugOverlayManager overlayManager;
         private final PlaybackDebugManager playbackDebugManager;
         private final PerformanceProfiler profiler;
+        private final PixelFontTextRenderer performanceTextRenderer;
         private GlyphBatchRenderer glyphBatch;
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
@@ -87,6 +88,7 @@ public class DebugRenderer {
                 this.overlayManager = Objects.requireNonNull(overlayManager, "overlayManager");
                 this.playbackDebugManager = Objects.requireNonNull(playbackDebugManager, "playbackDebugManager");
                 this.profiler = Objects.requireNonNull(profiler, "profiler");
+                this.performanceTextRenderer = new PixelFontTextRenderer();
                 this.baseWidth = this.configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
                 this.baseHeight = this.configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
                 this.viewportWidth = baseWidth;
@@ -94,15 +96,13 @@ public class DebugRenderer {
         }
 
 	/**
-	 * Eagerly initializes the glyph batch renderer.
-	 * Call this BEFORE the main loop starts to avoid macOS freeze issues.
-	 * The GlyphAtlas uses Java2D which conflicts with GLFW's event loop.
+	 * Eagerly initializes debug text resources.
 	 */
 	public void eagerInit() {
 		if (glyphBatch == null) {
 			float scale = (float) Math.max(scaleX, scaleY);
 			glyphBatch = new GlyphBatchRenderer();
-			glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
+			glyphBatch.init(null, scale);
 		}
 	}
 
@@ -111,13 +111,13 @@ public class DebugRenderer {
                 float scale = (float) Math.max(scaleX, scaleY);
                 if (glyphBatch == null) {
                         glyphBatch = new GlyphBatchRenderer();
-                        glyphBatch.init(new Font("SansSerif", Font.PLAIN, 11), scale);
+                        glyphBatch.init(null, scale);
                 }
                 if (!glyphBatch.isInitialized()) {
                         return;
                 }
                 // Reinitialize if scale changed significantly (e.g., window resize)
-                glyphBatch.updateScale(new Font("SansSerif", Font.PLAIN, 11), scale);
+                glyphBatch.updateScale(null, scale);
                 glyphBatch.updateViewport(viewportWidth, viewportHeight);
 
                 glyphBatch.begin();
@@ -815,7 +815,7 @@ public class DebugRenderer {
         private void renderPerformancePanel() {
                 if (performancePanelRenderer == null) {
                         performancePanelRenderer = new PerformancePanelRenderer(
-                                baseWidth, baseHeight, glyphBatch, GameServices.graphics(), profiler);
+                                baseWidth, baseHeight, performanceTextRenderer, GameServices.graphics(), profiler);
                 }
                 performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
 
