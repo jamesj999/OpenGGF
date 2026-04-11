@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.AnimatedPaletteProvider;
 import com.openggf.data.AnimatedPatternProvider;
 import com.openggf.data.Game;
@@ -322,7 +321,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
 
         // Character palette — Knuckles uses Pal_Knuckles, Sonic/Tails share Pal_SonicTails
-        String mainCharCode = com.openggf.game.RuntimeManager.getEngineServices().configuration()
+        String mainCharCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         int characterPaletteAddr;
         if ("knuckles".equalsIgnoreCase(mainCharCode)) {
@@ -519,7 +518,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int getCharacterStartTableAddr() {
-        String mainCharacterCode = com.openggf.game.RuntimeManager.getEngineServices().configuration()
+        String mainCharacterCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return Sonic3kConstants.KNUX_START_LOCATIONS_ADDR;
@@ -726,7 +725,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int resolveStartupCharacterPlcIndex() {
-        String mainCharacterCode = com.openggf.game.RuntimeManager.getEngineServices().configuration()
+        String mainCharacterCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return 0x05;

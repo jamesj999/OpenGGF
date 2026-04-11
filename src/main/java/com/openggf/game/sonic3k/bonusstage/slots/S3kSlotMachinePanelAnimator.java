@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
@@ -76,7 +77,7 @@ public final class S3kSlotMachinePanelAnimator {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsManager = GameServices.graphics();
         graphicsManager.beginPatternAtlasBatch();
         for (int reel = 0; reel < 3; reel++) {
             Pattern[] patterns = buildVisibleWindowPatterns(

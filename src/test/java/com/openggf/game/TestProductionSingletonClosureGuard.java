@@ -108,6 +108,24 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic3k/specialstage/";
     private static final String SONIC3K_FEATURE_PACKAGE =
             "com/openggf/game/sonic3k/features/";
+    private static final List<String> SONIC3K_CORE_FILES = List.of(
+            "com/openggf/game/sonic3k/Sonic3kBootstrapResolver.java",
+            "com/openggf/game/sonic3k/Sonic3k.java",
+            "com/openggf/game/sonic3k/Sonic3kLevel.java",
+            "com/openggf/game/sonic3k/Sonic3kGameModule.java",
+            "com/openggf/game/sonic3k/events/Sonic3kZoneEvents.java",
+            "com/openggf/game/sonic3k/events/Sonic3kHCZEvents.java",
+            "com/openggf/game/sonic3k/events/Sonic3kAIZEvents.java",
+            "com/openggf/game/sonic3k/Sonic3kLevelEventManager.java",
+            "com/openggf/game/sonic3k/bonusstage/slots/S3kSlotMachinePanelAnimator.java",
+            "com/openggf/game/sonic3k/bonusstage/slots/S3kSlotBonusStageRuntime.java",
+            "com/openggf/game/sonic3k/Sonic3kObjectArtProvider.java",
+            "com/openggf/game/sonic3k/Sonic3kPatternAnimator.java",
+            "com/openggf/game/sonic3k/Sonic3kPaletteCycler.java",
+            "com/openggf/game/sonic3k/Sonic3kPlcLoader.java",
+            "com/openggf/game/sonic3k/Sonic3kSuperStateController.java",
+            "com/openggf/game/sonic3k/Sonic3kZoneFeatureProvider.java"
+    );
     private static final String SONIC1_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic1/levelselect/";
     private static final String SONIC1_TITLESCREEN_PACKAGE =
@@ -154,7 +172,7 @@ public class TestProductionSingletonClosureGuard {
     );
     private static final List<String> LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST = List.of(
             "com/openggf/game/EngineServices.java",
-            "com/openggf/game/RuntimeManager.java"
+            "com/openggf/Engine.java"
     );
 
     @Test
@@ -534,6 +552,27 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 3K feature package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic3kCorePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> SONIC3K_CORE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 3K core packages:\n  "
                     + String.join("\n  ", violations));
         }
     }
