@@ -225,17 +225,6 @@ public class Engine {
 	private void init() {
 		// === PHASE 1: Window, GL context, input (always runs) ===
 
-		// CRITICAL: Initialize AWT BEFORE GLFW on macOS.
-		// Java2D uses Core Graphics which conflicts with GLFW's Cocoa event handling
-		// if AWT initializes after GLFW. Pre-loading AWT fixes the freeze.
-		// Skip in native-image builds where AWT is not available.
-		if (debugViewEnabled && !isNativeImage()) {
-			java.awt.Toolkit.getDefaultToolkit();
-			// Create and dispose a small image to fully initialize Java2D
-			var img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_BYTE_GRAY);
-			img.createGraphics().dispose();
-		}
-
 		// Setup an error callback
 		GLFWErrorCallback.createPrint(System.err).set();
 
