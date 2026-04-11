@@ -4,7 +4,7 @@ import com.openggf.Engine;
 import org.lwjgl.system.MemoryUtil;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.level.PatternDesc;
 
 import java.io.IOException;
@@ -79,8 +79,7 @@ public class InstancedPatternRenderer {
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
     public InstancedPatternRenderer() {
-        this(com.openggf.game.RuntimeManager.getEngineServices().graphics(),
-                com.openggf.game.RuntimeManager.getEngineServices().configuration());
+        this(GameServices.graphics(), GameServices.configuration());
     }
 
     public InstancedPatternRenderer(GraphicsManager graphicsManager, SonicConfigurationService configService) {

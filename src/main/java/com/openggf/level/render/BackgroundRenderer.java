@@ -1,6 +1,6 @@
 package com.openggf.level.render;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
@@ -72,7 +72,7 @@ public class BackgroundRenderer {
     private float shimmerWaterlineScreenY = 9999.0f;
 
     public BackgroundRenderer() {
-        this(com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        this(GameServices.graphics());
     }
 
     public BackgroundRenderer(GraphicsManager graphicsManager) {

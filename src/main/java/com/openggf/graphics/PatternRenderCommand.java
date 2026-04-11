@@ -2,8 +2,8 @@ package com.openggf.graphics;
 
 import com.openggf.Engine;
 import org.lwjgl.system.MemoryUtil;
-import com.openggf.game.EngineServices;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.GameServices;
 import com.openggf.level.PatternDesc;
 
 import java.nio.FloatBuffer;
@@ -75,8 +75,7 @@ public class PatternRenderCommand implements GLCommandable {
      * Obtain a PatternRenderCommand from the pool or create a new one.
      */
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
-        return obtain(entry, paletteTextureId, desc, x, y,
-                com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        return obtain(entry, paletteTextureId, desc, x, y, GameServices.graphics());
     }
 
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc,
@@ -98,8 +97,7 @@ public class PatternRenderCommand implements GLCommandable {
      */
     @Deprecated
     public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
-        this(entry, paletteTextureId, desc, x, y,
-                com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        this(entry, paletteTextureId, desc, x, y, GameServices.graphics());
     }
 
     @Deprecated
@@ -359,9 +357,7 @@ public class PatternRenderCommand implements GLCommandable {
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
-        return com.openggf.game.RuntimeManager.getEngineServices()
-                .configuration()
-                .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        return GameServices.configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
     }
 
     /**

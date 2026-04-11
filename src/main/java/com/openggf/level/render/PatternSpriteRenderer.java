@@ -1,6 +1,6 @@
 package com.openggf.level.render;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.SpriteMaskReplayRole;
 import com.openggf.level.PatternDesc;
@@ -21,7 +21,7 @@ public class PatternSpriteRenderer {
     private final PatternDesc reusableDesc = new PatternDesc();
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet) {
-        this(spriteSheet, com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        this(spriteSheet, GameServices.graphics());
     }
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet,
