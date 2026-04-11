@@ -183,30 +183,30 @@ public final class GameServices {
     // â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {
-        return com.openggf.game.RuntimeManager.getEngineServices().roms();
+        return RuntimeManager.currentEngineServices().roms();
     }
 
     public static DebugOverlayManager debugOverlay() {
-        return com.openggf.game.RuntimeManager.getEngineServices().debugOverlay();
+        return RuntimeManager.currentEngineServices().debugOverlay();
     }
 
     public static AudioManager audio() {
-        return com.openggf.game.RuntimeManager.getEngineServices().audio();
+        return RuntimeManager.currentEngineServices().audio();
     }
 
     public static SonicConfigurationService configuration() {
-        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        return RuntimeManager.currentEngineServices().configuration();
     }
 
     public static GraphicsManager graphics() {
-        return com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        return RuntimeManager.currentEngineServices().graphics();
     }
 
     public static RomDetectionService romDetection() {
-        return com.openggf.game.RuntimeManager.getEngineServices().romDetection();
+        return RuntimeManager.currentEngineServices().romDetection();
     }
 
     public static CrossGameFeatureProvider crossGameFeatures() {
-        return com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures();
+        return RuntimeManager.currentEngineServices().crossGameFeatures();
     }
 }
