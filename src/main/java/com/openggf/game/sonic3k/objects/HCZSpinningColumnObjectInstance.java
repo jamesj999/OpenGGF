@@ -215,7 +215,13 @@ public class HCZSpinningColumnObjectInstance extends AbstractObjectInstance
             frameIndex = 0;
         }
         player.setMappingFrame(PLAYER_TWIST_FRAMES[frameIndex]);
-        player.setDirection(PLAYER_TWIST_FLIPS[frameIndex] ? Direction.LEFT : Direction.RIGHT);
+        // ROM directly writes render_flags (andi.b #$FC / or.b flip), so we must
+        // update both the logical direction AND the render flip in the same frame.
+        // setDirection alone defers the visual flip to the next animation update,
+        // causing a one-frame glitch at the two front-facing transition points.
+        boolean flipLeft = PLAYER_TWIST_FLIPS[frameIndex];
+        player.setDirection(flipLeft ? Direction.LEFT : Direction.RIGHT);
+        player.setRenderFlips(flipLeft, false);
     }
 
     private void updateHorizontalMotion() {
