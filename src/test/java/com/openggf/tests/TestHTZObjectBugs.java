@@ -473,23 +473,25 @@ public class TestHTZObjectBugs {
         springY = diagonalSpringObj.getY();
         logState("Diagonal spring found at (" + springX + ", " + springY + ")");
 
-        // Position Sonic standing on the flat portion of the diagonal spring
-        // The flat portion is near the spring centre (within the 4px threshold)
-        sprite.setX((short) springX);
-        sprite.setY((short) (springY - 16));
+        // Position Sonic slightly left of the spring's centre, standing on flat
+        // terrain. Then walk right so they enter the spring's sloped contact zone.
+        // Use setCentreX/setCentreY for exact placement matching ROM coordinates.
+        // The spring at (1744, 752) has slope surface at ~Y=756 for the centre.
+        // Player centreY on that surface = surfaceY - yRadius ≈ 756 - 19 = 737.
+        sprite.setCentreX((short) (springX - 10));
+        sprite.setCentreY((short) (springY - 4));
         sprite.setAir(false);
-        sprite.setGSpeed((short) 0);
-        sprite.setXSpeed((short) 0);
+        sprite.setGSpeed((short) 0x200);
+        sprite.setXSpeed((short) 0x200);
         sprite.setYSpeed((short) 0);
         GameServices.camera().updatePosition(true);
-        objMgr.reset(GameServices.camera().getX());
 
-        logState("Positioned on diagonal spring");
+        logState("Approaching diagonal spring");
 
         // Step frames and check if the spring fires
         boolean launched = false;
-        for (int i = 0; i < 15; i++) {
-            testRunner.stepIdleFrames(1);
+        for (int i = 0; i < 30; i++) {
+            testRunner.stepFrame(false, false, false, true, false);
             if (sprite.getYSpeed() < -0x400) {
                 launched = true;
                 logState("Spring launched at frame " + (i + 1));

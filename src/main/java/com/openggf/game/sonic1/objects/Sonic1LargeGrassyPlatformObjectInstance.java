@@ -321,10 +321,16 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         if (isDestroyed()) {
             return false;
         }
-        if (fireSpawned && !isOnScreen()) {
-            // LGrass_DelFlames: clean up flame children before deleting
+        // ROM: LGrass_ChkDel checks objoff_35, then obRender bit 7 (on-screen).
+        // If fire spawned AND not on screen: LGrass_DelFlames cleans up children,
+        // clears flags, then returns to DisplaySprite — the platform itself survives.
+        // It does NOT delete the platform. The normal out_of_range check below
+        // handles platform deletion independently.
+        // obRender bit 7 is set by BuildSprites which considers obActWid, so the
+        // platform is "on screen" as long as any part of it is visible. Use
+        // platformWidth as margin to match the ROM's width-aware visibility check.
+        if (fireSpawned && !isOnScreenX(platformWidth)) {
             cleanupFlames();
-            return false;
         }
         return isOnScreenX(baseX, 320);
     }

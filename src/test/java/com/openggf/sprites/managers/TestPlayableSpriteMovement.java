@@ -6,8 +6,10 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.tests.rules.SingletonResetRule;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
@@ -20,6 +22,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestPlayableSpriteMovement {
+
+        @Rule
+        public SingletonResetRule resetRule = new SingletonResetRule();
 
         private PlayableSpriteMovement manager;
         private AbstractPlayableSprite mockSprite;

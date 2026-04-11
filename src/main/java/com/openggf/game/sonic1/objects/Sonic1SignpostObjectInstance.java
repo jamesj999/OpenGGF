@@ -188,13 +188,14 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: move.w (v_limitright2).w,(v_limitleft2).w
-        // S1 uses target boundaries (v_limitleft2/v_limitright2), not current ones.
-        // v_limitleft1 eases toward v_limitleft2 at 2px/frame — the camera does NOT
-        // snap immediately. Use setMinXTarget() to match this easing behavior.
+        // S1 only uses v_limitleft2 as the boundary (v_limitleft1 is marked "unused"
+        // in Variables.asm), and ScrollHoriz clamps directly against v_limitleft2.
+        // This means the left boundary takes effect immediately — no easing.
+        // Use setMinX() to set both current and target, matching the instant lock.
         Camera camera = services().camera();
         if (camera != null) {
-            camera.setMinXTarget(camera.getMaxX());
-            LOGGER.fine("Camera lock target: minXTarget set to maxX=" + camera.getMaxX());
+            camera.setMinX(camera.getMaxX());
+            LOGGER.fine("Camera left boundary locked to maxX=" + camera.getMaxX());
         }
 
         // ROM: addq.b #2,obRoutine(a0) - advance to Sign_Spin

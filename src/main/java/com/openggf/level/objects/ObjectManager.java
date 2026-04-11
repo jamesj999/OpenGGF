@@ -4442,6 +4442,27 @@ public class ObjectManager {
                 return null;
             }
 
+            // ROM parity: SlopedSolid_SingleCharacter (s2.asm:34902) when the standing
+            // bit is already set (player is riding the slope) does NOT use the generic
+            // side-vs-top classification. It only checks:
+            //   1. Is the player in the air? → unseat
+            //   2. Is the player outside X range? → unseat (already checked above)
+            //   3. Otherwise → keep standing, adjust Y via MvSonicOnSlope
+            // The engine equivalent of "standing bit already set" is riding=true.
+            // Bypass resolveContactInternal to avoid the side misclassification that
+            // occurs when horizontal penetration < vertical penetration on slopes.
+            if (riding && !player.getAir()) {
+                if (apply) {
+                    int rawSample = sampleSlopeY(player, anchorX, halfWidth, slopedProvider);
+                    if (rawSample != Integer.MIN_VALUE) {
+                        int targetCentreY = anchorY - (rawSample & 0xFF) - playerYRadius;
+                        int newY = targetCentreY - (player.getHeight() / 2);
+                        player.setY((short) newY);
+                    }
+                }
+                return SolidContact.STANDING;
+            }
+
             SolidContact result = resolveContactInternal(player, relX, relY, halfWidth, maxTop,
                     playerCenterX, playerCenterY, topSolidOnly, riding, apply, instance);
 
