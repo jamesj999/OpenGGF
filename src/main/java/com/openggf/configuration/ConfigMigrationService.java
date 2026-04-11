@@ -1,7 +1,5 @@
 package com.openggf.configuration;
 
-import com.openggf.control.InputHandler;
-
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -76,7 +74,7 @@ public class ConfigMigrationService {
         for (SonicConfiguration keyConfig : KEY_CONFIGS) {
             Integer awtCode = getIntValue(config, keyConfig.name());
             if (awtCode != null) {
-                int glfwCode = InputHandler.awtToGlfw(awtCode);
+                int glfwCode = LegacyAwtKeyCodeMapper.toGlfw(awtCode);
                 if (glfwCode != awtCode) {
                     config.put(keyConfig.name(), glfwCode);
                     LOGGER.info("[ConfigMigration] Migrated " + keyConfig.name() + ": " + awtCode + " -> " + glfwCode);
