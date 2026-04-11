@@ -1,9 +1,9 @@
 package com.openggf.graphics;
 
 import org.lwjgl.system.MemoryUtil;
-import com.openggf.game.EngineServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 
 import java.nio.FloatBuffer;
 
@@ -233,11 +233,11 @@ public class GLCommand implements GLCommandable {
 	}
 
 	private static GraphicsManager bootstrapGraphicsManager() {
-		return com.openggf.game.RuntimeManager.getEngineServices().graphics();
+		return GameServices.graphics();
 	}
 
 	private static SonicConfigurationService bootstrapConfigService() {
-		return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+		return GameServices.configuration();
 	}
 
 	public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {

@@ -1,6 +1,6 @@
 package com.openggf.sprites.render;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.PatternDesc;
@@ -24,7 +24,7 @@ public class PlayerSpriteRenderer {
     private int lastFrame = -1;
 
     public PlayerSpriteRenderer(SpriteArtSet artSet) {
-        this(artSet, com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        this(artSet, GameServices.graphics());
     }
 
     public PlayerSpriteRenderer(SpriteArtSet artSet, GraphicsManager graphicsManager) {

@@ -85,6 +85,16 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic1/credits/";
     private static final String SONIC1_TITLECARD_PACKAGE =
             "com/openggf/game/sonic1/titlecard/";
+    private static final List<String> GRAPHICS_INFRASTRUCTURE_FILES = List.of(
+            "com/openggf/graphics/BatchedPatternRenderer.java",
+            "com/openggf/graphics/InstancedPatternRenderer.java",
+            "com/openggf/graphics/PatternRenderCommand.java",
+            "com/openggf/graphics/GLCommand.java",
+            "com/openggf/level/render/PatternSpriteRenderer.java",
+            "com/openggf/level/render/BackgroundRenderer.java",
+            "com/openggf/sprites/render/PlayerSpriteRenderer.java",
+            "com/openggf/graphics/GraphicsManager.java"
+    );
     private static final List<String> COMPOSITION_ROOT_FILES = List.of(
             "com/openggf/Engine.java",
             "com/openggf/GameLoop.java",
@@ -404,6 +414,26 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 1 title-card package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void graphicsInfrastructureDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> GRAPHICS_INFRASTRUCTURE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in graphics infrastructure:\n  "
                     + String.join("\n  ", violations));
         }
     }

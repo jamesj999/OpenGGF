@@ -2,7 +2,7 @@ package com.openggf.graphics;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
@@ -173,8 +173,7 @@ public class GraphicsManager {
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
 		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
-		this.instancedPatternRenderer = new InstancedPatternRenderer(this,
-				com.openggf.game.RuntimeManager.getEngineServices().configuration());
+		this.instancedPatternRenderer = new InstancedPatternRenderer(this, GameServices.configuration());
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
 		syncRuntimeManagedReferences();
@@ -256,7 +255,7 @@ public class GraphicsManager {
 
 	private Camera getOrCreateBootstrapCamera() {
 		if (bootstrapCamera == null) {
-			bootstrapCamera = new Camera(RuntimeManager.getEngineServices().configuration());
+			bootstrapCamera = new Camera(GameServices.configuration());
 		}
 		return bootstrapCamera;
 	}
@@ -628,8 +627,7 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = new BatchedPatternRenderer(this,
-					com.openggf.game.RuntimeManager.getEngineServices().configuration());
+			batchedRenderer = new BatchedPatternRenderer(this, GameServices.configuration());
 		}
 		batchedRenderer.beginBatch();
 	}
@@ -668,8 +666,7 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = new BatchedPatternRenderer(this,
-					com.openggf.game.RuntimeManager.getEngineServices().configuration());
+			batchedRenderer = new BatchedPatternRenderer(this, GameServices.configuration());
 		}
 		batchedRenderer.beginShadowBatch();
 	}
