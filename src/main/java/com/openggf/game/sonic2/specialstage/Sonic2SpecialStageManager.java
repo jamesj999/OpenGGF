@@ -17,7 +17,6 @@ import com.openggf.debug.FontSize;
 
 import com.openggf.graphics.GLCommand;
 
-import java.awt.Font;
 import com.openggf.debug.DebugColor;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1789,7 +1788,7 @@ public class Sonic2SpecialStageManager {
 
         if (alignmentTextRenderer == null) {
             alignmentTextRenderer = new GlyphBatchRenderer();
-            alignmentTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
+            alignmentTextRenderer.init(null);
         }
 
         alignmentTextRenderer.updateViewport(viewportWidth, viewportHeight);
@@ -1840,7 +1839,7 @@ public class Sonic2SpecialStageManager {
 
         if (lagCompensationTextRenderer == null) {
             lagCompensationTextRenderer = new GlyphBatchRenderer();
-            lagCompensationTextRenderer.init(new Font("SansSerif", Font.PLAIN, 12));
+            lagCompensationTextRenderer.init(null);
         }
 
         lagCompensationTextRenderer.updateViewport(viewportWidth, viewportHeight);

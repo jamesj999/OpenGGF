@@ -1,5 +1,7 @@
 package com.openggf.debug;
 
+import com.openggf.graphics.PixelFont;
+import com.openggf.graphics.PixelFontTextRenderer;
 import org.lwjgl.system.MemoryUtil;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.ShaderProgram;
@@ -59,7 +61,7 @@ public class PerformancePanelRenderer {
     /** Target frame time at 60fps (16.67ms) */
     private static final float TARGET_FRAME_MS = 16.67f;
 
-    private final GlyphBatchRenderer glyphBatch;
+    private final PixelFontTextRenderer textRenderer;
     private int viewportWidth;
     private int viewportHeight;
     private double scaleX = 1.0;
@@ -96,11 +98,11 @@ public class PerformancePanelRenderer {
     private int cachedCameraOffsetLoc = -1;
     private int lastProgramId = -1;
 
-    public PerformancePanelRenderer(int baseWidth, int baseHeight, GlyphBatchRenderer glyphBatch,
+    public PerformancePanelRenderer(int baseWidth, int baseHeight, PixelFontTextRenderer textRenderer,
                                     GraphicsManager graphicsManager, PerformanceProfiler profiler) {
         this.baseWidth = baseWidth;
         this.baseHeight = baseHeight;
-        this.glyphBatch = Objects.requireNonNull(glyphBatch, "glyphBatch");
+        this.textRenderer = Objects.requireNonNull(textRenderer, "textRenderer");
         this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
         this.profiler = Objects.requireNonNull(profiler, "profiler");
     }
@@ -188,8 +190,9 @@ public class PerformancePanelRenderer {
      * @param snapshot The profiling data snapshot to display
      */
     public void render(ProfileSnapshot snapshot) {
-        if (glyphBatch == null || !glyphBatch.isInitialized()) {
-            return;
+        float[] projectionMatrix = graphicsManager.getProjectionMatrixBuffer();
+        if (projectionMatrix != null) {
+            textRenderer.setProjectionMatrix(projectionMatrix);
         }
 
         // Panel position in game coordinates (right side, upper area)
@@ -198,9 +201,7 @@ public class PerformancePanelRenderer {
         int panelTop = baseHeight - 8;     // 8 pixels from top (in screen terms, high Y in GL)
 
         if (!snapshot.hasData()) {
-            glyphBatch.begin();
-            glyphBatch.drawTextOutlined("Perf: collecting...", uiX(panelRight - 80), uiY(panelTop - 10), DebugColor.WHITE, PERF_FONT);
-            glyphBatch.end();
+            drawTextBottomLeft("Perf: collecting...", panelRight - 80, panelTop - 10, DebugColor.WHITE);
             return;
         }
 
@@ -222,12 +223,9 @@ public class PerformancePanelRenderer {
         // Draw memory stats below the frame graph
         MemoryStats.Snapshot memSnapshot = profiler.memoryStats().snapshot();
 
-        // Draw text stats (uses viewport coordinates via uiX/uiY)
-        glyphBatch.begin();
-
-        int textX = uiX(panelRight - 85);
-        int textY = uiY(panelTop - 10);
-        int lineHeight = glyphBatch.getLineHeight(PERF_FONT);
+        int textX = panelRight - 85;
+        int textY = panelTop - 10;
+        int lineHeight = lineHeight(PERF_FONT);
         StringBuilder pb = perfBuilder;
 
         // Header line - show work time and actual FPS
@@ -237,7 +235,7 @@ public class PerformancePanelRenderer {
         appendFixed1(pb, workMs).append("ms (");
         appendFixed0(pb, budgetPct).append("%) ");
         appendFixed1(pb, snapshot.fps()).append("fps");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, textY, DebugColor.WHITE, PERF_FONT);
+        drawTextBottomLeft(pb.toString(), textX, textY, DebugColor.WHITE);
 
         // Section legend — reuse the sorted list from getSectionsSortedByTime()
         // (also used by drawPieChart, but it caches internally)
@@ -253,7 +251,7 @@ public class PerformancePanelRenderer {
             pb.setLength(0);
             appendFixed1(pb, section.timeMs()).append(' ');
             pb.append(name, 0, Math.min(name.length(), 10));
-            glyphBatch.drawTextOutlined(pb.toString(), textX, legendY, textColor, PERF_FONT);
+            drawTextBottomLeft(pb.toString(), textX, legendY, textColor);
 
             legendY -= lineHeight;
             count++;
@@ -264,26 +262,26 @@ public class PerformancePanelRenderer {
         }
 
         // Memory stats below the frame graph
-        int memY = uiY(graphY - 8);
+        int memY = graphY - 8;
         pb.setLength(0);
         pb.append("Heap: ");
         appendFixed0(pb, memSnapshot.heapUsedMB()).append("MB/");
         appendFixed0(pb, memSnapshot.heapMaxMB()).append("MB (");
         pb.append(memSnapshot.heapPercentage()).append("%)");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY, PERF_FONT);
+        drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY);
 
         memY -= lineHeight;
         pb.setLength(0);
         pb.append("GC: ").append(memSnapshot.gcCount())
           .append(" (").append(memSnapshot.gcTimeMs()).append("ms) | Alloc: ");
         appendFixed1(pb, memSnapshot.allocationRateMBPerSec()).append("MB/s");
-        glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY, PERF_FONT);
+        drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY);
 
         // Top allocators
         List<MemoryStats.SectionAllocation> topAllocators = memSnapshot.topAllocators();
         if (!topAllocators.isEmpty()) {
             memY -= lineHeight;
-            glyphBatch.drawTextOutlined("Top Alloc:", textX, memY, DebugColor.ORANGE, PERF_FONT);
+            drawTextBottomLeft("Top Alloc:", textX, memY, DebugColor.ORANGE);
 
             for (MemoryStats.SectionAllocation alloc : topAllocators) {
                 memY -= lineHeight;
@@ -291,11 +289,9 @@ public class PerformancePanelRenderer {
                 pb.setLength(0);
                 appendFixed1(pb, alloc.kbPerFrame()).append("KB ");
                 pb.append(name, 0, Math.min(name.length(), 8));
-                glyphBatch.drawTextOutlined(pb.toString(), textX, memY, DebugColor.ORANGE, PERF_FONT);
+                drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.ORANGE);
             }
         }
-
-        glyphBatch.end();
     }
 
     /**
@@ -451,14 +447,17 @@ public class PerformancePanelRenderer {
         glUseProgram(0);
     }
 
-    /** Scale game X to viewport X */
-    private int uiX(int gameX) {
-        return (int) Math.round(gameX * scaleX);
+    private void drawTextBottomLeft(String text, int x, int y, DebugColor color) {
+        int topLeftY = baseHeight - y - PixelFont.glyphHeight();
+        textRenderer.drawShadowedText(text, x, topLeftY, color);
     }
 
-    /** Scale game Y to viewport Y (for TextRenderer) */
-    private int uiY(int gameY) {
-        return (int) Math.round(gameY * scaleY);
+    private static int lineHeight(FontSize fontSize) {
+        return switch (fontSize) {
+            case SMALL -> 10;
+            case MEDIUM -> 12;
+            case LARGE -> 14;
+        };
     }
 
     /** Append a double formatted to 1 decimal place without String.format. */
