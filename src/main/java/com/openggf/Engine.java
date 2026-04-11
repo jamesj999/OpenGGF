@@ -639,7 +639,7 @@ public class Engine {
 		if (runtime != null) {
 			return;
 		}
-		com.openggf.game.GameRuntime currentRuntime = RuntimeManager.getCurrent();
+		com.openggf.game.GameRuntime currentRuntime = GameServices.runtimeOrNull();
 		if (currentRuntime == null) {
 			throw new IllegalStateException("No active gameplay runtime");
 		}

@@ -5,6 +5,7 @@ import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -13,8 +14,15 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestGraphicsManagerFadeRebinding {
 
+    @BeforeEach
+    public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+    }
+
     @AfterEach
     public void tearDown() throws Exception {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();

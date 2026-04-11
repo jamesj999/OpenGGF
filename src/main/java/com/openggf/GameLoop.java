@@ -1231,7 +1231,7 @@ public class GameLoop {
 
         // Register provider on GameRuntime so objects can access via GameServices.bonusStage()
         activeBonusStageProvider = provider;
-        GameRuntime rt = RuntimeManager.getCurrent();
+        GameRuntime rt = GameServices.runtimeOrNull();
         if (rt != null) {
             rt.setActiveBonusStageProvider(provider);
         }
@@ -1408,7 +1408,7 @@ public class GameLoop {
         levelManager.setBonusStageHudLayout(false);
 
         // Clear from GameRuntime
-        GameRuntime rt = RuntimeManager.getCurrent();
+        GameRuntime rt = GameServices.runtimeOrNull();
         if (rt != null) {
             rt.setActiveBonusStageProvider(null);
         }
