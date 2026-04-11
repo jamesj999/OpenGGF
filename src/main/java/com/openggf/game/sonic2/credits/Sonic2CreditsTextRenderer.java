@@ -124,7 +124,7 @@ public class Sonic2CreditsTextRenderer {
             gpuDirty = false;
         }
 
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         gm.beginPatternBatch();
         renderer.drawFrameIndex(creditsNum, SCREEN_CENTER_X, SCREEN_CENTER_Y);
         gm.flushPatternBatch();
@@ -146,7 +146,7 @@ public class Sonic2CreditsTextRenderer {
      * Caches credit text patterns and ending palettes to the GPU.
      */
     private void cacheToGpu() {
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

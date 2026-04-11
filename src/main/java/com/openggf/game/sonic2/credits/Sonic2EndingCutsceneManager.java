@@ -529,7 +529,7 @@ public class Sonic2EndingCutsceneManager {
             return;
         }
 
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -1801,7 +1801,7 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private static boolean isPalTiming() {
-        String region = com.openggf.game.RuntimeManager.getEngineServices().configuration().getString(SonicConfiguration.REGION);
+        String region = GameServices.configuration().getString(SonicConfiguration.REGION);
         return "PAL".equalsIgnoreCase(region);
     }
 
@@ -2021,7 +2021,7 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void cacheDisplayPalettes() {
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode() || displayPalettes == null) return;
         for (int i = 0; i < displayPalettes.length; i++) {
             if (displayPalettes[i] != null) {

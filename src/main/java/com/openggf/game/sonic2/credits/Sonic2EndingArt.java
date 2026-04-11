@@ -301,7 +301,7 @@ public class Sonic2EndingArt {
      * Must be called after {@link #loadArt} and {@link #loadPalettes}.
      */
     public void cacheToGpu() {
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
