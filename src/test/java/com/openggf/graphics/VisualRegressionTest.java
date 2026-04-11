@@ -22,7 +22,6 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -256,11 +255,11 @@ public class VisualRegressionTest {
         assumeTrue(referenceFileExists(filename), "Reference file not found: " + filename);
 
         // Load reference image
-        BufferedImage reference = loadReferenceImage(filename);
+        RgbaImage reference = loadReferenceImage(filename);
         assertNotNull(reference, "Reference image should load: " + filename);
 
         // Render current output
-        BufferedImage current = renderScreenshot(zone, act, playerX, playerY);
+        RgbaImage current = renderScreenshot(zone, act, playerX, playerY);
 
         // Compare images
         ScreenshotCapture.ComparisonResult result = ScreenshotCapture.imagesMatch(reference, current, PIXEL_TOLERANCE);
@@ -282,7 +281,7 @@ public class VisualRegressionTest {
     /**
      * Render a screenshot of the level at the specified player position.
      */
-    private BufferedImage renderScreenshot(int zone, int act, int playerX, int playerY) throws IOException {
+    private RgbaImage renderScreenshot(int zone, int act, int playerX, int playerY) throws IOException {
         LevelManager levelManager = GameServices.level();
         Camera camera = GameServices.camera();
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
@@ -345,7 +344,7 @@ public class VisualRegressionTest {
     /**
      * Save a diff image showing the differences between reference and current.
      */
-    private void saveDiffImage(String originalFilename, BufferedImage reference, BufferedImage current)
+    private void saveDiffImage(String originalFilename, RgbaImage reference, RgbaImage current)
             throws IOException {
         Path diffDir = Paths.get("target", "visual-diff");
         Files.createDirectories(diffDir);
@@ -356,7 +355,7 @@ public class VisualRegressionTest {
         ScreenshotCapture.savePNG(current, currentPath);
 
         // Save diff image
-        BufferedImage diff = ScreenshotCapture.createDiffImage(reference, current, PIXEL_TOLERANCE);
+        RgbaImage diff = ScreenshotCapture.createDiffImage(reference, current, PIXEL_TOLERANCE);
         String diffFilename = originalFilename.replace(".png", "_diff.png");
         Path diffPath = diffDir.resolve(diffFilename);
         ScreenshotCapture.savePNG(diff, diffPath);
@@ -379,7 +378,7 @@ public class VisualRegressionTest {
     /**
      * Load a reference image from resources.
      */
-    private BufferedImage loadReferenceImage(String filename) throws IOException {
+    private RgbaImage loadReferenceImage(String filename) throws IOException {
         // Try loading from classpath first
         try (InputStream is = getClass().getClassLoader()
                 .getResourceAsStream(REFERENCE_DIR + "/" + filename)) {

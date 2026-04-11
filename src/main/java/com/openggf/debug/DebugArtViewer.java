@@ -3,13 +3,14 @@ package com.openggf.debug;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.Sonic2ObjectArt;
+import com.openggf.graphics.RgbaImage;
+import com.openggf.graphics.ScreenshotCapture;
 import com.openggf.level.objects.ObjectArtData;
 import com.openggf.level.Pattern;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,7 +52,7 @@ public class DebugArtViewer {
         int tilesPerRow = 32;
         int rows = (patterns.length + tilesPerRow - 1) / tilesPerRow;
 
-        BufferedImage img = new BufferedImage(tilesPerRow * 8, rows * 8, BufferedImage.TYPE_INT_ARGB);
+        RgbaImage img = new RgbaImage(tilesPerRow * 8, rows * 8, new int[tilesPerRow * 8 * rows * 8]);
 
         for (int i = 0; i < patterns.length; i++) {
             Pattern p = patterns[i];
@@ -67,13 +68,13 @@ public class DebugArtViewer {
                         int c = colorIndex * 16;
                         rgb = 0xFF000000 | (c << 16) | (c << 8) | c;
                     }
-                    img.setRGB(tileX + x, tileY + y, rgb);
+                    img.setArgb(tileX + x, tileY + y, rgb);
                 }
             }
         }
 
         try {
-            ImageIO.write(img, "png", new File(filename));
+            ScreenshotCapture.savePNG(img, Path.of(filename));
             System.out.println("Dumped " + filename);
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Failed to write pattern image", e);

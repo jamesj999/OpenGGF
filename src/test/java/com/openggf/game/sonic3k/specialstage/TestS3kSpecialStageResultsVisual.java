@@ -13,6 +13,7 @@ import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.RgbaImage;
 import com.openggf.graphics.ScreenshotCapture;
 
 import org.joml.Matrix4f;
@@ -25,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -178,9 +178,9 @@ public class TestS3kSpecialStageResultsVisual {
         dumpMappingFrameTiles();
 
         // Capture two screenshots 1 frame apart (to verify emerald flicker)
-        BufferedImage frame1 = renderResultsScreen(screen, 400);
+        RgbaImage frame1 = renderResultsScreen(screen, 400);
         screen.update(401, null);
-        BufferedImage frame2 = renderResultsScreen(screen, 401);
+        RgbaImage frame2 = renderResultsScreen(screen, 401);
 
         ScreenshotCapture.savePNG(frame1, OUTPUT_DIR.resolve("emerald_collected_f400.png"));
         ScreenshotCapture.savePNG(frame2, OUTPUT_DIR.resolve("emerald_collected_f401.png"));
@@ -218,7 +218,7 @@ public class TestS3kSpecialStageResultsVisual {
             screen.update(i, null);
         }
 
-        BufferedImage frame = renderResultsScreen(screen, 400);
+        RgbaImage frame = renderResultsScreen(screen, 400);
         ScreenshotCapture.savePNG(frame, OUTPUT_DIR.resolve("failed_f400.png"));
 
         assertNotAllWhite(frame, "Failed results screen should have visible text");
@@ -230,7 +230,7 @@ public class TestS3kSpecialStageResultsVisual {
     // Rendering helper
     // ================================================================
 
-    private BufferedImage renderResultsScreen(S3kSpecialStageResultsScreen screen, int frame) {
+    private RgbaImage renderResultsScreen(S3kSpecialStageResultsScreen screen, int frame) {
         GraphicsManager gm = GraphicsManager.getInstance();
         Camera camera = GameServices.camera();
 
@@ -299,11 +299,11 @@ public class TestS3kSpecialStageResultsVisual {
     // Assertions
     // ================================================================
 
-    private void assertNotAllWhite(BufferedImage image, String message) {
+    private void assertNotAllWhite(RgbaImage image, String message) {
         int nonWhitePixels = 0;
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
-                int rgb = image.getRGB(x, y);
+        for (int y = 0; y < image.height(); y++) {
+            for (int x = 0; x < image.width(); x++) {
+                int rgb = image.argb(x, y);
                 int r = (rgb >> 16) & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
@@ -316,12 +316,12 @@ public class TestS3kSpecialStageResultsVisual {
         assertTrue(nonWhitePixels > 100, message + " (found " + nonWhitePixels + " non-white pixels)");
     }
 
-    private void assertRegionHasContent(BufferedImage image, int rx, int ry, int rw, int rh,
+    private void assertRegionHasContent(RgbaImage image, int rx, int ry, int rw, int rh,
                                          String message) {
         int nonWhitePixels = 0;
-        for (int y = ry; y < Math.min(ry + rh, image.getHeight()); y++) {
-            for (int x = rx; x < Math.min(rx + rw, image.getWidth()); x++) {
-                int rgb = image.getRGB(x, y);
+        for (int y = ry; y < Math.min(ry + rh, image.height()); y++) {
+            for (int x = rx; x < Math.min(rx + rw, image.width()); x++) {
+                int rgb = image.argb(x, y);
                 int r = (rgb >> 16) & 0xFF;
                 int g = (rgb >> 8) & 0xFF;
                 int b = rgb & 0xFF;
