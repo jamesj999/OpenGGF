@@ -5,22 +5,22 @@ import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestSonic3kObjectArtProvider {
 
     private Sonic3kObjectArtProvider provider;
     private Method registerSheet;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         GraphicsManager.getInstance().initHeadless();
         provider = new Sonic3kObjectArtProvider();
@@ -29,7 +29,7 @@ public class TestSonic3kObjectArtProvider {
         registerSheet.setAccessible(true);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GraphicsManager.getInstance().resetState();
     }
@@ -68,8 +68,7 @@ public class TestSonic3kObjectArtProvider {
 
         ObjectSpriteSheet sheet = (ObjectSpriteSheet) buildSheet.invoke(null, patterns, frames, 0);
 
-        assertSame("Mappings that start at source tile $08 should render from pattern $08, not pattern 0",
-                patterns[8], sheet.getPatterns()[0]);
+        assertSame(patterns[8], sheet.getPatterns()[0], "Mappings that start at source tile $08 should render from pattern $08, not pattern 0");
         assertEquals(0, sheet.getFrame(0).pieces().get(0).tileIndex());
         assertEquals(2, sheet.getFrame(0).pieces().get(1).tileIndex());
     }
@@ -92,8 +91,7 @@ public class TestSonic3kObjectArtProvider {
 
         ObjectSpriteSheet sheet = buildStandaloneSheet(patterns, frames);
 
-        assertSame("AIZ2 small Robotnik craft should start at bombership source tile $86",
-                patterns[0x86], sheet.getPatterns()[0]);
+        assertSame(patterns[0x86], sheet.getPatterns()[0], "AIZ2 small Robotnik craft should start at bombership source tile $86");
         assertEquals(0, sheet.getFrame(0).pieces().get(0).tileIndex());
         assertEquals(0x26, sheet.getFrame(0).pieces().get(5).tileIndex());
     }
@@ -118,3 +116,5 @@ public class TestSonic3kObjectArtProvider {
         return (ObjectSpriteSheet) buildSheet.invoke(null, patterns, frames, 0);
     }
 }
+
+

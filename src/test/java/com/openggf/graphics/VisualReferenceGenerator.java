@@ -267,3 +267,5 @@ public class VisualReferenceGenerator {
         GraphicsManager.getInstance().resetState();
     }
 }
+
+

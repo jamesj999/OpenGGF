@@ -80,3 +80,5 @@ class TestBonusStageLifecycle {
         assertNull(noop.getSavedState());
     }
 }
+
+

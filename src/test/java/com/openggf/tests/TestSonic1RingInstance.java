@@ -8,18 +8,18 @@ import com.openggf.level.objects.StubObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.rings.RingManager;
 import com.openggf.level.rings.RingSpawn;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1RingInstance {
 
-    // ── Static-property tests ──────────────────────────────────────────────
+    // â”€â”€ Static-property tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     public void testRingCollisionFlagsBeforeCollection() {
@@ -31,32 +31,29 @@ public class TestSonic1RingInstance {
         assertTrue(TouchResponseProvider.class.isAssignableFrom(Sonic1RingInstance.class));
     }
 
-    // ── Construction-state tests ───────────────────────────────────────────
+    // â”€â”€ Construction-state tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /** Parent constructor (layout entry) starts in INIT state: no collision flags yet. */
     @Test
     public void testParentConstructorStartsInInitState() {
         Sonic1RingInstance ring = buildParentRing(100, 100);
         // INIT state: getCollisionFlags() returns 0 (only ANIMATE returns RING_COLLISION_FLAGS)
-        assertEquals("Parent ring should have no collision flags in INIT state",
-                0, ring.getCollisionFlags());
+        assertEquals(0, ring.getCollisionFlags(), "Parent ring should have no collision flags in INIT state");
     }
 
     /**
      * Parent constructor with a single-element spawn list (the ring is its own spawn).
-     * After one update (INIT→ANIMATE), collision flags become active.
+     * After one update (INITâ†’ANIMATE), collision flags become active.
      */
     @Test
     public void testSingleSpawnRingAnimatesAfterFirstUpdate() {
         RingSpawn spawn = new RingSpawn(50, 50);
         Sonic1RingInstance ring = buildParentRingFromSpawns(200, 200, List.of(spawn));
-        // After INIT→ANIMATE, the ring should still be alive (no children to spawn,
+        // After INITâ†’ANIMATE, the ring should still be alive (no children to spawn,
         // no ringManager collected, so it stays ANIMATE).
         withContext(new StubObjectServices(), () -> ring.update(1, null));
-        assertFalse("Single-spawn ring should not be destroyed after first update",
-                ring.isDestroyed());
-        assertEquals("Should be in ANIMATE state with full collision flags",
-                Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags());
+        assertFalse(ring.isDestroyed(), "Single-spawn ring should not be destroyed after first update");
+        assertEquals(Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags(), "Should be in ANIMATE state with full collision flags");
     }
 
     /**
@@ -72,33 +69,32 @@ public class TestSonic1RingInstance {
                 new RingSpawn(66, 50)
         );
         Sonic1RingInstance ring = buildParentRingFromSpawns(50, 50, spawns);
-        assertEquals("Before update: INIT → no collision flags", 0, ring.getCollisionFlags());
+        assertEquals(0, ring.getCollisionFlags(), "Before update: INIT â†’ no collision flags");
 
         withContext(new StubObjectServices(), () -> ring.update(1, null));
 
-        assertFalse("Parent ring should not be destroyed after INIT→ANIMATE", ring.isDestroyed());
-        assertEquals("Parent should be in ANIMATE state after first update",
-                Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags());
+        assertFalse(ring.isDestroyed(), "Parent ring should not be destroyed after INITâ†’ANIMATE");
+        assertEquals(Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags(), "Parent should be in ANIMATE state after first update");
     }
 
-    // ── State transition tests ─────────────────────────────────────────────
+    // â”€â”€ State transition tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /** After one update with no RingManager, INIT transitions to ANIMATE. */
     @Test
     public void testInitTransitionsToAnimateOnFirstUpdate() {
         Sonic1RingInstance ring = buildParentRing(100, 100);
-        assertEquals("Before update: INIT → no collision flags", 0, ring.getCollisionFlags());
+        assertEquals(0, ring.getCollisionFlags(), "Before update: INIT â†’ no collision flags");
 
         withContext(new StubObjectServices(), () -> ring.update(1, null));
 
-        assertEquals("After first update: ANIMATE → collision flags active",
-                Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags());
-        assertFalse("Ring should not be destroyed after INIT→ANIMATE", ring.isDestroyed());
+        assertEquals(Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags(), "After first update: ANIMATE â†’ collision flags active");
+        assertFalse(ring.isDestroyed(), "Ring should not be destroyed after INITâ†’ANIMATE");
     }
 
     /** When ringManager.isCollected() returns true, ANIMATE transitions to SPARKLE (no collision). */
     @Test
     public void testAnimateStaysWhenNotCollected() {
+        TestEnvironment.resetAll();
         RingSpawn ringSpawn = new RingSpawn(100, 100);
         RingManager rm = new RingManager(List.of(ringSpawn), null, null, null);
 
@@ -109,14 +105,13 @@ public class TestSonic1RingInstance {
             @Override public RingManager ringManager() { return rm; }
         };
 
-        // First update: INIT → ANIMATE
+        // First update: INIT â†’ ANIMATE
         withContext(svc, () -> ring.update(1, null));
         // Second update: ANIMATE stays ANIMATE because ring not collected
         withContext(svc, () -> ring.update(2, null));
 
-        assertEquals("Ring not collected: should stay ANIMATE",
-                Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags());
-        assertFalse("Ring not collected: should not be destroyed", ring.isDestroyed());
+        assertEquals(Sonic1RingInstance.RING_COLLISION_FLAGS, ring.getCollisionFlags(), "Ring not collected: should stay ANIMATE");
+        assertFalse(ring.isDestroyed(), "Ring not collected: should not be destroyed");
     }
 
     /** When ringManager is null in SPARKLE state, ring is destroyed immediately. */
@@ -128,7 +123,7 @@ public class TestSonic1RingInstance {
 
         withContext(new StubObjectServices(), () -> ring.update(1, null));
 
-        assertTrue("Ring in SPARKLE with null ringManager should be destroyed", ring.isDestroyed());
+        assertTrue(ring.isDestroyed(), "Ring in SPARKLE with null ringManager should be destroyed");
     }
 
     /** In SPARKLE state, collision flags return 0 (ring is no longer collidable). */
@@ -137,11 +132,10 @@ public class TestSonic1RingInstance {
         Sonic1RingInstance ring = buildParentRing(100, 100);
         forceState(ring, "SPARKLE");
 
-        assertEquals("SPARKLE state should return 0 collision flags",
-                0, ring.getCollisionFlags());
+        assertEquals(0, ring.getCollisionFlags(), "SPARKLE state should return 0 collision flags");
     }
 
-    // ── Helper methods ─────────────────────────────────────────────────────
+    // â”€â”€ Helper methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static void withContext(ObjectServices svc, Runnable action) {
         setConstructionContext(svc);
@@ -207,3 +201,5 @@ public class TestSonic1RingInstance {
         }
     }
 }
+
+

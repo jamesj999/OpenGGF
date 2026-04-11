@@ -87,4 +87,8 @@ public interface TitleScreenProvider {
     default void drawFrozenForLevelSelect() {
         // Default: no-op (Sonic 2 etc. have a completely different level select)
     }
+
+    default void setExitToLevelHandler(Runnable handler) {
+        // Default: no-op.
+    }
 }

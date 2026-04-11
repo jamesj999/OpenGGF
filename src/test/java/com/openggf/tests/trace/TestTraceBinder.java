@@ -110,3 +110,5 @@ public class TestTraceBinder {
         assertFalse(binder.validateInput(frame, 0x0004));
     }
 }
+
+

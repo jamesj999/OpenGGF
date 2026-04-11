@@ -529,7 +529,7 @@ public class Sonic2EndingCutsceneManager {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -1801,7 +1801,7 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private static boolean isPalTiming() {
-        String region = SonicConfigurationService.getInstance().getString(SonicConfiguration.REGION);
+        String region = GameServices.configuration().getString(SonicConfiguration.REGION);
         return "PAL".equalsIgnoreCase(region);
     }
 
@@ -2021,7 +2021,7 @@ public class Sonic2EndingCutsceneManager {
     }
 
     private void cacheDisplayPalettes() {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode() || displayPalettes == null) return;
         for (int i = 0; i < displayPalettes.length; i++) {
             if (displayPalettes[i] != null) {

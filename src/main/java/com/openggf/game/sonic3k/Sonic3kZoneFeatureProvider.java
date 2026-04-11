@@ -5,7 +5,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
@@ -25,7 +25,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 3 &amp; Knuckles.
@@ -191,7 +190,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
         }
-        if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
+        if (!(GameServices.module().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
             return;
         }
         if (coordinator.activeSlotRuntime() == null) {
@@ -210,7 +209,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
         }
-        if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
+        if (!(GameServices.module().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
             return;
         }
         if (coordinator.activeSlotRuntime() == null) {
@@ -303,7 +302,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (zoneIndex != 0 || actIndex != 0) {
             return false;
         }
-        SonicConfigurationService configService = SonicConfigurationService.getInstance();
+        SonicConfigurationService configService = GameServices.configuration();
         if (configService.getBoolean(SonicConfiguration.S3K_SKIP_INTROS)) {
             return false;
         }
@@ -339,13 +338,19 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     protected Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager levelEventManager = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager levelEventManager = resolveLevelEventManager();
         return levelEventManager != null ? levelEventManager.getAizEvents() : null;
     }
 
     protected int getFeatureActId() {
         var levelManager = GameServices.levelOrNull();
         return levelManager != null ? levelManager.getFeatureActId() : 0;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 
 }

@@ -6,15 +6,13 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for Sonic 3&K Carnival Night Zone palette cycling.
@@ -24,26 +22,22 @@ import static org.junit.Assert.*;
  * <p>CNZ has three palette animation channels (AnPal_CNZ in sonic3k.asm):
  * <ul>
  *   <li>Channel 1 (bumpers): timer period 3, counter step +6 / wrap 0x60
- *       → palette[3] colors 9-11</li>
+ *       Ã¢â€ â€™ palette[3] colors 9-11</li>
  *   <li>Channel 2 (background): runs every frame, counter step +6 / wrap 0xB4
- *       → palette[2] colors 9-11</li>
+ *       Ã¢â€ â€™ palette[2] colors 9-11</li>
  *   <li>Channel 3 (tertiary): timer period 2, counter step +4 / wrap 0x40
- *       → palette[2] colors 7-8</li>
+ *       Ã¢â€ â€™ palette[2] colors 7-8</li>
  * </ul>
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kCnzPaletteCycling {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Sonic3kPaletteCycler cycler;
     private StubLevel level;
 
-    @Before
+    @BeforeEach
     public void setUp() throws IOException {
         GraphicsManager.getInstance().initHeadless();
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         RomByteReader reader = RomByteReader.fromRom(rom);
         level = new StubLevel();
         // CNZ zone index = 3, act index = 0
@@ -52,7 +46,7 @@ public class TestS3kCnzPaletteCycling {
 
     @Test
     public void paletteLine3Color9ChangesAfter30Frames() {
-        // Channel 1 fires every 4 frames (timer period 3 → fires on frame 4, 8, ...)
+        // Channel 1 fires every 4 frames (timer period 3 Ã¢â€ â€™ fires on frame 4, 8, ...)
         // After 30 frames, channel 1 should have fired at least 7 times.
         Palette.Color initial = snapshot(level.getPalette(3).getColor(9));
 
@@ -64,13 +58,12 @@ public class TestS3kCnzPaletteCycling {
         // The bumper palette cycles through 16 distinct frames; after 30 ticks
         // (>= 7 channel-1 fires, each advancing by 6 bytes in a 96-byte table),
         // color 9 must differ from its initial value.
-        assertFalse("palette[3] color 9 should change after 30 frames",
-                colorsEqual(initial, after));
+        assertFalse(colorsEqual(initial, after), "palette[3] color 9 should change after 30 frames");
     }
 
     @Test
     public void paletteLine2Color7ChangesAfter30Frames() {
-        // Channel 3 fires every 3 frames (timer period 2 → fires on frame 3, 6, ...).
+        // Channel 3 fires every 3 frames (timer period 2 Ã¢â€ â€™ fires on frame 3, 6, ...).
         // After 30 frames, it fires 10 times, advancing counter4 by 40 (>= 1 full wrap at 0x40).
         Palette.Color initial = snapshot(level.getPalette(2).getColor(7));
 
@@ -79,18 +72,16 @@ public class TestS3kCnzPaletteCycling {
         }
 
         Palette.Color after = level.getPalette(2).getColor(7);
-        assertFalse("palette[2] color 7 should change after 30 frames",
-                colorsEqual(initial, after));
+        assertFalse(colorsEqual(initial, after), "palette[2] color 7 should change after 30 frames");
     }
 
     @Test
     public void paletteLine2Color9ChangesEachFrame() {
-        // Channel 2 (background) runs every frame — color 9 should change on frame 1.
+        // Channel 2 (background) runs every frame Ã¢â‚¬â€ color 9 should change on frame 1.
         Palette.Color before = snapshot(level.getPalette(2).getColor(9));
         cycler.update();
         Palette.Color after = level.getPalette(2).getColor(9);
-        assertFalse("palette[2] color 9 should change on the very first frame (ch2 always runs)",
-                colorsEqual(before, after));
+        assertFalse(colorsEqual(before, after), "palette[2] color 9 should change on the very first frame (ch2 always runs)");
     }
 
     // ========== Specific color value assertions ==========
@@ -115,8 +106,7 @@ public class TestS3kCnzPaletteCycling {
                 anyNonZero = true;
             }
         }
-        assertTrue("At least one bumper color (9-11) should be non-zero after first tick",
-                anyNonZero);
+        assertTrue(anyNonZero, "At least one bumper color (9-11) should be non-zero after first tick");
     }
 
     /**
@@ -132,9 +122,8 @@ public class TestS3kCnzPaletteCycling {
             int r = pal2.getColor(c).r & 0xFF;
             int g = pal2.getColor(c).g & 0xFF;
             int b = pal2.getColor(c).b & 0xFF;
-            assertTrue("Background color " + c + " should be non-zero after first tick, got ("
-                    + r + "," + g + "," + b + ")",
-                    r > 0 || g > 0 || b > 0);
+            assertTrue(r > 0 || g > 0 || b > 0, "Background color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")");
         }
     }
 
@@ -151,16 +140,15 @@ public class TestS3kCnzPaletteCycling {
             int r = pal2.getColor(c).r & 0xFF;
             int g = pal2.getColor(c).g & 0xFF;
             int b = pal2.getColor(c).b & 0xFF;
-            assertTrue("Tertiary color " + c + " should be non-zero after first tick, got ("
-                    + r + "," + g + "," + b + ")",
-                    r > 0 || g > 0 || b > 0);
+            assertTrue(r > 0 || g > 0 || b > 0, "Tertiary color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")");
         }
     }
 
     /**
      * Verifies bumper cycle produces multiple distinct palette states over 30 frames.
      * Channel 1 has 16 frames (step +6, wrap 0x60), timer period 3, so fires ~7 times
-     * in 30 ticks — should yield at least 3 distinct color states.
+     * in 30 ticks Ã¢â‚¬â€ should yield at least 3 distinct color states.
      */
     @Test
     public void bumperCycleProducesMultipleDistinctValues() {
@@ -181,13 +169,13 @@ public class TestS3kCnzPaletteCycling {
             }
         }
 
-        assertTrue("Bumper cycle should produce at least 3 distinct color 9 values over 30 frames, got "
-                + distinctCount, distinctCount >= 3);
+        assertTrue(distinctCount >= 3, "Bumper cycle should produce at least 3 distinct color 9 values over 30 frames, got "
+                + distinctCount);
     }
 
     /**
      * Verifies background cycle advances every frame producing many distinct values.
-     * Channel 2 runs every frame with 30 entries — so 30 ticks should yield 30 distinct states.
+     * Channel 2 runs every frame with 30 entries Ã¢â‚¬â€ so 30 ticks should yield 30 distinct states.
      */
     @Test
     public void backgroundCycleAdvancesEveryFrame() {
@@ -208,9 +196,9 @@ public class TestS3kCnzPaletteCycling {
             }
         }
 
-        // 30 frames with step +6 in a 180-byte table (30 frames) — each should be unique
-        assertTrue("Background cycle should produce at least 10 distinct color 9 values over 30 frames, got "
-                + distinctCount, distinctCount >= 10);
+        // 30 frames with step +6 in a 180-byte table (30 frames) Ã¢â‚¬â€ each should be unique
+        assertTrue(distinctCount >= 10, "Background cycle should produce at least 10 distinct color 9 values over 30 frames, got "
+                + distinctCount);
     }
 
     // ===== helpers =====
@@ -224,7 +212,7 @@ public class TestS3kCnzPaletteCycling {
     }
 
     /**
-     * Minimal Level stub — 4 palettes, no geometry needed for palette cycling tests.
+     * Minimal Level stub Ã¢â‚¬â€ 4 palettes, no geometry needed for palette cycling tests.
      */
     private static class StubLevel implements Level {
         private final Palette[] palettes = new Palette[4];
@@ -255,3 +243,5 @@ public class TestS3kCnzPaletteCycling {
         @Override public int getZoneIndex() { return 3; }
     }
 }
+
+

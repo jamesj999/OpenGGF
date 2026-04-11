@@ -2,12 +2,12 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.BootstrapObjectServices;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteDplcFrame;
@@ -84,6 +84,7 @@ public class AizIntroArtLoader {
     private static ObjectSpriteSheet corkFloorSheet;
 
     private static boolean loaded = false;
+    private static ObjectServices activeServices;
 
     // Renderer cache — lazy-initialized on first render call
     private static final int INTRO_PATTERN_BASE = 0x40000;
@@ -105,33 +106,43 @@ public class AizIntroArtLoader {
      * subsequent calls are no-ops if already loaded.
      */
     public static synchronized void loadAllIntroArt() {
+        loadAllIntroArt(new BootstrapObjectServices());
+    }
+
+    public static synchronized void loadAllIntroArt(ObjectServices services) {
         if (loaded) {
             return;
         }
 
-        LOG.info("Loading AIZ1 intro art...");
+        ObjectServices previousServices = activeServices;
+        activeServices = services;
+        try {
+            LOG.info("Loading AIZ1 intro art...");
 
-        loadPlaneArt();
-        loadEmeraldArt();
-        loadIntroSpritesArt();
-        loadKnucklesArt();
-        loadCorkFloorArt();
+            loadPlaneArt();
+            loadEmeraldArt();
+            loadIntroSpritesArt();
+            loadKnucklesArt();
+            loadCorkFloorArt();
 
-        loadPlaneMappings();
-        loadEmeraldMappings();
-        loadWaveMappings();
-        loadKnucklesMappings();
-        loadKnucklesDplc();
-        loadCorkFloorMappings();
+            loadPlaneMappings();
+            loadEmeraldMappings();
+            loadWaveMappings();
+            loadKnucklesMappings();
+            loadKnucklesDplc();
+            loadCorkFloorMappings();
 
-        loadSuperSonicPaletteCycleData();
-        loadCutsceneKnucklesPalette();
-        loadEmeraldPalette();
+            loadSuperSonicPaletteCycleData();
+            loadCutsceneKnucklesPalette();
+            loadEmeraldPalette();
 
-        buildSpriteSheets();
+            buildSpriteSheets();
 
-        loaded = true;
-        LOG.info("AIZ1 intro art loaded successfully.");
+            loaded = true;
+            LOG.info("AIZ1 intro art loaded successfully.");
+        } finally {
+            activeServices = previousServices;
+        }
     }
 
     /**
@@ -567,9 +578,13 @@ public class AizIntroArtLoader {
      * Safe to call before GL is initialized (no-ops gracefully).
      */
     public static void applyKnucklesPalette() {
+        applyKnucklesPalette(new BootstrapObjectServices());
+    }
+
+    public static void applyKnucklesPalette(ObjectServices services) {
         byte[] data = getCutsceneKnucklesPalette();
         if (data == null || data.length == 0) return;
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = graphicsManager(services);
         if (gm == null || !gm.isGlInitialized()) return;
         Palette palette = new Palette();
         palette.fromSegaFormat(data);
@@ -583,9 +598,13 @@ public class AizIntroArtLoader {
      * Safe to call before GL is initialized (no-ops gracefully).
      */
     public static void applyEmeraldPalette() {
+        applyEmeraldPalette(new BootstrapObjectServices());
+    }
+
+    public static void applyEmeraldPalette(ObjectServices services) {
         byte[] data = getEmeraldPalette();
         if (data == null || data.length == 0) return;
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = graphicsManager(services);
         if (gm == null || !gm.isGlInitialized()) return;
         Palette palette = new Palette();
         palette.fromSegaFormat(data);
@@ -601,8 +620,12 @@ public class AizIntroArtLoader {
      * Safe to call every frame — no-ops if already cached.
      */
     public static void ensureRenderersCached() {
+        ensureRenderersCached(new BootstrapObjectServices());
+    }
+
+    public static void ensureRenderersCached(ObjectServices services) {
         if (renderersCached || !loaded) return;
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = graphicsManager(services);
         if (gm == null || !gm.isGlInitialized()) return;
 
         int nextBase = INTRO_PATTERN_BASE;
@@ -636,31 +659,51 @@ public class AizIntroArtLoader {
 
     /** Returns the plane renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getPlaneRenderer() {
-        ensureRenderersCached();
+        return getPlaneRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getPlaneRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return planeRenderer;
     }
 
     /** Returns the emerald renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getEmeraldRenderer() {
-        ensureRenderersCached();
+        return getEmeraldRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getEmeraldRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return emeraldRenderer;
     }
 
     /** Returns the intro sprites (waves) renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getIntroSpritesRenderer() {
-        ensureRenderersCached();
+        return getIntroSpritesRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getIntroSpritesRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return introSpritesRenderer;
     }
 
     /** Returns the Knuckles renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getKnucklesRenderer() {
-        ensureRenderersCached();
+        return getKnucklesRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getKnucklesRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return knucklesRenderer;
     }
 
     /** Returns the cork floor renderer (for rock child objects), lazily caching if needed. */
     public static PatternSpriteRenderer getCorkFloorRenderer() {
-        ensureRenderersCached();
+        return getCorkFloorRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getCorkFloorRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return corkFloorRenderer;
     }
 
@@ -880,12 +923,18 @@ public class AizIntroArtLoader {
     }
 
     private static Rom currentRom() throws IOException {
-        return RomManager.getInstance().getRom();
+        if (activeServices == null) {
+            throw new IOException("AIZ intro art loader requires ObjectServices");
+        }
+        return activeServices.rom();
     }
 
     private static com.openggf.level.Level currentLevel() {
-        LevelManager levelManager = LevelManager.getInstance();
-        return levelManager != null ? levelManager.getCurrentLevel() : null;
+        return activeServices != null ? activeServices.currentLevel() : null;
+    }
+
+    private static GraphicsManager graphicsManager(ObjectServices services) {
+        return services != null ? services.graphicsManager() : null;
     }
 
     /**

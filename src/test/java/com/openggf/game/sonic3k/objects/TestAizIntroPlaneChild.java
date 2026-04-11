@@ -1,9 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectSpawn;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestAizIntroPlaneChild {
 
@@ -22,3 +22,5 @@ public class TestAizIntroPlaneChild {
         }
     }
 }
+
+

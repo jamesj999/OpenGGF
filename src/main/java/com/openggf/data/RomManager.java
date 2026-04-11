@@ -3,6 +3,7 @@ package com.openggf.data;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -28,12 +29,15 @@ public class RomManager implements AutoCloseable {
 
     private static RomManager instance;
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private Rom rom;
     private boolean initialized = false;
     private final Map<String, Rom> secondaryRoms = new HashMap<>();
 
     private RomManager() {
+    }
+
+    private SonicConfigurationService configService() {
+        return GameServices.configuration();
     }
 
     /**
@@ -115,7 +119,7 @@ public class RomManager implements AutoCloseable {
             rom.close();
         }
 
-        String romFilename = resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
+        String romFilename = resolveRomForGame(configService().getString(SonicConfiguration.DEFAULT_ROM));
         if (romFilename == null || romFilename.isEmpty()) {
             throw new IOException("ROM filename not configured (DEFAULT_ROM not set or per-game ROM key empty)");
         }
@@ -142,7 +146,7 @@ public class RomManager implements AutoCloseable {
      * @return the configured ROM filename for that game
      */
     public static String resolveRomForGame(String gameId) {
-        SonicConfigurationService svc = SonicConfigurationService.getInstance();
+        SonicConfigurationService svc = GameServices.configuration();
         return switch (gameId != null ? gameId.toLowerCase() : "s2") {
             case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
             case "s3k" -> svc.getString(SonicConfiguration.SONIC_3K_ROM);

@@ -1,7 +1,5 @@
 package com.openggf.timer;
 
-import com.openggf.game.RuntimeManager;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -11,7 +9,6 @@ import java.util.logging.Logger;
  */
 public class TimerManager {
     private static final Logger LOGGER = Logger.getLogger(TimerManager.class.getName());
-    private static TimerManager bootstrapInstance;
 
     private Map<String, Timer> timers = new HashMap<String, Timer>();
 
@@ -57,14 +54,4 @@ public class TimerManager {
         timers.clear();
     }
 
-    public synchronized static TimerManager getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getTimers();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new TimerManager();
-        }
-        return bootstrapInstance;
-    }
 }

@@ -26,8 +26,6 @@ import static com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageConstants
 public class Sonic3kSpecialStageManager {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kSpecialStageManager.class.getName());
 
-    private static Sonic3kSpecialStageManager instance;
-
     // ==================== Core State ====================
 
     private int currentStage;
@@ -119,14 +117,7 @@ public class Sonic3kSpecialStageManager {
     // Debug state
     private boolean spriteDebugMode;
 
-    private Sonic3kSpecialStageManager() {}
-
-    public static synchronized Sonic3kSpecialStageManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic3kSpecialStageManager();
-        }
-        return instance;
-    }
+    public Sonic3kSpecialStageManager() {}
 
     /**
      * Initialize the special stage with the given stage index.
@@ -153,7 +144,7 @@ public class Sonic3kSpecialStageManager {
         this.musicSpedUp = false;
 
         // Resolve character from configuration
-        this.playerCharacter = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        this.playerCharacter = resolvePlayerCharacter();
         this.tailsEnabled = (playerCharacter == PlayerCharacter.SONIC_AND_TAILS);
 
         this.bannerPhase = 0;
@@ -164,7 +155,7 @@ public class Sonic3kSpecialStageManager {
 
         // Initialize renderer
         if (renderer == null) {
-            renderer = new Sonic3kSpecialStageRenderer(GraphicsManager.getInstance());
+            renderer = new Sonic3kSpecialStageRenderer(GameServices.graphics());
         }
         palette = new Sonic3kSpecialStagePalette();
 
@@ -201,7 +192,7 @@ public class Sonic3kSpecialStageManager {
      */
     private void loadRomData() throws IOException {
         dataLoader = Sonic3kSpecialStageDataLoader.create();
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
 
         // Load layout from ROM.
         // Stages 0-7: S3 layouts (Lockon data, uncompressed)
@@ -619,7 +610,7 @@ public class Sonic3kSpecialStageManager {
                             pal.colors[c].b = (byte) Math.min(255, b + step);
                         }
                     }
-                    GraphicsManager.getInstance().cachePaletteTexture(pal, line);
+                    GameServices.graphics().cachePaletteTexture(pal, line);
                 }
             }
         }
@@ -645,7 +636,7 @@ public class Sonic3kSpecialStageManager {
                     perspective.getPaletteFrame(),
                     player.getTurning() < 0);
             // Push updated palette line 3 to graphics manager each frame
-            GraphicsManager.getInstance().cachePaletteTexture(palette.getPalette(3), 3);
+            GameServices.graphics().cachePaletteTexture(palette.getPalette(3), 3);
         }
 
         // Background scroll
@@ -1034,6 +1025,16 @@ public class Sonic3kSpecialStageManager {
 
     public PlayerCharacter getPlayerCharacter() {
         return playerCharacter;
+    }
+
+    private PlayerCharacter resolvePlayerCharacter() {
+        try {
+            return ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider())
+                    .getPlayerCharacter();
+        } catch (Exception e) {
+            LOGGER.fine("Falling back to Sonic & Tails player character: " + e.getMessage());
+            return PlayerCharacter.SONIC_AND_TAILS;
+        }
     }
 
     public long getTailsJumpHeight() {

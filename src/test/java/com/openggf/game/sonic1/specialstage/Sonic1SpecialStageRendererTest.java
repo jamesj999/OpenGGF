@@ -1,14 +1,14 @@
 package com.openggf.game.sonic1.specialstage;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GraphicsManager;
 
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static com.openggf.game.sonic1.constants.Sonic1Constants.ARTTILE_RING;
 import static com.openggf.game.sonic1.constants.Sonic1Constants.SS_LAYOUT_STRIDE;
 
@@ -18,7 +18,7 @@ public class Sonic1SpecialStageRendererTest {
     private GraphicsManager graphicsManager;
     private Sonic1SpecialStageRenderer renderer;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphicsManager.getInstance().resetState();
         graphicsManager = GraphicsManager.getInstance();
@@ -50,7 +50,7 @@ public class Sonic1SpecialStageRendererTest {
         );
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         if (graphicsManager != null) {
             graphicsManager.cleanup();
@@ -91,17 +91,15 @@ public class Sonic1SpecialStageRendererTest {
         mappingMethod.setAccessible(true);
 
         int ringBase = (int) mappingMethod.invoke(renderer, ARTTILE_RING);
-        assertEquals("Ring art tile should resolve to dedicated ring pattern base",
-                TEST_PATTERN_BASE + 0xC00, ringBase);
+        assertEquals(TEST_PATTERN_BASE + 0xC00, ringBase, "Ring art tile should resolve to dedicated ring pattern base");
     }
 
     @Test
     public void testSpecialStageUsesFullScreenViewport() {
-        assertEquals("S1 special stage should use full-width viewport",
-                320, Sonic1SpecialStageRenderer.H32_WIDTH);
-        assertEquals("S1 special stage should use 224-line visible height",
-                224, Sonic1SpecialStageRenderer.H32_HEIGHT);
-        assertEquals("S1 special stage should not apply horizontal centering offset",
-                0, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET);
+        assertEquals(320, Sonic1SpecialStageRenderer.H32_WIDTH, "S1 special stage should use full-width viewport");
+        assertEquals(224, Sonic1SpecialStageRenderer.H32_HEIGHT, "S1 special stage should use 224-line visible height");
+        assertEquals(0, Sonic1SpecialStageRenderer.SCREEN_CENTER_OFFSET, "S1 special stage should not apply horizontal centering offset");
     }
 }
+
+

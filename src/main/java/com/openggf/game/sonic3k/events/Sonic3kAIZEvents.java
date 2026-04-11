@@ -3,14 +3,12 @@ package com.openggf.game.sonic3k.events;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
 import com.openggf.game.sonic3k.objects.AizBgTreeSpawnerInstance;
 import com.openggf.game.sonic3k.objects.AizBombExplosionInstance;
@@ -590,11 +588,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
         byte[] colorBytes = {(byte) ((segaColor >> 8) & 0xFF), (byte) (segaColor & 0xFF)};
         pal2.getColor(15).fromSegaFormat(colorBytes, 0);
-
-        GraphicsManager gm = GraphicsManager.getInstance();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(pal2, 2);
-        }
+        cachePaletteTextureIfReady(pal2, 2);
     }
 
     /**
@@ -610,8 +604,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     private void spawnIntroObject() {
         ObjectSpawn spawn = new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0);
-        AizPlaneIntroInstance intro = new AizPlaneIntroInstance(spawn);
-        spawnObject(intro);
+        if (spawnObject(() -> new AizPlaneIntroInstance(spawn)) == null) {
+            return;
+        }
         LOG.info("AIZ1 intro: spawned plane intro object");
     }
 
@@ -941,7 +936,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * spawns the miniboss, and sets up the battleship sequence boundaries.
      */
     private void updateAiz2Resize() {
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        PlayerCharacter character = playerCharacter();
         boolean isKnuckles = (character == PlayerCharacter.KNUCKLES);
 
         switch (aiz2ResizeRoutine) {

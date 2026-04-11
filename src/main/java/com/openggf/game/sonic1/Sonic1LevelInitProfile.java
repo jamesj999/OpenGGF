@@ -29,6 +29,17 @@ import java.util.List;
  *      Design doc: Sonic 1 Level Init Profile (44 steps)</a>
  */
 public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
+    private final Sonic1LevelEventManager levelEventManager;
+    private final Sonic1SwitchManager switchManager;
+    private final Sonic1ConveyorState conveyorState;
+
+    public Sonic1LevelInitProfile(Sonic1LevelEventManager levelEventManager,
+                                  Sonic1SwitchManager switchManager,
+                                  Sonic1ConveyorState conveyorState) {
+        this.levelEventManager = levelEventManager;
+        this.switchManager = switchManager;
+        this.conveyorState = conveyorState;
+    }
 
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
@@ -49,7 +60,7 @@ public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep levelEventTeardownStep() {
         return new InitStep("ResetS1LevelEvents",
             "Undoes S1 per-zone event handlers (GHZ/MZ/SYZ/LZ/SLZ/SBZ/FZ events)",
-            () -> Sonic1LevelEventManager.getInstance().resetState());
+            levelEventManager::resetState);
     }
 
     @Override
@@ -57,9 +68,9 @@ public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
         return new InitStep("ResetS1LevelEvents",
             "Undoes S1 per-zone event handlers, switch state, conveyor state, SBZ3 stomper door",
             () -> {
-                Sonic1LevelEventManager.getInstance().resetState();
-                Sonic1SwitchManager.getInstance().reset();
-                Sonic1ConveyorState.getInstance().reset();
+                levelEventManager.resetState();
+                switchManager.reset();
+                conveyorState.reset();
                 Sonic1StomperDoorObjectInstance.resetSbz3Flag();
             });
     }

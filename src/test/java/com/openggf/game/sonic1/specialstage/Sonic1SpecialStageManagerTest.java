@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.specialstage;
 
 import com.openggf.graphics.WaterShaderProgram;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternAtlas;
 import com.openggf.level.Palette;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.lang.reflect.Field;
@@ -17,22 +15,18 @@ import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.openggf.game.sonic1.constants.Sonic1Constants.SS_BLOCK_SIZE_PX;
 import static com.openggf.game.sonic1.constants.Sonic1Constants.SS_LAYOUT_STRIDE;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class Sonic1SpecialStageManagerTest {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private GraphicsManager graphicsManager;
     private Sonic1SpecialStageManager manager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GraphicsManager.getInstance().resetState();
         graphicsManager = GraphicsManager.getInstance();
@@ -40,7 +34,7 @@ public class Sonic1SpecialStageManagerTest {
         manager = new Sonic1SpecialStageManager();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         if (manager != null) {
             manager.reset();
@@ -54,28 +48,28 @@ public class Sonic1SpecialStageManagerTest {
     @Test
     public void testInitializeLoadsZonePatternBases() throws Exception {
         manager.initialize(0);
-        assertTrue("Special stage manager should initialize", manager.isInitialized());
+        assertTrue(manager.isInitialized(), "Special stage manager should initialize");
 
         Field rendererField = Sonic1SpecialStageManager.class.getDeclaredField("renderer");
         rendererField.setAccessible(true);
         Sonic1SpecialStageRenderer renderer = (Sonic1SpecialStageRenderer) rendererField.get(manager);
-        assertNotNull("Renderer should be created during initialization", renderer);
+        assertNotNull(renderer, "Renderer should be created during initialization");
 
         Field zoneBasesField = Sonic1SpecialStageRenderer.class.getDeclaredField("zonePatternBases");
         zoneBasesField.setAccessible(true);
         int[] zoneBases = (int[]) zoneBasesField.get(renderer);
-        assertNotNull("Zone pattern bases should be set", zoneBases);
-        assertTrue("Should have 6 zone pattern bases", zoneBases.length == 6);
+        assertNotNull(zoneBases, "Zone pattern bases should be set");
+        assertTrue(zoneBases.length == 6, "Should have 6 zone pattern bases");
 
         int previousBase = -1;
         for (int i = 0; i < zoneBases.length; i++) {
             int base = zoneBases[i];
-            assertTrue("Zone pattern base should be positive for zone " + (i + 1), base > 0);
-            assertTrue("Zone pattern bases should increase monotonically", base > previousBase);
+            assertTrue(base > 0, "Zone pattern base should be positive for zone " + (i + 1));
+            assertTrue(base > previousBase, "Zone pattern bases should increase monotonically");
             previousBase = base;
 
             PatternAtlas.Entry entry = graphicsManager.getPatternAtlasEntry(base);
-            assertNotNull("Pattern atlas entry missing for zone " + (i + 1) + " base " + base, entry);
+            assertNotNull(entry, "Pattern atlas entry missing for zone " + (i + 1) + " base " + base);
         }
     }
 
@@ -87,12 +81,10 @@ public class Sonic1SpecialStageManagerTest {
         Field rendererField = Sonic1SpecialStageManager.class.getDeclaredField("renderer");
         rendererField.setAccessible(true);
         Sonic1SpecialStageRenderer renderer = (Sonic1SpecialStageRenderer) rendererField.get(manager);
-        assertNotNull("Renderer should be created during initialization", renderer);
+        assertNotNull(renderer, "Renderer should be created during initialization");
 
-        assertTrue("Special stage should render at least one block on first draw",
-                renderer.getLastRenderedBlocks() > 0);
-        assertTrue("Special stage should detect valid block cells on first draw",
-                renderer.getLastValidBlockCells() > 0);
+        assertTrue(renderer.getLastRenderedBlocks() > 0, "Special stage should render at least one block on first draw");
+        assertTrue(renderer.getLastValidBlockCells() > 0, "Special stage should detect valid block cells on first draw");
     }
 
     @Test
@@ -106,19 +98,18 @@ public class Sonic1SpecialStageManagerTest {
         Field rendererField = Sonic1SpecialStageManager.class.getDeclaredField("renderer");
         rendererField.setAccessible(true);
         Sonic1SpecialStageRenderer renderer = (Sonic1SpecialStageRenderer) rendererField.get(manager);
-        assertNotNull("Renderer should be created during initialization", renderer);
-        assertTrue("Special stage should still render blocks after updates",
-                renderer.getLastRenderedBlocks() > 0);
+        assertNotNull(renderer, "Renderer should be created during initialization");
+        assertTrue(renderer.getLastRenderedBlocks() > 0, "Special stage should still render blocks after updates");
     }
 
     @Test
     public void testBackdropColorUsesResolvedSpecialPalette() throws Exception {
         manager.initialize(0);
         Palette.Color backdrop = manager.getBackdropColor();
-        assertNotNull("Backdrop color should be available after initialization", backdrop);
-        assertEquals("Backdrop red should match S1 special-stage palette", 0, backdrop.r & 0xFF);
-        assertEquals("Backdrop green should match S1 special-stage palette", 0, backdrop.g & 0xFF);
-        assertEquals("Backdrop blue should match S1 special-stage palette", 73, backdrop.b & 0xFF);
+        assertNotNull(backdrop, "Backdrop color should be available after initialization");
+        assertEquals(0, backdrop.r & 0xFF, "Backdrop red should match S1 special-stage palette");
+        assertEquals(0, backdrop.g & 0xFF, "Backdrop green should match S1 special-stage palette");
+        assertEquals(73, backdrop.b & 0xFF, "Backdrop blue should match S1 special-stage palette");
     }
 
     @Test
@@ -134,8 +125,7 @@ public class Sonic1SpecialStageManagerTest {
             seenFrames.add(frameField.getInt(manager));
         }
 
-        assertTrue("Sonic special-stage roll animation should advance through multiple frames",
-                seenFrames.size() > 1);
+        assertTrue(seenFrames.size() > 1, "Sonic special-stage roll animation should advance through multiple frames");
     }
 
     @Test
@@ -145,8 +135,8 @@ public class Sonic1SpecialStageManagerTest {
         Field palettesField = Sonic1SpecialStageManager.class.getDeclaredField("ssPalettes");
         palettesField.setAccessible(true);
         Palette[] palettes = (Palette[]) palettesField.get(manager);
-        assertNotNull("Special-stage palettes should be loaded", palettes);
-        assertTrue("Special-stage palette lines should be present", palettes.length == 4);
+        assertNotNull(palettes, "Special-stage palettes should be loaded");
+        assertTrue(palettes.length == 4, "Special-stage palette lines should be present");
 
         Set<String> observedColors = new HashSet<>();
         for (int i = 0; i < 120; i++) {
@@ -155,8 +145,7 @@ public class Sonic1SpecialStageManagerTest {
             observedColors.add((c.r & 0xFF) + "," + (c.g & 0xFF) + "," + (c.b & 0xFF));
         }
 
-        assertTrue("Special-stage palette cycle should change cycled colors over time",
-                observedColors.size() > 1);
+        assertTrue(observedColors.size() > 1, "Special-stage palette cycle should change cycled colors over time");
     }
 
     @Test
@@ -173,14 +162,10 @@ public class Sonic1SpecialStageManagerTest {
         ani2FrameField.setAccessible(true);
         ani3FrameField.setAccessible(true);
 
-        assertEquals("ani1 should advance to frame 1 on first tick (ROM parity)",
-                1, ringAnimFrameField.getInt(manager));
-        assertEquals("ani0 should wrap to frame 7 on first tick (ROM parity)",
-                7, wallVramAnimFrameField.getInt(manager));
-        assertEquals("ani2 should advance to frame 1 on first tick (ROM parity)",
-                1, ani2FrameField.getInt(manager));
-        assertEquals("ani3 should advance to frame 1 on first tick (ROM parity)",
-                1, ani3FrameField.getInt(manager));
+        assertEquals(1, ringAnimFrameField.getInt(manager), "ani1 should advance to frame 1 on first tick (ROM parity)");
+        assertEquals(7, wallVramAnimFrameField.getInt(manager), "ani0 should wrap to frame 7 on first tick (ROM parity)");
+        assertEquals(1, ani2FrameField.getInt(manager), "ani2 should advance to frame 1 on first tick (ROM parity)");
+        assertEquals(1, ani3FrameField.getInt(manager), "ani3 should advance to frame 1 on first tick (ROM parity)");
     }
 
     @Test
@@ -195,16 +180,11 @@ public class Sonic1SpecialStageManagerTest {
 
         manager.draw();
 
-        assertTrue("S1 special stage draw should disable water shader",
-                !(graphicsManager.getShaderProgram() instanceof WaterShaderProgram));
-        assertTrue("S1 special stage draw should disable sprite priority mode",
-                !graphicsManager.isUseSpritePriorityShader());
-        assertTrue("S1 special stage draw should clear sprite high-priority state",
-                !graphicsManager.getCurrentSpriteHighPriority());
-        assertTrue("S1 special stage draw should clear water-enabled state",
-                !graphicsManager.isWaterEnabled());
-        assertTrue("S1 special stage draw should disable underwater background palette mode",
-                !graphicsManager.isUseUnderwaterPaletteForBackground());
+        assertTrue(!(graphicsManager.getShaderProgram() instanceof WaterShaderProgram), "S1 special stage draw should disable water shader");
+        assertTrue(!graphicsManager.isUseSpritePriorityShader(), "S1 special stage draw should disable sprite priority mode");
+        assertTrue(!graphicsManager.getCurrentSpriteHighPriority(), "S1 special stage draw should clear sprite high-priority state");
+        assertTrue(!graphicsManager.isWaterEnabled(), "S1 special stage draw should clear water-enabled state");
+        assertTrue(!graphicsManager.isUseUnderwaterPaletteForBackground(), "S1 special stage draw should disable underwater background palette mode");
     }
 
     @Test
@@ -219,16 +199,11 @@ public class Sonic1SpecialStageManagerTest {
 
         manager.reset();
 
-        assertTrue("S1 special stage reset should disable water shader",
-                !(graphicsManager.getShaderProgram() instanceof WaterShaderProgram));
-        assertTrue("S1 special stage reset should disable sprite priority mode",
-                !graphicsManager.isUseSpritePriorityShader());
-        assertTrue("S1 special stage reset should clear sprite high-priority state",
-                !graphicsManager.getCurrentSpriteHighPriority());
-        assertTrue("S1 special stage reset should clear water-enabled state",
-                !graphicsManager.isWaterEnabled());
-        assertTrue("S1 special stage reset should disable underwater background palette mode",
-                !graphicsManager.isUseUnderwaterPaletteForBackground());
+        assertTrue(!(graphicsManager.getShaderProgram() instanceof WaterShaderProgram), "S1 special stage reset should disable water shader");
+        assertTrue(!graphicsManager.isUseSpritePriorityShader(), "S1 special stage reset should disable sprite priority mode");
+        assertTrue(!graphicsManager.getCurrentSpriteHighPriority(), "S1 special stage reset should clear sprite high-priority state");
+        assertTrue(!graphicsManager.isWaterEnabled(), "S1 special stage reset should clear water-enabled state");
+        assertTrue(!graphicsManager.isUseUnderwaterPaletteForBackground(), "S1 special stage reset should disable underwater background palette mode");
     }
 
     @Test
@@ -259,9 +234,8 @@ public class Sonic1SpecialStageManagerTest {
 
         checkItemsMethod.invoke(manager);
 
-        assertTrue("Emerald collection flag should be set", manager.isEmeraldCollected());
-        assertTrue("Collecting an emerald should trigger special-stage exit",
-                exitTriggeredField.getBoolean(manager));
+        assertTrue(manager.isEmeraldCollected(), "Emerald collection flag should be set");
+        assertTrue(exitTriggeredField.getBoolean(manager), "Collecting an emerald should trigger special-stage exit");
     }
 
     @Test
@@ -293,18 +267,17 @@ public class Sonic1SpecialStageManagerTest {
         lastCollisionColField.setInt(manager, col);
 
         processItemInteractionMethod.invoke(manager);
-        assertEquals("Glass should not advance immediately before animation tick",
-                0x2D, layout[layoutIndex] & 0xFF);
+        assertEquals(0x2D, layout[layoutIndex] & 0xFF, "Glass should not advance immediately before animation tick");
 
         updateItemAnimationsMethod.invoke(manager);
-        assertEquals("First animation tick should move glass into transitional state",
-                0x4B, layout[layoutIndex] & 0xFF);
+        assertEquals(0x4B, layout[layoutIndex] & 0xFF, "First animation tick should move glass into transitional state");
 
         for (int i = 0; i < 32; i++) {
             updateItemAnimationsMethod.invoke(manager);
         }
 
-        assertEquals("After one full glass animation, block should advance by one hit state",
-                0x2E, layout[layoutIndex] & 0xFF);
+        assertEquals(0x2E, layout[layoutIndex] & 0xFF, "After one full glass animation, block should advance by one hit state");
     }
 }
+
+

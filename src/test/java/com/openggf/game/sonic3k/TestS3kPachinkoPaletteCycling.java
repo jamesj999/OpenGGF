@@ -8,30 +8,25 @@ import com.openggf.level.Palette;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kPachinkoPaletteCycling {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private HeadlessTestFixture fixture;
 
-    @BeforeClass
+    @BeforeAll
     public static void configure() {
         SonicConfigurationService.getInstance()
                 .setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = null;
     }
@@ -64,7 +59,7 @@ public class TestS3kPachinkoPaletteCycling {
             }
         }
 
-        assertTrue("Expected Pachinko palette[3] color 8 to cycle", changed);
+        assertTrue(changed, "Expected Pachinko palette[3] color 8 to cycle");
     }
 
     @Test
@@ -95,6 +90,8 @@ public class TestS3kPachinkoPaletteCycling {
             }
         }
 
-        assertTrue("Expected Pachinko palette[2] color 1 to cycle", changed);
+        assertTrue(changed, "Expected Pachinko palette[2] color 1 to cycle");
     }
 }
+
+

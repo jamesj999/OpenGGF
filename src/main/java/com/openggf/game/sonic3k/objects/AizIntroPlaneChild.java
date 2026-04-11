@@ -181,7 +181,7 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer(services());
         if (renderer == null || !renderer.isReady()) return;
         // Screen-space coordinates use the ROM +128 sprite-table bias.
         int renderX = currentX;
@@ -200,10 +200,10 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
 
         // Render booster flames
         if (booster1 != null) {
-            booster1.appendRenderCommands(commands, camera);
+            booster1.appendRenderCommands(commands, camera, services());
         }
         if (booster2 != null) {
-            booster2.appendRenderCommands(commands, camera);
+            booster2.appendRenderCommands(commands, camera, services());
         }
 
         // Emerald glow children are NOT rendered here — their positions

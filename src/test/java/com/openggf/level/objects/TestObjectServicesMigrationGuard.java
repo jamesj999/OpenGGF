@@ -54,7 +54,6 @@ class TestObjectServicesMigrationGuard {
      * getInstance() or GameServices for non-object purposes.
      */
     private static final Set<String> PERMANENT_EXCEPTIONS = Set.of(
-            // REGISTRY: ObjectRegistry classes, not AbstractObjectInstance subclasses
             "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
             "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
             "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
@@ -72,6 +71,11 @@ class TestObjectServicesMigrationGuard {
             "com/openggf/game/sonic2/objects",
             "com/openggf/game/sonic3k/objects",
     };
+
+    private static final String SHARED_OBJECT_PACKAGE = "com/openggf/level/objects";
+    private static final Set<String> SHARED_OBJECT_SOURCE_EXCEPTIONS = Set.of(
+            "com.openggf.level.objects.AbstractObjectInstance"
+    );
 
     private static final String[] OBJECT_SERVICE_NULL_CHECK_PACKAGES = {
             "com/openggf/game/sonic1/objects",
@@ -221,6 +225,96 @@ class TestObjectServicesMigrationGuard {
     }
 
     @Test
+    void sharedObjectInstances_shouldNotReferenceGameServicesInSource() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        Path pkgDir = srcMain.resolve(SHARED_OBJECT_PACKAGE);
+        if (!Files.isDirectory(pkgDir)) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(pkgDir)) {
+            files.filter(path -> path.toString().endsWith("ObjectInstance.java"))
+                    .forEach(path -> {
+                        try {
+                            String className = srcMain.relativize(path).toString()
+                                    .replace('\\', '/').replace(".java", "").replace('/', '.');
+                            if (SHARED_OBJECT_SOURCE_EXCEPTIONS.contains(className)) {
+                                return;
+                            }
+                            String content = Files.readString(path);
+                            if (content.contains("GameServices.")) {
+                                violations.add(className);
+                            }
+                        } catch (IOException ignored) {
+                        }
+                    });
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Shared object instances must not reference GameServices directly:\n  "
+                    + String.join("\n  ", new TreeSet<>(violations)));
+        }
+    }
+
+    @Test
+    void objectPackages_shouldNotCallAizTerrainSwapNoArgHelper() throws IOException {
+        Path source = Path.of(
+                "src/main/java/com/openggf/game/sonic3k/objects/AizPlaneIntroInstance.java");
+        if (!Files.isRegularFile(source)) {
+            return;
+        }
+
+        String content = Files.readString(source);
+        if (content.contains("AizIntroTerrainSwap.applyMainLevelOverlays();")) {
+            fail("AizPlaneIntroInstance must route terrain swap through services():\n  "
+                    + "AizIntroTerrainSwap.applyMainLevelOverlays(services())");
+        }
+    }
+
+    @Test
+    void objectPackages_shouldNotReferenceProcessGlobalRuntimeFallbacksInSource() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(path -> path.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String className = srcMain.relativize(path).toString()
+                                        .replace('\\', '/').replace(".java", "").replace('/', '.');
+                                if (PERMANENT_EXCEPTIONS.contains(className)) {
+                                    return;
+                                }
+                                String content = Files.readString(path);
+                                if (content.contains("RuntimeManager.getCurrent()")
+                                        || content.contains("EngineServices.fromLegacySingletonsForBootstrap()")) {
+                                    violations.add(className);
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Object/helper packages must not reach process-global runtime fallbacks directly:\n  "
+                    + String.join("\n  ", new TreeSet<>(violations)));
+        }
+    }
+
+    @Test
     void objectPackages_shouldNotNullCheckStrictServicesAccessor() throws IOException {
         Path srcMain = Path.of("src/main/java");
         if (!Files.isDirectory(srcMain)) {
@@ -326,3 +420,5 @@ class TestObjectServicesMigrationGuard {
         }
     }
 }
+
+

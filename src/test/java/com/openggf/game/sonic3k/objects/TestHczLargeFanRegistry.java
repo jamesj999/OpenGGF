@@ -3,10 +3,10 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestHczLargeFanRegistry {
 
@@ -26,3 +26,5 @@ public class TestHczLargeFanRegistry {
         assertEquals("HCZLargeFan", registry.getPrimaryName(Sonic3kObjectIds.HCZ_LARGE_FAN));
     }
 }
+
+

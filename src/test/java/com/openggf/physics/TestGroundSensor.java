@@ -1,7 +1,7 @@
 package com.openggf.physics;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.CollisionMode;
 import com.openggf.level.LevelManager;
@@ -9,8 +9,14 @@ import com.openggf.level.SolidTile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GroundMode;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestGroundSensor {
 
@@ -20,40 +26,48 @@ public class TestGroundSensor {
     private ChunkDesc[][] chunkMap;
     private SolidTile[] tiles;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         chunkMap = new ChunkDesc[20][20];
 
-        mockLevelManager = new LevelManager() {
-            @Override
-            public ChunkDesc getChunkDescAt(byte layer, int x, int y) {
-                int gridX = x / 16;
-                int gridY = y / 16;
-                if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
-                    return chunkMap[gridX][gridY];
-                }
-                return null;
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc, int solidityBitIndex) {
-                if (chunkDesc == null)
+        mockLevelManager = mock(LevelManager.class);
+        when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt()))
+                .thenAnswer(invocation -> {
+                    int x = invocation.getArgument(1);
+                    int y = invocation.getArgument(2);
+                    int gridX = x / 16;
+                    int gridY = y / 16;
+                    if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
+                        return chunkMap[gridX][gridY];
+                    }
                     return null;
-                return tiles[chunkDesc.getChunkIndex()];
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc, byte layer) {
-                if (chunkDesc == null)
+                });
+        when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt(), anyBoolean()))
+                .thenAnswer(invocation -> {
+                    int x = invocation.getArgument(1);
+                    int y = invocation.getArgument(2);
+                    int gridX = x / 16;
+                    int gridY = y / 16;
+                    if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
+                        return chunkMap[gridX][gridY];
+                    }
                     return null;
-                return tiles[chunkDesc.getChunkIndex()];
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc) {
-                return getSolidTileForChunkDesc(chunkDesc, (byte) 0);
-            }
-        };
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class), anyInt()))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class), anyByte()))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class)))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
 
         GroundSensor.setLevelManager(mockLevelManager);
 
@@ -175,7 +189,7 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
         SensorResult result = sensor.scan();
 
-        assertNotNull("Should find extended tile", result);
+        assertNotNull(result, "Should find extended tile");
         assertEquals(27, result.distance());
     }
 
@@ -213,7 +227,7 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
         SensorResult result = sensor.scan();
 
-        assertNotNull("Should find extended tile", result);
+        assertNotNull(result, "Should find extended tile");
         assertEquals(11, result.distance());
     }
 
@@ -234,7 +248,7 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
         SensorResult result = sensor.scan();
 
-        assertNotNull("Should find regressed tile", result);
+        assertNotNull(result, "Should find regressed tile");
         assertEquals(-9, result.distance());
     }
 
@@ -280,8 +294,8 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 5, (byte) 10, true);
         short[] rotated = sensor.getRotatedOffset();
 
-        assertEquals("X should be y = 10", 10, rotated[0]);
-        assertEquals("Y should be x = 5", 5, rotated[1]);
+        assertEquals(10, rotated[0], "X should be y = 10");
+        assertEquals(5, rotated[1], "Y should be x = 5");
     }
 
     @Test
@@ -301,8 +315,8 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) -9, (byte) 19, true);
         short[] rotated = sensor.getRotatedOffset();
 
-        assertEquals("X should remain -9 (left side)", -9, rotated[0]);
-        assertEquals("Y should be negated to -19", -19, rotated[1]);
+        assertEquals(-9, rotated[0], "X should remain -9 (left side)");
+        assertEquals(-19, rotated[1], "Y should be negated to -19");
     }
 
     @Test
@@ -319,8 +333,8 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 9, (byte) 19, true);
         short[] rotated = sensor.getRotatedOffset();
 
-        assertEquals("X should remain 9 (right side)", 9, rotated[0]);
-        assertEquals("Y should be negated to -19", -19, rotated[1]);
+        assertEquals(9, rotated[0], "X should remain 9 (right side)");
+        assertEquals(-19, rotated[1], "Y should be negated to -19");
     }
 
     @Test
@@ -337,8 +351,8 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 5, (byte) 10, true);
         short[] rotated = sensor.getRotatedOffset();
 
-        assertEquals("X should be -y = -10", -10, rotated[0]);
-        assertEquals("Y should be x = 5", 5, rotated[1]);
+        assertEquals(-10, rotated[0], "X should be -y = -10");
+        assertEquals(5, rotated[1], "Y should be x = 5");
     }
 
     @Test
@@ -354,8 +368,8 @@ public class TestGroundSensor {
         GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) -9, (byte) 19, true);
         short[] rotated = sensor.getRotatedOffset();
 
-        assertEquals("X should remain -9", -9, rotated[0]);
-        assertEquals("Y should remain 19", 19, rotated[1]);
+        assertEquals(-9, rotated[0], "X should remain -9");
+        assertEquals(19, rotated[1], "Y should remain 19");
     }
 
     @Test
@@ -372,7 +386,7 @@ public class TestGroundSensor {
         // ROM formula: surface = 112 + 15 - 16 = 111, distance = 111 - 100 = 11
         GroundSensor downSensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
         SensorResult downResult = downSensor.scan();
-        assertNotNull("DOWN sensor should detect TOP_SOLID", downResult);
+        assertNotNull(downResult, "DOWN sensor should detect TOP_SOLID");
         assertEquals(11, downResult.distance());
 
         // 2. Check with UP sensor (Ceiling). Should NOT detect collision (treat as
@@ -403,7 +417,7 @@ public class TestGroundSensor {
         // 80).
         // 100 - (80 + 0) = 20.
         assertNotNull(upResult);
-        assertEquals("UP sensor should ignore TOP_SOLID", 20, upResult.distance());
+        assertEquals(20, upResult.distance(), "UP sensor should ignore TOP_SOLID");
     }
 
     @Test
@@ -420,13 +434,15 @@ public class TestGroundSensor {
         // If ignored: Sees tile at 112 as empty, extends to 128.
         // ROM formula: surface = 128 + 15 - 16 = 127, distance = 127 - 100 = 27
         SensorResult downResult = downSensor.scan();
-        assertEquals("DOWN sensor should ignore L_R_B_SOLID", 27, downResult.distance());
+        assertEquals(27, downResult.distance(), "DOWN sensor should ignore L_R_B_SOLID");
 
         // 2. Check UP sensor. Should detect.
         setTileAt(100, 80, 1, CollisionMode.LEFT_RIGHT_BOTTOM_SOLID);
         GroundSensor upSensor = new GroundSensor(mockSprite, Direction.UP, (byte) 0, (byte) 0, true);
         // If solid: 100 - (80 + 16) = 4.
         SensorResult upResult = upSensor.scan();
-        assertEquals("UP sensor should detect L_R_B_SOLID", 4, upResult.distance());
+        assertEquals(4, upResult.distance(), "UP sensor should detect L_R_B_SOLID");
     }
 }
+
+

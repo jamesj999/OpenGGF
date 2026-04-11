@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.sonic2.events.*;
 import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -21,8 +22,6 @@ import java.util.logging.Logger;
  * the {@code events} subpackage, following the S1 pattern.
  */
 public class Sonic2LevelEventManager extends AbstractLevelEventManager {
-    private static Sonic2LevelEventManager instance;
-
     // Zone constants (matches Sonic2ZoneRegistry ordering: game progression, 0-based)
     public static final int ZONE_EHZ = 0;
     public static final int ZONE_CPZ = 1;
@@ -54,7 +53,7 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     private final Sonic2DEZEvents dezEvents;
     private final Sonic2SCZEvents sczEvents;
 
-    private Sonic2LevelEventManager() {
+    public Sonic2LevelEventManager() {
         super();
         ehzEvents = new Sonic2EHZEvents();
         cpzEvents = new Sonic2CPZEvents();
@@ -97,7 +96,7 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     }
 
     private static PlayerCharacter resolvePlayerCharacterFromConfig() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         if (config == null) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }
@@ -202,12 +201,5 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
      */
     public int getHtzBgVerticalShift() {
         return htzEvents.getHtzBgVerticalShift();
-    }
-
-    public static synchronized Sonic2LevelEventManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic2LevelEventManager();
-        }
-        return instance;
     }
 }

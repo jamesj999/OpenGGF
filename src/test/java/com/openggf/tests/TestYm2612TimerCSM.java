@@ -1,10 +1,10 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestYm2612TimerCSM {
 
@@ -55,7 +55,7 @@ public class TestYm2612TimerCSM {
                 break;
             }
         }
-        assertTrue("Channel 2 should be silent before Key On", silent);
+        assertTrue(silent, "Channel 2 should be silent before Key On");
 
         // Configure Timer A
         chip.write(0, 0x24, 0x00); // Timer A High
@@ -86,6 +86,8 @@ public class TestYm2612TimerCSM {
                 break;
             }
         }
-        assertTrue("Channel 2 should produce sound after Timer A overflow in CSM mode", hasSound);
+        assertTrue(hasSound, "Channel 2 should produce sound after Timer A overflow in CSM mode");
     }
 }
+
+

@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.AnimatedPaletteProvider;
 import com.openggf.data.AnimatedPatternProvider;
 import com.openggf.data.Game;
@@ -11,6 +10,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.game.DynamicStartPositionProvider;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import com.openggf.game.GameServices;
 
 /**
  * Game implementation for Sonic 3 &amp; Knuckles.
@@ -45,6 +44,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
+    private final Sonic3kZoneRegistry fallbackZoneRegistry = new Sonic3kZoneRegistry();
     private Sonic3kPlayerArt playerArt;
     private Sonic3kDustArt dustArt;
     private Sonic3kRingArt ringArt;
@@ -101,7 +101,10 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         int zone = s3kIdx / 2;
         int act = s3kIdx % 2;
 
-        return Sonic3kZoneRegistry.getInstance().getMusicId(zone, act);
+        if (GameServices.hasRuntime()) {
+            return GameServices.module().getZoneRegistry().getMusicId(zone, act);
+        }
+        return fallbackZoneRegistry.getMusicId(zone, act);
     }
 
     @Override
@@ -318,7 +321,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
 
         // Character palette — Knuckles uses Pal_Knuckles, Sonic/Tails share Pal_SonicTails
-        String mainCharCode = SonicConfigurationService.getInstance()
+        String mainCharCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         int characterPaletteAddr;
         if ("knuckles".equalsIgnoreCase(mainCharCode)) {
@@ -515,7 +518,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int getCharacterStartTableAddr() {
-        String mainCharacterCode = SonicConfigurationService.getInstance()
+        String mainCharacterCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return Sonic3kConstants.KNUX_START_LOCATIONS_ADDR;
@@ -722,7 +725,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int resolveStartupCharacterPlcIndex() {
-        String mainCharacterCode = SonicConfigurationService.getInstance()
+        String mainCharacterCode = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return 0x05;

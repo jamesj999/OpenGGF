@@ -9,14 +9,13 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingManager;
 import com.openggf.camera.Camera;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.*;
+import org.junit.jupiter.api.*;
 
 import java.util.Collection;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integration tests for {@link LevelManager#executeActTransition}.
@@ -27,34 +26,31 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestActTransitionHeadless {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_EHZ = 0;
     private static final int ACT_1 = 0;
     private static final int ACT_2 = 1;
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_EHZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
     private HeadlessTestFixture fixture;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
                 .startPosition((short) 96, (short) 655)
                 .build();
 
-        // Ensure camera has a focused sprite — executeActTransition calls
+        // Ensure camera has a focused sprite â€” executeActTransition calls
         // camera.updatePosition(true) which requires a focused sprite.
         // resetPerTest() creates a fresh Camera singleton with no focus.
         GameServices.camera().setFocusedSprite(fixture.sprite());
@@ -67,7 +63,7 @@ public class TestActTransitionHeadless {
     public void executeActTransitionRebuildsObjectManager() throws Exception {
         LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
-        assertNotNull("ObjectManager should exist before transition", beforeOM);
+        assertNotNull(beforeOM, "ObjectManager should exist before transition");
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
                 .builder(TransitionType.RELOAD_TARGET_LEVEL)
@@ -78,16 +74,15 @@ public class TestActTransitionHeadless {
         lm.executeActTransition(request);
 
         ObjectManager afterOM = lm.getObjectManager();
-        assertNotNull("ObjectManager should exist after transition", afterOM);
-        assertNotSame("ObjectManager should be a new instance after transition",
-                beforeOM, afterOM);
+        assertNotNull(afterOM, "ObjectManager should exist after transition");
+        assertNotSame(beforeOM, afterOM, "ObjectManager should be a new instance after transition");
     }
 
     @Test
     public void executeActTransitionRebuildsRingManager() throws Exception {
         LevelManager lm = GameServices.level();
         RingManager beforeRM = lm.getRingManager();
-        assertNotNull("RingManager should exist before transition", beforeRM);
+        assertNotNull(beforeRM, "RingManager should exist before transition");
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
                 .builder(TransitionType.RELOAD_TARGET_LEVEL)
@@ -98,9 +93,8 @@ public class TestActTransitionHeadless {
         lm.executeActTransition(request);
 
         RingManager afterRM = lm.getRingManager();
-        assertNotNull("RingManager should exist after transition", afterRM);
-        assertNotSame("RingManager should be a new instance after transition",
-                beforeRM, afterRM);
+        assertNotNull(afterRM, "RingManager should exist after transition");
+        assertNotSame(beforeRM, afterRM, "RingManager should be a new instance after transition");
     }
 
     @Test
@@ -122,8 +116,7 @@ public class TestActTransitionHeadless {
         // as the old manager's. Even if the data happens to match (EHZ shares
         // layout), the reference must come from the rebuilt manager.
         List<ObjectSpawn> act2SpawnRef = lm.getObjectManager().getAllSpawns();
-        assertNotSame("Spawn list reference should be from new manager, not stale",
-                act1SpawnRef, act2SpawnRef);
+        assertNotSame(act1SpawnRef, act2SpawnRef, "Spawn list reference should be from new manager, not stale");
     }
 
     @Test
@@ -142,10 +135,8 @@ public class TestActTransitionHeadless {
         // the level's object list (proving rebuild used new data)
         List<ObjectSpawn> managerSpawns = lm.getObjectManager().getAllSpawns();
         List<ObjectSpawn> levelSpawns = lm.getCurrentLevel().getObjects();
-        assertEquals("ObjectManager spawns should match level objects after transition",
-                levelSpawns.size(), managerSpawns.size());
-        assertEquals("ObjectManager spawns should be identical to level objects",
-                levelSpawns, managerSpawns);
+        assertEquals(levelSpawns.size(), managerSpawns.size(), "ObjectManager spawns should match level objects after transition");
+        assertEquals(levelSpawns, managerSpawns, "ObjectManager spawns should be identical to level objects");
     }
 
     // ========== Coordinate Offsets ==========
@@ -166,8 +157,7 @@ public class TestActTransitionHeadless {
 
         GameServices.level().executeActTransition(request);
 
-        assertNotNull("Level should exist after transition with offsets",
-                GameServices.level().getCurrentLevel());
+        assertNotNull(GameServices.level().getCurrentLevel(), "Level should exist after transition with offsets");
     }
 
     // ========== Zone/Act State ==========
@@ -184,8 +174,8 @@ public class TestActTransitionHeadless {
 
         lm.executeActTransition(request);
 
-        assertEquals("Zone should be EHZ after transition", ZONE_EHZ, lm.getCurrentZone());
-        assertEquals("Act should be 2 (index 1) after transition", ACT_2, lm.getCurrentAct());
+        assertEquals(ZONE_EHZ, lm.getCurrentZone(), "Zone should be EHZ after transition");
+        assertEquals(ACT_2, lm.getCurrentAct(), "Act should be 2 (index 1) after transition");
     }
 
     // ========== Manager Windowing Uses Live Camera ==========
@@ -197,7 +187,7 @@ public class TestActTransitionHeadless {
         // Position the live camera at X=5000, well past the level start.
         // If rebuildManagersForActTransition uses the stale cached camera
         // field (which may hold X=0 after Camera.resetState()), the
-        // spawn window would be [−128, 640] and no objects near X=5000
+        // spawn window would be [âˆ’128, 640] and no objects near X=5000
         // would be active. The correct behavior uses the live camera so
         // the spawn window is [4872, 5640].
         Camera cam = GameServices.camera();
@@ -219,10 +209,13 @@ public class TestActTransitionHeadless {
         boolean hasSpawnNearStart = active.stream()
                 .anyMatch(s -> s.x() < 1000);
 
-        assertTrue("Active spawns should include objects near camera X=5000, " +
+        assertTrue(hasSpawnNearCamera, "Active spawns should include objects near camera X=5000, " +
                 "proving windowing used the live camera (found " + active.size() +
-                " active spawns)", hasSpawnNearCamera);
-        assertFalse("Active spawns should NOT include objects near level start " +
-                "when camera is at X=5000", hasSpawnNearStart);
+                " active spawns)");
+        assertFalse(hasSpawnNearStart, "Active spawns should NOT include objects near level start " +
+                "when camera is at X=5000");
     }
 }
+
+
+

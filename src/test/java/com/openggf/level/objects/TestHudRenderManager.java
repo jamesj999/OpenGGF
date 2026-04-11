@@ -4,7 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.graphics.GraphicsManager;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -45,3 +45,5 @@ public class TestHudRenderManager {
                 any(), anyInt(), anyInt());
     }
 }
+
+

@@ -1,12 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestAizMinibossRegistry {
 
@@ -26,4 +26,6 @@ public class TestAizMinibossRegistry {
         assertEquals("AIZMiniboss", registry.getPrimaryName(Sonic3kObjectIds.AIZ_MINIBOSS));
     }
 }
+
+
 

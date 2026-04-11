@@ -57,3 +57,5 @@ class TestPlayerSpriteRendererPaletteContext {
         assertEquals(1, renderer.resolveRenderPaletteIndex(1));
     }
 }
+
+

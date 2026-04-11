@@ -1,9 +1,10 @@
 package com.openggf;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.control.InputHandler;
+import com.openggf.game.EngineServices;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
@@ -14,7 +15,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -28,14 +29,15 @@ public class TestGameLoop {
     private GameLoop gameLoop;
     private InputHandler mockInputHandler;
 
-    @Before
+    @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         mockInputHandler = mock(InputHandler.class);
         gameLoop = new GameLoop(mockInputHandler);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         gameLoop = null;
         RuntimeManager.destroyCurrent();
@@ -45,30 +47,28 @@ public class TestGameLoop {
 
     @Test
     public void testGameLoopStartsInLevelMode() {
-        assertEquals("GameLoop should start in LEVEL mode",
-                GameMode.LEVEL, gameLoop.getCurrentGameMode());
+        assertEquals(GameMode.LEVEL, gameLoop.getCurrentGameMode(), "GameLoop should start in LEVEL mode");
     }
 
     @Test
     public void testGameLoopConstructorWithInputHandler() {
         GameLoop loop = new GameLoop(mockInputHandler);
-        assertEquals("Input handler should be set via constructor",
-                mockInputHandler, loop.getInputHandler());
+        assertEquals(mockInputHandler, loop.getInputHandler(), "Input handler should be set via constructor");
     }
 
     @Test
     public void testSetInputHandler() {
         GameLoop loop = new GameLoop();
-        assertNull("Input handler should be null initially", loop.getInputHandler());
+        assertNull(loop.getInputHandler(), "Input handler should be null initially");
 
         loop.setInputHandler(mockInputHandler);
-        assertEquals("Input handler should be set", mockInputHandler, loop.getInputHandler());
+        assertEquals(mockInputHandler, loop.getInputHandler(), "Input handler should be set");
     }
 
-    @Test(expected = IllegalStateException.class)
+    @Test
     public void testStepWithoutInputHandlerThrows() {
         GameLoop loop = new GameLoop();
-        loop.step(); // Should throw IllegalStateException
+        assertThrows(IllegalStateException.class, loop::step);
     }
 
     // ==================== Game Mode Listener Tests ====================
@@ -78,8 +78,7 @@ public class TestGameLoop {
         GameLoop.GameModeChangeListener listener = mock(GameLoop.GameModeChangeListener.class);
         gameLoop.setGameModeChangeListener(listener);
         // Verify the listener was accepted (no exception thrown, mode still valid)
-        assertNotNull("Game mode should remain valid after setting listener",
-                gameLoop.getCurrentGameMode());
+        assertNotNull(gameLoop.getCurrentGameMode(), "Game mode should remain valid after setting listener");
     }
 
     // ==================== Mode Transition Guard Tests ====================
@@ -87,10 +86,10 @@ public class TestGameLoop {
     @Test
     public void testGameModeStartsInLevelMode() {
         // When starting, should be in LEVEL mode
-        assertEquals("Should be in LEVEL mode", GameMode.LEVEL, gameLoop.getCurrentGameMode());
+        assertEquals(GameMode.LEVEL, gameLoop.getCurrentGameMode(), "Should be in LEVEL mode");
 
         // Verify no results screen is active
-        assertNull("Results screen should be null initially", gameLoop.getResultsScreen());
+        assertNull(gameLoop.getResultsScreen(), "Results screen should be null initially");
     }
 
     // ==================== Game Mode Accessor Tests ====================
@@ -99,8 +98,8 @@ public class TestGameLoop {
     public void testGetCurrentGameModeReturnsCorrectMode() {
         // Initially should be in LEVEL mode
         GameMode mode = gameLoop.getCurrentGameMode();
-        assertNotNull("Game mode should not be null", mode);
-        assertEquals("Should be in LEVEL mode", GameMode.LEVEL, mode);
+        assertNotNull(mode, "Game mode should not be null");
+        assertEquals(GameMode.LEVEL, mode, "Should be in LEVEL mode");
     }
 
     @Test
@@ -179,12 +178,9 @@ public class TestGameLoop {
         invokePrivateMethod(gameLoop, "exitTitleCard");
 
         verify(provider).onDeferredSetupComplete();
-        assertNull("Deferred provider should be cleared after setup",
-                getPrivateField(gameLoop, "deferredBonusProvider"));
-        assertNull("Deferred saved state should stay cleared after setup",
-                getPrivateField(gameLoop, "deferredBonusState"));
-        assertEquals("GameLoop should switch to bonus stage mode",
-                GameMode.BONUS_STAGE, gameLoop.getCurrentGameMode());
+        assertNull(getPrivateField(gameLoop, "deferredBonusProvider"), "Deferred provider should be cleared after setup");
+        assertNull(getPrivateField(gameLoop, "deferredBonusState"), "Deferred saved state should stay cleared after setup");
+        assertEquals(GameMode.BONUS_STAGE, gameLoop.getCurrentGameMode(), "GameLoop should switch to bonus stage mode");
     }
 
     @Test
@@ -192,8 +188,7 @@ public class TestGameLoop {
         BonusStageProvider provider = mock(BonusStageProvider.class);
         when(provider.hasCompletedExitFadeToBlack()).thenReturn(true);
 
-        assertFalse("provider-owned GOAL fade should be reused instead of starting a second generic fade",
-                GameLoop.shouldStartBonusStageExitFade(provider));
+        assertFalse(GameLoop.shouldStartBonusStageExitFade(provider), "provider-owned GOAL fade should be reused instead of starting a second generic fade");
     }
 
     private static void invokePrivateMethod(Object target, String methodName) throws Exception {
@@ -221,3 +216,5 @@ public class TestGameLoop {
         return Enum.valueOf((Class<? extends Enum>) nestedType.asSubclass(Enum.class), constantName);
     }
 }
+
+

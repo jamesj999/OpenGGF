@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.Sonic3kBonusStageCoordinator;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -349,8 +348,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     }
 
     private S3kSlotBonusStageRuntime activeSlotRuntime() {
-        if (GameModuleRegistry.getCurrent() == null
-                || !(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
+        if (!(GameServices.module().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
             return null;
         }
         return coordinator.activeSlotRuntime();

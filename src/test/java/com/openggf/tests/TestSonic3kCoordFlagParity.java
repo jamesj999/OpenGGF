@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.synth.VirtualSynthesizer;
@@ -12,10 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic3kCoordFlagParity {
 
@@ -62,8 +62,8 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[20000]);
 
         SmpsSequencer.Track fm = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertEquals("E5 must not switch instrument on S3K", 0, fm.voiceId);
-        assertEquals("E5 must apply second byte as FM volume delta", 1, fm.volumeOffset);
+        assertEquals(0, fm.voiceId, "E5 must not switch instrument on S3K");
+        assertEquals(1, fm.volumeOffset, "E5 must apply second byte as FM volume delta");
     }
 
     @Test
@@ -128,7 +128,7 @@ public class TestSonic3kCoordFlagParity {
 
         SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
         assertEquals(0, psg.psgNoiseParam);
-        assertTrue("Expected PSG noise reset write", synth.psgWrites.contains(0xFF));
+        assertTrue(synth.psgWrites.contains(0xFF), "Expected PSG noise reset write");
     }
 
     @Test
@@ -154,8 +154,8 @@ public class TestSonic3kCoordFlagParity {
                 wroteA0 = true;
             }
         }
-        assertTrue("Raw frequency mode should write A4 from raw word", wroteA4);
-        assertTrue("Raw frequency mode should write A0 from raw word", wroteA0);
+        assertTrue(wroteA4, "Raw frequency mode should write A4 from raw word");
+        assertTrue(wroteA0, "Raw frequency mode should write A0 from raw word");
     }
 
     @Test
@@ -186,8 +186,8 @@ public class TestSonic3kCoordFlagParity {
         SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
         seq.read(new short[25000]);
 
-        assertTrue("PSG note should still write frequency after negative transpose", synth.psgWrites.contains(0x8F));
-        assertTrue("Lowest S3K PSG entry should write high byte 0x3F", synth.psgWrites.contains(0x3F));
+        assertTrue(synth.psgWrites.contains(0x8F), "PSG note should still write frequency after negative transpose");
+        assertTrue(synth.psgWrites.contains(0x3F), "Lowest S3K PSG entry should write high byte 0x3F");
     }
 
     @Test
@@ -202,8 +202,8 @@ public class TestSonic3kCoordFlagParity {
         SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
         seq.read(new short[25000]);
 
-        assertTrue("Underflow should wrap to 0x3FF low nibble", synth.psgWrites.contains(0x8F));
-        assertTrue("Underflow should wrap to 0x3FF high bits", synth.psgWrites.contains(0x3F));
+        assertTrue(synth.psgWrites.contains(0x8F), "Underflow should wrap to 0x3FF low nibble");
+        assertTrue(synth.psgWrites.contains(0x3F), "Underflow should wrap to 0x3FF high bits");
     }
 
     @Test
@@ -225,7 +225,7 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[20000]);
 
         SmpsSequencer.Track fm = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertEquals("S3K transpose add must wrap as signed byte", 112, fm.keyOffset);
+        assertEquals(112, fm.keyOffset, "S3K transpose add must wrap as signed byte");
     }
 
     @Test
@@ -239,7 +239,7 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[20000]);
 
         SmpsSequencer.Track fm = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertEquals("S3K transpose set must wrap as signed byte", -65, fm.keyOffset);
+        assertEquals(-65, fm.keyOffset, "S3K transpose set must wrap as signed byte");
     }
 
     @Test
@@ -256,7 +256,7 @@ public class TestSonic3kCoordFlagParity {
 
         byte[] voice = smps.getVoice(0);
         assertNotNull(voice);
-        assertEquals("Expected global voice data, not in-song blob data", 0x55, voice[0] & 0xFF);
+        assertEquals(0x55, voice[0] & 0xFF, "Expected global voice data, not in-song blob data");
     }
 
     @Test
@@ -272,7 +272,7 @@ public class TestSonic3kCoordFlagParity {
 
         byte[] voice = smps.getVoice(0);
         assertNotNull(voice);
-        assertEquals("Offset-based data should keep using local voices", 0x33, voice[0] & 0xFF);
+        assertEquals(0x33, voice[0] & 0xFF, "Offset-based data should keep using local voices");
     }
 
     @Test
@@ -289,7 +289,7 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[25000]);
 
         SmpsSequencer.Track fm = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertTrue("FM vol env should be loaded by FF 06", fm.fmVolEnvData != null && fm.fmVolEnvData.length > 0);
+        assertTrue(fm.fmVolEnvData != null && fm.fmVolEnvData.length > 0, "FM vol env should be loaded by FF 06");
         assertEquals(0x01, fm.fmVolEnvOpMask);
     }
 
@@ -309,8 +309,8 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[25000]);
 
         SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
-        assertEquals("Mod envelope delta should be cached", 1, psg.modEnvCache);
-        assertTrue("PSG pitch write should include modulation-adjusted low nibble", synth.psgWrites.contains(0x8F));
+        assertEquals(1, psg.modEnvCache, "Mod envelope delta should be cached");
+        assertTrue(synth.psgWrites.contains(0x8F), "PSG pitch write should include modulation-adjusted low nibble");
     }
 
     @Test
@@ -329,8 +329,8 @@ public class TestSonic3kCoordFlagParity {
         SmpsSequencer seq = new SmpsSequencer(smps, EMPTY_DAC, synth, Sonic3kSmpsSequencerConfig.CONFIG);
         seq.read(new short[25000]);
 
-        assertTrue("Expected modulation write at 0x282 (+1 detune, +1 env)", synth.psgWrites.contains(0x82));
-        assertFalse("Detune must not be applied twice (would write 0x283)", synth.psgWrites.contains(0x83));
+        assertTrue(synth.psgWrites.contains(0x82), "Expected modulation write at 0x282 (+1 detune, +1 env)");
+        assertFalse(synth.psgWrites.contains(0x83), "Detune must not be applied twice (would write 0x283)");
     }
 
     @Test
@@ -350,8 +350,8 @@ public class TestSonic3kCoordFlagParity {
         seq.read(new short[25000]);
 
         SmpsSequencer.Track psg = findTrack(seq, SmpsSequencer.TrackType.PSG);
-        assertEquals("CHG_MULT should affect modulation delta via Z80 (mult+1)", 3, psg.modEnvCache);
-        assertTrue("PSG frequency should reflect +3 modulation delta", synth.psgWrites.contains(0x83));
+        assertEquals(3, psg.modEnvCache, "CHG_MULT should affect modulation delta via Z80 (mult+1)");
+        assertTrue(synth.psgWrites.contains(0x83), "PSG frequency should reflect +3 modulation delta");
     }
 
     private static Sonic3kSmpsData createMusicData(int channels, int psgChannels, byte[] fmTrack, byte[] psgTrack,
@@ -429,3 +429,5 @@ public class TestSonic3kCoordFlagParity {
         data[offset + 1] = (byte) ((value >> 8) & 0xFF);
     }
 }
+
+

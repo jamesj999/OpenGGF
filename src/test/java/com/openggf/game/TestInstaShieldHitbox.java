@@ -85,3 +85,5 @@ class TestInstaShieldHitbox {
         assertTrue(sprite.isSuperSonic(), "Super Sonic suppresses all abilities");
     }
 }
+
+

@@ -123,7 +123,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
         if (cnzSlotMachineRenderer == null) {
             cnzSlotMachineRenderer = new CNZSlotMachineRenderer();
         }
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         if (!graphicsManager.isHeadlessMode()) {
             // Lazily initialize the shader
             if (cnzSlotsShaderProgram == null && graphicsManager.isGlInitialized()) {
@@ -253,7 +253,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     public void renderAfterForeground(Camera camera) {
         // Queue slot machine display commands (executed during flush, after high-priority foreground but before sprites)
         if (!pendingSlotRenders.isEmpty() && cnzSlotMachineRenderer != null && cnzSlotMachineRenderer.isInitialized()) {
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = GameServices.graphics();
             if (!graphicsManager.isHeadlessMode() && cnzSlotMachineManager != null) {
                 Integer paletteTextureId = graphicsManager.getCombinedPaletteTextureId();
                 if (paletteTextureId != null) {

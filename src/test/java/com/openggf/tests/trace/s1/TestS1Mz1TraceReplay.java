@@ -39,3 +39,5 @@ public class TestS1Mz1TraceReplay extends AbstractTraceReplayTest {
         return prop != null ? Integer.parseInt(prop) : -1;
     }
 }
+
+

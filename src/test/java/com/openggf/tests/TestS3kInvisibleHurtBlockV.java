@@ -4,7 +4,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.objects.Sonic3kInvisibleHurtBlockVObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -48,3 +48,5 @@ public class TestS3kInvisibleHurtBlockV {
         verifyNoInteractions(player);
     }
 }
+
+

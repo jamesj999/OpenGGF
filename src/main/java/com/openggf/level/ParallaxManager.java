@@ -2,10 +2,9 @@ package com.openggf.level;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
@@ -60,19 +59,6 @@ public class ParallaxManager {
     private int cachedBgCameraX = Integer.MIN_VALUE;
     private int cachedBgPeriodWidth = 512;
 
-    private static ParallaxManager bootstrapInstance;
-
-    public static synchronized ParallaxManager getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getParallaxManager();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new ParallaxManager();
-        }
-        return bootstrapInstance;
-    }
-
     /**
      * Reset zone state to force reinitialization on next initZone call.
      * Useful for tests to ensure deterministic state.
@@ -116,7 +102,7 @@ public class ParallaxManager {
         }
 
         // Get the game-specific scroll handler provider
-        GameModule module = GameModuleRegistry.getCurrent();
+        GameModule module = GameServices.module();
 
         if (module != null) {
             scrollProvider = module.getScrollHandlerProvider();
@@ -169,6 +155,15 @@ public class ParallaxManager {
 
     public short getVscrollFactorBG() {
         return vscrollFactorBG;
+    }
+
+    /**
+     * Returns the active zone scroll handler for the given zone, or null.
+     * Used by event handlers that need to communicate directly with
+     * their zone's scroll handler (e.g., HCZ2 wall-chase driving SwScrlHcz).
+     */
+    public ZoneScrollHandler getHandler(int zoneId) {
+        return scrollProvider != null ? scrollProvider.getHandler(zoneId) : null;
     }
 
     /**

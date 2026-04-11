@@ -1,15 +1,15 @@
 package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.data.Rom;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SwScrlMgzTest {
 
@@ -56,3 +56,5 @@ public class SwScrlMgzTest {
         return values.size();
     }
 }
+
+

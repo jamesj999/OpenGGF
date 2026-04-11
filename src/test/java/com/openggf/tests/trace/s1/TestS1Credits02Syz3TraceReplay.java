@@ -17,3 +17,5 @@ public class TestS1Credits02Syz3TraceReplay extends AbstractCreditsDemoTraceRepl
         return Path.of("src/test/resources/traces/s1/credits_02_syz3");
     }
 }
+
+

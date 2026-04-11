@@ -55,6 +55,7 @@ public class PerformanceProfiler {
 
     /** Reusable snapshot — populated in-place each frame to avoid allocation */
     private final ProfileSnapshot reusableSnapshot = new ProfileSnapshot();
+    private final MemoryStats memoryStats = new MemoryStats();
 
     private PerformanceProfiler() {
     }
@@ -97,7 +98,7 @@ public class PerformanceProfiler {
         long frameDurationNanos = frameEndNanos - frameStartNanos;
 
         // Update memory stats tracking
-        MemoryStats.getInstance().update();
+        memoryStats.update();
 
         // Convert to milliseconds for history
         float frameTimeMs = frameDurationNanos / 1_000_000f;
@@ -148,7 +149,7 @@ public class PerformanceProfiler {
         }
         activeSection = name;
         sectionStartNanos = System.nanoTime();
-        MemoryStats.getInstance().beginSection(name);
+        memoryStats.beginSection(name);
     }
 
     /**
@@ -164,7 +165,7 @@ public class PerformanceProfiler {
         long duration = endNanos - sectionStartNanos;
         currentFrameSections.merge(name, duration, Long::sum);
         activeSection = null;
-        MemoryStats.getInstance().endSection(name);
+        memoryStats.endSection(name);
     }
 
     /**
@@ -189,6 +190,10 @@ public class PerformanceProfiler {
      */
     public int getHistorySize() {
         return HISTORY_SIZE;
+    }
+
+    public MemoryStats memoryStats() {
+        return memoryStats;
     }
 
     /**

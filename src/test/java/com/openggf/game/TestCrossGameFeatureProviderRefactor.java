@@ -33,3 +33,5 @@ class TestCrossGameFeatureProviderRefactor {
         assertFalse(s1Caps.hasInstaShield());
     }
 }
+
+
