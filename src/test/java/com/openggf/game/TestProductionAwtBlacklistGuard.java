@@ -16,7 +16,6 @@ public class TestProductionAwtBlacklistGuard {
     private static final Path EXEMPT_FILE = Path.of("com/openggf/audio/debug/SoundTestApp.java");
 
     private static final Set<String> KNOWN_VIOLATIONS = Set.of(
-            "com/openggf/control/InputHandler.java",
             "com/openggf/debug/DebugArtViewer.java",
             "com/openggf/graphics/ScreenshotCapture.java"
     );
