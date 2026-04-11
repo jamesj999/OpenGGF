@@ -170,11 +170,10 @@ public class Sonic1TitleScreenDataLoader {
     /**
      * Caches foreground patterns to GPU.
      */
-    public void cacheForegroundToGpu() {
+    public void cacheForegroundToGpu(GraphicsManager gm) {
         if (fgCached || fgPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < fgPatterns.length; i++) {
             gm.cachePatternTexture(fgPatterns[i], FG_PATTERN_BASE + i);
         }
@@ -185,11 +184,10 @@ public class Sonic1TitleScreenDataLoader {
     /**
      * Caches Sonic sprite patterns to GPU.
      */
-    public void cacheSpriteArtToGpu() {
+    public void cacheSpriteArtToGpu(GraphicsManager gm) {
         if (spriteCached || sonicPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < sonicPatterns.length; i++) {
             gm.cachePatternTexture(sonicPatterns[i], SPRITE_PATTERN_BASE + i);
         }
@@ -200,11 +198,10 @@ public class Sonic1TitleScreenDataLoader {
     /**
      * Caches credit text patterns to GPU.
      */
-    public void cacheCreditTextToGpu() {
+    public void cacheCreditTextToGpu(GraphicsManager gm) {
         if (creditTextCached || creditTextPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < creditTextPatterns.length; i++) {
             gm.cachePatternTexture(creditTextPatterns[i], CREDIT_TEXT_PATTERN_BASE + i);
         }
@@ -217,11 +214,10 @@ public class Sonic1TitleScreenDataLoader {
      * Must be called before any pattern rendering, as the GPU palette texture
      * is required by GraphicsManager.renderPatternWithId().
      */
-    public void cachePalettesToGpu() {
+    public void cachePalettesToGpu(GraphicsManager gm) {
         if (palettesCached || titlePaletteLines == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int line = 0; line < titlePaletteLines.length; line++) {
             gm.cachePaletteTexture(titlePaletteLines[line], line);
         }
@@ -232,11 +228,10 @@ public class Sonic1TitleScreenDataLoader {
     /**
      * Caches TM patterns to GPU.
      */
-    public void cacheTmToGpu() {
+    public void cacheTmToGpu(GraphicsManager gm) {
         if (tmCached || tmPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < tmPatterns.length; i++) {
             gm.cachePatternTexture(tmPatterns[i], TM_PATTERN_BASE + i);
         }
@@ -247,11 +242,10 @@ public class Sonic1TitleScreenDataLoader {
     /**
      * Caches GHZ background patterns to GPU.
      */
-    public void cacheGhzToGpu() {
+    public void cacheGhzToGpu(GraphicsManager gm) {
         if (ghzCached || ghzPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < ghzPatterns.length; i++) {
             gm.cachePatternTexture(ghzPatterns[i], GHZ_PATTERN_BASE + i);
         }
@@ -263,11 +257,10 @@ public class Sonic1TitleScreenDataLoader {
      * Re-uploads a single palette line to the GPU.
      * Used for palette cycling (water animation).
      */
-    public void rechachePaletteLine(int line) {
+    public void rechachePaletteLine(GraphicsManager gm, int line) {
         if (titlePaletteLines == null || line < 0 || line >= titlePaletteLines.length) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         gm.cachePaletteTexture(titlePaletteLines[line], line);
     }
 

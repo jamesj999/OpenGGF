@@ -80,11 +80,11 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     private RomManager romManager() {
-        return romManager != null ? romManager : RuntimeManager.getEngineServices().roms();
+        return romManager != null ? romManager : GameServices.rom();
     }
 
     private SonicConfigurationService configService() {
-        return configService != null ? configService : RuntimeManager.getEngineServices().configuration();
+        return configService != null ? configService : GameServices.configuration();
     }
 
     public static synchronized CrossGameFeatureProvider getInstance() {

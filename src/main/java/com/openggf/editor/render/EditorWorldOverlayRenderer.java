@@ -1,5 +1,6 @@
 package com.openggf.editor.render;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.game.session.EditorModeContext;
 import com.openggf.game.session.SessionManager;
@@ -9,6 +10,7 @@ import com.openggf.graphics.GraphicsManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static org.lwjgl.opengl.GL11.GL_LINES;
 
@@ -20,6 +22,16 @@ public class EditorWorldOverlayRenderer {
     private static final float GRID_G = 0.78f;
     private static final float GRID_B = 0.95f;
 
+    private final GraphicsManager graphicsManager;
+
+    public EditorWorldOverlayRenderer() {
+        this(GameServices.graphics());
+    }
+
+    public EditorWorldOverlayRenderer(GraphicsManager graphicsManager) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+    }
+
     public void render() {
         EditorModeContext editorMode = SessionManager.getCurrentEditorMode();
         if (editorMode == null) {
@@ -28,7 +40,7 @@ public class EditorWorldOverlayRenderer {
         List<GLCommand> commands = new ArrayList<>();
         appendWorldCommands(commands, editorMode.getCursor());
         if (!commands.isEmpty()) {
-            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
     }
 

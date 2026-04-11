@@ -61,6 +61,30 @@ public class TestProductionSingletonClosureGuard {
     private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
             "com/openggf/game/EngineServices.java";
     private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineServices.fromLegacySingletonsForBootstrap(";
+    private static final String ENGINE_SERVICES_LOCATOR = "RuntimeManager.getEngineServices(";
+    private static final String EDITOR_RENDERER_PACKAGE = "com/openggf/editor/render/";
+    private static final String ABSTRACT_LEVEL_INIT_PROFILE =
+            "com/openggf/game/AbstractLevelInitProfile.java";
+    private static final List<String> BOOTSTRAP_ADJACENT_FILES = List.of(
+            "com/openggf/game/CrossGameFeatureProvider.java",
+            "com/openggf/game/GameModuleRegistry.java"
+    );
+    private static final String MASTER_TITLE_SCREEN =
+            "com/openggf/game/MasterTitleScreen.java";
+    private static final String SONIC2_MENU_PACKAGE =
+            "com/openggf/game/sonic2/menu/";
+    private static final String SONIC2_LEVELSELECT_PACKAGE =
+            "com/openggf/game/sonic2/levelselect/";
+    private static final String SONIC3K_LEVELSELECT_PACKAGE =
+            "com/openggf/game/sonic3k/levelselect/";
+    private static final String SONIC1_LEVELSELECT_PACKAGE =
+            "com/openggf/game/sonic1/levelselect/";
+    private static final String SONIC1_TITLESCREEN_PACKAGE =
+            "com/openggf/game/sonic1/titlescreen/";
+    private static final String SONIC1_CREDITS_PACKAGE =
+            "com/openggf/game/sonic1/credits/";
+    private static final String SONIC1_TITLECARD_PACKAGE =
+            "com/openggf/game/sonic1/titlecard/";
     private static final List<String> LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST = List.of(
             "com/openggf/game/EngineServices.java",
             "com/openggf/game/RuntimeManager.java"
@@ -141,6 +165,218 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found legacy bootstrap bridge usage outside the allowlist:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void editorRendererCodeDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(EDITOR_RENDERER_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in editor renderer code:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void abstractLevelInitProfileDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> ABSTRACT_LEVEL_INIT_PROFILE.equals(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in AbstractLevelInitProfile:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void bootstrapAdjacentHelpersDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> BOOTSTRAP_ADJACENT_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in bootstrap-adjacent helpers:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void masterTitleScreenDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> MASTER_TITLE_SCREEN.equals(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in MasterTitleScreen:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic2MenuPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC2_MENU_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 2 menu package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic2LevelSelectPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC2_LEVELSELECT_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 2 level-select package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic3kLevelSelectPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC3K_LEVELSELECT_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 3K level-select package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic1LevelSelectPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC1_LEVELSELECT_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 1 level-select package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic1TitleScreenPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC1_TITLESCREEN_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 1 title-screen package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic1CreditsPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC1_CREDITS_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 1 credits package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic1TitleCardPackageDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/').startsWith(SONIC1_TITLECARD_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 1 title-card package:\n  "
                     + String.join("\n  ", violations));
         }
     }

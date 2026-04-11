@@ -1,6 +1,7 @@
 package com.openggf.editor.render;
 
 import com.openggf.editor.LevelEditorController;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandGroup;
 import com.openggf.graphics.GraphicsManager;
@@ -31,11 +32,11 @@ public class FocusedEditorPaneRenderer {
     private final GraphicsManager graphicsManager;
 
     public FocusedEditorPaneRenderer() {
-        this(null);
+        this(null, GameServices.graphics());
     }
 
     public FocusedEditorPaneRenderer(LevelEditorController controller) {
-        this(controller, com.openggf.game.RuntimeManager.getEngineServices().graphics());
+        this(controller, GameServices.graphics());
     }
 
     public FocusedEditorPaneRenderer(LevelEditorController controller, GraphicsManager graphicsManager) {

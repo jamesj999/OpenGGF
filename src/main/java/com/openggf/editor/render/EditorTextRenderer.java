@@ -3,6 +3,7 @@ package com.openggf.editor.render;
 import com.openggf.debug.DebugColor;
 import com.openggf.debug.FontSize;
 import com.openggf.debug.GlyphBatchRenderer;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommandable;
 import com.openggf.graphics.GraphicsManager;
 
@@ -18,21 +19,27 @@ public class EditorTextRenderer {
     private static final DebugColor DEFAULT_COLOR = DebugColor.WHITE;
     private static final FontSize DEFAULT_FONT_SIZE = FontSize.SMALL;
 
+    private final GraphicsManager graphicsManager;
     private final GlyphBatchRenderer glyphBatch;
     private boolean initializationAttempted;
 
     public EditorTextRenderer() {
-        this(new GlyphBatchRenderer());
+        this(GameServices.graphics(), new GlyphBatchRenderer());
     }
 
-    public EditorTextRenderer(GlyphBatchRenderer glyphBatch) {
+    public EditorTextRenderer(GraphicsManager graphicsManager) {
+        this(graphicsManager, new GlyphBatchRenderer());
+    }
+
+    public EditorTextRenderer(GraphicsManager graphicsManager, GlyphBatchRenderer glyphBatch) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
         this.glyphBatch = Objects.requireNonNull(glyphBatch, "glyphBatch");
     }
 
     public void renderLines(List<String> lines, int x, int y) {
         List<TextCommand> commands = buildTextCommands(lines, x, y);
         if (!commands.isEmpty()) {
-            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(buildTextBatchCommand(commands));
+            graphicsManager.registerCommand(buildTextBatchCommand(commands));
         }
     }
 

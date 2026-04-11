@@ -204,7 +204,11 @@ public class TestGameRuntime {
         // Engine globals (non-runtime-owned) should also work
         assertNotNull("rom", GameServices.rom());
         assertNotNull("audio", GameServices.audio());
+        assertNotNull("configuration", GameServices.configuration());
         assertNotNull("debugOverlay", GameServices.debugOverlay());
+        assertNotNull("graphics", GameServices.graphics());
+        assertNotNull("romDetection", GameServices.romDetection());
+        assertNotNull("crossGameFeatures", GameServices.crossGameFeatures());
     }
 
     @Test

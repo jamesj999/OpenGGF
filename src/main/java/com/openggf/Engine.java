@@ -89,7 +89,7 @@ public class Engine {
 	private final GameLoop gameLoop;
 	private final LevelEditorController levelEditorController = new LevelEditorController();
 	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
-	private final EditorOverlayRenderer editorOverlayRenderer = new EditorOverlayRenderer(levelEditorController);
+	private final EditorOverlayRenderer editorOverlayRenderer;
 
 	private static volatile DebugState debugState = DebugState.NONE;
 	private static volatile DebugOption debugOption = DebugOption.A;
@@ -178,6 +178,7 @@ public class Engine {
 		this.debugOverlayManager = engineServices.debugOverlay();
 		this.playbackDebugManager = engineServices.playbackDebug();
 		this.profiler = engineServices.profiler();
+		this.editorOverlayRenderer = new EditorOverlayRenderer(levelEditorController, graphicsManager);
 		this.gameLoop = new GameLoop(engineServices);
 		this.gameLoop.setEditorStateSyncHandler(this::syncEditorState);
 		this.gameLoop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
@@ -365,7 +366,7 @@ public class Engine {
 		// === Check master title screen before Phase 2 ===
 		boolean masterTitleOnStartup = configService.getBoolean(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP);
 		if (masterTitleOnStartup) {
-			masterTitleScreen = new MasterTitleScreen();
+			masterTitleScreen = new MasterTitleScreen(configService);
 			masterTitleScreen.initialize();
 			gameLoop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
 			// Skip Phase 2 entirely - will be called on game selection
