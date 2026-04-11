@@ -1,5 +1,7 @@
 package com.openggf.editor;
 
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandable;
@@ -23,6 +25,7 @@ import com.openggf.level.Pattern;
 import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 
@@ -38,6 +41,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestEditorRenderingSmoke {
     private static final GraphicsManager TEST_GRAPHICS = GraphicsManager.getInstance();
+
+    @BeforeEach
+    void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
 
     @AfterEach
     void tearDown() {

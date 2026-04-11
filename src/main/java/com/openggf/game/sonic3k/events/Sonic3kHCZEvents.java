@@ -1,11 +1,9 @@
 package com.openggf.game.sonic3k.events;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
@@ -340,10 +338,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         }
 
         // Refresh the GPU palette texture
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(palette, PALETTE_LINE);
-        }
+        cachePaletteTextureIfReady(palette, PALETTE_LINE);
     }
 
     // =========================================================================

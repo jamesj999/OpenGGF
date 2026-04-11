@@ -4,6 +4,7 @@ import com.openggf.GameLoop;
 import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.EditorCursorState;
@@ -20,6 +21,7 @@ import com.openggf.level.SolidTile;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -45,6 +47,11 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
 class TestLevelEditorController {
+
+    @BeforeEach
+    void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
 
     @Test
     void controller_defaultsToWorldCanvasFocusRegionAndCyclesThroughConcreteWorldRegions() {

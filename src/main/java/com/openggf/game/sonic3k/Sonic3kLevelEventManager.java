@@ -79,7 +79,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     @Override
     public PlayerCharacter getPlayerCharacter() {
         // Resolve from config — matches ROM's Player_mode variable
-        String mainChar = com.openggf.game.RuntimeManager.getEngineServices().configuration()
+        String mainChar = GameServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return PlayerCharacter.KNUCKLES;
@@ -87,7 +87,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
             return PlayerCharacter.TAILS_ALONE;
         }
         // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
-        String sidekick = com.openggf.game.RuntimeManager.getEngineServices().configuration()
+        String sidekick = GameServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
         if (sidekick == null || sidekick.isBlank()) {
             return PlayerCharacter.SONIC_ALONE;

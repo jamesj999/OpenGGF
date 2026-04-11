@@ -1,5 +1,8 @@
 package com.openggf.tests;
 
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.OilSurfaceManager;
@@ -19,8 +22,15 @@ public class TestOilSurfaceManager {
 
     @Before
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.createGameplay();
         manager = new OilSurfaceManager();
         sprite = new TestOilSprite("test", (short) 0, (short) 0);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

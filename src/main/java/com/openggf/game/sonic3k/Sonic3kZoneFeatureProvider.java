@@ -302,7 +302,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (zoneIndex != 0 || actIndex != 0) {
             return false;
         }
-        SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        SonicConfigurationService configService = GameServices.configuration();
         if (configService.getBoolean(SonicConfiguration.S3K_SKIP_INTROS)) {
             return false;
         }

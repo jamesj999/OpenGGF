@@ -1311,7 +1311,7 @@ public class Engine {
 				System.setProperty("org.lwjgl.librarypath", libPath);
 			}
 		}
-		new Engine().run();
+		new Engine(EngineServices.fromLegacySingletonsForBootstrap()).run();
 	}
 
 	private static String findNativeLibsDir() {

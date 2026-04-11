@@ -73,7 +73,6 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     private static final int RAW_TILES_PER_PAGE = RAW_TILE_COLUMNS * RAW_TILE_ROWS;
     private static final int RAW_TILE_SPACING = 10;
 
-    private final GraphicsManager graphicsManager;
     private int playerPatternBase;
     private int hudPatternBase;
     private int hudPatternCount;
@@ -87,7 +86,10 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     private int currentPage = 0;
 
     public Sonic2SpecialStageSpriteDebug() {
-        this.graphicsManager = com.openggf.game.GameServices.graphics();
+    }
+
+    private GraphicsManager graphicsManager() {
+        return com.openggf.game.GameServices.graphics();
     }
 
     public void setPlayerPatternBase(int base) {
@@ -201,6 +203,7 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     }
 
     private void drawSonicSprites() {
+        GraphicsManager graphicsManager = graphicsManager();
         graphicsManager.beginPatternBatch();
 
         int[] pageInfo = SONIC_PAGES[currentPage];
@@ -244,6 +247,7 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     }
 
     private void renderSonicFrame(int frameIndex, int centerX, int centerY, boolean flipX) {
+        GraphicsManager graphicsManager = graphicsManager();
         Sonic2SpecialStageSpriteMappings.SpriteFrame frame = Sonic2SpecialStageSpriteMappings.getSonicFrame(frameIndex);
 
         for (Sonic2SpecialStageSpriteMappings.SpritePiece piece : frame.pieces) {
@@ -275,6 +279,7 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     }
 
     private void drawRawPatterns(int patternBase, int patternCount, int paletteIndex) {
+        GraphicsManager graphicsManager = graphicsManager();
         graphicsManager.beginPatternBatch();
 
         int startIndex = currentPage * RAW_TILES_PER_PAGE;

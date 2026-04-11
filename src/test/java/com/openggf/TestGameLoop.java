@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.control.InputHandler;
+import com.openggf.game.EngineServices;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
@@ -30,6 +31,7 @@ public class TestGameLoop {
 
     @Before
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         mockInputHandler = mock(InputHandler.class);
         gameLoop = new GameLoop(mockInputHandler);

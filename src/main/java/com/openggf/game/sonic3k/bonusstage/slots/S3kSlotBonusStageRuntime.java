@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.bonusstage.slots;
 
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
@@ -74,7 +73,7 @@ public final class S3kSlotBonusStageRuntime {
 
         suppressCpuSidekicks();
 
-        String mainCode = com.openggf.game.RuntimeManager.getEngineServices().configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCode = GameServices.configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (bootstrapRuntime.getSpriteManager().getSprite(mainCode) instanceof AbstractPlayableSprite mainPlayer) {
             originalPlayer = mainPlayer;
             short slotStartX = S3kSlotRomData.SLOT_BONUS_PLAYER_START_X;

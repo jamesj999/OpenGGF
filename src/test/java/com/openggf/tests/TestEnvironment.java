@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
@@ -26,6 +27,7 @@ public final class TestEnvironment {
      */
     public static void resetAll() {
         SonicConfigurationService.getInstance().resetToDefaults();
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
 
         // CRITICAL: Capture the current game's profile BEFORE resetting the module.
         // After reset(), the module reverts to Sonic2GameModule (the default).
@@ -57,6 +59,7 @@ public final class TestEnvironment {
      * Resets per-test state without touching the loaded level data or game module.
      */
     public static void resetPerTest() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         // Ensure a runtime exists so GameServices can delegate through RuntimeManager.
         // The first test in a JVM fork may not have run resetAll() yet.
         if (RuntimeManager.getCurrent() == null) {

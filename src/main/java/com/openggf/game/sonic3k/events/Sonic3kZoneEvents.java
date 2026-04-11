@@ -6,15 +6,16 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Palette;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.managers.SpriteManager;
@@ -80,6 +81,17 @@ public abstract class Sonic3kZoneEvents {
         return GameServices.sprites();
     }
 
+    protected GraphicsManager graphics() {
+        return GameServices.graphics();
+    }
+
+    protected void cachePaletteTextureIfReady(Palette palette, int paletteLine) {
+        GraphicsManager graphicsManager = graphics();
+        if (graphicsManager.isGlInitialized()) {
+            graphicsManager.cachePaletteTexture(palette, paletteLine);
+        }
+    }
+
     protected Sonic3kLevelEventManager levelEventManagerOrNull() {
         Object provider = GameServices.module().getLevelEventProvider();
         return provider instanceof Sonic3kLevelEventManager s3k ? s3k : null;
@@ -91,7 +103,7 @@ public abstract class Sonic3kZoneEvents {
             return levelEventManager.getPlayerCharacter();
         }
 
-        String mainChar = RuntimeManager.getEngineServices().configuration()
+        String mainChar = GameServices.configuration()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return PlayerCharacter.KNUCKLES;
@@ -99,7 +111,7 @@ public abstract class Sonic3kZoneEvents {
             return PlayerCharacter.TAILS_ALONE;
         }
 
-        String sidekick = RuntimeManager.getEngineServices().configuration()
+        String sidekick = GameServices.configuration()
                 .getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
         if (sidekick == null || sidekick.isBlank()) {
             return PlayerCharacter.SONIC_ALONE;

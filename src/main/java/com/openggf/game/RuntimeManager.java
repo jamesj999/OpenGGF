@@ -34,7 +34,7 @@ public final class RuntimeManager {
     private static GameRuntime current;
     private static GameRuntime parked;
     private static GameplayModeContext suppressedGameplayMode;
-    private static EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+    private static EngineServices engineServices;
 
     private RuntimeManager() {}
 
@@ -43,11 +43,11 @@ public final class RuntimeManager {
     }
 
     public static synchronized EngineServices getEngineServices() {
-        return engineServices;
+        return requireConfiguredEngineServices();
     }
 
     public static synchronized EngineServices currentEngineServices() {
-        return getEngineServices();
+        return requireConfiguredEngineServices();
     }
 
     /**
@@ -55,7 +55,7 @@ public final class RuntimeManager {
      * (e.g. during master title screen before any game is loaded).
      */
     public static synchronized GameRuntime getCurrent() {
-        return getCurrent(engineServices);
+        return getCurrent(requireConfiguredEngineServices());
     }
 
     public static synchronized GameRuntime getCurrent(EngineServices services) {
@@ -117,12 +117,13 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay() {
+        EngineServices services = requireConfiguredEngineServices();
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (gameplayMode == null) {
             GameModule defaultModule = GameModuleRegistry.getCurrent();
             gameplayMode = SessionManager.openGameplaySession(defaultModule);
         }
-        return createGameplay(gameplayMode);
+        return createGameplay(gameplayMode, services);
     }
 
     /**
@@ -133,7 +134,7 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode) {
-        return createGameplay(gameplayMode, engineServices);
+        return createGameplay(gameplayMode, requireConfiguredEngineServices());
     }
 
     public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineServices services) {
@@ -240,5 +241,13 @@ public final class RuntimeManager {
             return runtime.getWorldSession().getGameModule();
         }
         return null;
+    }
+
+    private static EngineServices requireConfiguredEngineServices() {
+        if (engineServices == null) {
+            throw new IllegalStateException(
+                    "EngineServices have not been configured. Configure RuntimeManager before using default runtime accessors.");
+        }
+        return engineServices;
     }
 }

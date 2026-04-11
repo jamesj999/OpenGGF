@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
@@ -16,6 +17,11 @@ import static org.junit.Assert.assertTrue;
 import static com.openggf.level.scroll.M68KMath.packScrollWords;
 
 public class TestSonic3kZoneFeatureProvider {
+
+    @org.junit.Before
+    public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
 
     @After
     public void tearDown() {

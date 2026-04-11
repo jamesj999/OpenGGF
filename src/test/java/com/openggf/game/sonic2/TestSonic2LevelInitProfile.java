@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.EngineServices;
 import com.openggf.game.InitStep;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
@@ -16,6 +17,7 @@ public class TestSonic2LevelInitProfile {
 
     @Before
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
