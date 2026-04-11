@@ -3788,6 +3788,7 @@ public class LevelManager {
             currentZone = 0;
         }
         currentAct = 0;
+        apparentAct = 0;
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -3798,6 +3799,7 @@ public class LevelManager {
     public void loadZone(int zone) throws IOException {
         currentZone = zone;
         currentAct = 0;
+        apparentAct = 0;
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
