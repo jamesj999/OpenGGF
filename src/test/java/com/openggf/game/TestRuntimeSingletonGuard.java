@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Guard test that scans production source for direct {@code Foo.getInstance()} calls
@@ -19,8 +19,8 @@ import static org.junit.Assert.fail;
  * <p>
  * Allowed call sites:
  * <ul>
- *   <li>{@link RuntimeManager} — explicit runtime composition root</li>
- *   <li>{@link GameServices} — runtime facade / engine-global access</li>
+ *   <li>{@link RuntimeManager} â€” explicit runtime composition root</li>
+ *   <li>{@link GameServices} â€” runtime facade / engine-global access</li>
  * </ul>
  */
 public class TestRuntimeSingletonGuard {
@@ -61,7 +61,7 @@ public class TestRuntimeSingletonGuard {
     public void productionCodeDoesNotCallRuntimeManagerSingletons() throws IOException {
         Path srcMain = findSourceRoot();
         if (srcMain == null) {
-            // Running from a context where source isn't available — skip gracefully
+            // Running from a context where source isn't available â€” skip gracefully
             return;
         }
 
@@ -96,7 +96,7 @@ public class TestRuntimeSingletonGuard {
                         if (RUNTIME_MANAGERS.contains(className)) {
                             String relativePath = srcMain.relativize(file).toString();
                             violations.add(String.format(
-                                    "%s:%d — %s.getInstance()",
+                                    "%s:%d â€” %s.getInstance()",
                                     relativePath, i + 1, className));
                         }
                     }
@@ -134,14 +134,14 @@ public class TestRuntimeSingletonGuard {
                 while (matcher.find()) {
                     String relativePath = srcMain.relativize(file).toString();
                     violations.add(String.format(
-                            "%s:%d — GameServices.%s() %s null",
+                            "%s:%d â€” GameServices.%s() %s null",
                             relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2)));
                 }
                 matcher = STRICT_GAME_SERVICES_LOCAL_NULL_CHECK.matcher(source.text);
                 while (matcher.find()) {
                     String relativePath = srcMain.relativize(file).toString();
                     violations.add(String.format(
-                            "%s:%d — %s = GameServices.%s(); if (%s %s null)",
+                            "%s:%d â€” %s = GameServices.%s(); if (%s %s null)",
                             relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2),
                             matcher.group(1), matcher.group(3)));
                 }
@@ -208,3 +208,5 @@ public class TestRuntimeSingletonGuard {
         }
     }
 }
+
+

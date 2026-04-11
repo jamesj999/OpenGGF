@@ -48,3 +48,5 @@ class TestGumballTriangleBumperObjectInstance {
         assertEquals(-0x600, player.getYSpeed());
     }
 }
+
+

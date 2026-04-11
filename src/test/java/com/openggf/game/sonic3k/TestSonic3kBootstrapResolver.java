@@ -2,16 +2,16 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kBootstrapResolver {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
@@ -86,3 +86,5 @@ public class TestSonic3kBootstrapResolver {
         }
     }
 }
+
+

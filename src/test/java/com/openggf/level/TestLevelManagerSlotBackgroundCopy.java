@@ -2,25 +2,25 @@ package com.openggf.level;
 
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
-import org.junit.Test;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestLevelManagerSlotBackgroundCopy {
     private GameRuntime runtime;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         runtime = RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -115,3 +115,5 @@ public class TestLevelManagerSlotBackgroundCopy {
         }
     }
 }
+
+

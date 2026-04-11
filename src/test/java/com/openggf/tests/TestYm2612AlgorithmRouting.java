@@ -1,9 +1,9 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies FM algorithm routing matches the documented YM2612 flows using the shared routing helpers.
@@ -78,3 +78,5 @@ public class TestYm2612AlgorithmRouting {
         assertEquals(10.0, Ym2612Chip.computeCarrierSum(7, OP_OUT), EPS); // all carriers
     }
 }
+
+

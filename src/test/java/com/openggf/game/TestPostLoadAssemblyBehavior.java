@@ -11,13 +11,13 @@ import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2LevelInitProfile;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLevelInitProfile;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * End-to-end tests for post-load assembly behavior.
@@ -28,13 +28,13 @@ import static org.junit.Assert.*;
  */
 public class TestPostLoadAssemblyBehavior {
 
-    @Before
+    @BeforeEach
     public void resetCamera() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -53,7 +53,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.snapshotCheckpoint(state);
 
-        assertTrue("Context should report checkpoint active", ctx.hasCheckpoint());
+        assertTrue(ctx.hasCheckpoint(), "Context should report checkpoint active");
         assertEquals(200, ctx.getCheckpointX());
         assertEquals(400, ctx.getCheckpointY());
         assertEquals(1000, ctx.getCheckpointCameraX());
@@ -76,7 +76,7 @@ public class TestPostLoadAssemblyBehavior {
 
         // Step 2: Clear state (simulates InitPlayerAndCheckpoint step)
         state.clear();
-        assertFalse("Checkpoint should be inactive after clear", state.isActive());
+        assertFalse(state.isActive(), "Checkpoint should be inactive after clear");
 
         // Step 3: Restore from context (simulates RestoreCheckpoint step)
         state.restoreFromSaved(
@@ -84,7 +84,7 @@ public class TestPostLoadAssemblyBehavior {
                 ctx.getCheckpointCameraX(), ctx.getCheckpointCameraY(),
                 ctx.getCheckpointIndex());
 
-        assertTrue("Checkpoint should be active after restore", state.isActive());
+        assertTrue(state.isActive(), "Checkpoint should be active after restore");
         assertEquals(600, state.getSavedX());
         assertEquals(900, state.getSavedY());
         assertEquals(800, state.getSavedCameraX());
@@ -100,7 +100,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.snapshotCheckpoint(state);
 
-        assertTrue("Context should report water state", ctx.hasWaterState());
+        assertTrue(ctx.hasWaterState(), "Context should report water state");
         assertEquals(0x300, ctx.getCheckpointWaterLevel());
         assertEquals(4, ctx.getCheckpointWaterRoutine());
     }
@@ -113,7 +113,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.snapshotCheckpoint(state);
 
-        assertFalse("Context should report no water state", ctx.hasWaterState());
+        assertFalse(ctx.hasWaterState(), "Context should report no water state");
     }
 
     @Test
@@ -121,7 +121,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.snapshotCheckpoint(null);
 
-        assertFalse("Null state should yield inactive context", ctx.hasCheckpoint());
+        assertFalse(ctx.hasCheckpoint(), "Null state should yield inactive context");
         assertEquals(0, ctx.getCheckpointX());
         assertEquals(0, ctx.getCheckpointY());
         assertEquals(-1, ctx.getCheckpointIndex());
@@ -130,12 +130,12 @@ public class TestPostLoadAssemblyBehavior {
     @Test
     public void checkpointSnapshotInactiveStateIsInactive() {
         CheckpointState state = new CheckpointState();
-        assertFalse("Fresh CheckpointState should be inactive", state.isActive());
+        assertFalse(state.isActive(), "Fresh CheckpointState should be inactive");
 
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.snapshotCheckpoint(state);
 
-        assertFalse("Inactive state should yield inactive context", ctx.hasCheckpoint());
+        assertFalse(ctx.hasCheckpoint(), "Inactive state should yield inactive context");
     }
 
     // ========== Death Respawn: Context Configuration ==========
@@ -147,10 +147,8 @@ public class TestPostLoadAssemblyBehavior {
         ctx.setShowTitleCard(false);
         ctx.setIncludePostLoadAssembly(true);
 
-        assertFalse("Death respawn context should suppress title card",
-                ctx.isShowTitleCard());
-        assertTrue("Death respawn context should include post-load assembly",
-                ctx.isIncludePostLoadAssembly());
+        assertFalse(ctx.isShowTitleCard(), "Death respawn context should suppress title card");
+        assertTrue(ctx.isIncludePostLoadAssembly(), "Death respawn context should include post-load assembly");
     }
 
     @Test
@@ -158,8 +156,7 @@ public class TestPostLoadAssemblyBehavior {
         // loadCurrentLevel() defaults to showTitleCard=true
         LevelLoadContext ctx = new LevelLoadContext();
 
-        assertTrue("Fresh context should default to showing title card",
-                ctx.isShowTitleCard());
+        assertTrue(ctx.isShowTitleCard(), "Fresh context should default to showing title card");
     }
 
     @Test
@@ -172,8 +169,8 @@ public class TestPostLoadAssemblyBehavior {
         ctx.setIncludePostLoadAssembly(true);
         ctx.snapshotCheckpoint(state);
 
-        assertFalse("Title card should be suppressed on respawn", ctx.isShowTitleCard());
-        assertTrue("Checkpoint data should survive into respawn context", ctx.hasCheckpoint());
+        assertFalse(ctx.isShowTitleCard(), "Title card should be suppressed on respawn");
+        assertTrue(ctx.hasCheckpoint(), "Checkpoint data should survive into respawn context");
         assertEquals(300, ctx.getCheckpointX());
         assertEquals(600, ctx.getCheckpointY());
     }
@@ -191,7 +188,7 @@ public class TestPostLoadAssemblyBehavior {
 
         Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep titleCardStep = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
-        assertNotNull("S3K profile should include RequestTitleCard step", titleCardStep);
+        assertNotNull(titleCardStep, "S3K profile should include RequestTitleCard step");
 
         // Execute the step. With checkpoint active, S3K's guard skips the
         // LevelManager.requestTitleCardIfNeeded() call entirely, making this a
@@ -208,8 +205,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
-        assertTrue("S3K title card step should document checkpoint suppression",
-                step.romRoutine().contains("skipped on checkpoint"));
+        assertTrue(step.romRoutine().contains("skipped on checkpoint"), "S3K title card step should document checkpoint suppression");
     }
 
     @Test
@@ -220,8 +216,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic2LevelInitProfile profile = newS2Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
-        assertFalse("S2 title card step should NOT suppress on checkpoint",
-                step.romRoutine().contains("skipped on checkpoint"));
+        assertFalse(step.romRoutine().contains("skipped on checkpoint"), "S2 title card step should NOT suppress on checkpoint");
     }
 
     @Test
@@ -232,8 +227,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic1LevelInitProfile profile = newS1Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
-        assertFalse("S1 title card step should NOT suppress on checkpoint",
-                step.romRoutine().contains("skipped on checkpoint"));
+        assertFalse(step.romRoutine().contains("skipped on checkpoint"), "S1 title card step should NOT suppress on checkpoint");
     }
 
     // ========== Sidekick Spawn Step Presence ==========
@@ -246,8 +240,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic1LevelInitProfile profile = newS1Profile();
         InitStep sidekickStep = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
-        assertNull("S1 should NOT include SpawnSidekick (no Tails in Sonic 1)",
-                sidekickStep);
+        assertNull(sidekickStep, "S1 should NOT include SpawnSidekick (no Tails in Sonic 1)");
     }
 
     @Test
@@ -259,7 +252,7 @@ public class TestPostLoadAssemblyBehavior {
         List<InitStep> steps = profile.levelLoadSteps(ctx);
 
         // 13 resource steps + 6 post-load steps (no SpawnSidekick) = 19
-        assertEquals("S1 should have 19 steps (13 resource + 6 post-load)", 19, steps.size());
+        assertEquals(19, steps.size(), "S1 should have 19 steps (13 resource + 6 post-load)");
     }
 
     @Test
@@ -270,7 +263,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic2LevelInitProfile profile = newS2Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
-        assertNotNull("S2 should include SpawnSidekick step", step);
+        assertNotNull(step, "S2 should include SpawnSidekick step");
     }
 
     @Test
@@ -281,7 +274,7 @@ public class TestPostLoadAssemblyBehavior {
         Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
-        assertNotNull("S3K should include SpawnSidekick step", step);
+        assertNotNull(step, "S3K should include SpawnSidekick step");
     }
 
     @Test
@@ -293,10 +286,8 @@ public class TestPostLoadAssemblyBehavior {
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
         // S3K uses -$20 (32px) X offset and +4 Y offset (differs from S2's -40, 0)
-        assertTrue("S3K sidekick step should document the $20 X offset",
-                step.romRoutine().contains("$20"));
-        assertTrue("S3K sidekick step should document the +4 Y offset",
-                step.romRoutine().contains("+4"));
+        assertTrue(step.romRoutine().contains("$20"), "S3K sidekick step should document the $20 X offset");
+        assertTrue(step.romRoutine().contains("+4"), "S3K sidekick step should document the +4 Y offset");
     }
 
     // ========== Helpers ==========
@@ -330,3 +321,5 @@ public class TestPostLoadAssemblyBehavior {
                 .orElse(null);
     }
 }
+
+

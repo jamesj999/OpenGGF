@@ -7,29 +7,23 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Assume;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Abstract base class for trace replay tests. Subclasses provide game/zone/act/path;
  * this class handles level loading, BK2 playback, per-frame comparison, and report output.
  *
- * <p>Uses JUnit 4 because {@link RequiresRomRule} is a JUnit 4 {@code TestRule}.
+ * <p>Originally used JUnit 4 because the ROM fixture was exposed as a JUnit 4 rule.
  */
 public abstract class AbstractTraceReplayTest {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     /** Which game ROM this test requires. */
     protected abstract SonicGame game();
 
@@ -59,16 +53,13 @@ public abstract class AbstractTraceReplayTest {
     public void replayMatchesTrace() throws Exception {
         // 0. Skip if trace directory or required files are missing
         Path traceDir = traceDirectory();
-        Assume.assumeTrue("Trace directory not found: " + traceDir,
-            Files.isDirectory(traceDir));
-        Assume.assumeTrue("metadata.json not found in " + traceDir,
-            Files.exists(traceDir.resolve("metadata.json")));
-        Assume.assumeTrue("physics.csv not found in " + traceDir,
-            Files.exists(traceDir.resolve("physics.csv")));
+        Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
+        Assumptions.assumeTrue(Files.exists(traceDir.resolve("metadata.json")), "metadata.json not found in " + traceDir);
+        Assumptions.assumeTrue(Files.exists(traceDir.resolve("physics.csv")), "physics.csv not found in " + traceDir);
 
         // 1. Find BK2 file in trace directory (check before loading trace data)
         Path bk2Path = findBk2File(traceDir);
-        Assume.assumeTrue("No .bk2 file found in " + traceDir, bk2Path != null);
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + traceDir);
 
         // 2. Load trace data
         TraceData trace = TraceData.load(traceDir);
@@ -212,9 +203,8 @@ public abstract class AbstractTraceReplayTest {
             case SONIC_2 -> "s2";
             case SONIC_3K -> "s3k";
         };
-        assertEquals("Metadata game mismatch (test says " + game()
-            + " but metadata says " + meta.game() + ")",
-            expectedGameId, meta.game());
+        assertEquals(expectedGameId, meta.game(), "Metadata game mismatch (test says " + game()
+            + " but metadata says " + meta.game() + ")");
     }
 
     private Path findBk2File(Path dir) throws IOException {
@@ -230,7 +220,7 @@ public abstract class AbstractTraceReplayTest {
 
     /**
      * Capture engine-side diagnostic state for the context window.
-     * These values are NOT compared for pass/fail — they appear alongside
+     * These values are NOT compared for pass/fail â€” they appear alongside
      * ROM trace diagnostics for human cross-referencing.
      */
     private EngineDiagnostics captureEngineDiagnostics(AbstractPlayableSprite sprite) {
@@ -264,7 +254,7 @@ public abstract class AbstractTraceReplayTest {
         // Camera X for cross-reference with ROM trace
         int camX = GameServices.camera() != null ? GameServices.camera().getX() : -1;
 
-        // Placement cursor state for ROM↔engine comparison
+        // Placement cursor state for ROMâ†”engine comparison
         int cursorIdx = -1, leftCursorIdx = -1, fwdCtr = -1, bwdCtr = -1;
         if (om != null) {
             int[] cursor = om.getPlacementCursorState();
@@ -304,3 +294,5 @@ public abstract class AbstractTraceReplayTest {
         }
     }
 }
+
+

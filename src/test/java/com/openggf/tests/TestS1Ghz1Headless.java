@@ -1,11 +1,10 @@
 package com.openggf.tests;
 
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.Sonic1Level;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
@@ -27,17 +26,16 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Grouped headless tests for Sonic 1 GHZ Act 1.
  *
- * Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeAll};
  * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * Merged from:
@@ -52,27 +50,24 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_1)
 public class TestS1Ghz1Headless {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_GHZ = 0;
     private static final int ACT_1 = 0;
 
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_1, ZONE_GHZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
     private HeadlessTestFixture fixture;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -519,10 +514,10 @@ public class TestS1Ghz1Headless {
     @Test
     public void testTunnelTraversal() throws Exception {
         Sonic1Level s1Level = (Sonic1Level) GameServices.level().getCurrentLevel();
-        assertTrue("Level should be Sonic1Level", s1Level != null);
+        assertTrue(s1Level != null, "Level should be Sonic1Level");
 
         int[] tunnelCell = findFirstTunnelTile();
-        assertNotNull("Should find a tunnel tile in GHZ1 layout", tunnelCell);
+        assertNotNull(tunnelCell, "Should find a tunnel tile in GHZ1 layout");
 
         int tunnelMapX = tunnelCell[0];
         int tunnelMapY = tunnelCell[1];
@@ -574,7 +569,7 @@ public class TestS1Ghz1Headless {
                     fixture.sprite().getX(), fixture.sprite().getY(), fixture.sprite().getAir());
         }
 
-        assertFalse("Sonic should be on the ground before approaching tunnel", fixture.sprite().getAir());
+        assertFalse(fixture.sprite().getAir(), "Sonic should be on the ground before approaching tunnel");
 
         short groundY = fixture.sprite().getY();
         System.out.printf("Ground Y level: %d (centre Y: %d)%n", groundY, fixture.sprite().getCentreY());
@@ -674,8 +669,8 @@ public class TestS1Ghz1Headless {
             System.out.printf("%nTunnel frames: %d, Airborne in tunnel: %d%n", framesInTunnel, framesAirborne);
         }
 
-        assertFalse("Sonic should traverse the tunnel without getting stuck or going airborne", failedInTunnel);
-        assertTrue("Sonic should have entered the tunnel", enteredTunnel);
+        assertFalse(failedInTunnel, "Sonic should traverse the tunnel without getting stuck or going airborne");
+        assertTrue(enteredTunnel, "Sonic should have entered the tunnel");
     }
 
     // ========================================================================
@@ -732,7 +727,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on the static floor testbed", landed);
+        assertTrue(landed, "Sonic should land on the static floor testbed");
 
         // Place the wall object next to Sonic
         int objectX = fixture.sprite().getCentreX()
@@ -756,7 +751,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should reach side-pushing contact (" + pushDirectionName(pushRight) + ")", contactReached);
+        assertTrue(contactReached, "Sonic should reach side-pushing contact (" + pushDirectionName(pushRight) + ")");
 
         // Warmup: let subpixels stabilise
         for (int frame = 0; frame < PUSH_CONTACT_WARMUP_FRAMES; frame++) {
@@ -780,14 +775,13 @@ public class TestS1Ghz1Headless {
                 transitionCount++;
             }
             previousX = x;
-            assertFalse("Sonic should stay grounded while pushing (" + pushDirectionName(pushRight) + ")", fixture.sprite().getAir());
+            assertFalse(fixture.sprite().getAir(), "Sonic should stay grounded while pushing (" + pushDirectionName(pushRight) + ")");
         }
 
         // S1 UNIFIED allows 1px oscillation from pre-movement architecture.
         // S2 DUAL_PATH should have zero oscillation.
-        assertTrue("Sonic X position should be stable (within 1px) while pushing static object (" + pushDirectionName(pushRight)
-                        + "), minX=" + minX + ", maxX=" + maxX + ", transitions=" + transitionCount,
-                maxX - minX <= 1);
+        assertTrue(maxX - minX <= 1, "Sonic X position should be stable (within 1px) while pushing static object (" + pushDirectionName(pushRight)
+                        + "), minX=" + minX + ", maxX=" + maxX + ", transitions=" + transitionCount);
     }
 
     private static String pushDirectionName(boolean pushRight) {
@@ -874,9 +868,8 @@ public class TestS1Ghz1Headless {
         int rightEdgeX = EDGE_TESTBED_X + EDGE_PLATFORM_HALF_WIDTH - 3;
 
         int balanceState = edgeSettleOnObjectAndCheckBalance(rightEdgeX);
-        assertTrue("Should trigger balance at right object edge (x=" + rightEdgeX + ")",
-                balanceState > 0);
-        assertEquals("S1 object balance should always be state 1", 1, balanceState);
+        assertTrue(balanceState > 0, "Should trigger balance at right object edge (x=" + rightEdgeX + ")");
+        assertEquals(1, balanceState, "S1 object balance should always be state 1");
     }
 
     /**
@@ -895,9 +888,8 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setDirection(Direction.LEFT);
         int balanceState = edgeSettleOnObjectAndCheckBalance(rightEdgeX);
 
-        assertTrue("Should balance at right edge", balanceState > 0);
-        assertEquals("S1 should force facing RIGHT (toward right edge)",
-                Direction.RIGHT, fixture.sprite().getDirection());
+        assertTrue(balanceState > 0, "Should balance at right edge");
+        assertEquals(Direction.RIGHT, fixture.sprite().getDirection(), "S1 should force facing RIGHT (toward right edge)");
     }
 
     /**
@@ -912,9 +904,8 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setDirection(Direction.RIGHT); // Face away from left edge
         int balanceState = edgeSettleOnObjectAndCheckBalance(leftEdgeX);
 
-        assertTrue("Should balance at left edge", balanceState > 0);
-        assertEquals("S1 should force facing LEFT (toward left edge)",
-                Direction.LEFT, fixture.sprite().getDirection());
+        assertTrue(balanceState > 0, "Should balance at left edge");
+        assertEquals(Direction.LEFT, fixture.sprite().getDirection(), "S1 should force facing LEFT (toward left edge)");
     }
 
     /**
@@ -925,8 +916,7 @@ public class TestS1Ghz1Headless {
         edgeCreatePlatformAndLand();
 
         int balanceState = edgeSettleOnObjectAndCheckBalance(EDGE_TESTBED_X);
-        assertEquals("Should NOT balance when safely centered on platform",
-                0, balanceState);
+        assertEquals(0, balanceState, "Should NOT balance when safely centered on platform");
     }
 
     /**
@@ -952,10 +942,10 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on GHZ1 ground", landed);
+        assertTrue(landed, "Sonic should land on GHZ1 ground");
 
         Sensor[] groundSensors = fixture.sprite().getGroundSensors();
-        assertNotNull("Ground sensors should exist", groundSensors);
+        assertNotNull(groundSensors, "Ground sensors should exist");
 
         int sideSensorEdgeX = -1;
         int sideSensorEdgeY = -1;
@@ -988,9 +978,8 @@ public class TestS1Ghz1Headless {
 
         if (centerDist < EDGE_THRESHOLD) {
             int balanceState = edgeSettleAndCheckBalance(sideSensorEdgeX, sideSensorEdgeY);
-            assertEquals("Balance should NOT trigger when only side sensor drops off " +
-                            "(sideSensorEdge x=" + sideSensorEdgeX + ")",
-                    0, balanceState);
+            assertEquals(0, balanceState, "Balance should NOT trigger when only side sensor drops off " +
+                            "(sideSensorEdge x=" + sideSensorEdgeX + ")");
 
             int centerEdgeX = -1;
             for (int x = sideSensorEdgeX + 1; x < sideSensorEdgeX + 20; x++) {
@@ -1014,15 +1003,13 @@ public class TestS1Ghz1Headless {
 
             if (centerEdgeX != -1) {
                 int balanceAtCenter = edgeSettleAndCheckBalance(centerEdgeX, sideSensorEdgeY);
-                assertTrue("Balance SHOULD trigger when center is at terrain edge " +
-                                "(x=" + centerEdgeX + ")",
-                        balanceAtCenter > 0);
-                assertEquals("S1 terrain balance state should be 1", 1, balanceAtCenter);
+                assertTrue(balanceAtCenter > 0, "Balance SHOULD trigger when center is at terrain edge " +
+                                "(x=" + centerEdgeX + ")");
+                assertEquals(1, balanceAtCenter, "S1 terrain balance state should be 1");
             }
         } else {
             int balanceState = edgeSettleAndCheckBalance(sideSensorEdgeX, sideSensorEdgeY);
-            assertTrue("Balance should trigger at terrain edge (x=" + sideSensorEdgeX + ")",
-                    balanceState > 0);
+            assertTrue(balanceState > 0, "Balance should trigger at terrain edge (x=" + sideSensorEdgeX + ")");
         }
     }
 
@@ -1048,7 +1035,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on the platform", landed);
+        assertTrue(landed, "Sonic should land on the platform");
     }
 
     private int edgeSettleOnObjectAndCheckBalance(int x) {
@@ -1177,7 +1164,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on floor", landed);
+        assertTrue(landed, "Sonic should land on floor");
 
         // Walk right into the object
         boolean contactReached = false;
@@ -1188,7 +1175,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should reach side-pushing contact with MzBrick-sized object", contactReached);
+        assertTrue(contactReached, "Sonic should reach side-pushing contact with MzBrick-sized object");
 
         // Let contact resolution settle (pre-movement may need one extra frame)
         for (int frame = 0; frame < 5; frame++) {
@@ -1205,11 +1192,10 @@ public class TestS1Ghz1Headless {
             int x = fixture.sprite().getX();
             minX = Math.min(minX, x);
             maxX = Math.max(maxX, x);
-            assertFalse("Sonic should stay grounded while pushing", fixture.sprite().getAir());
+            assertFalse(fixture.sprite().getAir(), "Sonic should stay grounded while pushing");
         }
-        assertTrue("Sonic X should stay stable (within 1px) while pushing, "
-                        + "minX=" + minX + ", maxX=" + maxX,
-                maxX - minX <= 1);
+        assertTrue(maxX - minX <= 1, "Sonic X should stay stable (within 1px) while pushing, "
+                        + "minX=" + minX + ", maxX=" + maxX);
     }
 
     /**
@@ -1247,8 +1233,7 @@ public class TestS1Ghz1Headless {
 
         // Sonic should have fallen through (still in air or landed on terrain below)
         int sonicBottom = fixture.sprite().getCentreY();
-        assertTrue("Sonic should fall past the object when outside active width",
-                sonicBottom > objectY);
+        assertTrue(sonicBottom > objectY, "Sonic should fall past the object when outside active width");
     }
 
     /**
@@ -1294,7 +1279,7 @@ public class TestS1Ghz1Headless {
                 }
             }
         }
-        assertTrue("Sonic should land on the object when within active width", landed);
+        assertTrue(landed, "Sonic should land on the object when within active width");
     }
 
     /**
@@ -1329,7 +1314,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on the test object", landedOnObject);
+        assertTrue(landedOnObject, "Sonic should land on the test object");
 
         // Simulate residual non-flat ground angle while on the object.
         fixture.sprite().setAngle((byte) 0x20);
@@ -1338,12 +1323,11 @@ public class TestS1Ghz1Headless {
         fixture.sprite().setYSpeed((short) 0);
 
         fixture.stepFrame(false, false, false, false, false);
-        assertFalse("Sonic should remain grounded while standing on an object",
-                fixture.sprite().getAir());
+        assertFalse(fixture.sprite().getAir(), "Sonic should remain grounded while standing on an object");
 
         fixture.stepFrame(false, false, false, false, true);
-        assertTrue("Jump from object should enter airborne state", fixture.sprite().getAir());
-        assertTrue("Jump from object should apply upward velocity", fixture.sprite().getYSpeed() < 0);
+        assertTrue(fixture.sprite().getAir(), "Jump from object should enter airborne state");
+        assertTrue(fixture.sprite().getYSpeed() < 0, "Jump from object should apply upward velocity");
     }
 
     /**
@@ -1353,7 +1337,7 @@ public class TestS1Ghz1Headless {
      * In the S1 ROM, Sonic_MdJump (the airborne dispatcher) is invoked whenever air=true,
      * and Sonic_Jump (which reads and acts on jump input) is only called from MdNormal and
      * MdRoll. Therefore, holding jump while in this desync state dispatches to Sonic_MdJump
-     * and the jump button press is never processed — Sonic does NOT launch.
+     * and the jump button press is never processed â€” Sonic does NOT launch.
      *
      * The engine uses CollisionModel.UNIFIED (S1) which correctly replicates this behaviour.
      * This test verifies that the engine does NOT allow a jump from the desync state.
@@ -1386,7 +1370,7 @@ public class TestS1Ghz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should land on the test object", landedOnObject);
+        assertTrue(landedOnObject, "Sonic should land on the test object");
 
         // Inject the transient desync state: air=true while onObject=true.
         fixture.sprite().setAir(true);
@@ -1396,8 +1380,7 @@ public class TestS1Ghz1Headless {
         // In S1 the ROM dispatches to Sonic_MdJump when air=true; Sonic_Jump is never
         // reached, so the jump button is ignored and no upward velocity is applied.
         fixture.stepFrame(false, false, false, false, true);
-        assertFalse("Jump must NOT apply upward velocity from the air/onObject desync state in S1",
-                fixture.sprite().getYSpeed() < 0);
+        assertFalse(fixture.sprite().getYSpeed() < 0, "Jump must NOT apply upward velocity from the air/onObject desync state in S1");
     }
 
     /**
@@ -1464,7 +1447,7 @@ public class TestS1Ghz1Headless {
 
     private List<Sonic1CrabmeatBadnikInstance> findCrabmeats() {
         ObjectManager objectManager = GameServices.level().getObjectManager();
-        assertNotNull("ObjectManager should exist", objectManager);
+        assertNotNull(objectManager, "ObjectManager should exist");
 
         return objectManager.getActiveObjects().stream()
                 .filter(obj -> obj instanceof Sonic1CrabmeatBadnikInstance)
@@ -1496,13 +1479,10 @@ public class TestS1Ghz1Headless {
         fixture.stepIdleFrames(2);
 
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
-        assertTrue("Both GHZ1 Crabmeats should spawn within camera window",
-                crabmeats.size() >= 2);
+        assertTrue(crabmeats.size() >= 2, "Both GHZ1 Crabmeats should spawn within camera window");
 
-        Assert.assertEquals("Crabmeat #1 X must match ROM position",
-                0x08B0, crabmeats.get(0).getX());
-        Assert.assertEquals("Crabmeat #2 X must match ROM position",
-                0x0960, crabmeats.get(1).getX());
+        Assertions.assertEquals(0x08B0, crabmeats.get(0).getX(), "Crabmeat #1 X must match ROM position");
+        Assertions.assertEquals(0x0960, crabmeats.get(1).getX(), "Crabmeat #2 X must match ROM position");
     }
 
     /**
@@ -1519,14 +1499,13 @@ public class TestS1Ghz1Headless {
         // syncActiveSpawns creates instances at start of frame 2.
         fixture.stepIdleFrames(2);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
-        assertFalse("Crabmeats should have spawned", crabmeats.isEmpty());
+        assertFalse(crabmeats.isEmpty(), "Crabmeats should have spawned");
 
         // Step frame-by-frame through ObjectFall and verify X never changes
         for (int frame = 0; frame < 15; frame++) {
             for (Sonic1CrabmeatBadnikInstance crab : crabmeats) {
                 int spawnX = crab.getSpawn().x();
-                Assert.assertEquals("Crabmeat X must not drift during init (frame " + frame + ")",
-                        spawnX, crab.getX());
+                Assertions.assertEquals(spawnX, crab.getX(), "Crabmeat X must not drift during init (frame " + frame + ")");
             }
             fixture.stepIdleFrames(1);
         }
@@ -1546,15 +1525,13 @@ public class TestS1Ghz1Headless {
         fixture.stepIdleFrames(30);
 
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
-        assertFalse("Crabmeats should have spawned", crabmeats.isEmpty());
+        assertFalse(crabmeats.isEmpty(), "Crabmeats should have spawned");
 
         for (int i = 0; i < crabmeats.size(); i++) {
             Sonic1CrabmeatBadnikInstance crab = crabmeats.get(i);
             int y = crab.getY();
-            assertTrue("Crabmeat " + i + " Y (" + y + ") should be > 0",
-                    y > 0);
-            assertTrue("Crabmeat " + i + " Y (" + y + ") should be < 0x0800 (not fallen off level)",
-                    y < 0x0800);
+            assertTrue(y > 0, "Crabmeat " + i + " Y (" + y + ") should be > 0");
+            assertTrue(y < 0x0800, "Crabmeat " + i + " Y (" + y + ") should be < 0x0800 (not fallen off level)");
         }
     }
 
@@ -1572,11 +1549,11 @@ public class TestS1Ghz1Headless {
         // syncActiveSpawns creates instances at start of frame 2.
         fixture.stepIdleFrames(2);
         List<Sonic1CrabmeatBadnikInstance> crabmeats = findCrabmeats();
-        assertFalse("Crabmeat should have spawned", crabmeats.isEmpty());
+        assertFalse(crabmeats.isEmpty(), "Crabmeat should have spawned");
 
         Sonic1CrabmeatBadnikInstance crab = crabmeats.get(0);
         final int spawnX = 0x08B0;
-        Assert.assertEquals(spawnX, crab.getSpawn().x());
+        Assertions.assertEquals(spawnX, crab.getSpawn().x());
 
         int minX = spawnX;
         int maxX = spawnX;
@@ -1598,14 +1575,12 @@ public class TestS1Ghz1Headless {
                 " totalRange=" + totalRange);
 
         // The Crabmeat should walk at least 20px left of spawn (ROM first walk is left)
-        assertTrue("Crabmeat should walk significantly left of spawn (leftDelta=" +
-                        leftDelta + ", expected >= 20)",
-                leftDelta >= 20);
+        assertTrue(leftDelta >= 20, "Crabmeat should walk significantly left of spawn (leftDelta=" +
+                        leftDelta + ", expected >= 20)");
 
         // Total patrol range should be significant (walks left then right back)
-        assertTrue("Crabmeat patrol range should be >= 20px (totalRange=" +
-                        totalRange + ")",
-                totalRange >= 20);
+        assertTrue(totalRange >= 20, "Crabmeat patrol range should be >= 20px (totalRange=" +
+                        totalRange + ")");
     }
 
     /**
@@ -1628,14 +1603,12 @@ public class TestS1Ghz1Headless {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("Target Crabmeat did not spawn"));
 
-        assertEquals("Target Crabmeat should be present before destruction",
-                1, countCrabmeatsAtSpawnX(targetSpawnX));
+        assertEquals(1, countCrabmeatsAtSpawnX(targetSpawnX), "Target Crabmeat should be present before destruction");
 
         // Simulate player destroying the badnik.
         target.onPlayerAttack(fixture.sprite(), null);
         fixture.stepIdleFrames(2);
-        assertEquals("Destroyed Crabmeat should be removed immediately",
-                0, countCrabmeatsAtSpawnX(targetSpawnX));
+        assertEquals(0, countCrabmeatsAtSpawnX(targetSpawnX), "Destroyed Crabmeat should be removed immediately");
 
         // Move camera far enough that the original spawn leaves the placement window.
         fixture.sprite().setX((short) 0x1500);
@@ -1649,8 +1622,7 @@ public class TestS1Ghz1Headless {
         fixture.camera().updatePosition(true);
         fixture.stepIdleFrames(6);
 
-        assertEquals("Destroyed Crabmeat must not respawn after window cycle",
-                0, countCrabmeatsAtSpawnX(targetSpawnX));
+        assertEquals(0, countCrabmeatsAtSpawnX(targetSpawnX), "Destroyed Crabmeat must not respawn after window cycle");
     }
 
     // ========================================================================
@@ -1662,7 +1634,7 @@ public class TestS1Ghz1Headless {
      * to collide with or land on the terrain above. He should arc up, not hit
      * any ceiling, and fall back down to approximately y=921.
      *
-     * Bug: The engine incorrectly places Sonic at y≈841 after the jump,
+     * Bug: The engine incorrectly places Sonic at yâ‰ˆ841 after the jump,
      * standing inside the terrain above.
      */
     /**
@@ -1697,7 +1669,7 @@ public class TestS1Ghz1Headless {
             fixture.stepFrame(false, false, false, false, false);
             if (!fixture.sprite().getAir()) break;
         }
-        assertFalse("Sonic should have landed on ground", fixture.sprite().getAir());
+        assertFalse(fixture.sprite().getAir(), "Sonic should have landed on ground");
 
         short settledY = fixture.sprite().getCentreY();
         System.out.println("[JUMP-REGRESSION] Settled centreY=" + settledY
@@ -1707,7 +1679,7 @@ public class TestS1Ghz1Headless {
         for (int i = 0; i < HOLD_JUMP_FRAMES; i++) {
             fixture.stepFrame(false, false, false, false, true);
         }
-        assertTrue("Sonic should be airborne after pressing jump", fixture.sprite().getAir());
+        assertTrue(fixture.sprite().getAir(), "Sonic should be airborne after pressing jump");
 
         // Continue for POST_JUMP_FRAMES frames (no input).
         for (int i = 0; i < POST_JUMP_FRAMES; i++) {
@@ -1732,12 +1704,13 @@ public class TestS1Ghz1Headless {
 
         // Sonic should either land on the lower path (near settledY) or land on
         // the upper path (valid landing from ROM-accurate quadrant 0x40 no-threshold
-        // behaviour — at x=682, the slope gives non-zero xSpeed which puts the
+        // behaviour â€” at x=682, the slope gives non-zero xSpeed which puts the
         // CalcAngle into quadrant 0x40 where the ROM doesn't apply a landing
         // threshold). Landing on the upper terrain at ~844 is ROM-accurate.
         // The critical check: Sonic must NOT be permanently airborne (stuck in
         // invalid physics state) and must land on a real surface.
-        assertFalse("Sonic should have landed somewhere",
-                fixture.sprite().getAir());
+        assertFalse(fixture.sprite().getAir(), "Sonic should have landed somewhere");
     }
 }
+
+

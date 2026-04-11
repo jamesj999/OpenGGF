@@ -2,22 +2,22 @@ package com.openggf.game.sonic3k.titlescreen;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestSonic3kTitleScreenBootstrap {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -35,3 +35,5 @@ public class TestSonic3kTitleScreenBootstrap {
         assertFalse(loader.loadData());
     }
 }
+
+

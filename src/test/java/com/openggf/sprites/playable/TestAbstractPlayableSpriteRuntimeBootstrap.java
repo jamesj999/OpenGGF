@@ -61,3 +61,5 @@ class TestAbstractPlayableSpriteRuntimeBootstrap {
         assertDoesNotThrow(() -> assertNotEquals(-1, sonic.resolveAnimationId(CanonicalAnimation.BUBBLE)));
     }
 }
+
+

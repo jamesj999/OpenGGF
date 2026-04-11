@@ -17,3 +17,5 @@ public class TestS1Credits07Ghz1bTraceReplay extends AbstractCreditsDemoTraceRep
         return Path.of("src/test/resources/traces/s1/credits_07_ghz1b");
     }
 }
+
+

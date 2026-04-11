@@ -129,3 +129,5 @@ class TestAnimationTranslator {
         assertEquals(Sonic1AnimationIds.WAIT.id(), translated.getIdleAnimId());
     }
 }
+
+

@@ -157,3 +157,5 @@ class TestS3kCharacterSpeeds {
         assertEquals(0x600, sprite.getMax(), "S2 Sonic: same max as S3K");
     }
 }
+
+

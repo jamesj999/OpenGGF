@@ -1,14 +1,14 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Regression tests for HTZ Act 2 level event routine 9 (post-boss camera behavior).
@@ -18,7 +18,7 @@ public class TestHTZBossEventRoutine9 {
     private Camera camera;
     private Sonic2LevelEventManager levelEvents;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
@@ -30,7 +30,7 @@ public class TestHTZBossEventRoutine9 {
         levelEvents.setEventRoutine(18); // Routine 9
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -67,3 +67,5 @@ public class TestHTZBossEventRoutine9 {
         assertEquals((short) 0x430, camera.getMaxYTarget());
     }
 }
+
+

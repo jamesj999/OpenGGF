@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance;
 import com.openggf.level.LevelManager;
@@ -16,11 +16,11 @@ import com.openggf.level.objects.boss.BossChildComponent;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -63,7 +63,7 @@ public class TestDEZDeathEggRobot {
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         services = new TestObjectServices();
         setConstructionContext(services);
@@ -83,44 +83,41 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void objectIdIs0xC7() {
-        assertEquals("Object ID should be 0xC7", 0xC7, Sonic2ObjectIds.DEATH_EGG_ROBOT);
+        assertEquals(0xC7, Sonic2ObjectIds.DEATH_EGG_ROBOT, "Object ID should be 0xC7");
     }
 
     @Test
     public void hpIs12NotDefault8() {
         // ROM: Death Egg Robot has 12 HP (final boss), NOT the usual 8
-        assertEquals("HP must be 12 (final boss, not default 8)",
-                12, boss.getState().hitCount);
+        assertEquals(12, boss.getState().hitCount, "HP must be 12 (final boss, not default 8)");
     }
 
     @Test
     public void initialBodyRoutineIsWaitEggman() {
         // initializeBossState sets BODY_INIT (0x00) then advances to BODY_WAIT_EGGMAN (0x02)
-        assertEquals("Body routine should be WAIT_EGGMAN (0x02) after init",
-                0x02, boss.getBodyRoutine());
+        assertEquals(0x02, boss.getBodyRoutine(), "Body routine should be WAIT_EGGMAN (0x02) after init");
     }
 
     @Test
     public void initialFrameIsBody() {
         // ROM: mapping_frame = 3 (FRAME_BODY)
-        assertEquals("Initial mapping frame should be 3 (FRAME_BODY)",
-                3, boss.getCurrentFrame());
+        assertEquals(3, boss.getCurrentFrame(), "Initial mapping frame should be 3 (FRAME_BODY)");
     }
 
     @Test
     public void notDefeatedInitially() {
-        assertFalse("Should not be defeated initially", boss.getState().defeated);
+        assertFalse(boss.getState().defeated, "Should not be defeated initially");
     }
 
     @Test
     public void notInvulnerableInitially() {
-        assertFalse("Should not be invulnerable initially", boss.getState().invulnerable);
+        assertFalse(boss.getState().invulnerable, "Should not be invulnerable initially");
     }
 
     @Test
     public void priorityBucketIsFive() {
         // ROM: move.b #5,priority(a0) (loc_3D52A, s2.asm:82052)
-        assertEquals("Priority bucket should be 5", 5, boss.getPriorityBucket());
+        assertEquals(5, boss.getPriorityBucket(), "Priority bucket should be 5");
     }
 
     @Test
@@ -130,8 +127,7 @@ public class TestDEZDeathEggRobot {
         // facingLeft is passed as hFlip to the renderer:
         //   facingLeft = false -> hFlip = false -> art not flipped -> faces LEFT (correct)
         //   facingLeft = true  -> hFlip = true  -> art flipped   -> faces RIGHT (wrong)
-        assertFalse("facingLeft should be false (ROM x_flip=0, art naturally faces left)",
-                boss.isFacingLeft());
+        assertFalse(boss.isFacingLeft(), "facingLeft should be false (ROM x_flip=0, art naturally faces left)");
     }
 
     // ========================================================================
@@ -141,22 +137,19 @@ public class TestDEZDeathEggRobot {
     @Test
     public void collisionDisabledBeforeFightStarts() {
         // Body collision should be 0 while in WAIT_EGGMAN routine (before BODY_WAIT_READY)
-        assertEquals("Collision should be 0 before fight starts",
-                0, boss.getCollisionFlags());
+        assertEquals(0, boss.getCollisionFlags(), "Collision should be 0 before fight starts");
     }
 
     @Test
     public void collisionDisabledWhenDefeated() {
         boss.getState().defeated = true;
-        assertEquals("Collision should be 0 when defeated",
-                0, boss.getCollisionFlags());
+        assertEquals(0, boss.getCollisionFlags(), "Collision should be 0 when defeated");
     }
 
     @Test
     public void collisionDisabledWhenInvulnerable() {
         boss.getState().invulnerable = true;
-        assertEquals("Collision should be 0 when invulnerable",
-                0, boss.getCollisionFlags());
+        assertEquals(0, boss.getCollisionFlags(), "Collision should be 0 when invulnerable");
     }
 
     // ========================================================================
@@ -165,7 +158,7 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void attackIndexStartsAtZero() {
-        assertEquals("Attack index should start at 0", 0, boss.getAttackIndex());
+        assertEquals(0, boss.getAttackIndex(), "Attack index should start at 0");
     }
 
     @Test
@@ -178,8 +171,7 @@ public class TestDEZDeathEggRobot {
         field.setAccessible(true);
         int[] actual = (int[]) field.get(null);
         int[] expected = { 2, 0, 2, 4 };
-        assertArrayEquals("Attack pattern should match ROM dc.b 2, 0, 2, 4",
-                expected, actual);
+        assertArrayEquals(expected, actual, "Attack pattern should match ROM dc.b 2, 0, 2, 4");
     }
 
     // ========================================================================
@@ -188,13 +180,13 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void defeatPhaseStartsAtZero() {
-        assertEquals("Defeat phase should start at 0", 0, boss.getDefeatPhase());
+        assertEquals(0, boss.getDefeatPhase(), "Defeat phase should start at 0");
     }
 
     @Test
     public void defeatNotTriggeredByDefault() {
-        assertFalse("Should not be defeated initially", boss.getState().defeated);
-        assertEquals("Defeat phase should start at 0", 0, boss.getDefeatPhase());
+        assertFalse(boss.getState().defeated, "Should not be defeated initially");
+        assertEquals(0, boss.getDefeatPhase(), "Defeat phase should start at 0");
     }
 
     // ========================================================================
@@ -207,10 +199,8 @@ public class TestDEZDeathEggRobot {
         // invulnerability duration. The timer should start at 0 (no invulnerability)
         // and only be set to 60 when the boss takes a hit.
         // DEZ_BOSS_INVULN_DURATION = 60 ($3C), verified against s2.asm
-        assertEquals("Invulnerability timer should start at 0",
-                0, boss.getState().invulnerabilityTimer);
-        assertFalse("Should not be invulnerable initially",
-                boss.getState().invulnerable);
+        assertEquals(0, boss.getState().invulnerabilityTimer, "Invulnerability timer should start at 0");
+        assertFalse(boss.getState().invulnerable, "Should not be invulnerable initially");
     }
 
     // ========================================================================
@@ -221,50 +211,45 @@ public class TestDEZDeathEggRobot {
     public void tenChildrenSpawned() {
         // 10 permanent children: Shoulder, FrontLowerLeg, FrontForearm, UpperArm,
         // FrontThigh, Head, Jet, BackLowerLeg, BackForearm, BackThigh
-        assertEquals("Should have 10 child components",
-                10, boss.getChildComponents().size());
+        assertEquals(10, boss.getChildComponents().size(), "Should have 10 child components");
     }
 
     @Test
     public void headChildExists() {
-        assertNotNull("Head child should exist", boss.getHead());
+        assertNotNull(boss.getHead(), "Head child should exist");
     }
 
     @Test
     public void headImplementsTouchResponseProvider() {
         // Head is the only hittable part - must implement TouchResponseProvider
-        assertTrue("Head should implement TouchResponseProvider",
-                boss.getHead() instanceof TouchResponseProvider);
+        assertTrue(boss.getHead() instanceof TouchResponseProvider, "Head should implement TouchResponseProvider");
     }
 
     @Test
     public void headImplementsTouchResponseAttackable() {
         // Head must implement TouchResponseAttackable for onPlayerAttack relay
-        assertTrue("Head should implement TouchResponseAttackable",
-                boss.getHead() instanceof TouchResponseAttackable);
+        assertTrue(boss.getHead() instanceof TouchResponseAttackable, "Head should implement TouchResponseAttackable");
     }
 
     @Test
     public void headCollisionInactiveBeforeFight() {
         // Head collision should be inactive during WAIT_EGGMAN phase
         TouchResponseProvider headProvider = (TouchResponseProvider) boss.getHead();
-        assertEquals("Head collision flags should be 0 before fight",
-                0, headProvider.getCollisionFlags());
+        assertEquals(0, headProvider.getCollisionFlags(), "Head collision flags should be 0 before fight");
     }
 
     @Test
     public void headCollisionPropertyReturnsNegativeOne() {
-        // ROM: move.b #-1,collision_property(a0) — head always returns -1
+        // ROM: move.b #-1,collision_property(a0) â€” head always returns -1
         // HP tracking is handled by the parent body's onHeadHit(), not collision_property
         TouchResponseProvider headProvider = (TouchResponseProvider) boss.getHead();
-        assertEquals("Head collision property should be -1 (ROM-accurate: always hittable)",
-                -1, headProvider.getCollisionProperty());
+        assertEquals(-1, headProvider.getCollisionProperty(), "Head collision property should be -1 (ROM-accurate: always hittable)");
     }
 
     @Test
     public void allChildrenAreNotNull() {
         for (BossChildComponent child : boss.getChildComponents()) {
-            assertNotNull("Every child component should be non-null", child);
+            assertNotNull(child, "Every child component should be non-null");
         }
     }
 
@@ -280,7 +265,7 @@ public class TestDEZDeathEggRobot {
         java.util.List<BossChildComponent> children =
                 (java.util.List<BossChildComponent>) childField.get(boss);
 
-        assertEquals("Should have 10 children", 10, children.size());
+        assertEquals(10, children.size(), "Should have 10 children");
 
         // Verify FrontForearm (index 1) comes before FrontLowerLeg (index 2)
         // by checking their class names via the name field on AbstractObjectInstance
@@ -289,10 +274,8 @@ public class TestDEZDeathEggRobot {
 
         String child1Name = (String) getName.invoke(children.get(1));
         String child2Name = (String) getName.invoke(children.get(2));
-        assertEquals("Child index 1 should be FrontForearm (ROM spawn order)",
-                "FrontForearm", child1Name);
-        assertEquals("Child index 2 should be FrontLowerLeg (ROM spawn order)",
-                "FrontLowerLeg", child2Name);
+        assertEquals("FrontForearm", child1Name, "Child index 1 should be FrontForearm (ROM spawn order)");
+        assertEquals("FrontLowerLeg", child2Name, "Child index 2 should be FrontLowerLeg (ROM spawn order)");
     }
 
     // ========================================================================
@@ -306,11 +289,10 @@ public class TestDEZDeathEggRobot {
 
         for (int i = 11; i >= 0; i--) {
             boss.getState().hitCount--;
-            assertEquals("HP should be " + i + " after " + (12 - i) + " decrements",
-                    i, boss.getState().hitCount);
+            assertEquals(i, boss.getState().hitCount, "HP should be " + i + " after " + (12 - i) + " decrements");
         }
 
-        assertEquals("HP should reach 0 after 12 decrements", 0, boss.getState().hitCount);
+        assertEquals(0, boss.getState().hitCount, "HP should reach 0 after 12 decrements");
     }
 
     @Test
@@ -321,7 +303,7 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void attackIndexStartsAtCurrentAttackZero() {
-        assertEquals("Current attack should start at 0", 0, boss.getCurrentAttack());
+        assertEquals(0, boss.getCurrentAttack(), "Current attack should start at 0");
     }
 
     // ========================================================================
@@ -334,25 +316,24 @@ public class TestDEZDeathEggRobot {
         // (onHeadHit) is package-private and requires AudioManager.
         // After 12 decrements, hitCount=0 and defeated=true should be consistent
         // with bodyRoutine=BODY_DEFEAT (0x0E).
-        assertEquals("HP starts at 12", 12, boss.getState().hitCount);
+        assertEquals(12, boss.getState().hitCount, "HP starts at 12");
 
         for (int i = 0; i < 12; i++) {
             boss.getState().hitCount--;
         }
-        assertEquals("HP should be 0 after 12 decrements", 0, boss.getState().hitCount);
+        assertEquals(0, boss.getState().hitCount, "HP should be 0 after 12 decrements");
 
         // Simulate what triggerDefeatSequence() does to state flags
         boss.getState().defeated = true;
-        assertTrue("Boss should be marked defeated", boss.getState().defeated);
+        assertTrue(boss.getState().defeated, "Boss should be marked defeated");
     }
 
     @Test
     public void defeatBodyRoutineIs0x0E() {
         // ROM: BODY_DEFEAT = 0x0E (s2.asm). Verify initial state is not defeat.
-        assertFalse("Body routine should NOT be 0x0E initially (that's defeat)",
-                boss.getBodyRoutine() == 0x0E);
+        assertFalse(boss.getBodyRoutine() == 0x0E, "Body routine should NOT be 0x0E initially (that's defeat)");
         // Positive: initial body routine should be WAIT_EGGMAN (0x02)
-        assertEquals("Initial body routine should be 0x02", 0x02, boss.getBodyRoutine());
+        assertEquals(0x02, boss.getBodyRoutine(), "Initial body routine should be 0x02");
     }
 
     // ========================================================================
@@ -372,7 +353,7 @@ public class TestDEZDeathEggRobot {
         field.setAccessible(true);
         int[][] actual = (int[][]) field.get(null);
 
-        assertEquals("BREAK_VELOCITIES should have 8 entries", 8, actual.length);
+        assertEquals(8, actual.length, "BREAK_VELOCITIES should have 8 entries");
 
         int[][] expected = {
                 {  0x200, -0x400 },  // Shoulder
@@ -386,8 +367,7 @@ public class TestDEZDeathEggRobot {
         };
 
         for (int i = 0; i < expected.length; i++) {
-            assertArrayEquals("Break velocity entry " + i + " should match ROM",
-                    expected[i], actual[i]);
+            assertArrayEquals(expected[i], actual[i], "Break velocity entry " + i + " should match ROM");
         }
     }
 
@@ -400,7 +380,7 @@ public class TestDEZDeathEggRobot {
         field.setAccessible(true);
         int[][] actual = (int[][]) field.get(null);
 
-        assertEquals("CHILD_DELTAS should have 7 entries", 7, actual.length);
+        assertEquals(7, actual.length, "CHILD_DELTAS should have 7 entries");
 
         int[][] expected = {
                 { -4, 60 },   // FrontLowerLeg
@@ -413,8 +393,7 @@ public class TestDEZDeathEggRobot {
         };
 
         for (int i = 0; i < expected.length; i++) {
-            assertArrayEquals("Child delta entry " + i + " should match ROM",
-                    expected[i], actual[i]);
+            assertArrayEquals(expected[i], actual[i], "Child delta entry " + i + " should match ROM");
         }
     }
 
@@ -425,21 +404,21 @@ public class TestDEZDeathEggRobot {
                 Sonic2DeathEggRobotInstance.class.getDeclaredField("HALF_STEP_KEYFRAMES");
         halfStepField.setAccessible(true);
         int[][] halfStep = (int[][]) halfStepField.get(null);
-        assertEquals("HALF_STEP_KEYFRAMES should have 9 entries", 9, halfStep.length);
+        assertEquals(9, halfStep.length, "HALF_STEP_KEYFRAMES should have 9 entries");
 
         // ROM: ObjC7_GroupAni_3E3D8 = 3 keyframes (crouch/rise)
         java.lang.reflect.Field crouchField =
                 Sonic2DeathEggRobotInstance.class.getDeclaredField("CROUCH_KEYFRAMES");
         crouchField.setAccessible(true);
         int[][] crouch = (int[][]) crouchField.get(null);
-        assertEquals("CROUCH_KEYFRAMES should have 3 entries", 3, crouch.length);
+        assertEquals(3, crouch.length, "CROUCH_KEYFRAMES should have 3 entries");
 
         // ROM: ObjC7_GroupAni_3E438 = 12 keyframes (full walk cycle)
         java.lang.reflect.Field walkField =
                 Sonic2DeathEggRobotInstance.class.getDeclaredField("WALK_CYCLE_KEYFRAMES");
         walkField.setAccessible(true);
         int[][] walk = (int[][]) walkField.get(null);
-        assertEquals("WALK_CYCLE_KEYFRAMES should have 12 entries", 12, walk.length);
+        assertEquals(12, walk.length, "WALK_CYCLE_KEYFRAMES should have 12 entries");
     }
 
     // ========================================================================
@@ -463,7 +442,7 @@ public class TestDEZDeathEggRobot {
         }
 
         // Verify children were created (10 total: Body, Head, JetFlame, BackUpperArm/ForeArm/LowerLeg, FrontUpperArm/ForeArm/LowerLeg, Sensor)
-        assertEquals("Boss should have 10 child components", 10, boss2.getChildComponents().size());
+        assertEquals(10, boss2.getChildComponents().size(), "Boss should have 10 child components");
     }
 
     // ========================================================================
@@ -483,7 +462,7 @@ public class TestDEZDeathEggRobot {
                 break;
             }
         }
-        assertNotNull("SensorChild inner class should exist", sensorClass);
+        assertNotNull(sensorClass, "SensorChild inner class should exist");
 
         java.lang.reflect.Field xBufField = sensorClass.getDeclaredField("xVelBuffer");
         xBufField.setAccessible(true);
@@ -505,8 +484,8 @@ public class TestDEZDeathEggRobot {
 
         int[] xBuf = (int[]) xBufField.get(sensor);
         int[] yBuf = (int[]) yBufField.get(sensor);
-        assertEquals("xVelBuffer should have 4 elements (3-frame delay)", 4, xBuf.length);
-        assertEquals("yVelBuffer should have 4 elements (3-frame delay)", 4, yBuf.length);
+        assertEquals(4, xBuf.length, "xVelBuffer should have 4 elements (3-frame delay)");
+        assertEquals(4, yBuf.length, "yVelBuffer should have 4 elements (3-frame delay)");
     }
 
     // ========================================================================
@@ -524,27 +503,29 @@ public class TestDEZDeathEggRobot {
         // Test ROM-accurate clamped behavior:
         int dxClamped = Math.min(0xFF, 0x100);
         int idxClamped = (dxClamped & 0xC0) >> 6;
-        assertEquals("dx=0x100 clamped to 0xFF should give table index 3", 3, idxClamped);
+        assertEquals(3, idxClamped, "dx=0x100 clamped to 0xFF should give table index 3");
 
         dxClamped = Math.min(0xFF, 0xFF);
         idxClamped = (dxClamped & 0xC0) >> 6;
-        assertEquals("dx=0xFF should give table index 3", 3, idxClamped);
+        assertEquals(3, idxClamped, "dx=0xFF should give table index 3");
 
         // Verify the bug scenario: without clamping, dx=0x100 would give index 0
         int dxUnclamped = 0x100;
         int idxUnclamped = (dxUnclamped & 0xC0) >> 6;
-        assertEquals("Unclamped dx=0x100 would incorrectly give index 0", 0, idxUnclamped);
+        assertEquals(0, idxUnclamped, "Unclamped dx=0x100 would incorrectly give index 0");
 
         // Verify boundary cases with clamping
-        assertEquals("dx=0x00 -> index 0", 0, (Math.min(0xFF, 0x00) & 0xC0) >> 6);
-        assertEquals("dx=0x3F -> index 0", 0, (Math.min(0xFF, 0x3F) & 0xC0) >> 6);
-        assertEquals("dx=0x40 -> index 1", 1, (Math.min(0xFF, 0x40) & 0xC0) >> 6);
-        assertEquals("dx=0x7F -> index 1", 1, (Math.min(0xFF, 0x7F) & 0xC0) >> 6);
-        assertEquals("dx=0x80 -> index 2", 2, (Math.min(0xFF, 0x80) & 0xC0) >> 6);
-        assertEquals("dx=0xBF -> index 2", 2, (Math.min(0xFF, 0xBF) & 0xC0) >> 6);
-        assertEquals("dx=0xC0 -> index 3", 3, (Math.min(0xFF, 0xC0) & 0xC0) >> 6);
-        assertEquals("dx=0xFF -> index 3", 3, (Math.min(0xFF, 0xFF) & 0xC0) >> 6);
-        assertEquals("dx=0x200 -> index 3 (clamped)", 3, (Math.min(0xFF, 0x200) & 0xC0) >> 6);
-        assertEquals("dx=0xFFFF -> index 3 (clamped)", 3, (Math.min(0xFF, 0xFFFF) & 0xC0) >> 6);
+        assertEquals(0, (Math.min(0xFF, 0x00) & 0xC0) >> 6, "dx=0x00 -> index 0");
+        assertEquals(0, (Math.min(0xFF, 0x3F) & 0xC0) >> 6, "dx=0x3F -> index 0");
+        assertEquals(1, (Math.min(0xFF, 0x40) & 0xC0) >> 6, "dx=0x40 -> index 1");
+        assertEquals(1, (Math.min(0xFF, 0x7F) & 0xC0) >> 6, "dx=0x7F -> index 1");
+        assertEquals(2, (Math.min(0xFF, 0x80) & 0xC0) >> 6, "dx=0x80 -> index 2");
+        assertEquals(2, (Math.min(0xFF, 0xBF) & 0xC0) >> 6, "dx=0xBF -> index 2");
+        assertEquals(3, (Math.min(0xFF, 0xC0) & 0xC0) >> 6, "dx=0xC0 -> index 3");
+        assertEquals(3, (Math.min(0xFF, 0xFF) & 0xC0) >> 6, "dx=0xFF -> index 3");
+        assertEquals(3, (Math.min(0xFF, 0x200) & 0xC0) >> 6, "dx=0x200 -> index 3 (clamped)");
+        assertEquals(3, (Math.min(0xFF, 0xFFFF) & 0xC0) >> 6, "dx=0xFFFF -> index 3 (clamped)");
     }
 }
+
+

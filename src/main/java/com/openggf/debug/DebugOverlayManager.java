@@ -1,6 +1,7 @@
 package com.openggf.debug;
 
 import com.openggf.control.InputHandler;
+import com.openggf.game.GameServices;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -58,7 +59,7 @@ public class DebugOverlayManager {
         StringBuilder sb = new StringBuilder();
 
         // Performance profiler stats
-        ProfileSnapshot snapshot = com.openggf.game.RuntimeManager.getEngineServices().profiler().getSnapshot();
+        ProfileSnapshot snapshot = GameServices.profiler().getSnapshot();
         if (snapshot.hasData()) {
             sb.append("=== Performance Stats ===\n");
             sb.append(String.format("Frame Time: %.2fms (%.1f%% of 16.67ms budget)\n",
@@ -75,8 +76,7 @@ public class DebugOverlayManager {
         }
 
         // Memory stats
-        MemoryStats.Snapshot memSnapshot = com.openggf.game.RuntimeManager.getEngineServices()
-                .profiler().memoryStats().snapshot();
+        MemoryStats.Snapshot memSnapshot = GameServices.profiler().memoryStats().snapshot();
         sb.append("=== Memory Stats ===\n");
         sb.append(String.format("Heap: %.0fMB / %.0fMB (%d%%)\n",
                 memSnapshot.heapUsedMB(), memSnapshot.heapMaxMB(), memSnapshot.heapPercentage()));

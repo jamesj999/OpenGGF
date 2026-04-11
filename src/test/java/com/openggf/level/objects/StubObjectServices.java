@@ -91,3 +91,5 @@ public class StubObjectServices implements ObjectServices {
     @Override public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) { return null; }
     @Override public void saveBigRingReturn(com.openggf.level.BigRingReturnState state) {}
 }
+
+

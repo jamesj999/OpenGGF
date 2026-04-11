@@ -119,3 +119,5 @@ class TestSidekickGating {
                 "Default supportsSidekick() should be false");
     }
 }
+
+

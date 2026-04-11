@@ -11,15 +11,15 @@ import com.openggf.level.objects.StubObjectServices;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.TestablePlayableSprite;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
@@ -60,8 +60,8 @@ public class TestTurboSpikerBadnikInstance {
             }
 
             assertEquals("SHELLLESS_RUN", readState(turboSpiker));
-            assertTrue("Expected shell launch SFX", services.playedSfx.contains(Sonic3kSfx.FLOOR_LAUNCHER.id));
-            assertTrue("Expected shell trail child after launch", services.spawnedChildren.size() >= 2);
+            assertTrue(services.playedSfx.contains(Sonic3kSfx.FLOOR_LAUNCHER.id), "Expected shell launch SFX");
+            assertTrue(services.spawnedChildren.size() >= 2, "Expected shell trail child after launch");
         }
     }
 
@@ -82,7 +82,7 @@ public class TestTurboSpikerBadnikInstance {
             turboSpiker.update(1, player);
             assertEquals("EMERGE_DELAY", readState(turboSpiker));
             assertEquals(7, services.spawnedChildren.size());
-            assertTrue("Expected splash SFX", services.playedSfx.contains(Sonic3kSfx.SPLASH.id));
+            assertTrue(services.playedSfx.contains(Sonic3kSfx.SPLASH.id), "Expected splash SFX");
 
             for (int frame = 2; frame <= 5; frame++) {
                 turboSpiker.update(frame, player);
@@ -140,3 +140,5 @@ public class TestTurboSpikerBadnikInstance {
         }
     }
 }
+
+

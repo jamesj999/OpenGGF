@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestProductionSingletonClosureGuard {
 
@@ -63,6 +63,7 @@ public class TestProductionSingletonClosureGuard {
     private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineServices.fromLegacySingletonsForBootstrap(";
     private static final String ENGINE_SERVICES_LOCATOR = "RuntimeManager.getEngineServices(";
     private static final String ENGINE_SERVICES_LOCATOR_ALIAS = "RuntimeManager.currentEngineServices(";
+    private static final String RUNTIME_CURRENT_LOCATOR = "RuntimeManager.getCurrent(";
     private static final String EDITOR_RENDERER_PACKAGE = "com/openggf/editor/render/";
     private static final String ABSTRACT_LEVEL_INIT_PROFILE =
             "com/openggf/game/AbstractLevelInitProfile.java";
@@ -162,6 +163,22 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/level/render/BackgroundRenderer.java",
             "com/openggf/sprites/render/PlayerSpriteRenderer.java",
             "com/openggf/graphics/GraphicsManager.java"
+    );
+    private static final List<String> AUDIO_INFRASTRUCTURE_FILES = List.of(
+            "com/openggf/audio/LWJGLAudioBackend.java",
+            "com/openggf/audio/smps/SmpsSequencer.java"
+    );
+    private static final List<String> DEBUG_INFRASTRUCTURE_FILES = List.of(
+            "com/openggf/debug/DebugRenderer.java",
+            "com/openggf/debug/DebugObjectArtViewer.java",
+            "com/openggf/debug/DebugOverlayManager.java",
+            "com/openggf/debug/PerformancePanelRenderer.java",
+            "com/openggf/debug/playback/PlaybackDebugManager.java"
+    );
+    private static final List<String> SPRITE_RUNTIME_FILES = List.of(
+            "com/openggf/sprites/managers/SpriteManager.java",
+            "com/openggf/sprites/playable/AbstractPlayableSprite.java",
+            "com/openggf/sprites/playable/SuperStateController.java"
     );
     private static final List<String> COMPOSITION_ROOT_FILES = List.of(
             "com/openggf/Engine.java",
@@ -447,7 +464,8 @@ public class TestProductionSingletonClosureGuard {
                     String rel = srcMain.relativize(path).toString().replace('\\', '/');
                     return rel.startsWith(SONIC2_SPECIAL_STAGE_PACKAGE) || SONIC2_SPECIAL_STAGE_DEBUG_FILE.equals(rel);
                 })
-                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, RUNTIME_CURRENT_LOCATOR)));
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 2 special-stage package:\n  "
@@ -569,7 +587,7 @@ public class TestProductionSingletonClosureGuard {
                 .filter(path -> SONIC3K_CORE_FILES.contains(
                         srcMain.relativize(path).toString().replace('\\', '/')))
                 .forEach(path -> scanFile(srcMain, path, violations,
-                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS, RUNTIME_CURRENT_LOCATOR)));
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 3K core packages:\n  "
@@ -688,7 +706,7 @@ public class TestProductionSingletonClosureGuard {
                 .filter(path -> LEVEL_AND_OBJECT_CORE_FILES.contains(
                         srcMain.relativize(path).toString().replace('\\', '/')))
                 .forEach(path -> scanFile(srcMain, path, violations,
-                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS, RUNTIME_CURRENT_LOCATOR)));
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in level/object core runtime:\n  "
@@ -712,6 +730,69 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in graphics infrastructure:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void audioInfrastructureDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> AUDIO_INFRASTRUCTURE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in audio infrastructure:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void debugInfrastructureDoesNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> DEBUG_INFRASTRUCTURE_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in debug infrastructure:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void spriteRuntimeInfrastructureDoesNotUseRuntimeLocators() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> SPRITE_RUNTIME_FILES.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations,
+                        List.of(ENGINE_SERVICES_LOCATOR, ENGINE_SERVICES_LOCATOR_ALIAS, RUNTIME_CURRENT_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager locator usage in sprite runtime infrastructure:\n  "
                     + String.join("\n  ", violations));
         }
     }
@@ -966,3 +1047,5 @@ public class TestProductionSingletonClosureGuard {
         return Files.isDirectory(srcMain) ? srcMain : null;
     }
 }
+
+

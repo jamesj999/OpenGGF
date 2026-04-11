@@ -1,8 +1,8 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -12,19 +12,19 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseResult;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1CaterkillerBodyChaining {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -46,9 +46,9 @@ public class TestSonic1CaterkillerBodyChaining {
 
         body.update(0, null);
 
-        assertEquals("Body X should follow immediate parent velocity", 101, body.getX());
-        assertEquals("Body Y should consume immediate parent ring-buffer delta", 52, body.getY());
-        assertEquals("Body should publish consumed delta for its own child chain", 2, body.readRingBuffer(4));
+        assertEquals(101, body.getX(), "Body X should follow immediate parent velocity");
+        assertEquals(52, body.getY(), "Body Y should consume immediate parent ring-buffer delta");
+        assertEquals(2, body.readRingBuffer(4), "Body should publish consumed delta for its own child chain");
     }
 
     @Test
@@ -61,8 +61,7 @@ public class TestSonic1CaterkillerBodyChaining {
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
                 head, parentState, 0, 0, true, false, 0, 4);
 
-        assertEquals("Body touch should route through HURT category with size index 0x0B",
-                0x8B, body.getCollisionFlags());
+        assertEquals(0x8B, body.getCollisionFlags(), "Body touch should route through HURT category with size index 0x0B");
     }
 
     @Test
@@ -75,14 +74,14 @@ public class TestSonic1CaterkillerBodyChaining {
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
                 head, parentState, 0, 0, true, false, 0, 4);
 
-        assertFalse("Head should not start in fragment mode", head.isFragmenting());
-        assertFalse("Body should not start in fragment mode", body.isFragmenting());
+        assertFalse(head.isFragmenting(), "Head should not start in fragment mode");
+        assertFalse(body.isFragmenting(), "Body should not start in fragment mode");
 
         body.onTouchResponse(null, new TouchResponseResult(0x0B, 8, 8, TouchCategory.HURT), 0);
 
-        assertTrue("Body contact should trigger head fragment mode", head.isFragmenting());
+        assertTrue(head.isFragmenting(), "Body contact should trigger head fragment mode");
         body.update(0, null);
-        assertTrue("Body should enter fragment mode after head fragment trigger", body.isFragmenting());
+        assertTrue(body.isFragmenting(), "Body should enter fragment mode after head fragment trigger");
     }
 
     @Test
@@ -99,8 +98,8 @@ public class TestSonic1CaterkillerBodyChaining {
         head.onUnload();
         body.update(0, null);
 
-        assertTrue("Body should delete when parent head enters delete/unload path", body.isDestroyed());
-        assertFalse("Body should not enter fragment mode when head is unloading", body.isFragmenting());
+        assertTrue(body.isDestroyed(), "Body should delete when parent head enters delete/unload path");
+        assertFalse(body.isFragmenting(), "Body should not enter fragment mode when head is unloading");
     }
 
     @Test
@@ -118,7 +117,7 @@ public class TestSonic1CaterkillerBodyChaining {
         body.update(0, null); // enters fragment mode
         body.update(1, null); // fragment physics + off-screen delete check
 
-        assertTrue("Fragmenting body segments should self-delete once off-screen", body.isDestroyed());
+        assertTrue(body.isDestroyed(), "Fragmenting body segments should self-delete once off-screen");
     }
 
     private static final class FakeParentState implements CaterkillerParentState {
@@ -159,3 +158,5 @@ public class TestSonic1CaterkillerBodyChaining {
         }
     }
 }
+
+

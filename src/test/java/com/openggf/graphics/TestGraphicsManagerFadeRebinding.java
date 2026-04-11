@@ -4,16 +4,16 @@ import com.openggf.camera.Camera;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestGraphicsManagerFadeRebinding {
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         RuntimeManager.destroyCurrent();
         GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
@@ -40,12 +40,9 @@ public class TestGraphicsManagerFadeRebinding {
 
         FadeManager resolvedFade = graphicsManager.getFadeManager();
 
-        assertSame("GraphicsManager should switch to the runtime FadeManager",
-                runtimeFade, resolvedFade);
-        assertSame("UiRenderPipeline should also use the runtime FadeManager",
-                runtimeFade, pipeline.getFadeManager());
-        assertSame("GraphicsManager should switch to the runtime Camera",
-                runtimeCamera, getPrivateField(graphicsManager, "camera"));
+        assertSame(runtimeFade, resolvedFade, "GraphicsManager should switch to the runtime FadeManager");
+        assertSame(runtimeFade, pipeline.getFadeManager(), "UiRenderPipeline should also use the runtime FadeManager");
+        assertSame(runtimeCamera, getPrivateField(graphicsManager, "camera"), "GraphicsManager should switch to the runtime Camera");
     }
 
     @Test
@@ -57,10 +54,8 @@ public class TestGraphicsManagerFadeRebinding {
         FadeManager resolvedFade = graphicsManager.getFadeManager();
         Camera resolvedCamera = (Camera) getPrivateField(graphicsManager, "camera");
 
-        assertSame("Pre-game rendering should use the bootstrap FadeManager",
-                resolvedFade, graphicsManager.getFadeManager());
-        assertSame("Pre-game rendering should use the bootstrap Camera",
-                resolvedCamera, getPrivateField(graphicsManager, "camera"));
+        assertSame(resolvedFade, graphicsManager.getFadeManager(), "Pre-game rendering should use the bootstrap FadeManager");
+        assertSame(resolvedCamera, getPrivateField(graphicsManager, "camera"), "Pre-game rendering should use the bootstrap Camera");
     }
 
     private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {
@@ -75,3 +70,5 @@ public class TestGraphicsManagerFadeRebinding {
         return field.get(target);
     }
 }
+
+

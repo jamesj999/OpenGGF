@@ -4,7 +4,6 @@ import com.openggf.game.sonic3k.scroll.Sonic3kZoneConstants;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -21,7 +20,6 @@ import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomCondition;
 import com.openggf.tests.rules.SonicGame;
 
 import java.util.stream.Stream;
@@ -33,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * Verifies resource plans, level boundaries, and start positions.
  */
 @RequiresRom(SonicGame.SONIC_3K)
-@ExtendWith(RequiresRomCondition.class)
 class TestSonic3kLevelLoading {
 
     private LevelManager levelManager;
@@ -227,3 +224,5 @@ class TestSonic3kLevelLoading {
         assertTrue(startPos[1] != 0, label + ": start Y should be non-zero");
     }
 }
+
+

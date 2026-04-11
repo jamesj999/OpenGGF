@@ -44,11 +44,11 @@ public final class GameServices {
     }
 
     public static boolean hasRuntime() {
-        return RuntimeManager.getCurrent() != null;
+        return RuntimeManager.getActiveRuntime() != null;
     }
 
     public static GameRuntime runtimeOrNull() {
-        return RuntimeManager.getCurrent();
+        return RuntimeManager.getActiveRuntime();
     }
 
     public static Camera cameraOrNull() {

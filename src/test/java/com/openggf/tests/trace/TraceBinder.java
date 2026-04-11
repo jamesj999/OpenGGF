@@ -174,3 +174,5 @@ public class TraceBinder {
         return String.format("0x%04X", value & 0xFFFF);
     }
 }
+
+

@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -11,18 +11,18 @@ import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSpecialStageModuleConfig {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         SessionManager.clear();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GameModuleRegistry.reset();
         RuntimeManager.destroyCurrent();
@@ -89,3 +89,5 @@ public class TestSpecialStageModuleConfig {
         assertEquals(0, gameState.consumeCurrentSpecialStageIndexAndAdvance());
     }
 }
+
+

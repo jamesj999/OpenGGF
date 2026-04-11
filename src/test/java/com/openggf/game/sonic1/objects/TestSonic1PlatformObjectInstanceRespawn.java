@@ -1,8 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
@@ -16,9 +16,9 @@ import com.openggf.level.objects.ObjectSpawn;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1PlatformObjectInstanceRespawn {
 
@@ -46,13 +46,13 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -106,3 +106,5 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         assertEquals(1, manager.getActiveObjects().size());
     }
 }
+
+

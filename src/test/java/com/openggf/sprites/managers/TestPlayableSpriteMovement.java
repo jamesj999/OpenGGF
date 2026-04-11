@@ -6,9 +6,9 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
 import com.openggf.game.GroundMode;
@@ -16,8 +16,8 @@ import com.openggf.game.GroundMode;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestPlayableSpriteMovement {
 
@@ -25,7 +25,7 @@ public class TestPlayableSpriteMovement {
         private AbstractPlayableSprite mockSprite;
         private GameModule previousModule;
 
-        @Before
+        @BeforeEach
         public void setUp() {
                 previousModule = GameModuleRegistry.getCurrent();
                 GameModuleRegistry.setCurrent(new Sonic2GameModule());
@@ -55,7 +55,7 @@ public class TestPlayableSpriteMovement {
                 manager = new PlayableSpriteMovement(mockSprite);
         }
 
-        @After
+        @AfterEach
         public void tearDown() {
                 RuntimeManager.destroyCurrent();
                 if (previousModule != null) {
@@ -81,8 +81,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager, mockSprite);
 
-                assertTrue("gSpeed should be positive for right-facing slope, but was " + mockSprite.getGSpeed(),
-                                mockSprite.getGSpeed() > 0);
+                assertTrue(mockSprite.getGSpeed() > 0, "gSpeed should be positive for right-facing slope, but was " + mockSprite.getGSpeed());
         }
 
         @Test
@@ -101,8 +100,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager, mockSprite);
 
-                assertTrue("gSpeed should be negative for left-facing slope, but was " + mockSprite.getGSpeed(),
-                                mockSprite.getGSpeed() < 0);
+                assertTrue(mockSprite.getGSpeed() < 0, "gSpeed should be negative for left-facing slope, but was " + mockSprite.getGSpeed());
         }
 
         @Test
@@ -129,10 +127,8 @@ public class TestPlayableSpriteMovement {
 
                         // Test the direct formula: (angle + 0x20) & 0xC0
                         byte actual = (byte) ((currentAngle + 0x20) & 0xC0);
-                        assertEquals(
-                                        "Angle " + String.format("0x%02X", currentAngle) + " should snap to "
-                                                        + String.format("0x%02X", expectedSnappedAngle),
-                                        expectedSnappedAngle, actual);
+                        assertEquals(expectedSnappedAngle, actual, "Angle " + String.format("0x%02X", currentAngle) + " should snap to "
+                                                        + String.format("0x%02X", expectedSnappedAngle));
                 }
         }
 
@@ -165,8 +161,7 @@ public class TestPlayableSpriteMovement {
                 // The fix should ensure the angle snaps to 0x00 (Ground) based on the
                 // GroundMode, not the stale angle 0xC0.
 
-                assertEquals("Angle should be reset to 0x00 when landing from Air on flat ground, ignoring stale angle.",
-                                (byte) 0x00, mockSprite.getAngle());
+                assertEquals((byte) 0x00, mockSprite.getAngle(), "Angle should be reset to 0x00 when landing from Air on flat ground, ignoring stale angle.");
         }
 
         @Test
@@ -196,8 +191,7 @@ public class TestPlayableSpriteMovement {
 
                 // Assert: gSpeed should be > 1536 (slope + movement)
                 short newSpeed = mockSprite.getGSpeed();
-                assertTrue("gSpeed should exceed max (1536) when accelerating down slope, but was " + newSpeed,
-                                newSpeed > 1536);
+                assertTrue(newSpeed > 1536, "gSpeed should exceed max (1536) when accelerating down slope, but was " + newSpeed);
         }
 
         @Test
@@ -216,7 +210,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 // Assert: Speed should NOT drop to max (1536).
-                assertEquals("gSpeed should be maintained when > max", (short) 3000, mockSprite.getGSpeed());
+                assertEquals((short) 3000, mockSprite.getGSpeed(), "gSpeed should be maintained when > max");
         }
 
         @Test
@@ -235,7 +229,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 // Assert: Speed should increase by runAccel (12).
-                assertEquals("gSpeed should increase by accel when < max", (short) 1012, mockSprite.getGSpeed());
+                assertEquals((short) 1012, mockSprite.getGSpeed(), "gSpeed should increase by accel when < max");
         }
 
         @Test
@@ -254,7 +248,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 // Assert: Speed should NOT clamp to -max (-1536).
-                assertEquals("gSpeed should be maintained when < -max", (short) -3000, mockSprite.getGSpeed());
+                assertEquals((short) -3000, mockSprite.getGSpeed(), "gSpeed should be maintained when < -max");
         }
 
         /**
@@ -279,7 +273,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 // Assert: Air drag should reduce xSpeed by xSpeed/32 = 96
-                assertEquals("Air drag should reduce xSpeed from 3072 to 2976", (short) 2976, mockSprite.getXSpeed());
+                assertEquals((short) 2976, mockSprite.getXSpeed(), "Air drag should reduce xSpeed from 3072 to 2976");
         }
 
         /**
@@ -303,8 +297,7 @@ public class TestPlayableSpriteMovement {
                 for (int i = 0; i < 3; i++) {
                         mockSprite.setYSpeed((short) -500);
                         method.invoke(manager);
-                        assertEquals("Frame " + (i + 1) + " air drag result", expectedSpeeds[i],
-                                        mockSprite.getXSpeed());
+                        assertEquals(expectedSpeeds[i], mockSprite.getXSpeed(), "Frame " + (i + 1) + " air drag result");
                 }
         }
 
@@ -325,7 +318,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("No air drag when falling", (short) 3072, mockSprite.getXSpeed());
+                assertEquals((short) 3072, mockSprite.getXSpeed(), "No air drag when falling");
         }
 
         /**
@@ -345,7 +338,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("No air drag when ySpeed < -1024", (short) 3072, mockSprite.getXSpeed());
+                assertEquals((short) 3072, mockSprite.getXSpeed(), "No air drag when ySpeed < -1024");
         }
 
         /**
@@ -369,7 +362,7 @@ public class TestPlayableSpriteMovement {
 
                 // ROM: Air drag applies regardless of hurt state
                 // 3072 - (3072 / 32) = 3072 - 96 = 2976
-                assertEquals("Air drag applies when hurt", (short) 2976, mockSprite.getXSpeed());
+                assertEquals((short) 2976, mockSprite.getXSpeed(), "Air drag applies when hurt");
         }
 
         /**
@@ -389,7 +382,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("Air drag stops when xSpeed < 32", (short) 31, mockSprite.getXSpeed());
+                assertEquals((short) 31, mockSprite.getXSpeed(), "Air drag stops when xSpeed < 32");
         }
 
         /**
@@ -409,7 +402,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("Air drag with negative xSpeed", (short) -2976, mockSprite.getXSpeed());
+                assertEquals((short) -2976, mockSprite.getXSpeed(), "Air drag with negative xSpeed");
         }
 
         /**
@@ -429,7 +422,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("Air drag SHOULD apply at ySpeed = -1024", (short) 2976, mockSprite.getXSpeed());
+                assertEquals((short) 2976, mockSprite.getXSpeed(), "Air drag SHOULD apply at ySpeed = -1024");
         }
 
         /**
@@ -447,10 +440,8 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertTrue("Jump on slope should have non-zero xSpeed component, but was " + mockSprite.getXSpeed(),
-                                mockSprite.getXSpeed() != 0);
-                assertTrue("Jump should always have upward ySpeed component",
-                                mockSprite.getYSpeed() < 0);
+                assertTrue(mockSprite.getXSpeed() != 0, "Jump on slope should have non-zero xSpeed component, but was " + mockSprite.getXSpeed());
+                assertTrue(mockSprite.getYSpeed() < 0, "Jump should always have upward ySpeed component");
         }
 
         /**
@@ -470,10 +461,8 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("Jump on flat ground should not change xSpeed",
-                                initialXSpeed, mockSprite.getXSpeed());
-                assertTrue("Jump should have upward ySpeed",
-                                mockSprite.getYSpeed() < 0);
+                assertEquals(initialXSpeed, mockSprite.getXSpeed(), "Jump on flat ground should not change xSpeed");
+                assertTrue(mockSprite.getYSpeed() < 0, "Jump should have upward ySpeed");
         }
 
         /**
@@ -491,10 +480,8 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertTrue("Jump on uphill slope should have negative xSpeed, but was " + mockSprite.getXSpeed(),
-                                mockSprite.getXSpeed() < 0);
-                assertTrue("Jump should always have upward ySpeed",
-                                mockSprite.getYSpeed() < 0);
+                assertTrue(mockSprite.getXSpeed() < 0, "Jump on uphill slope should have negative xSpeed, but was " + mockSprite.getXSpeed());
+                assertTrue(mockSprite.getYSpeed() < 0, "Jump should always have upward ySpeed");
         }
 
         /**
@@ -505,17 +492,15 @@ public class TestPlayableSpriteMovement {
                 mockSprite.setAir(false);
                 mockSprite.setAngle((byte) 0x40); // 90 degrees (wall)
 
-                assertEquals("Angle should be 0x40 before jump", (byte) 0x40, mockSprite.getAngle());
+                assertEquals((byte) 0x40, mockSprite.getAngle(), "Angle should be 0x40 before jump");
 
                 Method method = PlayableSpriteMovement.class.getDeclaredMethod("doJump");
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertTrue("Sprite should be in air after jump", mockSprite.getAir());
-                assertEquals("Angle should still be 0x40 immediately after jump",
-                                (byte) 0x40, mockSprite.getAngle());
-                assertTrue("Jump should have used original angle for velocity calculation",
-                                mockSprite.getXSpeed() != 0 || mockSprite.getYSpeed() != 0);
+                assertTrue(mockSprite.getAir(), "Sprite should be in air after jump");
+                assertEquals((byte) 0x40, mockSprite.getAngle(), "Angle should still be 0x40 immediately after jump");
+                assertTrue(mockSprite.getXSpeed() != 0 || mockSprite.getYSpeed() != 0, "Jump should have used original angle for velocity calculation");
         }
 
         /**
@@ -525,21 +510,21 @@ public class TestPlayableSpriteMovement {
         public void testAirAngleGradualReturn() {
                 mockSprite.setAngle((byte) 0x10);
                 mockSprite.returnAngleToZero();
-                assertEquals("Angle should decrease by 2", (byte) 0x0E, mockSprite.getAngle());
+                assertEquals((byte) 0x0E, mockSprite.getAngle(), "Angle should decrease by 2");
 
                 mockSprite.returnAngleToZero();
-                assertEquals("Angle should decrease by 2 again", (byte) 0x0C, mockSprite.getAngle());
+                assertEquals((byte) 0x0C, mockSprite.getAngle(), "Angle should decrease by 2 again");
 
                 mockSprite.setAngle((byte) 0xF0);
                 mockSprite.returnAngleToZero();
-                assertEquals("Angle should increase by 2 toward 0", (byte) 0xF2, mockSprite.getAngle());
+                assertEquals((byte) 0xF2, mockSprite.getAngle(), "Angle should increase by 2 toward 0");
 
                 mockSprite.returnAngleToZero();
-                assertEquals("Angle should increase by 2 again", (byte) 0xF4, mockSprite.getAngle());
+                assertEquals((byte) 0xF4, mockSprite.getAngle(), "Angle should increase by 2 again");
 
                 mockSprite.setAngle((byte) 0x00);
                 mockSprite.returnAngleToZero();
-                assertEquals("Angle at 0 should stay 0", (byte) 0x00, mockSprite.getAngle());
+                assertEquals((byte) 0x00, mockSprite.getAngle(), "Angle at 0 should stay 0");
         }
 
         /**
@@ -565,8 +550,7 @@ public class TestPlayableSpriteMovement {
                 // ROM: Air control applies regardless of hurt state
                 // Default runAccel is 12 (0x0C), air control uses 2*runAccel = 24
                 // 1000 - 24 = 976
-                assertEquals("Air control works when hurt - left input should decrease xSpeed",
-                                (short) 976, mockSprite.getXSpeed());
+                assertEquals((short) 976, mockSprite.getXSpeed(), "Air control works when hurt - left input should decrease xSpeed");
 
                 // Test right input - air control should work
                 mockSprite.setXSpeed((short) 1000);
@@ -575,8 +559,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 // 1000 + 24 = 1024
-                assertEquals("Air control works when hurt - right input should increase xSpeed",
-                                (short) 1024, mockSprite.getXSpeed());
+                assertEquals((short) 1024, mockSprite.getXSpeed(), "Air control works when hurt - right input should increase xSpeed");
         }
 
         /**
@@ -597,8 +580,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertEquals("Air control should work when not hurt - left input",
-                                (short) 976, mockSprite.getXSpeed()); // 1000 - 24
+                assertEquals((short) 976, mockSprite.getXSpeed(), "Air control should work when not hurt - left input"); // 1000 - 24
 
                 // Test right input
                 mockSprite.setXSpeed((short) 1000);
@@ -606,8 +588,7 @@ public class TestPlayableSpriteMovement {
                 setInputState(false, true, false, false, false); // right
                 method.invoke(manager);
 
-                assertEquals("Air control should work when not hurt - right input",
-                                (short) 1024, mockSprite.getXSpeed()); // 1000 + 24
+                assertEquals((short) 1024, mockSprite.getXSpeed(), "Air control should work when not hurt - right input"); // 1000 + 24
         }
 
         /**
@@ -636,8 +617,7 @@ public class TestPlayableSpriteMovement {
                 rollMethod.setAccessible(true);
                 rollMethod.invoke(manager);
 
-                assertTrue("Rolling should NOT start when down is locked from crouch transition",
-                                !mockSprite.getRolling());
+                assertTrue(!mockSprite.getRolling(), "Rolling should NOT start when down is locked from crouch transition");
         }
 
         /**
@@ -671,8 +651,7 @@ public class TestPlayableSpriteMovement {
                 rollMethod.setAccessible(true);
                 rollMethod.invoke(manager);
 
-                assertTrue("Rolling should start after down is released and pressed again",
-                                mockSprite.getRolling());
+                assertTrue(mockSprite.getRolling(), "Rolling should start after down is released and pressed again");
         }
 
         /**
@@ -691,8 +670,7 @@ public class TestPlayableSpriteMovement {
                 rollMethod.setAccessible(true);
                 rollMethod.invoke(manager);
 
-                assertTrue("Rolling should work when not transitioning from crouch",
-                                mockSprite.getRolling());
+                assertTrue(mockSprite.getRolling(), "Rolling should work when not transitioning from crouch");
         }
 
         /**
@@ -704,8 +682,7 @@ public class TestPlayableSpriteMovement {
                 jumpPressedField.setAccessible(true);
 
                 jumpPressedField.set(manager, true);
-                assertTrue("jumpPressed should be true initially",
-                                (Boolean) jumpPressedField.get(manager));
+                assertTrue((Boolean) jumpPressedField.get(manager), "jumpPressed should be true initially");
 
                 mockSprite.setSpringing(15);
 
@@ -714,8 +691,7 @@ public class TestPlayableSpriteMovement {
                         jumpPressedField.set(manager, false);
                 }
 
-                assertTrue("jumpPressed should be false when springing",
-                                !(Boolean) jumpPressedField.get(manager));
+                assertTrue(!(Boolean) jumpPressedField.get(manager), "jumpPressed should be false when springing");
         }
 
         /**
@@ -746,13 +722,11 @@ public class TestPlayableSpriteMovement {
 
                 // With jumpPressed=false, goes to UpVelCap path (-0xFC0 cap)
                 // -1720 > -4032, so velocity is NOT capped
-                assertEquals("Velocity should NOT be capped for spring launch",
-                                (short) -1720, mockSprite.getYSpeed());
+                assertEquals((short) -1720, mockSprite.getYSpeed(), "Velocity should NOT be capped for spring launch");
 
                 mockSprite.setSpringing(0);
 
-                assertEquals("Velocity should remain unchanged in UpVelCap path",
-                                (short) -1720, mockSprite.getYSpeed());
+                assertEquals((short) -1720, mockSprite.getYSpeed(), "Velocity should remain unchanged in UpVelCap path");
         }
 
         /**
@@ -771,8 +745,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 short newGSpeed = mockSprite.getGSpeed();
-                assertTrue("gSpeed should be positive (accelerating down-right slope) with full factor, was " + newGSpeed,
-                                newGSpeed > 20);
+                assertTrue(newGSpeed > 20, "gSpeed should be positive (accelerating down-right slope) with full factor, was " + newGSpeed);
         }
 
         /**
@@ -790,10 +763,8 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager);
 
                 short newGSpeed = mockSprite.getGSpeed();
-                assertTrue("gSpeed should be negative (pushed back down uphill slope), was " + newGSpeed,
-                                newGSpeed < 0);
-                assertTrue("gSpeed magnitude should be small (reduced factor), was " + newGSpeed,
-                                newGSpeed > -20);
+                assertTrue(newGSpeed < 0, "gSpeed should be negative (pushed back down uphill slope), was " + newGSpeed);
+                assertTrue(newGSpeed > -20, "gSpeed magnitude should be small (reduced factor), was " + newGSpeed);
         }
 
         // Helper methods to set up input state
@@ -852,8 +823,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager, mockSprite);
 
-                assertEquals("Flat slope (0x00) should set gSpeed = xSpeed",
-                                (short) 200, mockSprite.getGSpeed());
+                assertEquals((short) 200, mockSprite.getGSpeed(), "Flat slope (0x00) should set gSpeed = xSpeed");
         }
 
         /**
@@ -876,12 +846,10 @@ public class TestPlayableSpriteMovement {
 
                 // On steep slope, gSpeed should be capped ySpeed
                 // Angle 0x40 is in lower half (0x00-0x7F), so gSpeed is positive
-                assertEquals("Steep slope (0x40) should cap ySpeed at 0xFC0",
-                                (short) 0xFC0, mockSprite.getGSpeed());
+                assertEquals((short) 0xFC0, mockSprite.getGSpeed(), "Steep slope (0x40) should cap ySpeed at 0xFC0");
 
                 // xSpeed should be cleared on steep slopes
-                assertEquals("Steep slope should clear xSpeed",
-                                (short) 0, mockSprite.getXSpeed());
+                assertEquals((short) 0, mockSprite.getXSpeed(), "Steep slope should clear xSpeed");
         }
 
         /**
@@ -902,8 +870,7 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager, mockSprite);
 
                 // Angle 0xC0 has bit 7 set, so gSpeed should be negated
-                assertTrue("Steep slope (0xC0) should have negative gSpeed",
-                                mockSprite.getGSpeed() < 0);
+                assertTrue(mockSprite.getGSpeed() < 0, "Steep slope (0xC0) should have negative gSpeed");
         }
 
         /**
@@ -926,8 +893,7 @@ public class TestPlayableSpriteMovement {
 
                 // Moderate slope uses ySpeed >> 1 = 250
                 // Angle 0x18 is in lower half, so positive
-                assertEquals("Moderate slope (0x18) should set gSpeed = ySpeed/2",
-                                (short) 250, mockSprite.getGSpeed());
+                assertEquals((short) 250, mockSprite.getGSpeed(), "Moderate slope (0x18) should set gSpeed = ySpeed/2");
         }
 
         /**
@@ -949,14 +915,10 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager, mockSprite);
 
-                assertTrue("resetOnFloor should clear air flag",
-                                !mockSprite.getAir());
-                assertTrue("resetOnFloor should clear pushing flag",
-                                !mockSprite.getPushing());
-                assertTrue("resetOnFloor should clear rollingJump flag",
-                                !mockSprite.getRollingJump());
-                assertTrue("resetOnFloor should clear jumping flag",
-                                !mockSprite.isJumping());
+                assertTrue(!mockSprite.getAir(), "resetOnFloor should clear air flag");
+                assertTrue(!mockSprite.getPushing(), "resetOnFloor should clear pushing flag");
+                assertTrue(!mockSprite.getRollingJump(), "resetOnFloor should clear rollingJump flag");
+                assertTrue(!mockSprite.isJumping(), "resetOnFloor should clear jumping flag");
         }
 
         /**
@@ -969,16 +931,16 @@ public class TestPlayableSpriteMovement {
                 // Test the formula: ((angle + 0x20) & 0x40) != 0
 
                 // Boundary cases that should be steep
-                assertTrue("0x20 should be steep", ((0x20 + 0x20) & 0x40) != 0);
-                assertTrue("0x5F should be steep", ((0x5F + 0x20) & 0x40) != 0);
-                assertTrue("0xA0 should be steep", ((0xA0 + 0x20) & 0x40) != 0);
-                assertTrue("0xDF should be steep", ((0xDF + 0x20) & 0x40) != 0);
+                assertTrue(((0x20 + 0x20) & 0x40) != 0, "0x20 should be steep");
+                assertTrue(((0x5F + 0x20) & 0x40) != 0, "0x5F should be steep");
+                assertTrue(((0xA0 + 0x20) & 0x40) != 0, "0xA0 should be steep");
+                assertTrue(((0xDF + 0x20) & 0x40) != 0, "0xDF should be steep");
 
                 // Boundary cases that should NOT be steep
-                assertTrue("0x1F should NOT be steep", ((0x1F + 0x20) & 0x40) == 0);
-                assertTrue("0x60 should NOT be steep", ((0x60 + 0x20) & 0x40) == 0);
-                assertTrue("0x9F should NOT be steep", ((0x9F + 0x20) & 0x40) == 0);
-                assertTrue("0xE0 should NOT be steep", ((0xE0 + 0x20) & 0x40) == 0);
+                assertTrue(((0x1F + 0x20) & 0x40) == 0, "0x1F should NOT be steep");
+                assertTrue(((0x60 + 0x20) & 0x40) == 0, "0x60 should NOT be steep");
+                assertTrue(((0x9F + 0x20) & 0x40) == 0, "0x9F should NOT be steep");
+                assertTrue(((0xE0 + 0x20) & 0x40) == 0, "0xE0 should NOT be steep");
         }
 
         /**
@@ -992,16 +954,16 @@ public class TestPlayableSpriteMovement {
                 // (This only applies when not steep)
 
                 // Boundary cases that should be flat (assuming not steep)
-                assertTrue("0x00 should be flat", ((0x00 + 0x10) & 0x20) == 0);
-                assertTrue("0x0F should be flat", ((0x0F + 0x10) & 0x20) == 0);
-                assertTrue("0xF0 should be flat", ((0xF0 + 0x10) & 0x20) == 0);
-                assertTrue("0xFF should be flat", ((0xFF + 0x10) & 0x20) == 0);
+                assertTrue(((0x00 + 0x10) & 0x20) == 0, "0x00 should be flat");
+                assertTrue(((0x0F + 0x10) & 0x20) == 0, "0x0F should be flat");
+                assertTrue(((0xF0 + 0x10) & 0x20) == 0, "0xF0 should be flat");
+                assertTrue(((0xFF + 0x10) & 0x20) == 0, "0xFF should be flat");
 
                 // Boundary cases that should NOT be flat
-                assertTrue("0x10 should NOT be flat", ((0x10 + 0x10) & 0x20) != 0);
-                assertTrue("0x1F should NOT be flat", ((0x1F + 0x10) & 0x20) != 0);
-                assertTrue("0xE0 should NOT be flat", ((0xE0 + 0x10) & 0x20) != 0);
-                assertTrue("0xEF should NOT be flat", ((0xEF + 0x10) & 0x20) != 0);
+                assertTrue(((0x10 + 0x10) & 0x20) != 0, "0x10 should NOT be flat");
+                assertTrue(((0x1F + 0x10) & 0x20) != 0, "0x1F should NOT be flat");
+                assertTrue(((0xE0 + 0x10) & 0x20) != 0, "0xE0 should NOT be flat");
+                assertTrue(((0xEF + 0x10) & 0x20) != 0, "0xEF should NOT be flat");
         }
 
         // ========================================
@@ -1025,8 +987,7 @@ public class TestPlayableSpriteMovement {
                 method.setAccessible(true);
                 method.invoke(manager);
 
-                assertTrue("stick_to_convex should be cleared after jump",
-                                !mockSprite.isStickToConvex());
+                assertTrue(!mockSprite.isStickToConvex(), "stick_to_convex should be cleared after jump");
         }
 
         // NOTE: Tests for automatic stick_to_convex setting were removed.
@@ -1043,16 +1004,16 @@ public class TestPlayableSpriteMovement {
         public void testSpeedDependentThreshold() {
                 // Test cases: xSpeed -> expected threshold
                 // Speed 0 -> threshold 4
-                assertEquals("Threshold at speed 0", 4, Math.min(Math.abs(0 >> 8) + 4, 14));
+                assertEquals(4, Math.min(Math.abs(0 >> 8) + 4, 14), "Threshold at speed 0");
 
                 // Speed 256 (1 pixel) -> threshold 5
-                assertEquals("Threshold at speed 256", 5, Math.min(Math.abs(256 >> 8) + 4, 14));
+                assertEquals(5, Math.min(Math.abs(256 >> 8) + 4, 14), "Threshold at speed 256");
 
                 // Speed 2560 (10 pixels) -> threshold 14 (capped)
-                assertEquals("Threshold at speed 2560", 14, Math.min(Math.abs(2560 >> 8) + 4, 14));
+                assertEquals(14, Math.min(Math.abs(2560 >> 8) + 4, 14), "Threshold at speed 2560");
 
                 // Speed -512 (-2 pixels) -> threshold 6
-                assertEquals("Threshold at speed -512", 6, Math.min(Math.abs(-512 >> 8) + 4, 14));
+                assertEquals(6, Math.min(Math.abs(-512 >> 8) + 4, 14), "Threshold at speed -512");
         }
 
         // ========================================
@@ -1074,27 +1035,27 @@ public class TestPlayableSpriteMovement {
         @Test
         public void testArithmeticShiftVsDivisionForNegativeValues() {
                 // Test case 1: -1
-                assertEquals(">>8 rounds -1 toward -infinity", -1, -1 >> 8);
-                assertEquals("/256 rounds -1 toward zero", 0, -1 / 256);
+                assertEquals(-1, -1 >> 8, ">>8 rounds -1 toward -infinity");
+                assertEquals(0, -1 / 256, "/256 rounds -1 toward zero");
 
                 // Test case 2: -255
-                assertEquals(">>8 rounds -255 toward -infinity", -1, -255 >> 8);
-                assertEquals("/256 rounds -255 toward zero", 0, -255 / 256);
+                assertEquals(-1, -255 >> 8, ">>8 rounds -255 toward -infinity");
+                assertEquals(0, -255 / 256, "/256 rounds -255 toward zero");
 
                 // Test case 3: -256
-                assertEquals(">>8 for -256", -1, -256 >> 8);
-                assertEquals("/256 for -256", -1, -256 / 256);
+                assertEquals(-1, -256 >> 8, ">>8 for -256");
+                assertEquals(-1, -256 / 256, "/256 for -256");
 
                 // Test case 4: -257
-                assertEquals(">>8 rounds -257 toward -infinity", -2, -257 >> 8);
-                assertEquals("/256 rounds -257 toward zero", -1, -257 / 256);
+                assertEquals(-2, -257 >> 8, ">>8 rounds -257 toward -infinity");
+                assertEquals(-1, -257 / 256, "/256 rounds -257 toward zero");
 
                 // Test case 5: positive values should be the same
-                assertEquals(">>8 for 255", 0, 255 >> 8);
-                assertEquals("/256 for 255", 0, 255 / 256);
+                assertEquals(0, 255 >> 8, ">>8 for 255");
+                assertEquals(0, 255 / 256, "/256 for 255");
 
-                assertEquals(">>8 for 256", 1, 256 >> 8);
-                assertEquals("/256 for 256", 1, 256 / 256);
+                assertEquals(1, 256 >> 8, ">>8 for 256");
+                assertEquals(1, 256 / 256, "/256 for 256");
         }
 
         /**
@@ -1109,8 +1070,8 @@ public class TestPlayableSpriteMovement {
                 // NOT 25345 / 256 = 99 (same in this case)
 
                 int xTotal1 = 100 * 256 + 0 + (-255);
-                assertEquals("Positive total with >>8", 99, xTotal1 >> 8);
-                assertEquals("Positive total with /256", 99, xTotal1 / 256);
+                assertEquals(99, xTotal1 >> 8, "Positive total with >>8");
+                assertEquals(99, xTotal1 / 256, "Positive total with /256");
 
                 // Scenario: sprite near left boundary, moving left
                 // xTotal = 1*256 + 0 + (-512) = 256 - 512 = -256
@@ -1118,8 +1079,8 @@ public class TestPlayableSpriteMovement {
                 // NOT -256 / 256 = -1 (same in this case)
 
                 int xTotal2 = 1 * 256 + 0 + (-512);
-                assertEquals("Negative total with >>8", -1, xTotal2 >> 8);
-                assertEquals("Negative total with /256", -1, xTotal2 / 256);
+                assertEquals(-1, xTotal2 >> 8, "Negative total with >>8");
+                assertEquals(-1, xTotal2 / 256, "Negative total with /256");
 
                 // Scenario: edge case with non-multiple of 256
                 // xTotal = 0*256 + 0 + (-1) = -1
@@ -1127,8 +1088,8 @@ public class TestPlayableSpriteMovement {
                 // NOT -1 / 256 = 0 (rounds toward zero) - THIS IS THE BUG!
 
                 int xTotal3 = 0 * 256 + 0 + (-1);
-                assertEquals("Edge case -1 with >>8 (correct)", -1, xTotal3 >> 8);
-                assertEquals("Edge case -1 with /256 (wrong)", 0, xTotal3 / 256);
+                assertEquals(-1, xTotal3 >> 8, "Edge case -1 with >>8 (correct)");
+                assertEquals(0, xTotal3 / 256, "Edge case -1 with /256 (wrong)");
         }
 
         // ========================================
@@ -1155,8 +1116,7 @@ public class TestPlayableSpriteMovement {
                 for (byte angle : groundAngles) {
                         mockSprite.setAngle(angle);
                         updateGroundMode.invoke(manager);
-                        assertEquals("Angle " + String.format("0x%02X", angle & 0xFF) + " should be GROUND",
-                                        GroundMode.GROUND, mockSprite.getGroundMode());
+                        assertEquals(GroundMode.GROUND, mockSprite.getGroundMode(), "Angle " + String.format("0x%02X", angle & 0xFF) + " should be GROUND");
                 }
 
                 // Test LEFTWALL mode angles: 0x21-0x5F
@@ -1164,8 +1124,7 @@ public class TestPlayableSpriteMovement {
                 for (byte angle : leftWallAngles) {
                         mockSprite.setAngle(angle);
                         updateGroundMode.invoke(manager);
-                        assertEquals("Angle " + String.format("0x%02X", angle & 0xFF) + " should be LEFTWALL",
-                                        GroundMode.LEFTWALL, mockSprite.getGroundMode());
+                        assertEquals(GroundMode.LEFTWALL, mockSprite.getGroundMode(), "Angle " + String.format("0x%02X", angle & 0xFF) + " should be LEFTWALL");
                 }
 
                 // Test CEILING mode angles: 0x60-0xA0
@@ -1173,8 +1132,7 @@ public class TestPlayableSpriteMovement {
                 for (byte angle : ceilingAngles) {
                         mockSprite.setAngle(angle);
                         updateGroundMode.invoke(manager);
-                        assertEquals("Angle " + String.format("0x%02X", angle & 0xFF) + " should be CEILING",
-                                        GroundMode.CEILING, mockSprite.getGroundMode());
+                        assertEquals(GroundMode.CEILING, mockSprite.getGroundMode(), "Angle " + String.format("0x%02X", angle & 0xFF) + " should be CEILING");
                 }
 
                 // Test RIGHTWALL mode angles: 0xA1-0xDF
@@ -1182,8 +1140,7 @@ public class TestPlayableSpriteMovement {
                 for (byte angle : rightWallAngles) {
                         mockSprite.setAngle(angle);
                         updateGroundMode.invoke(manager);
-                        assertEquals("Angle " + String.format("0x%02X", angle & 0xFF) + " should be RIGHTWALL",
-                                        GroundMode.RIGHTWALL, mockSprite.getGroundMode());
+                        assertEquals(GroundMode.RIGHTWALL, mockSprite.getGroundMode(), "Angle " + String.format("0x%02X", angle & 0xFF) + " should be RIGHTWALL");
                 }
         }
 
@@ -1205,38 +1162,38 @@ public class TestPlayableSpriteMovement {
                 // GROUND/LEFTWALL boundary: 0x20 -> GROUND, 0x21 -> LEFTWALL
                 mockSprite.setAngle((byte)0x20);
                 updateGroundMode.invoke(manager);
-                assertEquals("0x20 should be GROUND", GroundMode.GROUND, mockSprite.getGroundMode());
+                assertEquals(GroundMode.GROUND, mockSprite.getGroundMode(), "0x20 should be GROUND");
 
                 mockSprite.setAngle((byte)0x21);
                 updateGroundMode.invoke(manager);
-                assertEquals("0x21 should be LEFTWALL", GroundMode.LEFTWALL, mockSprite.getGroundMode());
+                assertEquals(GroundMode.LEFTWALL, mockSprite.getGroundMode(), "0x21 should be LEFTWALL");
 
                 // LEFTWALL/CEILING boundary: 0x5F -> LEFTWALL, 0x60 -> CEILING
                 mockSprite.setAngle((byte)0x5F);
                 updateGroundMode.invoke(manager);
-                assertEquals("0x5F should be LEFTWALL", GroundMode.LEFTWALL, mockSprite.getGroundMode());
+                assertEquals(GroundMode.LEFTWALL, mockSprite.getGroundMode(), "0x5F should be LEFTWALL");
 
                 mockSprite.setAngle((byte)0x60);
                 updateGroundMode.invoke(manager);
-                assertEquals("0x60 should be CEILING", GroundMode.CEILING, mockSprite.getGroundMode());
+                assertEquals(GroundMode.CEILING, mockSprite.getGroundMode(), "0x60 should be CEILING");
 
                 // CEILING/RIGHTWALL boundary: 0xA0 -> CEILING, 0xA1 -> RIGHTWALL
                 mockSprite.setAngle((byte)0xA0);
                 updateGroundMode.invoke(manager);
-                assertEquals("0xA0 should be CEILING", GroundMode.CEILING, mockSprite.getGroundMode());
+                assertEquals(GroundMode.CEILING, mockSprite.getGroundMode(), "0xA0 should be CEILING");
 
                 mockSprite.setAngle((byte)0xA1);
                 updateGroundMode.invoke(manager);
-                assertEquals("0xA1 should be RIGHTWALL", GroundMode.RIGHTWALL, mockSprite.getGroundMode());
+                assertEquals(GroundMode.RIGHTWALL, mockSprite.getGroundMode(), "0xA1 should be RIGHTWALL");
 
                 // RIGHTWALL/GROUND boundary: 0xDF -> RIGHTWALL, 0xE0 -> GROUND
                 mockSprite.setAngle((byte)0xDF);
                 updateGroundMode.invoke(manager);
-                assertEquals("0xDF should be RIGHTWALL", GroundMode.RIGHTWALL, mockSprite.getGroundMode());
+                assertEquals(GroundMode.RIGHTWALL, mockSprite.getGroundMode(), "0xDF should be RIGHTWALL");
 
                 mockSprite.setAngle((byte)0xE0);
                 updateGroundMode.invoke(manager);
-                assertEquals("0xE0 should be GROUND", GroundMode.GROUND, mockSprite.getGroundMode());
+                assertEquals(GroundMode.GROUND, mockSprite.getGroundMode(), "0xE0 should be GROUND");
         }
 
         // ========================================
@@ -1255,23 +1212,23 @@ public class TestPlayableSpriteMovement {
 
                 // Correct (ROM-accurate): just shift the speed
                 short correctProjection = (short)(xSpeed >> 8);
-                assertEquals("Correct projection should be 2", 2, correctProjection);
+                assertEquals(2, correctProjection, "Correct projection should be 2");
 
                 // Previous incorrect behavior would add subpixels first
                 // This is wrong because it can cause 1-pixel errors
                 byte xSubpixel = (byte)200; // Near full subpixel
                 short incorrectProjection = (short)((xSpeed + (xSubpixel & 0xFF)) >> 8);
-                assertEquals("Incorrect projection would be 2 (same here)", 2, incorrectProjection);
+                assertEquals(2, incorrectProjection, "Incorrect projection would be 2 (same here)");
 
                 // Edge case where the bug manifests:
                 xSpeed = 56; // Less than 1 pixel per frame
                 xSubpixel = (byte)200;
 
                 correctProjection = (short)(xSpeed >> 8);
-                assertEquals("Correct projection for slow speed", 0, correctProjection);
+                assertEquals(0, correctProjection, "Correct projection for slow speed");
 
                 incorrectProjection = (short)((xSpeed + (xSubpixel & 0xFF)) >> 8);
-                assertEquals("Incorrect projection would be 1 (off by 1 pixel)", 1, incorrectProjection);
+                assertEquals(1, incorrectProjection, "Incorrect projection would be 1 (off by 1 pixel)");
         }
 
         /**
@@ -1284,18 +1241,18 @@ public class TestPlayableSpriteMovement {
 
                 // Correct (ROM-accurate): just shift the speed
                 short correctProjection = (short)(ySpeed >> 8);
-                assertEquals("Correct Y projection should be -2", -2, correctProjection);
+                assertEquals(-2, correctProjection, "Correct Y projection should be -2");
 
                 // Edge case with subpixels
                 ySpeed = -56;
                 byte ySubpixel = (byte)200;
 
                 correctProjection = (short)(ySpeed >> 8);
-                assertEquals("Correct Y projection for slow upward speed", -1, correctProjection);
+                assertEquals(-1, correctProjection, "Correct Y projection for slow upward speed");
 
                 // Previous buggy behavior
                 short incorrectProjection = (short)((ySpeed + (ySubpixel & 0xFF)) >> 8);
-                assertEquals("Incorrect Y projection would be 0 (off by 1 pixel)", 0, incorrectProjection);
+                assertEquals(0, incorrectProjection, "Incorrect Y projection would be 0 (off by 1 pixel)");
         }
 
         // ========================================
@@ -1324,12 +1281,12 @@ public class TestPlayableSpriteMovement {
                 int threshold = (int) method.invoke(manager);
 
                 // ROM uses xSpeed directly (0 >> 8 = 0), no gSpeed fallback
-                assertEquals("Should use xSpeed directly per ROM behavior", 0, threshold);
+                assertEquals(0, threshold, "Should use xSpeed directly per ROM behavior");
 
                 // This gives positiveThreshold = min(0 + 4, 14) = 4
                 // The fix for spindash is to ensure xSpeed is set BEFORE this check
                 int positiveThreshold = Math.min(threshold + 4, 14);
-                assertEquals("Attachment threshold is 4 pixels with zero xSpeed", 4, positiveThreshold);
+                assertEquals(4, positiveThreshold, "Attachment threshold is 4 pixels with zero xSpeed");
         }
 
         /**
@@ -1343,7 +1300,7 @@ public class TestPlayableSpriteMovement {
                 int buggySpeedPixels = Math.abs(xSpeed >> 8);  // = 0
                 int buggyThreshold = Math.min(buggySpeedPixels + 4, 14);  // = 4
 
-                assertEquals("Without fallback, threshold would be only 4 pixels", 4, buggyThreshold);
+                assertEquals(4, buggyThreshold, "Without fallback, threshold would be only 4 pixels");
 
                 // 4 pixels is too tight for curved surfaces like loops
                 // Normal terrain distance on curves can be 5-10 pixels
@@ -1366,12 +1323,12 @@ public class TestPlayableSpriteMovement {
                 int threshold = (int) method.invoke(manager);
 
                 // ROM uses ySpeed directly (0 >> 8 = 0), no gSpeed fallback
-                assertEquals("Should use ySpeed directly on wall mode per ROM", 0, threshold);
+                assertEquals(0, threshold, "Should use ySpeed directly on wall mode per ROM");
 
                 // With non-zero ySpeed, threshold reflects actual velocity
                 mockSprite.setYSpeed((short) 1024);  // 4 pixels/frame
                 int threshold2 = (int) method.invoke(manager);
-                assertEquals("Should use ySpeed when non-zero", 4, threshold2);
+                assertEquals(4, threshold2, "Should use ySpeed when non-zero");
         }
 
         /**
@@ -1392,7 +1349,7 @@ public class TestPlayableSpriteMovement {
                 int threshold = (int) method.invoke(manager);
 
                 // Should use xSpeed (4), NOT gSpeed (6), because xSpeed is non-zero
-                assertEquals("Should use xSpeed (ROM behavior) when non-zero", 4, threshold);
+                assertEquals(4, threshold, "Should use xSpeed (ROM behavior) when non-zero");
 
                 // This gives threshold = min(4 + 4, 14) = 8, matching ROM
                 // Using Math.max would give min(6 + 4, 14) = 10, which breaks slopes
@@ -1414,19 +1371,19 @@ public class TestPlayableSpriteMovement {
                 int threshold = (int) method.invoke(manager);
 
                 // 255 >> 8 = 0, ROM uses this directly (no fallback)
-                assertEquals("Should use high byte of xSpeed (0)", 0, threshold);
+                assertEquals(0, threshold, "Should use high byte of xSpeed (0)");
 
                 // Now test with xSpeed = 256 (exactly 1 pixel)
                 mockSprite.setXSpeed((short) 256);
                 int threshold2 = (int) method.invoke(manager);
 
                 // 256 >> 8 = 1
-                assertEquals("Should use xSpeed when it's 1+ pixels", 1, threshold2);
+                assertEquals(1, threshold2, "Should use xSpeed when it's 1+ pixels");
 
                 // With higher speed
                 mockSprite.setXSpeed((short) 2048);  // 8 pixels/frame
                 int threshold3 = (int) method.invoke(manager);
-                assertEquals("Should use xSpeed high byte", 8, threshold3);
+                assertEquals(8, threshold3, "Should use xSpeed high byte");
         }
 
         /**
@@ -1453,8 +1410,7 @@ public class TestPlayableSpriteMovement {
                 mockSprite.setXSpeed(calculatedXSpeed);
 
                 // xSpeed should match gSpeed on flat ground
-                assertEquals("xSpeed should equal gSpeed on flat ground (angle 0)",
-                        gSpeed, mockSprite.getXSpeed());
+                assertEquals(gSpeed, mockSprite.getXSpeed(), "xSpeed should equal gSpeed on flat ground (angle 0)");
 
                 // Verify threshold is now correct
                 Method thresholdMethod = PlayableSpriteMovement.class.getDeclaredMethod("getSpeedForThreshold");
@@ -1462,11 +1418,11 @@ public class TestPlayableSpriteMovement {
                 int threshold = (int) thresholdMethod.invoke(manager);
 
                 // With xSpeed = 0x0900 = 2304, threshold = 2304 >> 8 = 9
-                assertEquals("Threshold should reflect spindash speed", 9, threshold);
+                assertEquals(9, threshold, "Threshold should reflect spindash speed");
 
                 // positiveThreshold = min(9 + 4, 14) = 13 pixels - ample for ground attachment
                 int positiveThreshold = Math.min(threshold + 4, 14);
-                assertTrue("Ground attachment threshold should be >= 10 pixels", positiveThreshold >= 10);
+                assertTrue(positiveThreshold >= 10, "Ground attachment threshold should be >= 10 pixels");
         }
 
         /**
@@ -1489,8 +1445,8 @@ public class TestPlayableSpriteMovement {
                 mockSprite.setYSpeed(ySpeed);
 
                 // Both should be non-zero on a slope
-                assertTrue("xSpeed should be non-zero on slope", xSpeed != 0);
-                assertTrue("ySpeed should be non-zero on slope", ySpeed != 0);
+                assertTrue(xSpeed != 0, "xSpeed should be non-zero on slope");
+                assertTrue(ySpeed != 0, "ySpeed should be non-zero on slope");
 
                 // Verify threshold uses correct velocity
                 Method thresholdMethod = PlayableSpriteMovement.class.getDeclaredMethod("getSpeedForThreshold");
@@ -1499,6 +1455,8 @@ public class TestPlayableSpriteMovement {
 
                 // Threshold should be based on xSpeed (for GROUND mode)
                 int expectedThreshold = Math.abs(xSpeed >> 8);
-                assertEquals("Threshold should be based on xSpeed", expectedThreshold, threshold);
+                assertEquals(expectedThreshold, threshold, "Threshold should be based on xSpeed");
         }
 }
+
+

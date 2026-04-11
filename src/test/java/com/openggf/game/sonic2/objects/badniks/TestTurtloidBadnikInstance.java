@@ -2,7 +2,7 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.GameRng;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectConstructionContext;
 import com.openggf.level.objects.ObjectManager;
@@ -12,11 +12,11 @@ import com.openggf.level.render.PatternSpriteRenderer;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -52,7 +52,7 @@ public class TestTurtloidBadnikInstance {
         base.setServices(services);
 
         TurtloidRiderInstance rider = (TurtloidRiderInstance) getField(base, "rider");
-        assertNotNull("Turtloid should spawn a rider child", rider);
+        assertNotNull(rider, "Turtloid should spawn a rider child");
 
         clearInvocations(objectManager);
         setEnumField(base, "state", "PAUSE_BEFORE");
@@ -60,11 +60,11 @@ public class TestTurtloidBadnikInstance {
 
         rider.onPlayerAttack(null, null);
 
-        assertTrue("Rider should be destroyed on attack", rider.isDestroyed());
-        assertFalse("Turtloid base should remain alive as platform", base.isParentDestroyed());
-        assertNull("Parent rider reference should be cleared", getField(base, "rider"));
-        assertEquals("Base should resume default movement speed", -0x80, getIntField(base, "xVelocity"));
-        assertEquals("Base should transition to DONE movement state", "DONE", getField(base, "state").toString());
+        assertTrue(rider.isDestroyed(), "Rider should be destroyed on attack");
+        assertFalse(base.isParentDestroyed(), "Turtloid base should remain alive as platform");
+        assertNull(getField(base, "rider"), "Parent rider reference should be cleared");
+        assertEquals(-0x80, getIntField(base, "xVelocity"), "Base should resume default movement speed");
+        assertEquals("DONE", getField(base, "state").toString(), "Base should transition to DONE movement state");
         verify(objectManager, times(3)).addDynamicObject(any());
     }
 
@@ -106,3 +106,5 @@ public class TestTurtloidBadnikInstance {
         throw new NoSuchFieldException(fieldName);
     }
 }
+
+

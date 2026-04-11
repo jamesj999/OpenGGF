@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Guards against calling {@code services()} before {@code ObjectServices}
@@ -92,7 +92,7 @@ public class TestNoServicesInObjectConstructors {
                                     if (!SAFE_FOR_SPAWN_DYNAMIC.contains(className)) {
                                         String fileName = path.getFileName().toString();
                                         violations.add(fileName + ": spawnDynamicObject(new "
-                                                + className + "(...)) — use spawnChild() instead, "
+                                                + className + "(...)) â€” use spawnChild() instead, "
                                                 + "or add to SAFE_FOR_SPAWN_DYNAMIC if constructor "
                                                 + "does not call services()");
                                     }
@@ -245,7 +245,7 @@ public class TestNoServicesInObjectConstructors {
                                 if (classesCallingServicesInCtor.contains(className)) {
                                     String fileName = path.getFileName().toString();
                                     violations.add(fileName + ": addDynamicObject(new "
-                                            + className + "(...)) — " + className
+                                            + className + "(...)) â€” " + className
                                             + " calls services() in constructor. "
                                             + "Remove services() from the constructor "
                                             + "(use lazy init) or use spawnChild()");
@@ -272,7 +272,7 @@ public class TestNoServicesInObjectConstructors {
      * Example of the dangerous pattern:
      * <pre>
      *   X obj = new X(...);
-     *   obj.initialize();              // CRASH — services not injected yet
+     *   obj.initialize();              // CRASH â€” services not injected yet
      *   manager.addDynamicObject(obj);
      * </pre>
      * <p>
@@ -349,7 +349,7 @@ public class TestNoServicesInObjectConstructors {
                                     pending.put(ctorMatch.group(1), ctorMatch.group(2));
                                 }
 
-                                // Check for registration — removes from pending
+                                // Check for registration â€” removes from pending
                                 Matcher regMatch = registration.matcher(line);
                                 while (regMatch.find()) {
                                     pending.remove(regMatch.group(1));
@@ -366,7 +366,7 @@ public class TestNoServicesInObjectConstructors {
                                         if (dangerous != null && dangerous.contains(method)) {
                                             violations.add(fileName + ":" + (i + 1)
                                                     + ": " + varName + "." + method
-                                                    + "() called before addDynamicObject — "
+                                                    + "() called before addDynamicObject â€” "
                                                     + method + "() calls services() in "
                                                     + className);
                                         }
@@ -673,7 +673,7 @@ public class TestNoServicesInObjectConstructors {
             }
 
             String ctorBody = content.substring(start, end);
-            // Match unqualified services() — not obj.services()
+            // Match unqualified services() â€” not obj.services()
             if (Pattern.compile("(?<![.\\w])services\\(\\)").matcher(ctorBody).find()) {
                 violations.add(fileName + ": " + className
                         + " calls services() in constructor");
@@ -681,3 +681,5 @@ public class TestNoServicesInObjectConstructors {
         }
     }
 }
+
+

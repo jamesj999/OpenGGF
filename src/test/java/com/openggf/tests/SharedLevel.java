@@ -14,7 +14,7 @@ import com.openggf.tests.rules.SonicGame;
 import java.io.IOException;
 
 /**
- * Encapsulates the {@code @BeforeClass} level loading pattern used across
+ * Encapsulates the {@code @BeforeAll} level loading pattern used across
  * headless test classes. Loads a level once and stores the result for reuse.
  * <p>
  * Usage:
@@ -50,7 +50,7 @@ public final class SharedLevel {
      * Loads a level in headless mode and returns a {@code SharedLevel} holding
      * the loaded data.
      * <p>
-     * This replicates the {@code @BeforeClass} boilerplate found in
+     * This replicates the {@code @BeforeAll} boilerplate found in
      * {@code TestS2Ehz1Headless}, {@code TestHeadlessCNZ1LiftWallStick}, etc.:
      * <ol>
      *   <li>Init headless graphics</li>
@@ -81,7 +81,7 @@ public final class SharedLevel {
         LevelManager lm = GameServices.level();
         lm.loadZoneAndAct(zone, act);
 
-        // loadZoneAndAct → loadCurrentLevel now runs full profile including
+        // loadZoneAndAct â†’ loadCurrentLevel now runs full profile including
         // InitCamera (bounds, snap, vertical wrap) and InitLevelEvents.
         // No manual camera setup needed.
 
@@ -121,3 +121,5 @@ public final class SharedLevel {
         return mainCharCode;
     }
 }
+
+

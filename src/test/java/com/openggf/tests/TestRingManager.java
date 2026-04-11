@@ -2,9 +2,9 @@ package com.openggf.tests;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.rings.RingFrame;
@@ -18,18 +18,18 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestRingManager {
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -140,3 +140,5 @@ public class TestRingManager {
         }
     }
 }
+
+

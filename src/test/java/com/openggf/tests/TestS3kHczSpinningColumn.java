@@ -9,16 +9,16 @@ import com.openggf.game.sonic3k.objects.HCZSpinningColumnObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectParams;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestS3kHczSpinningColumn {
 
-    @Before
+    @BeforeEach
     public void resetOscillation() {
         OscillationManager.reset();
     }
@@ -30,11 +30,9 @@ public class TestS3kHczSpinningColumn {
                 .findFirst()
                 .orElseThrow(() -> new AssertionError(
                         "HCZ2 art plan should include spinning column level art"));
-        assertEquals("Spinning column must point at the mapping table base, not Frame_231AF4",
-                Sonic3kConstants.MAP_HCZ_SPINNING_COLUMN_ADDR, entry.mappingAddr());
+        assertEquals(Sonic3kConstants.MAP_HCZ_SPINNING_COLUMN_ADDR, entry.mappingAddr(), "Spinning column must point at the mapping table base, not Frame_231AF4");
         assertEquals(0x231AEE, entry.mappingAddr());
-        assertTrue("Spinning column mapping table should stay in the lock-on data region",
-                entry.mappingAddr() > 0x200000);
+        assertTrue(entry.mappingAddr() > 0x200000, "Spinning column mapping table should stay in the lock-on data region");
     }
 
     @Test
@@ -111,3 +109,5 @@ public class TestS3kHczSpinningColumn {
         }
     }
 }
+
+

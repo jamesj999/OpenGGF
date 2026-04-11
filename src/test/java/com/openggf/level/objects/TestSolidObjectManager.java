@@ -1,8 +1,8 @@
 package com.openggf.level.objects;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
@@ -16,18 +16,18 @@ import com.openggf.game.PlayableEntity;
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSolidObjectManager {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -78,7 +78,7 @@ public class TestSolidObjectManager {
         player.setAir(true);
         player.setYSpeed((short) 0);
 
-        // ROM: SlopeObject uses absolute slope — surfaceY = objectY - slopeSample.
+        // ROM: SlopeObject uses absolute slope â€” surfaceY = objectY - slopeSample.
         // Stable centreY on surface = surfaceY - yRadius - 1 (where Platform3's +3 offset
         // cancels the +4 in the relY formula, leaving distY=3, newY = centreY - 3 + 3 = centreY).
 
@@ -450,3 +450,5 @@ public class TestSolidObjectManager {
         }
     }
 }
+
+

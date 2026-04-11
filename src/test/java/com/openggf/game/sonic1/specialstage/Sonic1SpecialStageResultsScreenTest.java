@@ -3,18 +3,18 @@ package com.openggf.game.sonic1.specialstage;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Sonic1SpecialStageResultsScreenTest {
 
     private GameStateManager gameState;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         gameState = GameServices.gameState();
@@ -22,7 +22,7 @@ public class Sonic1SpecialStageResultsScreenTest {
         gameState.resetSession();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         gameState.resetSession();
         RuntimeManager.destroyCurrent();
@@ -33,8 +33,7 @@ public class Sonic1SpecialStageResultsScreenTest {
         Sonic1SpecialStageResultsScreen screen =
                 new Sonic1SpecialStageResultsScreen(0, false, 0, 0);
 
-        assertEquals("Failed run should show SPECIAL STAGE message frame", 11,
-                screen.getScenarioFrameForTesting());
+        assertEquals(11, screen.getScenarioFrameForTesting(), "Failed run should show SPECIAL STAGE message frame");
     }
 
     @Test
@@ -42,8 +41,7 @@ public class Sonic1SpecialStageResultsScreenTest {
         Sonic1SpecialStageResultsScreen screen =
                 new Sonic1SpecialStageResultsScreen(12, true, 1, 3);
 
-        assertEquals("Emerald run should show CHAOS EMERALDS message frame", 10,
-                screen.getScenarioFrameForTesting());
+        assertEquals(10, screen.getScenarioFrameForTesting(), "Emerald run should show CHAOS EMERALDS message frame");
     }
 
     @Test
@@ -51,8 +49,7 @@ public class Sonic1SpecialStageResultsScreenTest {
         Sonic1SpecialStageResultsScreen screen =
                 new Sonic1SpecialStageResultsScreen(20, true, 5, 6);
 
-        assertEquals("All-emerald run should show SONIC GOT THEM ALL frame", 12,
-                screen.getScenarioFrameForTesting());
+        assertEquals(12, screen.getScenarioFrameForTesting(), "All-emerald run should show SONIC GOT THEM ALL frame");
     }
 
     @Test
@@ -68,8 +65,10 @@ public class Sonic1SpecialStageResultsScreenTest {
             screen.update(frame, null);
         }
 
-        assertTrue("Results flow should complete within expected frame budget", screen.isComplete());
-        assertEquals("Ring bonus should fully count down", 0, screen.getRingBonus());
-        assertEquals("Score should increase by ring bonus total", startScore + 50, gameState.getScore());
+        assertTrue(screen.isComplete(), "Results flow should complete within expected frame budget");
+        assertEquals(0, screen.getRingBonus(), "Ring bonus should fully count down");
+        assertEquals(startScore + 50, gameState.getScore(), "Score should increase by ring bonus total");
     }
 }
+
+

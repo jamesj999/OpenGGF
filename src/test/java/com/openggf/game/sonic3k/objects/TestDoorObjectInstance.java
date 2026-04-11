@@ -3,9 +3,9 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.sonic1.objects.TestPlayableSprite;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestDoorObjectInstance {
 
@@ -77,3 +77,5 @@ public class TestDoorObjectInstance {
         return player;
     }
 }
+
+

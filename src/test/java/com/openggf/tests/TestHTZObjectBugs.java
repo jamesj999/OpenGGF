@@ -1,9 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
@@ -16,10 +15,9 @@ import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Headless integration tests for HTZ (Hill Top Zone) and related object bugs
@@ -48,9 +46,6 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestHTZObjectBugs {
-
-    @Rule public RequiresRomRule romRule = new RequiresRomRule();
-
     private Sonic sprite;
     private HeadlessTestRunner testRunner;
 
@@ -70,7 +65,7 @@ public class TestHTZObjectBugs {
     // Diagonal spring type value: (subtype >> 3) & 0xE == 6
     private static final int SPRING_TYPE_DIAGONAL_UP = 6;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         // Initialize headless graphics (no GL context needed)
         GraphicsManager.getInstance().initHeadless();
@@ -156,8 +151,7 @@ public class TestHTZObjectBugs {
             }
         }
 
-        Assume.assumeTrue("No rising pillar (0x2B) found in ARZ1 traversal range",
-                pillarObj != null);
+        Assumptions.assumeTrue(pillarObj != null, "No rising pillar (0x2B) found in ARZ1 traversal range");
 
         int pillarX = pillarObj.getX();
         int pillarY = pillarObj.getY();
@@ -216,9 +210,8 @@ public class TestHTZObjectBugs {
         logState("After jump apex (minY=" + minY + ", extendedTopY=" + extendedTopY + ")");
 
         // Sonic's apex should be above (less than) the extended pillar top
-        assertTrue("Sonic's jump apex (Y=" + minY + ") should clear the extended pillar top " +
-                "(Y=" + extendedTopY + "). Pillar may be too tall for a standing jump.",
-                minY < extendedTopY);
+        assertTrue(minY < extendedTopY, "Sonic's jump apex (Y=" + minY + ") should clear the extended pillar top " +
+                "(Y=" + extendedTopY + "). Pillar may be too tall for a standing jump.");
     }
 
     // -----------------------------------------------------------------------
@@ -237,7 +230,7 @@ public class TestHTZObjectBugs {
      */
     @Test
     public void testSpringboardHighSpeedLaunch() throws Exception {
-        // Springboards (0x40) exist in CPZ, ARZ, MCZ — not HTZ. Load ARZ Act 1.
+        // Springboards (0x40) exist in CPZ, ARZ, MCZ Ã¢â‚¬â€ not HTZ. Load ARZ Act 1.
         GameServices.level().loadZoneAndAct(ZONE_ARZ, ACT_1);
         GroundSensor.setLevelManager(GameServices.level());
         GameServices.camera().updatePosition(true);
@@ -262,8 +255,7 @@ public class TestHTZObjectBugs {
             if (springboardObj != null) break;
         }
 
-        Assume.assumeTrue("No springboard (0x40) found in ARZ1",
-                springboardObj != null);
+        Assumptions.assumeTrue(springboardObj != null, "No springboard (0x40) found in ARZ1");
 
         int sbX = springboardObj.getX();
         int sbY = springboardObj.getY();
@@ -287,8 +279,7 @@ public class TestHTZObjectBugs {
             if (!sprite.getAir()) break;
         }
 
-        Assume.assumeTrue("Sonic could not find ground near springboard at X=" + (sbX - 64),
-                !sprite.getAir());
+        Assumptions.assumeTrue(!sprite.getAir(), "Sonic could not find ground near springboard at X=" + (sbX - 64));
 
         logState("Grounded near springboard");
 
@@ -299,7 +290,7 @@ public class TestHTZObjectBugs {
 
         logState("Before high-speed approach");
 
-        // Step 30 frames moving right — Sonic should reach the springboard
+        // Step 30 frames moving right Ã¢â‚¬â€ Sonic should reach the springboard
         for (int i = 0; i < 30; i++) {
             testRunner.stepFrame(false, false, false, true, false);
         }
@@ -307,10 +298,9 @@ public class TestHTZObjectBugs {
         logState("After high-speed pass");
 
         // The springboard should have launched Sonic upward
-        assertTrue("Springboard should launch Sonic upward at high speed. " +
+        assertTrue(sprite.getYSpeed() < -0x200, "Springboard should launch Sonic upward at high speed. " +
                 "YSpeed=" + sprite.getYSpeed() + " (expected < -0x200). " +
-                "At 16px/frame, Sonic may have passed over without triggering.",
-                sprite.getYSpeed() < -0x200);
+                "At 16px/frame, Sonic may have passed over without triggering.");
     }
 
     // -----------------------------------------------------------------------
@@ -354,8 +344,7 @@ public class TestHTZObjectBugs {
                 break;
             }
         }
-        Assume.assumeTrue("Seesaw (0x14) not spawned at (" + seesawX + "," + seesawY + ")",
-                seesawObj != null);
+        Assumptions.assumeTrue(seesawObj != null, "Seesaw (0x14) not spawned at (" + seesawX + "," + seesawY + ")");
 
         logState("Seesaw found at (" + seesawX + ", " + seesawY + ")");
 
@@ -413,10 +402,9 @@ public class TestHTZObjectBugs {
                 newBallCount, initialBallCount);
 
         // There should not be more balls than before (no duplicates)
-        assertTrue("Seesaw at (" + seesawX + "," + seesawY + ") spawned duplicate balls " +
+        assertTrue(newBallCount <= initialBallCount, "Seesaw at (" + seesawX + "," + seesawY + ") spawned duplicate balls " +
                 "on camera re-entry. Ball count went from " + initialBallCount +
-                " to " + newBallCount + ".",
-                newBallCount <= initialBallCount);
+                " to " + newBallCount + ".");
     }
 
     // -----------------------------------------------------------------------
@@ -465,8 +453,7 @@ public class TestHTZObjectBugs {
             }
         }
 
-        Assume.assumeTrue("Diagonal spring (0x41) not spawned near (" + springX + "," + springY + ")",
-                diagonalSpringObj != null);
+        Assumptions.assumeTrue(diagonalSpringObj != null, "Diagonal spring (0x41) not spawned near (" + springX + "," + springY + ")");
 
         // Use the actual spawned position
         springX = diagonalSpringObj.getX();
@@ -499,11 +486,10 @@ public class TestHTZObjectBugs {
 
         logState("After standing on diagonal spring");
 
-        assertTrue("Diagonal spring at (" + springX + "," + springY + ") should launch " +
+        assertTrue(launched, "Diagonal spring at (" + springX + "," + springY + ") should launch " +
                 "Sonic when standing on its flat portion. YSpeed=" + sprite.getYSpeed() +
                 " (expected < -0x400). The isDiagonalXThresholdMet() check may be " +
-                "preventing activation from the flat area.",
-                launched);
+                "preventing activation from the flat area.");
     }
 
     // -----------------------------------------------------------------------
@@ -558,10 +544,9 @@ public class TestHTZObjectBugs {
 
         logState("Final state at (3456, 793)");
 
-        assertTrue("Diagonal spring at HTZ1 (3456, 793) should launch Sonic. " +
+        assertTrue(launched, "Diagonal spring at HTZ1 (3456, 793) should launch Sonic. " +
                 "YSpeed=" + sprite.getYSpeed() + " (expected < -0x400). " +
-                "The spring may not be activating due to the X threshold check.",
-                launched);
+                "The spring may not be activating due to the X threshold check.");
     }
 
     // -----------------------------------------------------------------------
@@ -606,7 +591,7 @@ public class TestHTZObjectBugs {
             }
         }
 
-        Assume.assumeTrue("Could not find flat ground in EHZ1", groundX > 0);
+        Assumptions.assumeTrue(groundX > 0, "Could not find flat ground in EHZ1");
 
         logState("Flat ground found at (" + groundX + ", " + groundY + ")");
 
@@ -640,20 +625,18 @@ public class TestHTZObjectBugs {
                 // Verify the ground angle is reasonable (not a wild bounce angle)
                 int angle = sprite.getAngle() & 0xFF;
                 boolean angleReasonable = angle <= 0x20 || angle >= 0xE0;
-                assertTrue("Landing angle should be near-flat when landing on terrain corner. " +
+                assertTrue(angleReasonable, "Landing angle should be near-flat when landing on terrain corner. " +
                         "Angle=0x" + Integer.toHexString(angle) + " is too steep, " +
-                        "suggesting a corner collision artifact.",
-                        angleReasonable);
+                        "suggesting a corner collision artifact.");
                 break;
             }
         }
 
         logState("Final state (landed=" + landed + ")");
 
-        assertTrue("Sonic should land within 60 frames when dropped near terrain corner " +
+        assertTrue(landed, "Sonic should land within 60 frames when dropped near terrain corner " +
                 "at (" + testX + "," + testY + ") with diagonal velocity. " +
-                "Still airborne suggests a corner bounce ejected Sonic.",
-                landed);
+                "Still airborne suggests a corner bounce ejected Sonic.");
     }
 
     // -----------------------------------------------------------------------
@@ -692,3 +675,5 @@ public class TestHTZObjectBugs {
                 sprite.getDirection());
     }
 }
+
+

@@ -80,3 +80,5 @@ class TestS3kTensionBridgeObject {
                 .orElseThrow(() -> new AssertionError("Missing art entry: " + key));
     }
 }
+
+

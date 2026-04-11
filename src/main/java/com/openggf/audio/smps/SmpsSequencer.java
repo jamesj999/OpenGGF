@@ -5,7 +5,7 @@ import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.VirtualSynthesizer;
 import com.openggf.audio.AudioStream;
 import com.openggf.audio.synth.Synthesizer;
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -293,8 +293,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, SmpsSequencerConfig config) {
-        this(smpsData, dacData, new VirtualSynthesizer(),
-                com.openggf.game.RuntimeManager.getEngineServices().audio(), config);
+        this(smpsData, dacData, new VirtualSynthesizer(), GameServices.audio(), config);
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, AudioManager audioManager,
@@ -304,7 +303,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,
             SmpsSequencerConfig config) {
-        this(smpsData, dacData, synth, com.openggf.game.RuntimeManager.getEngineServices().audio(), config);
+        this(smpsData, dacData, synth, GameServices.audio(), config);
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,

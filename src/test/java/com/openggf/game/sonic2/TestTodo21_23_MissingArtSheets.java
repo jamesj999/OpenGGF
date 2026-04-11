@@ -1,18 +1,15 @@
 package com.openggf.game.sonic2;
-
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.data.Rom;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.tools.NemesisReader;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests verifying that ROM addresses for art pieces are valid and decompressible.
@@ -33,10 +30,6 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestTodo21_23_MissingArtSheets {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     /**
      * Item 21: Verify EHZ Waterfall art decompresses from ROM.
      * ROM reference: ArtNem_EhzWaterfall
@@ -47,18 +40,16 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testEHZWaterfallArtDecompresses() throws IOException {
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         FileChannel channel = rom.getFileChannel();
         channel.position(Sonic2Constants.ART_NEM_EHZ_WATERFALL_ADDR);
 
         byte[] artData = NemesisReader.decompress(channel);
-        assertNotNull("EHZ waterfall art should decompress successfully", artData);
-        assertTrue("EHZ waterfall art should contain pattern data (multiple of 32 bytes)",
-                artData.length > 0 && artData.length % 32 == 0);
+        assertNotNull(artData, "EHZ waterfall art should decompress successfully");
+        assertTrue(artData.length > 0 && artData.length % 32 == 0, "EHZ waterfall art should contain pattern data (multiple of 32 bytes)");
 
         int tileCount = artData.length / 32;
-        assertTrue("EHZ waterfall should have at least 8 tiles (cap + body pieces)",
-                tileCount >= 8);
+        assertTrue(tileCount >= 8, "EHZ waterfall should have at least 8 tiles (cap + body pieces)");
     }
 
     /**
@@ -72,19 +63,17 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testCPZPlatformArtDecompresses() throws IOException {
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         FileChannel channel = rom.getFileChannel();
         channel.position(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR);
 
         byte[] artData = NemesisReader.decompress(channel);
-        assertNotNull("CPZ platform art should decompress successfully", artData);
-        assertTrue("CPZ platform art should contain pattern data (multiple of 32 bytes)",
-                artData.length > 0 && artData.length % 32 == 0);
+        assertNotNull(artData, "CPZ platform art should decompress successfully");
+        assertTrue(artData.length > 0 && artData.length % 32 == 0, "CPZ platform art should contain pattern data (multiple of 32 bytes)");
 
         int tileCount = artData.length / 32;
         // The CPZ platform needs at least 16 tiles for a 4x4 piece
-        assertTrue("CPZ platform should have at least 16 tiles for frame 0",
-                tileCount >= 16);
+        assertTrue(tileCount >= 16, "CPZ platform should have at least 16 tiles for frame 0");
     }
 
     /**
@@ -97,18 +86,16 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testWFZPlatformArtDecompresses() throws IOException {
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         FileChannel channel = rom.getFileChannel();
         channel.position(Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR);
 
         byte[] artData = NemesisReader.decompress(channel);
-        assertNotNull("WFZ platform art should decompress successfully", artData);
-        assertTrue("WFZ platform art should contain pattern data (multiple of 32 bytes)",
-                artData.length > 0 && artData.length % 32 == 0);
+        assertNotNull(artData, "WFZ platform art should decompress successfully");
+        assertTrue(artData.length > 0 && artData.length % 32 == 0, "WFZ platform art should contain pattern data (multiple of 32 bytes)");
 
         int tileCount = artData.length / 32;
-        assertTrue("WFZ platform should have at least 8 tiles",
-                tileCount >= 8);
+        assertTrue(tileCount >= 8, "WFZ platform should have at least 8 tiles");
     }
 
     /**
@@ -118,14 +105,13 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testOOZPlatformArtDecompresses() throws IOException {
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         FileChannel channel = rom.getFileChannel();
         channel.position(Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR);
 
         byte[] artData = NemesisReader.decompress(channel);
-        assertNotNull("OOZ platform art should decompress successfully", artData);
-        assertTrue("OOZ platform art should contain pattern data (multiple of 32 bytes)",
-                artData.length > 0 && artData.length % 32 == 0);
+        assertNotNull(artData, "OOZ platform art should decompress successfully");
+        assertTrue(artData.length > 0 && artData.length % 32 == 0, "OOZ platform art should contain pattern data (multiple of 32 bytes)");
     }
 
     /**
@@ -134,15 +120,9 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testPlatformArtAddressesAreDistinct() {
-        assertNotEquals("CPZ and OOZ platform art should be at different addresses",
-                Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR,
-                Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR);
-        assertNotEquals("CPZ and WFZ platform art should be at different addresses",
-                Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR,
-                Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR);
-        assertNotEquals("OOZ and WFZ platform art should be at different addresses",
-                Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR,
-                Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR);
+        assertNotEquals(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR, "CPZ and OOZ platform art should be at different addresses");
+        assertNotEquals(Sonic2Constants.ART_NEM_CPZ_ELEVATOR_ADDR, Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR, "CPZ and WFZ platform art should be at different addresses");
+        assertNotEquals(Sonic2Constants.ART_NEM_OOZ_ELEVATOR_ADDR, Sonic2Constants.ART_NEM_WFZ_PLATFORM_ADDR, "OOZ and WFZ platform art should be at different addresses");
     }
 
     /**
@@ -152,7 +132,8 @@ public class TestTodo21_23_MissingArtSheets {
      */
     @Test
     public void testWaterfallArtTileBase() {
-        assertEquals("EHZ waterfall art tile base should be $39E",
-                0x39E, Sonic2Constants.ART_TILE_EHZ_WATERFALL);
+        assertEquals(0x39E, Sonic2Constants.ART_TILE_EHZ_WATERFALL, "EHZ waterfall art tile base should be $39E");
     }
 }
+
+

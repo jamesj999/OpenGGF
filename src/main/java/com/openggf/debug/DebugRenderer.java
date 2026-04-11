@@ -5,6 +5,7 @@ import com.openggf.game.GameModule;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -30,13 +31,14 @@ import com.openggf.debug.playback.PlaybackDebugManager;
 import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
-        private final com.openggf.configuration.SonicConfigurationService configService =
-                        com.openggf.game.RuntimeManager.getEngineServices().configuration();
-        private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
-        private final PlaybackDebugManager playbackDebugManager = com.openggf.game.RuntimeManager.getEngineServices().playbackDebug();
+        private final SonicConfigurationService configService;
+        private final DebugOverlayManager overlayManager;
+        private final PlaybackDebugManager playbackDebugManager;
+        private final PerformanceProfiler profiler;
         private GlyphBatchRenderer glyphBatch;
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
@@ -65,14 +67,31 @@ public class DebugRenderer {
         private final StringBuilder sensorLabelBuilder = new StringBuilder(32);
         private final StringBuilder panelLineBuilder = new StringBuilder(64);
 
-        private final int baseWidth = configService
-                        .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-        private final int baseHeight = configService
-                        .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-        private int viewportWidth = baseWidth;
-        private int viewportHeight = baseHeight;
+        private final int baseWidth;
+        private final int baseHeight;
+        private int viewportWidth;
+        private int viewportHeight;
         private double scaleX = 1.0;
         private double scaleY = 1.0;
+
+        public DebugRenderer() {
+                this(GameServices.configuration(), GameServices.debugOverlay(),
+                        GameServices.playbackDebug(), GameServices.profiler());
+        }
+
+        public DebugRenderer(SonicConfigurationService configService,
+                             DebugOverlayManager overlayManager,
+                             PlaybackDebugManager playbackDebugManager,
+                             PerformanceProfiler profiler) {
+                this.configService = Objects.requireNonNull(configService, "configService");
+                this.overlayManager = Objects.requireNonNull(overlayManager, "overlayManager");
+                this.playbackDebugManager = Objects.requireNonNull(playbackDebugManager, "playbackDebugManager");
+                this.profiler = Objects.requireNonNull(profiler, "profiler");
+                this.baseWidth = this.configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+                this.baseHeight = this.configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+                this.viewportWidth = baseWidth;
+                this.viewportHeight = baseHeight;
+        }
 
 	/**
 	 * Eagerly initializes the glyph batch renderer.
@@ -795,11 +814,12 @@ public class DebugRenderer {
 
         private void renderPerformancePanel() {
                 if (performancePanelRenderer == null) {
-                        performancePanelRenderer = new PerformancePanelRenderer(baseWidth, baseHeight, glyphBatch);
+                        performancePanelRenderer = new PerformancePanelRenderer(
+                                baseWidth, baseHeight, glyphBatch, GameServices.graphics(), profiler);
                 }
                 performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
 
-                ProfileSnapshot snapshot = com.openggf.game.RuntimeManager.getEngineServices().profiler().getSnapshot();
+                ProfileSnapshot snapshot = profiler.getSnapshot();
                 performancePanelRenderer.render(snapshot);
         }
 

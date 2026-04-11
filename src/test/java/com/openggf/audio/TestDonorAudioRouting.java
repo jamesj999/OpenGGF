@@ -5,16 +5,16 @@ import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.audio.smps.SmpsSequencerConfig;
 import com.openggf.data.Rom;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests donor audio routing in AudioManager.
@@ -29,7 +29,7 @@ public class TestDonorAudioRouting {
     private static final DacData EMPTY_DAC = new DacData(
             Collections.emptyMap(), Collections.emptyMap(), 288);
 
-    @Before
+    @BeforeEach
     public void setUp() {
         audioManager = AudioManager.getInstance();
         audioManager.resetState();
@@ -37,7 +37,7 @@ public class TestDonorAudioRouting {
         audioManager.setBackend(backend);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         audioManager.resetState();
     }
@@ -70,7 +70,7 @@ public class TestDonorAudioRouting {
 
         // Should fall through to backend.playSfx(name)
         assertEquals("SPINDASH_CHARGE", backend.lastFallbackName);
-        assertNull("SMPS data should not have been played", backend.lastSfxName);
+        assertNull(backend.lastSfxName, "SMPS data should not have been played");
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestDonorAudioRouting {
         baseLoader.sfxResults.put(0xA5, new StubSmpsData("base-roll"));
         audioManager.setAudioProfile(new StubAudioProfile(baseLoader));
         // setRom triggers smpsLoader creation via audioProfile
-        // We need to manually poke the loader — use the profile's createSmpsLoader
+        // We need to manually poke the loader â€” use the profile's createSmpsLoader
         // Actually setRom(null) will call audioProfile.createSmpsLoader(null) which returns our stub
         audioManager.setRom(null);
 
@@ -112,7 +112,7 @@ public class TestDonorAudioRouting {
         // Clear
         audioManager.clearDonorAudio();
 
-        // Now play — should fall through to backend
+        // Now play â€” should fall through to backend
         Map<GameSound, Integer> baseMap = new EnumMap<>(GameSound.class);
         audioManager.setSoundMap(baseMap);
         audioManager.playSfx(GameSound.SPINDASH_CHARGE, 1.0f);
@@ -139,7 +139,7 @@ public class TestDonorAudioRouting {
 
         // Donor spindash should still work
         audioManager.playSfx(GameSound.SPINDASH_CHARGE, 1.0f);
-        assertEquals("Donor spindash must survive setRom()", "donor-spindash", backend.lastSfxName);
+        assertEquals("donor-spindash", backend.lastSfxName, "Donor spindash must survive setRom()");
     }
 
     @Test
@@ -160,11 +160,11 @@ public class TestDonorAudioRouting {
         audioManager.registerDonorLoader("s3k", s3kLoader, s3kDac);
         audioManager.registerDonorSound(GameSound.FIRE_SHIELD, "s3k", 0x54);
 
-        // Play spindash — should route to S2
+        // Play spindash â€” should route to S2
         audioManager.playSfx(GameSound.SPINDASH_CHARGE, 1.0f);
         assertEquals("s2-spindash", backend.lastSfxName);
 
-        // Play fire shield — should route to S3K
+        // Play fire shield â€” should route to S3K
         audioManager.playSfx(GameSound.FIRE_SHIELD, 1.0f);
         assertEquals("s3k-fire-shield", backend.lastSfxName);
     }
@@ -185,7 +185,7 @@ public class TestDonorAudioRouting {
 
         audioManager.playSfx(GameSound.SPINDASH_CHARGE, 1.0f);
 
-        assertNotNull("Donor config should be passed to backend", backend.lastDonorConfig);
+        assertNotNull(backend.lastDonorConfig, "Donor config should be passed to backend");
         assertEquals(SmpsSequencerConfig.TempoMode.OVERFLOW, backend.lastDonorConfig.getTempoMode());
     }
 
@@ -305,3 +305,5 @@ public class TestDonorAudioRouting {
         }
     }
 }
+
+

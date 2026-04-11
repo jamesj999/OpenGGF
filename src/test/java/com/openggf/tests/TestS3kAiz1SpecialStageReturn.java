@@ -11,16 +11,14 @@ import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Diagnostic test: reproduce the "in the floor" bug when returning from a
@@ -31,21 +29,17 @@ import static org.junit.Assert.*;
  * 2. Record position (simulating big ring save)
  * 3. Reload level via loadCurrentLevel (simulating special stage return)
  * 4. Restore position
- * 5. Step frames — Sonic should NOT die or fall through the floor
+ * 5. Step frames â€” Sonic should NOT die or fall through the floor
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAiz1SpecialStageReturn {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_AIZ = 0;
     private static final int ACT_1 = 0;
 
     private static Object oldSkipIntros;
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
@@ -53,7 +47,7 @@ public class TestS3kAiz1SpecialStageReturn {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         SonicConfigurationService.getInstance().setConfigValue(
                 SonicConfiguration.S3K_SKIP_INTROS,
@@ -64,7 +58,7 @@ public class TestS3kAiz1SpecialStageReturn {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -85,7 +79,7 @@ public class TestS3kAiz1SpecialStageReturn {
     }
 
     /**
-     * The REAL scenario — config has skip_intros=false (intro was enabled),
+     * The REAL scenario â€” config has skip_intros=false (intro was enabled),
      * then special stage return causes a reload where our fix must override
      * to SKIP_INTRO. This matches the user's actual game flow.
      */
@@ -164,11 +158,11 @@ public class TestS3kAiz1SpecialStageReturn {
 
     /**
      * User-reported position of the first big ring in AIZ1: X~7107 Y~1194.
-     * This is at X=0x1BC3, Y=0x4AA — well past the terrain swap point.
+     * This is at X=0x1BC3, Y=0x4AA â€” well past the terrain swap point.
      */
     /**
      * The exact user-reported scenario: big ring at (7107, 1194) on the
-     * secondary collision path. Tests ONLY the reload flow — the initial
+     * secondary collision path. Tests ONLY the reload flow â€” the initial
      * SharedLevel won't have objects spawned at this position since the
      * camera was elsewhere, but loadCurrentLevel() respawns objects near
      * the big ring return position.
@@ -205,8 +199,7 @@ public class TestS3kAiz1SpecialStageReturn {
                     + " lrbSolidBit=0x" + Integer.toHexString(sprite.getLrbSolidBit()));
 
             // Simulate enterTitleCardFromResults: restore position + solid bits
-            assertTrue("BigRingReturn should be active after reload",
-                    lm.hasBigRingReturn());
+            assertTrue(lm.hasBigRingReturn(), "BigRingReturn should be active after reload");
             lm.getBigRingReturn().restoreToPlayer(sprite, fixture.camera(), lm.getLevelGamestate());
             lm.clearBigRingReturn();
 
@@ -249,7 +242,7 @@ public class TestS3kAiz1SpecialStageReturn {
                 }
             }
             System.out.println("=== bigRingPos ALIVE after 60 frames ===");
-            assertFalse("bigRingPos: Sonic should not be dead", sprite.getDead());
+            assertFalse(sprite.getDead(), "bigRingPos: Sonic should not be dead");
         } finally {
             config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         }
@@ -275,11 +268,10 @@ public class TestS3kAiz1SpecialStageReturn {
         for (int frame = 0; frame < 10; frame++) {
             fixture.stepFrame(false, false, false, false, false);
         }
-        assertFalse(label + ": Sonic should not die at initial position"
+        assertFalse(sprite.getDead(), label + ": Sonic should not die at initial position"
                         + " centreX=0x" + Integer.toHexString(sprite.getCentreX())
                         + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
-                        + " air=" + sprite.getAir(),
-                sprite.getDead());
+                        + " air=" + sprite.getAir());
 
         // Record grounded position (may have shifted slightly from snap)
         int savedCentreX = sprite.getCentreX();
@@ -335,7 +327,7 @@ public class TestS3kAiz1SpecialStageReturn {
                 + Integer.toHexString(sprite.getCentreY())
                 + " air=" + sprite.getAir());
 
-        // Step 60 frames — check for death
+        // Step 60 frames â€” check for death
         for (int frame = 0; frame < 60; frame++) {
             fixture.stepFrame(false, false, false, false, false);
             if (sprite.getDead()) {
@@ -348,7 +340,7 @@ public class TestS3kAiz1SpecialStageReturn {
             }
         }
         System.out.println("=== " + label + " ALIVE after 60 frames ===");
-        assertFalse(label + ": Sonic should not be dead", sprite.getDead());
+        assertFalse(sprite.getDead(), label + ": Sonic should not be dead");
     }
 
     private boolean hasCollisionBelow(int worldX, int worldY) {
@@ -368,3 +360,5 @@ public class TestS3kAiz1SpecialStageReturn {
         return false;
     }
 }
+
+

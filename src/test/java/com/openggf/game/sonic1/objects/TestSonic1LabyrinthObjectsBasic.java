@@ -2,17 +2,17 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.sonic1.objects.badniks.Sonic1BurrobotBadnikInstance;
 import com.openggf.game.sonic1.objects.badniks.Sonic1OrbinautBadnikInstance;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1LabyrinthObjectsBasic {
 
@@ -61,15 +61,13 @@ public class TestSonic1LabyrinthObjectsBasic {
         for (int i = 0; i < 16; i++) {
             door.update(i + 1, null);
         }
-        assertEquals("Closing script should hold on frame 0 after completion",
-                0, getPrivateInt(door, "mappingFrame"));
+        assertEquals(0, getPrivateInt(door, "mappingFrame"), "Closing script should hold on frame 0 after completion");
 
         // Continue running; frame should remain 0 (no 1<->0 flicker).
         for (int i = 0; i < 16; i++) {
             door.update(100 + i, null);
         }
-        assertEquals("Closing script should continue holding frame 0",
-                0, getPrivateInt(door, "mappingFrame"));
+        assertEquals(0, getPrivateInt(door, "mappingFrame"), "Closing script should continue holding frame 0");
     }
 
     @Test
@@ -99,8 +97,8 @@ public class TestSonic1LabyrinthObjectsBasic {
         orbinaut.update(1, null);
         orbinaut.update(2, null);
 
-        Assert.assertEquals(0x05, burrobot.getCollisionFlags());
-        Assert.assertEquals(0x0B, orbinaut.getCollisionFlags());
+        Assertions.assertEquals(0x05, burrobot.getCollisionFlags());
+        Assertions.assertEquals(0x0B, orbinaut.getCollisionFlags());
     }
 
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {
@@ -116,3 +114,5 @@ public class TestSonic1LabyrinthObjectsBasic {
     }
 
 }
+
+

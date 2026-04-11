@@ -1,10 +1,9 @@
 package com.openggf.game.sonic3k;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomByteReader;
@@ -25,15 +24,14 @@ import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Validates that S3K HCZ Act 1 palette cycling is active and modifies colors over time.
@@ -49,29 +47,26 @@ import static org.junit.Assert.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kHczPaletteCycling {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_HCZ = 1;
     private static final int ACT_1 = 0;
 
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_HCZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
     private HeadlessTestFixture fixture;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -92,10 +87,10 @@ public class TestS3kHczPaletteCycling {
     @Test
     public void waterCycleModifiesPaletteLine3Color3() {
         Level level = GameServices.level().getCurrentLevel();
-        assertNotNull("Level must be loaded", level);
+        assertNotNull(level, "Level must be loaded");
 
         Palette pal2 = level.getPalette(2);
-        assertNotNull("Palette line 3 (index 2) must exist", pal2);
+        assertNotNull(pal2, "Palette line 3 (index 2) must exist");
 
         // Record initial water color (palette line 3, color 3)
         Palette.Color color3 = pal2.getColor(3);
@@ -104,7 +99,7 @@ public class TestS3kHczPaletteCycling {
         int initialB = color3.b & 0xFF;
 
         // The HCZ water cycle ticks every 8 frames with 4 entries,
-        // so 60 frames covers more than one full cycle (4 frames × 8 ticks = 32 game frames).
+        // so 60 frames covers more than one full cycle (4 frames Ãƒâ€” 8 ticks = 32 game frames).
         boolean colorChanged = false;
         for (int frame = 0; frame < 60; frame++) {
             fixture.stepIdleFrames(1);
@@ -119,10 +114,9 @@ public class TestS3kHczPaletteCycling {
             }
         }
 
-        assertTrue("Expected palette[2] color 3 (HCZ water cycle) to change over 60 frames, "
+        assertTrue(colorChanged, "Expected palette[2] color 3 (HCZ water cycle) to change over 60 frames, "
                 + "proving AnPal_PalHCZ1 cycling is active. "
-                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")",
-                colorChanged);
+                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")");
     }
 
     // ========== Direct cycler tests with specific color value assertions ==========
@@ -136,7 +130,7 @@ public class TestS3kHczPaletteCycling {
     public void waterCycleFirstTickAppliesRomValues() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         HczStubLevel stubLevel = new HczStubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, ACT_1);
 
@@ -148,29 +142,28 @@ public class TestS3kHczPaletteCycling {
             int r = pal2.getColor(c).r & 0xFF;
             int g = pal2.getColor(c).g & 0xFF;
             int b = pal2.getColor(c).b & 0xFF;
-            assertTrue("HCZ water color " + c + " should be non-zero after first tick, got ("
-                    + r + "," + g + "," + b + ")",
-                    r > 0 || g > 0 || b > 0);
+            assertTrue(r > 0 || g > 0 || b > 0, "HCZ water color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")");
         }
     }
 
     /**
      * Verifies the water cycle produces exactly 4 distinct frame states over a full period.
      * HCZ water has 4 frames (counter0 cycles 0,8,16,24 with mask & 0x18, wraps at 0x20).
-     * Timer period 7 → fires every 8 ticks. Over 32 ticks, fires 4 times.
+     * Timer period 7 Ã¢â€ â€™ fires every 8 ticks. Over 32 ticks, fires 4 times.
      */
     @Test
     public void waterCycleProducesFourDistinctFrames() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         HczStubLevel stubLevel = new HczStubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, ACT_1);
 
         int distinctCount = 0;
         int prevR = -1, prevG = -1, prevB = -1;
 
-        // 32 ticks: first fires at tick 0, then at ticks 8, 16, 24 → 4 fires total
+        // 32 ticks: first fires at tick 0, then at ticks 8, 16, 24 Ã¢â€ â€™ 4 fires total
         for (int frame = 0; frame < 32; frame++) {
             cycler.update();
             Palette.Color c3 = stubLevel.getPalette(2).getColor(3);
@@ -187,8 +180,8 @@ public class TestS3kHczPaletteCycling {
 
         // 4 unique ROM frames should produce at least 2 distinct observed states
         // (some may coincide due to palette data)
-        assertTrue("HCZ water should produce at least 2 distinct color 3 states over 32 frames, got "
-                + distinctCount, distinctCount >= 2);
+        assertTrue(distinctCount >= 2, "HCZ water should produce at least 2 distinct color 3 states over 32 frames, got "
+                + distinctCount);
     }
 
     /**
@@ -199,7 +192,7 @@ public class TestS3kHczPaletteCycling {
     public void waterCycleWritesAllFourColorsPerFrame() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         HczStubLevel stubLevel = new HczStubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, ACT_1);
 
@@ -218,8 +211,8 @@ public class TestS3kHczPaletteCycling {
             }
         }
 
-        assertTrue("All 4 HCZ water colors (3-6) should be written on first tick, but only "
-                + nonZeroCount + " are non-zero", nonZeroCount >= 3);
+        assertTrue(nonZeroCount >= 3, "All 4 HCZ water colors (3-6) should be written on first tick, but only "
+                + nonZeroCount + " are non-zero");
     }
 
     /**
@@ -230,9 +223,9 @@ public class TestS3kHczPaletteCycling {
     public void hcz2HasNoPaletteCycling() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         HczStubLevel stubLevel = new HczStubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
-        // Create cycler for Act 2 — should produce no cycles
+        // Create cycler for Act 2 Ã¢â‚¬â€ should produce no cycles
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, 1);
 
         // Record initial palette state (should be all zeros from stub)
@@ -241,14 +234,14 @@ public class TestS3kHczPaletteCycling {
         int initialG = pal2.getColor(3).g & 0xFF;
         int initialB = pal2.getColor(3).b & 0xFF;
 
-        // Tick many frames — palette should never change
+        // Tick many frames Ã¢â‚¬â€ palette should never change
         for (int i = 0; i < 60; i++) {
             cycler.update();
         }
 
-        assertEquals("HCZ2 palette should not cycle (R)", initialR, pal2.getColor(3).r & 0xFF);
-        assertEquals("HCZ2 palette should not cycle (G)", initialG, pal2.getColor(3).g & 0xFF);
-        assertEquals("HCZ2 palette should not cycle (B)", initialB, pal2.getColor(3).b & 0xFF);
+        assertEquals(initialR, pal2.getColor(3).r & 0xFF, "HCZ2 palette should not cycle (R)");
+        assertEquals(initialG, pal2.getColor(3).g & 0xFF, "HCZ2 palette should not cycle (G)");
+        assertEquals(initialB, pal2.getColor(3).b & 0xFF, "HCZ2 palette should not cycle (B)");
     }
 
     /**
@@ -283,3 +276,6 @@ public class TestS3kHczPaletteCycling {
         @Override public int getZoneIndex() { return ZONE_HCZ; }
     }
 }
+
+
+

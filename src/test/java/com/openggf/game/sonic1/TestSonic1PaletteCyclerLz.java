@@ -12,16 +12,14 @@ import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class TestSonic1PaletteCyclerLz {
@@ -43,12 +41,9 @@ public class TestSonic1PaletteCyclerLz {
             0x04, 0x64, 0x00, 0x20, 0x08, (byte) 0xa8,
             0x00, 0x20, 0x08, (byte) 0xa8, 0x04, 0x64
     };
-
-    @Rule
-    public final RequiresRomRule romRule = new RequiresRomRule();
     private Sonic1ConveyorState conveyorState;
 
-    @Before
+    @BeforeEach
     public void resetConveyorState() {
         conveyorState = new Sonic1ConveyorState();
         conveyorState.resetState();
@@ -235,3 +230,5 @@ public class TestSonic1PaletteCyclerLz {
         }
     }
 }
+
+

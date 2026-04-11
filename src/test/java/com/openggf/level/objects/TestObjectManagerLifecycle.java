@@ -1,9 +1,9 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GLCommand;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
@@ -14,17 +14,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestObjectManagerLifecycle {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -123,3 +123,5 @@ public class TestObjectManagerLifecycle {
         }
     }
 }
+
+

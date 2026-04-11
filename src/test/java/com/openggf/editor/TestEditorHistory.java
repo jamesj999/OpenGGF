@@ -102,3 +102,5 @@ class TestEditorHistory {
         assertEquals("AURr", log.toString());
     }
 }
+
+

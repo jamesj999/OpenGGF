@@ -2,8 +2,7 @@ package com.openggf.game.sonic1;
 
 import com.openggf.game.OscillationManager;
 import com.openggf.game.RuntimeManager;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.Block;
@@ -17,20 +16,16 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class TestSonic1PatternAnimatorMagma {
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     @Test
     public void marbleMagmaBodyTilesAreGeneratedAndAnimated() throws IOException {
         OscillationManager.reset();
@@ -41,7 +36,7 @@ public class TestSonic1PatternAnimatorMagma {
             TestLevel level = new TestLevel(required + 32);
 
             Sonic1PatternAnimator animator = new Sonic1PatternAnimator(
-                    RomByteReader.fromRom(romRule.rom()),
+                    RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom()),
                     level,
                     Sonic1Constants.ZONE_MZ);
 
@@ -54,7 +49,7 @@ public class TestSonic1PatternAnimatorMagma {
             }
 
             byte[] animated = dumpMagmaBlock(level, magmaTile);
-            assertFalse("MZ magma block should animate over time", Arrays.equals(initial, animated));
+            assertFalse(Arrays.equals(initial, animated), "MZ magma block should animate over time");
         } finally {
             RuntimeManager.destroyCurrent();
         }
@@ -195,3 +190,5 @@ public class TestSonic1PatternAnimatorMagma {
         }
     }
 }
+
+

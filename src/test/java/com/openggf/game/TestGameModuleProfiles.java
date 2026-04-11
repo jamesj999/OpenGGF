@@ -6,8 +6,8 @@ import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.Sonic2LevelInitProfile;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLevelInitProfile;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestGameModuleProfiles {
 
@@ -90,3 +90,5 @@ public class TestGameModuleProfiles {
         assertTrue(profile.postTeardownFixups().isEmpty());
     }
 }
+
+

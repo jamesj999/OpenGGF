@@ -3,9 +3,9 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
@@ -24,9 +24,9 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1GargoyleObjectInstanceRender {
 
@@ -35,7 +35,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
     private GameRuntime originalRuntime;
     private LevelManager runtimeLevelManager;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         originalRuntime = RuntimeManager.getCurrent();
         RuntimeManager.destroyCurrent();
@@ -45,7 +45,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
         originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         objectRenderManagerField.set(runtimeLevelManager, originalRenderManager);
         RuntimeManager.setCurrent(originalRuntime);
@@ -62,7 +62,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
         leftFacing.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);
-        assertFalse("Status bit 0 clear should render without H-flip (facing left)", renderer.lastHFlip);
+        assertFalse(renderer.lastHFlip, "Status bit 0 clear should render without H-flip (facing left)");
 
         Sonic1GargoyleObjectInstance rightFacing = new Sonic1GargoyleObjectInstance(
                 new ObjectSpawn(120, 100, Sonic1ObjectIds.GARGOYLE, 0, 1, false, 0));
@@ -70,7 +70,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
         rightFacing.appendRenderCommands(new ArrayList<>());
 
         assertEquals(2, renderer.drawCount);
-        assertTrue("Status bit 0 set should render with H-flip (facing right)", renderer.lastHFlip);
+        assertTrue(renderer.lastHFlip, "Status bit 0 set should render with H-flip (facing right)");
     }
 
     @Test
@@ -84,9 +84,8 @@ public class TestSonic1GargoyleObjectInstanceRender {
         fireball.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);
-        assertTrue("Fireball render path should call palette override variant", renderer.usedPaletteOverride);
-        assertEquals("Gar_FireBall uses make_art_tile(...,0,0), so palette line must be 0",
-                0, renderer.lastPaletteOverride);
+        assertTrue(renderer.usedPaletteOverride, "Fireball render path should call palette override variant");
+        assertEquals(0, renderer.lastPaletteOverride, "Gar_FireBall uses make_art_tile(...,0,0), so palette line must be 0");
     }
 
     private void installRenderer(RecordingRenderer renderer) throws Exception {
@@ -200,3 +199,5 @@ public class TestSonic1GargoyleObjectInstanceRender {
         }
     }
 }
+
+

@@ -166,3 +166,5 @@ class TestSessionManager {
         assertThrows(NullPointerException.class, () -> SessionManager.enterEditorMode(null));
     }
 }
+
+

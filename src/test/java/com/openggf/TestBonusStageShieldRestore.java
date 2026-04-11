@@ -60,3 +60,5 @@ class TestBonusStageShieldRestore {
         assertNull(GameLoop.resolveShieldToRestore(none, 0));
     }
 }
+
+

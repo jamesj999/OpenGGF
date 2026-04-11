@@ -14,17 +14,15 @@ import com.openggf.level.Palette;
 import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Headless tests for the AIZ1 miniboss fire curtain transition.
@@ -39,10 +37,6 @@ import static org.junit.Assert.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAiz1FireCurtainHeadless {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_AIZ = 0;
     private static final int ACT_1 = 0;
     private static final int FPS = 60;
@@ -58,7 +52,7 @@ public class TestS3kAiz1FireCurtainHeadless {
     private static Object oldSkipIntros;
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
@@ -66,7 +60,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         SonicConfigurationService.getInstance().setConfigValue(
                 SonicConfiguration.S3K_SKIP_INTROS,
@@ -77,7 +71,7 @@ public class TestS3kAiz1FireCurtainHeadless {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -135,9 +129,9 @@ public class TestS3kAiz1FireCurtainHeadless {
     private Sonic3kAIZEvents getAizEvents() {
         Sonic3kLevelEventManager lem =
                 (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
-        assertNotNull("Sonic3kLevelEventManager should exist", lem);
+        assertNotNull(lem, "Sonic3kLevelEventManager should exist");
         Sonic3kAIZEvents events = lem.getAizEvents();
-        assertNotNull("AIZ events should be initialized", events);
+        assertNotNull(events, "AIZ events should be initialized");
         return events;
     }
 
@@ -165,9 +159,8 @@ public class TestS3kAiz1FireCurtainHeadless {
 
         // The diagnostic logs showed 142/142 empty at the fire source area (sky tiles).
         // This test documents the current state for regression tracking.
-        assertTrue("Expected most BG tiles at fire source (0x1000, 0x20-0xE0) to be empty sky; "
-                + "got " + emptyCount + "/" + totalCount + " empty",
-                emptyCount > totalCount / 2);
+        assertTrue(emptyCount > totalCount / 2, "Expected most BG tiles at fire source (0x1000, 0x20-0xE0) to be empty sky; "
+                + "got " + emptyCount + "/" + totalCount + " empty");
     }
 
     @Test
@@ -190,9 +183,8 @@ public class TestS3kAiz1FireCurtainHeadless {
             }
         }
 
-        assertTrue("Expected some non-empty BG tiles at lower Y coords (0x100-0x300); "
-                + "got " + nonEmptyCount + "/" + totalCount + " non-empty",
-                nonEmptyCount > 0);
+        assertTrue(nonEmptyCount > 0, "Expected some non-empty BG tiles at lower Y coords (0x100-0x300); "
+                + "got " + nonEmptyCount + "/" + totalCount + " non-empty");
     }
 
     @Test
@@ -206,15 +198,12 @@ public class TestS3kAiz1FireCurtainHeadless {
         // BG camera must scroll past FIRE_TILE_START_Y (0x100) for visible cover.
         fixture.stepIdleFrames(10);
 
-        assertTrue("Fire transition should be active after Events_fg_5 set",
-                events.isFireTransitionActive());
+        assertTrue(events.isFireTransitionActive(), "Fire transition should be active after Events_fg_5 set");
 
         FireCurtainRenderState state = events.getFireCurtainRenderState(224);
-        assertTrue("Render state should be active", state.active());
-        assertTrue("Cover height should be > 0, got " + state.coverHeightPx(),
-                state.coverHeightPx() > 0);
-        assertEquals("Stage should be AIZ1_RISING",
-                FireCurtainStage.AIZ1_RISING, state.stage());
+        assertTrue(state.active(), "Render state should be active");
+        assertTrue(state.coverHeightPx() > 0, "Cover height should be > 0, got " + state.coverHeightPx());
+        assertEquals(FireCurtainStage.AIZ1_RISING, state.stage(), "Stage should be AIZ1_RISING");
     }
 
     @Test
@@ -227,10 +216,8 @@ public class TestS3kAiz1FireCurtainHeadless {
         fixture.stepIdleFrames(1);
 
         FireCurtainRenderState state = events.getFireCurtainRenderState(224);
-        assertTrue("Fire overlay tiles should be loaded, got count=" + state.fireOverlayTileCount(),
-                state.fireOverlayTileCount() > 0);
-        assertEquals("Fire overlay tile base should be 0x500",
-                FIRE_OVERLAY_TILE_DEST, state.fireOverlayTileBase());
+        assertTrue(state.fireOverlayTileCount() > 0, "Fire overlay tiles should be loaded, got count=" + state.fireOverlayTileCount());
+        assertEquals(FIRE_OVERLAY_TILE_DEST, state.fireOverlayTileBase(), "Fire overlay tile base should be 0x500");
     }
 
     @Test
@@ -265,11 +252,10 @@ public class TestS3kAiz1FireCurtainHeadless {
             }
         }
 
-        assertTrue("Should pass through AIZ1_RISING stage", sawRising);
-        assertTrue("Should progress to AIZ1_REFRESH stage", sawRefresh);
-        assertTrue("Should reach AIZ1_FINISH stage", sawFinish);
-        assertTrue("Cover height should reach full screen (224px), got " + risingCoverMax,
-                risingCoverMax >= 224);
+        assertTrue(sawRising, "Should pass through AIZ1_RISING stage");
+        assertTrue(sawRefresh, "Should progress to AIZ1_REFRESH stage");
+        assertTrue(sawFinish, "Should reach AIZ1_FINISH stage");
+        assertTrue(risingCoverMax >= 224, "Cover height should reach full screen (224px), got " + risingCoverMax);
     }
 
     @Test
@@ -286,9 +272,8 @@ public class TestS3kAiz1FireCurtainHeadless {
         }
 
         FireCurtainRenderState state = events.getFireCurtainRenderState(224);
-        assertTrue("Render state should be active", state.active());
-        assertEquals("Should have 20 column wave offsets",
-                20, state.columnWaveOffsetsPx().length);
+        assertTrue(state.active(), "Render state should be active");
+        assertEquals(20, state.columnWaveOffsetsPx().length, "Should have 20 column wave offsets");
 
         // Wave offsets should not ALL be zero after some frames of animation
         boolean anyNonZero = false;
@@ -298,7 +283,7 @@ public class TestS3kAiz1FireCurtainHeadless {
                 break;
             }
         }
-        assertTrue("Wave offsets should contain non-zero values for wavy edge effect", anyNonZero);
+        assertTrue(anyNonZero, "Wave offsets should contain non-zero values for wavy edge effect");
     }
 
     @Test
@@ -313,17 +298,16 @@ public class TestS3kAiz1FireCurtainHeadless {
         // After beginFireTransition(), palette line 4 (index 3) colors 1-6
         // should have fire transition words: 0x004E, 0x006E, 0x00AE, 0x00CE, 0x02EE, 0x0AEE
         Palette pal3 = GameServices.level().getCurrentLevel().getPalette(3);
-        assertNotNull("Palette line 4 (index 3) should exist", pal3);
+        assertNotNull(pal3, "Palette line 4 (index 3) should exist");
 
         // Convert expected fire words to RGB for comparison
         int[] expectedFireWords = {0x004E, 0x006E, 0x00AE, 0x00CE, 0x02EE, 0x0AEE};
         for (int i = 0; i < expectedFireWords.length; i++) {
             Palette.Color color = pal3.getColor(i + 1);
-            assertNotNull("Palette color " + (i + 1) + " should exist", color);
+            assertNotNull(color, "Palette color " + (i + 1) + " should exist");
             int segaWord = toSegaWord(color);
-            assertEquals("Palette line 4 color " + (i + 1) + " should be fire color 0x"
-                    + Integer.toHexString(expectedFireWords[i]),
-                    expectedFireWords[i], segaWord);
+            assertEquals(expectedFireWords[i], segaWord, "Palette line 4 color " + (i + 1) + " should be fire color 0x"
+                    + Integer.toHexString(expectedFireWords[i]));
         }
     }
 
@@ -346,13 +330,13 @@ public class TestS3kAiz1FireCurtainHeadless {
                 break;
             }
         }
-        assertTrue("Should reach post-mutation phase", reachedRefresh);
+        assertTrue(reachedRefresh, "Should reach post-mutation phase");
 
         // After mutation, PalPointers #$0B should have been loaded, overwriting
         // ALL 16 colors of palette line 4 (index 3) with fire values.
         // Colors 7-15 should no longer have green AIZ1 values.
         Palette pal3 = GameServices.level().getCurrentLevel().getPalette(3);
-        assertNotNull("Palette line 4 should exist after mutation", pal3);
+        assertNotNull(pal3, "Palette line 4 should exist after mutation");
 
         // Check that colors 7-15 are NOT the typical green AIZ1 waterfall colors.
         // Normal AIZ1 palette line 4 colors 12-14 cycle between green values.
@@ -373,9 +357,8 @@ public class TestS3kAiz1FireCurtainHeadless {
                 }
             }
         }
-        assertTrue("After mutation, palette line 4 should not have green-only colors in slots 7-15."
-                + " Palette dump:" + colorDump,
-                !anyGreenOnly);
+        assertTrue(!anyGreenOnly, "After mutation, palette line 4 should not have green-only colors in slots 7-15."
+                + " Palette dump:" + colorDump);
     }
 
     @Test
@@ -387,8 +370,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         events.setEventsFg5(true);
         fixture.stepIdleFrames(1);
 
-        assertTrue("Fire transition scroll should be active during curtain",
-                events.isFireTransitionScrollActive());
+        assertTrue(events.isFireTransitionScrollActive(), "Fire transition scroll should be active during curtain");
     }
 
     @Test
@@ -413,8 +395,8 @@ public class TestS3kAiz1FireCurtainHeadless {
             }
         }
 
-        assertTrue("Cover height should grow multiple times during rising phase, grew "
-                + growthCount + " times", growthCount >= 3);
+        assertTrue(growthCount >= 3, "Cover height should grow multiple times during rising phase, grew "
+                + growthCount + " times");
     }
 
     @Test
@@ -430,7 +412,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         FireCurtainRenderState state = events.getFireCurtainRenderState(224);
         int tileBase = state.fireOverlayTileBase();
         int tileCount = state.fireOverlayTileCount();
-        assertTrue("Fire overlay tiles should be loaded", tileCount > 0);
+        assertTrue(tileCount > 0, "Fire overlay tiles should be loaded");
 
         com.openggf.level.Level level = GameServices.level().getCurrentLevel();
         int patternCount = level.getPatternCount();
@@ -491,23 +473,21 @@ public class TestS3kAiz1FireCurtainHeadless {
             }
         }
 
-        assertTrue("Should have checked some fire overlay patterns; checked=" + patternsChecked
+        assertTrue(patternsChecked > 0, "Should have checked some fire overlay patterns; checked=" + patternsChecked
                 + " null=" + nullPatterns
                 + " patternCount=" + patternCount
                 + " tileBase=0x" + Integer.toHexString(tileBase)
                 + " tileCount=" + tileCount
                 + " regularArtHasContent=" + (regularContent > 0)
-                + " firstPatternPixels=" + firstPatternDump,
-                patternsChecked > 0);
-        assertTrue("Fire overlay patterns should have non-transparent pixel data; "
+                + " firstPatternPixels=" + firstPatternDump);
+        assertTrue(patternsWithContent > 0 && totalNonZeroPixels > 10, "Fire overlay patterns should have non-transparent pixel data; "
                 + patternsWithContent + "/" + patternsChecked + " had content, "
                 + totalNonZeroPixels + " total non-zero pixels"
                 + " null=" + nullPatterns
                 + " patternCount=" + patternCount
                 + " tileBase=0x" + Integer.toHexString(tileBase)
                 + " regularArtHasContent=" + (regularContent > 0)
-                + " firstPatternPixels=" + firstPatternDump,
-                patternsWithContent > 0 && totalNonZeroPixels > 10);
+                + " firstPatternPixels=" + firstPatternDump);
     }
 
     @Test
@@ -522,7 +502,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         LevelManager lm = GameServices.level();
         // With VDP mapping: screen bottom (drawY=216) maps to sourceY = bgY + 216.
         // Fire tiles exist at BG Y >= 0x100. So fire appears when bgY + 216 >= 0x100,
-        // i.e., bgY >= 0x100 - 216 ≈ 0x28. Since bgY starts at 0x20 and increases,
+        // i.e., bgY >= 0x100 - 216 â‰ˆ 0x28. Since bgY starts at 0x20 and increases,
         // fire tiles should appear within a few frames.
         int fireTilesFound = 0;
         for (int frame = 0; frame < 30; frame++) {
@@ -536,9 +516,8 @@ public class TestS3kAiz1FireCurtainHeadless {
                 fireTilesFound++;
             }
         }
-        assertTrue("BG sampling with VDP mapping should find fire tiles (0x500+) "
-                + "at screen bottom within 30 frames; found " + fireTilesFound,
-                fireTilesFound > 0);
+        assertTrue(fireTilesFound > 0, "BG sampling with VDP mapping should find fire tiles (0x500+) "
+                + "at screen bottom within 30 frames; found " + fireTilesFound);
     }
 
     // ---- Utility ----
@@ -554,3 +533,5 @@ public class TestS3kAiz1FireCurtainHeadless {
         return ((b3 & 0x7) << 9) | ((g3 & 0x7) << 5) | ((r3 & 0x7) << 1);
     }
 }
+
+

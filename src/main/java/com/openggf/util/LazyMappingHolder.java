@@ -34,8 +34,8 @@ public final class LazyMappingHolder {
         }
         attempted = true;
 
-        LevelManager manager = GameServices.level();
-        if (manager.getGame() == null) {
+        LevelManager manager = GameServices.levelOrNull();
+        if (manager == null || manager.getGame() == null) {
             return Collections.emptyList();
         }
 

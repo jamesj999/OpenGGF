@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.ResultsScreen;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.SpecialStageAccessType;
 import com.openggf.game.SpecialStageDebugProvider;
 import com.openggf.game.SpecialStageProvider;
@@ -186,7 +186,11 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
     @Override
     public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
                                              int stageIndex, int totalEmeraldCount) {
-        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        var runtime = GameServices.runtimeOrNull();
+        if (runtime == null) {
+            throw new IllegalStateException("Special-stage results screen requires an active GameRuntime");
+        }
+        DefaultObjectServices services = new DefaultObjectServices(runtime);
         ObjectConstructionContext.setConstructionContext(services);
         try {
             return new SpecialStageResultsScreenObjectInstance(

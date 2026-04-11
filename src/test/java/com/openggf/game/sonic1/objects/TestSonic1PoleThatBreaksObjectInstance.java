@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -10,9 +10,9 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1PoleThatBreaksObjectInstance {
 
@@ -110,13 +110,12 @@ public class TestSonic1PoleThatBreaksObjectInstance {
 
         int startY = player.getCentreY();
 
-        // Forced UP input (demo data) — no keyboard input set
+        // Forced UP input (demo data) â€” no keyboard input set
         player.setForcedInputMask(AbstractPlayableSprite.INPUT_UP);
         for (int i = 2; i <= 10; i++) {
             pole.update(i, player);
         }
-        assertTrue("Forced UP should move player upward on pole",
-                player.getCentreY() < startY);
+        assertTrue(player.getCentreY() < startY, "Forced UP should move player upward on pole");
 
         int afterUpY = player.getCentreY();
 
@@ -125,8 +124,7 @@ public class TestSonic1PoleThatBreaksObjectInstance {
         for (int i = 11; i <= 20; i++) {
             pole.update(i, player);
         }
-        assertTrue("Forced DOWN should move player downward on pole",
-                player.getCentreY() > afterUpY);
+        assertTrue(player.getCentreY() > afterUpY, "Forced DOWN should move player downward on pole");
 
         player.clearForcedInputMask();
     }
@@ -168,3 +166,5 @@ public class TestSonic1PoleThatBreaksObjectInstance {
     }
 
 }
+
+

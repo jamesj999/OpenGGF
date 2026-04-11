@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -30,7 +30,7 @@ public class TestS1FlamethrowerObjectRendering {
     private GameRuntime originalRuntime;
     private LevelManager runtimeLevelManager;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         originalRuntime = RuntimeManager.getCurrent();
         RuntimeManager.destroyCurrent();
@@ -40,7 +40,7 @@ public class TestS1FlamethrowerObjectRendering {
         originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         objectRenderManagerField.set(runtimeLevelManager, originalRenderManager);
         RuntimeManager.setCurrent(originalRuntime);
@@ -65,3 +65,5 @@ public class TestS1FlamethrowerObjectRendering {
         verify(renderer).drawFrameIndex(anyInt(), eq(0x1234), eq(0x0560), eq(true), eq(true));
     }
 }
+
+

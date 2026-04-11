@@ -1,8 +1,5 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Test;
-import com.openggf.control.InputHandler;
 import com.openggf.audio.AudioBackend;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.ChannelType;
@@ -11,24 +8,29 @@ import com.openggf.audio.NullAudioBackend;
 import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsSequencer;
+import com.openggf.control.InputHandler;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
-import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
-import com.openggf.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
+import com.openggf.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
-import java.io.File;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeNotNull;
-
+@RequiresRom(SonicGame.SONIC_2)
 public class TestTitleScreenAudioRegression {
-    @After
-    public void tearDown() {
+
+    @AfterEach
+    void tearDown() {
         AudioManager.getInstance().setBackend(new NullAudioBackend());
         TitleScreenManager.getInstance().reset();
     }
@@ -135,27 +137,21 @@ public class TestTitleScreenAudioRegression {
     }
 
     @Test
-    public void testTitleMusicLoadsFromRom() {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
-        Rom rom = new Rom();
-        assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
+    void testTitleMusicLoadsFromRom() throws Exception {
+        Rom rom = GameServices.rom().getRom();
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
         AbstractSmpsData titleMusic = loader.loadMusic(Sonic2Music.TITLE.id);
-        assertNotNull("Title music should load from ROM", titleMusic);
+        assertNotNull(titleMusic, "Title music should load from ROM");
     }
 
     @Test
-    public void testSparkleSfxCompletesQuickly() {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
-        Rom rom = new Rom();
-        assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
+    void testSparkleSfxCompletesQuickly() throws Exception {
+        Rom rom = GameServices.rom().getRom();
 
         Sonic2SmpsLoader loader = new Sonic2SmpsLoader(rom);
         AbstractSmpsData sparkle = loader.loadSfx(Sonic2Sfx.SPARKLE.id);
-        assertNotNull("Sparkle SFX should load from ROM", sparkle);
+        assertNotNull(sparkle, "Sparkle SFX should load from ROM");
 
         DacData dacData = loader.loadDacData();
         SmpsSequencer seq = new SmpsSequencer(sparkle, dacData, Sonic2SmpsSequencerConfig.CONFIG);
@@ -163,20 +159,16 @@ public class TestTitleScreenAudioRegression {
 
         int ticks = 0;
         while (!seq.isComplete() && ticks < 1000) {
-            // Slightly above one 60 Hz frame at 44.1 kHz to guarantee one tick.
             seq.advance(750);
             ticks++;
         }
 
-        assertTrue("Sparkle SFX should complete in under ~4 seconds", ticks < 240);
+        assertTrue(ticks < 240, "Sparkle SFX should complete in under ~4 seconds");
     }
 
     @Test
-    public void testTitleScreenTriggersSparkleAndMusicExpectedCounts() {
-        File romFile = RomTestUtils.ensureRomAvailable();
-        assumeNotNull("Sonic 2 ROM not available — skipping test", romFile);
-        Rom rom = new Rom();
-        assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
+    void testTitleScreenTriggersSparkleAndMusicExpectedCounts() throws Exception {
+        Rom rom = GameServices.rom().getRom();
 
         AudioManager audioManager = AudioManager.getInstance();
         CountingBackend backend = new CountingBackend();
@@ -193,7 +185,10 @@ public class TestTitleScreenAudioRegression {
             input.update();
         }
 
-        assertEquals("Title music should be triggered once", 1, backend.musicPlayCalls);
-        assertEquals("Title sparkle SFX should trigger exactly 10 times (init + 9 positions)", 10, backend.sparkleSfxCalls);
+        assertEquals(1, backend.musicPlayCalls, "Title music should be triggered once");
+        assertEquals(10, backend.sparkleSfxCalls,
+                "Title sparkle SFX should trigger exactly 10 times (init + 9 positions)");
     }
 }
+
+

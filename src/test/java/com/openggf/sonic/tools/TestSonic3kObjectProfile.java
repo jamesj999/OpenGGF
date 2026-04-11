@@ -1,14 +1,14 @@
 package com.openggf.sonic.tools;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.LevelData;
 import com.openggf.tools.ObjectDiscoveryTool.LevelConfig;
 import com.openggf.tools.Sonic3kObjectProfile;
 
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic3kObjectProfile {
 
@@ -50,3 +50,5 @@ public class TestSonic3kObjectProfile {
         assertFalse(profile.getImplementedIds(mhz1).contains(0x99));
     }
 }
+
+
