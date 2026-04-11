@@ -196,7 +196,7 @@ public class TryAgainEndManager {
             Rom rom = GameServices.rom().getRom();
             RomByteReader reader = new RomByteReader(rom.readAllBytes());
             Sonic1ObjectArt art = new Sonic1ObjectArt(rom, reader);
-            GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+            GraphicsManager gm = GameServices.graphics();
 
             // Load ending palette (ROM: PalLoad_Fade palid_Ending)
             loadEndingPalette(rom, gm);
@@ -341,7 +341,7 @@ public class TryAgainEndManager {
         }
 
         // Check START press (mapped to configured jump key, matching ROM's Start button)
-        int startKey = com.openggf.game.RuntimeManager.getEngineServices().configuration().getInt(SonicConfiguration.JUMP);
+        int startKey = GameServices.configuration().getInt(SonicConfiguration.JUMP);
         if (inputHandler != null && startKey > 0 && inputHandler.isKeyPressed(startKey)) {
             exitRequested = true;
             return;
@@ -468,7 +468,7 @@ public class TryAgainEndManager {
         }
 
         // Draw emeralds and Eggman in a single batch
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();

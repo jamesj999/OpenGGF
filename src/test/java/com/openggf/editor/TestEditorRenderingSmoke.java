@@ -37,16 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestEditorRenderingSmoke {
+    private static final GraphicsManager TEST_GRAPHICS = GraphicsManager.getInstance();
 
     @AfterEach
     void tearDown() {
         SessionManager.clear();
-        GraphicsManager.getInstance().resetState();
+        TEST_GRAPHICS.resetState();
     }
 
     @Test
     void focusedPaneRenderer_buildsWithoutPermanentSidebarAssumptions() {
-        FocusedEditorPaneRenderer renderer = new FocusedEditorPaneRenderer();
+        FocusedEditorPaneRenderer renderer = new FocusedEditorPaneRenderer(null, TEST_GRAPHICS);
 
         assertDoesNotThrow(renderer::renderBlockEditorPane);
         assertDoesNotThrow(renderer::renderChunkEditorPane);
@@ -456,7 +457,7 @@ class TestEditorRenderingSmoke {
         }
 
         private InspectableToolbarRenderer(LevelEditorController controller) {
-            super(controller);
+            super(controller, TEST_GRAPHICS);
         }
 
         private List<GLCommand> buildCommands() {
@@ -480,7 +481,7 @@ class TestEditorRenderingSmoke {
         }
 
         private InspectableCommandStripRenderer(LevelEditorController controller) {
-            super(controller);
+            super(controller, TEST_GRAPHICS);
         }
 
         private List<GLCommand> buildCommands() {
@@ -500,7 +501,7 @@ class TestEditorRenderingSmoke {
 
     private static final class InspectableLibraryPaneRenderer extends EditorLibraryPaneRenderer {
         private InspectableLibraryPaneRenderer(LevelEditorController controller) {
-            super(controller);
+            super(controller, TEST_GRAPHICS);
         }
 
         private List<GLCommand> buildCommands() {
@@ -515,6 +516,10 @@ class TestEditorRenderingSmoke {
     }
 
     private static final class InspectableTextRenderer extends EditorTextRenderer {
+        private InspectableTextRenderer() {
+            super(TEST_GRAPHICS);
+        }
+
         private List<TextCommand> buildCommands(List<String> lines, int x, int y) {
             return buildTextCommands(lines, x, y);
         }
@@ -526,11 +531,11 @@ class TestEditorRenderingSmoke {
 
     private static final class InspectableFocusedEditorPaneRenderer extends FocusedEditorPaneRenderer {
         private InspectableFocusedEditorPaneRenderer() {
-            super();
+            super(null, TEST_GRAPHICS);
         }
 
         private InspectableFocusedEditorPaneRenderer(LevelEditorController controller) {
-            super(controller);
+            super(controller, TEST_GRAPHICS);
         }
 
         private List<GLCommand> buildBlockCommands() {

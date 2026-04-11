@@ -1,12 +1,14 @@
 package com.openggf.editor.render;
 
 import com.openggf.editor.LevelEditorController;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandGroup;
 import com.openggf.graphics.GraphicsManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import static org.lwjgl.opengl.GL11.GL_LINES;
 
@@ -18,26 +20,34 @@ public class EditorToolbarRenderer {
     private static final int TEXT_Y = 10;
 
     private final LevelEditorController controller;
+    private final GraphicsManager graphicsManager;
     private final EditorTextRenderer textRenderer;
 
     public EditorToolbarRenderer() {
-        this(null);
+        this(null, GameServices.graphics());
     }
 
     public EditorToolbarRenderer(LevelEditorController controller) {
-        this(controller, new EditorTextRenderer());
+        this(controller, GameServices.graphics());
     }
 
-    public EditorToolbarRenderer(LevelEditorController controller, EditorTextRenderer textRenderer) {
+    public EditorToolbarRenderer(LevelEditorController controller, GraphicsManager graphicsManager) {
+        this(controller, graphicsManager, new EditorTextRenderer(graphicsManager));
+    }
+
+    public EditorToolbarRenderer(LevelEditorController controller,
+                                 GraphicsManager graphicsManager,
+                                 EditorTextRenderer textRenderer) {
         this.controller = controller;
-        this.textRenderer = textRenderer;
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+        this.textRenderer = Objects.requireNonNull(textRenderer, "textRenderer");
     }
 
     public void render() {
         List<GLCommand> commands = new ArrayList<>();
         appendCommands(commands);
         if (!commands.isEmpty()) {
-            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
         textRenderer.renderLines(buildStateLines(), TEXT_X, TEXT_Y);
     }

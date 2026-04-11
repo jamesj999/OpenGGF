@@ -38,7 +38,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
 
     private static Sonic1LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final Sonic1LevelSelectDataLoader dataLoader = new Sonic1LevelSelectDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -250,12 +250,11 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         // This ensures the title screen art appears with the brown/sepia tint
         // from Pal_LevelSel, matching the original hardware behaviour where
         // changing CRAM immediately affects all displayed tiles.
-        dataLoader.cacheToGpu();
-
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
+        dataLoader.cacheToGpu(gm);
 
         // Render frozen title screen art behind the level select text.
         // The level select palette is already active on the GPU, so the

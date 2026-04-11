@@ -2,10 +2,12 @@ package com.openggf.game;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
@@ -18,7 +20,9 @@ import com.openggf.timer.TimerManager;
  * Thin service locator for non-object code.
  * <p>
  * Runtime-owned managers delegate to {@link RuntimeManager#getCurrent()}.
- * Engine globals (audio, ROM, debug overlay) stay as direct singleton calls.
+ * Engine globals (audio, ROM, config, debug overlay, graphics, ROM detection,
+ * cross-game features)
+ * stay behind the engine-services root.
  * <p>
  * Object instances should use {@code services()} instead of this class.
  */
@@ -188,5 +192,21 @@ public final class GameServices {
 
     public static AudioManager audio() {
         return com.openggf.game.RuntimeManager.getEngineServices().audio();
+    }
+
+    public static SonicConfigurationService configuration() {
+        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+    }
+
+    public static GraphicsManager graphics() {
+        return com.openggf.game.RuntimeManager.getEngineServices().graphics();
+    }
+
+    public static RomDetectionService romDetection() {
+        return com.openggf.game.RuntimeManager.getEngineServices().romDetection();
+    }
+
+    public static CrossGameFeatureProvider crossGameFeatures() {
+        return com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures();
     }
 }

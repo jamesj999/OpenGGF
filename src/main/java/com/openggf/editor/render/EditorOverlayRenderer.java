@@ -3,6 +3,8 @@ package com.openggf.editor.render;
 import com.openggf.editor.EditorFocusRegion;
 import com.openggf.editor.EditorHierarchyDepth;
 import com.openggf.editor.LevelEditorController;
+import com.openggf.game.GameServices;
+import com.openggf.graphics.GraphicsManager;
 
 import java.util.Objects;
 
@@ -20,16 +22,15 @@ public final class EditorOverlayRenderer {
     }
 
     public EditorOverlayRenderer(LevelEditorController controller) {
-        this(controller, new EditorToolbarRenderer(controller), new EditorCommandStripRenderer(controller),
-                new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer(controller),
-                new EditorLibraryPaneRenderer(controller));
+        this(controller, GameServices.graphics());
     }
 
-    public EditorOverlayRenderer(EditorToolbarRenderer toolbar,
-                                 EditorCommandStripRenderer commandStrip,
-                                 EditorWorldOverlayRenderer worldOverlay,
-                                 FocusedEditorPaneRenderer focusedPane) {
-        this(null, toolbar, commandStrip, worldOverlay, focusedPane, new EditorLibraryPaneRenderer());
+    public EditorOverlayRenderer(LevelEditorController controller, GraphicsManager graphicsManager) {
+        this(controller, new EditorToolbarRenderer(controller, graphicsManager),
+                new EditorCommandStripRenderer(controller, graphicsManager),
+                new EditorWorldOverlayRenderer(graphicsManager),
+                new FocusedEditorPaneRenderer(controller, graphicsManager),
+                new EditorLibraryPaneRenderer(controller, graphicsManager));
     }
 
     public EditorOverlayRenderer(EditorToolbarRenderer toolbar,

@@ -33,7 +33,7 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
 
     private static Sonic3kLevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final Sonic3kLevelSelectDataLoader dataLoader = new Sonic3kLevelSelectDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
     private final PatternDesc highlightDesc = new PatternDesc();
@@ -262,12 +262,11 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
         if (!dataLoader.isDataLoaded()) {
             dataLoader.loadData();
         }
-        dataLoader.cacheToGpu();
-
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
+        dataLoader.cacheToGpu(gm);
 
         // Initialize SONICMILES animator on first draw
         Pattern[] smPatterns = dataLoader.getSonicMilesPatterns();
@@ -276,7 +275,7 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
             // DEST_TILE_OFFSET=1, so it writes to PATTERN_BASE+1..10, matching
             // the background mapping's tile indices 1-10.
             menuBackgroundAnimator = new MenuBackgroundAnimator(
-                    smPatterns, Sonic3kLevelSelectConstants.PATTERN_BASE);
+                    smPatterns, gm, Sonic3kLevelSelectConstants.PATTERN_BASE);
             menuBackgroundAnimator.prime();
         }
         if (menuBackgroundAnimator != null) {

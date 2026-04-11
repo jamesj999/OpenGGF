@@ -36,7 +36,7 @@ public class LevelSelectManager implements LevelSelectProvider {
 
     private static LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final LevelSelectDataLoader dataLoader = new LevelSelectDataLoader();
     private final MenuBackgroundDataLoader menuBackgroundDataLoader = new MenuBackgroundDataLoader();
     private final MenuBackgroundRenderer menuBackgroundRenderer = new MenuBackgroundRenderer();
@@ -276,19 +276,19 @@ public class LevelSelectManager implements LevelSelectProvider {
         if (!menuBackgroundDataLoader.isDataLoaded()) {
             menuBackgroundDataLoader.loadData();
         }
-        dataLoader.cacheToGpu();
-        menuBackgroundDataLoader.cacheToGpu(LevelSelectConstants.PATTERN_BASE, LevelSelectConstants.MENU_BACK_OFFSET);
-
-        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
+        dataLoader.cacheToGpu(gm);
+        menuBackgroundDataLoader.cacheToGpu(gm, LevelSelectConstants.PATTERN_BASE, LevelSelectConstants.MENU_BACK_OFFSET);
 
         if (menuBackgroundAnimator == null
                 && menuBackgroundDataLoader.getMenuBackPatterns() != null
                 && menuBackgroundDataLoader.getMenuBackPatterns().length > 0) {
             menuBackgroundAnimator = new MenuBackgroundAnimator(
                     menuBackgroundDataLoader.getMenuBackPatterns(),
+                    gm,
                     LevelSelectConstants.PATTERN_BASE + LevelSelectConstants.MENU_BACK_OFFSET);
             menuBackgroundAnimator.prime();
         }

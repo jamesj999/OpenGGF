@@ -108,11 +108,10 @@ public class MenuBackgroundDataLoader {
      */
     private static final int VRAM_TILE_COUNT = 11;
 
-    public void cacheToGpu(int patternBase, int patternOffset) {
+    public void cacheToGpu(GraphicsManager graphicsManager, int patternBase, int patternOffset) {
         if (artCached || !dataLoaded || menuBackPatterns == null) {
             return;
         }
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

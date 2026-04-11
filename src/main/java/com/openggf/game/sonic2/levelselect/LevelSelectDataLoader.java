@@ -318,12 +318,10 @@ public class LevelSelectDataLoader {
     /**
      * Caches all loaded patterns and palettes to the GPU.
      */
-    public void cacheToGpu() {
+    public void cacheToGpu(GraphicsManager graphicsManager) {
         if (artCached || !dataLoaded || combinedPatterns == null) {
             return;
         }
-
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }
