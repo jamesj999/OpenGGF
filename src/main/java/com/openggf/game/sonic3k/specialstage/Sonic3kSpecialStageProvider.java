@@ -22,7 +22,11 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
     private final Sonic3kSpecialStageManager manager;
 
     public Sonic3kSpecialStageProvider() {
-        this.manager = Sonic3kSpecialStageManager.getInstance();
+        this(new Sonic3kSpecialStageManager());
+    }
+
+    public Sonic3kSpecialStageProvider(Sonic3kSpecialStageManager manager) {
+        this.manager = manager;
     }
 
     @Override
@@ -168,10 +172,8 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
     @Override
     public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
                                              int stageIndex, int totalEmeraldCount) {
-        PlayerCharacter character = com.openggf.game.sonic3k.Sonic3kLevelEventManager
-                .getInstance().getPlayerCharacter();
         return new S3kSpecialStageResultsScreen(
-                ringsCollected, gotEmerald, stageIndex, totalEmeraldCount, character);
+                ringsCollected, gotEmerald, stageIndex, totalEmeraldCount, manager.getPlayerCharacter());
     }
 
     // ==================== MiniGameProvider Methods ====================

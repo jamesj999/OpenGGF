@@ -9,50 +9,54 @@ import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link GameRuntime} and {@link RuntimeManager} lifecycle.
  */
 public class TestGameRuntime {
 
-    @After
+    @BeforeEach
+    public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
+        GameModuleRegistry.reset();
+    }
+
+    @AfterEach
     public void tearDown() {
-        // Clean up any runtime left by tests
-        RuntimeManager.setCurrent(null);
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
+        GameModuleRegistry.reset();
     }
 
     @Test
     public void createGameplay_allManagersNonNull() {
         GameRuntime runtime = RuntimeManager.createGameplay();
-        assertNotNull("camera", runtime.getCamera());
-        assertNotNull("timers", runtime.getTimers());
-        assertNotNull("gameState", runtime.getGameState());
-        assertNotNull("fadeManager", runtime.getFadeManager());
-        assertNotNull("waterSystem", runtime.getWaterSystem());
-        assertNotNull("parallaxManager", runtime.getParallaxManager());
-        assertNotNull("terrainCollisionManager", runtime.getTerrainCollisionManager());
-        assertNotNull("collisionSystem", runtime.getCollisionSystem());
-        assertNotNull("spriteManager", runtime.getSpriteManager());
-        assertNotNull("levelManager", runtime.getLevelManager());
+        assertNotNull(runtime.getCamera(), "camera");
+        assertNotNull(runtime.getTimers(), "timers");
+        assertNotNull(runtime.getGameState(), "gameState");
+        assertNotNull(runtime.getFadeManager(), "fadeManager");
+        assertNotNull(runtime.getWaterSystem(), "waterSystem");
+        assertNotNull(runtime.getParallaxManager(), "parallaxManager");
+        assertNotNull(runtime.getTerrainCollisionManager(), "terrainCollisionManager");
+        assertNotNull(runtime.getCollisionSystem(), "collisionSystem");
+        assertNotNull(runtime.getSpriteManager(), "spriteManager");
+        assertNotNull(runtime.getLevelManager(), "levelManager");
     }
 
     @Test
     public void createGameplay_createsFreshRuntimeGraph() {
-        Camera bootstrapCamera = Camera.getInstance();
-        LevelManager bootstrapLevelManager = LevelManager.getInstance();
-        SpriteManager bootstrapSpriteManager = SpriteManager.getInstance();
-        GameStateManager bootstrapGameState = GameStateManager.getInstance();
-        TimerManager bootstrapTimers = TimerManager.getInstance();
-        FadeManager bootstrapFadeManager = FadeManager.getInstance();
-        CollisionSystem bootstrapCollision = CollisionSystem.getInstance();
-        TerrainCollisionManager bootstrapTerrainCollision = TerrainCollisionManager.getInstance();
-        WaterSystem bootstrapWaterSystem = WaterSystem.getInstance();
-        ParallaxManager bootstrapParallaxManager = ParallaxManager.getInstance();
-
         GameRuntime runtime = RuntimeManager.createGameplay();
 
         assertSame(runtime.getCamera(), GameServices.camera());
@@ -66,16 +70,28 @@ public class TestGameRuntime {
         assertSame(runtime.getWaterSystem(), GameServices.water());
         assertSame(runtime.getParallaxManager(), GameServices.parallax());
 
-        assertNotSame(bootstrapCamera, runtime.getCamera());
-        assertNotSame(bootstrapLevelManager, runtime.getLevelManager());
-        assertNotSame(bootstrapSpriteManager, runtime.getSpriteManager());
-        assertNotSame(bootstrapGameState, runtime.getGameState());
-        assertNotSame(bootstrapTimers, runtime.getTimers());
-        assertNotSame(bootstrapFadeManager, runtime.getFadeManager());
-        assertNotSame(bootstrapCollision, runtime.getCollisionSystem());
-        assertNotSame(bootstrapTerrainCollision, runtime.getTerrainCollisionManager());
-        assertNotSame(bootstrapWaterSystem, runtime.getWaterSystem());
-        assertNotSame(bootstrapParallaxManager, runtime.getParallaxManager());
+        assertNotNull(runtime.getCamera());
+        assertNotNull(runtime.getSpriteManager());
+        assertNotNull(runtime.getGameState());
+        assertNotNull(runtime.getTimers());
+        assertNotNull(runtime.getFadeManager());
+        assertNotNull(runtime.getTerrainCollisionManager());
+        assertNotNull(runtime.getWaterSystem());
+        assertNotNull(runtime.getParallaxManager());
+    }
+
+    @Test
+    public void runtimeOwnedManagersDoNotExposeLegacySingletonCompatibilityAccessors() {
+        assertNoLegacySingletonAccessor(Camera.class);
+        assertNoLegacySingletonAccessor(LevelManager.class);
+        assertNoLegacySingletonAccessor(SpriteManager.class);
+        assertNoLegacySingletonAccessor(GameStateManager.class);
+        assertNoLegacySingletonAccessor(TimerManager.class);
+        assertNoLegacySingletonAccessor(FadeManager.class);
+        assertNoLegacySingletonAccessor(CollisionSystem.class);
+        assertNoLegacySingletonAccessor(TerrainCollisionManager.class);
+        assertNoLegacySingletonAccessor(WaterSystem.class);
+        assertNoLegacySingletonAccessor(ParallaxManager.class);
     }
 
     @Test
@@ -85,24 +101,46 @@ public class TestGameRuntime {
     }
 
     @Test
+    public void runtimeManager_getCurrent_throwsWhenEngineServicesMissing() throws Exception {
+        RuntimeManager.setCurrent(null);
+
+        Field engineServicesField = RuntimeManager.class.getDeclaredField("engineServices");
+        engineServicesField.setAccessible(true);
+        Object configuredRoot = engineServicesField.get(null);
+        try {
+            engineServicesField.set(null, null);
+            IllegalStateException ex = assertThrows(IllegalStateException.class, RuntimeManager::getCurrent);
+            assertTrue(ex.getMessage().contains("EngineServices have not been configured."));
+        } finally {
+            engineServicesField.set(null, configuredRoot);
+        }
+    }
+
+    @Test
     public void gameServices_runtimeOwnedAccessors_throwWhenRuntimeMissing() {
         RuntimeManager.setCurrent(null);
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, GameServices::camera);
         assertTrue(ex.getMessage().contains("GameServices.camera() requires an active GameRuntime"));
+
+        IllegalStateException worldSessionEx = assertThrows(IllegalStateException.class, GameServices::worldSession);
+        assertTrue(worldSessionEx.getMessage().contains("GameServices.worldSession() requires an active GameRuntime"));
+
+        IllegalStateException moduleEx = assertThrows(IllegalStateException.class, GameServices::module);
+        assertTrue(moduleEx.getMessage().contains("requires an active GameRuntime"));
     }
 
     @Test
     public void runtimeManager_createAndDestroy_lifecycle() {
         RuntimeManager.setCurrent(null);
-        assertNull("Before create", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "Before create");
 
         GameRuntime runtime = RuntimeManager.createGameplay();
-        assertNotNull("After create", RuntimeManager.getCurrent());
+        assertNotNull(RuntimeManager.getCurrent(), "After create");
         assertSame(runtime, RuntimeManager.getCurrent());
 
         RuntimeManager.destroyCurrent();
-        assertNull("After destroy", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "After destroy");
     }
 
     @Test
@@ -114,12 +152,12 @@ public class TestGameRuntime {
     @Test
     public void destroy_doesNotThrow() {
         GameRuntime runtime = RuntimeManager.createGameplay();
-        // Should not throw — exercises the reverse-order teardown
+        // Should not throw â€” exercises the reverse-order teardown
         runtime.destroy();
     }
 
     /**
-     * Integration test: full create → mutate via GameServices → destroy → re-create
+     * Integration test: full create â†’ mutate via GameServices â†’ destroy â†’ re-create
      * lifecycle. Verifies that state set through the first runtime does not leak
      * into the second runtime after a destroy/recreate cycle.
      */
@@ -141,16 +179,16 @@ public class TestGameRuntime {
 
         // Phase 2: Destroy current runtime
         RuntimeManager.destroyCurrent();
-        assertNull("Runtime should be null after destroy", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "Runtime should be null after destroy");
 
         // GameServices should throw after destroy
         assertThrows(IllegalStateException.class, GameServices::camera);
         assertThrows(IllegalStateException.class, GameServices::gameState);
 
-        // Phase 3: Create second runtime — state should be reset
+        // Phase 3: Create second runtime â€” state should be reset
         GameRuntime rt2 = RuntimeManager.createGameplay();
         assertNotNull(rt2);
-        assertNotSame("New runtime should be a different lifecycle", rt1, rt2);
+        assertNotSame(rt1, rt2, "New runtime should be a different lifecycle");
 
         // Managers accessible through GameServices again
         assertNotNull(GameServices.camera());
@@ -158,12 +196,9 @@ public class TestGameRuntime {
 
         // State should have been reset by the destroy() call on rt1.
         // Score reverts to 0, camera to origin, lives to 3.
-        assertEquals("Score should be reset after destroy/recreate",
-                0, GameServices.gameState().getScore());
-        assertEquals("Camera X should be reset after destroy/recreate",
-                0, GameServices.camera().getX());
-        assertEquals("Lives should be reset after destroy/recreate",
-                3, GameServices.gameState().getLives());
+        assertEquals(0, GameServices.gameState().getScore(), "Score should be reset after destroy/recreate");
+        assertEquals(0, GameServices.camera().getX(), "Camera X should be reset after destroy/recreate");
+        assertEquals(3, GameServices.gameState().getLives(), "Lives should be reset after destroy/recreate");
     }
 
     /**
@@ -177,25 +212,43 @@ public class TestGameRuntime {
         GameRuntime runtime = RuntimeManager.createGameplay();
 
         // Every runtime-owned accessor should return non-null
-        assertNotNull("camera", GameServices.camera());
-        assertNotNull("level", GameServices.level());
-        assertNotNull("gameState", GameServices.gameState());
-        assertNotNull("timers", GameServices.timers());
-        assertNotNull("fade", GameServices.fade());
-        assertNotNull("sprites", GameServices.sprites());
-        assertNotNull("collision", GameServices.collision());
-        assertNotNull("terrainCollision", GameServices.terrainCollision());
-        assertNotNull("parallax", GameServices.parallax());
-        assertNotNull("water", GameServices.water());
+        assertNotNull(GameServices.camera(), "camera");
+        assertNotNull(GameServices.level(), "level");
+        assertNotNull(GameServices.gameState(), "gameState");
+        assertNotNull(GameServices.timers(), "timers");
+        assertNotNull(GameServices.fade(), "fade");
+        assertNotNull(GameServices.sprites(), "sprites");
+        assertNotNull(GameServices.collision(), "collision");
+        assertNotNull(GameServices.terrainCollision(), "terrainCollision");
+        assertNotNull(GameServices.parallax(), "parallax");
+        assertNotNull(GameServices.water(), "water");
+        assertNotNull(GameServices.worldSession(), "worldSession");
+        assertNotNull(GameServices.module(), "module");
 
         // Engine globals (non-runtime-owned) should also work
-        assertNotNull("rom", GameServices.rom());
-        assertNotNull("audio", GameServices.audio());
-        assertNotNull("debugOverlay", GameServices.debugOverlay());
+        assertNotNull(GameServices.rom(), "rom");
+        assertNotNull(GameServices.audio(), "audio");
+        assertNotNull(GameServices.configuration(), "configuration");
+        assertNotNull(GameServices.debugOverlay(), "debugOverlay");
+        assertNotNull(GameServices.graphics(), "graphics");
+        assertNotNull(GameServices.profiler(), "profiler");
+        assertNotNull(GameServices.playbackDebug(), "playbackDebug");
+        assertNotNull(GameServices.romDetection(), "romDetection");
+        assertNotNull(GameServices.crossGameFeatures(), "crossGameFeatures");
+    }
+
+    @Test
+    public void gameServices_worldSessionAndModule_delegateToRuntimeWorldOwnership() {
+        RuntimeManager.setCurrent(null);
+
+        GameRuntime runtime = RuntimeManager.createGameplay();
+
+        assertSame(runtime.getWorldSession(), GameServices.worldSession());
+        assertSame(runtime.getWorldSession().getGameModule(), GameServices.module());
     }
 
     /**
-     * Integration test: destroyCurrent is idempotent — calling it twice
+     * Integration test: destroyCurrent is idempotent â€” calling it twice
      * or when no runtime exists should not throw.
      */
     @Test
@@ -211,4 +264,19 @@ public class TestGameRuntime {
         RuntimeManager.destroyCurrent();
         assertNull(RuntimeManager.getCurrent());
     }
+
+    private static void assertNoLegacySingletonAccessor(Class<?> type) {
+        for (Method method : type.getDeclaredMethods()) {
+            if (method.getName().equals("getInstance") && Modifier.isStatic(method.getModifiers())) {
+                fail(type.getSimpleName() + " should not expose static getInstance()");
+            }
+        }
+        for (Field field : type.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getType().equals(type)) {
+                fail(type.getSimpleName() + " should not keep static runtime-owned state via field '" + field.getName() + "'");
+            }
+        }
+    }
 }
+
+

@@ -1,7 +1,7 @@
 package com.openggf.tests;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.Sonic1SmpsData;
@@ -10,9 +10,9 @@ import com.openggf.audio.synth.VirtualSynthesizer;
 
 import java.util.HashMap;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSmpsSequencerInstrumentLoading {
 
@@ -98,10 +98,12 @@ public class TestSmpsSequencerInstrumentLoading {
         short[] buf = new short[2000]; // Enough to tick
         seq.read(buf); // Should trigger tick and process commands
 
-        assertTrue("setInstrument should be called", synth.setInstrumentCalled);
+        assertTrue(synth.setInstrumentCalled, "setInstrument should be called");
         // Track 0 maps to HW Channel 0 (FM1)
-        assertEquals("Channel ID should be 0", 0, synth.lastChannelId);
-        assertArrayEquals("Voice data should match", expectedVoice, synth.lastVoice);
+        assertEquals(0, synth.lastChannelId, "Channel ID should be 0");
+        assertArrayEquals(expectedVoice, synth.lastVoice, "Voice data should match");
     }
 
 }
+
+

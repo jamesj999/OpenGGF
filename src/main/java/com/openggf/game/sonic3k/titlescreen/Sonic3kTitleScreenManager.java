@@ -8,8 +8,6 @@ import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.audio.Sonic3kSmpsConstants;
-import com.openggf.Engine;
-import com.openggf.GameLoop;
 import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -49,8 +47,9 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kTitleScreenManager.class.getName());
 
     private static Sonic3kTitleScreenManager instance;
+    private Runnable exitToLevelHandler = () -> {};
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final Sonic3kTitleScreenDataLoader dataLoader = new Sonic3kTitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -280,7 +279,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     // Constructor and singleton
     // -----------------------------------------------------------------------
 
-    private Sonic3kTitleScreenManager() {
+    public Sonic3kTitleScreenManager() {
     }
 
     public static synchronized Sonic3kTitleScreenManager getInstance() {
@@ -388,7 +387,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             dataLoader.loadData();
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -463,6 +462,11 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     @Override
     public boolean isActive() {
         return state != State.INACTIVE;
+    }
+
+    @Override
+    public void setExitToLevelHandler(Runnable handler) {
+        this.exitToLevelHandler = handler != null ? handler : () -> {};
     }
 
     // -----------------------------------------------------------------------
@@ -553,7 +557,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
      * Each step overwrites colors 0-6 (14 bytes) with data from the transition table.
      */
     private void applyPalTransitionStep(byte[] transitionData, int step) {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -651,11 +655,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
 
             // Transition directly to LEVEL mode and load the first zone
             try {
-                Engine engine = Engine.getInstance();
-                if (engine != null) {
-                    engine.getGameLoop().setGameMode(com.openggf.game.GameMode.LEVEL);
-                }
-                GameServices.level().loadZoneAndAct(0, 0);
+                exitToLevelHandler.run();
             } catch (Exception e) {
                 LOGGER.severe("Failed to load level after title screen: " + e.getMessage());
             }
@@ -686,7 +686,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             // State stays ACTIVE during our fade — we only set EXITING once
             // the visual fade is complete, so the GameLoop's exitTitleScreen()
             // finds the screen already black and can transition immediately.
-            AudioManager.getInstance().fadeOutMusic();
+            GameServices.audio().fadeOutMusic();
             LOGGER.info("S3K title screen starting exit fade (menu selection: " + menuSelection + ")");
             return;
         }
@@ -1005,7 +1005,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
      * which contains the water gradient colors.
      */
     private void applyWaterRotPalette(byte[] waterRotData) {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = GameServices.graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

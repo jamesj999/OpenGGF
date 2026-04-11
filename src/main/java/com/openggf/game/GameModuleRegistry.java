@@ -1,8 +1,10 @@
 package com.openggf.game;
 
 import com.openggf.data.Rom;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 
+import java.util.Optional;
 import java.util.logging.Logger;
 
 /**
@@ -23,8 +25,8 @@ import java.util.logging.Logger;
 public final class GameModuleRegistry {
     private static final Logger LOGGER = Logger.getLogger(GameModuleRegistry.class.getName());
 
-    // Default to Sonic 2 for backward compatibility
-    private static GameModule current = new Sonic2GameModule();
+    // Default to Sonic 2 for backward compatibility during bootstrap before a world session exists.
+    private static GameModule bootstrapDefault = new Sonic2GameModule();
 
     private GameModuleRegistry() {
     }
@@ -35,21 +37,30 @@ public final class GameModuleRegistry {
      * @return the current game module
      */
     public static synchronized GameModule getCurrent() {
-        return current;
+        if (SessionManager.getCurrentWorldSession() != null) {
+            return SessionManager.requireCurrentGameModule();
+        }
+        return bootstrapDefault;
     }
 
     /**
-     * Sets the current game module.
+     * Returns the bootstrap default module without consulting session state.
+     * Use this only for construction paths that intentionally run before a
+     * gameplay world session or runtime exists.
+     */
+    public static synchronized GameModule getBootstrapDefault() {
+        return bootstrapDefault;
+    }
+
+    /**
+     * Sets the bootstrap default game module used before a world session exists.
      *
      * @param module the module to set as current (ignored if null)
      */
     public static synchronized void setCurrent(GameModule module) {
         if (module != null) {
-            LOGGER.info("Setting game module: " + module.getIdentifier());
-            current = module;
-            GameStateManager.getInstance().configureSpecialStageProgress(
-                    module.getSpecialStageCycleCount(),
-                    module.getChaosEmeraldCount());
+            LOGGER.info("Setting bootstrap game module: " + module.getIdentifier());
+            bootstrapDefault = module;
         }
     }
 
@@ -61,12 +72,15 @@ public final class GameModuleRegistry {
      * @return true if detection succeeded, false if using fallback
      */
     public static boolean detectAndSetModule(Rom rom) {
-        boolean detected = RomDetectionService.getInstance().detectAndSetModule(rom);
-        if (!detected) {
-            LOGGER.warning("ROM detection failed, using default Sonic 2 module");
-            setCurrent(new Sonic2GameModule());
+        Optional<GameModule> detectedModule = GameServices.romDetection().detectAndCreateModule(rom);
+        if (detectedModule.isPresent()) {
+            setCurrent(detectedModule.get());
+            return true;
         }
-        return detected;
+
+        LOGGER.warning("ROM detection failed, using default Sonic 2 module");
+        setCurrent(new Sonic2GameModule());
+        return false;
     }
 
     /**

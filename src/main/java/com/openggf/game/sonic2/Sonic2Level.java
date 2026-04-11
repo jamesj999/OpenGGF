@@ -3,6 +3,7 @@ package com.openggf.game.sonic2;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.*;
 import com.openggf.level.resources.LevelResourcePlan;
@@ -115,7 +116,7 @@ public class Sonic2Level extends AbstractLevel {
     private void loadPalettes(Rom rom, int characterPaletteAddr, int levelPalettesAddr, int levelPalettesSize)
             throws IOException {
         palettes = new Palette[PALETTE_COUNT];
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = GameServices.graphics();
 
         // Load character palette
         byte[] buffer = rom.readBytes(characterPaletteAddr, Palette.PALETTE_SIZE_IN_ROM);
@@ -152,9 +153,9 @@ public class Sonic2Level extends AbstractLevel {
         // Only indices 2-5 differ (Knuckles' reds vs Sonic's blues);
         // indices 0-1 and 6-15 are identical to S2's Pal_SonicTails.
         if (com.openggf.game.CrossGameFeatureProvider.isActive()) {
-            String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+            String mainChar = GameServices.configuration()
                     .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
-            Palette hostPal = com.openggf.game.CrossGameFeatureProvider.getInstance()
+            Palette hostPal = GameServices.crossGameFeatures()
                     .loadHostCompatiblePalette(mainChar);
             if (hostPal != null) {
                 palettes[0] = hostPal;
@@ -171,7 +172,7 @@ public class Sonic2Level extends AbstractLevel {
 
     private void loadPatterns(Rom rom, int patternsAddr) throws IOException {
         final int PATTERN_BUFFER_SIZE = 0xFFFF; // 64KB
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = GameServices.graphics();
         byte[] result;
         synchronized (rom) {
             FileChannel channel = rom.getFileChannel();
@@ -403,7 +404,7 @@ public class Sonic2Level extends AbstractLevel {
      * sky blue placeholder patterns to avoid garbled rendering.
      */
     private void loadPatternsWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = GameServices.graphics();
         ResourceLoader loader = new ResourceLoader(rom);
 
         // Use a large initial buffer - will be trimmed to actual size
@@ -463,7 +464,7 @@ public class Sonic2Level extends AbstractLevel {
      */
     private void fillHtzDynamicArtPatterns(GraphicsManager graphicsMan, int startIndex) {
         try {
-            Rom rom = RomManager.getInstance().getRom();
+            Rom rom = GameServices.rom().getRom();
             if (rom == null) {
                 fillEmptyPatterns(graphicsMan, startIndex);
                 return;

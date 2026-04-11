@@ -2,6 +2,9 @@ package com.openggf.graphics;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
@@ -45,6 +48,7 @@ public class GraphicsManager {
 
 	// Lazily fetched to avoid initialization chain issues in headless tests
 	private Camera camera;
+	private Camera bootstrapCamera;
 	private boolean glInitialized = false;
 	private ShaderProgram shaderProgram;
 	private ShaderProgram defaultShaderProgram;
@@ -84,6 +88,7 @@ public class GraphicsManager {
 
 	// Fade manager for screen transitions
 	private FadeManager fadeManager;
+	private FadeManager bootstrapFadeManager;
 
 	// Unified UI render pipeline for overlay + fade ordering
 	private UiRenderPipeline uiRenderPipeline;
@@ -168,12 +173,10 @@ public class GraphicsManager {
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
 		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
-		this.instancedPatternRenderer = new InstancedPatternRenderer();
+		this.instancedPatternRenderer = new InstancedPatternRenderer(this, GameServices.configuration());
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
-		// Initialize fade manager with shader — get from RuntimeManager if available, else singleton
-		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-		this.fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
+		syncRuntimeManagedReferences();
 		this.fadeManager.setFadeShader(this.fadeShaderProgram);
 
 		// Initialize unified UI render pipeline
@@ -227,16 +230,41 @@ public class GraphicsManager {
 	 * This avoids triggering Camera singleton initialization during GraphicsManager construction.
 	 */
 	private Camera getCamera() {
-		com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
-		if (rt2 != null) {
-			Camera runtimeCamera = rt2.getCamera();
-			if (camera != runtimeCamera) {
-				camera = runtimeCamera;
-			}
-		} else if (camera == null) {
-			camera = Camera.getInstance();
-		}
+		syncRuntimeManagedReferences();
 		return camera;
+	}
+
+	private void syncRuntimeManagedReferences() {
+		GameRuntime runtime = RuntimeManager.getActiveRuntime();
+		Camera resolvedCamera = runtime != null ? runtime.getCamera() : getOrCreateBootstrapCamera();
+		if (camera != resolvedCamera) {
+			camera = resolvedCamera;
+		}
+
+		FadeManager resolvedFadeManager = runtime != null ? runtime.getFadeManager() : getOrCreateBootstrapFadeManager();
+		if (fadeManager != resolvedFadeManager) {
+			fadeManager = resolvedFadeManager;
+			if (fadeShaderProgram != null) {
+				fadeManager.setFadeShader(fadeShaderProgram);
+			}
+			if (uiRenderPipeline != null) {
+				uiRenderPipeline.setFadeManager(fadeManager);
+			}
+		}
+	}
+
+	private Camera getOrCreateBootstrapCamera() {
+		if (bootstrapCamera == null) {
+			bootstrapCamera = new Camera(GameServices.configuration());
+		}
+		return bootstrapCamera;
+	}
+
+	private FadeManager getOrCreateBootstrapFadeManager() {
+		if (bootstrapFadeManager == null) {
+			bootstrapFadeManager = new FadeManager();
+		}
+		return bootstrapFadeManager;
 	}
 
 	/**
@@ -287,7 +315,7 @@ public class GraphicsManager {
 		}
 
 		// Cleanup pattern render state after all commands
-		PatternRenderCommand.cleanupFrameState();
+		PatternRenderCommand.cleanupFrameState(this);
 
 		commands.clear();
 	}
@@ -544,7 +572,7 @@ public class GraphicsManager {
 
 		if (!usedBatch) {
 			// Fallback to individual commands (use pooled allocation)
-			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y);
+			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, this);
 			registerCommand(command);
 		}
 	}
@@ -599,7 +627,7 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = BatchedPatternRenderer.getInstance();
+			batchedRenderer = new BatchedPatternRenderer(this, GameServices.configuration());
 		}
 		batchedRenderer.beginBatch();
 	}
@@ -638,7 +666,7 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = BatchedPatternRenderer.getInstance();
+			batchedRenderer = new BatchedPatternRenderer(this, GameServices.configuration());
 		}
 		batchedRenderer.beginShadowBatch();
 	}
@@ -987,9 +1015,8 @@ public class GraphicsManager {
 			if (patternAtlas != null) {
 				patternAtlas.cleanupHeadless();
 			}
-			BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
-			if (existingBatch != null) {
-				existingBatch.cleanupHeadless();
+			if (batchedRenderer != null) {
+				batchedRenderer.cleanupHeadless();
 			}
 			if (instancedPatternRenderer != null) {
 				instancedPatternRenderer.cleanupHeadless();
@@ -1019,9 +1046,8 @@ public class GraphicsManager {
 		if (shadowShaderProgram != null) {
 			shadowShaderProgram.cleanup();
 		}
-		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
-		if (existingBatch != null) {
-			existingBatch.cleanup();
+		if (batchedRenderer != null) {
+			batchedRenderer.cleanup();
 		}
 		// Sprite priority rendering cleanup
 		if (spritePriorityShaderProgram != null) {
@@ -1069,6 +1095,9 @@ public class GraphicsManager {
 		commands.clear();
 		releasePerLevelResources();
 		camera = null;
+		bootstrapCamera = null;
+		fadeManager = null;
+		bootstrapFadeManager = null;
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;
 		currentSpriteHighPriority = false;
@@ -1148,11 +1177,6 @@ public class GraphicsManager {
 		// Fall back to engine reference
 		if (engine != null) {
 			return engine.getProjectionMatrixBuffer();
-		}
-		// Finally try Engine singleton
-		Engine engineInstance = Engine.getInstance();
-		if (engineInstance != null) {
-			return engineInstance.getProjectionMatrixBuffer();
 		}
 		return null;
 	}
@@ -1310,7 +1334,7 @@ public class GraphicsManager {
 					PatternDesc desc = new PatternDesc();
 					desc.set(descIndex);
 					desc.setPaletteIndex(paletteIndex);
-					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY));
+					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY, this));
 				});
 	}
 
@@ -1375,35 +1399,8 @@ public class GraphicsManager {
 	 * Get the fade manager for screen transitions.
 	 */
 	public FadeManager getFadeManager() {
-		if (fadeManager == null) {
-			com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-			fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
-			if (fadeShaderProgram != null) {
-				fadeManager.setFadeShader(fadeShaderProgram);
-			}
-		}
+		syncRuntimeManagedReferences();
 		return fadeManager;
-	}
-
-	/**
-	 * Rebinds fade-related references to the current runtime's FadeManager.
-	 *
-	 * <p>This is required after gameplay runtime creation because GraphicsManager may
-	 * have been initialized earlier against the bootstrap FadeManager. If the UI
-	 * pipeline keeps updating that stale instance while GameLoop starts fades on the
-	 * runtime instance, callbacks never complete.
-	 */
-	public void rebindRuntimeFadeManager() {
-		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-		FadeManager reboundFade = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
-		this.fadeManager = reboundFade;
-		this.camera = rt != null ? rt.getCamera() : Camera.getInstance();
-		if (fadeShaderProgram != null) {
-			reboundFade.setFadeShader(fadeShaderProgram);
-		}
-		if (uiRenderPipeline != null) {
-			uiRenderPipeline.setFadeManager(reboundFade);
-		}
 	}
 
 	/**
@@ -1423,7 +1420,7 @@ public class GraphicsManager {
 		}
 		if (backgroundRenderer == null && glInitialized) {
 			try {
-				backgroundRenderer = new BackgroundRenderer();
+				backgroundRenderer = new BackgroundRenderer(this);
 				backgroundRenderer.init(PARALLAX_SHADER_PATH);
 				LOGGER.info("BackgroundRenderer initialized for shader-based parallax.");
 			} catch (IOException e) {

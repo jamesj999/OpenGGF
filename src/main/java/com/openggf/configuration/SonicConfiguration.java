@@ -96,6 +96,11 @@ public enum SonicConfiguration {
 	DEBUG_VIEW_ENABLED,
 
 	/**
+	 * Whether the level editor may be entered from normal gameplay.
+	 */
+	EDITOR_ENABLED,
+
+	/**
 	 * Whether to display debugging collision information on screen.
 	 */
 	DEBUG_COLLISION_VIEW_ENABLED,

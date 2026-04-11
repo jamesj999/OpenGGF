@@ -1,29 +1,29 @@
 package com.openggf.game.sonic3k.titlecard;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests bonus mode behavior in Sonic3kTitleCardManager.
- * These tests don't require ROM or OpenGL — they exercise the state machine only.
+ * These tests don't require ROM or OpenGL â€” they exercise the state machine only.
  */
 public class TestSonic3kBonusTitleCard {
 
     private Sonic3kTitleCardManager manager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        manager = Sonic3kTitleCardManager.getInstance();
+        manager = new Sonic3kTitleCardManager();
         manager.reset();
     }
 
     @Test
     public void initializeBonusSetsSlideInState() {
         manager.initializeBonus();
-        assertFalse("Should not be complete after init", manager.isComplete());
-        assertFalse("Should not release control during slide-in", manager.shouldReleaseControl());
+        assertFalse(manager.isComplete(), "Should not be complete after init");
+        assertFalse(manager.shouldReleaseControl(), "Should not release control during slide-in");
     }
 
     @Test
@@ -39,8 +39,8 @@ public class TestSonic3kBonusTitleCard {
         for (int i = 0; i < 90; i++) {
             manager.update();
         }
-        // Should now be in EXIT phase — control released
-        assertTrue("Should release control during exit", manager.shouldReleaseControl());
+        // Should now be in EXIT phase â€” control released
+        assertTrue(manager.shouldReleaseControl(), "Should release control during exit");
     }
 
     @Test
@@ -51,7 +51,7 @@ public class TestSonic3kBonusTitleCard {
         for (int i = 0; i < 150; i++) {
             manager.update();
         }
-        assertTrue("Should be complete after full animation", manager.isComplete());
+        assertTrue(manager.isComplete(), "Should be complete after full animation");
     }
 
     @Test
@@ -65,7 +65,7 @@ public class TestSonic3kBonusTitleCard {
 
         // Then run normal mode
         manager.initialize(0, 0); // AIZ act 1
-        assertFalse("Should not be complete after normal init", manager.isComplete());
+        assertFalse(manager.isComplete(), "Should not be complete after normal init");
     }
 
     @Test
@@ -74,3 +74,5 @@ public class TestSonic3kBonusTitleCard {
         assertFalse(manager.shouldRunPlayerPhysics());
     }
 }
+
+

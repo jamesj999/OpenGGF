@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Guard test that scans production source for direct {@code Foo.getInstance()} calls
@@ -19,13 +19,8 @@ import static org.junit.Assert.fail;
  * <p>
  * Allowed call sites:
  * <ul>
- *   <li>The manager class itself (its own {@code getInstance()} declaration)</li>
- *   <li>{@link RuntimeManager} — explicit runtime composition root</li>
- *   <li>Bootstrap/reset infrastructure that runs before a {@link GameRuntime} exists</li>
- *   <li>Leaf infrastructure wrappers that intentionally cache direct manager access</li>
- *   <li>{@link GameServices} — runtime facade / engine-global access</li>
- *   <li>{@code DefaultObjectServices} — object-service facade over an explicit runtime</li>
- *   <li>{@code GraphicsManager} — legitimate fallback for Camera/FadeManager</li>
+ *   <li>{@link RuntimeManager} â€” explicit runtime composition root</li>
+ *   <li>{@link GameServices} â€” runtime facade / engine-global access</li>
  * </ul>
  */
 public class TestRuntimeSingletonGuard {
@@ -47,28 +42,7 @@ public class TestRuntimeSingletonGuard {
     /** Files allowed to call getInstance() on runtime-owned managers. */
     private static final Set<String> ALLOWED_FILES = Set.of(
             "RuntimeManager.java",
-            "GameServices.java",
-            "AbstractObjectInstance.java",  // static helpers wrapping singletons for leaf classes
-            "AbstractObjectRegistry.java",
-            "GraphicsManager.java",
-            "Engine.java",
-            "GameLoop.java",
-            "GameModuleRegistry.java",
-            "AbstractLevelEventManager.java",
-            "AbstractLevelInitProfile.java",
-            "DebugRenderer.java",
-            "AbstractPlayableSprite.java",
-            "HudRenderManager.java",
-            "ObjectManager.java",
-            "RingManager.java",
-            "GroundSensor.java",
-            "PlayableSpriteMovement.java",
-            "SpindashCameraTimer.java",
-            "LazyMappingHolder.java",
-            "Sonic2ObjectRegistry.java",
-            "AizIntroArtLoader.java",
-            "AizIntroPaletteCycler.java",
-            "AizIntroTerrainSwap.java"
+            "GameServices.java"
     );
 
     /** Pattern matching e.g. Camera.getInstance() or LevelManager.getInstance() */
@@ -87,7 +61,7 @@ public class TestRuntimeSingletonGuard {
     public void productionCodeDoesNotCallRuntimeManagerSingletons() throws IOException {
         Path srcMain = findSourceRoot();
         if (srcMain == null) {
-            // Running from a context where source isn't available — skip gracefully
+            // Running from a context where source isn't available â€” skip gracefully
             return;
         }
 
@@ -102,11 +76,6 @@ public class TestRuntimeSingletonGuard {
                 }
 
                 String fileName = file.getFileName().toString();
-
-                // Skip the manager classes themselves (they declare getInstance())
-                if (RUNTIME_MANAGERS.stream().anyMatch(m -> fileName.equals(m + ".java"))) {
-                    return FileVisitResult.CONTINUE;
-                }
 
                 // Skip explicitly allowed files
                 if (ALLOWED_FILES.contains(fileName)) {
@@ -127,7 +96,7 @@ public class TestRuntimeSingletonGuard {
                         if (RUNTIME_MANAGERS.contains(className)) {
                             String relativePath = srcMain.relativize(file).toString();
                             violations.add(String.format(
-                                    "%s:%d — %s.getInstance()",
+                                    "%s:%d â€” %s.getInstance()",
                                     relativePath, i + 1, className));
                         }
                     }
@@ -165,14 +134,14 @@ public class TestRuntimeSingletonGuard {
                 while (matcher.find()) {
                     String relativePath = srcMain.relativize(file).toString();
                     violations.add(String.format(
-                            "%s:%d — GameServices.%s() %s null",
+                            "%s:%d â€” GameServices.%s() %s null",
                             relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2)));
                 }
                 matcher = STRICT_GAME_SERVICES_LOCAL_NULL_CHECK.matcher(source.text);
                 while (matcher.find()) {
                     String relativePath = srcMain.relativize(file).toString();
                     violations.add(String.format(
-                            "%s:%d — %s = GameServices.%s(); if (%s %s null)",
+                            "%s:%d â€” %s = GameServices.%s(); if (%s %s null)",
                             relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2),
                             matcher.group(1), matcher.group(3)));
                 }
@@ -239,3 +208,5 @@ public class TestRuntimeSingletonGuard {
         }
     }
 }
+
+

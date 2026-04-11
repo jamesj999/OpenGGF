@@ -1,11 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1SpikeObjectInstance {
 
@@ -52,7 +52,7 @@ public class TestSonic1SpikeObjectInstance {
 
     @Test
     public void spikesDoNotHurtWhenAlreadyHurt() {
-        // Sideways spike (subtype 0x10) — ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
+        // Sideways spike (subtype 0x10) â€” ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
         Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
                 new ObjectSpawn(160, 112, 0x36, 0x10, 0, false, 0));
         SpikeTestPlayableSprite player = new SpikeTestPlayableSprite();
@@ -68,7 +68,7 @@ public class TestSonic1SpikeObjectInstance {
 
     @Test
     public void spikesDoNotHurtWhenDead() {
-        // Sideways spike (subtype 0x10) — ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
+        // Sideways spike (subtype 0x10) â€” ROM check: cmpi.b #4,obRoutine(a0) / bhs.s loc_CF20
         Sonic1SpikeObjectInstance spikes = new Sonic1SpikeObjectInstance(
                 new ObjectSpawn(160, 112, 0x36, 0x10, 0, false, 0));
         SpikeTestPlayableSprite player = new SpikeTestPlayableSprite();
@@ -96,9 +96,8 @@ public class TestSonic1SpikeObjectInstance {
         // touchBottom = true: Sonic hits the bottom of the spike from below (ceiling contact)
         spikes.onSolidContact(player, new SolidContact(false, false, true, false, false), 1);
 
-        assertTrue("Spike should have hurt player", player.hurtOrDeathIgnoringIFramesCalled);
-        assertTrue("ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed(),
-                player.getYSpeed() < 0);
+        assertTrue(player.hurtOrDeathIgnoringIFramesCalled, "Spike should have hurt player");
+        assertTrue(player.getYSpeed() < 0, "ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed());
     }
 
     @Test
@@ -115,9 +114,8 @@ public class TestSonic1SpikeObjectInstance {
         // standing = true: Sonic landed on top of the spike
         spikes.onSolidContact(player, new SolidContact(true, false, false, false, false), 1);
 
-        assertTrue("Spike should have hurt player", player.hurtOrDeathIgnoringIFramesCalled);
-        assertTrue("ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed(),
-                player.getYSpeed() < 0);
+        assertTrue(player.hurtOrDeathIgnoringIFramesCalled, "Spike should have hurt player");
+        assertTrue(player.getYSpeed() < 0, "ySpeed should be negative (upward) matching ROM HurtSonic, was: " + player.getYSpeed());
     }
 
     @Test
@@ -165,3 +163,5 @@ public class TestSonic1SpikeObjectInstance {
         }
     }
 }
+
+

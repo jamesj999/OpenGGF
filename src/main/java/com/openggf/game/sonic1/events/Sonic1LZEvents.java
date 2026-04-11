@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.game.sonic1.objects.bosses.Sonic1LZBossInstance;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -40,6 +39,10 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_CAM_Y_MAX = BOSS_LZ_Y + 0x540; // 0x600
 
     Sonic1LZEvents() {
+    }
+
+    private Sonic1SwitchManager switchManager() {
+        return gameService(Sonic1SwitchManager.class);
     }
 
     @Override
@@ -82,7 +85,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
      */
     private void checkSwitchF() {
         // tst.b (f_switch+$F).w / beq.s loc_6F28
-        if (!Sonic1SwitchManager.getInstance().isPressed(0xF)) {
+        if (!switchManager().isPressed(0xF)) {
             return;
         }
 

@@ -1,11 +1,11 @@
 # Changelog
 
-All notable changes to the sonic-engine project are documented in this file.
+All notable changes to the OpenGGF project are documented in this file.
 
-## v0.5 (Unreleased)
+## v0.5.20260411 (Released 2026-04-11)
 
-Analysis range: `v0.4.20260304..HEAD` on `develop` (`2452` commits, `2271` non-merge commits,
-`1565` files changed, `472216` insertions, `28052` deletions). Net code growth is ~444,200 lines.
+Analysis range: `v0.4.20260304..v0.5.20260411` on `develop` (`2479` commits, `2298` non-merge commits,
+`1588` files changed, `477351` insertions, `28266` deletions). Net code growth is ~449,100 lines.
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and future multi-instance play-testing. Sonic 3 & Knuckles

@@ -77,7 +77,6 @@ public class LevelManager {
     /** Base for extra sidekick DPLC banks — above water (0x30000) and below title cards (0x40000). */
     private static final int SIDEKICK_PATTERN_BASE = 0x38000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
-    private static LevelManager levelManager;
     private Level level;
     private int blockPixelSize = 128;  // cached from level
     private int chunksPerBlockSide = 8;
@@ -99,20 +98,33 @@ public class LevelManager {
         return gameModule;
     }
 
+    private GameModule activeGameModule() {
+        if (gameModule != null) {
+            return gameModule;
+        }
+        GameRuntime runtime = RuntimeManager.getActiveRuntime();
+        if (runtime != null && runtime.getWorldSession() != null) {
+            return runtime.getWorldSession().getGameModule();
+        }
+        return RuntimeManager.resolveCurrentOrBootstrapGameModule();
+    }
+
     /** Returns the tilemap lifecycle delegate. */
     public LevelTilemapManager getTilemapManager() {
         return tilemapManager;
     }
 
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private GraphicsManager graphicsManager;
+    private AudioManager audioManager;
     private SpriteManager spriteManager;
     private CollisionSystem collisionSystem;
     private WaterSystem waterSystem;
     private GameStateManager gameState;
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-    private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
+    private SonicConfigurationService configService;
+    private DebugOverlayManager overlayManager;
     private LevelDebugRenderer debugRenderer;
-    private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+    private PerformanceProfiler profiler;
+    private CrossGameFeatureProvider crossGameFeatures;
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
     private int apparentAct = 0;
@@ -145,8 +157,8 @@ public class LevelManager {
 
 
     // Cached screen dimensions (avoids repeated config service lookups)
-    private final int cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-    private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+    private int cachedScreenWidth;
+    private int cachedScreenHeight;
 
     // Camera reference for frustum culling
     private Camera camera;
@@ -157,14 +169,22 @@ public class LevelManager {
     // Pre-allocated GLCommand objects to avoid per-frame lambda/command allocations.
     // These are safe to reuse because the command list is cleared each frame in flushWithCamera().
 
+    private GraphicsManager graphics() {
+        return graphicsManager;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService;
+    }
+
     // Disable shimmer distortion for water surface sprites (no per-frame captures)
     private final GLCommand disableShimmerCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        WaterShaderProgram waterShader = graphicsManager.getWaterShaderProgram();
+        WaterShaderProgram waterShader = graphics().getWaterShaderProgram();
         if (waterShader != null) {
             waterShader.use();
             waterShader.setShimmerStyle(0);
         }
-        WaterShaderProgram instancedWaterShader = graphicsManager.getInstancedWaterShaderProgram();
+        WaterShaderProgram instancedWaterShader = graphics().getInstancedWaterShaderProgram();
         if (instancedWaterShader != null) {
             instancedWaterShader.use();
             instancedWaterShader.setShimmerStyle(0);
@@ -177,7 +197,7 @@ public class LevelManager {
 
     // Revert to default shader for HUD rendering (no per-frame captures)
     private final GLCommand disableWaterShaderCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        graphicsManager.setUseWaterShader(false);
+        graphics().setUseWaterShader(false);
         PatternRenderCommand.resetFrameState();
     });
 
@@ -186,35 +206,35 @@ public class LevelManager {
     private int pendingWaterShimmerStyle;
     private boolean pendingSuppressUnderwaterPalette;
     private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        graphicsManager.setUseWaterShader(true);
+        graphics().setUseWaterShader(true);
 
-        WaterShaderProgram shader = graphicsManager.getWaterShaderProgram();
+        WaterShaderProgram shader = graphics().getWaterShaderProgram();
         shader.use();
 
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         float windowHeight = (float) viewportBuffer[3];
-        float screenHeightPixels = (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        float screenHeightPixels = (float) configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
         shader.setWindowHeight(windowHeight);
         shader.setWaterlineScreenY(pendingWaterlineScreenY);
         shader.setFrameCounter(frameCounter);
         shader.setDistortionAmplitude(0.0f);
         shader.setShimmerStyle(pendingWaterShimmerStyle);
-        shader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-        shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+        shader.setIndexedTextureWidth(graphics().getPatternAtlasWidth());
+        shader.setScreenDimensions((float) configuration().getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                 screenHeightPixels);
 
-        graphicsManager.setWaterEnabled(!pendingSuppressUnderwaterPalette);
-        graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
-        graphicsManager.setWindowHeight(windowHeight);
-        graphicsManager.setScreenHeight(screenHeightPixels);
+        graphics().setWaterEnabled(!pendingSuppressUnderwaterPalette);
+        graphics().setWaterlineScreenY(pendingWaterlineScreenY);
+        graphics().setWindowHeight(windowHeight);
+        graphics().setScreenHeight(screenHeightPixels);
 
         int zoneId = getFeatureZoneId();
         Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
         if (underwater != null) {
             Palette normalLine0 = (level != null) ? level.getPalette(0) : null;
-            graphicsManager.cacheUnderwaterPaletteTexture(underwater, normalLine0);
-            Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+            graphics().cacheUnderwaterPaletteTexture(underwater, normalLine0);
+            Integer texId = graphics().getUnderwaterPaletteTextureId();
             int loc = shader.getUnderwaterPaletteLocation();
 
             if (texId != null && loc != -1) {
@@ -225,12 +245,12 @@ public class LevelManager {
             }
         }
 
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer != null) {
             tilemapRenderer.setShimmerState(frameCounter, pendingWaterShimmerStyle);
         }
 
-        WaterShaderProgram instancedShader = graphicsManager.getInstancedWaterShaderProgram();
+        WaterShaderProgram instancedShader = graphics().getInstancedWaterShaderProgram();
         if (instancedShader != null) {
             instancedShader.use();
             instancedShader.cacheUniformLocations();
@@ -239,15 +259,15 @@ public class LevelManager {
             instancedShader.setFrameCounter(frameCounter);
             instancedShader.setDistortionAmplitude(0.0f);
             instancedShader.setShimmerStyle(pendingWaterShimmerStyle);
-            instancedShader.setIndexedTextureWidth(graphicsManager.getPatternAtlasWidth());
-            instancedShader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
-                    (float) configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
+            instancedShader.setIndexedTextureWidth(graphics().getPatternAtlasWidth());
+            instancedShader.setScreenDimensions((float) configuration().getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
+                    (float) configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS));
 
             Palette[] underwaterInstanced = waterSystem.getUnderwaterPalette(zoneId, currentAct);
             if (underwaterInstanced != null) {
                 Palette normalLine0Instanced = (level != null) ? level.getPalette(0) : null;
-                graphicsManager.cacheUnderwaterPaletteTexture(underwaterInstanced, normalLine0Instanced);
-                Integer texId = graphicsManager.getUnderwaterPaletteTextureId();
+                graphics().cacheUnderwaterPaletteTexture(underwaterInstanced, normalLine0Instanced);
+                Integer texId = graphics().getUnderwaterPaletteTextureId();
                 int loc = instancedShader.getUnderwaterPaletteLocation();
                 if (texId != null && loc != -1) {
                     glActiveTexture(GL_TEXTURE2);
@@ -264,7 +284,7 @@ public class LevelManager {
     private int pendingBgRenderWidth;
     private int pendingBgRenderHeight;
     private final GLCommand bgEnsureCapacityCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer != null) {
             bgRenderer.ensureCapacity(pendingBgRenderWidth, pendingBgRenderHeight);
         }
@@ -279,7 +299,7 @@ public class LevelManager {
     private int pendingBgVOffset;
     private boolean pendingBgPerLineScroll;
     private final GLCommand bgRenderWithScrollCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer != null) {
             bgRenderer.renderWithScrollWide(pendingBgHScrollData, pendingBgVScrollData, pendingBgVScrollColumnData,
                     pendingBgShaderScrollMidpoint, pendingBgShaderExtraBuffer,
@@ -299,7 +319,7 @@ public class LevelManager {
     private Integer pendingFgPaletteId_low;
     private Integer pendingFgUnderwaterPaletteId_low;
     private final GLCommand fgTilemapPassLowCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer == null) {
             return;
         }
@@ -319,8 +339,8 @@ public class LevelManager {
                 viewportBuffer[3],
                 pendingFgWorldOffsetX_low,
                 pendingFgWorldOffsetY_low,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFgAtlasId_low,
                 pendingFgPaletteId_low,
                 pendingFgUnderwaterPaletteId_low != null ? pendingFgUnderwaterPaletteId_low : 0,
@@ -342,7 +362,7 @@ public class LevelManager {
     private Integer pendingFgPaletteId_high;
     private Integer pendingFgUnderwaterPaletteId_high;
     private final GLCommand fgTilemapPassHighCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer == null) {
             return;
         }
@@ -362,8 +382,8 @@ public class LevelManager {
                 viewportBuffer[3],
                 pendingFgWorldOffsetX_high,
                 pendingFgWorldOffsetY_high,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFgAtlasId_high,
                 pendingFgPaletteId_high,
                 pendingFgUnderwaterPaletteId_high != null ? pendingFgUnderwaterPaletteId_high : 0,
@@ -382,8 +402,8 @@ public class LevelManager {
     private Integer pendingFboAtlasId;
     private Integer pendingFboPaletteId;
     private final GLCommand highPriorityFboCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        TilePriorityFBO tileFbo = graphicsManager.getTilePriorityFBO();
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilePriorityFBO tileFbo = graphics().getTilePriorityFBO();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tileFbo == null || tilemapRenderer == null) {
             return;
         }
@@ -406,8 +426,8 @@ public class LevelManager {
                 0, 0, pendingFboScreenW, pendingFboScreenH,
                 pendingFboFgWorldOffsetX,
                 pendingFboFgWorldOffsetY,
-                graphicsManager.getPatternAtlasWidth(),
-                graphicsManager.getPatternAtlasHeight(),
+                graphics().getPatternAtlasWidth(),
+                graphics().getPatternAtlasHeight(),
                 pendingFboAtlasId,
                 pendingFboPaletteId,
                 0, 1, verticalWrapEnabled, true, false, 0.0f);
@@ -431,19 +451,19 @@ public class LevelManager {
     private float pendingBgTilePassVdpWrapWidth;
     private float pendingBgTilePassNametableBase;
     private final GLCommand bgTilePassCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-        BackgroundRenderer bgRenderer = graphicsManager.getBackgroundRenderer();
+        BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer == null) {
             return;
         }
         bgRenderer.beginTilePass(pendingBgTilePassRenderWidth, pendingBgTilePassRenderHeight, true);
-        TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+        TilemapGpuRenderer tilemapRenderer = graphics().getTilemapGpuRenderer();
         if (tilemapRenderer != null) {
             int savedShimmerStyle = tilemapRenderer.getShimmerStyle();
             tilemapRenderer.setShimmerState(frameCounter, 0);
 
-            Integer atlasId = graphicsManager.getPatternAtlasTextureId();
-            Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+            Integer atlasId = graphics().getPatternAtlasTextureId();
+            Integer paletteId = graphics().getCombinedPaletteTextureId();
+            Integer underwaterPaletteId = graphics().getUnderwaterPaletteTextureId();
             boolean useUnderwaterPalette = pendingBgTilePassHasWater && underwaterPaletteId != null;
             if (atlasId != null && paletteId != null) {
                 if (pendingBgTilePassPerLineScroll) {
@@ -466,8 +486,8 @@ public class LevelManager {
                         viewportBuffer[3],
                         pendingBgTilePassBgTilemapWorldOffsetX,
                         (float) pendingBgTilePassAlignedBgY,
-                        graphicsManager.getPatternAtlasWidth(),
-                        graphicsManager.getPatternAtlasHeight(),
+                        graphics().getPatternAtlasWidth(),
+                        graphics().getPatternAtlasHeight(),
                         atlasId,
                         paletteId,
                         underwaterPaletteId != null ? underwaterPaletteId : 0,
@@ -496,13 +516,9 @@ public class LevelManager {
         }
     }
 
-    /**
-     * Private constructor for Singleton pattern.
-     * Zone list is lazily initialized from the current GameModule's ZoneRegistry.
-     */
+    @Deprecated(forRemoval = true)
     protected LevelManager() {
-        this(Camera.getInstance(), SpriteManager.getInstance(), ParallaxManager.getInstance(),
-                CollisionSystem.getInstance(), WaterSystem.getInstance(), GameStateManager.getInstance());
+        throw new IllegalStateException("LevelManager requires explicit runtime dependencies");
     }
 
     /**
@@ -512,13 +528,22 @@ public class LevelManager {
      */
     public LevelManager(Camera camera, SpriteManager spriteManager,
                         ParallaxManager parallaxManager, CollisionSystem collisionSystem,
-                        WaterSystem waterSystem, GameStateManager gameState) {
+                        WaterSystem waterSystem, GameStateManager gameState,
+                        EngineServices engineServices) {
         this.camera = camera;
         this.spriteManager = spriteManager;
         this.parallaxManager = parallaxManager;
         this.collisionSystem = collisionSystem;
         this.waterSystem = waterSystem;
         this.gameState = gameState;
+        this.graphicsManager = engineServices.graphics();
+        this.audioManager = engineServices.audio();
+        this.configService = engineServices.configuration();
+        this.overlayManager = engineServices.debugOverlay();
+        this.profiler = engineServices.profiler();
+        this.crossGameFeatures = engineServices.crossGameFeatures();
+        this.cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+        this.cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
     }
 
     /**
@@ -567,7 +592,8 @@ public class LevelManager {
      */
     public void loadLevel(int levelIndex, LevelLoadMode loadMode, LevelLoadContext ctx) throws IOException {
         try {
-            LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+            GameModule module = activeGameModule();
+            LevelInitProfile profile = module.getLevelInitProfile();
             ctx.setLevelIndex(levelIndex);
             ctx.setLoadMode(loadMode);
 
@@ -575,7 +601,7 @@ public class LevelManager {
             if (steps.isEmpty()) {
                 throw new IllegalStateException(
                     "No level load steps defined for " +
-                    GameModuleRegistry.getCurrent().getClass().getSimpleName() +
+                    module.getClass().getSimpleName() +
                     ". All game modules must implement levelLoadSteps().");
             }
             for (InitStep step : steps) {
@@ -606,7 +632,7 @@ public class LevelManager {
     public void initGameModule(int levelIndex) throws IOException {
         Rom rom = GameServices.rom().getRom();
         parallaxManager.load(rom);
-        gameModule = GameModuleRegistry.getCurrent();
+        gameModule = GameServices.module();
         refreshZoneList();
         game = gameModule.createGame(rom);
     }
@@ -615,7 +641,6 @@ public class LevelManager {
      * Phase C/F: Configure audio manager and play level music.
      */
     public void initAudio(int levelIndex) throws IOException {
-        AudioManager audioManager = AudioManager.getInstance();
         audioManager.setAudioProfile(gameModule.getAudioProfile());
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
@@ -805,7 +830,7 @@ public class LevelManager {
      */
     public void initRings() {
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
-        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable, audioManager);
         ringManager.reset(camera.getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
     }
@@ -973,9 +998,11 @@ public class LevelManager {
      * contact inline during its own update.
      */
     public boolean usesInlineObjectSolidResolution() {
-        return gameModule.getPhysicsProvider() != null
-                && gameModule.getPhysicsProvider().getFeatureSet() != null
-                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+        GameModule activeModule = activeGameModule();
+        return activeModule != null
+                && activeModule.getPhysicsProvider() != null
+                && activeModule.getPhysicsProvider().getFeatureSet() != null
+                && activeModule.getPhysicsProvider().getFeatureSet().collisionModel()
                    == com.openggf.game.CollisionModel.DUAL_PATH;
     }
 
@@ -1212,7 +1239,7 @@ public class LevelManager {
             objectManager.applyPlaneSwitchers(player);
         }
         // Sonic 1 loop-based plane switching (and any other game-specific plane logic)
-        GameModule module = GameModuleRegistry.getCurrent();
+        GameModule module = activeGameModule();
         if (module != null) {
             module.applyPlaneSwitching(player);
         }
@@ -1227,9 +1254,10 @@ public class LevelManager {
         RenderContext.clearSidekickContexts();
         dustBankCount = 0;
         tailsTailBankCount = 0;
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
-            artProvider = CrossGameFeatureProvider.getInstance();
+            artProvider = crossGame;
         } else if (game instanceof PlayerSpriteArtProvider p) {
             artProvider = p;
         } else {
@@ -1248,8 +1276,7 @@ public class LevelManager {
             }
             PlayerSpriteRenderer renderer = new PlayerSpriteRenderer(artSet);
             if (CrossGameFeatureProvider.isActive()) {
-                renderer.setRenderContext(
-                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                renderer.setRenderContext(crossGame.getDonorRenderContext());
             }
             renderer.ensureCached(graphicsManager);
             playable.setSpriteRenderer(renderer);
@@ -1347,8 +1374,7 @@ public class LevelManager {
                 if (sidekickPaletteCtx != null) {
                     sidekickRenderer.setRenderContext(sidekickPaletteCtx);
                 } else if (CrossGameFeatureProvider.isActive()) {
-                    sidekickRenderer.setRenderContext(
-                            CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                    sidekickRenderer.setRenderContext(crossGame.getDonorRenderContext());
                 }
                 sidekickRenderer.ensureCached(graphicsManager);
                 sidekick.setSpriteRenderer(sidekickRenderer);
@@ -1411,9 +1437,11 @@ public class LevelManager {
         if (mainPalette != null && sidekickPalette.dataEquals(mainPalette)) {
             return null;
         }
-        GameId gameId = (GameModuleRegistry.getCurrent() != null)
-                ? GameModuleRegistry.getCurrent().getGameId()
-                : null;
+        GameModule activeModule = gameModule;
+        if (activeModule == null && GameServices.hasRuntime()) {
+            activeModule = GameServices.module();
+        }
+        GameId gameId = activeModule != null ? activeModule.getGameId() : null;
         RenderContext ctx = RenderContext.createSidekickContext(gameId);
         ctx.setPalette(0, sidekickPalette);
         return ctx;
@@ -1444,9 +1472,10 @@ public class LevelManager {
     }
 
     private void initSpindashDust(AbstractPlayableSprite playable) {
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         SpindashDustArtProvider dustProv;
         if (CrossGameFeatureProvider.isActive()) {
-            dustProv = CrossGameFeatureProvider.getInstance();
+            dustProv = crossGame;
         } else if (game instanceof SpindashDustArtProvider d) {
             dustProv = d;
         } else {
@@ -1481,8 +1510,7 @@ public class LevelManager {
             dustBankCount++;
             PlayerSpriteRenderer dustRenderer = new PlayerSpriteRenderer(dustArt);
             if (CrossGameFeatureProvider.isActive()) {
-                dustRenderer.setRenderContext(
-                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                dustRenderer.setRenderContext(crossGame.getDonorRenderContext());
             }
             dustRenderer.ensureCached(graphicsManager);
             playable.setSpindashDustController(new SpindashDustController(playable, dustRenderer));
@@ -1503,16 +1531,17 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
+        CrossGameFeatureProvider crossGame = crossGameFeatures;
         // Check donor game first (cross-game donation), then fall back to base game module
         boolean isS3k = CrossGameFeatureProvider.isActive()
-                ? CrossGameFeatureProvider.getInstance().hasSeparateTailsTailArt()
+                ? crossGame.hasSeparateTailsTailArt()
                 : gameModule.hasSeparateTailsTailArt();
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
             if (CrossGameFeatureProvider.isActive()) {
                 try {
-                    tailsArt = CrossGameFeatureProvider.getInstance().loadTailsTailArt();
+                    tailsArt = crossGame.loadTailsTailArt();
                 } catch (IOException e) {
                     LOGGER.log(SEVERE, "Failed to load cross-game tails tail art.", e);
                     tailsArt = null;
@@ -1559,8 +1588,7 @@ public class LevelManager {
         tailsTailBankCount++;
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         if (CrossGameFeatureProvider.isActive()) {
-            tailsRenderer.setRenderContext(
-                    CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+            tailsRenderer.setRenderContext(crossGame.getDonorRenderContext());
         }
         tailsRenderer.ensureCached(graphicsManager);
         playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer, isS3k));
@@ -1815,8 +1843,8 @@ public class LevelManager {
         profiler.endSection("render.fg.priority");
 
         // HTZ earthquake uses BG high-priority cave tiles as a visual overlay.
-        // Our main BG pass renders all BG priorities together behind FG-low, so we
-        // draw a BG-high overlay here to match hardware layering in this mode.
+        // These render between FG-low and FG-high (in front of FG terrain but
+        // behind FG high-pri tiles). HTZ has no sprites that need to be covered.
         renderHtzEarthquakeBgHighOverlay();
 
         // Draw Foreground (Layer 0) high-priority pass to screen
@@ -1824,8 +1852,16 @@ public class LevelManager {
 
         if (includeSpritePass) {
             renderSpriteObjectPass(spriteManager, true);
-            DebugObjectArtViewer.getInstance().draw(objectRenderManager, camera);
-        } else {
+            overlayManager.getObjectArtViewer().draw(objectRenderManager, camera);
+        }
+
+        // VDP hardware: high-priority Plane B renders in front of low-priority sprites.
+        // HCZ2 wall chase uses high-priority BG tiles for the approaching water wall,
+        // which must cover objects (doors, platforms) as it passes over them.
+        // Rendered after sprites so the wall appears in front of everything except HUD.
+        renderBgHighPriorityOverlay();
+
+        if (!includeSpritePass) {
             // No sprite/object pass this frame; restore the default shader state for
             // any later screen-space rendering after the level tiles.
             graphicsManager.registerCommand(disableWaterShaderCommand);
@@ -1859,7 +1895,7 @@ public class LevelManager {
             // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
             int shimmerStyle = 0;
             PhysicsFeatureSet featureSet = null;
-            GameModule currentModule = GameModuleRegistry.getCurrent();
+            GameModule currentModule = activeGameModule();
             if (currentModule != null && currentModule.getPhysicsProvider() != null) {
                 featureSet = currentModule.getPhysicsProvider().getFeatureSet();
                 if (featureSet != null && featureSet.waterShimmerEnabled()) {
@@ -2360,6 +2396,80 @@ public class LevelManager {
     }
 
     /**
+     * Render high-priority BG tiles as an overlay between FG-low and FG-high.
+     * Matches VDP hardware compositing: high-priority Plane B renders in front
+     * of low-priority Plane A. Used by HCZ2 wall chase where the water wall is
+     * rendered as high-priority BG tiles visible in front of the level terrain.
+     */
+    private void renderBgHighPriorityOverlay() {
+        if (!gameState.isBgHighPriorityOverlayActive()) {
+            return;
+        }
+
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer == null) {
+            return;
+        }
+
+        Integer atlasId = graphicsManager.getPatternAtlasTextureId();
+        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
+        if (atlasId == null || paletteId == null) {
+            return;
+        }
+
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+        if (hScrollData == null || hScrollData.length == 0) {
+            return;
+        }
+
+        short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
+        float bgWorldOffsetX = -bgScroll;
+        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
+        int screenW = cachedScreenWidth;
+        int screenH = cachedScreenHeight;
+
+        // Water palette support — the wall must use underwater palette below waterline
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
+        Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+        boolean useUnderwaterPalette = hasWater && !suppressUnderwaterPalette && underwaterPaletteId != null;
+        int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
+        float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
+        int uwPalId = useUnderwaterPalette ? underwaterPaletteId : 0;
+
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+            if (tilemapRenderer == null) {
+                return;
+            }
+            int[] viewport = new int[4];
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            tilemapRenderer.render(
+                    TilemapGpuRenderer.Layer.BACKGROUND,
+                    screenW,
+                    screenH,
+                    viewport[0],
+                    viewport[1],
+                    viewport[2],
+                    viewport[3],
+                    bgWorldOffsetX,
+                    bgWorldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    atlasId,
+                    paletteId,
+                    uwPalId,
+                    1,      // priorityPass=1: HIGH-PRIORITY TILES ONLY
+                    false,
+                    false,
+                    useUnderwaterPalette,
+                    waterlineScreenY);
+        }));
+    }
+
+    /**
      * Render high-priority foreground tiles to the tile priority FBO.
      * This FBO is sampled by the sprite priority shader to determine
      * if low-priority sprites should be hidden behind high-priority tiles.
@@ -2593,6 +2703,9 @@ public class LevelManager {
         }
         int levelWidth = cachedFgWidthPx;
         int levelHeight = cachedFgHeightPx;
+        if (levelWidth <= 0 || levelHeight <= 0 || blockPixelSize <= 0) {
+            return -1;
+        }
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -2850,7 +2963,7 @@ public class LevelManager {
         level.setPalette(paletteIndex, newPalette);
 
         // Update the graphics manager's cached palette texture
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = graphicsManager;
         if (graphicsMan.isGlInitialized()) {
             graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
         }
@@ -3282,7 +3395,7 @@ public class LevelManager {
         playable.setHighPriority(false);
         playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         playable.setRingCount(0);
-        AudioManager.getInstance().getBackend().setSpeedShoes(false);
+        audioManager.getBackend().setSpeedShoes(false);
     }
 
     /**
@@ -3310,7 +3423,7 @@ public class LevelManager {
 
         // Apply per-game fast vertical scroll cap from PhysicsFeatureSet.
         // S1/S2: 16px/frame (s2.asm:18190), S3K: 24px/frame (sonic3k.asm:loc_1C1B0).
-        PhysicsProvider physics = GameModuleRegistry.getCurrent().getPhysicsProvider();
+        PhysicsProvider physics = activeGameModule().getPhysicsProvider();
         if (physics != null && physics.getFeatureSet() != null) {
             camera.setFastScrollCap(physics.getFeatureSet().fastScrollCap());
         }
@@ -3321,7 +3434,7 @@ public class LevelManager {
      * All games: LevelEventProvider.initLevel(zone, act).
      */
     public void initLevelEventsForLevel() {
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = activeGameModule().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.initLevel(currentZone, currentAct);
         }
@@ -3420,7 +3533,7 @@ public class LevelManager {
                 // ROM is already loaded by Engine.initializeGame(), so
                 // GameModuleRegistry has the correct module. Just bootstrap
                 // the zone list for level data lookup.
-                gameModule = GameModuleRegistry.getCurrent();
+                gameModule = GameServices.module();
                 refreshZoneList();
             }
             LevelData levelData = levels.get(currentZone).get(currentAct);
@@ -3545,7 +3658,7 @@ public class LevelManager {
 
         // 2. Reload layout + collision only (ROM: Load_Level + LoadSolids)
         if (levels.isEmpty()) {
-            gameModule = GameModuleRegistry.getCurrent();
+            gameModule = GameServices.module();
             refreshZoneList();
         }
         LevelData levelData = levels.get(currentZone).get(currentAct);
@@ -3616,7 +3729,7 @@ public class LevelManager {
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
-            AudioManager.getInstance().playMusic(request.musicOverrideId());
+            audioManager.playMusic(request.musicOverrideId());
         }
 
         // 10. In-level title card if requested
@@ -3707,7 +3820,7 @@ public class LevelManager {
 
         // Rebuild RingManager with the new act's ring spawns
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
-        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
+        ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable, audioManager);
         ringManager.reset(cameraX);
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
 
@@ -3721,12 +3834,11 @@ public class LevelManager {
     }
 
     private ObjectServices buildObjectServices() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return new DefaultObjectServices(runtime);
+        GameRuntime runtime = GameServices.runtimeOrNull();
+        if (runtime == null) {
+            throw new IllegalStateException("LevelManager.buildObjectServices() requires an active GameRuntime");
         }
-        return new DefaultObjectServices(this, camera, gameState, spriteManager,
-                FadeManager.getInstance(), waterSystem, parallaxManager);
+        return new DefaultObjectServices(runtime);
     }
 
     private void reregisterPlayerDynamicObjects(Sprite sprite) {
@@ -3746,7 +3858,7 @@ public class LevelManager {
     }
 
     private void initLevelEventsForCurrentZoneAct() {
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = activeGameModule().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.initLevel(currentZone, currentAct);
         }
@@ -3783,8 +3895,6 @@ public class LevelManager {
 
     // ==================== Transition Coordinator Delegation ====================
     // Thin wrappers that delegate to LevelTransitionCoordinator.
-    // External callers continue to use LevelManager.getInstance().methodName().
-
     /** Returns the transition coordinator. */
     public LevelTransitionCoordinator getTransitions() { return transitions; }
 
@@ -3896,22 +4006,6 @@ public class LevelManager {
         useShaderBackground = true;
         cacheLevelDimensions();
         levels.clear();
-    }
-
-    /**
-     * Returns the singleton instance of LevelManager.
-     *
-     * @return the singleton LevelManager instance
-     */
-    public static synchronized LevelManager getInstance() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getLevelManager();
-        }
-        if (levelManager == null) {
-            levelManager = new LevelManager();
-        }
-        return levelManager;
     }
 
     /**

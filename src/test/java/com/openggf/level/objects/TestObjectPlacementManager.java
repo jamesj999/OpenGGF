@@ -1,11 +1,11 @@
 package com.openggf.level.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestObjectPlacementManager {
     @Test
@@ -46,26 +46,26 @@ public class TestObjectPlacementManager {
 
         // Camera starts at 0 - spawn at x=500 is within load-ahead range (0x280=640)
         manager.reset(0);
-        assertTrue("Spawn should be in active window initially", manager.getActiveSpawns().contains(spawn));
+        assertTrue(manager.getActiveSpawns().contains(spawn), "Spawn should be in active window initially");
 
         // Break the block: mark as remembered (single-arg - used by Placement directly)
         manager.markRemembered(spawn);
-        assertTrue("Spawn should still be in active (single-arg doesn't remove)", manager.getActiveSpawns().contains(spawn));
-        assertTrue("Spawn should be remembered", manager.isRemembered(spawn));
+        assertTrue(manager.getActiveSpawns().contains(spawn), "Spawn should still be in active (single-arg doesn't remove)");
+        assertTrue(manager.isRemembered(spawn), "Spawn should be remembered");
 
         // Scroll far right - spawn goes out of window
         manager.update(2000);
-        assertFalse("Spawn should have left the window", manager.getActiveSpawns().contains(spawn));
-        assertTrue("Spawn should still be remembered", manager.isRemembered(spawn));
+        assertFalse(manager.getActiveSpawns().contains(spawn), "Spawn should have left the window");
+        assertTrue(manager.isRemembered(spawn), "Spawn should still be remembered");
 
         // Scroll back to original position - spawn should NOT reappear
         manager.update(0);
-        assertFalse("Remembered spawn should NOT reappear on camera return", manager.getActiveSpawns().contains(spawn));
-        assertTrue("Spawn should still be remembered after return", manager.isRemembered(spawn));
+        assertFalse(manager.getActiveSpawns().contains(spawn), "Remembered spawn should NOT reappear on camera return");
+        assertTrue(manager.isRemembered(spawn), "Spawn should still be remembered after return");
 
         // Try again: scroll to have spawn in range
         manager.update(300);
-        assertFalse("Remembered spawn should NOT reappear when scrolling into range", manager.getActiveSpawns().contains(spawn));
+        assertFalse(manager.getActiveSpawns().contains(spawn), "Remembered spawn should NOT reappear when scrolling into range");
     }
 
     @Test
@@ -79,12 +79,12 @@ public class TestObjectPlacementManager {
         ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
 
         manager.reset(0);
-        assertTrue("Spawn should be in active window", manager.getActiveSpawns().contains(spawn));
+        assertTrue(manager.getActiveSpawns().contains(spawn), "Spawn should be in active window");
 
         // Mark as remembered using single-arg (as if the object broke)
         // IMPORTANT: The single-arg version does NOT remove from active
         manager.markRemembered(spawn);
-        assertTrue("Spawn is remembered", manager.isRemembered(spawn));
+        assertTrue(manager.isRemembered(spawn), "Spawn is remembered");
 
         // Camera doesn't move (player falls vertically)
         manager.update(0);
@@ -92,8 +92,8 @@ public class TestObjectPlacementManager {
         // The spawn is still in the active window AND remembered.
         // syncActiveSpawns should check isRemembered before creating a new instance.
         // But since the spawn is still in active, it will be iterated.
-        assertTrue("Spawn is still in active (camera didn't move)", manager.getActiveSpawns().contains(spawn));
-        assertTrue("Spawn is still remembered", manager.isRemembered(spawn));
+        assertTrue(manager.getActiveSpawns().contains(spawn), "Spawn is still in active (camera didn't move)");
+        assertTrue(manager.isRemembered(spawn), "Spawn is still remembered");
     }
 
     @Test
@@ -106,24 +106,24 @@ public class TestObjectPlacementManager {
         ObjectManager.Placement manager = new ObjectManager.Placement(List.of(canonical));
 
         manager.reset(0);
-        assertTrue("Spawn should be in active window", manager.getActiveSpawns().contains(canonical));
+        assertTrue(manager.getActiveSpawns().contains(canonical), "Spawn should be in active window");
 
         // Create a structurally equal but identity-different spawn
         ObjectSpawn differentRef = new ObjectSpawn(500, 0, 0x32, 0, 0, true, 0x8000);
-        assertTrue("Spawns should be equal by value", canonical.equals(differentRef));
-        assertFalse("Spawns should NOT be identity-equal", canonical == differentRef);
+        assertTrue(canonical.equals(differentRef), "Spawns should be equal by value");
+        assertFalse(canonical == differentRef, "Spawns should NOT be identity-equal");
 
         // Mark remembered using the different reference - should work via fallback
         manager.markRemembered(differentRef);
-        assertTrue("Spawn should be remembered even with different reference", manager.isRemembered(canonical));
-        assertTrue("Spawn should also be remembered when queried with different ref", manager.isRemembered(differentRef));
+        assertTrue(manager.isRemembered(canonical), "Spawn should be remembered even with different reference");
+        assertTrue(manager.isRemembered(differentRef), "Spawn should also be remembered when queried with different ref");
 
         // Scroll away and back - spawn should NOT reappear
         manager.update(2000);
-        assertFalse("Spawn should have left the window", manager.getActiveSpawns().contains(canonical));
+        assertFalse(manager.getActiveSpawns().contains(canonical), "Spawn should have left the window");
 
         manager.update(0);
-        assertFalse("Remembered spawn should NOT reappear on camera return", manager.getActiveSpawns().contains(canonical));
+        assertFalse(manager.getActiveSpawns().contains(canonical), "Remembered spawn should NOT reappear on camera return");
     }
 
     @Test
@@ -150,3 +150,5 @@ public class TestObjectPlacementManager {
         assertTrue(manager.getActiveSpawns().contains(spawn));
     }
 }
+
+

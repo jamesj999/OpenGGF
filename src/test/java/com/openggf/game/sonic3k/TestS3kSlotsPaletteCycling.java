@@ -4,6 +4,8 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
@@ -17,43 +19,39 @@ import com.openggf.level.rings.RingSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kSlotsPaletteCycling {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Sonic3kPaletteCycler cycler;
     private StubLevel level;
     private GameModule previousModule;
 
-    @Before
+    @BeforeEach
     public void setUp() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         previousModule = GameModuleRegistry.getCurrent();
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         RomByteReader reader = RomByteReader.fromRom(rom);
         level = new StubLevel();
         cycler = new Sonic3kPaletteCycler(reader, level, 0x15, 0);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         GameModuleRegistry.setCurrent(previousModule);
     }
 
@@ -106,8 +104,7 @@ public class TestS3kSlotsPaletteCycling {
             }
         }
 
-        assertTrue("Expected multiple idle slot palette states over 24 frames, got " + distinctCount,
-                distinctCount >= 3);
+        assertTrue(distinctCount >= 3, "Expected multiple idle slot palette states over 24 frames, got " + distinctCount);
     }
 
     @Test
@@ -123,7 +120,7 @@ public class TestS3kSlotsPaletteCycling {
     }
 
     @Test
-    public void slotModeFollowsRegistryCoordinatorLookupPath() throws Exception {
+    public void slotModeFollowsSessionCoordinatorLookupPath() throws Exception {
         Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
         S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
         runtime.bootstrap();
@@ -133,9 +130,12 @@ public class TestS3kSlotsPaletteCycling {
         slotRuntimeField.setAccessible(true);
         slotRuntimeField.set(coordinator, runtime);
 
-        GameModuleRegistry.setCurrent(new TestSonic3kModule(coordinator));
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        SessionManager.openGameplaySession(new TestSonic3kModule(coordinator));
+        RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode());
 
-        assertEquals(1, Sonic3kPaletteCycler.resolveSlotsModeFromRegistryForTest());
+        assertEquals(1, Sonic3kPaletteCycler.resolveSlotsModeFromSessionForTest());
     }
 
     private static Palette.Color snapshot(Palette.Color c) {
@@ -152,8 +152,7 @@ public class TestS3kSlotsPaletteCycling {
 
     private static void assertPaletteRangeEquals(Palette.Color[] expected, Palette palette, int startColor) {
         for (int i = 0; i < expected.length; i++) {
-            assertTrue("Palette color " + (startColor + i) + " changed unexpectedly",
-                    colorsEqual(expected[i], palette.getColor(startColor + i)));
+            assertTrue(colorsEqual(expected[i], palette.getColor(startColor + i)), "Palette color " + (startColor + i) + " changed unexpectedly");
         }
     }
 
@@ -203,3 +202,5 @@ public class TestS3kSlotsPaletteCycling {
         }
     }
 }
+
+

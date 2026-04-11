@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.GameServices;
 
 /**
  * Manages OOZ oil surface collision and oil slides.
@@ -197,8 +197,11 @@ public class OilSurfaceManager {
 
         // Look up block ID at player position
         // ROM: uses centre coordinates (x_pos, y_pos)
-        LevelManager levelManager = GameServices.levelOrNull();
+        LevelManager levelManager = player.currentLevelManagerIfAvailable();
         if (levelManager == null) {
+            levelManager = GameServices.levelOrNull();
+        }
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
             exitSlide(player);
             return;
         }

@@ -4,9 +4,9 @@ import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -22,15 +22,15 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestTornadoObjectInstance {
 
     private GameModule previousModule;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         previousModule = GameModuleRegistry.getCurrent();
@@ -41,7 +41,7 @@ public class TestTornadoObjectInstance {
         AizPlaneIntroInstance.resetIntroPhaseState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GameServices.sprites().resetState();
         GameServices.level().resetState();
@@ -59,8 +59,8 @@ public class TestTornadoObjectInstance {
 
         // ROM: move.w x_pos(a1),d1 / add.w d3,d1 / move.w d1,x_pos(a0)
         // Moves TORNADO to follow PLAYER. Player at 200, tornado follows to 200-16=184.
-        assertEquals("ObjB2_Move_obbey_player should move Tornado to player - 16", 184, tornado.getX());
-        assertEquals("Player should not be moved", 200, main.getCentreX());
+        assertEquals(184, tornado.getX(), "ObjB2_Move_obbey_player should move Tornado to player - 16");
+        assertEquals(200, main.getCentreX(), "Player should not be moved");
     }
 
     @Test
@@ -77,8 +77,7 @@ public class TestTornadoObjectInstance {
         invokePrivate(tornado, "moveWithPlayer",
                 new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, false);
 
-        assertEquals("ObjB2_Move_below_player should anchor to closest player on transition",
-                149, tornado.getX());
+        assertEquals(149, tornado.getX(), "ObjB2_Move_below_player should anchor to closest player on transition");
     }
 
     @Test
@@ -102,7 +101,7 @@ public class TestTornadoObjectInstance {
         // SCZ suppresses CPU sidekick (isCpuSidekickSuppressed()), so the Tornado
         // anchors to main player. Sidekick at 140 would give smoothOffsetX=-10 (closer),
         // but it's suppressed, so main at 300 gives smoothOffsetX=150.
-        assertEquals("SCZ Tornado anchors to main when sidekick is suppressed", 151, tornado.getX());
+        assertEquals(151, tornado.getX(), "SCZ Tornado anchors to main when sidekick is suppressed");
     }
 
     @Test
@@ -116,7 +115,7 @@ public class TestTornadoObjectInstance {
         assertEquals(6, tornado.getPriorityBucket());
 
         tornado.update(1, null);
-        assertTrue("Routine C should cull via MarkObjGone", tornado.isDestroyed());
+        assertTrue(tornado.isDestroyed(), "Routine C should cull via MarkObjGone");
     }
 
     @Test
@@ -126,7 +125,7 @@ public class TestTornadoObjectInstance {
         TornadoObjectInstance tornado = createTornado(0x700, 0x100, 0x52);
         tornado.update(1, null);
 
-        assertTrue("WFZ start routine should delete when outside Obj_DeleteOffScreen range", tornado.isDestroyed());
+        assertTrue(tornado.isDestroyed(), "WFZ start routine should delete when outside Obj_DeleteOffScreen range");
     }
 
     @Test
@@ -199,3 +198,5 @@ public class TestTornadoObjectInstance {
         }
     }
 }
+
+

@@ -4,6 +4,7 @@ import static org.lwjgl.opengl.GL11.GL_LINES;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
@@ -127,20 +128,24 @@ public class ObjectManager {
             int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
             TouchResponseTable touchResponseTable) {
         this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
-                GraphicsManager.getInstance(),
-                Camera.getInstance(),
                 defaultServices());
     }
 
+    private ObjectManager(List<ObjectSpawn> spawns, ObjectRegistry registry,
+            int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
+            TouchResponseTable touchResponseTable, ObjectServices services) {
+        this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
+                services.graphicsManager(),
+                services.camera(),
+                services);
+    }
+
     private static ObjectServices defaultServices() {
-        return new DefaultObjectServices(
-                LevelManager.getInstance(),
-                Camera.getInstance(),
-                GameStateManager.getInstance(),
-                SpriteManager.getInstance(),
-                FadeManager.getInstance(),
-                WaterSystem.getInstance(),
-                ParallaxManager.getInstance());
+        GameRuntime runtime = GameServices.runtimeOrNull();
+        if (runtime != null) {
+            return new DefaultObjectServices(runtime);
+        }
+        return new BootstrapObjectServices();
     }
 
     public void reset(int cameraX) {
@@ -212,7 +217,7 @@ public class ObjectManager {
             return;
         }
         touchResponses.debugState.setEnabled(
-                DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
+                objectServices.debugOverlay().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
         // ROM: CPU sidekick uses separate overlap tracking and Hurt_Sidekick handler
         // (knockback only, no ring scatter or death). Must dispatch to updateSidekick
         // to avoid routing through the main player's applyHurtOrDeath path.
@@ -266,7 +271,7 @@ public class ObjectManager {
         // for both terrain and solid objects before animation resolves.
         if (enableTouchResponses && touchResponses != null) {
             touchResponses.debugState.setEnabled(
-                    DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
+                    objectServices.debugOverlay().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
             // Each sidekick uses separate overlap tracking and special hurt handling.
@@ -3297,9 +3302,9 @@ public class ObjectManager {
 
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
-                // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
+                // Requires the concrete playable type, but still goes through ObjectServices.
                 if (player instanceof AbstractPlayableSprite aps) {
-                    LevelManager.getInstance().spawnLostRings(aps, currentFrameCounter);
+                    objectManager.services().spawnLostRings(aps, currentFrameCounter);
                 }
             }
             player.applyHurtOrDeath(sourceX, cause, hadRings);

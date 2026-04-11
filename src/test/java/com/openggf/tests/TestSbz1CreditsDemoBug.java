@@ -1,16 +1,14 @@
 package com.openggf.tests;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Regression test for S1 SBZ1 credits demo replay.
@@ -20,7 +18,7 @@ import static org.junit.Assert.*;
  *
  * History: this test originally checked for a bug where Sonic's speeds were
  * all reset to 0 at Y=889. After trace-replay-verified physics corrections
- * (commit 8a894f39b), the demo trajectory changed — Sonic no longer reaches
+ * (commit 8a894f39b), the demo trajectory changed â€” Sonic no longer reaches
  * Y=889 with the corrected collision model. The test now verifies the demo
  * replays cleanly and Sonic moves from the start position.
  *
@@ -49,23 +47,21 @@ public class TestSbz1CreditsDemoBug {
         {0x00, 0x0D}, // Idle 13 frames
         {0x08, 0x6E}, // Right 110 frames
     };
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_1, ZONE_SBZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
     private HeadlessTestFixture fixture;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -93,7 +89,7 @@ public class TestSbz1CreditsDemoBug {
 
         int settledX = sprite.getX();
         int settledY = sprite.getY();
-        assertFalse("Sonic should settle onto ground", sprite.getAir());
+        assertFalse(sprite.getAir(), "Sonic should settle onto ground");
 
         // Replay the demo input sequence
         int totalFrame = 0;
@@ -121,11 +117,12 @@ public class TestSbz1CreditsDemoBug {
         }
 
         // Verify Sonic moved during the demo (the leftward inputs should move him)
-        assertTrue("Sonic should have moved left during demo (minX=" + minX
-                + " settledX=" + settledX + ")",
-                minX < settledX - 50);
+        assertTrue(minX < settledX - 50, "Sonic should have moved left during demo (minX=" + minX
+                + " settledX=" + settledX + ")");
 
         // Verify Sonic didn't die
-        assertFalse("Sonic should not die during SBZ1 demo", sprite.getDead());
+        assertFalse(sprite.getDead(), "Sonic should not die during SBZ1 demo");
     }
 }
+
+

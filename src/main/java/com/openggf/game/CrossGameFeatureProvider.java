@@ -5,6 +5,8 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsLoader;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -65,8 +67,24 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private SpriteArtSet instaShieldArtSet;
     private DonorCapabilities donorCapabilities;
     private boolean active;
+    private final RomManager romManager;
+    private final SonicConfigurationService configService;
 
     private CrossGameFeatureProvider() {
+        this(null, null);
+    }
+
+    CrossGameFeatureProvider(RomManager romManager, SonicConfigurationService configService) {
+        this.romManager = romManager;
+        this.configService = configService;
+    }
+
+    private RomManager romManager() {
+        return romManager != null ? romManager : GameServices.rom();
+    }
+
+    private SonicConfigurationService configService() {
+        return configService != null ? configService : GameServices.configuration();
     }
 
     public static synchronized CrossGameFeatureProvider getInstance() {
@@ -86,7 +104,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         this.donorGameId = GameId.fromCode(donorGameCode);
 
         // Same-game guard: disable donation when donor == host
-        GameId hostId = GameModuleRegistry.getCurrent().getGameId();
+        GameId hostId = GameServices.module().getGameId();
         if (donorGameId == hostId) {
             LOGGER.info("Donor same as host (" + donorGameId.code() + "), donation disabled");
             active = false;
@@ -101,7 +119,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return;
         }
 
-        Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
+        Rom donorRom = romManager().getSecondaryRom(donorGameId.code());
         this.donorReader = RomByteReader.fromRom(donorRom);
 
         if (donorGameId == GameId.S3K) {
@@ -120,8 +138,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = configService().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Palette charPalette = loadCharacterPalette(mainChar);
         if (charPalette != null) {
             donorRenderContext.setPalette(0, charPalette);
@@ -283,7 +300,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         try {
-            Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
+            Rom donorRom = romManager().getSecondaryRom(donorGameId.code());
             donorSmpsLoader = donorProfile.createSmpsLoader(donorRom);
             donorDacData = donorSmpsLoader.loadDacData();
 
@@ -443,7 +460,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Inherit collision model from the base game module so plane switching
         // works correctly in S2/S3K levels with cross-game features enabled
-        PhysicsFeatureSet baseFeatureSet = GameModuleRegistry.getCurrent()
+        PhysicsFeatureSet baseFeatureSet = GameServices.module()
                 .getPhysicsProvider().getFeatureSet();
 
         return new PhysicsFeatureSet(

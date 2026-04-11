@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -2332,7 +2332,7 @@ public class Sonic2ObjectArt {
      * @return the art configuration, or null if not available
      */
     private ZoneArtProvider.ObjectArtConfig getObjectArtConfig(int objectId, int zoneIndex) {
-        return GameModuleRegistry.getCurrent().getZoneArtProvider().getObjectArt(objectId, zoneIndex);
+        return GameServices.module().getZoneArtProvider().getObjectArt(objectId, zoneIndex);
     }
 
     /**

@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.data.Rom;
-import com.openggf.data.RomManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -100,7 +100,7 @@ public class DynamicHtz {
         }
 
         try {
-            Rom rom = RomManager.getInstance().getRom();
+            Rom rom = GameServices.rom().getRom();
             if (rom == null) {
                 LOG.warning("Cannot initialize DynamicHtz: ROM not loaded");
                 return;
@@ -212,7 +212,7 @@ public class DynamicHtz {
             offsetIdx = MOUNTAIN_OFFSETS.length - 6;
         }
 
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = GameServices.graphics();
 
         // Load 6 mountain strips (4 tiles each = 24 tiles total)
         // The MOUNTAIN_OFFSETS are RAM addresses. Use the OFFSET_TO_SOURCE mapping
@@ -350,7 +350,7 @@ public class DynamicHtz {
         // - Tile 1 = buffer[32:64]
         // - Tile 2 = buffer[64:96]
         // - etc.
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = GameServices.graphics();
 
         for (int tile = 0; tile < 8; tile++) {
             int destIndex = Sonic2Constants.HTZ_CLOUDS_TILE_INDEX + tile;

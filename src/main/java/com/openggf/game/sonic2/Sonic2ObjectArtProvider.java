@@ -346,18 +346,19 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (!com.openggf.game.CrossGameFeatureProvider.isActive()) {
             return;
         }
-        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+        com.openggf.game.CrossGameFeatureProvider crossGame = GameServices.crossGameFeatures();
+        String mainChar = GameServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
         if (!"knuckles".equalsIgnoreCase(mainChar)) {
             return;
         }
         // Load Knuckles life icon from donor S3K ROM
-        String donorId = com.openggf.game.CrossGameFeatureProvider.getInstance().getDonorGameId();
+        String donorId = crossGame.getDonorGameId();
         if (!"s3k".equals(donorId)) {
             return;
         }
         try {
-            com.openggf.data.Rom donorRom = com.openggf.data.RomManager.getInstance().getSecondaryRom("s3k");
+            com.openggf.data.Rom donorRom = GameServices.rom().getSecondaryRom("s3k");
             Pattern[] knuxLife = com.openggf.util.PatternDecompressor.nemesis(donorRom,
                     com.openggf.game.sonic3k.constants.Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR);
             if (knuxLife != null && knuxLife.length > 0) {

@@ -2,12 +2,10 @@ package com.openggf.sprites.playable;
 
 import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
@@ -96,7 +94,8 @@ public abstract class SuperStateController {
      */
     protected PaletteTarget resolvePaletteTarget(int logicalLine) {
         if (CrossGameFeatureProvider.isActive()) {
-            RenderContext donor = CrossGameFeatureProvider.getInstance().getDonorRenderContext();
+            CrossGameFeatureProvider crossGame = player.currentCrossGameFeatures();
+            RenderContext donor = crossGame.getDonorRenderContext();
             if (donor != null) {
                 Palette p = donor.getPalette(logicalLine);
                 if (p != null) {

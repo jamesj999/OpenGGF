@@ -6,6 +6,7 @@ import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.BootstrapObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.physics.SwingMotion;
@@ -181,7 +182,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private int liftoffAnimIndex;
 
     /** Palette cycler for Super Sonic visual effect (routines 0x0C+). */
-    private final AizIntroPaletteCycler paletteCycler;
+    private AizIntroPaletteCycler paletteCycler;
 
     /** Whether this object currently owns player control lock. */
     private boolean ownsPlayerControl;
@@ -234,6 +235,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      * Set during intro init, cleared when Knuckles spawns (routine >= 22).
      */
     private static boolean sidekickSuppressed = false;
+    private static AizPlaneIntroInstance activeIntroInstance;
 
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
@@ -247,6 +249,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         mainLevelTerrainSwapAttempted = false;
         decompressionCountdown = 0;
         sidekickSuppressed = false;
+        activeIntroInstance = null;
     }
 
     // -----------------------------------------------------------------------
@@ -255,6 +258,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     public AizPlaneIntroInstance(ObjectSpawn spawn) {
         super(spawn, "AIZPlaneIntro");
+        activeIntroInstance = this;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.routine = 0;
@@ -270,7 +274,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         this.planeDetached = false;
         this.planeWalkLeft = false;
         this.superSonicActive = false;
-        this.paletteCycler = new AizIntroPaletteCycler();
         this.ownsPlayerControl = false;
         this.mappingFrame = INTRO_MAPPING_FRAME;
         this.lastFrameCounter = 0;
@@ -378,6 +381,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     @Override
     public void onUnload() {
+        if (activeIntroInstance == this) {
+            activeIntroInstance = null;
+        }
         // Safety net: release player control if we still own it.
         if (ownsPlayerControl) {
             try {
@@ -558,7 +564,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // ROM: FG event queues terrain overlays when camera reaches $1400
         if (!mainLevelTerrainSwapAttempted) {
             mainLevelTerrainSwapAttempted = true;
-            boolean swapped = AizIntroTerrainSwap.applyMainLevelOverlays();
+            boolean swapped = activeIntroInstance != null
+                    ? activeIntroInstance.applyMainLevelOverlaysFromServices()
+                    : AizIntroTerrainSwap.applyMainLevelOverlays(new BootstrapObjectServices());
             if (swapped) {
                 LOG.info("AIZ intro: main-level terrain overlays applied");
             } else {
@@ -575,6 +583,17 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         } else {
             mainLevelPhaseActive = true;
         }
+    }
+
+    private AizIntroPaletteCycler paletteCycler() {
+        if (paletteCycler == null) {
+            paletteCycler = new AizIntroPaletteCycler(services());
+        }
+        return paletteCycler;
+    }
+
+    private boolean applyMainLevelOverlaysFromServices() {
+        return AizIntroTerrainSwap.applyMainLevelOverlays(services());
     }
 
     // -----------------------------------------------------------------------
@@ -600,9 +619,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     // -----------------------------------------------------------------------
 
     private void superSonicPaletteAnim() {
-        paletteCycler.advance();
-        paletteCycler.applyToGpu();
-        mappingFrame = paletteCycler.getMappingFrame(lastFrameCounter);
+        AizIntroPaletteCycler cycler = paletteCycler();
+        cycler.advance();
+        cycler.applyToGpu();
+        mappingFrame = cycler.getMappingFrame(lastFrameCounter);
     }
 
     // -----------------------------------------------------------------------
@@ -621,7 +641,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // ROM: timer = 0x40 (wait happens in routine 2)
         waitTimer = INIT_WAIT_TIMER;
         waveTimer = WAVE_SPAWN_INTERVAL;
-        paletteCycler.init();
+        paletteCycler().init();
         superSonicActive = false;
         mappingFrame = INTRO_MAPPING_FRAME;
         ensureIntroSonicRenderersLoaded();
@@ -637,7 +657,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
         // Load all intro art.
         try {
-            AizIntroArtLoader.loadAllIntroArt();
+            AizIntroArtLoader.loadAllIntroArt(services());
         } catch (Exception e) {
             LOG.fine("Could not load intro art (test env?): " + e.getMessage());
         }
@@ -827,7 +847,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private void setupSuperSonic() {
         superSonicActive = true;
-        paletteCycler.init();
+        paletteCycler().init();
         mappingFrame = SUPER_MAPPING_FRAME_BASE;
     }
 
@@ -1025,7 +1045,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             }
 
             // Apply emerald palette now (overwrites intro palette on line 3)
-            AizIntroArtLoader.applyEmeraldPalette();
+            AizIntroArtLoader.applyEmeraldPalette(services());
 
             // Spawn 7 emeralds.
             // ROM: CreateChild6_Simple places emeralds in later object slots.

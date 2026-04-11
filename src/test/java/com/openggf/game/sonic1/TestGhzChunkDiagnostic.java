@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1;
 
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import com.openggf.tools.EnigmaReader;
 import com.openggf.tools.KosinskiReader;
 
@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Diagnostic test: decompress GHZ chunks and 256x256 blocks to trace waterfall tile references.
@@ -30,7 +30,7 @@ public class TestGhzChunkDiagnostic {
     @Test
     public void dumpWaterfallChunkReferences() throws IOException {
         Path eniPath = Path.of("docs/s1disasm/map16/GHZ.eni");
-        Assume.assumeTrue("Skipping: " + eniPath + " not found", Files.exists(eniPath));
+        Assumptions.assumeTrue(Files.exists(eniPath), "Skipping: " + eniPath + " not found");
 
         byte[] decompressed;
         try (RandomAccessFile raf = new RandomAccessFile(eniPath.toFile(), "r");
@@ -40,9 +40,8 @@ public class TestGhzChunkDiagnostic {
 
         int chunkCount = decompressed.length / 8; // 4 words (8 bytes) per chunk
         System.out.println("GHZ chunks decompressed: " + decompressed.length + " bytes = " + chunkCount + " chunks");
-        assertTrue("Decompressed chunk data should not be empty", decompressed.length > 0);
-        assertEquals("Decompressed size should be a multiple of 8 (4 words per chunk)",
-                0, decompressed.length % 8);
+        assertTrue(decompressed.length > 0, "Decompressed chunk data should not be empty");
+        assertEquals(0, decompressed.length % 8, "Decompressed size should be a multiple of 8 (4 words per chunk)");
 
         int waterfallChunks = 0;
         for (int c = 0; c < chunkCount; c++) {
@@ -74,13 +73,12 @@ public class TestGhzChunkDiagnostic {
         }
 
         System.out.println("\nTotal chunks with waterfall refs (0x378-0x37F): " + waterfallChunks);
-        assertTrue("GHZ should contain at least one chunk referencing waterfall tiles",
-                waterfallChunks > 0);
+        assertTrue(waterfallChunks > 0, "GHZ should contain at least one chunk referencing waterfall tiles");
 
         // Now decompress the 256x256 blocks and find which blocks use waterfall chunks
         System.out.println("\n===== 256x256 BLOCK ANALYSIS =====");
         Path kosPath = Path.of("docs/s1disasm/map256/GHZ.kos");
-        Assume.assumeTrue("Skipping: " + kosPath + " not found", Files.exists(kosPath));
+        Assumptions.assumeTrue(Files.exists(kosPath), "Skipping: " + kosPath + " not found");
 
         byte[] blockData;
         try (RandomAccessFile raf = new RandomAccessFile(kosPath.toFile(), "r");
@@ -92,9 +90,8 @@ public class TestGhzChunkDiagnostic {
         int blockSize = 512;
         int blockCount = blockData.length / blockSize;
         System.out.println("GHZ blocks decompressed: " + blockData.length + " bytes = " + blockCount + " blocks");
-        assertTrue("Decompressed block data should not be empty", blockData.length > 0);
-        assertEquals("Decompressed block size should be a multiple of 512",
-                0, blockData.length % blockSize);
+        assertTrue(blockData.length > 0, "Decompressed block data should not be empty");
+        assertEquals(0, blockData.length % blockSize, "Decompressed block size should be a multiple of 512");
 
         // Check PLC tile coverage: decompress GHZ art files to get tile counts
         System.out.println("\n===== PLC TILE COVERAGE =====");
@@ -204,3 +201,5 @@ public class TestGhzChunkDiagnostic {
         }
     }
 }
+
+

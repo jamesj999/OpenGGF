@@ -1,12 +1,12 @@
 package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.tests.TestablePlayableSprite;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests the hybrid PhysicsFeatureSet used by CrossGameFeatureProvider.
@@ -15,13 +15,13 @@ import static org.junit.Assert.*;
  */
 public class TestHybridPhysicsFeatureSet {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         CrossGameFeatureProvider.getInstance().resetState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
@@ -57,29 +57,20 @@ public class TestHybridPhysicsFeatureSet {
         );
 
         // Verify spindash is enabled (donor contribution)
-        assertTrue("Hybrid should enable spindash", expected.spindashEnabled());
-        assertNotNull("Hybrid should have speed table", expected.spindashSpeedTable());
-        assertEquals("Speed table has 9 entries", 9, expected.spindashSpeedTable().length);
+        assertTrue(expected.spindashEnabled(), "Hybrid should enable spindash");
+        assertNotNull(expected.spindashSpeedTable(), "Hybrid should have speed table");
+        assertEquals(9, expected.spindashSpeedTable().length, "Speed table has 9 entries");
 
         // Verify all S1 physics flags are preserved
-        assertEquals("Collision model should be UNIFIED (S1)",
-                CollisionModel.UNIFIED, expected.collisionModel());
-        assertFalse("Should not have dual collision paths",
-                expected.hasDualCollisionPaths());
-        assertTrue("fixedAnglePosThreshold should be true (S1)",
-                expected.fixedAnglePosThreshold());
-        assertEquals("lookScrollDelay should be 0 (S1)",
-                PhysicsFeatureSet.LOOK_SCROLL_DELAY_NONE, expected.lookScrollDelay());
-        assertTrue("waterShimmerEnabled should be true (S1)",
-                expected.waterShimmerEnabled());
-        assertTrue("inputAlwaysCapsGroundSpeed should be true (S1)",
-                expected.inputAlwaysCapsGroundSpeed());
-        assertFalse("elementalShieldsEnabled should be false (S1)",
-                expected.elementalShieldsEnabled());
-        assertFalse("angleDiffCardinalSnap should be false (S1)",
-                expected.angleDiffCardinalSnap());
-        assertFalse("extendedEdgeBalance should be false (S1)",
-                expected.extendedEdgeBalance());
+        assertEquals(CollisionModel.UNIFIED, expected.collisionModel(), "Collision model should be UNIFIED (S1)");
+        assertFalse(expected.hasDualCollisionPaths(), "Should not have dual collision paths");
+        assertTrue(expected.fixedAnglePosThreshold(), "fixedAnglePosThreshold should be true (S1)");
+        assertEquals(PhysicsFeatureSet.LOOK_SCROLL_DELAY_NONE, expected.lookScrollDelay(), "lookScrollDelay should be 0 (S1)");
+        assertTrue(expected.waterShimmerEnabled(), "waterShimmerEnabled should be true (S1)");
+        assertTrue(expected.inputAlwaysCapsGroundSpeed(), "inputAlwaysCapsGroundSpeed should be true (S1)");
+        assertFalse(expected.elementalShieldsEnabled(), "elementalShieldsEnabled should be false (S1)");
+        assertFalse(expected.angleDiffCardinalSnap(), "angleDiffCardinalSnap should be false (S1)");
+        assertFalse(expected.extendedEdgeBalance(), "extendedEdgeBalance should be false (S1)");
     }
 
     @Test
@@ -88,11 +79,11 @@ public class TestHybridPhysicsFeatureSet {
         PhysicsFeatureSet s2 = PhysicsFeatureSet.SONIC_2;
 
         // S1 has spindash disabled
-        assertFalse("S1 spindash disabled", s1.spindashEnabled());
+        assertFalse(s1.spindashEnabled(), "S1 spindash disabled");
 
         // S2 has spindash enabled but DUAL_PATH collision
-        assertTrue("S2 spindash enabled", s2.spindashEnabled());
-        assertEquals("S2 has DUAL_PATH", CollisionModel.DUAL_PATH, s2.collisionModel());
+        assertTrue(s2.spindashEnabled(), "S2 spindash enabled");
+        assertEquals(CollisionModel.DUAL_PATH, s2.collisionModel(), "S2 has DUAL_PATH");
 
         // Hybrid should combine: spindash from S2 + collision from S1
         // (This test documents the intent - the actual hybrid is tested above)
@@ -103,9 +94,9 @@ public class TestHybridPhysicsFeatureSet {
         PhysicsFeatureSet s2 = PhysicsFeatureSet.SONIC_2;
 
         // The hybrid should NOT inherit S2's dual collision paths
-        assertEquals("S2 uses DUAL_PATH", CollisionModel.DUAL_PATH, s2.collisionModel());
-        assertFalse("S2 has no fixed angle threshold", s2.fixedAnglePosThreshold());
-        assertEquals("S2 has look scroll delay", PhysicsFeatureSet.LOOK_SCROLL_DELAY_S2, s2.lookScrollDelay());
+        assertEquals(CollisionModel.DUAL_PATH, s2.collisionModel(), "S2 uses DUAL_PATH");
+        assertFalse(s2.fixedAnglePosThreshold(), "S2 has no fixed angle threshold");
+        assertEquals(PhysicsFeatureSet.LOOK_SCROLL_DELAY_S2, s2.lookScrollDelay(), "S2 has look scroll delay");
 
         // These are the specific S2 values that the hybrid must NOT use
         // (hybrid uses S1 values for all non-spindash fields)
@@ -113,16 +104,14 @@ public class TestHybridPhysicsFeatureSet {
 
     @Test
     public void testCrossGameProviderNotActiveByDefault() {
-        assertFalse("CrossGameFeatureProvider should not be active by default",
-                CrossGameFeatureProvider.isActive());
+        assertFalse(CrossGameFeatureProvider.isActive(), "CrossGameFeatureProvider should not be active by default");
     }
 
     @Test
     public void testResetClearsActiveState() {
         // Even without full initialization, verify reset clears state
         CrossGameFeatureProvider.getInstance().resetState();
-        assertFalse("After reset, should not be active",
-                CrossGameFeatureProvider.isActive());
+        assertFalse(CrossGameFeatureProvider.isActive(), "After reset, should not be active");
     }
 
     @Test
@@ -132,8 +121,10 @@ public class TestHybridPhysicsFeatureSet {
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertNotNull("Feature set should be set", fs);
-        assertFalse("S1 spindash disabled without cross-game", fs.spindashEnabled());
-        assertEquals("S1 collision model", CollisionModel.UNIFIED, fs.collisionModel());
+        assertNotNull(fs, "Feature set should be set");
+        assertFalse(fs.spindashEnabled(), "S1 spindash disabled without cross-game");
+        assertEquals(CollisionModel.UNIFIED, fs.collisionModel(), "S1 collision model");
     }
 }
+
+

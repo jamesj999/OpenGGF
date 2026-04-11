@@ -55,7 +55,7 @@ public class AizRockFragmentChild extends GravityDebrisChild {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer(services());
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFramePieceByIndex(mappingFrame, pieceIndex, motionState.x, motionState.y, false, false);
     }

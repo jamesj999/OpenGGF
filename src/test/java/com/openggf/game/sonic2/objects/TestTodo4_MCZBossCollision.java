@@ -4,11 +4,11 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2MCZEvents;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for MCZ Boss arena events and collision specifications.
@@ -41,7 +41,7 @@ public class TestTodo4_MCZBossCollision {
     private Sonic2MCZEvents events;
     private Camera cam;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
@@ -50,7 +50,7 @@ public class TestTodo4_MCZBossCollision {
         events.init(1); // MCZ Act 2
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -65,7 +65,7 @@ public class TestTodo4_MCZBossCollision {
         act1Events.init(0);
         cam.setX((short) 0x2080);
         act1Events.update(0, 0);
-        assertEquals("Act 1 should not advance routine", 0, act1Events.getEventRoutine());
+        assertEquals(0, act1Events.getEventRoutine(), "Act 1 should not advance routine");
     }
 
     /**
@@ -76,20 +76,16 @@ public class TestTodo4_MCZBossCollision {
     public void testMCZRoutine0_DoesNotAdvanceBelowThreshold() {
         cam.setX((short) 0x2000);
         events.update(1, 0);
-        assertEquals("Should stay at routine 0 when camera X < $2080",
-                0, events.getEventRoutine());
+        assertEquals(0, events.getEventRoutine(), "Should stay at routine 0 when camera X < $2080");
     }
 
     @Test
     public void testMCZRoutine0_AdvancesAndSetsMinX() {
         cam.setX((short) 0x2080);
         events.update(1, 0);
-        assertEquals("Should advance to routine 2 when camera X >= $2080",
-                2, events.getEventRoutine());
-        assertEquals("MinX should be set to camera X ($2080)",
-                (short) 0x2080, cam.getMinX());
-        assertEquals("MaxY target should be set to $5D0",
-                (short) 0x5D0, cam.getMaxYTarget());
+        assertEquals(2, events.getEventRoutine(), "Should advance to routine 2 when camera X >= $2080");
+        assertEquals((short) 0x2080, cam.getMinX(), "MinX should be set to camera X ($2080)");
+        assertEquals((short) 0x5D0, cam.getMaxYTarget(), "MaxY target should be set to $5D0");
     }
 
     /**
@@ -101,8 +97,7 @@ public class TestTodo4_MCZBossCollision {
         events.setEventRoutine(2);
         cam.setX((short) 0x20A0);
         events.update(1, 0);
-        assertEquals("Should stay at routine 2 when camera X < $20F0",
-                2, events.getEventRoutine());
+        assertEquals(2, events.getEventRoutine(), "Should stay at routine 2 when camera X < $20F0");
     }
 
     @Test
@@ -110,12 +105,9 @@ public class TestTodo4_MCZBossCollision {
         events.setEventRoutine(2);
         cam.setX((short) 0x20F0);
         events.update(1, 0);
-        assertEquals("Should advance to routine 4 when camera X >= $20F0",
-                4, events.getEventRoutine());
-        assertEquals("Arena minX should be locked at $20F0",
-                (short) 0x20F0, cam.getMinX());
-        assertEquals("Arena maxX should be locked at $20F0",
-                (short) 0x20F0, cam.getMaxX());
+        assertEquals(4, events.getEventRoutine(), "Should advance to routine 4 when camera X >= $20F0");
+        assertEquals((short) 0x20F0, cam.getMinX(), "Arena minX should be locked at $20F0");
+        assertEquals((short) 0x20F0, cam.getMaxX(), "Arena maxX should be locked at $20F0");
     }
 
     /**
@@ -127,8 +119,7 @@ public class TestTodo4_MCZBossCollision {
         events.setEventRoutine(4);
         cam.setY((short) 0x5C8);
         events.update(1, 0);
-        assertEquals("MinY should be locked at $5C8 when camera Y >= $5C8",
-                (short) 0x5C8, cam.getMinY());
+        assertEquals((short) 0x5C8, cam.getMinY(), "MinY should be locked at $5C8 when camera Y >= $5C8");
     }
 
     @Test
@@ -137,8 +128,7 @@ public class TestTodo4_MCZBossCollision {
         cam.setY((short) 0x500);
         short minYBefore = cam.getMinY();
         events.update(1, 0);
-        assertEquals("MinY should not change when camera Y < $5C8",
-                minYBefore, cam.getMinY());
+        assertEquals(minYBefore, cam.getMinY(), "MinY should not change when camera Y < $5C8");
     }
 
     @Test
@@ -149,8 +139,7 @@ public class TestTodo4_MCZBossCollision {
         for (int i = 0; i < 0x59; i++) {
             events.update(1, i);
         }
-        assertEquals("Should stay at routine 4 before 90 frames ($5A)",
-                4, events.getEventRoutine());
+        assertEquals(4, events.getEventRoutine(), "Should stay at routine 4 before 90 frames ($5A)");
     }
 
     @Test
@@ -161,8 +150,7 @@ public class TestTodo4_MCZBossCollision {
         for (int i = 0; i < 0x5A; i++) {
             events.update(1, i);
         }
-        assertEquals("Should advance to routine 6 after 90 frames ($5A)",
-                6, events.getEventRoutine());
+        assertEquals(6, events.getEventRoutine(), "Should advance to routine 6 after 90 frames ($5A)");
     }
 
     /**
@@ -173,8 +161,7 @@ public class TestTodo4_MCZBossCollision {
         events.setEventRoutine(6);
         cam.setX((short) 0x2100);
         events.update(1, 0);
-        assertEquals("MinX should track camera X during boss fight",
-                (short) 0x2100, cam.getMinX());
+        assertEquals((short) 0x2100, cam.getMinX(), "MinX should track camera X during boss fight");
     }
 
     /**
@@ -204,3 +191,5 @@ public class TestTodo4_MCZBossCollision {
     }
 
 }
+
+

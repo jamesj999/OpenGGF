@@ -3,20 +3,26 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
@@ -49,7 +55,9 @@ public class DefaultObjectServices implements ObjectServices {
     private final FadeManager fadeManager;
     private final WaterSystem waterSystem;
     private final ParallaxManager parallaxManager;
+    private final WorldSession worldSession;
     private final GameRng rng;
+    private final EngineServices engineServices;
 
     /**
      * Primary constructor backed by a GameRuntime.
@@ -62,7 +70,9 @@ public class DefaultObjectServices implements ObjectServices {
                 runtime.getFadeManager(),
                 runtime.getWaterSystem(),
                 runtime.getParallaxManager(),
-                runtime.getRng());
+                runtime.getWorldSession(),
+                runtime.getRng(),
+                runtime.getEngineServices());
     }
 
     public DefaultObjectServices(LevelManager levelManager,
@@ -73,17 +83,20 @@ public class DefaultObjectServices implements ObjectServices {
                                  WaterSystem waterSystem,
                                  ParallaxManager parallaxManager) {
         this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem,
-                parallaxManager, new GameRng(GameRng.Flavour.S1_S2));
+                parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2),
+                engineServicesFromGameServices());
     }
 
-    public DefaultObjectServices(LevelManager levelManager,
+    private DefaultObjectServices(LevelManager levelManager,
                                  Camera camera,
                                  GameStateManager gameState,
                                  SpriteManager spriteManager,
                                  FadeManager fadeManager,
                                  WaterSystem waterSystem,
                                  ParallaxManager parallaxManager,
-                                 GameRng rng) {
+                                 WorldSession worldSession,
+                                 GameRng rng,
+                                 EngineServices engineServices) {
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
         this.camera = Objects.requireNonNull(camera, "camera");
         this.gameState = Objects.requireNonNull(gameState, "gameState");
@@ -91,7 +104,22 @@ public class DefaultObjectServices implements ObjectServices {
         this.fadeManager = Objects.requireNonNull(fadeManager, "fadeManager");
         this.waterSystem = Objects.requireNonNull(waterSystem, "waterSystem");
         this.parallaxManager = Objects.requireNonNull(parallaxManager, "parallaxManager");
+        this.worldSession = worldSession;
         this.rng = Objects.requireNonNull(rng, "rng");
+        this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
+    }
+
+    private static EngineServices engineServicesFromGameServices() {
+        return new EngineServices(
+                GameServices.configuration(),
+                GameServices.graphics(),
+                GameServices.audio(),
+                GameServices.rom(),
+                GameServices.profiler(),
+                GameServices.debugOverlay(),
+                GameServices.playbackDebug(),
+                GameServices.romDetection(),
+                GameServices.crossGameFeatures());
     }
 
     private LevelManager lm() {
@@ -118,6 +146,11 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public RespawnState checkpointState() {
         return lm().getCheckpointState();
+    }
+
+    @Override
+    public LevelManager levelManager() {
+        return lm();
     }
 
     @Override
@@ -173,6 +206,19 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public WorldSession worldSession() {
+        return worldSession;
+    }
+
+    @Override
+    public GameModule gameModule() {
+        if (worldSession != null) {
+            return worldSession.getGameModule();
+        }
+        return levelManager.getGameModule();
+    }
+
+    @Override
     public SpriteManager spriteManager() {
         return spriteManager;
     }
@@ -201,46 +247,71 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public GraphicsManager graphicsManager() {
-        return GraphicsManager.getInstance();
+        return engineServices.graphics();
     }
 
     @Override
     public AudioManager audioManager() {
-        return AudioManager.getInstance();
+        return engineServices.audio();
+    }
+
+    @Override
+    public EngineServices engineServices() {
+        return engineServices;
+    }
+
+    @Override
+    public SonicConfigurationService configuration() {
+        return engineServices.configuration();
+    }
+
+    @Override
+    public DebugOverlayManager debugOverlay() {
+        return engineServices.debugOverlay();
+    }
+
+    @Override
+    public RomManager romManager() {
+        return engineServices.roms();
+    }
+
+    @Override
+    public CrossGameFeatureProvider crossGameFeatures() {
+        return engineServices.crossGameFeatures();
     }
 
     // ── Audio convenience ───────────────────────────────────────────────
 
     @Override
     public void playSfx(int soundId) {
-        AudioManager.getInstance().playSfx(soundId);
+        audioManager().playSfx(soundId);
     }
 
     @Override
     public void playSfx(GameSound sound) {
-        AudioManager.getInstance().playSfx(sound);
+        audioManager().playSfx(sound);
     }
 
     @Override
     public void playMusic(int musicId) {
-        AudioManager.getInstance().playMusic(musicId);
+        audioManager().playMusic(musicId);
     }
 
     @Override
     public void fadeOutMusic() {
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager().fadeOutMusic();
     }
 
     // ── ROM (engine global) ─────────────────────────────────────────────
 
     @Override
     public Rom rom() throws IOException {
-        return RomManager.getInstance().getRom();
+        return romManager().getRom();
     }
 
     @Override
     public RomByteReader romReader() throws IOException {
-        return RomByteReader.fromRom(RomManager.getInstance().getRom());
+        return RomByteReader.fromRom(rom());
     }
 
     // ── Sidekicks ───────────────────────────────────────────────────────
@@ -372,19 +443,19 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public LevelEventProvider levelEventProvider() {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getLevelEventProvider() : null;
     }
 
     @Override
     public TitleCardProvider titleCardProvider() {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getTitleCardProvider() : null;
     }
 
     @Override
     public <T> T gameService(Class<T> type) {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getGameService(type) : null;
     }
 }

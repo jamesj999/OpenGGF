@@ -8,13 +8,13 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.StubObjectServices;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestAizShipBombInstance {
 
@@ -50,22 +50,17 @@ public class TestAizShipBombInstance {
         int expectedX = camera.getX() + (BOMB_SCRIPT_X - ship.getSecondaryCameraX());
         int expectedY = camera.getY() + (PORT_READY_Y - ship.getSecondaryCameraY());
 
-        assertTrue("Bomb should still be rendered in the battleship overlay before release",
-                bomb.shouldRenderBehindBattleship());
-        assertEquals("Attached bomb X should keep translating from the ship's live camera",
-                expectedX, bomb.getX());
-        assertEquals("Attached bomb Y should keep following the ship bob while settling in the bay",
-                expectedY, bomb.getY());
+        assertTrue(bomb.shouldRenderBehindBattleship(), "Bomb should still be rendered in the battleship overlay before release");
+        assertEquals(expectedX, bomb.getX(), "Attached bomb X should keep translating from the ship's live camera");
+        assertEquals(expectedY, bomb.getY(), "Attached bomb Y should keep following the ship bob while settling in the bay");
 
         for (int i = 16; i < 22; i++) {
             ship.update(i, null);
             bomb.update(i, null);
         }
 
-        assertFalse("Released bomb should no longer be rendered in the behind-ship overlay",
-                bomb.shouldRenderBehindBattleship());
-        assertEquals("Released bomb X should still use the ship-relative translation",
-                camera.getX() + (BOMB_SCRIPT_X - ship.getSecondaryCameraX()), bomb.getX());
+        assertFalse(bomb.shouldRenderBehindBattleship(), "Released bomb should no longer be rendered in the behind-ship overlay");
+        assertEquals(camera.getX() + (BOMB_SCRIPT_X - ship.getSecondaryCameraX()), bomb.getX(), "Released bomb X should still use the ship-relative translation");
     }
 
     @Test
@@ -83,40 +78,31 @@ public class TestAizShipBombInstance {
                         baseSecondaryY));
 
         advanceShip(ship, 420);
-        assertEquals("The initial $1A4 delay should not spawn a bomb until the counter underflows",
-                0, readIntField(ship, "scriptIndex"));
+        assertEquals(0, readIntField(ship, "scriptIndex"), "The initial $1A4 delay should not spawn a bomb until the counter underflows");
 
         advanceShip(ship, 1);
-        assertEquals("The first bomb should spawn on update 421 after the $1A4 counter underflows",
-                1, readIntField(ship, "scriptIndex"));
+        assertEquals(1, readIntField(ship, "scriptIndex"), "The first bomb should spawn on update 421 after the $1A4 counter underflows");
 
         advanceShip(ship, 32);
-        assertEquals("A $20 script delay should still be waiting after 32 more updates",
-                1, readIntField(ship, "scriptIndex"));
+        assertEquals(1, readIntField(ship, "scriptIndex"), "A $20 script delay should still be waiting after 32 more updates");
 
         advanceShip(ship, 1);
-        assertEquals("A $20 script delay should produce the next bomb after 33 updates",
-                2, readIntField(ship, "scriptIndex"));
+        assertEquals(2, readIntField(ship, "scriptIndex"), "A $20 script delay should produce the next bomb after 33 updates");
 
         advanceShip(ship, 99);
-        assertEquals("By this point the first five bombs should have spawned on consecutive $20 gaps",
-                5, readIntField(ship, "scriptIndex"));
+        assertEquals(5, readIntField(ship, "scriptIndex"), "By this point the first five bombs should have spawned on consecutive $20 gaps");
 
         advanceShip(ship, 32);
-        assertEquals("Bomb 6 should still be pending because bomb 5's entry keeps the gap at $20+1",
-                5, readIntField(ship, "scriptIndex"));
+        assertEquals(5, readIntField(ship, "scriptIndex"), "Bomb 6 should still be pending because bomb 5's entry keeps the gap at $20+1");
 
         advanceShip(ship, 1);
-        assertEquals("Bomb 6 should spawn after bomb 5's $20 delay, not bomb 6's $38 delay",
-                6, readIntField(ship, "scriptIndex"));
+        assertEquals(6, readIntField(ship, "scriptIndex"), "Bomb 6 should spawn after bomb 5's $20 delay, not bomb 6's $38 delay");
 
         advanceShip(ship, 56);
-        assertEquals("Bomb 7 should still be waiting because bomb 6's entry sets the long $38 gap",
-                6, readIntField(ship, "scriptIndex"));
+        assertEquals(6, readIntField(ship, "scriptIndex"), "Bomb 7 should still be waiting because bomb 6's entry sets the long $38 gap");
 
         advanceShip(ship, 1);
-        assertEquals("Bomb 7 should spawn after the full $38+1-frame delay from bomb 6's entry",
-                7, readIntField(ship, "scriptIndex"));
+        assertEquals(7, readIntField(ship, "scriptIndex"), "Bomb 7 should spawn after the full $38+1-frame delay from bomb 6's entry");
     }
 
     @Test
@@ -125,8 +111,7 @@ public class TestAizShipBombInstance {
 
         explosion.applyWrapOffset(0x0200);
 
-        assertEquals("Explosion fragments should shift back with Level_repeat_offset wraps",
-                0x4350, explosion.getX());
+        assertEquals(0x4350, explosion.getX(), "Explosion fragments should shift back with Level_repeat_offset wraps");
     }
 
     private static ObjectServices servicesWithCamera(Camera camera) {
@@ -193,3 +178,5 @@ public class TestAizShipBombInstance {
         T build();
     }
 }
+
+

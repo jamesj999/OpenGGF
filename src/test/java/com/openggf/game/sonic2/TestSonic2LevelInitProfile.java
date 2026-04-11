@@ -1,24 +1,27 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.game.EngineServices;
 import com.openggf.game.InitStep;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import java.util.List;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic2LevelInitProfile {
 
-    private final Sonic2LevelInitProfile profile = new Sonic2LevelInitProfile();
+    private final Sonic2LevelInitProfile profile =
+            new Sonic2LevelInitProfile(new Sonic2LevelEventManager());
 
-    @Before
+    @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -71,7 +74,7 @@ public class TestSonic2LevelInitProfile {
     public void postTeardownFixupsContainGroundSensorWiring() {
         List<StaticFixup> fixups = profile.postTeardownFixups();
 
-        // GroundSensor no longer needs wiring — always uses LevelManager.getInstance()
+        // GroundSensor no longer needs wiring â€” it resolves the active runtime level directly.
         assertEquals(0, fixups.size());
     }
 
@@ -138,3 +141,5 @@ public class TestSonic2LevelInitProfile {
         }
     }
 }
+
+

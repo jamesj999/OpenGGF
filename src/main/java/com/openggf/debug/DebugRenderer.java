@@ -1,7 +1,7 @@
 package com.openggf.debug;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameModule;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -31,15 +31,14 @@ import com.openggf.debug.playback.PlaybackDebugManager;
 import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
-	// private final GraphicsManager graphicsManager = GraphicsManager
-	// .getInstance();
-        private final SonicConfigurationService configService = SonicConfigurationService
-                        .getInstance();
-        private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
-        private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
+        private final SonicConfigurationService configService;
+        private final DebugOverlayManager overlayManager;
+        private final PlaybackDebugManager playbackDebugManager;
+        private final PerformanceProfiler profiler;
         private GlyphBatchRenderer glyphBatch;
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
@@ -68,14 +67,31 @@ public class DebugRenderer {
         private final StringBuilder sensorLabelBuilder = new StringBuilder(32);
         private final StringBuilder panelLineBuilder = new StringBuilder(64);
 
-        private final int baseWidth = configService
-                        .getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-        private final int baseHeight = configService
-                        .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-        private int viewportWidth = baseWidth;
-        private int viewportHeight = baseHeight;
+        private final int baseWidth;
+        private final int baseHeight;
+        private int viewportWidth;
+        private int viewportHeight;
         private double scaleX = 1.0;
         private double scaleY = 1.0;
+
+        public DebugRenderer() {
+                this(GameServices.configuration(), GameServices.debugOverlay(),
+                        GameServices.playbackDebug(), GameServices.profiler());
+        }
+
+        public DebugRenderer(SonicConfigurationService configService,
+                             DebugOverlayManager overlayManager,
+                             PlaybackDebugManager playbackDebugManager,
+                             PerformanceProfiler profiler) {
+                this.configService = Objects.requireNonNull(configService, "configService");
+                this.overlayManager = Objects.requireNonNull(overlayManager, "overlayManager");
+                this.playbackDebugManager = Objects.requireNonNull(playbackDebugManager, "playbackDebugManager");
+                this.profiler = Objects.requireNonNull(profiler, "profiler");
+                this.baseWidth = this.configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+                this.baseHeight = this.configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+                this.viewportWidth = baseWidth;
+                this.viewportHeight = baseHeight;
+        }
 
 	/**
 	 * Eagerly initializes the glyph batch renderer.
@@ -227,7 +243,11 @@ public class DebugRenderer {
                 if (!glyphBatch.isBatchActive()) {
                         return;
                 }
-                ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
+                GameModule module = getLevelManager().getGameModule();
+                if (module == null) {
+                        module = GameServices.module();
+                }
+                ObjectRegistry registry = module.createObjectRegistry();
                 java.util.Collection<ObjectSpawn> spawns = getLevelManager().getActiveObjectSpawns();
                 if (registry == null || spawns.isEmpty()) {
                         return;
@@ -276,10 +296,11 @@ public class DebugRenderer {
                 if (!overlayManager.isEnabled(DebugOverlayToggle.PLANE_SWITCHERS)) {
                         return;
                 }
-                int planeSwitcherObjectId = GameModuleRegistry.getCurrent().getPlaneSwitcherObjectId();
-                if (getLevelManager().getGameModule() != null) {
-                        planeSwitcherObjectId = getLevelManager().getGameModule().getPlaneSwitcherObjectId();
+                GameModule planeSwitcherModule = getLevelManager().getGameModule();
+                if (planeSwitcherModule == null) {
+                        planeSwitcherModule = GameServices.module();
                 }
+                int planeSwitcherObjectId = planeSwitcherModule.getPlaneSwitcherObjectId();
                 for (ObjectSpawn spawn : spawns) {
                         if (spawn.objectId() != planeSwitcherObjectId) {
                                 continue;
@@ -543,7 +564,11 @@ public class DebugRenderer {
                   .append(" Hits: ").append(hitCount);
                 lines.add(tb.toString());
 
-                ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
+                GameModule module = getLevelManager().getGameModule();
+                if (module == null) {
+                        module = GameServices.module();
+                }
+                ObjectRegistry registry = module.createObjectRegistry();
                 int maxLines = 12;
                 int shown = 0;
                 for (TouchResponseDebugHit hit : hits) {
@@ -586,7 +611,7 @@ public class DebugRenderer {
                 if (!glyphBatch.isBatchActive()) {
                         return;
                 }
-                DebugObjectArtViewer viewer = DebugObjectArtViewer.getInstance();
+                DebugObjectArtViewer viewer = overlayManager.getObjectArtViewer();
                 artViewerLines.clear();
                 List<String> lines = artViewerLines;
                 lines.add("== ART VIEWER ==");
@@ -789,11 +814,12 @@ public class DebugRenderer {
 
         private void renderPerformancePanel() {
                 if (performancePanelRenderer == null) {
-                        performancePanelRenderer = new PerformancePanelRenderer(baseWidth, baseHeight, glyphBatch);
+                        performancePanelRenderer = new PerformancePanelRenderer(
+                                baseWidth, baseHeight, glyphBatch, GameServices.graphics(), profiler);
                 }
                 performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
 
-                ProfileSnapshot snapshot = PerformanceProfiler.getInstance().getSnapshot();
+                ProfileSnapshot snapshot = profiler.getSnapshot();
                 performancePanelRenderer.render(snapshot);
         }
 
@@ -841,11 +867,11 @@ public class DebugRenderer {
         }
 
         private SpriteManager getSpriteManager() {
-                return SpriteManager.getInstance();
+                return GameServices.sprites();
         }
 
         private LevelManager getLevelManager() {
-                return LevelManager.getInstance();
+                return GameServices.level();
         }
 
         private String getMainCharacterCode() {

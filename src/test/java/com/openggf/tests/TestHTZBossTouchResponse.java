@@ -2,9 +2,9 @@ package com.openggf.tests;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 import com.openggf.level.LevelManager;
@@ -18,8 +18,8 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -39,7 +39,7 @@ public class TestHTZBossTouchResponse {
     private AbstractPlayableSprite player;
     private Sonic2HTZBossInstance boss;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         RuntimeManager.createGameplay();
         // Position camera at boss arena so isOnScreenForTouch() passes for the boss.
@@ -70,7 +70,7 @@ public class TestHTZBossTouchResponse {
         when(player.getYSpeed()).thenReturn((short) -0x300);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -141,3 +141,5 @@ public class TestHTZBossTouchResponse {
         }
     }
 }
+
+

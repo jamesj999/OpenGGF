@@ -29,3 +29,5 @@ public class TestS1Ghz1TraceReplay extends AbstractTraceReplayTest {
         return Path.of("src/test/resources/traces/s1/ghz1_fullrun");
     }
 }
+
+

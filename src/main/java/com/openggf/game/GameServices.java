@@ -2,9 +2,14 @@ package com.openggf.game;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.PerformanceProfiler;
+import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
@@ -17,7 +22,9 @@ import com.openggf.timer.TimerManager;
  * Thin service locator for non-object code.
  * <p>
  * Runtime-owned managers delegate to {@link RuntimeManager#getCurrent()}.
- * Engine globals (audio, ROM, debug overlay) stay as direct singleton calls.
+ * Engine globals (audio, ROM, config, debug overlay, graphics, ROM detection,
+ * cross-game features)
+ * stay behind the engine-services root.
  * <p>
  * Object instances should use {@code services()} instead of this class.
  */
@@ -37,11 +44,11 @@ public final class GameServices {
     }
 
     public static boolean hasRuntime() {
-        return RuntimeManager.getCurrent() != null;
+        return RuntimeManager.getActiveRuntime() != null;
     }
 
     public static GameRuntime runtimeOrNull() {
-        return RuntimeManager.getCurrent();
+        return RuntimeManager.getActiveRuntime();
     }
 
     public static Camera cameraOrNull() {
@@ -158,6 +165,14 @@ public final class GameServices {
         return requireRuntime("water").getWaterSystem();
     }
 
+    public static WorldSession worldSession() {
+        return requireRuntime("worldSession").getWorldSession();
+    }
+
+    public static GameModule module() {
+        return worldSession().getGameModule();
+    }
+
     /**
      * Returns the active bonus stage provider. Returns {@link NoOpBonusStageProvider}
      * when not in a bonus stage. Objects call this to signal stage completion
@@ -170,14 +185,38 @@ public final class GameServices {
     // â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {
-        return RomManager.getInstance();
+        return RuntimeManager.currentEngineServices().roms();
     }
 
     public static DebugOverlayManager debugOverlay() {
-        return DebugOverlayManager.getInstance();
+        return RuntimeManager.currentEngineServices().debugOverlay();
     }
 
     public static AudioManager audio() {
-        return AudioManager.getInstance();
+        return RuntimeManager.currentEngineServices().audio();
+    }
+
+    public static SonicConfigurationService configuration() {
+        return RuntimeManager.currentEngineServices().configuration();
+    }
+
+    public static GraphicsManager graphics() {
+        return RuntimeManager.currentEngineServices().graphics();
+    }
+
+    public static PerformanceProfiler profiler() {
+        return RuntimeManager.currentEngineServices().profiler();
+    }
+
+    public static PlaybackDebugManager playbackDebug() {
+        return RuntimeManager.currentEngineServices().playbackDebug();
+    }
+
+    public static RomDetectionService romDetection() {
+        return RuntimeManager.currentEngineServices().romDetection();
+    }
+
+    public static CrossGameFeatureProvider crossGameFeatures() {
+        return RuntimeManager.currentEngineServices().crossGameFeatures();
     }
 }

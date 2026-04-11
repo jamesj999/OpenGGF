@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
 /**
@@ -24,4 +24,6 @@ public class TestYm2612VoiceLengths {
         // No exception indicates acceptance.
     }
 }
+
+
 

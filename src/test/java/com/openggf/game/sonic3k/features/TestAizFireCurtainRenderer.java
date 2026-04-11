@@ -2,11 +2,11 @@ package com.openggf.game.sonic3k.features;
 
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.FireCurtainStage;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestAizFireCurtainRenderer {
     private static final int SAMPLE_PATTERN_MASK = 0x7FF;
@@ -41,7 +41,7 @@ public class TestAizFireCurtainRenderer {
                     break;
                 }
             }
-            assertTrue("Column " + column.columnIndex() + " left a bottom gap", coversBottom);
+            assertTrue(coversBottom, "Column " + column.columnIndex() + " left a bottom gap");
         }
     }
 
@@ -66,8 +66,7 @@ public class TestAizFireCurtainRenderer {
             for (AizFireCurtainRenderer.TileDraw draw : column.draws()) {
                 highestTileTop = Math.min(highestTileTop, draw.screenY());
             }
-            assertTrue("Column " + column.columnIndex() + " should keep at most one clip-padding tile above the top edge",
-                    highestTileTop >= column.topY() - 8);
+            assertTrue(highestTileTop >= column.topY() - 8, "Column " + column.columnIndex() + " should keep at most one clip-padding tile above the top edge");
         }
     }
 
@@ -142,7 +141,7 @@ public class TestAizFireCurtainRenderer {
 
         for (AizFireCurtainRenderer.ColumnRenderPlan column : plan.columns()) {
             for (AizFireCurtainRenderer.TileDraw draw : column.draws()) {
-                assertEquals("Curtain tiles must always use palette line 4", 3, (draw.descriptor() >> 13) & 0x3);
+                assertEquals(3, (draw.descriptor() >> 13) & 0x3, "Curtain tiles must always use palette line 4");
             }
         }
     }
@@ -163,12 +162,11 @@ public class TestAizFireCurtainRenderer {
                 121);
 
         AizFireCurtainRenderer.CurtainCompositionPlan plan = renderer.buildCompositionPlan(refresh, 320, 224);
-        assertFalse("Post-mutation should produce tiles from fire overlay", plan.columns().isEmpty());
+        assertFalse(plan.columns().isEmpty(), "Post-mutation should produce tiles from fire overlay");
         for (AizFireCurtainRenderer.ColumnRenderPlan column : plan.columns()) {
             for (AizFireCurtainRenderer.TileDraw draw : column.draws()) {
-                assertTrue("Pattern index should be in fire overlay range",
-                        draw.renderPatternId() >= 0x500 && draw.renderPatternId() < 0x500 + 121);
-                assertEquals("Fire palette line", 3, (draw.descriptor() >> 13) & 0x3);
+                assertTrue(draw.renderPatternId() >= 0x500 && draw.renderPatternId() < 0x500 + 121, "Pattern index should be in fire overlay range");
+                assertEquals(3, (draw.descriptor() >> 13) & 0x3, "Fire palette line");
             }
         }
     }
@@ -188,9 +186,8 @@ public class TestAizFireCurtainRenderer {
                 renderer.buildCompositionPlan(state, 320, 224);
 
         for (AizFireCurtainRenderer.ColumnRenderPlan column : plan.columns()) {
-            assertTrue("Column " + column.columnIndex()
-                            + " has gap at top: topY=" + column.topY(),
-                    column.topY() <= 0);
+            assertTrue(column.topY() <= 0, "Column " + column.columnIndex()
+                            + " has gap at top: topY=" + column.topY());
         }
     }
 
@@ -205,8 +202,7 @@ public class TestAizFireCurtainRenderer {
         AizFireCurtainRenderer.CurtainCompositionPlan plan =
                 renderer.buildCompositionPlan(state, 320, 224);
 
-        assertFalse("Should still produce fire tiles via wrapping when bgY > 0x310",
-                plan.columns().isEmpty());
+        assertFalse(plan.columns().isEmpty(), "Should still produce fire tiles via wrapping when bgY > 0x310");
     }
 
     @Test
@@ -225,12 +221,13 @@ public class TestAizFireCurtainRenderer {
                 121);
 
         AizFireCurtainRenderer.CurtainCompositionPlan plan = renderer.buildCompositionPlan(redraw, 320, 224);
-        assertFalse("Act 2 continuation should produce tiles", plan.columns().isEmpty());
+        assertFalse(plan.columns().isEmpty(), "Act 2 continuation should produce tiles");
         for (AizFireCurtainRenderer.ColumnRenderPlan column : plan.columns()) {
             for (AizFireCurtainRenderer.TileDraw draw : column.draws()) {
-                assertTrue("Pattern index should be in fire overlay range",
-                        draw.renderPatternId() >= 0x500 && draw.renderPatternId() < 0x500 + 121);
+                assertTrue(draw.renderPatternId() >= 0x500 && draw.renderPatternId() < 0x500 + 121, "Pattern index should be in fire overlay range");
             }
         }
     }
 }
+
+

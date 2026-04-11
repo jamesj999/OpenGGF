@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.audio.GameSound;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -214,7 +213,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      */
     private CNZSlotMachineManager getSlotMachineManager() {
         try {
-            ZoneFeatureProvider provider = GameModuleRegistry.getCurrent().getZoneFeatureProvider();
+            ZoneFeatureProvider provider = services().zoneFeatureProvider();
             if (provider instanceof Sonic2ZoneFeatureProvider sonic2Provider) {
                 return sonic2Provider.getSlotMachineManager();
             }
@@ -497,7 +496,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
                 calculateSlotDisplayOffset();
             }
 
-            ZoneFeatureProvider provider = GameModuleRegistry.getCurrent().getZoneFeatureProvider();
+            ZoneFeatureProvider provider = services().zoneFeatureProvider();
             if (provider instanceof Sonic2ZoneFeatureProvider sonic2Provider) {
                 sonic2Provider.requestSlotRender(spawn.x(), spawn.y(), slotDisplayOffsetX, slotDisplayOffsetY);
             }

@@ -2,9 +2,8 @@ package com.openggf.tests;
 import com.openggf.game.sonic2.Sonic2;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.audio.smps.DacData;
 import com.openggf.game.sonic2.audio.smps.Sonic2SmpsLoader;
@@ -12,26 +11,22 @@ import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.data.Rom;
 import com.openggf.audio.synth.VirtualSynthesizer;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @RequiresRom(SonicGame.SONIC_2)
 public class TestRomAudioIntegration {
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Rom rom;
     private Sonic2SmpsLoader loader;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        rom = romRule.rom();
+        rom = com.openggf.tests.TestEnvironment.currentRom();
         loader = new Sonic2SmpsLoader(rom);
     }
 
@@ -69,9 +64,9 @@ public class TestRomAudioIntegration {
     @Test
     public void testChemicalPlantNoiseChannelEmitsVolume() {
         AbstractSmpsData data = loader.loadMusic(0x8C); // Chemical Plant
-        assertNotNull("Chemical Plant should load", data);
+        assertNotNull(data, "Chemical Plant should load");
         DacData dac = loader.loadDacData();
-        assertNotNull("DAC data should load", dac);
+        assertNotNull(dac, "DAC data should load");
 
         LoggingSynth synth = new LoggingSynth();
         SmpsSequencer seq = new SmpsSequencer(data, dac, synth, Sonic2SmpsSequencerConfig.CONFIG);
@@ -87,29 +82,29 @@ public class TestRomAudioIntegration {
                 .filter(v -> (v & 0xF0) == 0xF0 && (v & 0x0F) < 0x0F)
                 .count();
 
-        assertTrue("Noise channel should receive latch writes", hasNoiseLatch);
-        assertTrue("Noise channel should receive audible volume writes", noiseVolWrites > 0);
+        assertTrue(hasNoiseLatch, "Noise channel should receive latch writes");
+        assertTrue(noiseVolWrites > 0, "Noise channel should receive audible volume writes");
     }
 
     @Test
     public void testMusicDecompressionAndLoading() {
         AbstractSmpsData data = loader.loadMusic(0x82);
-        assertNotNull("Should load Metropolis music (0x82)", data);
-        assertTrue("Voice Ptr > 0", data.getVoicePtr() > 0);
+        assertNotNull(data, "Should load Metropolis music (0x82)");
+        assertTrue(data.getVoicePtr() > 0, "Voice Ptr > 0");
         int channels = data.getChannels();
-        assertTrue("Channels should be valid (e.g. 6)", channels > 0 && channels <= 7);
+        assertTrue(channels > 0 && channels <= 7, "Channels should be valid (e.g. 6)");
         System.out.println("Metropolis Loaded. Size: " + data.getData().length);
     }
 
     @Test
     public void testDacDataLoading() {
         DacData dac = loader.loadDacData();
-        assertNotNull("DAC Data should load", dac);
-        assertFalse("Should have samples", dac.samples.isEmpty());
-        assertFalse("Should have mapping", dac.mapping.isEmpty());
-        assertTrue("Should have Sample 81", dac.samples.containsKey(0x81));
+        assertNotNull(dac, "DAC Data should load");
+        assertFalse(dac.samples.isEmpty(), "Should have samples");
+        assertFalse(dac.mapping.isEmpty(), "Should have mapping");
+        assertTrue(dac.samples.containsKey(0x81), "Should have Sample 81");
         byte[] sample = dac.samples.get(0x81);
-        assertTrue("Sample 81 should have data", sample.length > 0);
+        assertTrue(sample.length > 0, "Sample 81 should have data");
         System.out.println("DAC Loaded. Sample 81 size: " + sample.length);
     }
 
@@ -152,8 +147,8 @@ public class TestRomAudioIntegration {
 
         boolean hasSequencedCommands = !synth.fm.isEmpty() || !synth.psg.isEmpty();
 
-        assertTrue("Sequencer should initialize DAC enable on the FM chip", hasInitWrite);
-        assertTrue("Sequencer should emit FM or PSG commands from the ROM stream", hasSequencedCommands);
+        assertTrue(hasInitWrite, "Sequencer should initialize DAC enable on the FM chip");
+        assertTrue(hasSequencedCommands, "Sequencer should emit FM or PSG commands from the ROM stream");
     }
 
     @Test
@@ -166,9 +161,9 @@ public class TestRomAudioIntegration {
         short[] buffer = new short[4096];
         seq.read(buffer);
 
-        assertSame("Sequencer should wire ROM DAC data into the synthesizer", dacData, synth.configuredDacData);
-        assertFalse("ROM DAC table should expose samples", dacData.samples.isEmpty());
-        assertTrue("ROM DAC table should map drum notes", dacData.mapping.containsKey(0x81));
+        assertSame(dacData, synth.configuredDacData, "Sequencer should wire ROM DAC data into the synthesizer");
+        assertFalse(dacData.samples.isEmpty(), "ROM DAC table should expose samples");
+        assertTrue(dacData.mapping.containsKey(0x81), "ROM DAC table should map drum notes");
     }
 
     @Test
@@ -176,39 +171,41 @@ public class TestRomAudioIntegration {
         Sonic2 game = new Sonic2(rom);
 
         // Emerald Hill (0x81)
-        assertEquals("Emerald Hill 1 Music ID", 0x81, game.getMusicId(0));
-        assertEquals("Emerald Hill 2 Music ID", 0x81, game.getMusicId(1));
+        assertEquals(0x81, game.getMusicId(0), "Emerald Hill 1 Music ID");
+        assertEquals(0x81, game.getMusicId(1), "Emerald Hill 2 Music ID");
 
         // Chemical Plant (0x8C)
-        assertEquals("Chemical Plant 1 Music ID", 0x8C, game.getMusicId(2));
-        assertEquals("Chemical Plant 2 Music ID", 0x8C, game.getMusicId(3));
+        assertEquals(0x8C, game.getMusicId(2), "Chemical Plant 1 Music ID");
+        assertEquals(0x8C, game.getMusicId(3), "Chemical Plant 2 Music ID");
 
         // Aquatic Ruin (0x86)
-        assertEquals("Aquatic Ruin 1 Music ID", 0x86, game.getMusicId(4));
+        assertEquals(0x86, game.getMusicId(4), "Aquatic Ruin 1 Music ID");
 
         // Casino Night (0x83)
-        assertEquals("Casino Night 1 Music ID", 0x83, game.getMusicId(6));
+        assertEquals(0x83, game.getMusicId(6), "Casino Night 1 Music ID");
 
         // Hill Top (0x94)
-        assertEquals("Hill Top 1 Music ID", 0x94, game.getMusicId(8));
+        assertEquals(0x94, game.getMusicId(8), "Hill Top 1 Music ID");
 
         // Mystic Cave (0x84)
-        assertEquals("Mystic Cave 1 Music ID", 0x84, game.getMusicId(10));
+        assertEquals(0x84, game.getMusicId(10), "Mystic Cave 1 Music ID");
 
         // Oil Ocean (0x8F)
-        assertEquals("Oil Ocean 1 Music ID", 0x8F, game.getMusicId(12));
+        assertEquals(0x8F, game.getMusicId(12), "Oil Ocean 1 Music ID");
 
         // Metropolis (0x82)
-        assertEquals("Metropolis 1 Music ID", 0x82, game.getMusicId(14));
-        assertEquals("Metropolis 3 Music ID", 0x82, game.getMusicId(16));
+        assertEquals(0x82, game.getMusicId(14), "Metropolis 1 Music ID");
+        assertEquals(0x82, game.getMusicId(16), "Metropolis 3 Music ID");
 
         // Sky Chase (0x8E)
-        assertEquals("Sky Chase Music ID", 0x8E, game.getMusicId(17));
+        assertEquals(0x8E, game.getMusicId(17), "Sky Chase Music ID");
 
         // Wing Fortress (0x90)
-        assertEquals("Wing Fortress Music ID", 0x90, game.getMusicId(18));
+        assertEquals(0x90, game.getMusicId(18), "Wing Fortress Music ID");
 
         // Death Egg (0x87)
-        assertEquals("Death Egg Music ID", 0x87, game.getMusicId(19));
+        assertEquals(0x87, game.getMusicId(19), "Death Egg Music ID");
     }
 }
+
+

@@ -3,13 +3,13 @@ package com.openggf.game.sonic3k.features;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.FireCurtainStage;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Diagnostic test: probes exactly what the overlay composition plan
@@ -17,12 +17,12 @@ import static org.junit.Assert.*;
  */
 public class TestFireCurtainBoundaryDiag {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -40,7 +40,7 @@ public class TestFireCurtainBoundaryDiag {
      */
     @Test
     public void diagRisingTopEdge() {
-        // No-arg constructor: sampler=null → exercises buildBackgroundSampledPlan
+        // No-arg constructor: sampler=null â†’ exercises buildBackgroundSampledPlan
         // (falls back to buildFireOverlayTilePlan since BG returns 0 in headless)
         AizFireCurtainRenderer renderer = new AizFireCurtainRenderer();
         FireCurtainRenderState state = new FireCurtainRenderState(
@@ -87,8 +87,8 @@ public class TestFireCurtainBoundaryDiag {
 
         // The overlay should produce draws. If it doesn't, the fire curtain
         // is invisible and the user only sees the BG plane.
-        assertFalse("Overlay should produce draws for RISING", plan.columns().isEmpty());
-        assertTrue("Should have draws", totalDraws > 0);
+        assertFalse(plan.columns().isEmpty(), "Overlay should produce draws for RISING");
+        assertTrue(totalDraws > 0, "Should have draws");
     }
 
     /**
@@ -109,7 +109,7 @@ public class TestFireCurtainBoundaryDiag {
                 0,        // wavePhase
                 60,       // frameCounter
                 0x1000,   // sourceWorldX
-                0x240,    // sourceWorldY (bgY) — fire near exit
+                0x240,    // sourceWorldY (bgY) â€” fire near exit
                 new int[20], // flat wave
                 FireCurtainStage.AIZ1_REFRESH,
                 0x500,
@@ -147,7 +147,7 @@ public class TestFireCurtainBoundaryDiag {
             // 0x318 is outside even padded filter. But 216+8=224=screenHeight so covered.
         }
 
-        assertFalse("Overlay should produce draws for EXIT", plan.columns().isEmpty());
+        assertFalse(plan.columns().isEmpty(), "Overlay should produce draws for EXIT");
     }
 
     /**
@@ -188,6 +188,8 @@ public class TestFireCurtainBoundaryDiag {
             System.out.println("Col0 screenY range: [" + minScreenY + ", " + maxScreenY + "]");
         }
 
-        assertFalse("Sampler path should produce draws", plan.columns().isEmpty());
+        assertFalse(plan.columns().isEmpty(), "Sampler path should produce draws");
     }
 }
+
+

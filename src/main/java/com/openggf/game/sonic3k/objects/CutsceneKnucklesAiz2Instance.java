@@ -88,8 +88,8 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity playerEntity) {
         if (!initialized) {
             initialized = true;
-            AizIntroArtLoader.loadAllIntroArt();
-            AizIntroArtLoader.applyKnucklesPalette();
+            AizIntroArtLoader.loadAllIntroArt(services());
+            AizIntroArtLoader.applyKnucklesPalette(services());
             services().playMusic(Sonic3kMusic.KNUCKLES.id);
         }
         Aiz2BossEndSequenceState.setActiveKnuckles(this);
@@ -249,7 +249,7 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer(services());
         if (renderer == null || !renderer.isReady()) {
             return;
         }

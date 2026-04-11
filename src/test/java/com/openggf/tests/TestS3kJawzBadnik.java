@@ -5,11 +5,11 @@ import com.openggf.game.sonic3k.objects.badniks.JawzBadnikInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,12 +26,11 @@ public class TestS3kJawzBadnik {
         when(player.getDead()).thenReturn(false);
 
         jawz.update(0, player);
-        assertEquals("Jawz should not move on the initialization frame", 160, jawz.getX());
+        assertEquals(160, jawz.getX(), "Jawz should not move on the initialization frame");
 
         jawz.update(1, player);
-        assertEquals("Jawz should move toward the player on the next frame", 158, jawz.getX());
-        assertEquals("Jawz should advance to the second animation frame after moving",
-                1, readMappingFrame(jawz));
+        assertEquals(158, jawz.getX(), "Jawz should move toward the player on the next frame");
+        assertEquals(1, readMappingFrame(jawz), "Jawz should advance to the second animation frame after moving");
     }
 
     @Test
@@ -47,7 +46,7 @@ public class TestS3kJawzBadnik {
         jawz.update(0, player);
         jawz.update(1, player);
 
-        assertEquals("Jawz should move right when the player is on the right", 162, jawz.getX());
+        assertEquals(162, jawz.getX(), "Jawz should move right when the player is on the right");
     }
 
     private static int readMappingFrame(JawzBadnikInstance jawz) {
@@ -60,3 +59,5 @@ public class TestS3kJawzBadnik {
         }
     }
 }
+
+
