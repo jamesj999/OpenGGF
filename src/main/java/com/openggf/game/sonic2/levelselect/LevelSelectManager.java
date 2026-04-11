@@ -36,7 +36,7 @@ public class LevelSelectManager implements LevelSelectProvider {
 
     private static LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = GameServices.configuration();
+    private final SonicConfigurationService configService;
     private final LevelSelectDataLoader dataLoader = new LevelSelectDataLoader();
     private final MenuBackgroundDataLoader menuBackgroundDataLoader = new MenuBackgroundDataLoader();
     private final MenuBackgroundRenderer menuBackgroundRenderer = new MenuBackgroundRenderer();
@@ -68,6 +68,15 @@ public class LevelSelectManager implements LevelSelectProvider {
     private static final int ICON_PALETTE_INDEX = 2;
 
     public LevelSelectManager() {
+        this(null);
+    }
+
+    LevelSelectManager(SonicConfigurationService configService) {
+        this.configService = configService;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService != null ? configService : GameServices.configuration();
     }
 
     public static synchronized LevelSelectManager getInstance() {
@@ -134,11 +143,11 @@ public class LevelSelectManager implements LevelSelectProvider {
 
     private void updateActive(InputHandler input) {
         // Navigation keys
-        int upKey = configService.getInt(SonicConfiguration.UP);
-        int downKey = configService.getInt(SonicConfiguration.DOWN);
-        int leftKey = configService.getInt(SonicConfiguration.LEFT);
-        int rightKey = configService.getInt(SonicConfiguration.RIGHT);
-        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int upKey = configuration().getInt(SonicConfiguration.UP);
+        int downKey = configuration().getInt(SonicConfiguration.DOWN);
+        int leftKey = configuration().getInt(SonicConfiguration.LEFT);
+        int rightKey = configuration().getInt(SonicConfiguration.RIGHT);
+        int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
 
         // Handle up/down navigation
         if (input.isKeyDown(upKey)) {
@@ -185,7 +194,7 @@ public class LevelSelectManager implements LevelSelectProvider {
 
         // A button adds 16 to sound test value (like original game)
         // We'll use the 'A' key for this
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.TEST))) {
+        if (input.isKeyPressed(configuration().getInt(SonicConfiguration.TEST))) {
             if (selectedIndex == LevelSelectConstants.MENU_ENTRY_COUNT - 1) { // Sound test
                 soundTestValue = (soundTestValue + 16) & 0x7F;
             }

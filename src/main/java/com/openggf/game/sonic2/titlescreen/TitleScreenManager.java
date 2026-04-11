@@ -46,7 +46,7 @@ public class TitleScreenManager implements TitleScreenProvider {
 
     private static TitleScreenManager instance;
 
-    private final SonicConfigurationService configService = GameServices.configuration();
+    private final SonicConfigurationService configService;
     private final TitleScreenDataLoader dataLoader = new TitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -105,6 +105,18 @@ public class TitleScreenManager implements TitleScreenProvider {
     private final AnimatedSprite flashingStarSprite = new AnimatedSprite();
     private final AnimatedSprite fallingStarSprite = new AnimatedSprite();
     private final AnimatedSprite logoTopSprite = new AnimatedSprite();
+
+    public TitleScreenManager() {
+        this(null);
+    }
+
+    TitleScreenManager(SonicConfigurationService configService) {
+        this.configService = configService;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService != null ? configService : GameServices.configuration();
+    }
 
     // Animation frame sequences (from Ani_obj0E in disassembly)
     // Ani_obj0E_Sonic: duration=1, frames: 5, 6, 7, end ($FA)
@@ -213,9 +225,6 @@ public class TitleScreenManager implements TitleScreenProvider {
     // Tails hand sub-state
     private int tailsHandPosIndex = 0;
     private int tailsHandPosCounter = 0;
-
-    public TitleScreenManager() {
-    }
 
     public static synchronized TitleScreenManager getInstance() {
         if (instance == null) {
@@ -329,7 +338,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     }
 
     private void updateIntroTextFadeIn(InputHandler input) {
-        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
         if (input.isKeyPressed(jumpKey)) {
             skipIntroText();
             return;
@@ -343,7 +352,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     }
 
     private void updateIntroTextHold(InputHandler input) {
-        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
         if (input.isKeyPressed(jumpKey)) {
             skipIntroText();
             return;
@@ -357,7 +366,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     }
 
     private void updateIntroTextFadeOut(InputHandler input) {
-        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
         if (input.isKeyPressed(jumpKey)) {
             skipIntroText();
             return;
@@ -396,7 +405,7 @@ public class TitleScreenManager implements TitleScreenProvider {
 
         // Check for jump/start press to exit (only after intro completes)
         if (introComplete) {
-            int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+            int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
             if (input.isKeyPressed(jumpKey)) {
                 state = State.EXITING;
                 LOGGER.info("Title screen exiting");
@@ -410,7 +419,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     private void updateIntroAnimation(InputHandler input) {
         // Check for skip (Start pressed before frame 288)
         if (!introComplete) {
-            int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+            int jumpKey = configuration().getInt(SonicConfiguration.JUMP);
             if (input.isKeyPressed(jumpKey)) {
                 skipToFinalState();
                 return;

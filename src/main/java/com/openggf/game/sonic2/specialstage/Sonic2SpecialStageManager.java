@@ -52,8 +52,8 @@ public class Sonic2SpecialStageManager {
         FAILED
     }
 
-    private final SonicConfigurationService configService = GameServices.configuration();
-    private final GraphicsManager graphicsManager = GameServices.graphics();
+    private final SonicConfigurationService configService;
+    private final GraphicsManager graphicsManager;
     private final Sonic2SpecialStageSpriteDebug debugSprites;
 
     private Sonic2SpecialStageDataLoader dataLoader;
@@ -307,11 +307,38 @@ public class Sonic2SpecialStageManager {
     };
 
     public Sonic2SpecialStageManager() {
-        this(new Sonic2SpecialStageSpriteDebug());
+        this(new Sonic2SpecialStageSpriteDebug(), null, null);
     }
 
     public Sonic2SpecialStageManager(Sonic2SpecialStageSpriteDebug debugSprites) {
+        this(debugSprites, null, null);
+    }
+
+    Sonic2SpecialStageManager(Sonic2SpecialStageSpriteDebug debugSprites,
+                              SonicConfigurationService configService,
+                              GraphicsManager graphicsManager) {
         this.debugSprites = debugSprites;
+        this.configService = configService;
+        this.graphicsManager = graphicsManager;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService != null ? configService : GameServices.configuration();
+    }
+
+    private GraphicsManager graphicsManager() {
+        return graphicsManager != null ? graphicsManager : GameServices.graphics();
+    }
+
+    private GraphicsManager graphicsManagerOrNull() {
+        if (graphicsManager != null) {
+            return graphicsManager;
+        }
+        try {
+            return GameServices.graphics();
+        } catch (IllegalStateException ignored) {
+            return null;
+        }
     }
 
     /**
@@ -388,6 +415,8 @@ public class Sonic2SpecialStageManager {
      * Sets up the object system (rings, bombs, perspective data).
      */
     private void setupObjectSystem() throws IOException {
+        GraphicsManager graphicsManager = graphicsManager();
+
         // Load perspective data
         perspectiveData = new Sonic2PerspectiveData();
         perspectiveData.load(dataLoader);
@@ -598,6 +627,7 @@ public class Sonic2SpecialStageManager {
      * from SS Emerald.bin per-stage when the emerald spawns.
      */
     private void applyEmeraldPalette() {
+        GraphicsManager graphicsManager = graphicsManagerOrNull();
         if (palettes == null || graphicsManager == null) {
             return;
         }
@@ -661,6 +691,7 @@ public class Sonic2SpecialStageManager {
     }
 
     private void applyCheckpointRainbowPalette(boolean bright) {
+        GraphicsManager graphicsManager = graphicsManagerOrNull();
         if (palettes == null || graphicsManager == null) {
             return;
         }
@@ -694,6 +725,7 @@ public class Sonic2SpecialStageManager {
      * while the checkpoint rainbow animation is active.
      */
     private void updateRainbowPaletteCycle() {
+        GraphicsManager graphicsManager = graphicsManagerOrNull();
         if (!checkpointRainbowPaletteActive || palettes == null || graphicsManager == null) {
             return;
         }
@@ -782,6 +814,7 @@ public class Sonic2SpecialStageManager {
     }
 
     private void setupPalettes() {
+        GraphicsManager graphicsManager = graphicsManager();
         palettes = Sonic2SpecialStagePalette.createPalettes(currentStage);
 
         for (int i = 0; i < palettes.length; i++) {
@@ -792,6 +825,7 @@ public class Sonic2SpecialStageManager {
     }
 
     private void setupPatterns() throws IOException {
+        GraphicsManager graphicsManager = graphicsManager();
         backgroundPatternBase = SS_PATTERN_BASE;
         trackPatternBase = SS_PATTERN_BASE + 256;
         playerPatternBase = trackPatternBase + 512;
@@ -857,6 +891,7 @@ public class Sonic2SpecialStageManager {
     }
 
     private void setupRenderer() throws IOException {
+        GraphicsManager graphicsManager = graphicsManager();
         renderer = new Sonic2SpecialStageRenderer(graphicsManager);
         // Pattern bases are set in setupPatterns() after they have valid values
 
@@ -885,7 +920,7 @@ public class Sonic2SpecialStageManager {
         sonicPlayer = null;
         tailsPlayer = null;
 
-        String characterCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String characterCode = configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (characterCode == null) {
             characterCode = "sonic";
         }
@@ -1614,6 +1649,8 @@ public class Sonic2SpecialStageManager {
             return;
         }
 
+        GraphicsManager graphicsManager = graphicsManager();
+
         if (alignmentTestMode) {
             drawAlignmentTest();
             return;
@@ -1700,6 +1737,7 @@ public class Sonic2SpecialStageManager {
     }
 
     private void drawAlignmentTest() {
+        GraphicsManager graphicsManager = graphicsManager();
         boolean renderPlaneB = planeDebugMode.renderPlaneB();
         boolean renderPlaneA = planeDebugMode.renderPlaneA();
 
@@ -1890,7 +1928,11 @@ public class Sonic2SpecialStageManager {
      */
     public void reset() {
         // Stop any playing music when resetting
-        GameServices.audio().stopMusic();
+        try {
+            GameServices.audio().stopMusic();
+        } catch (IllegalStateException ignored) {
+            // Plain construction/reset tests run without configured engine services.
+        }
 
         initialized = false;
         currentStage = 0;

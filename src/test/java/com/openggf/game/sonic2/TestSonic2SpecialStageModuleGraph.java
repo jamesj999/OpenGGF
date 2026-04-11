@@ -7,6 +7,7 @@ import com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,7 +15,8 @@ public class TestSonic2SpecialStageModuleGraph {
 
     @Test
     public void moduleOwnedSpecialStageGraphUsesSharedManagerAndDebugInstances() {
-        Sonic2GameModule module = new Sonic2GameModule();
+        Sonic2GameModule module = assertDoesNotThrow(Sonic2GameModule::new,
+                "Module graph construction should not require configured EngineServices");
 
         SpecialStageProvider specialStageProvider = module.getSpecialStageProvider();
         DebugModeProvider debugModeProvider = module.getDebugModeProvider();
