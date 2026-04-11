@@ -2,12 +2,16 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.HCZ2WallObjectInstance;
+import com.openggf.game.sonic3k.scroll.SwScrlHcz;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import com.openggf.level.scroll.ZoneScrollHandler;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -78,6 +82,49 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     private static final int ACT2_CAM_X_WALL_CHASE_END = 0xC00;
 
     // =========================================================================
+    // Act 2 BG: Wall-chase event constants (ROM: HCZ2_BackgroundEvent/HCZ2_WallMove)
+    // =========================================================================
+
+    /** BG event state 0: init — check activation conditions, spawn wall. */
+    private static final int BG_WALL_INIT = 0;
+    /** BG event state 4: active wall movement. */
+    private static final int BG_WALL_MOVE = 4;
+    /** BG event state 8: transition from wall-chase to normal deformation. */
+    private static final int BG_WALL_TRANSITION = 8;
+    /** BG event state $C: BG tile refresh frame. */
+    private static final int BG_WALL_REFRESH = 0xC;
+    /** BG event state $10: normal Act 2 deformation. */
+    private static final int BG_NORMAL = 0x10;
+
+    /** ROM: Camera_X_pos < $C00 for wall event activation. */
+    private static final int WALL_ACTIVATE_CAM_X_MAX = 0xC00;
+    /** ROM: Camera_Y_pos >= $500 for wall event activation. */
+    private static final int WALL_ACTIVATE_CAM_Y_MIN = 0x500;
+
+    /** ROM: Wall starts moving when player X >= $680. */
+    private static final int WALL_TRIGGER_PLAYER_X = 0x680;
+    /** ROM: Wall speed increases when player X > $A88. */
+    private static final int WALL_SPEED_UP_PLAYER_X = 0xA88;
+
+    /** ROM: Base wall speed $E000 (16.16 fixed-point). */
+    private static final int WALL_BASE_SPEED = 0xE000;
+    /** ROM: Fast wall speed $14000 (16.16 fixed-point). */
+    private static final int WALL_FAST_SPEED = 0x14000;
+
+    /** ROM: Wall stops when offset reaches -$600 (-1536 pixels). */
+    private static final int WALL_STOP_OFFSET = -0x600;
+
+    /** ROM: Screen_shake_flag = $0E (14 frames) on wall stop. */
+    private static final int WALL_STOP_SHAKE_FRAMES = 0x0E;
+
+    /** ROM: BG collision gating — player X range. */
+    private static final int BG_COLL_X_MIN = 0x3F0;
+    private static final int BG_COLL_X_MAX = 0xC10;
+    /** ROM: BG collision gating — player Y range. */
+    private static final int BG_COLL_Y_MIN = 0x600;
+    private static final int BG_COLL_Y_MAX = 0x840;
+
+    // =========================================================================
     // Seamless transition offsets (ROM: HCZ1BGE_DoTransition)
     // =========================================================================
     private static final int TRANSITION_OFFSET_X = -0x3600;
@@ -94,6 +141,34 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
 
     /** Prevents requesting the transition more than once. */
     private boolean transitionRequested;
+
+    // =========================================================================
+    // Act 2 BG wall-chase state
+    // =========================================================================
+
+    /** Act 2 BG event routine counter (stride 4). */
+    private int act2BgRoutine;
+
+    /**
+     * Wall movement offset accumulator (ROM: Events_bg+$00).
+     * 16.16 fixed-point. Negative values mean the wall has advanced leftward.
+     */
+    private int wallOffsetFixed;
+
+    /** Integer pixel offset extracted from wallOffsetFixed. */
+    private int wallOffsetPixels;
+
+    /** Whether the wall has started moving (player crossed trigger X). */
+    private boolean wallMoving;
+
+    /** Whether the wall has reached its stop position (prevents restart loop). */
+    private boolean wallStopped;
+
+    /** Timed screen shake countdown (frames remaining, 0 = inactive). */
+    private int shakeTimer;
+
+    /** Reference to the spawned wall collision object. */
+    private HCZ2WallObjectInstance wallObject;
 
     // =========================================================================
     // Post-transition whirlpool descent cutscene
@@ -138,6 +213,15 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         transitionRequested = false;
         cutsceneActive = false;
         cutsceneFrame = 0;
+
+        // Act 2 BG wall-chase state
+        act2BgRoutine = BG_WALL_INIT;
+        wallOffsetFixed = 0;
+        wallOffsetPixels = 0;
+        wallMoving = false;
+        wallStopped = false;
+        shakeTimer = 0;
+        wallObject = null;
     }
 
     @Override
@@ -153,6 +237,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             updateAct1Bg();
         } else {
             updateAct2Fg();
+            updateAct2Bg(frameCounter);
         }
     }
 
@@ -434,6 +519,295 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             case FG_STAGE_2 -> {
                 // Terminal — idle
             }
+        }
+    }
+
+    // =========================================================================
+    // Act 2 BG: Wall-chase event (HCZ2_BackgroundEvent)
+    //
+    // ROM: sonic3k.asm lines 106023-106170.
+    // 5-state dispatch: init → wall move → transition → refresh → normal.
+    // The wall-chase drives a moving solid collision wall from the left side,
+    // with screen shake, speed ramping, and BG collision gating.
+    // =========================================================================
+
+    private void updateAct2Bg(int frameCounter) {
+        // Timed screen shake countdown (ROM: ShakeScreen_Setup countdown)
+        if (shakeTimer > 0) {
+            shakeTimer--;
+            updateScreenShakeFromTimer();
+        }
+
+        switch (act2BgRoutine) {
+            case BG_WALL_INIT -> act2BgInit();
+            case BG_WALL_MOVE -> act2BgWallMove(frameCounter);
+            case BG_WALL_TRANSITION -> act2BgTransition();
+            case BG_WALL_REFRESH -> act2BgRefresh();
+            case BG_NORMAL -> {
+                // Normal deformation — scroll handler handles everything
+            }
+        }
+    }
+
+    /**
+     * BG state 0: HCZ2BGE_WallMoveInit.
+     * ROM: sonic3k.asm line ~105995.
+     * Check activation conditions and either spawn the wall or skip to normal.
+     */
+    private void act2BgInit() {
+        int camX = camera().getX();
+        int camY = camera().getY();
+
+        if (camX < WALL_ACTIVATE_CAM_X_MAX && camY >= WALL_ACTIVATE_CAM_Y_MIN) {
+            // Activation conditions met — start wall chase
+            SwScrlHcz scrollHandler = resolveHczScrollHandler();
+            if (scrollHandler != null) {
+                scrollHandler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+            }
+
+            // Enable BG high-priority overlay so wall tiles render in front of FG
+            gameState().setBgHighPriorityOverlayActive(true);
+
+            // Spawn wall collision object
+            wallObject = new HCZ2WallObjectInstance();
+            spawnObject(wallObject);
+
+            act2BgRoutine = BG_WALL_MOVE;
+            LOG.info("HCZ2 BG: wall-chase activated, wall spawned");
+        } else {
+            // Conditions not met — skip to normal deformation
+            act2BgRoutine = BG_NORMAL;
+            LOG.info("HCZ2 BG: wall-chase conditions not met (camX=0x"
+                    + Integer.toHexString(camX) + " camY=0x"
+                    + Integer.toHexString(camY) + "), skipping to normal");
+        }
+    }
+
+    /**
+     * BG state 4: HCZ2BGE_WallMove.
+     * ROM: sonic3k.asm lines 106048-106070 (dispatch) and 106129-106170 (HCZ2_WallMove).
+     * Runs wall movement logic each frame and gates BG collision.
+     */
+    private void act2BgWallMove(int frameCounter) {
+        // Check if the wall chase has ended (Events_fg_5 set by FG routine)
+        if (eventsFg5) {
+            // Clean up wall
+            if (wallObject != null) {
+                wallObject.deactivate();
+                wallObject = null;
+            }
+            gameState().setBackgroundCollisionFlag(false);
+            act2BgRoutine = BG_WALL_TRANSITION;
+            LOG.info("HCZ2 BG: wall-chase ended (Events_fg_5), transitioning");
+            return;
+        }
+
+        // Gate Background_collision_flag by player position
+        // ROM: sonic3k.asm lines 106051-106067
+        updateBgCollisionGating();
+
+        // Run wall movement logic
+        updateWallMove(frameCounter);
+
+        // Update scroll handler with current wall offset
+        SwScrlHcz scrollHandler = resolveHczScrollHandler();
+        if (scrollHandler != null) {
+            scrollHandler.setWallChaseOffsetX(wallOffsetPixels);
+            scrollHandler.setScreenShakeOffset(
+                    wallMoving ? getShakeOffset(frameCounter) : 0);
+        }
+
+        // Update wall object position
+        if (wallObject != null) {
+            wallObject.updateWallPosition(wallOffsetPixels);
+        }
+    }
+
+    /**
+     * BG state 8: HCZ2BGE_NormalTransition.
+     * ROM: sonic3k.asm line ~106080.
+     * Switch scroll handler to normal mode, clear BG collision.
+     */
+    private void act2BgTransition() {
+        SwScrlHcz scrollHandler = resolveHczScrollHandler();
+        if (scrollHandler != null) {
+            scrollHandler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.NORMAL);
+            scrollHandler.setScreenShakeOffset(0);
+            scrollHandler.setWallChaseOffsetX(0);
+        }
+        gameState().setBackgroundCollisionFlag(false);
+        gameState().setBgHighPriorityOverlayActive(false);
+        act2BgRoutine = BG_WALL_REFRESH;
+        LOG.fine("HCZ2 BG: transitioning to normal deformation");
+    }
+
+    /**
+     * BG state $C: HCZ2BGE_NormalRefresh.
+     * ROM: BG tile refresh frame, then advance to normal.
+     */
+    private void act2BgRefresh() {
+        act2BgRoutine = BG_NORMAL;
+        LOG.fine("HCZ2 BG: normal deformation active");
+    }
+
+    /**
+     * HCZ2_WallMove — core wall movement logic.
+     * ROM: sonic3k.asm lines 106129-106170.
+     *
+     * <p>Wall movement sequence:
+     * <ol>
+     *   <li>Wait until player X >= $680 to start</li>
+     *   <li>Base speed $E000, increases to $14000 when player X > $A88</li>
+     *   <li>Subtract speed from offset accumulator each frame</li>
+     *   <li>Play sfx_Rumble2 every 16 frames</li>
+     *   <li>Stop at offset -$600, play sfx_Crash, set timed shake</li>
+     * </ol>
+     */
+    private void updateWallMove(int frameCounter) {
+        // Once the wall has reached its stop position, don't restart
+        if (wallStopped) {
+            return;
+        }
+
+        if (!wallMoving) {
+            // ROM: Wall only starts moving when player X >= $680
+            AbstractPlayableSprite player = camera().getFocusedSprite();
+            if (player != null && player.getCentreX() >= WALL_TRIGGER_PLAYER_X) {
+                wallMoving = true;
+                LOG.info("HCZ2: wall started moving (player X >= 0x"
+                        + Integer.toHexString(WALL_TRIGGER_PLAYER_X) + ")");
+            }
+            return;
+        }
+
+        // Check if wall has reached its stop position
+        if (wallOffsetPixels <= WALL_STOP_OFFSET) {
+            // Wall has stopped — permanently
+            wallMoving = false;
+            wallStopped = true;
+            shakeTimer = WALL_STOP_SHAKE_FRAMES;
+
+            // Play crash sound
+            var audioManager = audio();
+            if (audioManager != null) {
+                audioManager.playSfx(Sonic3kSfx.CRASH.id);
+            }
+            LOG.info("HCZ2: wall stopped at offset " + wallOffsetPixels);
+            return;
+        }
+
+        // Calculate speed — ROM: base $E000, fast $14000 when player X > $A88
+        int speed = WALL_BASE_SPEED;
+        AbstractPlayableSprite player = camera().getFocusedSprite();
+        if (player != null && player.getCentreX() > WALL_SPEED_UP_PLAYER_X) {
+            speed = WALL_FAST_SPEED;
+        }
+
+        // Advance wall (subtract speed from offset — wall moves leftward)
+        wallOffsetFixed -= speed;
+        wallOffsetPixels = wallOffsetFixed >> 16;
+
+        // Clamp to stop position
+        if (wallOffsetPixels < WALL_STOP_OFFSET) {
+            wallOffsetPixels = WALL_STOP_OFFSET;
+            wallOffsetFixed = WALL_STOP_OFFSET << 16;
+        }
+
+        // Play rumble sound every 16 frames
+        // ROM: move.w (Level_frame_counter).w,d0 / andi.w #$F,d0 / bne.s + / move.w #sfx_Rumble2,...
+        if ((frameCounter & 0x0F) == 0) {
+            var audioManager = audio();
+            if (audioManager != null) {
+                audioManager.playSfx(Sonic3kSfx.RUMBLE_2.id);
+            }
+        }
+    }
+
+    /**
+     * Gate Background_collision_flag based on player position.
+     * ROM: sonic3k.asm lines 106051-106067.
+     * BG collision is only enabled when the player is within the wall-chase corridor.
+     */
+    private void updateBgCollisionGating() {
+        AbstractPlayableSprite player = camera().getFocusedSprite();
+        if (player == null) {
+            gameState().setBackgroundCollisionFlag(false);
+            return;
+        }
+
+        int playerX = player.getCentreX();
+        int playerY = player.getCentreY();
+
+        // ROM: cmpi.w #$3F0,d0 / blo.s clr / cmpi.w #$C10,d0 / bhs.s clr
+        //      cmpi.w #$600,d1 / blo.s clr / cmpi.w #$840,d1 / bhs.s clr
+        //      st (Background_collision_flag).w
+        boolean inRange = playerX >= BG_COLL_X_MIN && playerX < BG_COLL_X_MAX
+                && playerY >= BG_COLL_Y_MIN && playerY < BG_COLL_Y_MAX;
+
+        gameState().setBackgroundCollisionFlag(inRange);
+    }
+
+    /**
+     * ROM: ScreenShakeArray2 (sonic3k.asm line ~104229).
+     * 64-entry table used for continuous shake (Screen_shake_flag = -1).
+     * Indexed by {@code Level_frame_counter & 0x3F}. Values are unsigned (0-3px).
+     */
+    private static final byte[] SCREEN_SHAKE_ARRAY_CONTINUOUS = {
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3
+    };
+
+    /**
+     * ROM: ScreenShakeArray (sonic3k.asm line ~104226).
+     * 20-entry table used for timed shake (Screen_shake_flag > 0).
+     * Indexed by countdown value. Values are signed — amplitude increases
+     * with index, so shake starts strong (high countdown) and weakens.
+     */
+    private static final byte[] SCREEN_SHAKE_ARRAY_TIMED = {
+            1, -1, 1, -1, 2, -2, 2, -2, 3, -3, 3, -3, 4, -4, 4, -4,
+            5, -5, 5, -5
+    };
+
+    /**
+     * Get continuous screen shake offset based on frame counter.
+     * ROM: ShakeScreen_Setup with Screen_shake_flag = -1 (bmi.s branch).
+     * Uses ScreenShakeArray2 indexed by {@code frameCounter & 0x3F}.
+     */
+    private int getShakeOffset(int frameCounter) {
+        return SCREEN_SHAKE_ARRAY_CONTINUOUS[frameCounter & 0x3F];
+    }
+
+    /**
+     * Apply timed screen shake offset during the countdown.
+     * ROM: ShakeScreen_Setup with Screen_shake_flag > 0.
+     * Decrements flag, reads ScreenShakeArray[flag] as signed offset.
+     */
+    private void updateScreenShakeFromTimer() {
+        SwScrlHcz scrollHandler = resolveHczScrollHandler();
+        if (scrollHandler != null) {
+            if (shakeTimer > 0 && shakeTimer <= SCREEN_SHAKE_ARRAY_TIMED.length) {
+                // ROM: move.b ScreenShakeArray(pc,d0.w),d1 / ext.w d1
+                scrollHandler.setScreenShakeOffset(SCREEN_SHAKE_ARRAY_TIMED[shakeTimer - 1]);
+            } else {
+                scrollHandler.setScreenShakeOffset(0);
+            }
+        }
+    }
+
+    /**
+     * Resolve the SwScrlHcz scroll handler from the current game module.
+     */
+    private SwScrlHcz resolveHczScrollHandler() {
+        try {
+            if (!hasRuntime()) return null;
+            var parallax = parallaxOrNull();
+            if (parallax == null) return null;
+            ZoneScrollHandler handler = parallax.getHandler(Sonic3kZoneIds.ZONE_HCZ);
+            return (handler instanceof SwScrlHcz hcz) ? hcz : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 

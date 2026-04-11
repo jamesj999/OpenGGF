@@ -1843,8 +1843,8 @@ public class LevelManager {
         profiler.endSection("render.fg.priority");
 
         // HTZ earthquake uses BG high-priority cave tiles as a visual overlay.
-        // Our main BG pass renders all BG priorities together behind FG-low, so we
-        // draw a BG-high overlay here to match hardware layering in this mode.
+        // These render between FG-low and FG-high (in front of FG terrain but
+        // behind FG high-pri tiles). HTZ has no sprites that need to be covered.
         renderHtzEarthquakeBgHighOverlay();
 
         // Draw Foreground (Layer 0) high-priority pass to screen
@@ -1853,7 +1853,15 @@ public class LevelManager {
         if (includeSpritePass) {
             renderSpriteObjectPass(spriteManager, true);
             overlayManager.getObjectArtViewer().draw(objectRenderManager, camera);
-        } else {
+        }
+
+        // VDP hardware: high-priority Plane B renders in front of low-priority sprites.
+        // HCZ2 wall chase uses high-priority BG tiles for the approaching water wall,
+        // which must cover objects (doors, platforms) as it passes over them.
+        // Rendered after sprites so the wall appears in front of everything except HUD.
+        renderBgHighPriorityOverlay();
+
+        if (!includeSpritePass) {
             // No sprite/object pass this frame; restore the default shader state for
             // any later screen-space rendering after the level tiles.
             graphicsManager.registerCommand(disableWaterShaderCommand);
@@ -2384,6 +2392,80 @@ public class LevelManager {
                     false,
                     0.0f);
             tilemapRenderer.setBgVdpWrapHeight(savedWrapHeight);
+        }));
+    }
+
+    /**
+     * Render high-priority BG tiles as an overlay between FG-low and FG-high.
+     * Matches VDP hardware compositing: high-priority Plane B renders in front
+     * of low-priority Plane A. Used by HCZ2 wall chase where the water wall is
+     * rendered as high-priority BG tiles visible in front of the level terrain.
+     */
+    private void renderBgHighPriorityOverlay() {
+        if (!gameState.isBgHighPriorityOverlayActive()) {
+            return;
+        }
+
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer == null) {
+            return;
+        }
+
+        Integer atlasId = graphicsManager.getPatternAtlasTextureId();
+        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
+        if (atlasId == null || paletteId == null) {
+            return;
+        }
+
+        int[] hScrollData = parallaxManager.getHScrollForShader();
+        if (hScrollData == null || hScrollData.length == 0) {
+            return;
+        }
+
+        short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
+        float bgWorldOffsetX = -bgScroll;
+        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
+        int screenW = cachedScreenWidth;
+        int screenH = cachedScreenHeight;
+
+        // Water palette support — the wall must use underwater palette below waterline
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
+        Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+        boolean useUnderwaterPalette = hasWater && !suppressUnderwaterPalette && underwaterPaletteId != null;
+        int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
+        float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
+        int uwPalId = useUnderwaterPalette ? underwaterPaletteId : 0;
+
+        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
+            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
+            if (tilemapRenderer == null) {
+                return;
+            }
+            int[] viewport = new int[4];
+            glGetIntegerv(GL_VIEWPORT, viewport);
+            tilemapRenderer.render(
+                    TilemapGpuRenderer.Layer.BACKGROUND,
+                    screenW,
+                    screenH,
+                    viewport[0],
+                    viewport[1],
+                    viewport[2],
+                    viewport[3],
+                    bgWorldOffsetX,
+                    bgWorldOffsetY,
+                    graphicsManager.getPatternAtlasWidth(),
+                    graphicsManager.getPatternAtlasHeight(),
+                    atlasId,
+                    paletteId,
+                    uwPalId,
+                    1,      // priorityPass=1: HIGH-PRIORITY TILES ONLY
+                    false,
+                    false,
+                    useUnderwaterPalette,
+                    waterlineScreenY);
         }));
     }
 

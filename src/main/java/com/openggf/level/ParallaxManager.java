@@ -158,6 +158,15 @@ public class ParallaxManager {
     }
 
     /**
+     * Returns the active zone scroll handler for the given zone, or null.
+     * Used by event handlers that need to communicate directly with
+     * their zone's scroll handler (e.g., HCZ2 wall-chase driving SwScrlHcz).
+     */
+    public ZoneScrollHandler getHandler(int zoneId) {
+        return scrollProvider != null ? scrollProvider.getHandler(zoneId) : null;
+    }
+
+    /**
      * Optional per-line BG VScroll values for shader-based heat haze effects.
      *
      * @return 224-entry per-line VScroll array, or null when not active
