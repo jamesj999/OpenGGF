@@ -20,24 +20,19 @@ import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestPachinkoTitleCardIntegration {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
-    @BeforeClass
+    @BeforeAll
     public static void configure() {
         SonicConfigurationService.getInstance()
                 .setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
@@ -72,7 +67,7 @@ public class TestPachinkoTitleCardIntegration {
         }
 
         assertEquals(GameMode.BONUS_STAGE, loop.getCurrentGameMode());
-        assertNotNull("Trap should exist after title card exit", trap);
+        assertNotNull(trap, "Trap should exist after title card exit");
 
         int updatesAtExit = trap.getUpdateCount();
         int riseDelayAtExit = trap.getRiseDelayFrames();
@@ -81,14 +76,12 @@ public class TestPachinkoTitleCardIntegration {
             loop.step();
         }
 
-        assertTrue("Trap update count should continue advancing after title card exit (exit frame="
+        assertTrue(trap.getUpdateCount() > updatesAtExit, "Trap update count should continue advancing after title card exit (exit frame="
                         + titleCardExitFrame + ", updatesAtExit=" + updatesAtExit
-                        + ", final=" + trap.getUpdateCount() + ")",
-                trap.getUpdateCount() > updatesAtExit);
-        assertTrue("Trap rise delay should continue decreasing after title card exit (exit frame="
+                        + ", final=" + trap.getUpdateCount() + ")");
+        assertTrue(trap.getRiseDelayFrames() < riseDelayAtExit, "Trap rise delay should continue decreasing after title card exit (exit frame="
                         + titleCardExitFrame + ", delayAtExit=" + riseDelayAtExit
-                        + ", final=" + trap.getRiseDelayFrames() + ")",
-                trap.getRiseDelayFrames() < riseDelayAtExit);
+                        + ", final=" + trap.getRiseDelayFrames() + ")");
     }
 
     @Test
@@ -105,11 +98,10 @@ public class TestPachinkoTitleCardIntegration {
         if (player.getInstaShieldObject() == null) {
             player.setInstaShieldObject(new InstaShieldObjectInstance(player));
         }
-        assertNotNull("Sonic should have a persistent insta-shield object", player.getInstaShieldObject());
+        assertNotNull(player.getInstaShieldObject(), "Sonic should have a persistent insta-shield object");
         spawner.registerObject(player.getInstaShieldObject());
 
-        assertTrue("Insta-shield should be registered in the level before bonus entry",
-                ((AbstractObjectInstance) player.getInstaShieldObject()).getSlotIndex() >= 32);
+        assertTrue(((AbstractObjectInstance) player.getInstaShieldObject()).getSlotIndex() >= 32, "Insta-shield should be registered in the level before bonus entry");
 
         BonusStageProvider provider = GameModuleRegistry.getCurrent().getBonusStageProvider();
         BonusStageState savedState = captureSavedState(player, fixture.camera());
@@ -129,7 +121,7 @@ public class TestPachinkoTitleCardIntegration {
         }
 
         assertEquals(GameMode.BONUS_STAGE, loop.getCurrentGameMode());
-        assertNotNull("Trap should exist after bonus title card exit", trap);
+        assertNotNull(trap, "Trap should exist after bonus title card exit");
 
         int updatesAtExit = trap.getUpdateCount();
         int trapSlot = trap.getSlotIndex();
@@ -138,10 +130,8 @@ public class TestPachinkoTitleCardIntegration {
             loop.step();
         }
 
-        assertTrue("Trap update count should continue advancing after title card exit",
-                trap.getUpdateCount() > updatesAtExit);
-        assertEquals("Trap slot should not be shared after insta-shield re-registration",
-                1, countObjectsAtSlot(trapSlot));
+        assertTrue(trap.getUpdateCount() > updatesAtExit, "Trap update count should continue advancing after title card exit");
+        assertEquals(1, countObjectsAtSlot(trapSlot), "Trap slot should not be shared after insta-shield re-registration");
     }
 
     private static BonusStageState captureSavedState(AbstractPlayableSprite player, Camera camera) {
@@ -196,3 +186,5 @@ public class TestPachinkoTitleCardIntegration {
         return count;
     }
 }
+
+

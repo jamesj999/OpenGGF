@@ -1,25 +1,23 @@
 package com.openggf.tests;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Grouped headless tests for Sonic 2 ARZ Act 1.
  *
- * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeAll};
  * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  *
  * <p>Merged from:
@@ -31,9 +29,6 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestS2Arz1Headless {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_ARZ = 2;
     private static final int ACT_1 = 0;
 
@@ -46,7 +41,7 @@ public class TestS2Arz1Headless {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_ARZ, ACT_1);
 
@@ -56,12 +51,12 @@ public class TestS2Arz1Headless {
         if (om != null) om.reset(camera.getX());
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -154,8 +149,8 @@ public class TestS2Arz1Headless {
         sprite.setY(START_Y);
 
         // Verify starting on primary
-        assertEquals("Should start on primary top", 0x0C, sprite.getTopSolidBit());
-        assertEquals("Should start on primary lrb", 0x0D, sprite.getLrbSolidBit());
+        assertEquals(0x0C, sprite.getTopSolidBit(), "Should start on primary top");
+        assertEquals(0x0D, sprite.getLrbSolidBit(), "Should start on primary lrb");
 
         for (int f = 0; f < 400; f++) {
             fixture.camera().updateBoundaryEasing();
@@ -165,8 +160,7 @@ public class TestS2Arz1Headless {
                 break;
             }
         }
-        assertTrue("Sonic should pass X=2600 on primary path. Actual X=" + sprite.getX(),
-                sprite.getX() > 2600);
+        assertTrue(sprite.getX() > 2600, "Sonic should pass X=2600 on primary path. Actual X=" + sprite.getX());
     }
 
     /**
@@ -290,9 +284,8 @@ public class TestS2Arz1Headless {
             }
         }
 
-        assertTrue("Sonic should hit a spring while running left (gSpeed should become positive). "
-                + "Final gSpeed=" + sprite.getGSpeed() + ", X=" + sprite.getX(),
-                hitSpring);
+        assertTrue(hitSpring, "Sonic should hit a spring while running left (gSpeed should become positive). "
+                + "Final gSpeed=" + sprite.getGSpeed() + ", X=" + sprite.getX());
 
         // Phase 2: After the spring, let Sonic proceed to the right with no input.
         // Track ground mode transitions to verify full 360-degree loop traversal:
@@ -338,17 +331,14 @@ public class TestS2Arz1Headless {
 
         logState("Final");
 
-        assertFalse("gSpeed should not be reset to 0 during loop traversal (was reset at frame "
-                + resetFrame + "). This indicates a physics bug preventing loop completion.",
-                gSpeedWasReset);
+        assertFalse(gSpeedWasReset, "gSpeed should not be reset to 0 during loop traversal (was reset at frame "
+                + resetFrame + "). This indicates a physics bug preventing loop completion.");
 
-        assertTrue("Sonic should enter CEILING mode during the loop traversal.",
-                enteredCeiling);
+        assertTrue(enteredCeiling, "Sonic should enter CEILING mode during the loop traversal.");
 
-        assertTrue("Sonic should return to GROUND mode after completing the full 360-degree loop. "
+        assertTrue(returnedToGround, "Sonic should return to GROUND mode after completing the full 360-degree loop. "
                 + "Loop complete frame=" + loopCompleteFrame + ", final X=" + sprite.getX()
-                + ", final mode=" + sprite.getGroundMode(),
-                returnedToGround);
+                + ", final mode=" + sprite.getGroundMode());
     }
 
     // ========== From TestArzDebug -- Debug Run ==========
@@ -401,3 +391,5 @@ public class TestS2Arz1Headless {
                 sprite.getDirection());
     }
 }
+
+

@@ -4,7 +4,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.*;
 
@@ -36,3 +36,5 @@ public class TestPachinkoFlipperObjectInstance {
         verify(player, never()).setXSpeed(anyShort());
     }
 }
+
+

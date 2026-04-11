@@ -12,7 +12,7 @@ import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.Ym2612Chip;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -89,7 +89,7 @@ public class LWJGLAudioBackend implements AudioBackend {
     private SmpsSequencerConfig smpsConfig;
 
     public LWJGLAudioBackend() {
-        this(com.openggf.game.RuntimeManager.getEngineServices().configuration());
+        this(GameServices.configuration());
     }
 
     public LWJGLAudioBackend(SonicConfigurationService configService) {

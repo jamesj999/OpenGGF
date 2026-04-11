@@ -161,3 +161,5 @@ class TestS3kSlotBonusCageObjectInstance {
         optionCycleStateField.setInt(stageState, stateValue);
     }
 }
+
+

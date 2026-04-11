@@ -1438,7 +1438,7 @@ public class LevelManager {
             return null;
         }
         GameModule activeModule = gameModule;
-        if (activeModule == null && RuntimeManager.getCurrent() != null) {
+        if (activeModule == null && GameServices.hasRuntime()) {
             activeModule = GameServices.module();
         }
         GameId gameId = activeModule != null ? activeModule.getGameId() : null;
@@ -3752,7 +3752,7 @@ public class LevelManager {
     }
 
     private ObjectServices buildObjectServices() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
+        GameRuntime runtime = GameServices.runtimeOrNull();
         if (runtime == null) {
             throw new IllegalStateException("LevelManager.buildObjectServices() requires an active GameRuntime");
         }

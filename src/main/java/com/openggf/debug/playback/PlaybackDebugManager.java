@@ -3,6 +3,7 @@ package com.openggf.debug.playback;
 import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameMode;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -41,7 +42,7 @@ public final class PlaybackDebugManager {
     }
 
     private SonicConfigurationService configService() {
-        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
+        return GameServices.configuration();
     }
 
     public static PlaybackDebugManager getInstance() {

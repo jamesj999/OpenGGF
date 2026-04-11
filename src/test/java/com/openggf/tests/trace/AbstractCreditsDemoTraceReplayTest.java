@@ -12,17 +12,15 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.Assume;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Abstract base class for credits demo trace replay tests. Subclasses provide
@@ -35,15 +33,11 @@ import static org.junit.Assert.*;
  * are short (510-540 frame) gameplay sequences that play during the Sonic 1
  * ending credits.
  *
- * <p>Uses JUnit 4 because {@link RequiresRomRule} is a JUnit 4 {@code TestRule}.
- * Subclasses should add {@code @RequiresRom(SonicGame.SONIC_1)} — the abstract
+ * <p>Originally used JUnit 4 because the ROM fixture was exposed as a JUnit 4 rule.
+ * Subclasses should add {@code @RequiresRom(SonicGame.SONIC_1)} â€” the abstract
  * class intentionally does NOT carry that annotation so subclasses control it.
  */
 public abstract class AbstractCreditsDemoTraceReplayTest {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     /** Credits demo index (0-7). */
     protected abstract int creditsDemoIndex();
 
@@ -63,16 +57,13 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
     @Test
     public void replayMatchesTrace() throws Exception {
         int idx = creditsDemoIndex();
-        assertTrue("creditsDemoIndex must be 0-7", idx >= 0 && idx < Sonic1CreditsDemoData.DEMO_CREDITS);
+        assertTrue(idx >= 0 && idx < Sonic1CreditsDemoData.DEMO_CREDITS, "creditsDemoIndex must be 0-7");
 
         // 0. Skip if trace directory or required files are missing
         Path traceDir = traceDirectory();
-        Assume.assumeTrue("Trace directory not found: " + traceDir,
-            Files.isDirectory(traceDir));
-        Assume.assumeTrue("metadata.json not found in " + traceDir,
-            Files.exists(traceDir.resolve("metadata.json")));
-        Assume.assumeTrue("physics.csv not found in " + traceDir,
-            Files.exists(traceDir.resolve("physics.csv")));
+        Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
+        Assumptions.assumeTrue(Files.exists(traceDir.resolve("metadata.json")), "metadata.json not found in " + traceDir);
+        Assumptions.assumeTrue(Files.exists(traceDir.resolve("physics.csv")), "physics.csv not found in " + traceDir);
 
         // 1. Load trace data
         TraceData trace = TraceData.load(traceDir);
@@ -118,7 +109,7 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 // keep the engine and demo-input cursor aligned with the
                 // ROM's cursor across the lag.
                 if (trace.isLagFrame(i)) {
-                    // Still compare — engine state should match previous
+                    // Still compare â€” engine state should match previous
                     // trace frame since neither side advanced.
                     var sprite = fixture.sprite();
                     EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
@@ -225,7 +216,7 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
 
     /**
      * Capture engine-side diagnostic state for the context window.
-     * These values are NOT compared for pass/fail — they appear alongside
+     * These values are NOT compared for pass/fail â€” they appear alongside
      * ROM trace diagnostics for human cross-referencing.
      */
     private EngineDiagnostics captureEngineDiagnostics(AbstractPlayableSprite sprite) {
@@ -318,3 +309,6 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         };
     }
 }
+
+
+

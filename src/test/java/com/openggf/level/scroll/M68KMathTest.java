@@ -1,8 +1,8 @@
 package com.openggf.level.scroll;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -200,3 +200,5 @@ public class M68KMathTest {
         assertEquals((short) -24, band6Bg);
     }
 }
+
+

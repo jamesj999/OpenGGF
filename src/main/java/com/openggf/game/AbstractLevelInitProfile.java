@@ -139,47 +139,46 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
      * @return mutable list for callers to append post-load assembly steps
      */
     protected List<InitStep> buildCoreSteps(LevelLoadContext ctx) {
-        LevelManager lm = GameServices.level();
         List<InitStep> steps = new ArrayList<>(20);
         steps.add(ioStep("InitGameModule",
                 "Create Game instance, fade out, clear PLC",
-                () -> lm.initGameModule(ctx.getLevelIndex())));
+                () -> GameServices.level().initGameModule(ctx.getLevelIndex())));
         steps.add(ioStep("InitAudio",
                 "Play level music from zone playlist",
-                () -> lm.initAudio(ctx.getLevelIndex())));
+                () -> GameServices.level().initAudio(ctx.getLevelIndex())));
         steps.add(ioStep("LoadLevelData",
                 "Load level geometry, tiles, collision indices",
-                () -> ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex()))));
+                () -> ctx.setLevel(GameServices.level().loadLevelData(ctx.getLevelIndex()))));
         steps.add(new InitStep("InitAnimatedContent",
                 "Pattern animation scripts and palette cycling",
-                lm::initAnimatedContent));
+                () -> GameServices.level().initAnimatedContent()));
         steps.add(ioStep("InitObjectManager",
                 "Spawn players, create ObjectManager, wire CollisionSystem",
-                lm::initObjectManager));
+                () -> GameServices.level().initObjectManager()));
         steps.add(new InitStep("InitCameraBounds",
                 "Reset camera bounds from level geometry",
-                lm::initCameraBounds));
+                () -> GameServices.level().initCameraBounds()));
         steps.add(new InitStep("InitGameplayState",
                 "OscillateNumInit, clear game state, HUD update flags",
-                lm::initGameplayState));
+                () -> GameServices.level().initGameplayState()));
         steps.add(new InitStep("InitRings",
                 "Initial ring placement and pattern caching",
-                lm::initRings));
+                () -> GameServices.level().initRings()));
         steps.add(ioStep("InitZoneFeatures",
                 "Zone-specific features (water surface, bumpers, etc.)",
-                lm::initZoneFeatures));
+                () -> GameServices.level().initZoneFeatures()));
         steps.add(new InitStep("InitArt",
                 "Zone PLC, character art, shared HUD/ring/monitor patterns",
-                lm::initArt));
+                () -> GameServices.level().initArt()));
         steps.add(new InitStep("InitPlayerAndCheckpoint",
                 "Player spawn state and checkpoint clear",
-                lm::initPlayerAndCheckpoint));
+                () -> GameServices.level().initPlayerAndCheckpoint()));
         steps.add(ioStep("InitWater",
                 "Water system loading for water zones",
-                lm::initWater));
+                () -> GameServices.level().initWater()));
         steps.add(new InitStep("InitBackgroundRenderer",
                 "Engine-specific: pre-allocate BG FBO",
-                lm::initBackgroundRenderer));
+                () -> GameServices.level().initBackgroundRenderer()));
         return steps;
     }
 

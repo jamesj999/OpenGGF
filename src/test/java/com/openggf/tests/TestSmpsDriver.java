@@ -1,7 +1,7 @@
 package com.openggf.tests;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.smps.AbstractSmpsData;
@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSmpsDriver {
 
@@ -116,19 +116,19 @@ public class TestSmpsDriver {
         driver.writeFm(sfx1, 0, 0xA0, 0x10);
 
         // Assert sfx1 has lock
-        assertEquals("SFX1 should have lock on Ch 0", sfx1, driver.getFmLock(0));
+        assertEquals(sfx1, driver.getFmLock(0), "SFX1 should have lock on Ch 0");
 
         // sfx2 writes to FM channel 0
         driver.writeFm(sfx2, 0, 0xA0, 0x20);
 
         // Equal priority: newer SFX (sfx2) should steal the lock from sfx1
-        assertEquals("SFX2 should steal lock on Ch 0 (equal priority, newer wins)", sfx2, driver.getFmLock(0));
+        assertEquals(sfx2, driver.getFmLock(0), "SFX2 should steal lock on Ch 0 (equal priority, newer wins)");
 
         // sfx1 writes again
         driver.writeFm(sfx1, 0, 0xA0, 0x11);
 
         // sfx1 writes again but sfx2 still holds the lock (equal priority, sfx2 is newer)
-        assertEquals("SFX2 should still hold lock on Ch 0", sfx2, driver.getFmLock(0));
+        assertEquals(sfx2, driver.getFmLock(0), "SFX2 should still hold lock on Ch 0");
     }
 
     @Test
@@ -149,10 +149,10 @@ public class TestSmpsDriver {
         driver.addSequencer(normal, true);
 
         driver.writeFm(special, 0, 0xA0, 0x10);
-        assertEquals("Special SFX should initially own Ch 0", special, driver.getFmLock(0));
+        assertEquals(special, driver.getFmLock(0), "Special SFX should initially own Ch 0");
 
         driver.writeFm(normal, 0, 0xA0, 0x20);
-        assertEquals("Normal SFX should steal Ch 0 from special SFX", normal, driver.getFmLock(0));
+        assertEquals(normal, driver.getFmLock(0), "Normal SFX should steal Ch 0 from special SFX");
     }
 
     @Test
@@ -173,10 +173,10 @@ public class TestSmpsDriver {
         driver.addSequencer(special, true);
 
         driver.writeFm(normal, 0, 0xA0, 0x10);
-        assertEquals("Normal SFX should initially own Ch 0", normal, driver.getFmLock(0));
+        assertEquals(normal, driver.getFmLock(0), "Normal SFX should initially own Ch 0");
 
         driver.writeFm(special, 0, 0xA0, 0x20);
-        assertEquals("Special SFX should not steal Ch 0 from normal SFX", normal, driver.getFmLock(0));
+        assertEquals(normal, driver.getFmLock(0), "Special SFX should not steal Ch 0 from normal SFX");
     }
 
     @Test
@@ -199,21 +199,19 @@ public class TestSmpsDriver {
         // Add SFX-A, give it the PSG2 lock via a write
         driver.addSequencer(sfxA, true);
         driver.writePsg(sfxA, 0x80 | (2 << 5) | 0x00); // latch PSG3
-        assertEquals("SFX-A should hold PSG2 lock", sfxA, driver.getPsgLock(2));
+        assertEquals(sfxA, driver.getPsgLock(2), "SFX-A should hold PSG2 lock");
         assertEquals(1, driver.getSequencerCount());
 
         // Add SFX-B on same channel - should kill SFX-A's track
         driver.addSequencer(sfxB, true);
 
         // SFX-A's track should be deactivated
-        assertFalse("SFX-A's PSG2 track should be deactivated",
-                sfxA.getTracks().get(0).active);
+        assertFalse(sfxA.getTracks().get(0).active, "SFX-A's PSG2 track should be deactivated");
         // SFX-A's lock should be released (SFX-B hasn't written yet)
-        assertNull("PSG2 lock should be released after conflict resolution",
-                driver.getPsgLock(2));
+        assertNull(driver.getPsgLock(2), "PSG2 lock should be released after conflict resolution");
         // SFX-A should be removed entirely (all tracks inactive)
-        assertEquals("SFX-A should be removed (all tracks dead)", 1, driver.getSequencerCount());
-        assertEquals("Only SFX-B in sfxSequencers", 1, driver.getSfxSequencerCount());
+        assertEquals(1, driver.getSequencerCount(), "SFX-A should be removed (all tracks dead)");
+        assertEquals(1, driver.getSfxSequencerCount(), "Only SFX-B in sfxSequencers");
     }
 
     @Test
@@ -240,9 +238,9 @@ public class TestSmpsDriver {
         driver.addSequencer(sfxNew, true);
 
         // ROM lines 2221-2228: replacing PSG3 SFX should silence both tone2 and noise
-        assertTrue("Should silence PSG3 (0xDF)",
-                driver.rawPsgWrites.contains(0xDF));
-        assertTrue("Should silence noise channel (0xFF)",
-                driver.rawPsgWrites.contains(0xFF));
+        assertTrue(driver.rawPsgWrites.contains(0xDF), "Should silence PSG3 (0xDF)");
+        assertTrue(driver.rawPsgWrites.contains(0xFF), "Should silence noise channel (0xFF)");
     }
 }
+
+

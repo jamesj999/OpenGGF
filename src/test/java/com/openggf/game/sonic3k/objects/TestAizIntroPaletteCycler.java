@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAizIntroPaletteCycler {
 
@@ -55,3 +55,5 @@ public class TestAizIntroPaletteCycler {
         assertEquals(0x21, cycler.getMappingFrame(2)); // even frame
     }
 }
+
+

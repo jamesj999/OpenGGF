@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -9,8 +9,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TestSonic1FzSeggMappingRemap {
 
@@ -37,10 +37,10 @@ public class TestSonic1FzSeggMappingRemap {
         // Frame 9 = .intube; piece 4 is one of the four tube overlay strips:
         // spritePiece -$10,-$20,4,2,$6F0,1,1,1,0
         SpriteMappingPiece tubePiece = remapped.get(9).pieces().get(4);
-        assertEquals("Tube overlay tile should wrap to FZ boss local tile $60", 0x60, tubePiece.tileIndex());
-        assertFalse("H-flip should cancel after add.w overflow", tubePiece.hFlip());
-        assertFalse("V-flip should cancel after add.w overflow", tubePiece.vFlip());
-        assertEquals("Palette should resolve to line 2 after add.w overflow", 2, tubePiece.paletteIndex());
+        assertEquals(0x60, tubePiece.tileIndex(), "Tube overlay tile should wrap to FZ boss local tile $60");
+        assertFalse(tubePiece.hFlip(), "H-flip should cancel after add.w overflow");
+        assertFalse(tubePiece.vFlip(), "V-flip should cancel after add.w overflow");
+        assertEquals(2, tubePiece.paletteIndex(), "Palette should resolve to line 2 after add.w overflow");
     }
 
     @Test
@@ -50,8 +50,8 @@ public class TestSonic1FzSeggMappingRemap {
         int maxLegsTile = maxTileIndex(Sonic1BossMappings.createFZLegsMappings());
         int maxDamagedTile = maxTileIndex(Sonic1BossMappings.createFZDamagedMappings());
 
-        assertEquals("Map_FZLegs max tile should be $1F", 0x1F, maxLegsTile);
-        assertEquals("Map_FZDamaged max tile should be $4B", 0x4B, maxDamagedTile);
+        assertEquals(0x1F, maxLegsTile, "Map_FZLegs max tile should be $1F");
+        assertEquals(0x4B, maxDamagedTile, "Map_FZDamaged max tile should be $4B");
     }
 
     private static int maxTileIndex(List<SpriteMappingFrame> frames) {
@@ -68,3 +68,5 @@ public class TestSonic1FzSeggMappingRemap {
     }
 
 }
+
+

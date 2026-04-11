@@ -16,9 +16,12 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.ScreenshotCapture;
 
 import org.joml.Matrix4f;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 
@@ -30,8 +33,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -54,7 +57,7 @@ public class TestS3kSpecialStageResultsVisual {
     private static final Matrix4f projectionMatrix = new Matrix4f();
     private static final float[] matrixBuffer = new float[16];
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         try {
             // Check for S3K ROM
@@ -62,7 +65,7 @@ public class TestS3kSpecialStageResultsVisual {
                     "Sonic and Knuckles & Sonic 3 (W) [!].gen");
             File romFile = new File(romPath);
             if (!romFile.exists()) {
-                System.err.println("S3K ROM not available — visual tests skipped");
+                System.err.println("S3K ROM not available Ã¢â‚¬â€ visual tests skipped");
                 initialized = false;
                 return;
             }
@@ -112,7 +115,7 @@ public class TestS3kSpecialStageResultsVisual {
 
             // Load S3K ROM
             Rom rom = new Rom();
-            assertTrue("Failed to open S3K ROM", rom.open(romFile.getAbsolutePath()));
+            assertTrue(rom.open(romFile.getAbsolutePath()), "Failed to open S3K ROM");
             GameModuleRegistry.detectAndSetModule(rom);
             RomManager.getInstance().setRom(rom);
 
@@ -135,7 +138,7 @@ public class TestS3kSpecialStageResultsVisual {
         }
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         if (window != NULL) {
             try { glfwDestroyWindow(window); } catch (Exception e) { /* ignore */ }
@@ -148,12 +151,12 @@ public class TestS3kSpecialStageResultsVisual {
     }
 
     /**
-     * Test: Emerald collected, not all 7 — should show emerald indicators,
+     * Test: Emerald collected, not all 7 Ã¢â‚¬â€ should show emerald indicators,
      * ring/time bonus, and character name. Standard success case.
      */
     @Test
     public void testResultsScreen_emeraldCollected() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
+        assumeTrue(initialized, "Test environment not initialized");
 
         // Mark 3 emeralds collected (slots 0, 1, 2)
         GameStateManager gs = GameServices.gameState();
@@ -195,12 +198,12 @@ public class TestS3kSpecialStageResultsVisual {
     }
 
     /**
-     * Test: Failed to collect emerald — should show failure message,
+     * Test: Failed to collect emerald Ã¢â‚¬â€ should show failure message,
      * no character name, no emerald text.
      */
     @Test
     public void testResultsScreen_failed() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
+        assumeTrue(initialized, "Test environment not initialized");
 
         // No emeralds collected
         GameStateManager gs = GameServices.gameState();
@@ -244,7 +247,7 @@ public class TestS3kSpecialStageResultsVisual {
         List<GLCommand> warmup = new ArrayList<>();
         screen.appendRenderCommands(warmup);
 
-        // Render: begin batch → add patterns → end batch → flush commands
+        // Render: begin batch Ã¢â€ â€™ add patterns Ã¢â€ â€™ end batch Ã¢â€ â€™ flush commands
         gm.beginPatternBatch();
         List<GLCommand> commands = new ArrayList<>();
         screen.appendRenderCommands(commands);
@@ -310,8 +313,7 @@ public class TestS3kSpecialStageResultsVisual {
                 }
             }
         }
-        assertTrue(message + " (found " + nonWhitePixels + " non-white pixels)",
-                nonWhitePixels > 100);
+        assertTrue(nonWhitePixels > 100, message + " (found " + nonWhitePixels + " non-white pixels)");
     }
 
     private void assertRegionHasContent(BufferedImage image, int rx, int ry, int rw, int rh,
@@ -328,7 +330,8 @@ public class TestS3kSpecialStageResultsVisual {
                 }
             }
         }
-        assertTrue(message + " (found " + nonWhitePixels + " non-white pixels in region)",
-                nonWhitePixels > 10);
+        assertTrue(nonWhitePixels > 10, message + " (found " + nonWhitePixels + " non-white pixels in region)");
     }
 }
+
+

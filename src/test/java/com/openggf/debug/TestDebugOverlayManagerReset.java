@@ -1,8 +1,8 @@
 package com.openggf.debug;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestDebugOverlayManagerReset {
 
@@ -17,8 +17,9 @@ public class TestDebugOverlayManagerReset {
         manager.resetState();
 
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
-            assertEquals("resetState should restore default for " + toggle.name(),
-                    toggle.defaultEnabled(), manager.isEnabled(toggle));
+            assertEquals(toggle.defaultEnabled(), manager.isEnabled(toggle), "resetState should restore default for " + toggle.name());
         }
     }
 }
+
+

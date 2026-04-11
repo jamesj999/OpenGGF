@@ -99,9 +99,9 @@ class TestEngineServices {
 
     private static void assertNoRootBypass(Path path) throws IOException {
         String source = Files.readString(path);
-        assertFalse(source.contains("GameServices.debugOverlay()"),
-                path + " should use EngineServices.debugOverlay()");
-        assertFalse(source.contains("GameServices.rom()"),
-                path + " should use EngineServices.roms()");
+        assertFalse(source.contains("GameServices.debugOverlay()"), path + " should use EngineServices.debugOverlay()");
+        assertFalse(source.contains("GameServices.rom()"), path + " should use EngineServices.roms()");
     }
 }
+
+

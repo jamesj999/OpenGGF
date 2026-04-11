@@ -2,11 +2,11 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectRegistry;
 
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestGameModuleProviderLifetimes {
 
@@ -17,7 +17,7 @@ public class TestGameModuleProviderLifetimes {
         ObjectArtProvider first = module.getObjectArtProvider();
         ObjectArtProvider second = module.getObjectArtProvider();
 
-        assertNotSame("Sonic 1 object art provider should be recreated per call", first, second);
+        assertNotSame(first, second, "Sonic 1 object art provider should be recreated per call");
     }
 
     @Test
@@ -27,6 +27,8 @@ public class TestGameModuleProviderLifetimes {
         ObjectRegistry first = module.createObjectRegistry();
         ObjectRegistry second = module.createObjectRegistry();
 
-        assertSame("Sonic 2 object registry should be reused within a module instance", first, second);
+        assertSame(first, second, "Sonic 2 object registry should be reused within a module instance");
     }
 }
+
+

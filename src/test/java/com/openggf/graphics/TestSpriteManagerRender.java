@@ -5,9 +5,9 @@ import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
@@ -21,13 +21,13 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSpriteManagerRender {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
@@ -37,7 +37,7 @@ public class TestSpriteManagerRender {
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         AizPlaneIntroInstance.resetIntroPhaseState();
         RuntimeManager.destroyCurrent();
@@ -87,7 +87,7 @@ public class TestSpriteManagerRender {
         List<String> drawOrder = new ArrayList<>();
         SpriteManager spriteManager = GameServices.sprites();
 
-        // Add main first, then sidekick — same bucket and priority
+        // Add main first, then sidekick â€” same bucket and priority
         TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
         main.setPriorityBucket(2);
         main.setHighPriority(false);
@@ -176,9 +176,9 @@ public class TestSpriteManagerRender {
                                              List<String> drawOrder, int zone) throws Exception {
         drawOrder.clear();
         setCurrentZone(levelManager, zone);
-        assertTrue("Zone should suppress CPU sidekick gameplay instance", spriteManager.getSidekicks().isEmpty());
+        assertTrue(spriteManager.getSidekicks().isEmpty(), "Zone should suppress CPU sidekick gameplay instance");
         spriteManager.draw();
-        assertEquals("Suppressed zone should render only the main character sprite", List.of("main"), drawOrder);
+        assertEquals(List.of("main"), drawOrder, "Suppressed zone should render only the main character sprite");
     }
 
     private static void setCurrentZone(LevelManager levelManager, int zone) throws Exception {
@@ -347,3 +347,5 @@ public class TestSpriteManagerRender {
         }
     }
 }
+
+

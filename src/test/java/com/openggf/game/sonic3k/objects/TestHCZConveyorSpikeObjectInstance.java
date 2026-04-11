@@ -124,3 +124,5 @@ class TestHCZConveyorSpikeObjectInstance {
         return (ThreadLocal<ObjectServices>) field.get(null);
     }
 }
+
+

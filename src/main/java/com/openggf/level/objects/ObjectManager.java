@@ -5,7 +5,6 @@ import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
-import com.openggf.game.RuntimeManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
@@ -142,7 +141,7 @@ public class ObjectManager {
     }
 
     private static ObjectServices defaultServices() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
+        GameRuntime runtime = GameServices.runtimeOrNull();
         if (runtime != null) {
             return new DefaultObjectServices(runtime);
         }

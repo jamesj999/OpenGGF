@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.GameModule;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -28,7 +28,7 @@ import java.util.List;
 public class InvincibilityStarsObjectInstance extends AbstractObjectInstance implements PowerUpObject {
     private final PlayableEntity player;
     private final PatternSpriteRenderer renderer;
-    private final boolean sonic1TrailMode;
+    private Boolean sonic1TrailMode;
 
     // ── ROM data: byte_1DB42 (orbit offset table, 32 entries) ──
     // dc.w $F00, $F03, $E06, $D08, $B0B, $80D, $60E, $30F,
@@ -111,7 +111,6 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance imp
         } else {
             this.renderer = null;
         }
-        this.sonic1TrailMode = isTrailMode();
 
         // Initialize S2 angle state from disassembly initial values
         this.angleByte = new int[STAR_COUNT];
@@ -123,7 +122,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance imp
 
     @Override
     public void update(int frameCounter, PlayableEntity player) {
-        if (sonic1TrailMode) {
+        if (isTrailModeEnabled()) {
             updateSonic1Trail();
             return;
         }
@@ -171,7 +170,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance imp
             return;
         }
 
-        if (sonic1TrailMode) {
+        if (isTrailModeEnabled()) {
             appendSonic1TrailRenderCommands();
             return;
         }
@@ -229,12 +228,17 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance imp
     int[] getAngleBytes() { return angleByte; }
     int[] getAnimCounters() { return animCounter; }
 
-    private static boolean isTrailMode() {
-        try {
-            return GameServices.module().hasTrailInvincibilityStars();
-        } catch (Exception ignored) {
+    private boolean isTrailModeEnabled() {
+        if (sonic1TrailMode != null) {
+            return sonic1TrailMode;
+        }
+        ObjectServices currentServices = tryServices();
+        if (currentServices == null) {
             return false;
         }
+        GameModule module = currentServices.gameModule();
+        sonic1TrailMode = module != null && module.hasTrailInvincibilityStars();
+        return sonic1TrailMode;
     }
 
     @Override

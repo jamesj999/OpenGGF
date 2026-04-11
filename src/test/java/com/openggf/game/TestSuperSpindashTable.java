@@ -62,3 +62,5 @@ class TestSuperSpindashTable {
                 "Super table last entry ($F00) should be higher than normal ($C00)");
     }
 }
+
+

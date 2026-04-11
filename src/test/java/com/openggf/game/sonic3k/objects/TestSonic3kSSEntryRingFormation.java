@@ -8,13 +8,13 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.TestEnvironment;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -27,20 +27,20 @@ import static org.mockito.Mockito.*;
  *     jsr (Animate_Raw).l
  *     ...
  *     cmpi.b #8,mapping_frame(a0)
- *     blo.s  locret_61708        ; mapping_frame &lt; 8 → no collision
+ *     blo.s  locret_61708        ; mapping_frame &lt; 8 â†’ no collision
  * </pre>
  * <p>
  * Formation animation: delay=4, 9 frame bytes {0,0,1,2,3,4,5,6,7}.
  * ROM's Animate_Raw starts with timer=0, so the first call immediately
- * advances (reads the 2nd byte). This gives 8 advances × (delay+1)=5
+ * advances (reads the 2nd byte). This gives 8 advances Ã— (delay+1)=5
  * frames each = <b>40 game frames</b> of formation (mapping_frame 0-7).
  * <p>
- * On frame 41 the 9th advance exceeds the array → transition to idle,
+ * On frame 41 the 9th advance exceeds the array â†’ transition to idle,
  * mapping_frame becomes 10 (first idle frame), collision is enabled.
  */
 public class TestSonic3kSSEntryRingFormation {
 
-    /** Ring placed at screen centre — well within default camera bounds. */
+    /** Ring placed at screen centre â€” well within default camera bounds. */
     private static final int RING_X = 160;
     private static final int RING_Y = 112;
 
@@ -55,13 +55,13 @@ public class TestSonic3kSSEntryRingFormation {
      */
     private static final int FORMATION_ADVANCE_COUNT = 8;
 
-    /** Total formation duration in game frames: 8 advances × 5 frames each = 40. */
+    /** Total formation duration in game frames: 8 advances Ã— 5 frames each = 40. */
     private static final int FORMATION_TOTAL_FRAMES = FORMATION_ADVANCE_COUNT * FRAMES_PER_ANIM_STEP; // 40
 
     private GameStateManager gameState;
     private ObjectServices services;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestEnvironment.resetAll();
         gameState = new GameStateManager();
@@ -72,7 +72,7 @@ public class TestSonic3kSSEntryRingFormation {
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         clearConstructionContext();
     }
@@ -84,9 +84,9 @@ public class TestSonic3kSSEntryRingFormation {
     @Test
     public void ringStartsInFormingState() {
         Sonic3kSSEntryRingObjectInstance ring = createRing(0);
-        assertTrue("Ring should start in forming state", ring.isForming());
-        assertTrue("Ring should be in MAIN state", ring.isMainState());
-        assertEquals("Initial mapping frame should be 0", 0, ring.getMappingFrame());
+        assertTrue(ring.isForming(), "Ring should start in forming state");
+        assertTrue(ring.isMainState(), "Ring should be in MAIN state");
+        assertEquals(0, ring.getMappingFrame(), "Initial mapping frame should be 0");
     }
 
     @Test
@@ -97,11 +97,9 @@ public class TestSonic3kSSEntryRingFormation {
         // The ring must remain in forming state (mapping_frame < 8) throughout.
         for (int frame = 1; frame <= FORMATION_TOTAL_FRAMES; frame++) {
             ring.update(frame, null);
-            assertTrue("Ring should be forming at frame " + frame
-                            + " (mapping_frame=" + ring.getMappingFrame() + ")",
-                    ring.isForming());
-            assertTrue("mapping_frame should be < 8 during formation at frame " + frame,
-                    ring.getMappingFrame() < 8);
+            assertTrue(ring.isForming(), "Ring should be forming at frame " + frame
+                            + " (mapping_frame=" + ring.getMappingFrame() + ")");
+            assertTrue(ring.getMappingFrame() < 8, "mapping_frame should be < 8 during formation at frame " + frame);
         }
     }
 
@@ -116,10 +114,8 @@ public class TestSonic3kSSEntryRingFormation {
 
         // One more frame should transition to idle (mapping_frame >= 8)
         ring.update(FORMATION_TOTAL_FRAMES + 1, null);
-        assertFalse("Ring should no longer be forming after formation completes",
-                ring.isForming());
-        assertTrue("mapping_frame should be >= 8 in idle",
-                ring.getMappingFrame() >= 8);
+        assertFalse(ring.isForming(), "Ring should no longer be forming after formation completes");
+        assertTrue(ring.getMappingFrame() >= 8, "mapping_frame should be >= 8 in idle");
     }
 
     @Test
@@ -138,12 +134,10 @@ public class TestSonic3kSSEntryRingFormation {
                 gameFrame++;
                 ring.update(gameFrame, null);
             }
-            assertEquals("Mapping frame after step " + step + " (game frame " + gameFrame + ")",
-                    expectedFrames[step], ring.getMappingFrame());
+            assertEquals(expectedFrames[step], ring.getMappingFrame(), "Mapping frame after step " + step + " (game frame " + gameFrame + ")");
         }
         // Verify we've consumed exactly the formation duration
-        assertEquals("Should have consumed exactly FORMATION_TOTAL_FRAMES",
-                FORMATION_TOTAL_FRAMES, gameFrame);
+        assertEquals(FORMATION_TOTAL_FRAMES, gameFrame, "Should have consumed exactly FORMATION_TOTAL_FRAMES");
     }
 
     @Test
@@ -153,13 +147,12 @@ public class TestSonic3kSSEntryRingFormation {
         // Move camera bounds so ring is off-screen
         AbstractObjectInstance.updateCameraBounds(500, 500, 820, 724, 0);
 
-        // Step 20 frames — ring should NOT advance because it's off-screen
+        // Step 20 frames â€” ring should NOT advance because it's off-screen
         for (int frame = 1; frame <= 20; frame++) {
             ring.update(frame, null);
         }
-        assertEquals("mapping_frame should not advance while off-screen",
-                0, ring.getMappingFrame());
-        assertTrue("Ring should still be forming while off-screen", ring.isForming());
+        assertEquals(0, ring.getMappingFrame(), "mapping_frame should not advance while off-screen");
+        assertTrue(ring.isForming(), "Ring should still be forming while off-screen");
 
         // Move camera back so ring is on-screen
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
@@ -167,8 +160,8 @@ public class TestSonic3kSSEntryRingFormation {
         // Now the formation should start advancing
         ring.update(21, null);
         // After 1 frame on-screen, mapping_frame is still 0 (timer counting down)
-        assertEquals("First on-screen frame: still on initial mapping frame", 0, ring.getMappingFrame());
-        assertTrue("Ring should still be forming after 1 on-screen frame", ring.isForming());
+        assertEquals(0, ring.getMappingFrame(), "First on-screen frame: still on initial mapping frame");
+        assertTrue(ring.isForming(), "Ring should still be forming after 1 on-screen frame");
     }
 
     /**
@@ -187,13 +180,10 @@ public class TestSonic3kSSEntryRingFormation {
         // Step through every frame of formation with the player overlapping
         for (int frame = 1; frame <= FORMATION_TOTAL_FRAMES; frame++) {
             ring.update(frame, player);
-            assertTrue("Ring should still be forming at frame " + frame
-                            + " (mapping_frame=" + ring.getMappingFrame() + ")",
-                    ring.isForming());
-            assertTrue("Ring should remain in MAIN state at frame " + frame,
-                    ring.isMainState());
-            assertFalse("Ring should not be destroyed during formation at frame " + frame,
-                    ring.isDestroyed());
+            assertTrue(ring.isForming(), "Ring should still be forming at frame " + frame
+                            + " (mapping_frame=" + ring.getMappingFrame() + ")");
+            assertTrue(ring.isMainState(), "Ring should remain in MAIN state at frame " + frame);
+            assertFalse(ring.isDestroyed(), "Ring should not be destroyed during formation at frame " + frame);
         }
     }
 
@@ -209,7 +199,7 @@ public class TestSonic3kSSEntryRingFormation {
         for (int i = 0; i < 7; i++) {
             gameState.markEmeraldCollected(i);
         }
-        assertTrue("Precondition: all emeralds collected", gameState.hasAllEmeralds());
+        assertTrue(gameState.hasAllEmeralds(), "Precondition: all emeralds collected");
 
         Sonic3kSSEntryRingObjectInstance ring = createRing(0);
         AbstractPlayableSprite player = createMockPlayerAt(RING_X, RING_Y);
@@ -218,15 +208,13 @@ public class TestSonic3kSSEntryRingFormation {
         for (int frame = 1; frame <= FORMATION_TOTAL_FRAMES; frame++) {
             ring.update(frame, player);
         }
-        assertTrue("Ring should still be forming after exactly FORMATION_TOTAL_FRAMES",
-                ring.isForming());
+        assertTrue(ring.isForming(), "Ring should still be forming after exactly FORMATION_TOTAL_FRAMES");
 
-        // One more frame transitions to idle (mapping_frame >= 8) → collision fires
+        // One more frame transitions to idle (mapping_frame >= 8) â†’ collision fires
         ring.update(FORMATION_TOTAL_FRAMES + 1, player);
-        assertFalse("Ring should no longer be forming", ring.isForming());
+        assertFalse(ring.isForming(), "Ring should no longer be forming");
         // With all emeralds, onTouched awards 50 rings and destroys the ring
-        assertTrue("Ring should be destroyed after player triggered it",
-                ring.isDestroyed());
+        assertTrue(ring.isDestroyed(), "Ring should be destroyed after player triggered it");
     }
 
     @Test
@@ -238,7 +226,7 @@ public class TestSonic3kSSEntryRingFormation {
         // ensureInitialized() is called lazily on the first update(), not in the constructor.
         // One update call triggers the collected-state check and sets destroyed=true.
         ring.update(1, null);
-        assertTrue("Collected ring should be immediately destroyed", ring.isDestroyed());
+        assertTrue(ring.isDestroyed(), "Collected ring should be immediately destroyed");
     }
 
     @Test
@@ -252,7 +240,7 @@ public class TestSonic3kSSEntryRingFormation {
         }
         // Frame FORMATION_TOTAL_FRAMES+1 triggers the transition advance
         ring.update(FORMATION_TOTAL_FRAMES + 1, null);
-        assertEquals("First idle frame should be 10", 10, ring.getMappingFrame());
+        assertEquals(10, ring.getMappingFrame(), "First idle frame should be 10");
 
         // Now in idle animation. Idle: delay=6, frames={10,9,8,11}, loop.
         // Each idle step lasts delay+1 = 7 game frames.
@@ -264,8 +252,7 @@ public class TestSonic3kSSEntryRingFormation {
             gameFrame++;
             ring.update(gameFrame, null);
         }
-        assertEquals("mapping_frame should still be 10 during first idle countdown",
-                10, ring.getMappingFrame());
+        assertEquals(10, ring.getMappingFrame(), "mapping_frame should still be 10 during first idle countdown");
 
         // Next group: advance to mapping_frame 9
         int[] expectedIdleFrames = {9, 8, 11, 10, 9}; // rest of first loop + start of second
@@ -274,8 +261,7 @@ public class TestSonic3kSSEntryRingFormation {
                 gameFrame++;
                 ring.update(gameFrame, null);
             }
-            assertEquals("Idle mapping frame at step " + step,
-                    expectedIdleFrames[step], ring.getMappingFrame());
+            assertEquals(expectedIdleFrames[step], ring.getMappingFrame(), "Idle mapping frame at step " + step);
         }
     }
 
@@ -294,7 +280,7 @@ public class TestSonic3kSSEntryRingFormation {
         when(player.getCentreY()).thenReturn((short) cy);
         when(player.getDead()).thenReturn(false);
         when(player.isDebugMode()).thenReturn(false);
-        // addRings is void — Mockito defaults to no-op, no stub needed
+        // addRings is void â€” Mockito defaults to no-op, no stub needed
         return player;
     }
 
@@ -332,3 +318,5 @@ public class TestSonic3kSSEntryRingFormation {
         }
     }
 }
+
+

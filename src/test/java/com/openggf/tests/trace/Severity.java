@@ -6,3 +6,5 @@ public enum Severity {
     WARNING, // Within tolerance but not exact
     ERROR    // Exceeds tolerance
 }
+
+

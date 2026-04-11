@@ -11,9 +11,9 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.GameId;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -83,7 +83,7 @@ public class SpriteManager {
 	private boolean playbackInputSuppressed;
 
 	public SpriteManager() {
-		this(com.openggf.game.RuntimeManager.getEngineServices().configuration());
+		this(GameServices.configuration());
 	}
 
 	public SpriteManager(SonicConfigurationService configService) {
@@ -579,7 +579,7 @@ public class SpriteManager {
 	private boolean enableVerticalWrapIfNeeded() {
 		Camera camera = currentCamera();
 		if (camera.isVerticalWrapEnabled()) {
-			com.openggf.game.RuntimeManager.getEngineServices().graphics().enableVerticalWrapAdjust(
+			GameServices.graphics().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
 			return true;
 		}
@@ -587,7 +587,7 @@ public class SpriteManager {
 	}
 
 	private void disableVerticalWrap() {
-		com.openggf.game.RuntimeManager.getEngineServices().graphics().disableVerticalWrapAdjust();
+		GameServices.graphics().disableVerticalWrapAdjust();
 	}
 
 	private boolean removeSprite(Sprite sprite) {
@@ -668,11 +668,11 @@ public class SpriteManager {
 	}
 
 	private Camera currentCamera() {
-		return RuntimeManager.getCurrent().getCamera();
+		return GameServices.camera();
 	}
 
 	private GameStateManager currentGameStateManager() {
-		return RuntimeManager.getCurrent().getGameState();
+		return GameServices.gameState();
 	}
 
 	/**
@@ -694,7 +694,7 @@ public class SpriteManager {
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = null;
 		GameModule module = null;
-		var runtime = RuntimeManager.getCurrent();
+		GameRuntime runtime = GameServices.runtimeOrNull();
 		if (runtime != null) {
 			lm = runtime.getLevelManager();
 			if (runtime.getWorldSession() != null) {

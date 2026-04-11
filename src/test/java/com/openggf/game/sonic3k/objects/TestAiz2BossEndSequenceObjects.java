@@ -173,3 +173,5 @@ class TestAiz2BossEndSequenceObjects {
         }
     }
 }
+
+

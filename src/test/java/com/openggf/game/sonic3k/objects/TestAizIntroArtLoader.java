@@ -5,31 +5,25 @@ import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestAizIntroArtLoader {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private SharedLevel sharedLevel;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         AizIntroArtLoader.reset();
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         AizIntroArtLoader.reset();
         if (sharedLevel != null) {
@@ -48,3 +42,5 @@ public class TestAizIntroArtLoader {
         assertTrue(renderer.isReady());
     }
 }
+
+

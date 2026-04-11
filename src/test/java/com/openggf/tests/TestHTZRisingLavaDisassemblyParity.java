@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -15,9 +15,9 @@ import com.openggf.level.objects.TestObjectServices;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression checks for HTZ rising lava behavior against s2.asm.
@@ -27,7 +27,7 @@ public class TestHTZRisingLavaDisassemblyParity {
     private Camera camera;
     private Sonic2LevelEventManager levelEvents;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
@@ -37,7 +37,7 @@ public class TestHTZRisingLavaDisassemblyParity {
         levelEvents = (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -178,3 +178,5 @@ public class TestHTZRisingLavaDisassemblyParity {
         }
     }
 }
+
+

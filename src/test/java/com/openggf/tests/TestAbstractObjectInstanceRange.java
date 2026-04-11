@@ -3,12 +3,12 @@ package com.openggf.tests;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression tests for ROM-style out_of_range arithmetic in AbstractObjectInstance.
@@ -49,3 +49,5 @@ public class TestAbstractObjectInstanceRange {
         }
     }
 }
+
+

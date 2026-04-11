@@ -5,10 +5,10 @@ import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic2SpecialStageModuleGraph {
 
@@ -36,3 +36,5 @@ public class TestSonic2SpecialStageModuleGraph {
         assertSame(serviceDebug, controller.getSpriteDebug());
     }
 }
+
+

@@ -1,9 +1,9 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Sanity check that loading a voice and keying on produces audible PCM.
@@ -46,6 +46,8 @@ public class TestYm2612InstrumentTone {
             sum += Math.abs(s);
         }
         double avg = sum / (double) left.length;
-        assertTrue("Expected audible output after key-on", avg > 50.0);
+        assertTrue(avg > 50.0, "Expected audible output after key-on");
     }
 }
+
+

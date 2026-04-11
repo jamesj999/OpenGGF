@@ -9,21 +9,21 @@ import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link GameRuntime} and {@link RuntimeManager} lifecycle.
  */
 public class TestGameRuntime {
 
-    @After
+    @AfterEach
     public void tearDown() {
         // Clean up any runtime left by tests
         RuntimeManager.setCurrent(null);
@@ -32,16 +32,16 @@ public class TestGameRuntime {
     @Test
     public void createGameplay_allManagersNonNull() {
         GameRuntime runtime = RuntimeManager.createGameplay();
-        assertNotNull("camera", runtime.getCamera());
-        assertNotNull("timers", runtime.getTimers());
-        assertNotNull("gameState", runtime.getGameState());
-        assertNotNull("fadeManager", runtime.getFadeManager());
-        assertNotNull("waterSystem", runtime.getWaterSystem());
-        assertNotNull("parallaxManager", runtime.getParallaxManager());
-        assertNotNull("terrainCollisionManager", runtime.getTerrainCollisionManager());
-        assertNotNull("collisionSystem", runtime.getCollisionSystem());
-        assertNotNull("spriteManager", runtime.getSpriteManager());
-        assertNotNull("levelManager", runtime.getLevelManager());
+        assertNotNull(runtime.getCamera(), "camera");
+        assertNotNull(runtime.getTimers(), "timers");
+        assertNotNull(runtime.getGameState(), "gameState");
+        assertNotNull(runtime.getFadeManager(), "fadeManager");
+        assertNotNull(runtime.getWaterSystem(), "waterSystem");
+        assertNotNull(runtime.getParallaxManager(), "parallaxManager");
+        assertNotNull(runtime.getTerrainCollisionManager(), "terrainCollisionManager");
+        assertNotNull(runtime.getCollisionSystem(), "collisionSystem");
+        assertNotNull(runtime.getSpriteManager(), "spriteManager");
+        assertNotNull(runtime.getLevelManager(), "levelManager");
     }
 
     @Test
@@ -106,14 +106,14 @@ public class TestGameRuntime {
     @Test
     public void runtimeManager_createAndDestroy_lifecycle() {
         RuntimeManager.setCurrent(null);
-        assertNull("Before create", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "Before create");
 
         GameRuntime runtime = RuntimeManager.createGameplay();
-        assertNotNull("After create", RuntimeManager.getCurrent());
+        assertNotNull(RuntimeManager.getCurrent(), "After create");
         assertSame(runtime, RuntimeManager.getCurrent());
 
         RuntimeManager.destroyCurrent();
-        assertNull("After destroy", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "After destroy");
     }
 
     @Test
@@ -125,12 +125,12 @@ public class TestGameRuntime {
     @Test
     public void destroy_doesNotThrow() {
         GameRuntime runtime = RuntimeManager.createGameplay();
-        // Should not throw — exercises the reverse-order teardown
+        // Should not throw â€” exercises the reverse-order teardown
         runtime.destroy();
     }
 
     /**
-     * Integration test: full create → mutate via GameServices → destroy → re-create
+     * Integration test: full create â†’ mutate via GameServices â†’ destroy â†’ re-create
      * lifecycle. Verifies that state set through the first runtime does not leak
      * into the second runtime after a destroy/recreate cycle.
      */
@@ -152,16 +152,16 @@ public class TestGameRuntime {
 
         // Phase 2: Destroy current runtime
         RuntimeManager.destroyCurrent();
-        assertNull("Runtime should be null after destroy", RuntimeManager.getCurrent());
+        assertNull(RuntimeManager.getCurrent(), "Runtime should be null after destroy");
 
         // GameServices should throw after destroy
         assertThrows(IllegalStateException.class, GameServices::camera);
         assertThrows(IllegalStateException.class, GameServices::gameState);
 
-        // Phase 3: Create second runtime — state should be reset
+        // Phase 3: Create second runtime â€” state should be reset
         GameRuntime rt2 = RuntimeManager.createGameplay();
         assertNotNull(rt2);
-        assertNotSame("New runtime should be a different lifecycle", rt1, rt2);
+        assertNotSame(rt1, rt2, "New runtime should be a different lifecycle");
 
         // Managers accessible through GameServices again
         assertNotNull(GameServices.camera());
@@ -169,12 +169,9 @@ public class TestGameRuntime {
 
         // State should have been reset by the destroy() call on rt1.
         // Score reverts to 0, camera to origin, lives to 3.
-        assertEquals("Score should be reset after destroy/recreate",
-                0, GameServices.gameState().getScore());
-        assertEquals("Camera X should be reset after destroy/recreate",
-                0, GameServices.camera().getX());
-        assertEquals("Lives should be reset after destroy/recreate",
-                3, GameServices.gameState().getLives());
+        assertEquals(0, GameServices.gameState().getScore(), "Score should be reset after destroy/recreate");
+        assertEquals(0, GameServices.camera().getX(), "Camera X should be reset after destroy/recreate");
+        assertEquals(3, GameServices.gameState().getLives(), "Lives should be reset after destroy/recreate");
     }
 
     /**
@@ -188,29 +185,29 @@ public class TestGameRuntime {
         GameRuntime runtime = RuntimeManager.createGameplay();
 
         // Every runtime-owned accessor should return non-null
-        assertNotNull("camera", GameServices.camera());
-        assertNotNull("level", GameServices.level());
-        assertNotNull("gameState", GameServices.gameState());
-        assertNotNull("timers", GameServices.timers());
-        assertNotNull("fade", GameServices.fade());
-        assertNotNull("sprites", GameServices.sprites());
-        assertNotNull("collision", GameServices.collision());
-        assertNotNull("terrainCollision", GameServices.terrainCollision());
-        assertNotNull("parallax", GameServices.parallax());
-        assertNotNull("water", GameServices.water());
-        assertNotNull("worldSession", GameServices.worldSession());
-        assertNotNull("module", GameServices.module());
+        assertNotNull(GameServices.camera(), "camera");
+        assertNotNull(GameServices.level(), "level");
+        assertNotNull(GameServices.gameState(), "gameState");
+        assertNotNull(GameServices.timers(), "timers");
+        assertNotNull(GameServices.fade(), "fade");
+        assertNotNull(GameServices.sprites(), "sprites");
+        assertNotNull(GameServices.collision(), "collision");
+        assertNotNull(GameServices.terrainCollision(), "terrainCollision");
+        assertNotNull(GameServices.parallax(), "parallax");
+        assertNotNull(GameServices.water(), "water");
+        assertNotNull(GameServices.worldSession(), "worldSession");
+        assertNotNull(GameServices.module(), "module");
 
         // Engine globals (non-runtime-owned) should also work
-        assertNotNull("rom", GameServices.rom());
-        assertNotNull("audio", GameServices.audio());
-        assertNotNull("configuration", GameServices.configuration());
-        assertNotNull("debugOverlay", GameServices.debugOverlay());
-        assertNotNull("graphics", GameServices.graphics());
-        assertNotNull("profiler", GameServices.profiler());
-        assertNotNull("playbackDebug", GameServices.playbackDebug());
-        assertNotNull("romDetection", GameServices.romDetection());
-        assertNotNull("crossGameFeatures", GameServices.crossGameFeatures());
+        assertNotNull(GameServices.rom(), "rom");
+        assertNotNull(GameServices.audio(), "audio");
+        assertNotNull(GameServices.configuration(), "configuration");
+        assertNotNull(GameServices.debugOverlay(), "debugOverlay");
+        assertNotNull(GameServices.graphics(), "graphics");
+        assertNotNull(GameServices.profiler(), "profiler");
+        assertNotNull(GameServices.playbackDebug(), "playbackDebug");
+        assertNotNull(GameServices.romDetection(), "romDetection");
+        assertNotNull(GameServices.crossGameFeatures(), "crossGameFeatures");
     }
 
     @Test
@@ -224,7 +221,7 @@ public class TestGameRuntime {
     }
 
     /**
-     * Integration test: destroyCurrent is idempotent — calling it twice
+     * Integration test: destroyCurrent is idempotent â€” calling it twice
      * or when no runtime exists should not throw.
      */
     @Test
@@ -254,3 +251,5 @@ public class TestGameRuntime {
         }
     }
 }
+
+

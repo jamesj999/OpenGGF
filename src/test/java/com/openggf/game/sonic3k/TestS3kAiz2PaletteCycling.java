@@ -1,11 +1,9 @@
 package com.openggf.game.sonic3k;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomByteReader;
@@ -26,14 +24,13 @@ import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Validates that S3K AIZ Act 2 palette cycling is active and modifies colors over time.
@@ -50,29 +47,26 @@ import static org.junit.Assert.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAiz2PaletteCycling {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_AIZ = 0;
     private static final int ACT_2 = 1;
 
     private static SharedLevel sharedLevel;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_2);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
     private HeadlessTestFixture fixture;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -93,10 +87,10 @@ public class TestS3kAiz2PaletteCycling {
     @Test
     public void torchGlowCycleModifiesPaletteLine4Color1() {
         Level level = GameServices.level().getCurrentLevel();
-        assertNotNull("Level must be loaded", level);
+        assertNotNull(level, "Level must be loaded");
 
         Palette pal3 = level.getPalette(3);
-        assertNotNull("Palette line 4 (index 3) must exist", pal3);
+        assertNotNull(pal3, "Palette line 4 (index 3) must exist");
 
         // Record initial torch color (palette line 4, color 1)
         Palette.Color color1 = pal3.getColor(1);
@@ -121,16 +115,15 @@ public class TestS3kAiz2PaletteCycling {
             }
         }
 
-        assertTrue("Expected palette[3] color 1 (torch glow) to change over 60 frames, "
+        assertTrue(colorChanged, "Expected palette[3] color 1 (torch glow) to change over 60 frames, "
                 + "proving AnPal_PalAIZ2_4/5 cycling is active. "
-                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")",
-                colorChanged);
+                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")");
     }
 
     @Test
     public void waterCycleModifiesPaletteLine4Colors12to15() {
         Level level = GameServices.level().getCurrentLevel();
-        assertNotNull("Level must be loaded", level);
+        assertNotNull(level, "Level must be loaded");
 
         Palette pal3 = level.getPalette(3);
 
@@ -156,10 +149,9 @@ public class TestS3kAiz2PaletteCycling {
             }
         }
 
-        assertTrue("Expected palette[3] color 12 (water cycle) to change over 30 frames, "
+        assertTrue(colorChanged, "Expected palette[3] color 12 (water cycle) to change over 30 frames, "
                 + "proving AnPal_PalAIZ2_1 cycling is active. "
-                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")",
-                colorChanged);
+                + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")");
     }
 
     // ========== Direct cycler tests with specific color value assertions ==========
@@ -177,7 +169,7 @@ public class TestS3kAiz2PaletteCycling {
     public void torchGlowFirstTickAppliesRomValues() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         Aiz2StubLevel stubLevel = new Aiz2StubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_AIZ, ACT_2);
 
@@ -190,9 +182,9 @@ public class TestS3kAiz2PaletteCycling {
         int b = color1.b & 0xFF;
 
         // Torch glow color must be non-zero and warm (fire palette: high R, some G, low B)
-        assertTrue("Torch color 1 should have R > 0 after first tick, got " + r, r > 0);
-        assertTrue("Torch fire color should have R >= G (warm tone), got R=" + r + " G=" + g, r >= g);
-        assertTrue("Torch fire color should have R >= B (warm tone), got R=" + r + " B=" + b, r >= b);
+        assertTrue(r > 0, "Torch color 1 should have R > 0 after first tick, got " + r);
+        assertTrue(r >= g, "Torch fire color should have R >= G (warm tone), got R=" + r + " G=" + g);
+        assertTrue(r >= b, "Torch fire color should have R >= B (warm tone), got R=" + r + " B=" + b);
     }
 
     /**
@@ -203,7 +195,7 @@ public class TestS3kAiz2PaletteCycling {
     public void waterCycleFirstTickAppliesRomValues() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         Aiz2StubLevel stubLevel = new Aiz2StubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_AIZ, ACT_2);
 
@@ -215,19 +207,17 @@ public class TestS3kAiz2PaletteCycling {
         int g12 = pal3.getColor(12).g & 0xFF;
         int b12 = pal3.getColor(12).b & 0xFF;
 
-        // Water colors should be non-zero — at least one channel must have a value.
-        assertTrue("Water color 12 should be non-zero after first tick, got ("
-                + r12 + "," + g12 + "," + b12 + ")",
-                r12 > 0 || g12 > 0 || b12 > 0);
+        // Water colors should be non-zero Ã¢â‚¬â€ at least one channel must have a value.
+        assertTrue(r12 > 0 || g12 > 0 || b12 > 0, "Water color 12 should be non-zero after first tick, got ("
+                + r12 + "," + g12 + "," + b12 + ")");
 
         // Colors 13-15 must also be set
         for (int c = 13; c <= 15; c++) {
             int r = pal3.getColor(c).r & 0xFF;
             int g = pal3.getColor(c).g & 0xFF;
             int b = pal3.getColor(c).b & 0xFF;
-            assertTrue("Water color " + c + " should be non-zero after first tick, got ("
-                    + r + "," + g + "," + b + ")",
-                    r > 0 || g > 0 || b > 0);
+            assertTrue(r > 0 || g > 0 || b > 0, "Water color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")");
         }
     }
 
@@ -240,7 +230,7 @@ public class TestS3kAiz2PaletteCycling {
     public void torchCycleProducesMultipleDistinctValues() throws IOException {
         GraphicsManager.getInstance().initHeadless();
         Aiz2StubLevel stubLevel = new Aiz2StubLevel();
-        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
 
         Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_AIZ, ACT_2);
 
@@ -263,8 +253,8 @@ public class TestS3kAiz2PaletteCycling {
 
         // Torch table has 26 unique frames; with timer period 2, fires 26 times in 52 ticks.
         // Expect at least 3 distinct values in practice (many are unique fire tones).
-        assertTrue("Torch cycle should produce at least 3 distinct colors over 52 frames, got "
-                + distinctCount, distinctCount >= 3);
+        assertTrue(distinctCount >= 3, "Torch cycle should produce at least 3 distinct colors over 52 frames, got "
+                + distinctCount);
     }
 
     /**
@@ -300,3 +290,5 @@ public class TestS3kAiz2PaletteCycling {
         @Override public int getZoneIndex() { return ZONE_AIZ; }
     }
 }
+
+

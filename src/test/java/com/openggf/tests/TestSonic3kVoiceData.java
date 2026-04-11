@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.synth.VirtualSynthesizer;
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Diagnostic tests for S3K voice (instrument) data correctness.
@@ -28,7 +28,7 @@ public class TestSonic3kVoiceData {
     private static final DacData EMPTY_DAC = new DacData(new HashMap<>(), new HashMap<>(), 297);
 
     // -----------------------------------------------------------------------
-    // SSG-EG persistence tests (no ROM required for these — synthetic data)
+    // SSG-EG persistence tests (no ROM required for these â€” synthetic data)
     // -----------------------------------------------------------------------
 
     private static class FmWrite {
@@ -75,7 +75,7 @@ public class TestSonic3kVoiceData {
     /**
      * Verify that SSG-EG values set by FF 05 are restored after refreshInstrument().
      * This simulates the scenario where an SFX interrupts an FM channel and then
-     * the music track is restored — refreshInstrument() must re-apply SSG-EG.
+     * the music track is restored â€” refreshInstrument() must re-apply SSG-EG.
      */
     @Test
     public void ssgEgValuesRestoredAfterRefreshInstrument() {
@@ -98,13 +98,13 @@ public class TestSonic3kVoiceData {
 
         // Find the FM track (channel != DAC)
         SmpsSequencer.Track fmTrackObj = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertNotNull("FM track should exist", fmTrackObj);
+        assertNotNull(fmTrackObj, "FM track should exist");
 
         // Verify SSG-EG values are stored in the track
-        assertEquals("ssgEg[0] should be 0x0A", 0x0A, fmTrackObj.ssgEg[0]);
-        assertEquals("ssgEg[1] should be 0x0B", 0x0B, fmTrackObj.ssgEg[1]);
-        assertEquals("ssgEg[2] should be 0x0C", 0x0C, fmTrackObj.ssgEg[2]);
-        assertEquals("ssgEg[3] should be 0x0D", 0x0D, fmTrackObj.ssgEg[3]);
+        assertEquals(0x0A, fmTrackObj.ssgEg[0], "ssgEg[0] should be 0x0A");
+        assertEquals(0x0B, fmTrackObj.ssgEg[1], "ssgEg[1] should be 0x0B");
+        assertEquals(0x0C, fmTrackObj.ssgEg[2], "ssgEg[2] should be 0x0C");
+        assertEquals(0x0D, fmTrackObj.ssgEg[3], "ssgEg[3] should be 0x0D");
 
         // Now simulate SFX restore: clear captures, call refreshInstrument()
         synth.clearCapture();
@@ -123,14 +123,10 @@ public class TestSonic3kVoiceData {
 
         // FM channel 1 = port 0, ch 1, so registers are 0x91, 0x95, 0x99, 0x9D
         int ch = fmTrackObj.channelId % 3;
-        assertEquals("SSG-EG slot 0 should be restored to 0x0A",
-                0x0A, (int) lastSsgValues.getOrDefault(0x90 + ch, 0));
-        assertEquals("SSG-EG slot 1 should be restored to 0x0B",
-                0x0B, (int) lastSsgValues.getOrDefault(0x94 + ch, 0));
-        assertEquals("SSG-EG slot 2 should be restored to 0x0C",
-                0x0C, (int) lastSsgValues.getOrDefault(0x98 + ch, 0));
-        assertEquals("SSG-EG slot 3 should be restored to 0x0D",
-                0x0D, (int) lastSsgValues.getOrDefault(0x9C + ch, 0));
+        assertEquals(0x0A, (int) lastSsgValues.getOrDefault(0x90 + ch, 0), "SSG-EG slot 0 should be restored to 0x0A");
+        assertEquals(0x0B, (int) lastSsgValues.getOrDefault(0x94 + ch, 0), "SSG-EG slot 1 should be restored to 0x0B");
+        assertEquals(0x0C, (int) lastSsgValues.getOrDefault(0x98 + ch, 0), "SSG-EG slot 2 should be restored to 0x0C");
+        assertEquals(0x0D, (int) lastSsgValues.getOrDefault(0x9C + ch, 0), "SSG-EG slot 3 should be restored to 0x0D");
     }
 
     /**
@@ -144,7 +140,7 @@ public class TestSonic3kVoiceData {
                 (byte) 0xEF, 0x00,                             // Load voice 0
                 (byte) 0xFF, 0x05, 0x0A, 0x0B, 0x0C, 0x0D,   // SSG-EG
                 (byte) 0x80, 0x04,                             // Rest
-                (byte) 0xEF, 0x01,                             // Load voice 1 — should clear SSG-EG
+                (byte) 0xEF, 0x01,                             // Load voice 1 â€” should clear SSG-EG
                 (byte) 0x80, 0x04,                             // Rest
                 (byte) 0xF2                                     // Stop
         };
@@ -159,13 +155,13 @@ public class TestSonic3kVoiceData {
         }
 
         SmpsSequencer.Track fmTrackObj = findTrack(seq, SmpsSequencer.TrackType.FM);
-        assertNotNull("FM track should exist", fmTrackObj);
+        assertNotNull(fmTrackObj, "FM track should exist");
 
         // After loading voice 1, SSG-EG should be cleared
-        assertEquals("ssgEg[0] should be cleared after voice change", 0, fmTrackObj.ssgEg[0]);
-        assertEquals("ssgEg[1] should be cleared after voice change", 0, fmTrackObj.ssgEg[1]);
-        assertEquals("ssgEg[2] should be cleared after voice change", 0, fmTrackObj.ssgEg[2]);
-        assertEquals("ssgEg[3] should be cleared after voice change", 0, fmTrackObj.ssgEg[3]);
+        assertEquals(0, fmTrackObj.ssgEg[0], "ssgEg[0] should be cleared after voice change");
+        assertEquals(0, fmTrackObj.ssgEg[1], "ssgEg[1] should be cleared after voice change");
+        assertEquals(0, fmTrackObj.ssgEg[2], "ssgEg[2] should be cleared after voice change");
+        assertEquals(0, fmTrackObj.ssgEg[3], "ssgEg[3] should be cleared after voice change");
     }
 
     // -----------------------------------------------------------------------
@@ -239,3 +235,5 @@ public class TestSonic3kVoiceData {
         data[offset + 1] = (byte) ((value >> 8) & 0xFF);
     }
 }
+
+

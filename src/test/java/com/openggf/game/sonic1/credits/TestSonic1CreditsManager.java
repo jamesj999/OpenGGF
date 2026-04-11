@@ -1,13 +1,13 @@
 package com.openggf.game.sonic1.credits;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ROM-free tests for Sonic 1 credits timing state helpers.
@@ -94,3 +94,5 @@ public class TestSonic1CreditsManager {
         field.set(manager, value);
     }
 }
+
+

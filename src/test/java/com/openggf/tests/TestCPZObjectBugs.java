@@ -1,21 +1,19 @@
 package com.openggf.tests;
 
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Headless integration tests for CPZ (Chemical Plant Zone) object bugs.
@@ -36,14 +34,11 @@ import static org.junit.Assert.*;
  * per-piece X. Since staircase pieces are 32px apart, Sonic's position relative to
  * the base X triggers false edge detection even when centered on a piece.
  *
- * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeClass};
+ * <p>Level data is loaded once via {@link SharedLevel#load} in {@code @BeforeAll};
  * sprite, camera, and game state are reset per test via {@link HeadlessTestFixture}.
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestCPZObjectBugs {
-
-    @ClassRule public static RequiresRomRule romRule = new RequiresRomRule();
-
     // Zone/Act indices for loadZoneAndAct (not ROM zone IDs)
     // CPZ is zone index 1 in Sonic2ZoneRegistry (EHZ=0, CPZ=1, ARZ=2, CNZ=3, HTZ=4)
     private static final int ZONE_CPZ = 1;
@@ -58,17 +53,17 @@ public class TestCPZObjectBugs {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_CPZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -114,7 +109,7 @@ public class TestCPZObjectBugs {
         boolean tubeEntered = false;
         boolean tubeExited = false;
 
-        // Step frames — the tube should capture Sonic almost immediately
+        // Step frames Ã¢â‚¬â€ the tube should capture Sonic almost immediately
         for (int frame = 0; frame < 600; frame++) {
             fixture.stepFrame(false, false, false, true, false);
 
@@ -134,16 +129,14 @@ public class TestCPZObjectBugs {
             }
         }
 
-        Assume.assumeTrue("Spin tube at (1920,896) did not capture/release Sonic", tubeEntered && tubeExited);
+        Assumptions.assumeTrue(tubeEntered && tubeExited, "Spin tube at (1920,896) did not capture/release Sonic");
 
-        assertTrue("Sonic should be rolling or in pinball mode after tube exit",
-            sprite.getRolling() || sprite.getPinballMode());
+        assertTrue(sprite.getRolling() || sprite.getPinballMode(), "Sonic should be rolling or in pinball mode after tube exit");
 
         // Sonic should have exit velocity after leaving the tube
-        assertTrue("Sonic should have non-zero speed after tube exit (GSpeed=" +
+        assertTrue(sprite.getGSpeed() != 0 || sprite.getXSpeed() != 0 || sprite.getYSpeed() != 0, "Sonic should have non-zero speed after tube exit (GSpeed=" +
             sprite.getGSpeed() + ", XSpeed=" + sprite.getXSpeed() + ", YSpeed=" +
-            sprite.getYSpeed() + ")",
-            sprite.getGSpeed() != 0 || sprite.getXSpeed() != 0 || sprite.getYSpeed() != 0);
+            sprite.getYSpeed() + ")");
     }
 
     /**
@@ -217,17 +210,15 @@ public class TestCPZObjectBugs {
 
                     logState("Final check");
 
-                    assertEquals("Sonic should NOT show balance animation when standing " +
+                    assertEquals(0, sprite.getBalanceState(), "Sonic should NOT show balance animation when standing " +
                         "on center of staircase piece (false edge detection due to " +
-                        "wrong X reference). Balance state was " + sprite.getBalanceState(),
-                        0, sprite.getBalanceState());
+                        "wrong X reference). Balance state was " + sprite.getBalanceState());
                     return;
                 }
             }
         }
 
-        Assume.assumeTrue("Could not land on staircase (0x78) at (" + staircaseX + "," + staircaseY + ")",
-            foundStaircase);
+        Assumptions.assumeTrue(foundStaircase, "Could not land on staircase (0x78) at (" + staircaseX + "," + staircaseY + ")");
     }
 
     /**
@@ -252,3 +243,5 @@ public class TestCPZObjectBugs {
             sprite.getDirection());
     }
 }
+
+

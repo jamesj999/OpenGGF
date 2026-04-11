@@ -6,13 +6,13 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TestObjectServices;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Spec tests for Death Egg Zone (DEZ) level events.
@@ -36,7 +36,7 @@ public class TestTodo9_DEZEventSpecs {
     private Sonic2DEZEvents events;
     private Camera cam;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
@@ -48,7 +48,7 @@ public class TestTodo9_DEZEventSpecs {
         setConstructionContext(new TestObjectServices());
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         clearConstructionContext();
         RuntimeManager.destroyCurrent();
@@ -97,21 +97,21 @@ public class TestTodo9_DEZEventSpecs {
     public void testDEZRoutine0_DoesNotAdvanceBelowThreshold() {
         cam.setX((short) 0x100);
         events.update(0, 0);
-        assertEquals("Should stay at routine 0 when camera X < $140", 0, events.getEventRoutine());
+        assertEquals(0, events.getEventRoutine(), "Should stay at routine 0 when camera X < $140");
     }
 
     @Test
     public void testDEZRoutine0_AdvancesAtThreshold() {
         cam.setX((short) 0x140);
         events.update(0, 0);
-        assertEquals("Should advance to routine 2 when camera X >= $140", 2, events.getEventRoutine());
+        assertEquals(2, events.getEventRoutine(), "Should advance to routine 2 when camera X >= $140");
     }
 
     @Test
     public void testDEZRoutine0_AdvancesAboveThreshold() {
         cam.setX((short) 0x200);
         events.update(0, 0);
-        assertEquals("Should advance to routine 2 when camera X > $140", 2, events.getEventRoutine());
+        assertEquals(2, events.getEventRoutine(), "Should advance to routine 2 when camera X > $140");
     }
 
     /**
@@ -128,9 +128,9 @@ public class TestTodo9_DEZEventSpecs {
         short minXBefore = cam.getMinX();
         short maxXBefore = cam.getMaxX();
         events.update(0, 0);
-        assertEquals("Routine 2 should not change the event routine", 2, events.getEventRoutine());
-        assertEquals("Routine 2 should not change minX", minXBefore, cam.getMinX());
-        assertEquals("Routine 2 should not change maxX", maxXBefore, cam.getMaxX());
+        assertEquals(2, events.getEventRoutine(), "Routine 2 should not change the event routine");
+        assertEquals(minXBefore, cam.getMinX(), "Routine 2 should not change minX");
+        assertEquals(maxXBefore, cam.getMaxX(), "Routine 2 should not change maxX");
     }
 
     /**
@@ -150,8 +150,8 @@ public class TestTodo9_DEZEventSpecs {
         events.setEventRoutine(4);
         cam.setX((short) 0x200);
         events.update(0, 0);
-        assertEquals("Routine 4 should set minX to camera X", 0x200, cam.getMinX());
-        assertEquals("Should stay at routine 4 when camera X < $300", 4, events.getEventRoutine());
+        assertEquals(0x200, cam.getMinX(), "Routine 4 should set minX to camera X");
+        assertEquals(4, events.getEventRoutine(), "Should stay at routine 4 when camera X < $300");
     }
 
     @Test
@@ -159,7 +159,7 @@ public class TestTodo9_DEZEventSpecs {
         events.setEventRoutine(4);
         cam.setX((short) 0x300);
         events.update(0, 0);
-        assertEquals("Should advance to routine 6 when camera X >= $300", 6, events.getEventRoutine());
+        assertEquals(6, events.getEventRoutine(), "Should advance to routine 6 when camera X >= $300");
     }
 
     /**
@@ -181,10 +181,8 @@ public class TestTodo9_DEZEventSpecs {
         events.setEventRoutine(6);
         cam.setX((short) 0x500);
         events.update(0, 0);
-        assertEquals("Routine 6 should set minX to camera X before threshold",
-                0x500, cam.getMinX());
-        assertEquals("Should stay at routine 6 when camera X < $680",
-                6, events.getEventRoutine());
+        assertEquals(0x500, cam.getMinX(), "Routine 6 should set minX to camera X before threshold");
+        assertEquals(6, events.getEventRoutine(), "Should stay at routine 6 when camera X < $680");
     }
 
     @Test
@@ -192,12 +190,9 @@ public class TestTodo9_DEZEventSpecs {
         events.setEventRoutine(6);
         cam.setX((short) 0x680);
         events.update(0, 0);
-        assertEquals("Should advance to routine 8 when camera X >= $680",
-                8, events.getEventRoutine());
-        assertEquals("Arena left boundary should be locked at $680",
-                (short) 0x680, cam.getMinX());
-        assertEquals("Arena right boundary should be locked at $740 ($680+$C0)",
-                (short) 0x740, cam.getMaxX());
+        assertEquals(8, events.getEventRoutine(), "Should advance to routine 8 when camera X >= $680");
+        assertEquals((short) 0x680, cam.getMinX(), "Arena left boundary should be locked at $680");
+        assertEquals((short) 0x740, cam.getMaxX(), "Arena right boundary should be locked at $740 ($680+$C0)");
     }
 
     @Test
@@ -205,12 +200,9 @@ public class TestTodo9_DEZEventSpecs {
         events.setEventRoutine(6);
         cam.setX((short) 0x700);
         events.update(0, 0);
-        assertEquals("Should advance to routine 8",
-                8, events.getEventRoutine());
-        assertEquals("Arena left boundary should be $680 (not camera X)",
-                (short) 0x680, cam.getMinX());
-        assertEquals("Arena right boundary should be $740",
-                (short) 0x740, cam.getMaxX());
+        assertEquals(8, events.getEventRoutine(), "Should advance to routine 8");
+        assertEquals((short) 0x680, cam.getMinX(), "Arena left boundary should be $680 (not camera X)");
+        assertEquals((short) 0x740, cam.getMaxX(), "Arena right boundary should be $740");
     }
 
     /**
@@ -228,9 +220,9 @@ public class TestTodo9_DEZEventSpecs {
         short minXBefore = cam.getMinX();
         short maxXBefore = cam.getMaxX();
         events.update(0, 0);
-        assertEquals("Routine 8 should not change the event routine", 8, events.getEventRoutine());
-        assertEquals("Routine 8 should not change minX", minXBefore, cam.getMinX());
-        assertEquals("Routine 8 should not change maxX", maxXBefore, cam.getMaxX());
+        assertEquals(8, events.getEventRoutine(), "Routine 8 should not change the event routine");
+        assertEquals(minXBefore, cam.getMinX(), "Routine 8 should not change minX");
+        assertEquals(maxXBefore, cam.getMaxX(), "Routine 8 should not change maxX");
     }
 
     /**
@@ -244,11 +236,11 @@ public class TestTodo9_DEZEventSpecs {
         // Move camera to trigger routine 0 -> 2
         cam.setX((short) 0x140);
         events.update(0, 0);
-        assertEquals("After trigger at $140, should be routine 2", 2, events.getEventRoutine());
+        assertEquals(2, events.getEventRoutine(), "After trigger at $140, should be routine 2");
 
         // Routine 2 is a no-op (boss advances it externally)
         events.update(0, 1);
-        assertEquals("Routine 2 should not self-advance", 2, events.getEventRoutine());
+        assertEquals(2, events.getEventRoutine(), "Routine 2 should not self-advance");
 
         // Externally advance to routine 4 (as boss defeat would)
         events.setEventRoutine(4);
@@ -257,12 +249,12 @@ public class TestTodo9_DEZEventSpecs {
         cam.setX((short) 0x250);
         events.update(0, 2);
         assertEquals(4, events.getEventRoutine());
-        assertEquals("MinX should track camera at $250", (short) 0x250, cam.getMinX());
+        assertEquals((short) 0x250, cam.getMinX(), "MinX should track camera at $250");
 
         // Routine 4: at $300 threshold
         cam.setX((short) 0x300);
         events.update(0, 3);
-        assertEquals("After $300 trigger, should be routine 6", 6, events.getEventRoutine());
+        assertEquals(6, events.getEventRoutine(), "After $300 trigger, should be routine 6");
 
         // Routine 6: below $680 threshold
         cam.setX((short) 0x600);
@@ -272,8 +264,10 @@ public class TestTodo9_DEZEventSpecs {
         // Routine 6: at $680 threshold
         cam.setX((short) 0x680);
         events.update(0, 5);
-        assertEquals("After $680 trigger, should be routine 8", 8, events.getEventRoutine());
-        assertEquals("Arena locked at $680", (short) 0x680, cam.getMinX());
-        assertEquals("Arena right at $740", (short) 0x740, cam.getMaxX());
+        assertEquals(8, events.getEventRoutine(), "After $680 trigger, should be routine 8");
+        assertEquals((short) 0x680, cam.getMinX(), "Arena locked at $680");
+        assertEquals((short) 0x740, cam.getMaxX(), "Arena right at $740");
     }
 }
+
+

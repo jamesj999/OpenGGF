@@ -52,3 +52,5 @@ class TestS3kMovingCrouch {
                 "S3K threshold should be higher than S2's roll speed");
     }
 }
+
+

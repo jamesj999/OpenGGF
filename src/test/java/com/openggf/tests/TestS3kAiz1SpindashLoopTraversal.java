@@ -11,22 +11,16 @@ import com.openggf.level.Chunk;
 import com.openggf.level.SolidTile;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAiz1SpindashLoopTraversal {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int ZONE_AIZ = 0;
     private static final int ACT_1 = 0;
     private static final short START_X = (short) 8561;
@@ -40,7 +34,7 @@ public class TestS3kAiz1SpindashLoopTraversal {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
@@ -52,7 +46,7 @@ public class TestS3kAiz1SpindashLoopTraversal {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
@@ -61,7 +55,7 @@ public class TestS3kAiz1SpindashLoopTraversal {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder().withSharedLevel(sharedLevel).build();
         sprite = (Sonic) fixture.sprite();
@@ -72,11 +66,11 @@ public class TestS3kAiz1SpindashLoopTraversal {
     @Test
     public void aiz1SpindashLoop_traversesLoopWithin180Frames() {
         teleportToStart();
-        assertTrue("Sonic should be grounded after teleport", !sprite.getAir());
+        assertTrue(!sprite.getAir(), "Sonic should be grounded after teleport");
 
         // Dump collision tile heights at the two floor step transitions
-        dumpStepTransition(8688, 1152, 8704, 1168, "Step 1 (Y=1152→1168)");
-        dumpStepTransition(8752, 1168, 8768, 1184, "Step 2 (Y=1168→1184)");
+        dumpStepTransition(8688, 1152, 8704, 1168, "Step 1 (Y=1152â†’1168)");
+        dumpStepTransition(8752, 1168, 8768, 1184, "Step 2 (Y=1168â†’1184)");
 
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
             fixture.stepFrame(false, false, false, false, false);
@@ -95,7 +89,7 @@ public class TestS3kAiz1SpindashLoopTraversal {
                                 cdRight.getPrimaryCollisionMode(), cdRight.get())
                         : "null";
                 System.err.printf("  f%d: x=%d y=%d cx=%d cy=%d gSpd=%d ang=0x%02X mode=%s "
-                        + "probeRight=(%d,%d) → %s%n",
+                        + "probeRight=(%d,%d) â†’ %s%n",
                     frame, sprite.getX(), sprite.getY(), cx, cy, sprite.getGSpeed(),
                     sprite.getAngle() & 0xFF, sprite.getGroundMode(),
                     probeRightX, probeRightY, right);
@@ -129,8 +123,8 @@ public class TestS3kAiz1SpindashLoopTraversal {
             if (sprite.getX() >= PASS_X) return;
         }
 
-        assertTrue("Expected Sonic to pass X=" + PASS_X + " within " + TIMEOUT_FRAMES
-                + " frames. " + describeState(TIMEOUT_FRAMES), sprite.getX() >= PASS_X);
+        assertTrue(sprite.getX() >= PASS_X, "Expected Sonic to pass X=" + PASS_X + " within " + TIMEOUT_FRAMES
+                + " frames. " + describeState(TIMEOUT_FRAMES));
     }
 
     private void dumpStepTransition(int exitX, int exitY, int enterX, int enterY, String label) {
@@ -199,3 +193,5 @@ public class TestS3kAiz1SpindashLoopTraversal {
                 + " angle=0x" + Integer.toHexString(sprite.getAngle() & 0xFF);
     }
 }
+
+

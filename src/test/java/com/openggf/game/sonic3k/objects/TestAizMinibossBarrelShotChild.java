@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
@@ -16,15 +16,15 @@ import com.openggf.tests.TestEnvironment;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestAizMinibossBarrelShotChild {
 
     private DummyBoss parent;
     private Camera camera;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestEnvironment.resetAll();
         RuntimeManager.destroyCurrent();
@@ -76,7 +76,7 @@ public class TestAizMinibossBarrelShotChild {
             }
         }
 
-        assertTrue("Expected colliding shot to expose collision flags during top-drop", sawCollision);
+        assertTrue(sawCollision, "Expected colliding shot to expose collision flags during top-drop");
     }
 
     @Test
@@ -149,3 +149,5 @@ public class TestAizMinibossBarrelShotChild {
         }
     }
 }
+
+

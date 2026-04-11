@@ -26,3 +26,5 @@ class TestBonusStageShieldRestoreOnTitleCardExit {
         assertFalse(loop.hasPendingBonusStageShieldRestoreForTest());
     }
 }
+
+

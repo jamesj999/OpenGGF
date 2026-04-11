@@ -2,16 +2,16 @@ package com.openggf.tests;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic2.OilSurfaceManager;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestOilSurfaceManager {
 
@@ -20,7 +20,7 @@ public class TestOilSurfaceManager {
     private OilSurfaceManager manager;
     private TestOilSprite sprite;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
@@ -28,7 +28,7 @@ public class TestOilSurfaceManager {
         sprite = new TestOilSprite("test", (short) 0, (short) 0);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -74,13 +74,13 @@ public class TestOilSurfaceManager {
 
         for (int i = 0; i < Sonic2Constants.OIL_SUBMERSION_MAX; i++) {
             manager.update(sprite);
-            assertFalse("Should not be dead while submersion is decrementing", sprite.getDead());
+            assertFalse(sprite.getDead(), "Should not be dead while submersion is decrementing");
         }
 
         assertEquals(0, manager.getSubmersion());
         manager.update(sprite);
 
-        assertTrue("Should die when submersion reaches zero on standing frame", sprite.getDead());
+        assertTrue(sprite.getDead(), "Should die when submersion reaches zero on standing frame");
         assertFalse(manager.isStandingOnOil());
         assertFalse(sprite.isOnObject());
     }
@@ -118,3 +118,5 @@ public class TestOilSurfaceManager {
         }
     }
 }
+
+

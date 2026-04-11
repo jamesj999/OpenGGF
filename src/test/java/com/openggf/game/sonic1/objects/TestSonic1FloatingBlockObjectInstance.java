@@ -3,14 +3,14 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.StubObjectServices;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.level.objects.ObjectSpawn;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1FloatingBlockObjectInstance {
 
@@ -20,7 +20,7 @@ public class TestSonic1FloatingBlockObjectInstance {
     private ObjectServices testServices;
     private Sonic1SwitchManager switchManager;
 
-    @Before
+    @BeforeEach
     public void resetSwitchState() {
         switchManager = new Sonic1SwitchManager();
         switchManager.resetState();
@@ -96,3 +96,5 @@ public class TestSonic1FloatingBlockObjectInstance {
         return door;
     }
 }
+
+

@@ -8,22 +8,23 @@ import com.openggf.game.sonic3k.Sonic3kZoneFeatureProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.RenderPriority;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.openggf.level.scroll.M68KMath.packScrollWords;
 
 public class TestSonic3kZoneFeatureProvider {
 
-    @org.junit.Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -38,10 +39,9 @@ public class TestSonic3kZoneFeatureProvider {
 
         provider.update(player, 0x44D0, Sonic3kZoneIds.ZONE_AIZ);
 
-        assertTrue("AIZ forest handoff should force Sonic in front of the forest mask",
-                player.isHighPriority());
-        org.junit.Assert.assertEquals("AIZ forest handoff should also move Sonic into the front display bucket",
-                RenderPriority.MIN, player.getPriorityBucket());
+        assertTrue(player.isHighPriority(), "AIZ forest handoff should force Sonic in front of the forest mask");
+        assertEquals(RenderPriority.MIN, player.getPriorityBucket(),
+                "AIZ forest handoff should also move Sonic into the front display bucket");
     }
 
     @Test
@@ -58,15 +58,13 @@ public class TestSonic3kZoneFeatureProvider {
         player.setHurt(true);
         aizEvents.setForestFrontPhaseActive(false);
         provider.update(player, 0x4670, Sonic3kZoneIds.ZONE_AIZ);
-        assertTrue("Forced forest priority should not clear while hurt/death priority is still valid",
-                player.isHighPriority());
+        assertTrue(player.isHighPriority(), "Forced forest priority should not clear while hurt/death priority is still valid");
 
         player.setHurt(false);
         provider.update(player, 0x4670, Sonic3kZoneIds.ZONE_AIZ);
-        assertFalse("Forced forest priority should clear once the protected state ends",
-                player.isHighPriority());
-        org.junit.Assert.assertEquals("Forced forest display bucket should reset once the protected state ends",
-                RenderPriority.PLAYER_DEFAULT, player.getPriorityBucket());
+        assertFalse(player.isHighPriority(), "Forced forest priority should clear once the protected state ends");
+        assertEquals(RenderPriority.PLAYER_DEFAULT, player.getPriorityBucket(),
+                "Forced forest display bucket should reset once the protected state ends");
     }
 
     @Test
@@ -80,10 +78,9 @@ public class TestSonic3kZoneFeatureProvider {
 
         provider.update(player, 0x44D0, Sonic3kZoneIds.ZONE_AIZ);
 
-        assertFalse("AIZ1 should not inherit the AIZ2 forest-front priority override",
-                player.isHighPriority());
-        org.junit.Assert.assertEquals("AIZ1 should keep the normal player display bucket",
-                RenderPriority.PLAYER_DEFAULT, player.getPriorityBucket());
+        assertFalse(player.isHighPriority(), "AIZ1 should not inherit the AIZ2 forest-front priority override");
+        assertEquals(RenderPriority.PLAYER_DEFAULT, player.getPriorityBucket(),
+                "AIZ1 should keep the normal player display bucket");
     }
 
     @Test
@@ -151,3 +148,5 @@ public class TestSonic3kZoneFeatureProvider {
         }
     }
 }
+
+
