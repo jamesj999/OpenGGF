@@ -87,7 +87,7 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     private int currentPage = 0;
 
     public Sonic2SpecialStageSpriteDebug() {
-        this.graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        this.graphicsManager = com.openggf.game.GameServices.graphics();
     }
 
     public void setPlayerPatternBase(int base) {
