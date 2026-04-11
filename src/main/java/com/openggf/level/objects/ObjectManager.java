@@ -4261,8 +4261,13 @@ public class ObjectManager {
             int maxTop = halfHeight + playerYRadius;
             // SPG: Monitors don't add +4 during vertical overlap check
             int verticalOffset = monitorSolidity ? 0 : 4;
-            // ROM: s2.asm:35147 — mask with $7FF to handle edge cases near y_pos=0
-            int relY = ((playerCenterY - anchorY + verticalOffset + maxTop) & 0x7FF);
+            // ROM: s2.asm:35147 uses andi.w #$7FF,d0 to handle VDP Y-coordinate
+            // wrapping near y_pos=0 (16-bit hardware arithmetic). The engine uses
+            // 32-bit absolute coordinates with no wrapping, so the mask must NOT be
+            // applied — it causes phantom collisions between objects separated by
+            // ~2048px vertically in tall levels (e.g. HCZ2 FanPlatformChild at Y=608
+            // falsely colliding with player at Y=2654).
+            int relY = playerCenterY - anchorY + verticalOffset + maxTop;
 
             boolean riding = useStickyBuffer && isRidingCurrentPlayerObject(instance);
             // For multi-piece objects, only apply sticky buffer (-16px) when checking
