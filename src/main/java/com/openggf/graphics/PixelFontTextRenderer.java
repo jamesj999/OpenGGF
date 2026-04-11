@@ -14,7 +14,6 @@ public class PixelFontTextRenderer {
 
     private final PixelFont font;
     private TexturedQuadRenderer renderer;
-    private boolean initializationAttempted;
 
     public PixelFontTextRenderer() {
         this(new PixelFont());
@@ -51,16 +50,11 @@ public class PixelFontTextRenderer {
         if (renderer != null) {
             return;
         }
-        if (initializationAttempted) {
-            throw new IllegalStateException("Pixel font renderer initialization previously failed");
-        }
-
-        initializationAttempted = true;
         try {
             renderer = new TexturedQuadRenderer();
             renderer.init();
             font.init(FONT_PATH, renderer);
-        } catch (IOException | RuntimeException | Error e) {
+        } catch (IOException e) {
             renderer = null;
             throw new IllegalStateException("Failed to initialize pixel font renderer", e);
         }
