@@ -220,6 +220,7 @@ class TestEditorRenderingSmoke {
         assertEquals(2, commands.size());
         assertEquals("One", commands.get(0).text());
         assertEquals("Two", commands.get(1).text());
+        assertEquals(10, commands.get(0).lineHeight());
         assertTrue(commands.get(1).y() > commands.get(0).y());
     }
 
@@ -233,14 +234,6 @@ class TestEditorRenderingSmoke {
         renderer.renderLines(List.of("Queued"), 8, 12);
 
         assertEquals(1, graphicsCommandQueueSize());
-    }
-
-    @Test
-    void textRenderer_convertsTopLeftYToGlyphViewportY() {
-        InspectableTextRenderer renderer = new InspectableTextRenderer();
-
-        assertEquals(204, renderer.convertTopLeftY(224, 10, 10));
-        assertEquals(0, renderer.convertTopLeftY(224, 214, 10));
     }
 
     @Test
@@ -530,10 +523,6 @@ class TestEditorRenderingSmoke {
 
         private List<TextCommand> buildCommands(List<String> lines, int x, int y) {
             return buildTextCommands(lines, x, y);
-        }
-
-        private int convertTopLeftY(int viewportHeight, int y, int lineHeight) {
-            return topLeftToGlyphY(viewportHeight, y, lineHeight);
         }
     }
 

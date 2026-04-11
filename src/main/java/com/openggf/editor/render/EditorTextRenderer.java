@@ -2,12 +2,11 @@ package com.openggf.editor.render;
 
 import com.openggf.debug.DebugColor;
 import com.openggf.debug.FontSize;
-import com.openggf.debug.GlyphBatchRenderer;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommandable;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.PixelFontTextRenderer;
 
-import java.awt.Font;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -20,20 +19,19 @@ public class EditorTextRenderer {
     private static final FontSize DEFAULT_FONT_SIZE = FontSize.SMALL;
 
     private final GraphicsManager graphicsManager;
-    private final GlyphBatchRenderer glyphBatch;
-    private boolean initializationAttempted;
+    private final PixelFontTextRenderer textRenderer;
 
     public EditorTextRenderer() {
-        this(GameServices.graphics(), new GlyphBatchRenderer());
+        this(GameServices.graphics(), new PixelFontTextRenderer());
     }
 
     public EditorTextRenderer(GraphicsManager graphicsManager) {
-        this(graphicsManager, new GlyphBatchRenderer());
+        this(graphicsManager, new PixelFontTextRenderer());
     }
 
-    public EditorTextRenderer(GraphicsManager graphicsManager, GlyphBatchRenderer glyphBatch) {
+    public EditorTextRenderer(GraphicsManager graphicsManager, PixelFontTextRenderer textRenderer) {
         this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
-        this.glyphBatch = Objects.requireNonNull(glyphBatch, "glyphBatch");
+        this.textRenderer = Objects.requireNonNull(textRenderer, "textRenderer");
     }
 
     public void renderLines(List<String> lines, int x, int y) {
@@ -63,42 +61,6 @@ public class EditorTextRenderer {
         return new TextBatchCommand(List.copyOf(commands));
     }
 
-    protected int topLeftToGlyphY(int viewportHeight, int y, int lineHeight) {
-        return viewportHeight - y - lineHeight;
-    }
-
-    private void renderTextCommands(List<TextCommand> commands, int viewportWidth, int viewportHeight) {
-        if (commands.isEmpty() || !ensureInitialized()) {
-            return;
-        }
-
-        glyphBatch.updateViewport(viewportWidth, viewportHeight);
-        glyphBatch.begin();
-        for (TextCommand command : commands) {
-            glyphBatch.drawTextOutlined(command.text(), command.x(),
-                    topLeftToGlyphY(viewportHeight, command.y(), command.lineHeight()),
-                    command.color(), command.fontSize());
-        }
-        glyphBatch.end();
-    }
-
-    private boolean ensureInitialized() {
-        if (glyphBatch.isInitialized()) {
-            return true;
-        }
-        if (initializationAttempted) {
-            return false;
-        }
-
-        initializationAttempted = true;
-        try {
-            glyphBatch.init(new Font(Font.MONOSPACED, Font.PLAIN, 8));
-        } catch (RuntimeException | Error ignored) {
-            return false;
-        }
-        return glyphBatch.isInitialized();
-    }
-
     private final class TextBatchCommand implements GLCommandable {
         private final List<TextCommand> commands;
 
@@ -108,7 +70,17 @@ public class EditorTextRenderer {
 
         @Override
         public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
-            renderTextCommands(commands, cameraWidth, cameraHeight);
+            if (commands.isEmpty()) {
+                return;
+            }
+
+            float[] projectionMatrix = graphicsManager.getProjectionMatrixBuffer();
+            if (projectionMatrix != null) {
+                textRenderer.setProjectionMatrix(projectionMatrix);
+            }
+            for (TextCommand command : commands) {
+                textRenderer.drawShadowedText(command.text(), command.x(), command.y(), command.color());
+            }
         }
     }
 }
