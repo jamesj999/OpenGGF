@@ -18,7 +18,6 @@ package com.openggf.game.sonic1;
 public final class Sonic1ConveyorState {
 
     private static final int SPAWNER_SLOTS = 6;
-    private static Sonic1ConveyorState instance;
 
     /** f_conveyrev: global direction reversal flag. */
     private boolean reversed;
@@ -26,14 +25,7 @@ public final class Sonic1ConveyorState {
     /** v_obj63: per-spawner instantiation tracking (bit 0 of each byte). */
     private final boolean[] spawned = new boolean[SPAWNER_SLOTS];
 
-    private Sonic1ConveyorState() {
-    }
-
-    public static Sonic1ConveyorState getInstance() {
-        if (instance == null) {
-            instance = new Sonic1ConveyorState();
-        }
-        return instance;
+    public Sonic1ConveyorState() {
     }
 
     /**

@@ -17,6 +17,7 @@ import com.openggf.data.RomManager;
 import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.synth.Ym2612Chip;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1AudioProfile;
 import com.openggf.game.sonic1.audio.Sonic1SoundTestCatalog;
 import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
@@ -128,9 +129,9 @@ public final class SoundTestApp {
 
     private static SoundTestCatalog createCatalogForGame(String gameId) {
         return switch (gameId) {
-            case "s1" -> Sonic1SoundTestCatalog.getInstance();
-            case "s3k" -> Sonic3kSoundTestCatalog.getInstance();
-            default -> Sonic2SoundTestCatalog.getInstance();
+            case "s1" -> new Sonic1SoundTestCatalog();
+            case "s3k" -> new Sonic3kSoundTestCatalog();
+            default -> new Sonic2SoundTestCatalog();
         };
     }
 
@@ -791,7 +792,7 @@ public final class SoundTestApp {
         }
 
         private double getOutputSampleRate() {
-            boolean internalRate = SonicConfigurationService.getInstance()
+            boolean internalRate = GameServices.configuration()
                     .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
             return internalRate ? Ym2612Chip.getInternalRate() : Ym2612Chip.getDefaultOutputRate();
         }
@@ -827,7 +828,7 @@ public final class SoundTestApp {
         }
 
         static Options fromArgs(String[] args) {
-            String configGame = SonicConfigurationService.getInstance()
+            String configGame = GameServices.configuration()
                     .getString(SonicConfiguration.DEFAULT_ROM);
             String gameId = configGame != null ? configGame.toLowerCase(Locale.ROOT) : "s2";
             String romPath = null;

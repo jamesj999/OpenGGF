@@ -75,3 +75,5 @@ class TestInstaShieldGating {
         assertEquals(2, sprite.getDoubleJumpFlag());
     }
 }
+
+

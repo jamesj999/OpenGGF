@@ -3,22 +3,30 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.rings.RingManager;
@@ -42,6 +50,7 @@ public interface ObjectServices {
     // Level state
     LevelState levelGamestate();
     RespawnState checkpointState();
+    LevelManager levelManager();
     Level currentLevel();
     int romZoneId();
     int currentAct();
@@ -82,6 +91,12 @@ public interface ObjectServices {
      */
     GameStateManager gameState();
 
+    /** Returns the active world session backing the current runtime. */
+    WorldSession worldSession();
+
+    /** Returns the active game module owned by the current world session. */
+    GameModule gameModule();
+
     // Player/sidekick access
     List<PlayableEntity> sidekicks();
 
@@ -95,6 +110,21 @@ public interface ObjectServices {
 
     /** Returns the fade manager for screen transitions. */
     FadeManager fadeManager();
+
+    /** Returns the active engine-level service bundle backing process-wide services. */
+    EngineServices engineServices();
+
+    /** Returns the configuration service. */
+    SonicConfigurationService configuration();
+
+    /** Returns the debug overlay manager. */
+    DebugOverlayManager debugOverlay();
+
+    /** Returns the ROM manager. */
+    RomManager romManager();
+
+    /** Returns the cross-game feature provider. */
+    CrossGameFeatureProvider crossGameFeatures();
 
     // --- ROM data ---
 

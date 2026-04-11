@@ -1,7 +1,7 @@
 package com.openggf.tests.audio;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Utility to dump YM2612 lookup tables for verification and embedding.
@@ -213,11 +213,11 @@ public class Ym2612TableDumper {
         for (int v : lfoFreqTab) lfoFreqSum += v;
 
         // Verify checksums match expected values
-        assertEquals("TL_TAB checksum mismatch", EXPECTED_TL_SUM, tlSum);
-        assertEquals("SIN_TAB checksum mismatch", EXPECTED_SIN_SUM, sinSum);
-        assertEquals("ENV_TAB checksum mismatch", EXPECTED_ENV_SUM, envSum);
-        assertEquals("LFO_ENV_TAB checksum mismatch", EXPECTED_LFO_ENV_SUM, lfoEnvSum);
-        assertEquals("LFO_FREQ_TAB checksum mismatch", EXPECTED_LFO_FREQ_SUM, lfoFreqSum);
+        assertEquals(EXPECTED_TL_SUM, tlSum, "TL_TAB checksum mismatch");
+        assertEquals(EXPECTED_SIN_SUM, sinSum, "SIN_TAB checksum mismatch");
+        assertEquals(EXPECTED_ENV_SUM, envSum, "ENV_TAB checksum mismatch");
+        assertEquals(EXPECTED_LFO_ENV_SUM, lfoEnvSum, "LFO_ENV_TAB checksum mismatch");
+        assertEquals(EXPECTED_LFO_FREQ_SUM, lfoFreqSum, "LFO_FREQ_TAB checksum mismatch");
     }
 
     @Test
@@ -237,14 +237,16 @@ public class Ym2612TableDumper {
         }
 
         // TL_TAB[0] should be MAX_OUT (full volume)
-        assertEquals("TL_TAB[0] should be MAX_OUT", MAX_OUT, tlTab[0]);
+        assertEquals(MAX_OUT, tlTab[0], "TL_TAB[0] should be MAX_OUT");
 
         // TL_TAB[PG_CUT_OFF] should be 0 (cutoff point)
-        assertEquals("TL_TAB[PG_CUT_OFF] should be 0", 0, tlTab[PG_CUT_OFF]);
+        assertEquals(0, tlTab[PG_CUT_OFF], "TL_TAB[PG_CUT_OFF] should be 0");
 
         // Negative table should be symmetric
-        assertEquals("TL_TAB negative should be symmetric", -tlTab[0], tlTab[TL_LEN]);
-        assertEquals("TL_TAB negative should be symmetric", -tlTab[100], tlTab[TL_LEN + 100]);
+        assertEquals(-tlTab[0], tlTab[TL_LEN], "TL_TAB negative should be symmetric");
+        assertEquals(-tlTab[100], tlTab[TL_LEN + 100], "TL_TAB negative should be symmetric");
     }
 }
+
+
 

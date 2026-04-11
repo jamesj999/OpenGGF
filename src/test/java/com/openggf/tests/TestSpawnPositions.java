@@ -1,9 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.game.sonic2.Sonic2;
@@ -18,14 +17,13 @@ import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GroundMode;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests that Sonic's spawn positions for all levels place him correctly on the
@@ -34,25 +32,21 @@ import static org.junit.Assert.*;
  */
 @RequiresRom(SonicGame.SONIC_2)
 public class TestSpawnPositions {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Rom rom;
     private Game game;
     private LevelManager levelManager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        rom = romRule.rom();
+        rom = com.openggf.tests.TestEnvironment.currentRom();
         game = new Sonic2(rom);
 
-        assertTrue("ROM should be compatible", game.isCompatible());
+        assertTrue(game.isCompatible(), "ROM should be compatible");
 
         levelManager = GameServices.level();
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
         // Reset the level field in LevelManager
         Field levelField = LevelManager.class.getDeclaredField("level");
@@ -199,9 +193,8 @@ public class TestSpawnPositions {
         //
         // If you need to enforce strict spawn positioning, uncomment the assertion
         // below:
-        // assertTrue("Some levels have spawn positions inside ground: " +
-        // failures.stream().map(f -> f.levelData.name()).toList(),
-        // failures.isEmpty());
+        // assertTrue(// failures.isEmpty(), "Some levels have spawn positions inside ground: " +
+        // failures.stream().map(f -> f.levelData.name()).toList());
     }
 
     @Test
@@ -219,8 +212,8 @@ public class TestSpawnPositions {
         }
 
         // This test documents the current behavior - uncomment to enforce:
-        // assertTrue("Spawn should not be inside ground", result.distance0 >= 0 &&
-        // result.distance1 >= 0);
+        // assertTrue(result.distance0 >= 0 &&
+        // result.distance1 >= 0, "Spawn should not be inside ground");
     }
 
     /**
@@ -242,3 +235,5 @@ public class TestSpawnPositions {
         }
     }
 }
+
+

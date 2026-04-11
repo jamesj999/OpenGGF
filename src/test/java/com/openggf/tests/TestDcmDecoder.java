@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.tools.DcmDecoder;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestDcmDecoder {
     @Test
@@ -22,3 +22,5 @@ public class TestDcmDecoder {
         assertEquals((byte)0x82, output[1]);
     }
 }
+
+

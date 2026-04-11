@@ -1,7 +1,6 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.game.CanonicalAnimation;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.physics.Direction;
 
 /**
@@ -20,7 +19,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
 
     public TailsRespawnStrategy(SidekickCpuController controller) {
         this.controller = controller;
-        this.flyAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.FLY);
+        this.flyAnimId = controller.resolveAnimationId(CanonicalAnimation.FLY);
     }
 
     @Override

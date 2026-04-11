@@ -25,6 +25,11 @@ import java.util.List;
  *      Design doc: Sonic 2 Level Init Profile (57 steps)</a>
  */
 public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
+    private final Sonic2LevelEventManager levelEventManager;
+
+    public Sonic2LevelInitProfile(Sonic2LevelEventManager levelEventManager) {
+        this.levelEventManager = levelEventManager;
+    }
 
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
@@ -39,7 +44,7 @@ public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep levelEventTeardownStep() {
         return new InitStep("ResetS2LevelEvents",
             "Undoes S2 zone event handlers (HTZ earthquake, boss arenas, CPZ/ARZ/CNZ events)",
-            () -> Sonic2LevelEventManager.getInstance().resetState());
+            levelEventManager::resetState);
     }
 
     @Override
@@ -47,7 +52,7 @@ public class Sonic2LevelInitProfile extends AbstractLevelInitProfile {
         return new InitStep("ResetS2LevelEvents",
             "Undoes S2 zone event handlers and object-level static state for test isolation",
             () -> {
-                Sonic2LevelEventManager.getInstance().resetState();
+                levelEventManager.resetState();
                 ButtonVineTriggerManager.reset();
             });
     }

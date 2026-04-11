@@ -1,250 +1,179 @@
-# Singleton Lifecycle
+# Service Lifecycle
 
-This document describes the singleton architecture used throughout the engine: which classes
-follow the pattern, how they are initialized, how they are torn down for testing, and what
-thread-safety guarantees they provide.
+This branch no longer treats gameplay state as a web of global singletons. The engine is now split into a small process-level service root plus an explicit gameplay runtime. This document describes the current model and the few compatibility boundaries that still exist while the migration closes.
 
-## 1. Singleton Inventory
+## 1. Architecture Overview
 
-The table below covers the ~20 core singletons. Game-screen-specific singletons
-(TitleScreenManager, TitleCardManager, SpecialStageManager, LevelSelectManager, etc.) follow
-the same pattern but are omitted — they are created on first use and reset via their own
-`reset()` methods when the screen exits.
+OpenGGF now uses three access patterns, each with a different scope.
 
-| Class | Package | Reset method | Thread-safe getInstance? | Category |
-|---|---|---|---|---|
-| `Engine` | `com.openggf` | none | `synchronized` | Core |
-| `SonicConfigurationService` | `com.openggf.configuration` | none | `synchronized` | Core |
-| `GameModuleRegistry` | `com.openggf.game` | `reset()` (static) | `synchronized` (getCurrent/setCurrent) | Core |
-| `GameStateManager` | `com.openggf.game` | `resetState()` / `resetSession()` | `synchronized` | Core |
-| `CrossGameFeatureProvider` | `com.openggf.game` | `resetState()` | `synchronized` | Core |
-| `RomManager` | `com.openggf.data` | none | `synchronized` | Core |
-| `AudioManager` | `com.openggf.audio` | `resetState()` | `synchronized` | Core |
-| `GraphicsManager` | `com.openggf.graphics` | `resetState()` | `synchronized` | Core |
-| `FadeManager` | `com.openggf.graphics` | `resetState()` | `synchronized` | Core |
-| `Camera` | `com.openggf.camera` | `resetState()` | `synchronized` | Core |
-| `LevelManager` | `com.openggf.level` | `resetState()` | `synchronized` | Core |
-| `ParallaxManager` | `com.openggf.level` | `resetState()` | `synchronized` | Core |
-| `WaterSystem` | `com.openggf.level` | `reset()` | none (double-check null) | Core |
-| `SpriteManager` | `com.openggf.sprites.managers` | `resetState()` | `synchronized` | Core |
-| `CollisionSystem` | `com.openggf.physics` | `resetState()` | `synchronized` | Core |
-| `TerrainCollisionManager` | `com.openggf.physics` | `resetState()` | `synchronized` | Core |
-| `TimerManager` | `com.openggf.timer` | `resetState()` | `synchronized` | Core |
-| `PerformanceProfiler` | `com.openggf.debug` | `reset()` | `synchronized` | Core |
-| `DebugOverlayManager` | `com.openggf.debug` | none | `synchronized` | Core |
-| `MemoryStats` | `com.openggf.debug` | none | none (static final INSTANCE) | Core |
-| `PlaybackDebugManager` | `com.openggf.debug.playback` | none | none (static final INSTANCE) | Core |
-| `RenderOrderRecorder` | `com.openggf.graphics.pipeline` | none | `synchronized` | Core |
-
-**Category definitions:**
-
-- **Core** — always active; created at most once per JVM run in production. Persist across
-  level loads; only their internal state is reset between levels.
-- **Game-Scoped** — created by a `GameModule` implementation and accessed via provider
-  interfaces (e.g. `ZoneFeatureProvider`, `ScrollHandlerProvider`). Destroyed and recreated
-  when `GameModuleRegistry.reset()` replaces the module.
-- **Screen-Scoped** — screen managers (title, level select, special stage, etc.) that are
-  lazy-created on first access and hold a `reset()` method called when the screen exits via
-  `GameLoop`.
-
-**Reset method naming conventions (standardized in Task 4):**
-
-- `resetState()` — the preferred name; clears mutable state without destroying the singleton.
-- `resetSession()` — `GameStateManager`-specific alias; delegates to `resetState()`.
-- `reset()` — used by `WaterSystem`, `PerformanceProfiler`, and several screen-scoped classes.
-- `resetInstance()` — **deprecated** on `Camera`, `CollisionSystem`, and `FadeManager`; sets
-  the static field to null, destroying the instance. Avoid in new code; use `resetState()`
-  so cached references remain valid.
-
-## 2. Initialization Order
-
-### Eager initialization (Engine field declarations, lines 53–82)
-
-These singletons are created the moment `Engine` is instantiated, before `init()` or
-`run()` is called:
-
-1. `SonicConfigurationService.getInstance()` — reads `config.json`; used by `Engine`
-   constructor for window/FPS config.
-2. `SpriteManager.getInstance()`
-3. `GraphicsManager.getInstance()`
-4. `Camera.getInstance()`
-5. `PerformanceProfiler.getInstance()`
-6. `LevelManager.getInstance()`
-
-`DebugRenderer` is intentionally **not** eagerly captured — its static initializer
-references `java.awt.Color`, which is unavailable in GraalVM native-image builds. It is
-lazy-created on first `getDebugRenderer()` call.
-
-### Lazy initialization (all other singletons)
-
-Every other singleton is created on first `getInstance()` call. The typical pattern is:
-
-```java
-private static SomeThing instance;
-
-public static synchronized SomeThing getInstance() {
-    if (instance == null) {
-        instance = new SomeThing();
-    }
-    return instance;
-}
-```
-
-`WaterSystem` and the two static-final singletons (`MemoryStats`, `PlaybackDebugManager`)
-use class-loading for initialization instead of a null check.
-
-### GameModuleRegistry default
-
-`GameModuleRegistry` holds `private static GameModule current = new Sonic2GameModule()`
-as a field initializer — Sonic 2 is always the fallback module until ROM detection or
-an explicit `setCurrent()` call.
-
-## 3. Reset Graph
-
-### `GameContext.forTesting()` — full teardown sequence
-
-`GameContext.forTesting()` is the canonical way to reset all engine state between integration
-tests. It executes in this order:
-
-1. **Increment generation counter** — invalidates any previously issued `GameContext`
-   references (stale references throw `IllegalStateException` on next access).
-
-2. **Capture current game's `LevelInitProfile`** — captured BEFORE resetting the module
-   registry, so the *previous* game's teardown cleans up its own state (e.g. S3K resets its
-   own level event manager, not S2's).
-
-3. **`GameModuleRegistry.reset()`** — replaces the current module with a fresh
-   `Sonic2GameModule` instance (the default).
-
-4. **Execute `profile.levelTeardownSteps()`** — the full teardown sequence from
-   `AbstractLevelInitProfile.levelTeardownSteps()` (see table below).
-
-5. **Execute `profile.postTeardownFixups()`** — game-specific static fixups (e.g. resetting
-   VRAM tile assignments that are not covered by the standard steps).
-
-6. **Return `production()`** — wraps the now-reset singletons as a fresh `GameContext`.
-
-### `AbstractLevelInitProfile.levelTeardownSteps()` — step-by-step
-
-These 13 steps execute in the order listed. Each step corresponds to the inverse of a ROM
-initialization phase (documented in the Javadoc table in `AbstractLevelInitProfile`).
-
-| # | Step name | Method called | Undoes ROM phase |
+| Layer | Entry point | Scope | Intended users |
 |---|---|---|---|
-| 1 | `ResetAudio` | `GameServices.audio().resetState()` | PlayMusic / bgm_Fade (S1:D, S2:C, S3K:F) |
-| 2 | `ResetCrossGameFeatures` | `CrossGameFeatureProvider.getInstance().resetState()` | CrossGameFeatureProvider.initialize() |
-| 3 | *(game-specific)* | `levelEventTeardownStep()` — subclass hook | Zone event handlers, boss arena state |
-| 4 | `ResetParallax` | `ParallaxManager.getInstance().resetState()` | DeformBgLayer/DeformLayers (S1:G, S2:E, S3K:H) |
-| 5 | `ResetLevelManager` | `GameServices.level().resetState()` | LevelDataLoad/LoadZoneTiles (S1:G, S2:E, S3K:I) |
-| 6 | `ResetSprites` | `SpriteManager.getInstance().resetState()` | InitPlayers/SpawnLevelMainSprites (S1:I-J, S2:G, S3K:O) |
-| 7 | `ResetCollision` | `CollisionSystem.getInstance().resetState()` | ConvertCollisionArray/LoadSolids (S1:H, S2:F, S3K:K) |
-| 8 | `ResetCamera` | `GameServices.camera().resetState()` | LevelSizeLoad/Get_LevelSizeStart (S1:G, S2:E, S3K:H) |
-| 9 | `ResetGraphics` | `GraphicsManager.getInstance().resetState()` | VDP register config (S1:B, S2:B, S3K:D) |
-| 10 | `ResetFade` | `GameServices.fade().resetState()` | PaletteFadeOut/Pal_FadeToBlack (S1:A, S2:A, S3K:A) |
-| 11 | `ResetGameState` | `GameServices.gameState().resetState()` | Ring/timer/lives init (S1:K, S2:H, S3K:N) |
-| 12 | `ResetTimers` | `TimerManager.getInstance().resetState()` | Level_frame_counter/demo timer (S1:J, S2:I, S3K:P) |
-| 13 | `ResetWater` | `WaterSystem.getInstance().reset()` | LZWaterFeatures/WaterEffects (S1:C, S2:B, S3K:E+L) |
+| Process services | `EngineServices` | One per process/bootstrap | engine bootstrap, process-global managers |
+| Gameplay runtime | `GameRuntime` | One per gameplay session | runtime-owned mutable state |
+| Static/runtime facade | `GameServices` | façade over current runtime + engine services | non-object gameplay code |
+| Per-object injection | `ObjectServices` | object-scoped handle | `AbstractObjectInstance` subclasses |
 
-### `AbstractLevelInitProfile.perTestResetSteps()` — lightweight per-test reset
+### Process-level services
 
-`perTestResetSteps()` is a subset of the above — it skips `ResetLevelManager` and
-`ResetGraphics` so that loaded level geometry and OpenGL resources are preserved between
-individual test cases within the same level. Steps executed:
+These services are not recreated on every level load. Typical examples:
 
-- game-specific lead step (`perTestLeadStep()`)
-- `ResetCrossGameFeatures`
-- `ResetParallax`
-- `ResetSprites`
-- `ResetCollision`
-- `ResetCamera`
-- `ResetFade`
-- `ResetGameState`
-- `ResetTimers`
-- `ResetWater`
+- `SonicConfigurationService`
+- `GraphicsManager`
+- `AudioManager`
+- `RomManager`
+- `PerformanceProfiler`
+- `DebugOverlayManager`
+- `PlaybackDebugManager`
+- `RomDetectionService`
+- `CrossGameFeatureProvider`
 
-### `CollisionSystem.resetState()` cascades
+They are assembled into `EngineServices` and installed through `RuntimeManager` during bootstrap.
 
-`CollisionSystem.resetState()` calls `TerrainCollisionManager.getInstance().resetState()`
-internally. Callers do not need to reset `TerrainCollisionManager` separately.
+### Runtime-owned gameplay state
 
-## 4. Thread-Safety Contract
+These services live inside `GameRuntime` and are recreated when gameplay is torn down and rebuilt:
 
-The engine is **primarily single-threaded**: the game loop, physics, rendering, and all
-singleton mutation happen on the main thread. Audio runs on a separate thread managed by
-`LWJGLAudioBackend`.
+- `Camera`
+- `LevelManager`
+- `SpriteManager`
+- `GameStateManager`
+- `TimerManager`
+- `FadeManager`
+- `CollisionSystem`
+- `TerrainCollisionManager`
+- `WaterSystem`
+- `ParallaxManager`
 
-### What is synchronized
+This is the state that used to be singleton-heavy. Production code should now reach it through `GameServices` or `ObjectServices`, not through `getInstance()` or direct `RuntimeManager.getCurrent()` lookups.
 
-All core singletons use `synchronized getInstance()` (see table in section 1). This guards
-only the lazy-creation path; subsequent method calls on the returned instance are **not**
-synchronized and must only be called from the main thread.
+## 2. Access Rules
 
-`GameModuleRegistry.getCurrent()` and `setCurrent()` are both `synchronized` because ROM
-detection (which calls `setCurrent`) can run during startup before the main loop is stable.
+### Non-object code
 
-### What is not synchronized
-
-`WaterSystem.getInstance()` uses a plain null check without `synchronized` — safe only
-because it is always called from the main thread before the audio thread starts.
-
-`MemoryStats` and `PlaybackDebugManager` use a `static final INSTANCE` field initialized
-at class-load time, which the JVM guarantees to be thread-safe.
-
-### Engine `volatile` fields
-
-`Engine.debugState` and `Engine.debugOption` are declared `volatile`:
+Managers, controllers, level/event code, HUD code, and other non-object runtime logic should use `GameServices`:
 
 ```java
-private static volatile DebugState debugState = DebugState.NONE;
-private static volatile DebugOption debugOption = DebugOption.A;
+Camera camera = GameServices.camera();
+LevelManager level = GameServices.level();
+GameStateManager gameState = GameServices.gameState();
+AudioManager audio = GameServices.audio();
 ```
 
-These are written by keyboard callbacks (GLFW callback thread) and read by the main loop,
-so `volatile` is required for visibility.
+Use the `*OrNull()` variants only when code genuinely supports the absence of an active runtime:
 
-## 5. HeadlessTestRunner Setup Checklist
+```java
+LevelManager level = GameServices.levelOrNull();
+```
 
-Tests that use `HeadlessTestRunner` must perform manual singleton reset in this exact order.
-The ordering is load-bearing: later steps depend on earlier ones having completed.
+### Object code
 
-As documented in `HeadlessTestRunner.java`:
+Anything extending `AbstractObjectInstance` should use injected `ObjectServices`:
 
-1. **Reset `GraphicsManager` and `Camera`**
-   ```java
-   GraphicsManager.getInstance().resetState();
-   Camera.getInstance().resetState();
-   ```
-   Clears OpenGL state and camera bounds/frozen flags left over from any previous test.
-   `Camera.resetState()` must happen before level load because a camera with `frozen=true`
-   (left from a death sequence) will silently ignore `updatePosition()` calls.
+```java
+services().camera()
+services().objectManager()
+services().audioManager()
+services().gameState()
+services().gameModule()
+```
 
-2. **Initialize headless graphics**
-   ```java
-   GraphicsManager.getInstance().initHeadless();
-   ```
-   Stubs out OpenGL calls so physics tests can run without a display context.
+Object code should not call:
 
-3. **Load level**
-   ```java
-   LevelManager.getInstance().loadZoneAndAct(zone, act);
-   ```
-   Populates collision indices, level geometry, and camera bounds.
+- `Foo.getInstance()`
+- `RuntimeManager.getCurrent()`
+- `RuntimeManager.getEngineServices()`
+- `GameServices.*` when the injected object handle is available
 
-4. **Fix `GroundSensor` static field**
-   ```java
-   GroundSensor.setLevelManager(LevelManager.getInstance());
-   ```
-   `GroundSensor` holds a static reference to `LevelManager`. This field is set during
-   normal level loading, but tests that load levels manually must set it explicitly,
-   **after** `loadZoneAndAct()` has returned.
+The main exception is framework code inside `AbstractObjectInstance` / `DefaultObjectServices`, where the object-layer bridge itself is implemented.
 
-5. **Snap camera position**
-   ```java
-   Camera.getInstance().updatePosition(true);
-   ```
-   Must be called **after** level load because `loadZoneAndAct()` sets the camera bounds
-   during load. Calling before load produces incorrect bounds.
+## 3. Lifecycle
 
-For tests involving level events (e.g. HTZ earthquake), `HeadlessTestRunner.stepFrame()`
-must also be preceded by the caller setting up `LevelEventManager.initLevel(zone, act)` —
-see the MEMORY.md HTZ test setup notes.
+### Engine bootstrap
+
+1. The engine assembles process-global services.
+2. Those services are wrapped in `EngineServices`.
+3. `RuntimeManager` installs the engine-services root.
+4. `RuntimeManager.createGameplay()` creates a fresh `GameRuntime` and `WorldSession`.
+
+### Gameplay reset
+
+Destroying gameplay should rebuild runtime-owned state, not null out process services. The normal flow is:
+
+1. reset module/session state as needed
+2. destroy the current `GameRuntime`
+3. create a fresh `GameRuntime`
+4. load the requested ROM/zone/module state into the new runtime
+
+### Level/object construction
+
+`ObjectManager` is the construction boundary for object DI:
+
+1. it creates the object
+2. it installs `ObjectServices`
+3. the object runs update/render logic against injected services
+
+If an object needs service-dependent behavior during construction, it must use the construction-context bridge supplied by `AbstractObjectInstance`. It must not escape to `GameServices`.
+
+## 4. Compatibility Boundaries
+
+The migration is not yet fully at the ideal end state. A small amount of compatibility scaffolding still exists:
+
+- `EngineServices.fromLegacySingletonsForBootstrap()` remains the temporary bootstrap bridge for process services.
+- Some process-global classes still expose `getInstance()` for compatibility, but new production code should not depend on those accessors.
+
+Treat those APIs as migration boundaries, not endorsed architecture.
+
+## 5. Testing Guidance
+
+### Preferred runtime reset
+
+Tests should use the shared reset/runtime helpers instead of manually reassembling engine state in arbitrary order.
+
+Use:
+
+- `TestEnvironment.resetAll()` for full environment reset
+- `RuntimeManager.createGameplay()` only when a test is explicitly validating runtime creation
+- `@RequiresRom(...)` for ROM-backed tests once the Jupiter migration is complete
+
+### Headless gameplay tests
+
+Headless tests still follow the same runtime model:
+
+1. reset environment/runtime
+2. initialize headless graphics if required
+3. create/load gameplay state
+4. drive the test through `HeadlessTestRunner` or explicit runtime APIs
+
+Prefer examples like:
+
+```java
+GraphicsManager graphics = GameServices.graphics();
+LevelManager level = GameServices.level();
+Camera camera = GameServices.camera();
+```
+
+Avoid stale singleton-era setup snippets like:
+
+```java
+GraphicsManager.getInstance()
+LevelManager.getInstance()
+Camera.getInstance()
+```
+
+## 6. Guardrails
+
+The migration is enforced by source/bytecode guards in test code. The important ones are:
+
+- `TestRuntimeSingletonGuard`
+- `TestProductionSingletonClosureGuard`
+- `TestObjectServicesMigrationGuard`
+- `TestNoServicesInObjectConstructors`
+
+When these fail, the correct fix is normally one of:
+
+1. move access to `GameServices`
+2. move access to injected `ObjectServices`
+3. inject the dependency directly
+4. if and only if it is a real bootstrap boundary, document the exception explicitly
+
+Weakening a guard to preserve a convenience singleton path is usually the wrong move.

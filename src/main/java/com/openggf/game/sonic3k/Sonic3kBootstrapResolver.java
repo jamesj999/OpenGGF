@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 
 /**
@@ -25,7 +26,7 @@ public final class Sonic3kBootstrapResolver {
         }
 
         // Zone has an intro — check if we should skip it
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         boolean skipIntros = config.getBoolean(SonicConfiguration.S3K_SKIP_INTROS);
         String mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         boolean nonSonicMain = mainCharacter != null

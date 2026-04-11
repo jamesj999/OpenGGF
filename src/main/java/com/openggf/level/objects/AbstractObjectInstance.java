@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.configuration.SonicConfiguration;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
@@ -41,7 +42,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     /**
      * Cached camera bounds, updated once per frame by ObjectManager.
-     * Avoids repeated Camera.getInstance() calls when checking visibility.
+     * Avoids repeated camera lookups when checking visibility.
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
@@ -284,12 +285,6 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Returns the application configuration service.
-     * <p>
-     * This is a convenience accessor that keeps {@code SonicConfigurationService.getInstance()}
-     * out of leaf-class bytecode, preventing false positives in the migration guard test.
-     */
-    /**
      * Returns the construction-time services context.
      * Usable from static factory methods called during object construction.
      */
@@ -298,34 +293,35 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     protected SonicConfigurationService config() {
-        return SonicConfigurationService.getInstance();
+        return services().configuration();
     }
 
     /**
      * Returns the debug overlay manager.
-     * <p>
-     * Convenience accessor that keeps {@code DebugOverlayManager.getInstance()}
-     * out of leaf-class bytecode, preventing false positives in the migration guard test.
      */
     protected DebugOverlayManager debugOverlay() {
-        return DebugOverlayManager.getInstance();
+        return services().debugOverlay();
     }
 
     /**
-     * Static accessor for debug view config check, usable from static field initializers.
-     * Keeps {@code SonicConfigurationService.getInstance()} out of leaf-class bytecode.
+     * Static accessor for debug view config check, usable from field initializers.
      */
     protected static boolean staticDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
-                .getBoolean(com.openggf.configuration.SonicConfiguration.DEBUG_VIEW_ENABLED);
+        ObjectServices ctx = constructionContext();
+        SonicConfigurationService configuration = ctx != null ? ctx.configuration() : null;
+        if (configuration == null) {
+            configuration = GameServices.configuration();
+        }
+        return configuration.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 
     /**
-     * Static accessor for debug overlay manager, usable from static field initializers.
-     * Keeps {@code DebugOverlayManager.getInstance()} out of leaf-class bytecode.
+     * Static accessor for debug overlay manager, usable from field initializers.
      */
     protected static DebugOverlayManager staticDebugOverlay() {
-        return DebugOverlayManager.getInstance();
+        ObjectServices ctx = constructionContext();
+        DebugOverlayManager overlayManager = ctx != null ? ctx.debugOverlay() : null;
+        return overlayManager != null ? overlayManager : GameServices.debugOverlay();
     }
 
     /**
@@ -344,19 +340,20 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Static accessor for RomManager, usable from static helper methods.
-     * Keeps {@code RomManager.getInstance()} out of leaf-class bytecode.
+     * Static accessor for RomManager, usable from helper methods during object setup.
      */
     protected static RomManager staticRomManager() {
-        return RomManager.getInstance();
+        ObjectServices ctx = constructionContext();
+        RomManager romManager = ctx != null ? ctx.romManager() : null;
+        return romManager != null ? romManager : GameServices.rom();
     }
 
     /**
      * Static accessor for LevelManager's ObjectManager, usable from static factory methods.
-     * Keeps {@code LevelManager.getInstance()} out of leaf-class bytecode.
+     * Keeps runtime lookups out of leaf-class bytecode.
      */
     protected static ObjectManager staticObjectManager() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.levelOrNull();
         return lm != null ? lm.getObjectManager() : null;
     }
 
@@ -365,7 +362,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * invoked outside a live object-services context.
      */
     protected static LevelManager staticLevelManager() {
-        return LevelManager.getInstance();
+        return GameServices.levelOrNull();
     }
 
     /**
@@ -574,16 +571,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * Returns the ObjectRenderManager, or null if not available.
      */
-    protected static ObjectRenderManager getRenderManager() {
-        LevelManager lm = staticLevelManager();
-        return (lm != null) ? lm.getObjectRenderManager() : null;
+    protected ObjectRenderManager getRenderManager() {
+        ObjectServices services = tryServices();
+        return services != null ? services.renderManager() : null;
     }
 
     /**
      * Returns the ready PatternSpriteRenderer for the given art key, or null
      * if the render manager or renderer is unavailable/not ready.
      */
-    protected static PatternSpriteRenderer getRenderer(String artKey) {
+    protected PatternSpriteRenderer getRenderer(String artKey) {
         ObjectRenderManager rm = getRenderManager();
         if (rm == null) return null;
         PatternSpriteRenderer renderer = rm.getRenderer(artKey);

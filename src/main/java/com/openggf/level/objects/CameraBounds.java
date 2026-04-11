@@ -3,7 +3,7 @@ package com.openggf.level.objects;
 /**
  * Pre-computed camera visibility bounds, updated once per frame.
  * ROM equivalent: Objects check against Camera_X_pos/Camera_Y_pos in MarkObjGone.
- * By caching these values, we avoid repeated Camera.getInstance() calls
+ * By caching these values, we avoid repeated camera service lookups
  * and field reads when checking visibility for many objects.
  *
  * Mutable to avoid per-frame allocation - use update() to change values.

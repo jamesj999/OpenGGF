@@ -3,9 +3,10 @@ package com.openggf.audio;
 import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsSequencer;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.Ym2612Chip;
 import com.openggf.data.Rom;
@@ -24,8 +25,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Audio regression tests that compare current audio output against pre-generated reference files.
@@ -58,7 +59,7 @@ public class AudioRegressionTest {
     private static DacData dacData;
     private static boolean referenceFilesExist;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         File romFile = ensureRomAvailable();
         if (romFile == null) {
@@ -78,7 +79,7 @@ public class AudioRegressionTest {
         referenceFilesExist = referenceFileExists("music_ehz.wav");
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Don't assume reference files exist for benchmark test - it's independent
         // Reference file check is done per-test for regression tests
@@ -86,47 +87,47 @@ public class AudioRegressionTest {
 
     @Test
     public void testMusicEhzMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertMusicMatchesReference("music_ehz.wav", MUSIC_EHZ, 10.0);
     }
 
     @Test
     public void testMusicCpzMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertMusicMatchesReference("music_cpz.wav", MUSIC_CPZ, 10.0);
     }
 
     @Test
     public void testMusicHtzMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertMusicMatchesReference("music_htz.wav", MUSIC_HTZ, 10.0);
     }
 
     @Test
     public void testSfxRingMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertSfxMatchesReference("sfx_ring.wav", SFX_RING);
     }
 
     @Test
     public void testSfxJumpMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertSfxMatchesReference("sfx_jump.wav", SFX_JUMP);
     }
 
     @Test
     public void testSfxSpringMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
         assertSfxMatchesReference("sfx_spring.wav", SFX_SPRING);
     }
 
     @Test
     public void testMixedMusicSfxMatchesReference() throws Exception {
-        assumeTrue("Reference files not generated yet. Run AudioReferenceGenerator first.", referenceFilesExist);
-        assumeTrue("Mixed reference file not found", referenceFileExists("mixed_music_sfx.wav"));
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run AudioReferenceGenerator first.");
+        assumeTrue(referenceFileExists("mixed_music_sfx.wav"), "Mixed reference file not found");
 
         short[] reference = loadReferenceWav("mixed_music_sfx.wav");
-        assertNotNull("Reference file should load", reference);
+        assertNotNull(reference, "Reference file should load");
 
         // Generate current output
         AbstractSmpsData musicData = loader.loadMusic(MUSIC_EHZ);
@@ -182,9 +183,9 @@ public class AudioRegressionTest {
      */
     @Test
     public void benchmarkAudioRendering() {
-        assumeTrue("ROM not available, skipping benchmark", loader != null);
+        assumeTrue(loader != null, "ROM not available, skipping benchmark");
         AbstractSmpsData musicData = loader.loadMusic(MUSIC_EHZ);
-        assertNotNull("Music data should load", musicData);
+        assertNotNull(musicData, "Music data should load");
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
@@ -222,19 +223,18 @@ public class AudioRegressionTest {
         // Assert reasonable performance (should be under 50ms to render 1 second at minimum)
         // On modern hardware this should be <5ms, but we use a lenient threshold.
         // CI runners (GitHub Actions) can be significantly slower, so we use 500ms.
-        assertTrue("Audio rendering should complete in reasonable time (under 500ms for 1 second of audio)",
-                msPerSecond < 500.0);
+        assertTrue(msPerSecond < 500.0, "Audio rendering should complete in reasonable time (under 500ms for 1 second of audio)");
     }
 
     private void assertMusicMatchesReference(String filename, int musicId, double durationSeconds) throws Exception {
-        assumeTrue("Reference file not found: " + filename, referenceFileExists(filename));
+        assumeTrue(referenceFileExists(filename), "Reference file not found: " + filename);
 
         short[] reference = loadReferenceWav(filename);
-        assertNotNull("Reference file should load: " + filename, reference);
+        assertNotNull(reference, "Reference file should load: " + filename);
 
         // Generate current output
         AbstractSmpsData musicData = loader.loadMusic(musicId);
-        assertNotNull("Music data should load for ID 0x" + Integer.toHexString(musicId), musicData);
+        assertNotNull(musicData, "Music data should load for ID 0x" + Integer.toHexString(musicId));
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
@@ -249,14 +249,14 @@ public class AudioRegressionTest {
     }
 
     private void assertSfxMatchesReference(String filename, int sfxId) throws Exception {
-        assumeTrue("Reference file not found: " + filename, referenceFileExists(filename));
+        assumeTrue(referenceFileExists(filename), "Reference file not found: " + filename);
 
         short[] reference = loadReferenceWav(filename);
-        assertNotNull("Reference file should load: " + filename, reference);
+        assertNotNull(reference, "Reference file should load: " + filename);
 
         // Generate current output
         AbstractSmpsData sfxData = loader.loadSfx(sfxId);
-        assertNotNull("SFX data should load for ID 0x" + Integer.toHexString(sfxId), sfxData);
+        assertNotNull(sfxData, "SFX data should load for ID 0x" + Integer.toHexString(sfxId));
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
@@ -272,7 +272,7 @@ public class AudioRegressionTest {
     }
 
     private void assertAudioEquals(String context, short[] reference, short[] current) {
-        assertEquals("Sample count mismatch for " + context, reference.length, current.length);
+        assertEquals(reference.length, current.length, "Sample count mismatch for " + context);
 
         int maxDeviation = 0;
         long sumSquaredError = 0;
@@ -355,9 +355,9 @@ public class AudioRegressionTest {
             AudioFormat format = ais.getFormat();
 
             // Verify format matches what we expect
-            assertEquals("Sample rate mismatch", (float) SAMPLE_RATE, format.getSampleRate(), 0.1f);
-            assertEquals("Channels mismatch", 2, format.getChannels());
-            assertEquals("Sample size mismatch", 16, format.getSampleSizeInBits());
+            assertEquals((float) SAMPLE_RATE, format.getSampleRate(), 0.1f, "Sample rate mismatch");
+            assertEquals(2, format.getChannels(), "Channels mismatch");
+            assertEquals(16, format.getSampleSizeInBits(), "Sample size mismatch");
 
             byte[] bytes = ais.readAllBytes();
             short[] samples = new short[bytes.length / 2];
@@ -373,3 +373,5 @@ public class AudioRegressionTest {
         }
     }
 }
+
+

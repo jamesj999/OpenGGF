@@ -1,8 +1,8 @@
 package com.openggf.game.sonic1.scroll;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SwScrlGhzTest {
 
@@ -34,13 +34,13 @@ public class SwScrlGhzTest {
         short hillsEnd = unpackBG(hScroll[120]);
 
         // Auto-scroll is leftward in screen space, so BG scroll words become more negative.
-        assertEquals("Cloud layer 1 should move 8 px in 8 stationary frames", -8, delta(cloud1Start, cloud1End));
-        assertEquals("Cloud layer 2 should move 6 px in 8 stationary frames", -6, delta(cloud2Start, cloud2End));
-        assertEquals("Cloud layer 3 should move 4 px in 8 stationary frames", -4, delta(cloud3Start, cloud3End));
+        assertEquals(-8, delta(cloud1Start, cloud1End), "Cloud layer 1 should move 8 px in 8 stationary frames");
+        assertEquals(-6, delta(cloud2Start, cloud2End), "Cloud layer 2 should move 6 px in 8 stationary frames");
+        assertEquals(-4, delta(cloud3Start, cloud3End), "Cloud layer 3 should move 4 px in 8 stationary frames");
 
         // Non-cloud sections should remain unchanged when camera does not move.
-        assertEquals("Mountain band should not auto-scroll", 0, delta(mountainStart, mountainEnd));
-        assertEquals("Hills band should not auto-scroll", 0, delta(hillsStart, hillsEnd));
+        assertEquals(0, delta(mountainStart, mountainEnd), "Mountain band should not auto-scroll");
+        assertEquals(0, delta(hillsStart, hillsEnd), "Hills band should not auto-scroll");
     }
 
     @Test
@@ -71,3 +71,5 @@ public class SwScrlGhzTest {
         return (short) (end - start);
     }
 }
+
+

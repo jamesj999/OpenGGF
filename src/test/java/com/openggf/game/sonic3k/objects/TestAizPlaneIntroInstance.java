@@ -1,26 +1,30 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.TestEnvironment;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAizPlaneIntroInstance {
 
     private AizPlaneIntroInstance intro;
+    private Camera camera;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestEnvironment.resetAll();
-        Camera.getInstance().resetState();
+        RuntimeManager.destroyCurrent();
+        camera = RuntimeManager.createGameplay().getCamera();
+        camera.resetState();
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
-        intro.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
+        intro.setServices(new TestObjectServices().withCamera(camera));
     }
 
     @Test
@@ -61,7 +65,6 @@ public class TestAizPlaneIntroInstance {
         player.setCentreX((short) 0x40);
         player.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
         camera.setFocusedSprite(player);
         camera.setX((short) 0x200);
         camera.setY((short) 0x200);
@@ -84,7 +87,6 @@ public class TestAizPlaneIntroInstance {
         focusedPlayer.setCentreX((short) 0x40);
         focusedPlayer.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
         camera.setFocusedSprite(focusedPlayer);
         camera.setFrozen(false);
 
@@ -103,15 +105,13 @@ public class TestAizPlaneIntroInstance {
         player.setCentreX((short) 0x40);
         player.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
         camera.setFocusedSprite(player);
 
         for (int frame = 0; frame < 2500 && intro.getRoutine() < 24; frame++) {
             intro.update(frame, player);
         }
 
-        assertTrue("Intro routine should progress past Knuckles trigger gate",
-                intro.getRoutine() >= 24);
+        assertTrue(intro.getRoutine() >= 24, "Intro routine should progress past Knuckles trigger gate");
     }
 
     @Test
@@ -120,16 +120,15 @@ public class TestAizPlaneIntroInstance {
         focusedPlayer.setCentreX((short) 0x40);
         focusedPlayer.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
         camera.setFocusedSprite(focusedPlayer);
 
         for (int frame = 0; frame < 2500 && intro.getRoutine() < 24; frame++) {
             intro.update(frame, null);
         }
 
-        assertTrue("Intro routine should progress past Knuckles trigger gate with focused fallback",
-                intro.getRoutine() >= 24);
-        assertTrue("Focused player should advance rightward after intro scroll gate opens",
-                focusedPlayer.getCentreX() > 0x40);
+        assertTrue(intro.getRoutine() >= 24, "Intro routine should progress past Knuckles trigger gate with focused fallback");
+        assertTrue(focusedPlayer.getCentreX() > 0x40, "Focused player should advance rightward after intro scroll gate opens");
     }
 }
+
+

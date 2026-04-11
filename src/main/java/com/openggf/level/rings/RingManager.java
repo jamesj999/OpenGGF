@@ -2,7 +2,9 @@ package com.openggf.level.rings;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
@@ -13,7 +15,6 @@ import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.ShieldType;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
@@ -40,17 +41,25 @@ public class RingManager {
     private final RingPlacement placement;
     private final RingRenderer renderer;
     private final LostRingPool lostRings;
+    private final AudioManager audioManager;
     private PatternSpriteRenderer.FrameBounds spinBounds;
     private final AttractedRing[] attractedRings;
 
 
     public RingManager(List<RingSpawn> spawns, RingSpriteSheet spriteSheet,
                        LevelManager levelManager, TouchResponseTable touchResponseTable) {
+        this(spawns, spriteSheet, levelManager, touchResponseTable, GameServices.audio());
+    }
+
+    public RingManager(List<RingSpawn> spawns, RingSpriteSheet spriteSheet,
+                       LevelManager levelManager, TouchResponseTable touchResponseTable,
+                       AudioManager audioManager) {
         this.placement = new RingPlacement(spawns);
         this.renderer = (spriteSheet != null && spriteSheet.getFrameCount() > 0)
                 ? new RingRenderer(spriteSheet)
                 : null;
-        this.lostRings = new LostRingPool(levelManager, this.renderer, touchResponseTable);
+        this.audioManager = audioManager;
+        this.lostRings = new LostRingPool(levelManager, this.renderer, touchResponseTable, audioManager);
         this.attractedRings = new AttractedRing[MAX_ATTRACTED_RINGS];
         for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
             attractedRings[i] = new AttractedRing();
@@ -122,14 +131,14 @@ public class RingManager {
             if (renderer.getSparkleFrameCount() > 0) {
                 placement.setSparkleStartFrame(index, frameCounter);
             }
-            AudioManager.getInstance().playSfx(GameSound.RING);
+            audioManager.playSfx(GameSound.RING);
             player.addRings(1);
         }
 
         // Lightning shield ring attraction — S3K only
         PhysicsFeatureSet featureSet = null;
-        PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
-                ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+        GameModule module = RuntimeManager.resolveCurrentOrBootstrapGameModule();
+        PhysicsProvider physProvider = module != null ? module.getPhysicsProvider() : null;
         if (physProvider != null) {
             featureSet = physProvider.getFeatureSet();
         }
@@ -484,7 +493,7 @@ public class RingManager {
             int dy = Math.abs(pcy - ar.y);
             if (dx < 8 + player.getXRadius() && dy < 8 + player.getYRadius()) {
                 player.addRings(1);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                audioManager.playSfx(GameSound.RING);
                 ar.active = false;
             }
         }
@@ -727,8 +736,8 @@ public class RingManager {
         private final LevelManager levelManager;
         private final RingRenderer renderer;
         private final TouchResponseTable touchResponseTable;
-        private final AudioManager audioManager = AudioManager.getInstance();
-        private final Camera camera = Camera.getInstance();
+        private final AudioManager audioManager;
+        private final Camera camera = GameServices.camera();
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;
         private int nextId;
@@ -740,10 +749,12 @@ public class RingManager {
         private int spillAnimFrame;
         private int frameCounter;
 
-        private LostRingPool(LevelManager levelManager, RingRenderer renderer, TouchResponseTable touchResponseTable) {
+        private LostRingPool(LevelManager levelManager, RingRenderer renderer, TouchResponseTable touchResponseTable,
+                             AudioManager audioManager) {
             this.levelManager = levelManager;
             this.renderer = renderer;
             this.touchResponseTable = touchResponseTable;
+            this.audioManager = audioManager;
             for (int i = 0; i < MAX_LOST_RINGS; i++) {
                 ringPool[i] = new LostRing();
             }
@@ -826,8 +837,7 @@ public class RingManager {
 
             // Per-game floor check frequency: S1 every 4 frames (#3), S2/S3K every 8 (#7).
             int floorCheckMask = PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S2; // default S2
-            PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
-                    ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+            PhysicsProvider physProvider = GameServices.module().getPhysicsProvider();
             PhysicsFeatureSet featureSet = physProvider != null ? physProvider.getFeatureSet() : null;
             if (featureSet != null) {
                 floorCheckMask = featureSet.ringFloorCheckMask();

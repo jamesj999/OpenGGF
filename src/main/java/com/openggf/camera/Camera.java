@@ -2,13 +2,12 @@ package com.openggf.camera;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.RuntimeManager;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 
 public class Camera {
-	private static Camera bootstrapInstance;
 	private short x = 0;
 	private short y = 0;
 
@@ -92,7 +91,7 @@ public class Camera {
 	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
 
 	public Camera() {
-		this(SonicConfigurationService.getInstance());
+		this(GameServices.configuration());
 	}
 
 	public Camera(SonicConfigurationService configService) {
@@ -807,17 +806,6 @@ public class Camera {
 	 */
 	public static int getVerticalWrapBgMask() {
 		return VERTICAL_WRAP_BG_MASK;
-	}
-
-	public static synchronized Camera getInstance() {
-		var runtime = RuntimeManager.getCurrent();
-		if (runtime != null) {
-			return runtime.getCamera();
-		}
-		if (bootstrapInstance == null) {
-			bootstrapInstance = new Camera();
-		}
-		return bootstrapInstance;
 	}
 
 	/**

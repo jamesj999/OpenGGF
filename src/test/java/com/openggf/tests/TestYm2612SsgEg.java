@@ -1,10 +1,10 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestYm2612SsgEg {
 
@@ -55,8 +55,7 @@ public class TestYm2612SsgEg {
         }
         // The tail should be significantly quieter than peak output (8191)
         // Allow some margin for GPGX-style EG differences
-        assertTrue("Standard ADSR tail should be quiet after decay. Max value: " + maxVal,
-                   maxVal < 5000);
+        assertTrue(maxVal < 5000, "Standard ADSR tail should be quiet after decay. Max value: " + maxVal);
 
         // Now RESET and try with SSG-EG
         chip.reset();
@@ -89,6 +88,8 @@ public class TestYm2612SsgEg {
                 break;
             }
         }
-        assertTrue("SSG-EG Repeat should produce continuous loud sound (looping)", hasLoudSound);
+        assertTrue(hasLoudSound, "SSG-EG Repeat should produce continuous loud sound (looping)");
     }
 }
+
+

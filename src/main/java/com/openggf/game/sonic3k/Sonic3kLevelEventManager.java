@@ -37,7 +37,6 @@ import java.util.logging.Logger;
 public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static final int PACHINKO_TOP_EXIT_Y = -0x20;
-    private static Sonic3kLevelEventManager instance;
 
     private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
     private Sonic3kAIZEvents aizEvents;
@@ -54,7 +53,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private boolean hczPendingPostTransitionCutscene;
 
 
-    private Sonic3kLevelEventManager() {
+    public Sonic3kLevelEventManager() {
         super();
     }
 
@@ -80,7 +79,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     @Override
     public PlayerCharacter getPlayerCharacter() {
         // Resolve from config — matches ROM's Player_mode variable
-        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+        String mainChar = GameServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return PlayerCharacter.KNUCKLES;
@@ -88,7 +87,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
             return PlayerCharacter.TAILS_ALONE;
         }
         // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
-        String sidekick = com.openggf.configuration.SonicConfigurationService.getInstance()
+        String sidekick = GameServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
         if (sidekick == null || sidekick.isBlank()) {
             return PlayerCharacter.SONIC_ALONE;
@@ -373,14 +372,6 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
         AizPlaneIntroInstance.resetIntroPhaseState();
     }
-
-    public static synchronized Sonic3kLevelEventManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic3kLevelEventManager();
-        }
-        return instance;
-    }
-
     /**
      * Intercepts pit death in S3K bonus stages (Gumball, Pachinko, Slots).
      * ROM: Obj_GumballMachine init does st (Disable_death_plane).w — bonus

@@ -6,23 +6,23 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic3kAIZEvents {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -116,7 +116,7 @@ public class TestSonic3kAIZEvents {
             }
         }
 
-        assertTrue("Expected mutation applied during fire transition before reload", sawMutationBeforeReload);
+        assertTrue(sawMutationBeforeReload, "Expected mutation applied during fire transition before reload");
     }
 
     @Test
@@ -175,8 +175,7 @@ public class TestSonic3kAIZEvents {
         assertTrue(beforeReload.active());
         assertEquals(224, beforeReload.coverHeightPx());
         // sourceWorldX cycles through 0x1000..0x1060 matching ROM's Camera_X_pos_BG_copy
-        assertTrue("sourceWorldX should be in cycling range",
-                beforeReload.sourceWorldX() >= 0x1000 && beforeReload.sourceWorldX() <= 0x1060);
+        assertTrue(beforeReload.sourceWorldX() >= 0x1000 && beforeReload.sourceWorldX() <= 0x1060, "sourceWorldX should be in cycling range");
 
         var act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         act2Events.init(1);
@@ -211,8 +210,7 @@ public class TestSonic3kAIZEvents {
 
         assertTrue(state.active());
         assertTrue(events.getFireTransitionBgY() >= 0x190);
-        assertEquals("Curtain should fully cover the screen by the mutation handoff",
-                224, state.coverHeightPx());
+        assertEquals(224, state.coverHeightPx(), "Curtain should fully cover the screen by the mutation handoff");
         assertEquals(FireCurtainStage.AIZ1_REFRESH, state.stage());
     }
 
@@ -235,7 +233,7 @@ public class TestSonic3kAIZEvents {
                     && state.stage() != FireCurtainStage.AIZ1_REFRESH)) {
                 continue;
             }
-            assertTrue("cover height regressed at frame " + i, state.coverHeightPx() >= previous);
+            assertTrue(state.coverHeightPx() >= previous, "cover height regressed at frame " + i);
             previous = state.coverHeightPx();
         }
     }
@@ -256,7 +254,7 @@ public class TestSonic3kAIZEvents {
         assertTrue(initial.active());
         // First frame just starts the transition (bgY=0x20); fire tiles at BG Y >= 0x100
         // are not visible yet.  The rise advances on subsequent frames.
-        assertTrue("Curtain should be active on first frame", initial.coverHeightPx() >= 0);
+        assertTrue(initial.coverHeightPx() >= 0, "Curtain should be active on first frame");
 
         // The lerp phase slowly converges bgY toward 0x68 (1/32 per frame).
         // Fire tiles start at BG Y=0x100, so cover = bgY + 224 - 0x100.
@@ -267,15 +265,14 @@ public class TestSonic3kAIZEvents {
             events.update(0, i);
             state = events.getFireCurtainRenderState(224);
         }
-        assertTrue("Curtain should begin covering within the lerp phase", state.coverHeightPx() >= 16);
+        assertTrue(state.coverHeightPx() >= 16, "Curtain should begin covering within the lerp phase");
 
         for (; i < 240 && state.stage() == FireCurtainStage.AIZ1_RISING; i++) {
             events.update(0, i);
             state = events.getFireCurtainRenderState(224);
         }
 
-        assertEquals("Curtain should be fully screen-covering by the mutation handoff",
-                224, state.coverHeightPx());
+        assertEquals(224, state.coverHeightPx(), "Curtain should be fully screen-covering by the mutation handoff");
         assertTrue(state.stage() == FireCurtainStage.AIZ1_REFRESH
                 || state.stage() == FireCurtainStage.AIZ1_FINISH);
     }
@@ -304,7 +301,7 @@ public class TestSonic3kAIZEvents {
                 break;
             }
         }
-        assertTrue("Expected wavy fire-column offsets", hasVariation);
+        assertTrue(hasVariation, "Expected wavy fire-column offsets");
     }
 
     @Test
@@ -367,15 +364,15 @@ public class TestSonic3kAIZEvents {
             }
         }
 
-        assertTrue("Expected to reach AIZ2 WaitFire continuation", sawWaitFire);
-        assertTrue("Expected WaitFire to switch to the $200 source strip", sawAiz2SourceStrip);
-        assertFalse("Curtain should eventually clear after AIZ2 WaitFire", act2Events.getFireCurtainRenderState(224).active());
+        assertTrue(sawWaitFire, "Expected to reach AIZ2 WaitFire continuation");
+        assertTrue(sawAiz2SourceStrip, "Expected WaitFire to switch to the $200 source strip");
+        assertFalse(act2Events.getFireCurtainRenderState(224).active(), "Curtain should eventually clear after AIZ2 WaitFire");
     }
 
     /**
      * When arriving at AIZ2 through the AIZ1 fire transition, SonicResize1
      * must NOT skip the miniboss path (SonicResize2). The ROM gates this on
-     * Apparent_zone_and_act != AIZ2 — during the fire transition, the apparent
+     * Apparent_zone_and_act != AIZ2 â€” during the fire transition, the apparent
      * zone is still AIZ1.
      *
      * This was the root cause of the "AIZ1 mid-act transition snapping" bug:
@@ -396,13 +393,13 @@ public class TestSonic3kAIZEvents {
         for (int i = 0; i < 320 && !act1Events.isAct2TransitionRequested(); i++) {
             act1Events.update(0, i);
         }
-        assertTrue("Fire transition should have requested act 2", act1Events.isAct2TransitionRequested());
+        assertTrue(act1Events.isAct2TransitionRequested(), "Fire transition should have requested act 2");
 
         // Begin act 2 with pending fire sequence (came from fire transition)
         var act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         act2Events.init(1);
 
-        // Simulate player past the first spikes — cameraX just past $2E0
+        // Simulate player past the first spikes â€” cameraX just past $2E0
         camera.setX((short) 0x0300);
         camera.setY((short) 0x0200);
         camera.setMinX((short) 0);
@@ -415,15 +412,14 @@ public class TestSonic3kAIZEvents {
 
         // minX must NOT have been snapped to $F50 (the miniboss lock)
         int minX = camera.getMinX() & 0xFFFF;
-        assertTrue("Camera minX should NOT be locked to miniboss area ($F50) after fire transition, was 0x"
-                + Integer.toHexString(minX),
-                minX < 0x0F50);
+        assertTrue(minX < 0x0F50, "Camera minX should NOT be locked to miniboss area ($F50) after fire transition, was 0x"
+                + Integer.toHexString(minX));
     }
 
     /**
      * When entering AIZ2 directly (level select / death restart), SonicResize1
      * SHOULD skip the miniboss path because the miniboss has already been defeated.
-     * ROM: Apparent_zone_and_act == AIZ2 → skip to SonicResize3.
+     * ROM: Apparent_zone_and_act == AIZ2 â†’ skip to SonicResize3.
      */
     @Test
     public void aiz2DirectEntrySkipsMinibossPath() {
@@ -445,15 +441,14 @@ public class TestSonic3kAIZEvents {
 
         // minX SHOULD be set to $F50 (skipping miniboss area)
         int minX = camera.getMinX() & 0xFFFF;
-        assertEquals("Camera minX should be locked to $F50 for direct AIZ2 entry",
-                0x0F50, minX);
+        assertEquals(0x0F50, minX, "Camera minX should be locked to $F50 for direct AIZ2 entry");
     }
 
     @Test
     public void bossFlagDefaultsFalse() {
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
-        assertFalse("Boss flag should default to false", events.isBossFlag());
+        assertFalse(events.isBossFlag(), "Boss flag should default to false");
     }
 
     @Test
@@ -461,7 +456,7 @@ public class TestSonic3kAIZEvents {
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
         events.setBossFlag(true);
-        assertTrue("Boss flag should be true after setting", events.isBossFlag());
+        assertTrue(events.isBossFlag(), "Boss flag should be true after setting");
     }
 
     @Test
@@ -470,6 +465,8 @@ public class TestSonic3kAIZEvents {
         events.init(0);
         events.setBossFlag(true);
         events.init(0);
-        assertFalse("Boss flag should reset to false on init", events.isBossFlag());
+        assertFalse(events.isBossFlag(), "Boss flag should reset to false on init");
     }
 }
+
+

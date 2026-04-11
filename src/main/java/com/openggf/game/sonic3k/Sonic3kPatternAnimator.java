@@ -71,7 +71,6 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     };
 
     private final Level level;
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final int zoneIndex;
     private final int actIndex;
     private final boolean isSkipIntro;
@@ -189,7 +188,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
         boolean isAiz1Intro = zoneIndex == 0 && actIndex == 0 && !isSkipIntro;
         if (!isAiz1Intro) {
-            AniPlcParser.primeScripts(scripts, level, graphicsManager);
+            AniPlcParser.primeScripts(scripts, level, GameServices.graphics());
         }
 
         this.firstTreePatterns = zoneIndex == 0 && actIndex == 1
@@ -413,6 +412,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
 
         if (!scripts.isEmpty()) {
+            GraphicsManager graphicsManager = GameServices.graphics();
             scripts.get(0).tick(level, graphicsManager);
         }
         if (!firstTreeApplied && firstTreePatterns != null) {
@@ -432,6 +432,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     }
 
     private void runAllScripts() {
+        GraphicsManager graphicsManager = GameServices.graphics();
         for (AniPlcScriptState script : scripts) {
             script.tick(level, graphicsManager);
         }
@@ -439,7 +440,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     private boolean isAizBossActive() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = resolveLevelEventManager();
             if (lem != null) {
                 Sonic3kAIZEvents aizEvents = lem.getAizEvents();
                 if (aizEvents != null) {
@@ -450,6 +451,12 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             LOG.fine(() -> "Sonic3kPatternAnimator.isAizBossActive: " + e.getMessage());
         }
         return false;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 
     private void updateHcz1BackgroundStrips() {
@@ -635,6 +642,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         int sourceTileOffset = sourceByteOffset / Pattern.PATTERN_SIZE_IN_ROM;
         int tileCount = byteLength / Pattern.PATTERN_SIZE_IN_ROM;
         int maxPatterns = level.getPatternCount();
+        GraphicsManager graphicsManager = GameServices.graphics();
         boolean canUpdateTextures = graphicsManager.isGlInitialized();
         for (int i = 0; i < tileCount; i++) {
             int sourceIndex = sourceTileOffset + i;
@@ -673,6 +681,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
 
         int maxPatterns = level.getPatternCount();
+        GraphicsManager graphicsManager = GameServices.graphics();
         boolean canUpdateTextures = graphicsManager.isGlInitialized();
         for (int i = 0; i < sourcePatterns.length; i++) {
             int destIndex = destTile + i;
@@ -802,6 +811,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         // Copy 8 tiles from source offset to level patterns at tile 0x40, wrapping the
         // source data on overflow.
         level.ensurePatternCapacity(GUMBALL_DEST_TILE + GUMBALL_TILE_COUNT);
+        GraphicsManager graphicsManager = GameServices.graphics();
         boolean canUpdateTextures = graphicsManager.isGlInitialized();
         byte[] tileData = new byte[Pattern.PATTERN_SIZE_IN_ROM];
         for (int i = 0; i < GUMBALL_TILE_COUNT; i++) {

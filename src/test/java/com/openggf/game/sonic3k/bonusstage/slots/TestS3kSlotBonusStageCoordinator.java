@@ -182,3 +182,5 @@ class TestS3kSlotBonusStageCoordinator {
                 0x460, 0x430, 0x400, 0x400, (byte) 0x0C, (byte) 0x0D, 0x600, 0L);
     }
 }
+
+

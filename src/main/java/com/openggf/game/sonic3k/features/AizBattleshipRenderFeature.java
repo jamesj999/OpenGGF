@@ -38,7 +38,7 @@ public final class AizBattleshipRenderFeature {
     private static final int PROPELLER_Y = 0x0A71;
     private static final int PROPELLER_FRAME_DELAY = 2;
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = GameServices.configuration();
     private final PatternDesc reusableDesc = new PatternDesc();
 
     private int pendingStripHeight;
@@ -47,7 +47,7 @@ public final class AizBattleshipRenderFeature {
     private final GLCommand prepareOverlayCommand = new GLCommand(
             GLCommand.CommandType.CUSTOM,
             (cx, cy, cw, ch) -> {
-                GraphicsManager graphicsManager = GraphicsManager.getInstance();
+                GraphicsManager graphicsManager = GameServices.graphics();
                 graphicsManager.setUseWaterShader(false);
                 PatternRenderCommand.resetFrameState();
                 int viewportX = graphicsManager.getViewportX();
@@ -65,7 +65,7 @@ public final class AizBattleshipRenderFeature {
 
     private final GLCommand cleanupOverlayCommand = new GLCommand(
             GLCommand.CommandType.CUSTOM,
-            (cx, cy, cw, ch) -> GraphicsManager.getInstance().disableScissor());
+            (cx, cy, cw, ch) -> GameServices.graphics().disableScissor());
 
     public void reset() {
         loggedFirstRender = false;
@@ -96,7 +96,7 @@ public final class AizBattleshipRenderFeature {
         }
 
         pendingStripHeight = Math.min(STRIP_HEIGHT_PX, screenHeight);
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         graphicsManager.registerCommand(prepareOverlayCommand);
         renderAttachedBombs(levelManager);
         renderShipStrip(camera, battleship, screenWidth, pendingStripHeight);
@@ -129,7 +129,7 @@ public final class AizBattleshipRenderFeature {
                                  int screenWidth,
                                  int stripHeight) {
         LevelManager levelManager = GameServices.level();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = GameServices.graphics();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
         int sourceX = battleship.getSecondaryCameraX();

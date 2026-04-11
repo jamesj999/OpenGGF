@@ -163,7 +163,7 @@ public class AizEmeraldScatterInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getEmeraldRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getEmeraldRenderer(services());
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }

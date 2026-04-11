@@ -1,10 +1,10 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.control.InputHandler;
 
 import static org.lwjgl.glfw.GLFW.*;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestInputHandler {
     @Test
@@ -53,3 +53,5 @@ public class TestInputHandler {
         assertTrue(handler.isKeyPressedWithoutModifiers(GLFW_KEY_B));
     }
 }
+
+

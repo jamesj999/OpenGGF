@@ -44,3 +44,5 @@ class TestPachinkoItemOrbObjectInstance {
         assertEquals(7, orb.getSpawn().subtype());
     }
 }
+
+

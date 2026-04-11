@@ -1,6 +1,7 @@
 package com.openggf.util;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.SpriteMappingFrame;
 
@@ -33,7 +34,7 @@ public final class LazyMappingHolder {
         }
         attempted = true;
 
-        LevelManager manager = LevelManager.getInstance();
+        LevelManager manager = GameServices.levelOrNull();
         if (manager == null || manager.getGame() == null) {
             return Collections.emptyList();
         }

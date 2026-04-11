@@ -241,9 +241,8 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
             updateHcz1(horizScrollBuf, cameraX, cameraY);
         } else {
             updateHcz2(horizScrollBuf, cameraX, cameraY);
-
             // HCZ2_ScreenEvent (sonic3k.asm line 105989): adds Screen_shake_offset
-            // to Camera_Y_pos_copy. The FG vertical scroll compensates for this.
+            // to Camera_Y_pos_copy. Mirror that on the FG VScroll path in Act 2.
             if (screenShakeOffset != 0) {
                 vscrollFactorFG = (short) (cameraY + screenShakeOffset);
             }

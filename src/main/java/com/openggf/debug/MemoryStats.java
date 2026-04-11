@@ -42,7 +42,7 @@ public class MemoryStats {
     private String activeSection = null;
     private long sectionStartAllocBytes = 0;
 
-    private MemoryStats() {
+    public MemoryStats() {
         memoryBean = ManagementFactory.getMemoryMXBean();
         gcBeans = ManagementFactory.getGarbageCollectorMXBeans();
         threadBean = (ThreadMXBean) ManagementFactory.getThreadMXBean();

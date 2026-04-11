@@ -20,6 +20,7 @@ class TestObjectServicesConstructionContext {
         @Override public ObjectRenderManager renderManager() { return null; }
         @Override public com.openggf.game.LevelState levelGamestate() { return null; }
         @Override public com.openggf.game.RespawnState checkpointState() { return null; }
+        @Override public com.openggf.level.LevelManager levelManager() { return null; }
         @Override public com.openggf.level.Level currentLevel() { return null; }
         @Override public int romZoneId() { return 0; }
         @Override public int currentAct() { return 0; }
@@ -34,10 +35,17 @@ class TestObjectServicesConstructionContext {
         @Override public void spawnLostRings(com.openggf.game.PlayableEntity player, int fc) {}
         @Override public com.openggf.camera.Camera camera() { return null; }
         @Override public com.openggf.game.GameStateManager gameState() { return null; }
+        @Override public com.openggf.game.session.WorldSession worldSession() { return null; }
+        @Override public com.openggf.game.GameModule gameModule() { return null; }
         @Override public java.util.List<com.openggf.game.PlayableEntity> sidekicks() { return java.util.List.of(); }
         @Override public com.openggf.sprites.managers.SpriteManager spriteManager() { return null; }
         @Override public com.openggf.graphics.GraphicsManager graphicsManager() { return null; }
         @Override public com.openggf.graphics.FadeManager fadeManager() { return null; }
+        @Override public com.openggf.game.EngineServices engineServices() { return null; }
+        @Override public com.openggf.configuration.SonicConfigurationService configuration() { return null; }
+        @Override public com.openggf.debug.DebugOverlayManager debugOverlay() { return null; }
+        @Override public com.openggf.data.RomManager romManager() { return null; }
+        @Override public com.openggf.game.CrossGameFeatureProvider crossGameFeatures() { return null; }
         @Override public com.openggf.data.Rom rom() { return null; }
         @Override public com.openggf.data.RomByteReader romReader() { return null; }
         @Override public com.openggf.level.WaterSystem waterSystem() { return null; }
@@ -195,3 +203,5 @@ class TestObjectServicesConstructionContext {
                 "created object should be registered as a dynamic object");
     }
 }
+
+

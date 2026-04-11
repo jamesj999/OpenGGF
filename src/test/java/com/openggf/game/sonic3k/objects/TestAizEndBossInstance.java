@@ -3,6 +3,8 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -19,10 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestAizEndBossInstance {
-    private final Camera camera = Camera.getInstance();
+    private GameRuntime runtime;
+    private Camera camera;
 
     @BeforeEach
     void setUp() {
+        RuntimeManager.destroyCurrent();
+        runtime = RuntimeManager.createGameplay();
+        camera = runtime.getCamera();
         camera.resetState();
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
     }
@@ -31,7 +37,7 @@ class TestAizEndBossInstance {
     void tearDown() throws Exception {
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
         constructionContext().remove();
-        camera.resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -221,3 +227,5 @@ class TestAizEndBossInstance {
         }
     }
 }
+
+

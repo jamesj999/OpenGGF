@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectSpawn;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestCutsceneKnucklesAiz1Instance {
 
@@ -22,3 +22,5 @@ public class TestCutsceneKnucklesAiz1Instance {
     }
 
 }
+
+

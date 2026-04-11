@@ -1,21 +1,21 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.PsgChipGPGX;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestPsgChipGpgxParity {
 
     @Test
     public void defaultsToFastModeForCrisperGenesisParity() {
         PsgChipGPGX chip = new PsgChipGPGX(44100.0, PsgChipGPGX.ChipType.INTEGRATED);
-        assertFalse("GPGX parity should default to fast PSG mode", chip.isHqMode());
+        assertFalse(chip.isHqMode(), "GPGX parity should default to fast PSG mode");
     }
 
     @Test
@@ -33,7 +33,7 @@ public class TestPsgChipGpgxParity {
         for (int i = 0; i < 8; i++) {
             chip.renderStereo(left, right);
             int clocks = readPrivateInt(chip, "clocks");
-            assertTrue("Clock carry should stay within one PSG cycle remainder", clocks >= 0 && clocks < (15 * 16));
+            assertTrue(clocks >= 0 && clocks < (15 * 16), "Clock carry should stay within one PSG cycle remainder");
         }
     }
 
@@ -54,7 +54,7 @@ public class TestPsgChipGpgxParity {
 
         int actualShift = readPrivateInt(chip, "noiseShiftValue");
         int expectedShift = advancePeriodicNoise(initialShift, shiftWidth, 10);
-        assertEquals("Noise LFSR should advance on every polarity toggle", expectedShift, actualShift);
+        assertEquals(expectedShift, actualShift, "Noise LFSR should advance on every polarity toggle");
     }
 
     @Test
@@ -74,7 +74,7 @@ public class TestPsgChipGpgxParity {
 
         int actualShift = readPrivateInt(chip, "noiseShiftValue");
         int expectedShift = advancePeriodicNoise(initialShift, shiftWidth, 5);
-        assertEquals("Positive-edge mode should shift half as often as every-toggle mode", expectedShift, actualShift);
+        assertEquals(expectedShift, actualShift, "Positive-edge mode should shift half as often as every-toggle mode");
     }
 
     @Test
@@ -94,8 +94,7 @@ public class TestPsgChipGpgxParity {
         int factorFpBits = readPrivateStaticInt(blip.getClass(), "FACTOR_FP_BITS");
         long oneSampleFp = 1L << (20 + factorFpBits);
 
-        assertTrue("Blip timebase should stay bounded; large growth indicates sample timing drift",
-                offsetFp >= 0 && offsetFp < (oneSampleFp * 4));
+        assertTrue(offsetFp >= 0 && offsetFp < (oneSampleFp * 4), "Blip timebase should stay bounded; large growth indicates sample timing drift");
     }
 
     private static int readPrivateInt(Object instance, String fieldName) throws Exception {
@@ -144,3 +143,5 @@ public class TestPsgChipGpgxParity {
         return current;
     }
 }
+
+

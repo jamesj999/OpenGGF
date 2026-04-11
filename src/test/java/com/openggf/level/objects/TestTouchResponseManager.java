@@ -1,8 +1,8 @@
 package com.openggf.level.objects;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import org.mockito.Mockito;
@@ -12,7 +12,7 @@ import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -25,7 +25,7 @@ public class TestTouchResponseManager {
     private TouchResponseTable table;
     private AbstractPlayableSprite player;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         // Use Mockito to mock TouchResponseTable since its constructor reads from ROM
@@ -61,7 +61,7 @@ public class TestTouchResponseManager {
         when(player.getRingCount()).thenReturn(0);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -82,8 +82,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Should not overlap when object is far to the right",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Should not overlap when object is far to the right");
     }
 
     @Test
@@ -95,8 +94,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Should not overlap when object is far to the left",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Should not overlap when object is far to the left");
     }
 
     @Test
@@ -108,8 +106,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Should not overlap when object is far above",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Should not overlap when object is far above");
     }
 
     @Test
@@ -121,8 +118,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Should not overlap when object is far below",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Should not overlap when object is far below");
     }
 
     @Test
@@ -134,8 +130,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertTrue("Should overlap when object is at player position",
-                obj.wasTouched);
+        assertTrue(obj.wasTouched, "Should overlap when object is at player position");
     }
 
     @Test
@@ -147,8 +142,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertTrue("Should overlap with large object near player",
-                obj.wasTouched);
+        assertTrue(obj.wasTouched, "Should overlap with large object near player");
     }
 
     // ==================== Touch Category Tests ====================
@@ -162,8 +156,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertEquals("Category should be ENEMY for flags 0x00-0x3F",
-                TouchCategory.ENEMY, obj.lastResult.category());
+        assertEquals(TouchCategory.ENEMY, obj.lastResult.category(), "Category should be ENEMY for flags 0x00-0x3F");
     }
 
     @Test
@@ -175,8 +168,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertEquals("Category should be SPECIAL for flags 0x40-0x7F",
-                TouchCategory.SPECIAL, obj.lastResult.category());
+        assertEquals(TouchCategory.SPECIAL, obj.lastResult.category(), "Category should be SPECIAL for flags 0x40-0x7F");
     }
 
     @Test
@@ -188,8 +180,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertEquals("Category should be HURT for flags 0x80-0xBF",
-                TouchCategory.HURT, obj.lastResult.category());
+        assertEquals(TouchCategory.HURT, obj.lastResult.category(), "Category should be HURT for flags 0x80-0xBF");
     }
 
     @Test
@@ -201,8 +192,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertEquals("Category should be BOSS for flags 0xC0-0xFF",
-                TouchCategory.BOSS, obj.lastResult.category());
+        assertEquals(TouchCategory.BOSS, obj.lastResult.category(), "Category should be BOSS for flags 0xC0-0xFF");
     }
 
     // ==================== Player State Tests ====================
@@ -216,8 +206,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Should not touch objects when player is dead",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Should not touch objects when player is dead");
     }
 
     @Test
@@ -231,8 +220,7 @@ public class TestTouchResponseManager {
         objectManager.update(0, player, List.of(), 1);
 
         // Object should NOT touch when player is crouching and object is above normal standing position
-        assertFalse("Crouching should reduce hitbox height",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Crouching should reduce hitbox height");
     }
 
     // ==================== Enemy Bounce Tests ====================
@@ -249,7 +237,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertTrue("Enemy should have been attacked when player is rolling", enemy.wasAttacked);
+        assertTrue(enemy.wasAttacked, "Enemy should have been attacked when player is rolling");
     }
 
     @Test
@@ -297,15 +285,14 @@ public class TestTouchResponseManager {
 
         // First update - should trigger touch
         objectManager.update(0, player, List.of(), 1);
-        assertTrue("First update should trigger touch", obj.wasTouched);
+        assertTrue(obj.wasTouched, "First update should trigger touch");
 
         // Reset touch flag
         obj.wasTouched = false;
 
         // Second update - still overlapping but should NOT trigger again
         objectManager.update(0, player, List.of(), 1);
-        assertFalse("Second update should NOT trigger touch for same overlap",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Second update should NOT trigger touch for same overlap");
     }
 
     @Test
@@ -315,11 +302,11 @@ public class TestTouchResponseManager {
         objectManager.addDynamicObject(obj);
 
         objectManager.update(0, player, List.of(), 1);
-        assertTrue("First update should trigger touch", obj.wasTouched);
+        assertTrue(obj.wasTouched, "First update should trigger touch");
 
         obj.wasTouched = false;
         objectManager.update(0, player, List.of(), 2);
-        assertTrue("Continuous callback object should trigger again while still overlapping", obj.wasTouched);
+        assertTrue(obj.wasTouched, "Continuous callback object should trigger again while still overlapping");
     }
 
     @Test
@@ -330,8 +317,7 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, List.of(), 1);
 
-        assertFalse("Objects flagged skipTouchThisFrame should not trigger touch callbacks",
-                obj.wasTouched);
+        assertFalse(obj.wasTouched, "Objects flagged skipTouchThisFrame should not trigger touch callbacks");
     }
 
     @Test
@@ -352,8 +338,7 @@ public class TestTouchResponseManager {
         when(player.getCentreX()).thenReturn((short) 160);
         objectManager.update(0, player, List.of(), 1);
 
-        assertTrue("Touch should trigger again after exit and re-enter",
-                obj.wasTouched);
+        assertTrue(obj.wasTouched, "Touch should trigger again after exit and re-enter");
     }
 
     // ==================== Reset Tests ====================
@@ -372,8 +357,7 @@ public class TestTouchResponseManager {
 
         // Now touch should trigger again
         objectManager.update(0, player, List.of(), 1);
-        assertTrue("Touch should trigger after reset even for same overlap",
-                obj.wasTouched);
+        assertTrue(obj.wasTouched, "Touch should trigger after reset even for same overlap");
     }
 
     // ==================== Helper Classes ====================
@@ -468,3 +452,6 @@ public class TestTouchResponseManager {
         }
     }
 }
+
+
+

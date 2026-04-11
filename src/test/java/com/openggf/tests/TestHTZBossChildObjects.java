@@ -1,8 +1,8 @@
 package com.openggf.tests;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.HtzGroundFireObjectInstance;
@@ -22,13 +22,10 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 
-import com.openggf.game.GameRuntime;
-import com.openggf.game.RuntimeManager;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -44,25 +41,15 @@ import org.mockito.MockedStatic;
  */
 public class TestHTZBossChildObjects {
 
-    private Field levelManagerField;
-    private LevelManager originalLevelManager;
     private LevelManager mockLevelManager;
-    private GameRuntime originalRuntime;
 
-    @Before
-    public void setUp() throws Exception {
-        levelManagerField = LevelManager.class.getDeclaredField("levelManager");
-        levelManagerField.setAccessible(true);
-        originalLevelManager = (LevelManager) levelManagerField.get(null);
-        originalRuntime = RuntimeManager.getCurrent();
-        RuntimeManager.setCurrent(null);
+    @BeforeEach
+    public void setUp() {
         mockLevelManager = mock(LevelManager.class);
     }
 
-    @After
-    public void tearDown() throws Exception {
-        levelManagerField.set(null, originalLevelManager);
-        RuntimeManager.setCurrent(originalRuntime);
+    @AfterEach
+    public void tearDown() {
     }
 
     @Test
@@ -75,8 +62,6 @@ public class TestHTZBossChildObjects {
         when(mockLevelManager.getObjectRenderManager()).thenReturn(renderManager);
         when(renderManager.getRenderer(Sonic2ObjectArtKeys.SOL)).thenReturn(renderer);
         when(renderer.isReady()).thenReturn(true);
-
-        levelManagerField.set(null, mockLevelManager);
 
         LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(100, 200);
         bubble.setServices(services);
@@ -112,8 +97,6 @@ public class TestHTZBossChildObjects {
         when(renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_BOSS)).thenReturn(renderer);
         when(renderer.isReady()).thenReturn(true);
 
-        levelManagerField.set(null, mockLevelManager);
-
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         parent.setServices(services);
@@ -135,8 +118,6 @@ public class TestHTZBossChildObjects {
         when(renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_BOSS)).thenReturn(renderer);
         when(renderer.isReady()).thenReturn(true);
 
-        levelManagerField.set(null, mockLevelManager);
-
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         parent.setServices(services);
@@ -156,7 +137,6 @@ public class TestHTZBossChildObjects {
 
         ObjectManager objectManager = mock(ObjectManager.class);
         when(mockLevelManager.getObjectManager()).thenReturn(objectManager);
-        levelManagerField.set(null, mockLevelManager);
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
@@ -203,3 +183,5 @@ public class TestHTZBossChildObjects {
         return new TestObjectServices().withLevelManager(mockLevelManager);
     }
 }
+
+

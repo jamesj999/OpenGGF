@@ -137,7 +137,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         try {
             if (CrossGameFeatureProvider.isActive()) {
                 GameServices.audio().playDonorSfx(
-                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        GameServices.crossGameFeatures().getDonorGameId(),
                         Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
             } else {
                 GameServices.audio().playSfx(Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
@@ -162,7 +162,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         try {
             if (CrossGameFeatureProvider.isActive()) {
                 GameServices.audio().playDonorMusic(
-                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        GameServices.crossGameFeatures().getDonorGameId(),
                         Sonic2AudioConstants.MUS_SUPER_SONIC);
             } else {
                 GameServices.audio().playMusic(Sonic2AudioConstants.MUS_SUPER_SONIC);
@@ -317,7 +317,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         }
 
         // Mark palette dirty for GPU re-upload
-        GraphicsManager gfx = GraphicsManager.getInstance();
+        GraphicsManager gfx = GameServices.graphics();
         if (gfx.isGlInitialized()) {
             gfx.cachePaletteTexture(palette, target.gpuLine());
         }

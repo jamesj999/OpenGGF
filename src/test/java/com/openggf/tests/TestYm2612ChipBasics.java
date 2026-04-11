@@ -1,10 +1,10 @@
 package com.openggf.tests;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Basic sanity tests for the YM2612 core to guard against regressions while full accuracy work continues.
@@ -27,7 +27,7 @@ public class TestYm2612ChipBasics {
                 break;
             }
         }
-        assertTrue("Expected rendered FM samples to be non-zero", hasSignal);
+        assertTrue(hasSignal, "Expected rendered FM samples to be non-zero");
     }
 
     @Test
@@ -43,7 +43,7 @@ public class TestYm2612ChipBasics {
         chip.renderStereo(left, right);
 
         int status = chip.readStatus();
-        assertNotEquals("Timer A flag should be raised after overflow", 0, status & 0x01);
+        assertNotEquals(0, status & 0x01, "Timer A flag should be raised after overflow");
     }
 
     @Test
@@ -72,8 +72,8 @@ public class TestYm2612ChipBasics {
                 break;
             }
         }
-        assertTrue("DAC should produce left output", leftHas);
-        assertTrue("DAC should produce right output", rightHas);
+        assertTrue(leftHas, "DAC should produce left output");
+        assertTrue(rightHas, "DAC should produce right output");
     }
 
     /**
@@ -141,3 +141,5 @@ public class TestYm2612ChipBasics {
         chip.write(0, 0x28, 0xF0);
     }
 }
+
+

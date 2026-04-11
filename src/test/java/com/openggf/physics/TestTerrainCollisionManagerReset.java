@@ -25,3 +25,5 @@ class TestTerrainCollisionManagerReset {
         // Verifies method exists and runs cleanly without NPE
     }
 }
+
+

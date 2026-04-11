@@ -25,3 +25,5 @@ public class TestableTailsSprite extends Tails {
         this.yPixel = y;
     }
 }
+
+

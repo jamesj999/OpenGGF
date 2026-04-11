@@ -3,10 +3,9 @@ package com.openggf.level;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.GameId;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
@@ -59,9 +58,6 @@ public class WaterSystem {
     // ROM zone IDs - Sonic 1 (from Constants.asm: id_LZ = 1, id_SBZ = 5)
     private static final int S1_ZONE_ID_LZ  = Sonic1Constants.ZONE_LZ;  // 0x01 - Labyrinth Zone
     private static final int S1_ZONE_ID_SBZ = Sonic1Constants.ZONE_SBZ; // 0x05 - Scrap Brain Zone
-
-    // Singleton instance
-    private static WaterSystem bootstrapInstance;
 
     // Water configuration data
     private final Map<String, WaterConfig> waterConfigs = new HashMap<>();
@@ -186,17 +182,6 @@ public class WaterSystem {
     }
 
     public WaterSystem() {
-    }
-
-    public static synchronized WaterSystem getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getWaterSystem();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new WaterSystem();
-        }
-        return bootstrapInstance;
     }
 
     /**
@@ -640,7 +625,7 @@ public class WaterSystem {
         if (baseLevel == 0) {
             return 0; // No water
         }
-        GameId gameId = GameModuleRegistry.getCurrent().getGameId();
+        GameId gameId = GameServices.module().getGameId();
         // S2 CPZ: water oscillation using oscillator 0
         if (gameId == GameId.S2 && zoneId == ZONE_ID_CPZ) {
             // Apply oscillation offset from oscillator index 0 (limit=0x10, 0-16 range)

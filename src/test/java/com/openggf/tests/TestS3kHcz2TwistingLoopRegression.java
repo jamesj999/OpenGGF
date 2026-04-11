@@ -7,15 +7,13 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Headless regression for HCZ Act 2 twisting loop (object 0x69).
@@ -34,10 +32,6 @@ import static org.junit.Assert.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kHcz2TwistingLoopRegression {
-
-    @ClassRule
-    public static RequiresRomRule romRule = new RequiresRomRule();
-
     private static final int TOTAL_FRAMES = 200;
 
     private static Object oldSkipIntros, oldMainCharacter, oldSidekickCharacter;
@@ -46,7 +40,7 @@ public class TestS3kHcz2TwistingLoopRegression {
     private HeadlessTestFixture fixture;
     private Sonic sprite;
 
-    @BeforeClass
+    @BeforeAll
     public static void loadLevel() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
@@ -58,7 +52,7 @@ public class TestS3kHcz2TwistingLoopRegression {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, Sonic3kZoneIds.ZONE_HCZ, 1);
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanup() {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS,
@@ -70,7 +64,7 @@ public class TestS3kHcz2TwistingLoopRegression {
         if (sharedLevel != null) sharedLevel.dispose();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
@@ -133,19 +127,16 @@ public class TestS3kHcz2TwistingLoopRegression {
             }
         }
 
-        assertTrue("Expected the twisting loop to capture Sonic (objectControlled=true) "
-                        + "within " + TOTAL_FRAMES + " frames. " + describeState(),
-                captured);
+        assertTrue(captured, "Expected the twisting loop to capture Sonic (objectControlled=true) "
+                        + "within " + TOTAL_FRAMES + " frames. " + describeState());
 
-        assertTrue("Expected the loop to sustain capture for at least 20 frames "
+        assertTrue(sustainedFrames >= 20, "Expected the loop to sustain capture for at least 20 frames "
                         + "(full traversal is ~56 frames). Got " + sustainedFrames + " frames. "
-                        + "captureFrame=" + captureFrame + " " + describeState(),
-                sustainedFrames >= 20);
+                        + "captureFrame=" + captureFrame + " " + describeState());
 
-        assertTrue("Expected the loop to guide Sonic to the top exit (Y < 400). "
+        assertTrue(exitedAtTop, "Expected the loop to guide Sonic to the top exit (Y < 400). "
                         + "sustainedFrames=" + sustainedFrames
-                        + " captureFrame=" + captureFrame + " " + describeState(),
-                exitedAtTop);
+                        + " captureFrame=" + captureFrame + " " + describeState());
     }
 
     private String describeState() {
@@ -159,3 +150,5 @@ public class TestS3kHcz2TwistingLoopRegression {
                 + " frame=" + fixture.frameCount();
     }
 }
+
+

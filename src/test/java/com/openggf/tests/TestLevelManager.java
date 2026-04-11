@@ -3,18 +3,18 @@ package com.openggf.tests;
 import com.openggf.game.GameServices;
 import com.openggf.level.*;
 import com.openggf.level.rings.RingSpawn;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
 
 import java.lang.reflect.Field;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLevelManager {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         TestEnvironment.resetAll();
     }
@@ -34,7 +34,7 @@ public class TestLevelManager {
         // LevelManager.getChunkDescAt calls getBlockAtPosition
         ChunkDesc chunkDesc = levelManager.getChunkDescAt((byte) 0, 0, 0);
 
-        assertNotNull("ChunkDesc should not be null for block index 128", chunkDesc);
+        assertNotNull(chunkDesc, "ChunkDesc should not be null for block index 128");
     }
 
     @Test
@@ -54,8 +54,7 @@ public class TestLevelManager {
 
         levelManager.processDirtyRegions();
 
-        assertTrue("Solid-tile dirty set should be consumed by the frame pipeline",
-                mutableLevel.consumeDirtySolidTiles().isEmpty());
+        assertTrue(mutableLevel.consumeDirtySolidTiles().isEmpty(), "Solid-tile dirty set should be consumed by the frame pipeline");
     }
 
     private static class MockLevel implements Level {
@@ -167,3 +166,5 @@ public class TestLevelManager {
         }
     }
 }
+
+

@@ -40,6 +40,10 @@ abstract class Sonic1ZoneEvents {
         return GameServices.gameState();
     }
 
+    protected <T> T gameService(Class<T> type) {
+        return GameServices.module().getGameService(type);
+    }
+
     /** Reset event state for a new level. */
     void init() {
         eventRoutine = 0;

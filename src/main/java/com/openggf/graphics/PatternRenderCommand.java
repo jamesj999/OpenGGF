@@ -1,12 +1,14 @@
 package com.openggf.graphics;
 
+import com.openggf.Engine;
 import org.lwjgl.system.MemoryUtil;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.level.PatternDesc;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
+import java.util.Objects;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
@@ -45,6 +47,7 @@ public class PatternRenderCommand implements GLCommandable {
     private boolean capturedGlobalHighPriority;
     private int x;
     private int y;
+    private GraphicsManager graphicsManager;
 
     // Static state tracking for batch optimization
     private static int lastAtlasTextureId = -1;
@@ -68,29 +71,20 @@ public class PatternRenderCommand implements GLCommandable {
     private static final int ATTRIB_TEXCOORD = 1;
     private static final int ATTRIB_PALETTE = 2;
 
-    // Screen height for Y coordinate transformation
-    private static final int SCREEN_HEIGHT = SonicConfigurationService.getInstance()
-            .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-
-    // Cached GraphicsManager reference to avoid synchronized getInstance() calls
-    private static GraphicsManager graphicsManager;
-
-    private static GraphicsManager getGraphicsManager() {
-        if (graphicsManager == null) {
-            graphicsManager = GraphicsManager.getInstance();
-        }
-        return graphicsManager;
-    }
-
     /**
      * Obtain a PatternRenderCommand from the pool or create a new one.
      */
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
+        return obtain(entry, paletteTextureId, desc, x, y, GameServices.graphics());
+    }
+
+    public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc,
+            int x, int y, GraphicsManager graphicsManager) {
         PatternRenderCommand cmd = pool.pollFirst();
         if (cmd == null) {
             cmd = new PatternRenderCommand();
         }
-        cmd.init(entry, paletteTextureId, desc, x, y);
+        cmd.init(entry, paletteTextureId, desc, x, y, graphicsManager);
         return cmd;
     }
 
@@ -103,10 +97,18 @@ public class PatternRenderCommand implements GLCommandable {
      */
     @Deprecated
     public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
-        init(entry, paletteTextureId, desc, x, y);
+        this(entry, paletteTextureId, desc, x, y, GameServices.graphics());
     }
 
-    private void init(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
+    @Deprecated
+    public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y,
+            GraphicsManager graphicsManager) {
+        init(entry, paletteTextureId, desc, x, y, graphicsManager);
+    }
+
+    private void init(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y,
+            GraphicsManager graphicsManager) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
         this.paletteTextureId = paletteTextureId;
         this.u0 = entry.u0();
         this.v0 = entry.v0();
@@ -117,12 +119,12 @@ public class PatternRenderCommand implements GLCommandable {
         this.hFlip = desc.getHFlip();
         this.vFlip = desc.getVFlip();
         this.piecePriority = desc.getPriority();
-        this.capturedGlobalHighPriority = getGraphicsManager().getCurrentSpriteHighPriority();
+        this.capturedGlobalHighPriority = graphicsManager.getCurrentSpriteHighPriority();
         this.x = x;
         // Genesis Y refers to the TOP of the pattern, so we subtract the pattern height
         // (8)
         // to get the OpenGL Y coordinate for the bottom of the quad
-        this.y = SCREEN_HEIGHT - y - 8;
+        this.y = resolveDisplayHeight(graphicsManager) - y - 8;
     }
 
     /**
@@ -157,7 +159,8 @@ public class PatternRenderCommand implements GLCommandable {
 
     @Override
     public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
-        ShaderProgram shaderProgram = getGraphicsManager().getShaderProgram();
+        GraphicsManager graphicsManager = this.graphicsManager;
+        ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
 
         // Initialize persistent state once per batch of patterns
         if (!stateInitialized) {
@@ -173,7 +176,7 @@ public class PatternRenderCommand implements GLCommandable {
             // Set projection matrix uniform - REQUIRED for correct rendering
             int projectionLoc = glGetUniformLocation(shaderProgram.getProgramId(), "ProjectionMatrix");
             if (projectionLoc != -1) {
-                float[] projMatrix = getGraphicsManager().getProjectionMatrixBuffer();
+                float[] projMatrix = graphicsManager.getProjectionMatrixBuffer();
                 if (projMatrix != null) {
                     glUniformMatrix4fv(projectionLoc, false, projMatrix);
                 }
@@ -193,7 +196,7 @@ public class PatternRenderCommand implements GLCommandable {
             // If using water shader, bind underwater palette to texture unit 2
             if (shaderProgram instanceof WaterShaderProgram) {
                 WaterShaderProgram waterShader = (WaterShaderProgram) shaderProgram;
-                Integer underwaterPaletteId = getGraphicsManager().getUnderwaterPaletteTextureId();
+                Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
                 if (underwaterPaletteId != null) {
                     glActiveTexture(GL_TEXTURE2);
                     glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
@@ -209,8 +212,7 @@ public class PatternRenderCommand implements GLCommandable {
         }
 
         if (shaderProgram instanceof SpritePriorityShaderProgram priorityShader) {
-            GraphicsManager gm = getGraphicsManager();
-            TilePriorityFBO fbo = gm.getTilePriorityFBO();
+            TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO();
             if (fbo != null && fbo.isInitialized()) {
                 glActiveTexture(GL_TEXTURE5);
                 glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
@@ -220,10 +222,10 @@ public class PatternRenderCommand implements GLCommandable {
 
             // Per-piece VDP priority: use ROM per-tile bit OR'd with global override
             priorityShader.setSpriteHighPriority(piecePriority || capturedGlobalHighPriority);
-            priorityShader.setScreenSize(gm.getViewportWidth(), gm.getViewportHeight());
-            priorityShader.setViewportOffset(gm.getViewportX(), gm.getViewportY());
+            priorityShader.setScreenSize(graphicsManager.getViewportWidth(), graphicsManager.getViewportHeight());
+            priorityShader.setViewportOffset(graphicsManager.getViewportX(), graphicsManager.getViewportY());
 
-            Integer underwaterPaletteId = gm.getUnderwaterPaletteTextureId();
+            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
             if (underwaterPaletteId != null) {
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
@@ -234,10 +236,10 @@ public class PatternRenderCommand implements GLCommandable {
                 glActiveTexture(GL_TEXTURE0);
             }
 
-            priorityShader.setWaterEnabled(gm.isWaterEnabled());
-            priorityShader.setWaterlineScreenY(gm.getWaterlineScreenY());
-            priorityShader.setWindowHeight(gm.getWindowHeight());
-            priorityShader.setScreenHeight(gm.getScreenHeight());
+            priorityShader.setWaterEnabled(graphicsManager.isWaterEnabled());
+            priorityShader.setWaterlineScreenY(graphicsManager.getWaterlineScreenY());
+            priorityShader.setWindowHeight(graphicsManager.getWindowHeight());
+            priorityShader.setScreenHeight(graphicsManager.getScreenHeight());
         }
 
         // Only bind palette texture if it changed
@@ -248,7 +250,7 @@ public class PatternRenderCommand implements GLCommandable {
         }
 
         // Only bind atlas texture if it changed
-        Integer atlasTextureId = getGraphicsManager().getPatternAtlasTextureId(atlasIndex);
+        Integer atlasTextureId = graphicsManager.getPatternAtlasTextureId(atlasIndex);
         if (atlasTextureId != null && atlasTextureId != lastAtlasTextureId) {
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, atlasTextureId);
@@ -334,20 +336,28 @@ public class PatternRenderCommand implements GLCommandable {
      * Clean up GL state after all patterns are rendered.
      * Call this after the last pattern command in a frame.
      */
-    public static void cleanupFrameState() {
+    public static void cleanupFrameState(GraphicsManager graphicsManager) {
         if (stateInitialized) {
             glDisableVertexAttribArray(ATTRIB_POSITION);
             glDisableVertexAttribArray(ATTRIB_TEXCOORD);
             glDisableVertexAttribArray(ATTRIB_PALETTE);
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
-            ShaderProgram shaderProgram = getGraphicsManager().getShaderProgram();
+            ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
             if (shaderProgram != null) {
                 shaderProgram.stop();
             }
             glDisable(GL_BLEND);
             stateInitialized = false;
         }
+    }
+
+    private static int resolveDisplayHeight(GraphicsManager graphicsManager) {
+        Engine engine = graphicsManager.getEngine();
+        if (engine != null && engine.isFBOProjectionActive()) {
+            return engine.getCurrentDisplayHeight();
+        }
+        return GameServices.configuration().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
     }
 
     /**

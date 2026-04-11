@@ -1,18 +1,33 @@
 package com.openggf.level;
 
-import org.junit.Test;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestLevelManagerSlotBackgroundCopy {
+    private GameRuntime runtime;
+
+    @BeforeEach
+    public void setUp() {
+        runtime = RuntimeManager.createGameplay();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void slotBackgroundRowCopyUpdatesBothEightPixelRowsOfSixteenPixelBlockRow() throws Exception {
-        TestLevelManager levelManager = new TestLevelManager();
+        TestLevelManager levelManager = new TestLevelManager(runtime);
         RecordingTilemapManager tilemapManager = new RecordingTilemapManager();
         setTilemapManager(levelManager, tilemapManager);
 
@@ -26,7 +41,7 @@ public class TestLevelManagerSlotBackgroundCopy {
 
     @Test
     public void slotBackgroundRowCopySnapsSourceXToSixteenPixelBlockBoundary() throws Exception {
-        TestLevelManager levelManager = new TestLevelManager();
+        TestLevelManager levelManager = new TestLevelManager(runtime);
         RecordingTilemapManager tilemapManager = new RecordingTilemapManager();
         setTilemapManager(levelManager, tilemapManager);
 
@@ -46,6 +61,12 @@ public class TestLevelManagerSlotBackgroundCopy {
     }
 
     private static final class TestLevelManager extends LevelManager {
+        private TestLevelManager(GameRuntime runtime) {
+            super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState(),
+                    runtime.getEngineServices());
+        }
+
         @Override
         public int getBackgroundTileDescriptorAtWorld(int worldX, int worldY) {
             return descriptorFor(worldX, worldY);
@@ -94,3 +115,5 @@ public class TestLevelManagerSlotBackgroundCopy {
         }
     }
 }
+
+

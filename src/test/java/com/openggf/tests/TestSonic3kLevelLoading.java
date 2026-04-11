@@ -1,8 +1,7 @@
 package com.openggf.tests;
 
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Game;
@@ -15,35 +14,30 @@ import com.openggf.level.Level;
 import com.openggf.level.LevelData;
 import com.openggf.level.Map;
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestSonic3kLevelLoading {
-
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private Game game;
     private Object oldSkipIntros;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
-        Rom rom = romRule.rom();
+        Rom rom = com.openggf.tests.TestEnvironment.currentRom();
         game = new Sonic3k(rom);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
     }
@@ -70,7 +64,7 @@ public class TestSonic3kLevelLoading {
     public void aiz1LoadsWithValidResourceReferences() throws Exception {
         Level level = game.loadLevel(LevelData.S3K_ANGEL_ISLAND_1.getLevelIndex());
         // ROM: AIZ1 LevelSizes entry 0 has maxY=$390; resize routine adjusts dynamically.
-        assertEquals("AIZ1 should use normal LevelSizes maxY", 0x390, level.getMaxY());
+        assertEquals(0x390, level.getMaxY(), "AIZ1 should use normal LevelSizes maxY");
         assertLevelResourceIntegrity(level, 0, 0);
     }
 
@@ -99,9 +93,8 @@ public class TestSonic3kLevelLoading {
             }
         }
 
-        assertTrue("Map should reference non-empty blocks", maxMapBlockIndex > 0);
-        assertTrue("Map references invalid block index " + maxMapBlockIndex,
-                maxMapBlockIndex < level.getBlockCount());
+        assertTrue(maxMapBlockIndex > 0, "Map should reference non-empty blocks");
+        assertTrue(maxMapBlockIndex < level.getBlockCount(), "Map references invalid block index " + maxMapBlockIndex);
 
         int maxBlockChunkIndex = 0;
         for (int blockIdx = 0; blockIdx < level.getBlockCount(); blockIdx++) {
@@ -115,8 +108,7 @@ public class TestSonic3kLevelLoading {
                 }
             }
         }
-        assertTrue("Blocks reference invalid chunk index " + maxBlockChunkIndex,
-                maxBlockChunkIndex < level.getChunkCount());
+        assertTrue(maxBlockChunkIndex < level.getChunkCount(), "Blocks reference invalid chunk index " + maxBlockChunkIndex);
 
         int[] start = null;
         if (game instanceof DynamicStartPositionProvider provider) {
@@ -137,8 +129,7 @@ public class TestSonic3kLevelLoading {
         int blockY = Math.max(0, Math.min(map.getHeight() - 1, worldY / blockPixelSize));
 
         int blockIndex = Byte.toUnsignedInt(map.getValue(0, blockX, blockY));
-        assertTrue("Spawn region references invalid block index " + blockIndex,
-                blockIndex < level.getBlockCount());
+        assertTrue(blockIndex < level.getBlockCount(), "Spawn region references invalid block index " + blockIndex);
 
         Block block = level.getBlock(blockIndex);
         int chunkSize = 16;
@@ -148,14 +139,14 @@ public class TestSonic3kLevelLoading {
         int chunkX = Math.min(chunksPerSide - 1, localX / chunkSize);
         int chunkY = Math.min(chunksPerSide - 1, localY / chunkSize);
         int chunkIndex = block.getChunkDesc(chunkX, chunkY).getChunkIndex();
-        assertTrue("Spawn region references invalid chunk index " + chunkIndex,
-                chunkIndex < level.getChunkCount());
+        assertTrue(chunkIndex < level.getChunkCount(), "Spawn region references invalid chunk index " + chunkIndex);
 
         Chunk chunk = level.getChunk(chunkIndex);
         int patternX = (localX % chunkSize) / 8;
         int patternY = (localY % chunkSize) / 8;
         int patternIndex = chunk.getPatternDesc(patternX, patternY).getPatternIndex();
-        assertTrue("Spawn region references invalid pattern index " + patternIndex,
-                patternIndex < level.getPatternCount());
+        assertTrue(patternIndex < level.getPatternCount(), "Spawn region references invalid pattern index " + patternIndex);
     }
 }
+
+

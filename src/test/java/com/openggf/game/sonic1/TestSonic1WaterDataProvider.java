@@ -1,12 +1,12 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.PlayerCharacter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link Sonic1WaterDataProvider}.
@@ -100,10 +100,8 @@ public class TestSonic1WaterDataProvider {
     @Test
     public void testNoDynamicHandler() {
         // S1 water is static; no dynamic handlers
-        assertNull("LZ should have no dynamic water handler",
-                provider.getDynamicHandler(ZONE_LZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertNull("SBZ3 should have no dynamic water handler",
-                provider.getDynamicHandler(ZONE_SBZ, 2, PlayerCharacter.SONIC_AND_TAILS));
+        assertNull(provider.getDynamicHandler(ZONE_LZ, 0, PlayerCharacter.SONIC_AND_TAILS), "LZ should have no dynamic water handler");
+        assertNull(provider.getDynamicHandler(ZONE_SBZ, 2, PlayerCharacter.SONIC_AND_TAILS), "SBZ3 should have no dynamic water handler");
     }
 
     // --- getWaterSpeed tests ---
@@ -114,3 +112,5 @@ public class TestSonic1WaterDataProvider {
         assertEquals(1, provider.getWaterSpeed(ZONE_LZ, 0));
     }
 }
+
+

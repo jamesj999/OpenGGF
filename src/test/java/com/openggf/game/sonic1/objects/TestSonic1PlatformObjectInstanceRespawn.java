@@ -1,9 +1,10 @@
 package com.openggf.game.sonic1.objects;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -15,14 +16,20 @@ import com.openggf.level.objects.ObjectSpawn;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1PlatformObjectInstanceRespawn {
 
     private static final class StubLevelManager extends LevelManager {
         private ObjectManager objectManager;
+
+        private StubLevelManager(GameRuntime runtime) {
+            super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState(),
+                    runtime.getEngineServices());
+        }
 
         @Override
         public int getCurrentZone() {
@@ -39,13 +46,13 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         }
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
     }
@@ -57,7 +64,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         camera.setMaxY((short) 0);
 
         ObjectSpawn spawn = new ObjectSpawn(100, 300, 0x18, 0x04, 0, false, 0);
-        StubLevelManager levelManager = new StubLevelManager();
+        StubLevelManager levelManager = new StubLevelManager(RuntimeManager.getCurrent());
 
         ObjectRegistry registry = new ObjectRegistry() {
             @Override
@@ -99,3 +106,5 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         assertEquals(1, manager.getActiveObjects().size());
     }
 }
+
+

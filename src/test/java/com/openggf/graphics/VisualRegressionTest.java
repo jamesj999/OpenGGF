@@ -1,9 +1,12 @@
 package com.openggf.graphics;
 
 import org.joml.Matrix4f;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 import com.openggf.Engine;
@@ -27,8 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -68,7 +71,7 @@ public class VisualRegressionTest {
     private static final Matrix4f projectionMatrix = new Matrix4f();
     private static final float[] matrixBuffer = new float[16];
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         try {
             // Save and disable debug view to avoid rendering debug markers (e.g., LayerSwitcher)
@@ -137,12 +140,12 @@ public class VisualRegressionTest {
             // Load ROM
             File romFile = ensureRomAvailable();
             if (romFile == null) {
-                System.err.println("Sonic 2 ROM not available — visual regression tests will be skipped");
+                System.err.println("Sonic 2 ROM not available Ã¢â‚¬â€ visual regression tests will be skipped");
                 initialized = false;
                 return;
             }
             rom = new Rom();
-            assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
+            assertTrue(rom.open(romFile.getAbsolutePath()), "Failed to open ROM");
 
             // Register game module
             GameModuleRegistry.detectAndSetModule(rom);
@@ -168,7 +171,7 @@ public class VisualRegressionTest {
         }
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         // Restore debug view setting
         SonicConfigurationService.getInstance()
@@ -187,59 +190,59 @@ public class VisualRegressionTest {
 
     @Test
     public void testEhzAct1Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(0, 0, 3568, 170, "ehz_a1_cp1.png");
     }
 
     @Test
     public void testEhzAct1Tunnel() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         // EHZ tunnel tests the priority rendering system (tunnel renders in front of Sonic)
         assertScreenshotMatchesReference(0, 0, 1806, 697, "ehz_a1_tunnel.png");
     }
 
     @Test
     public void testEhzAct2Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(0, 1, 4224, 200, "ehz_a2_cp1.png");
     }
 
     @Test
     public void testCpzAct1Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(1, 0, 4272, 1512, "cpz_a1_cp1.png");
     }
 
     @Test
     public void testCpzAct2Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(1, 1, 3136, 616, "cpz_a2_cp1.png");
     }
 
     @Test
     public void testCnzAct1Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(3, 0, 5944, 296, "cnz_a1_cp1.png");
     }
 
     @Test
     public void testHtzAct1Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         // HTZ uses overlay tileset system - important to verify
         assertScreenshotMatchesReference(4, 0, 4160, 204, "htz_a1_cp1.png");
     }
 
     @Test
     public void testMczAct1Checkpoint1() throws Exception {
-        assumeTrue("Test environment not initialized", initialized);
-        assumeTrue("Reference files not generated yet. Run VisualReferenceGenerator first.", referenceFilesExist);
+        assumeTrue(initialized, "Test environment not initialized");
+        assumeTrue(referenceFilesExist, "Reference files not generated yet. Run VisualReferenceGenerator first.");
         assertScreenshotMatchesReference(5, 0, 1400, 1128, "mcz_a1_cp1.png");
     }
 
@@ -250,11 +253,11 @@ public class VisualRegressionTest {
     private void assertScreenshotMatchesReference(int zone, int act, int playerX, int playerY, String filename)
             throws Exception {
 
-        assumeTrue("Reference file not found: " + filename, referenceFileExists(filename));
+        assumeTrue(referenceFileExists(filename), "Reference file not found: " + filename);
 
         // Load reference image
         BufferedImage reference = loadReferenceImage(filename);
-        assertNotNull("Reference image should load: " + filename, reference);
+        assertNotNull(reference, "Reference image should load: " + filename);
 
         // Render current output
         BufferedImage current = renderScreenshot(zone, act, playerX, playerY);
@@ -397,3 +400,5 @@ public class VisualRegressionTest {
         }
     }
 }
+
+

@@ -450,12 +450,10 @@ public class Sonic3kLevelSelectDataLoader {
     /**
      * Caches all loaded patterns and palettes to the GPU.
      */
-    public void cacheToGpu() {
+    public void cacheToGpu(GraphicsManager graphicsManager) {
         if (artCached || !dataLoaded || combinedPatterns == null) {
             return;
         }
-
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

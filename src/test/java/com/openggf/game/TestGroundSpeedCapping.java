@@ -2,31 +2,31 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests the per-game ground speed capping behavior.
  *
  * S1: Pressing direction of movement always clamps ground speed to max,
  * even if speed was above max from slopes/springs.
- * ROM: s1disasm/_incObj/01 Sonic.asm:555-558 — unconditional clamp.
+ * ROM: s1disasm/_incObj/01 Sonic.asm:555-558 â€” unconditional clamp.
  *
  * S2/S3K: Preserves ground speeds above max when pressing direction of movement.
- * ROM: s2.asm:36610-36616 — undo acceleration if speed was already >= max.
+ * ROM: s2.asm:36610-36616 â€” undo acceleration if speed was already >= max.
  */
 public class TestGroundSpeedCapping {
 
-    @Before
+    @BeforeEach
     public void setUp() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         GameModuleRegistry.reset();
     }
@@ -37,9 +37,8 @@ public class TestGroundSpeedCapping {
         TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertNotNull("Feature set should be set", fs);
-        assertTrue("S1 should always cap ground speed on input",
-                fs.inputAlwaysCapsGroundSpeed());
+        assertNotNull(fs, "Feature set should be set");
+        assertTrue(fs.inputAlwaysCapsGroundSpeed(), "S1 should always cap ground speed on input");
     }
 
     @Test
@@ -48,9 +47,8 @@ public class TestGroundSpeedCapping {
         TestableSprite sprite = new TestableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertNotNull("Feature set should be set", fs);
-        assertFalse("S2 should preserve high ground speed on input",
-                fs.inputAlwaysCapsGroundSpeed());
+        assertNotNull(fs, "Feature set should be set");
+        assertFalse(fs.inputAlwaysCapsGroundSpeed(), "S2 should preserve high ground speed on input");
     }
 
     @Test
@@ -61,21 +59,21 @@ public class TestGroundSpeedCapping {
         // Simulate Sonic at high speed (above max 0x600) from a spring
         short highSpeed = 0x800;
         short max = sprite.getMax();
-        assertTrue("Test setup: speed should be above max", highSpeed > max);
+        assertTrue(highSpeed > max, "Test setup: speed should be above max");
 
         // S1 behavior: pressing right when going right at high speed should clamp to max
         // This matches: add accel, then unconditional clamp
         // Result: min(highSpeed + accel, max) = max since highSpeed + accel > max
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertTrue("S1 feature flag", fs.inputAlwaysCapsGroundSpeed());
+        assertTrue(fs.inputAlwaysCapsGroundSpeed(), "S1 feature flag");
 
         // Verify the clamp would reduce the speed: highSpeed + accel still > max
         short accel = sprite.getRunAccel();
         short result = (short) (highSpeed + accel);
-        assertTrue("With acceleration, still above max", result > max);
+        assertTrue(result > max, "With acceleration, still above max");
         // After S1 clamping: result should be max
         if (result > max) result = max;
-        assertEquals("S1 should clamp to max", max, result);
+        assertEquals(max, result, "S1 should clamp to max");
     }
 
     @Test
@@ -86,14 +84,13 @@ public class TestGroundSpeedCapping {
         // Simulate Sonic at high speed (above max 0x600) from a spring
         short highSpeed = 0x800;
         short max = sprite.getMax();
-        assertTrue("Test setup: speed should be above max", highSpeed > max);
+        assertTrue(highSpeed > max, "Test setup: speed should be above max");
 
         // S2 behavior: pressing right when going right at high speed should preserve speed
         // because inputAlwaysCapsGroundSpeed is false (acceleration is skipped when >= max).
         // Full integration is tested via HeadlessTestRunner; here we verify the feature flag.
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertFalse("S2 should not cap ground speed on input (preserves high speed from springs/slopes)",
-                fs.inputAlwaysCapsGroundSpeed());
+        assertFalse(fs.inputAlwaysCapsGroundSpeed(), "S2 should not cap ground speed on input (preserves high speed from springs/slopes)");
     }
 
     private static class TestableSprite extends AbstractPlayableSprite {
@@ -132,3 +129,5 @@ public class TestGroundSpeedCapping {
         }
     }
 }
+
+
