@@ -14,7 +14,7 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 mvn package                          # Build (creates executable JAR with dependencies)
 mvn test                             # Run tests
 mvn test -Dtest=TestCollisionLogic   # Run a single test class
-java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar  # Run (requires ROM)
+java -jar target/OpenGGF-0.5.20260411-jar-with-dependencies.jar  # Run (requires ROM)
 ```
 
 Maven Silent Extension (MSE) is configured in this repo via `.mvn/extensions.xml`, and `.mvn/maven.config` enables `-Dmse=relaxed` by default for repo-local Maven commands. Use `-Dmse=off` when full Maven logs are needed.
