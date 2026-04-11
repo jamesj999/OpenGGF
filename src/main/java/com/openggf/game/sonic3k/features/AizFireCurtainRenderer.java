@@ -67,7 +67,7 @@ final class AizFireCurtainRenderer {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
+        GraphicsManager graphicsManager = GameServices.graphics();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
         for (ColumnRenderPlan column : plan.columns()) {

@@ -104,6 +104,10 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/game/sonic3k/titlescreen/";
     private static final String SONIC3K_TITLECARD_PACKAGE =
             "com/openggf/game/sonic3k/titlecard/";
+    private static final String SONIC3K_SPECIAL_STAGE_PACKAGE =
+            "com/openggf/game/sonic3k/specialstage/";
+    private static final String SONIC3K_FEATURE_PACKAGE =
+            "com/openggf/game/sonic3k/features/";
     private static final String SONIC1_LEVELSELECT_PACKAGE =
             "com/openggf/game/sonic1/levelselect/";
     private static final String SONIC1_TITLESCREEN_PACKAGE =
@@ -490,6 +494,46 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found RuntimeManager engine-services locator usage in Sonic 3K title packages:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic3kSpecialStagePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/')
+                        .startsWith(SONIC3K_SPECIAL_STAGE_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 3K special-stage package:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void sonic3kFeaturePackagesDoNotUseRuntimeManagerEngineServicesLocator() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> srcMain.relativize(path).toString().replace('\\', '/')
+                        .startsWith(SONIC3K_FEATURE_PACKAGE))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(ENGINE_SERVICES_LOCATOR)));
+
+        if (!violations.isEmpty()) {
+            fail("Found RuntimeManager engine-services locator usage in Sonic 3K feature package:\n  "
                     + String.join("\n  ", violations));
         }
     }
