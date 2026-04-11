@@ -1,11 +1,13 @@
 package com.openggf.editor;
 
+import com.openggf.debug.DebugColor;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandable;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.editor.render.EditorCommandStripRenderer;
 import com.openggf.editor.render.EditorLibraryPaneRenderer;
@@ -37,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestEditorRenderingSmoke {
@@ -236,6 +239,34 @@ class TestEditorRenderingSmoke {
         renderer.renderLines(List.of("Queued"), 8, 12);
 
         assertEquals(1, graphicsCommandQueueSize());
+    }
+
+    @Test
+    void textRenderer_executesQueuedBatchThroughPixelFontBackend() throws Exception {
+        GraphicsManager.getInstance().resetState();
+        float[] projectionMatrix = {
+                1f, 2f, 3f, 4f,
+                5f, 6f, 7f, 8f,
+                9f, 10f, 11f, 12f,
+                13f, 14f, 15f, 16f
+        };
+        TEST_GRAPHICS.setProjectionMatrixBuffer(projectionMatrix);
+        RecordingPixelFontTextRenderer pixelFontTextRenderer = new RecordingPixelFontTextRenderer();
+        InspectableTextRenderer renderer = new InspectableTextRenderer(pixelFontTextRenderer);
+
+        renderer.renderLines(List.of("Queued"), 8, 12);
+
+        assertEquals(1, graphicsCommandQueueSize());
+        queuedGraphicsCommand().execute(0, 0, 320, 224);
+
+        assertEquals(1, pixelFontTextRenderer.projectionCalls);
+        assertSame(projectionMatrix, pixelFontTextRenderer.lastProjection);
+        assertEquals(1, pixelFontTextRenderer.calls.size());
+        DrawCall call = pixelFontTextRenderer.calls.get(0);
+        assertEquals("Queued", call.text());
+        assertEquals(8, call.x());
+        assertEquals(12, call.y());
+        assertEquals(DebugColor.WHITE, call.color());
     }
 
     @Test
@@ -523,10 +554,33 @@ class TestEditorRenderingSmoke {
             super(TEST_GRAPHICS);
         }
 
+        private InspectableTextRenderer(PixelFontTextRenderer textRenderer) {
+            super(TEST_GRAPHICS, textRenderer);
+        }
+
         private List<TextCommand> buildCommands(List<String> lines, int x, int y) {
             return buildTextCommands(lines, x, y);
         }
     }
+
+    private static final class RecordingPixelFontTextRenderer extends PixelFontTextRenderer {
+        private int projectionCalls;
+        private float[] lastProjection;
+        private final List<DrawCall> calls = new ArrayList<>();
+
+        @Override
+        public void setProjectionMatrix(float[] projectionMatrix) {
+            projectionCalls++;
+            lastProjection = projectionMatrix;
+        }
+
+        @Override
+        public void drawShadowedText(String text, int x, int y, DebugColor color) {
+            calls.add(new DrawCall(text, x, y, color));
+        }
+    }
+
+    private record DrawCall(String text, int x, int y, DebugColor color) {}
 
     private static final class InspectableFocusedEditorPaneRenderer extends FocusedEditorPaneRenderer {
         private InspectableFocusedEditorPaneRenderer() {
@@ -638,6 +692,13 @@ class TestEditorRenderingSmoke {
         Field commands = GraphicsManager.class.getDeclaredField("commands");
         commands.setAccessible(true);
         return ((List<GLCommandable>) commands.get(GraphicsManager.getInstance())).size();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static GLCommandable queuedGraphicsCommand() throws Exception {
+        Field commands = GraphicsManager.class.getDeclaredField("commands");
+        commands.setAccessible(true);
+        return ((List<GLCommandable>) commands.get(GraphicsManager.getInstance())).get(0);
     }
 
     private static void assertTextCommandsInsideChrome(List<EditorTextRenderer.TextCommand> commands,
