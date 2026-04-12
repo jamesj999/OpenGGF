@@ -538,8 +538,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
         spawnChild(() -> new HczEndBossBlade(this, 0, 0x23, 0x12));
         spawnChild(() -> new HczEndBossBlade(this, 1, 0x1B, 0x0A));
         spawnChild(() -> new HczEndBossBlade(this, 2, 0x13, 0x0A));
-        // TODO Task 5: spawnChild(() -> new HczEndBossVisualChild(this, ...));
-        LOG.fine("HCZ End Boss: turbine + 3 blades spawned, visual child deferred to Task 5");
+        // Task 5: Water column is spawned lazily by HczEndBossTurbine when it enters ACTIVE
+        LOG.fine("HCZ End Boss: turbine + 3 blades spawned; water column spawned by turbine on activation");
     }
 
     // =========================================================================
@@ -725,6 +725,19 @@ public class HczEndBossInstance extends AbstractBossInstance {
     /** Whether the boss is defeated (children should clean up). */
     public boolean isDefeatSignal() {
         return defeatSignal;
+    }
+
+    /**
+     * Public wrapper around the protected {@code spawnChild} for use by child objects
+     * that need to spawn their own grandchildren (e.g., the turbine spawning the water column).
+     *
+     * @param factory supplier that constructs the child object
+     * @param <T>     the child type
+     * @return the constructed object, already added to the object manager
+     */
+    public <T extends com.openggf.level.objects.AbstractObjectInstance> T spawnDynamicChild(
+            java.util.function.Supplier<T> factory) {
+        return spawnChild(factory);
     }
 
     // =========================================================================
