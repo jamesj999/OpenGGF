@@ -142,6 +142,13 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     /** Prevents requesting the transition more than once. */
     private boolean transitionRequested;
 
+    /**
+     * ROM: Boss_flag — set by the boss object when the fight begins.
+     * Gates FG events during boss fights (prevents boundary changes
+     * from interfering with the arena lock).
+     */
+    private boolean bossFlag;
+
     // =========================================================================
     // Act 2 BG wall-chase state
     // =========================================================================
@@ -211,6 +218,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         bgRoutine = BG_STAGE_NORMAL;
         eventsFg5 = false;
         transitionRequested = false;
+        bossFlag = false;
         cutsceneActive = false;
         cutsceneFrame = 0;
 
@@ -825,6 +833,20 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
 
     public boolean isEventsFg5() {
         return eventsFg5;
+    }
+
+    /**
+     * ROM: Boss_flag — set by boss objects to gate FG events during fights.
+     * When true, FG dynamic resize events are suppressed so the boss arena
+     * camera lock is not interfered with.
+     */
+    public boolean isBossFlag() {
+        return bossFlag;
+    }
+
+    /** Sets Boss_flag. Called by boss objects on arena entry/exit. */
+    public void setBossFlag(boolean flag) {
+        this.bossFlag = flag;
     }
 
     @Override
