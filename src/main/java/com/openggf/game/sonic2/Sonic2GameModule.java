@@ -8,6 +8,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
+import com.openggf.game.sonic2.dataselect.S2SaveSnapshotProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.levelselect.LevelSelectManager;
 import com.openggf.game.sonic2.objects.BlueBallsObjectInstance;
@@ -307,6 +308,11 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic2EndingProvider();
+    }
+
+    @Override
+    public com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return new S2SaveSnapshotProvider();
     }
 
     @Override
