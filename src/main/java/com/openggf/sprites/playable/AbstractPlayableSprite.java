@@ -503,6 +503,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void setPowerUpSpawner(PowerUpSpawner spawner) {
                 this.powerUpSpawner = spawner;
+                ensurePersistentInstaShieldObject();
         }
 
         /**
@@ -2155,22 +2156,29 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (CrossGameFeatureProvider.isActive()) {
                         this.physicsFeatureSet = currentCrossGameFeatures().getHybridFeatureSet();
                 }
-                // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
-                // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
-                if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
-                        && getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
-                        if (instaShieldObject == null && powerUpSpawner != null) {
-                                try {
-                                        instaShieldObject = powerUpSpawner.createInstaShield(this);
-                                } catch (IllegalStateException e) {
-                                        // Services not yet available (e.g., prepareForLevel before ObjectManager).
-                                        // Deferred to tickStatus() where ObjectManager context is active.
-                                }
-                        }
-                        // Registration deferred to tickStatus() to avoid double-add
-                        // when resolvePhysicsProfile() and tickStatus() both run on the same frame
-                }
+                ensurePersistentInstaShieldObject();
                 bubbleAnimId = module != null ? module.resolveAnimationId(CanonicalAnimation.BUBBLE) : -1;
+        }
+
+        private void ensurePersistentInstaShieldObject() {
+                // ROM: SpawnLevelMainSprites_SpawnPlayers creates the persistent Sonic-only
+                // insta-shield object after player setup. In the engine, powerUpSpawner can
+                // arrive later than physics resolution, so re-check when either dependency changes.
+                if (instaShieldObject != null || powerUpSpawner == null || physicsFeatureSet == null) {
+                        return;
+                }
+                if (!physicsFeatureSet.instaShieldEnabled()
+                        || getSecondaryAbility() != SecondaryAbility.INSTA_SHIELD) {
+                        return;
+                }
+                try {
+                        instaShieldObject = powerUpSpawner.createInstaShield(this);
+                } catch (IllegalStateException e) {
+                        // Services not yet available (e.g., prepareForLevel before ObjectManager).
+                        // Deferred until the next level-load or spawner-injection pass.
+                }
+                // Registration remains deferred to tickStatus() to avoid double-add when
+                // resolvePhysicsProfile() and tickStatus() run on the same frame.
         }
 
         private void refreshRuntimeBoundStateIfNeeded() {

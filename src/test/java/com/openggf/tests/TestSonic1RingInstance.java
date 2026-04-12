@@ -135,7 +135,7 @@ public class TestSonic1RingInstance {
         assertEquals(0, ring.getCollisionFlags(), "SPARKLE state should return 0 collision flags");
     }
 
-    // â”€â”€ Helper methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Helper methods ─────────────────────────────────────────────────────
 
     private static void withContext(ObjectServices svc, Runnable action) {
         setConstructionContext(svc);

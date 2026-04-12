@@ -350,6 +350,18 @@ public class RingManager {
     public boolean isCollectedAndSparkleDone(int x, int y, int frameCounter) {
         RingSpawn probe = new RingSpawn(x, y);
         int index = placement.getSpawnIndex(probe);
+        return isCollectedAndSparkleDone(index, frameCounter);
+    }
+
+    public boolean isCollectedAndSparkleDone(RingSpawn ring, int frameCounter) {
+        if (ring == null) {
+            return false;
+        }
+        int index = placement.getSpawnIndex(ring);
+        return isCollectedAndSparkleDone(index, frameCounter);
+    }
+
+    private boolean isCollectedAndSparkleDone(int index, int frameCounter) {
         if (index < 0 || !placement.isCollected(index)) {
             return false;
         }

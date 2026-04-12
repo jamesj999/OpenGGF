@@ -18,6 +18,7 @@ import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -46,15 +47,15 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
     public PowerUpObject spawnShield(PlayableEntity player, ShieldType type) {
         ShieldObjectInstance shield;
         if (player instanceof AbstractPlayableSprite aps) {
-            shield = switch (type) {
+            shield = constructWithServices(() -> switch (type) {
                 case FIRE -> new FireShieldObjectInstance(aps);
                 case LIGHTNING -> new LightningShieldObjectInstance(aps);
                 case BUBBLE -> new BubbleShieldObjectInstance(aps);
                 default -> new ShieldObjectInstance(player);
-            };
+            });
         } else {
             // Non-elemental fallback when player is not AbstractPlayableSprite
-            shield = new ShieldObjectInstance(player);
+            shield = constructWithServices(() -> new ShieldObjectInstance(player));
         }
         objectManager.addDynamicObject(shield);
         return shield;
@@ -64,9 +65,9 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
     public PowerUpObject spawnInvincibilityStars(PlayableEntity player) {
         AbstractObjectInstance stars;
         if (services != null && services.gameModule() instanceof Sonic3kGameModule) {
-            stars = new Sonic3kInvincibilityStarsObjectInstance(player);
+            stars = constructWithServices(() -> new Sonic3kInvincibilityStarsObjectInstance(player));
         } else {
-            stars = new InvincibilityStarsObjectInstance(player);
+            stars = constructWithServices(() -> new InvincibilityStarsObjectInstance(player));
         }
         objectManager.addDynamicObject(stars);
         return (PowerUpObject) stars;
@@ -78,7 +79,7 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
             LOGGER.warning("createInstaShield called with non-AbstractPlayableSprite");
             return null;
         }
-        return new InstaShieldObjectInstance(aps);
+        return constructWithServices(() -> new InstaShieldObjectInstance(aps));
     }
 
     @Override
@@ -134,5 +135,17 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
         var s1Splash = new Sonic1SplashObjectInstance(
                 player.getCentreX(), waterY);
         objectManager.addDynamicObject(s1Splash);
+    }
+
+    private <T extends AbstractObjectInstance> T constructWithServices(Supplier<T> factory) {
+        if (services == null) {
+            return factory.get();
+        }
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(services);
+        try {
+            return factory.get();
+        } finally {
+            AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        }
     }
 }
