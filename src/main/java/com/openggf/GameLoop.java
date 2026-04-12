@@ -45,6 +45,10 @@ import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.data.RomManager;
+import com.openggf.game.save.RuntimeSaveContext;
+import com.openggf.game.save.SaveManager;
+import com.openggf.game.save.SaveReason;
+import com.openggf.game.session.SessionManager;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -98,6 +102,7 @@ public class GameLoop {
     private WaterSystem waterSystem;
     private final PerformanceProfiler profiler;
     private final PlaybackDebugManager playbackDebugManager;
+    private final SaveManager saveManager;
 
     // The gameplay runtime facade — set by Engine after RuntimeManager.createGameplay(...).
     // When non-null, cached fields above are sourced from the runtime's gameplay context.
@@ -185,6 +190,7 @@ public class GameLoop {
         this.debugOverlayManager = this.engineServices.debugOverlay();
         this.profiler = this.engineServices.profiler();
         this.playbackDebugManager = this.engineServices.playbackDebug();
+        this.saveManager = new SaveManager(java.nio.file.Path.of("saves"));
         refreshRuntimeBindings();
     }
 
@@ -2667,6 +2673,29 @@ public class GameLoop {
         fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Loaded zone " + zone + " act " + act);
+    }
+
+    /**
+     * Requests a save to the active session slot, if any.
+     * Safe to call when no session is active or when the session has no save slot.
+     *
+     * @param reason the reason triggering this save
+     */
+    private void requestSessionSave(SaveReason reason) {
+        var worldSession = SessionManager.getCurrentWorldSession();
+        if (worldSession == null || worldSession.getSaveSessionContext() == null) {
+            return;
+        }
+        try {
+            worldSession.getSaveSessionContext().requestSave(
+                    reason,
+                    new RuntimeSaveContext(GameServices.runtimeOrNull(),
+                            worldSession.getSaveSessionContext()),
+                    GameServices.module().getSaveSnapshotProvider(),
+                    saveManager);
+        } catch (IOException e) {
+            LOGGER.warning("Failed to write save: " + e.getMessage());
+        }
     }
 
     /**
