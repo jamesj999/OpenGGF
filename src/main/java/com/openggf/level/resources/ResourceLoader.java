@@ -68,7 +68,7 @@ public class ResourceLoader {
 
         for (LoadOp op : ops) {
             byte[] decompressed = decompress(op);
-            int destOffset = op.destOffsetBytes();
+            int destOffset = op.appendsToPrevious() ? usedLength : op.destOffsetBytes();
             int requiredSize = destOffset + decompressed.length;
 
             // Expand buffer if needed to accommodate this operation
@@ -82,7 +82,10 @@ public class ResourceLoader {
             // Track the maximum extent of data
             usedLength = Math.max(usedLength, requiredSize);
 
-            if (op.destOffsetBytes() > 0) {
+            if (op.appendsToPrevious()) {
+                LOG.fine(String.format("Applied append: ROM 0x%06X -> offset 0x%04X (%d bytes)",
+                        op.romAddr(), destOffset, decompressed.length));
+            } else if (op.destOffsetBytes() > 0) {
                 LOG.fine(String.format("Applied overlay: ROM 0x%06X -> offset 0x%04X (%d bytes)",
                         op.romAddr(), op.destOffsetBytes(), decompressed.length));
             } else {

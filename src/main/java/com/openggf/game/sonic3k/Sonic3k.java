@@ -20,7 +20,6 @@ import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.level.resources.LevelResourcePlan;
 import com.openggf.level.resources.LoadOp;
-import com.openggf.level.resources.ResourceLoader;
 import com.openggf.game.sonic3k.objects.AizIntroTerrainSwap;
 
 import java.util.LinkedHashSet;
@@ -252,21 +251,10 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
 
         // Build resource plan
         LevelResourcePlan.Builder planBuilder = LevelResourcePlan.builder();
-        ResourceLoader resourceLoader = new ResourceLoader(rom);
-
         // Patterns (KosM)
-        // Use decompressed lengths for KosM overlay offsets.
-        // Header-only size reads are not reliable across all module streams.
-        int primaryArtSize = resourceLoader.loadSingle(LoadOp.kosinskiMBase(primaryArtAddr)).length;
-        LOG.info(String.format("  Primary art KosinskiM decompressed size = 0x%04X (%d bytes, %d tiles)",
-                primaryArtSize, primaryArtSize, primaryArtSize / 32));
-
         planBuilder.addPatternOp(LoadOp.kosinskiMBase(primaryArtAddr));
         if (secondaryArtAddr != primaryArtAddr && secondaryArtAddr > 0) {
-            int secondaryArtSize = resourceLoader.loadSingle(LoadOp.kosinskiMBase(secondaryArtAddr)).length;
-            LOG.info(String.format("  Secondary art KosinskiM decompressed size = 0x%04X (%d bytes, %d tiles)",
-                    secondaryArtSize, secondaryArtSize, secondaryArtSize / 32));
-            planBuilder.addPatternOp(LoadOp.kosinskiMOverlay(secondaryArtAddr, primaryArtSize));
+            planBuilder.addPatternOp(LoadOp.kosinskiMAppend(secondaryArtAddr));
         }
         addLevelPlcPatternOps(planBuilder, zone, act, bootstrap, plcPrimary, plcSecondary);
 
@@ -275,11 +263,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         // second stream appends immediately after the first in Block_table.
         planBuilder.addChunkOp(LoadOp.kosinskiBase(primaryBlocksAddr));
         if (secondaryBlocksAddr != primaryBlocksAddr && secondaryBlocksAddr > 0) {
-            int primaryBlocksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryBlocksAddr)).length;
-            int secondaryBlocksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(secondaryBlocksAddr)).length;
-            LOG.info(String.format("  16x16 sizes: primary=0x%04X (%d bytes) secondary=0x%04X (%d bytes) append@0x%04X",
-                    primaryBlocksSize, primaryBlocksSize, secondaryBlocksSize, secondaryBlocksSize, primaryBlocksSize));
-            planBuilder.addChunkOp(LoadOp.kosinskiOverlay(secondaryBlocksAddr, primaryBlocksSize));
+            planBuilder.addChunkOp(LoadOp.kosinskiAppend(secondaryBlocksAddr));
         }
 
         // Chunks (128x128, Kosinski) - "blocks" in engine terminology.
@@ -287,11 +271,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         // the secondary stream appends after primary in RAM_start.
         planBuilder.addBlockOp(LoadOp.kosinskiBase(primaryChunksAddr));
         if (secondaryChunksAddr != primaryChunksAddr && secondaryChunksAddr > 0) {
-            int primaryChunksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(primaryChunksAddr)).length;
-            int secondaryChunksSize = resourceLoader.loadSingle(LoadOp.kosinskiBase(secondaryChunksAddr)).length;
-            LOG.info(String.format("  128x128 sizes: primary=0x%04X (%d bytes) secondary=0x%04X (%d bytes) append@0x%04X",
-                    primaryChunksSize, primaryChunksSize, secondaryChunksSize, secondaryChunksSize, primaryChunksSize));
-            planBuilder.addBlockOp(LoadOp.kosinskiOverlay(secondaryChunksAddr, primaryChunksSize));
+            planBuilder.addBlockOp(LoadOp.kosinskiAppend(secondaryChunksAddr));
         }
 
         // Collision indices (loaded directly, not through resource plan)
