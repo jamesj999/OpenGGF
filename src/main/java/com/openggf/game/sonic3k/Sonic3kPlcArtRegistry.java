@@ -659,6 +659,17 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
+        // Water Drop (Obj_WaterDrop, ID 0x6E): ArtTile_HCZ2Slide = $035C, palette 1
+        // ROM: make_art_tile(ArtTile_HCZ2Slide, 1, 0), Map_HCZWaterDrop (7 frames)
+        // Custom builder because frame 6 uses tile 0x0A4 (different VRAM source)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_DROP,
+                -1,
+                Sonic3kConstants.ARTTILE_HCZ2_SLIDE,
+                1,
+                "buildHczWaterDropSheet"
+        ));
+
         // HCZ Hand Launcher: ArtTile_HCZMisc + $1A, palette 1
         // ROM: make_art_tile(ArtTile_HCZMisc+$1A, 1, 0), Map_HCZHandLauncher (8 frames)
         levelArt.add(new LevelArtEntry(

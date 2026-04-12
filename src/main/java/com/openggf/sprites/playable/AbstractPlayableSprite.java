@@ -896,6 +896,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return animationId;
         }
 
+        @Override
+        public void forceAnimationRestart() {
+                PlayableSpriteAnimation anim = getAnimationManager();
+                if (anim != null) {
+                        anim.resetLastAnimationId();
+                }
+        }
+
         public void setAnimationId(int animationId) {
                 this.animationId = Math.max(0, animationId);
         }
