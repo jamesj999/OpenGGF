@@ -30,6 +30,7 @@ import com.openggf.game.ZoneRegistry;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.credits.Sonic1EndingProvider;
+import com.openggf.game.sonic1.dataselect.S1SaveSnapshotProvider;
 import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
@@ -257,6 +258,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic1EndingProvider();
+    }
+
+    @Override
+    public com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return new S1SaveSnapshotProvider();
     }
 
     @Override

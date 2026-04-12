@@ -260,6 +260,13 @@ public enum SonicConfiguration {
 	SIDEKICK_CHARACTER_CODE,
 
 	/**
+	 * Semicolon-separated list of extra player combinations for the data select screen.
+	 * Each combo is a comma-separated list: main character first, then sidekicks.
+	 * Example: "sonic,knuckles;knuckles,tails"
+	 */
+	DATA_SELECT_EXTRA_PLAYER_COMBOS,
+
+	/**
 	 * Filename for the Sonic 1 ROM.
 	 */
 	SONIC_1_ROM,
