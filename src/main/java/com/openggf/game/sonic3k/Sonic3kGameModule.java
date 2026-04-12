@@ -75,6 +75,7 @@ public class Sonic3kGameModule implements GameModule {
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private PhysicsProvider physicsProvider;
     private Sonic3kObjectArtProvider objectArtProvider;
+    private ObjectRegistry objectRegistry;
     private final Sonic3kBonusStageCoordinator bonusStageCoordinator = new Sonic3kBonusStageCoordinator();
 
     @Override
@@ -99,7 +100,10 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return new Sonic3kObjectRegistry();
+        if (objectRegistry == null) {
+            objectRegistry = new Sonic3kObjectRegistry();
+        }
+        return objectRegistry;
     }
 
     @Override

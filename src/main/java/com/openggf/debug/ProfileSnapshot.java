@@ -15,6 +15,8 @@ public class ProfileSnapshot {
 
     private static final Comparator<SectionStats> BY_TIME_DESC =
             (a, b) -> Double.compare(b.timeMs(), a.timeMs());
+    private static final Comparator<SectionStats> BY_NAME =
+            Comparator.comparing(SectionStats::name);
 
     private final Map<String, SectionStats> sections = new LinkedHashMap<>();
     private double totalFrameTimeMs;
@@ -25,7 +27,9 @@ public class ProfileSnapshot {
 
     // Cached sorted list — invalidated on populate()
     private final List<SectionStats> sortedByTimeCache = new ArrayList<>();
-    private boolean sortedCacheDirty = true;
+    private final List<SectionStats> sortedByNameCache = new ArrayList<>();
+    private boolean sortedByTimeDirty = true;
+    private boolean sortedByNameDirty = true;
 
     public ProfileSnapshot() {
         this.frameHistory = new float[120];
@@ -77,7 +81,8 @@ public class ProfileSnapshot {
             this.fps = 0;
         }
 
-        sortedCacheDirty = true;
+        sortedByTimeDirty = true;
+        sortedByNameDirty = true;
     }
 
     // Direct accessors — no defensive copies needed since this is consumed
@@ -112,13 +117,27 @@ public class ProfileSnapshot {
      * and reused across calls within the same frame.
      */
     public List<SectionStats> getSectionsSortedByTime() {
-        if (sortedCacheDirty) {
+        if (sortedByTimeDirty) {
             sortedByTimeCache.clear();
             sortedByTimeCache.addAll(sections.values());
             sortedByTimeCache.sort(BY_TIME_DESC);
-            sortedCacheDirty = false;
+            sortedByTimeDirty = false;
         }
         return sortedByTimeCache;
+    }
+
+    /**
+     * Returns sections sorted alphabetically by name. The returned list is cached
+     * and reused across calls within the same frame.
+     */
+    public List<SectionStats> getSectionsSortedByName() {
+        if (sortedByNameDirty) {
+            sortedByNameCache.clear();
+            sortedByNameCache.addAll(sections.values());
+            sortedByNameCache.sort(BY_NAME);
+            sortedByNameDirty = false;
+        }
+        return sortedByNameCache;
     }
 
     public boolean hasData() {

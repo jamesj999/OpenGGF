@@ -66,6 +66,7 @@ public class Sonic1GameModule implements GameModule {
     private final LevelInitProfile levelInitProfile =
             new Sonic1LevelInitProfile(levelEventManager, switchManager, conveyorState);
     private PhysicsProvider physicsProvider;
+    private ObjectRegistry objectRegistry;
 
     @Override
     public String getIdentifier() {
@@ -84,7 +85,10 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public ObjectRegistry createObjectRegistry() {
-        return new Sonic1ObjectRegistry();
+        if (objectRegistry == null) {
+            objectRegistry = new Sonic1ObjectRegistry();
+        }
+        return objectRegistry;
     }
 
     @Override

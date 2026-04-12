@@ -33,6 +33,7 @@ public class PixelFont {
     private int textureWidth;
     private int textureHeight;
     private TexturedQuadRenderer renderer;
+    private float[] batchedQuadVertices = new float[TexturedQuadRenderer.QUAD_FLOATS * 16];
 
     // Fast ASCII lookup (0-127)
     private final int[] charToCol = new int[128];
@@ -103,6 +104,8 @@ public class PixelFont {
         float glyphWidth = GLYPH_W * scale;
         float glyphHeight = GLYPH_H * scale;
         float cursorX = x;
+        float glY = 224f - y - glyphHeight;
+        int quadCount = 0;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == ' ') {
@@ -130,20 +133,23 @@ public class PixelFont {
                 float u0 = (float) srcX / textureWidth;
                 float u1 = (float)(srcX + GLYPH_W) / textureWidth;
 
-                // Convert top-left game coords to OpenGL bottom-left coords
-                float glY = 224f - y - glyphHeight;
-
                 // Texture is Y-flipped by PngTextureLoader: source top = v=1, bottom = v=0
                 float texTop = 1.0f - (float) srcY / textureHeight;
                 float texBottom = 1.0f - (float)(srcY + GLYPH_H) / textureHeight;
-
-                renderer.drawTextureRegion(textureId,
-                    cursorX, glY, glyphWidth, glyphHeight,
-                    u0, texBottom, u1, texTop,
-                    r, g, b, a);
+                ensureBatchCapacity(quadCount + 1);
+                TexturedQuadRenderer.writeQuadVerticesAtOffset(
+                        batchedQuadVertices,
+                        quadCount * TexturedQuadRenderer.QUAD_FLOATS,
+                        cursorX, glY, glyphWidth, glyphHeight,
+                        u0, texBottom, u1, texTop);
+                quadCount++;
             }
 
             cursorX += glyphWidth;
+        }
+
+        if (quadCount > 0) {
+            renderer.drawTextureBatch(textureId, batchedQuadVertices, quadCount, r, g, b, a);
         }
     }
 
@@ -170,5 +176,13 @@ public class PixelFont {
 
     public void cleanup() {
         PngTextureLoader.deleteTexture(textureId);
+    }
+
+    private void ensureBatchCapacity(int quadCount) {
+        int requiredFloats = quadCount * TexturedQuadRenderer.QUAD_FLOATS;
+        if (requiredFloats <= batchedQuadVertices.length) {
+            return;
+        }
+        batchedQuadVertices = new float[Math.max(requiredFloats, batchedQuadVertices.length * 2)];
     }
 }

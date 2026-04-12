@@ -17,7 +17,7 @@ import static org.lwjgl.opengl.GL30.*;
  */
 public class TexturedQuadRenderer {
 
-    private static final int QUAD_FLOATS = 6 * 4;
+    static final int QUAD_FLOATS = 6 * 4;
 
     private static final String VERT_PATH = "shaders/shader_rgba_texture.vert";
     private static final String FRAG_PATH = "shaders/shader_rgba_texture.frag";
@@ -29,6 +29,7 @@ public class TexturedQuadRenderer {
     private int textureLocation;
     private int tintLocation;
     private FloatBuffer quadVertexBuffer;
+    private int allocatedFloatCapacity;
 
     public void init() throws IOException {
         shader = new ShaderProgram(VERT_PATH, FRAG_PATH);
@@ -45,6 +46,7 @@ public class TexturedQuadRenderer {
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         // Allocate space for 6 vertices * 4 floats each
         glBufferData(GL_ARRAY_BUFFER, 6 * 4 * Float.BYTES, GL_DYNAMIC_DRAW);
+        allocatedFloatCapacity = QUAD_FLOATS;
 
         // Position: location 0, 2 floats
         glEnableVertexAttribArray(0);
@@ -115,6 +117,41 @@ public class TexturedQuadRenderer {
         shader.stop();
     }
 
+    /**
+     * Draws multiple quads that share the same texture and tint in a single submission.
+     * The provided array must contain {@code quadCount * 24} floats of packed vertex data.
+     */
+    public void drawTextureBatch(int textureId, float[] vertexData, int quadCount,
+                                 float r, float g, float b, float a) {
+        if (quadCount <= 0) {
+            return;
+        }
+
+        int floatCount = quadCount * QUAD_FLOATS;
+        ensureVertexCapacity(floatCount);
+
+        shader.use();
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        glUniform1i(textureLocation, 0);
+        glUniform4f(tintLocation, r, g, b, a);
+
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+        quadVertexBuffer.clear();
+        quadVertexBuffer.put(vertexData, 0, floatCount);
+        quadVertexBuffer.flip();
+        glBufferSubData(GL_ARRAY_BUFFER, 0, quadVertexBuffer);
+
+        glDrawArrays(GL_TRIANGLES, 0, quadCount * 6);
+
+        glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        shader.stop();
+    }
+
     public void cleanup() {
         if (shader != null) {
             shader.cleanup();
@@ -134,12 +171,11 @@ public class TexturedQuadRenderer {
     static void writeQuadVertices(FloatBuffer buffer,
                                   float x, float y, float w, float h,
                                   float u0, float v0, float u1, float v1) {
+        buffer.clear();
         float x0 = x;
         float y0 = y;
         float x1 = x + w;
         float y1 = y + h;
-
-        buffer.clear();
         buffer.put(x0).put(y1).put(u0).put(v1);
         buffer.put(x0).put(y0).put(u0).put(v0);
         buffer.put(x1).put(y0).put(u1).put(v0);
@@ -147,5 +183,42 @@ public class TexturedQuadRenderer {
         buffer.put(x1).put(y0).put(u1).put(v0);
         buffer.put(x1).put(y1).put(u1).put(v1);
         buffer.flip();
+    }
+
+    static void writeQuadVerticesAtOffset(float[] target, int floatOffset,
+                                          float x, float y, float w, float h,
+                                          float u0, float v0, float u1, float v1) {
+        float x0 = x;
+        float y0 = y;
+        float x1 = x + w;
+        float y1 = y + h;
+
+        int i = floatOffset;
+        target[i++] = x0; target[i++] = y1; target[i++] = u0; target[i++] = v1;
+        target[i++] = x0; target[i++] = y0; target[i++] = u0; target[i++] = v0;
+        target[i++] = x1; target[i++] = y0; target[i++] = u1; target[i++] = v0;
+        target[i++] = x0; target[i++] = y1; target[i++] = u0; target[i++] = v1;
+        target[i++] = x1; target[i++] = y0; target[i++] = u1; target[i++] = v0;
+        target[i] = x1; target[i + 1] = y1; target[i + 2] = u1; target[i + 3] = v1;
+    }
+
+    private void ensureVertexCapacity(int requiredFloats) {
+        if (quadVertexBuffer == null) {
+            quadVertexBuffer = MemoryUtil.memAllocFloat(requiredFloats);
+            allocatedFloatCapacity = requiredFloats;
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, (long) requiredFloats * Float.BYTES, GL_DYNAMIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            return;
+        }
+        if (requiredFloats <= allocatedFloatCapacity) {
+            return;
+        }
+        MemoryUtil.memFree(quadVertexBuffer);
+        quadVertexBuffer = MemoryUtil.memAllocFloat(requiredFloats);
+        allocatedFloatCapacity = requiredFloats;
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, (long) requiredFloats * Float.BYTES, GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
 }
