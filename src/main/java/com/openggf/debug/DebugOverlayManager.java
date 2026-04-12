@@ -21,6 +21,7 @@ public class DebugOverlayManager {
 
     /** Reusable list for shortcut lines to avoid per-frame allocations */
     private final List<String> shortcutLines = new ArrayList<>(16);
+    private boolean shortcutLinesDirty = true;
 
     /** Per-frame text entries from object debug rendering, set by LevelManager, read by DebugRenderer */
     private List<DebugRenderContext.DebugTextEntry> pendingObjectDebugText = List.of();
@@ -114,7 +115,10 @@ public class DebugOverlayManager {
     }
 
     public void setEnabled(DebugOverlayToggle toggle, boolean enabled) {
-        states.put(toggle, enabled);
+        Boolean previous = states.put(toggle, enabled);
+        if (previous == null || previous != enabled) {
+            shortcutLinesDirty = true;
+        }
     }
 
     public void setObjectDebugTextEntries(List<DebugRenderContext.DebugTextEntry> entries) {
@@ -139,13 +143,17 @@ public class DebugOverlayManager {
             states.put(toggle, toggle.defaultEnabled());
         }
         pendingObjectDebugText = List.of();
+        shortcutLinesDirty = true;
     }
 
     public List<String> buildShortcutLines() {
-        shortcutLines.clear();
-        for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
-            String state = isEnabled(toggle) ? "On" : "Off";
-            shortcutLines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
+        if (shortcutLinesDirty) {
+            shortcutLines.clear();
+            for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
+                String state = isEnabled(toggle) ? "On" : "Off";
+                shortcutLines.add(toggle.shortcutLabel() + " " + toggle.label() + ": " + state);
+            }
+            shortcutLinesDirty = false;
         }
         return shortcutLines;
     }

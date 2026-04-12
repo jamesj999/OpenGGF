@@ -2,6 +2,9 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectRegistry;
 
@@ -9,6 +12,16 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 public class TestGameModuleProviderLifetimes {
+
+    @BeforeAll
+    static void configureEngineServices() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
+
+    @AfterEach
+    void resetRuntime() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void sonic1ObjectArtProvider_NotCachedAcrossCalls() {
@@ -28,6 +41,26 @@ public class TestGameModuleProviderLifetimes {
         ObjectRegistry second = module.createObjectRegistry();
 
         assertSame(first, second, "Sonic 2 object registry should be reused within a module instance");
+    }
+
+    @Test
+    public void sonic1ObjectRegistry_CachedAcrossCalls() {
+        Sonic1GameModule module = new Sonic1GameModule();
+
+        ObjectRegistry first = module.createObjectRegistry();
+        ObjectRegistry second = module.createObjectRegistry();
+
+        assertSame(first, second, "Sonic 1 object registry should be reused within a module instance");
+    }
+
+    @Test
+    public void sonic3kObjectRegistry_CachedAcrossCalls() {
+        Sonic3kGameModule module = new Sonic3kGameModule();
+
+        ObjectRegistry first = module.createObjectRegistry();
+        ObjectRegistry second = module.createObjectRegistry();
+
+        assertSame(first, second, "Sonic 3K object registry should be reused within a module instance");
     }
 }
 
