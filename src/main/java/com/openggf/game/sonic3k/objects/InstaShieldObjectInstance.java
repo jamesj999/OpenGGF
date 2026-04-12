@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.CrossGameFeatureProvider; // type reference for gameService() lookup
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameModule;
@@ -63,7 +63,9 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance implements I
                 return;
             }
         }
-        CrossGameFeatureProvider donor = services().gameService(CrossGameFeatureProvider.class);
+        // Cross-game donation is exposed through ObjectServices directly, not the host module's
+        // gameService() registry. S2/S1 modules won't return CrossGameFeatureProvider here.
+        CrossGameFeatureProvider donor = services().crossGameFeatures();
         if (donor != null) {
             this.dplcRenderer = donor.getInstaShieldRenderer();
             SpriteArtSet artSet = donor.getInstaShieldArtSet();

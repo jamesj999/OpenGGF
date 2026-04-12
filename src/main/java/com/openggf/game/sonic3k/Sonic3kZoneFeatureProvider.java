@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
@@ -237,6 +238,12 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void renderAfterBackground(Camera camera, int frameCounter) {
+        if (GameServices.level() != null
+                && GameServices.level().getCurrentZone() == Sonic3kZoneIds.ZONE_SLOT_MACHINE
+                && GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator
+                && coordinator.activeSlotRuntime() != null) {
+            coordinator.activeSlotRuntime().ensureForegroundGlassPriority();
+        }
         aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
     }
 

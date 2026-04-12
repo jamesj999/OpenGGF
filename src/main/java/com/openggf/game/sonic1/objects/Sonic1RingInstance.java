@@ -90,7 +90,7 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
             case SPARKLE -> {
                 RingManager ringManager = services().ringManager();
                 if (ringManager == null || ringManager.isCollectedAndSparkleDone(
-                        ringSpawn.x(), ringSpawn.y(), frameCounter)) {
+                        ringSpawn, frameCounter)) {
                     setDestroyed(true);
                 }
             }
