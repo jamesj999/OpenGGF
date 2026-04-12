@@ -1213,7 +1213,8 @@ public class GameLoop {
                 camera.getX(), camera.getY(),
                 topSolidBit, lrbSolidBit,
                 camera.getMaxY(),
-                savedTimerFrames
+                savedTimerFrames,
+                captureCurrentWaterLevelForStageReturn()
         );
 
         // Fade out music
@@ -1504,6 +1505,7 @@ public class GameLoop {
         camera.setY((short) savedState.cameraY());
         camera.setMaxY((short) savedState.cameraMaxY());
         camera.updatePosition(true);
+        restoreSavedWaterLevelForStageReturn(savedState.meanWaterLevel());
 
         // Restore ring count + add bonus stage rewards
         if (levelManager.getLevelGamestate() != null) {
@@ -1548,6 +1550,31 @@ public class GameLoop {
         }
 
         LOGGER.info("Exiting bonus stage, entering zone title card for zone " + zone + " act " + act);
+    }
+
+    private int captureCurrentWaterLevelForStageReturn() {
+        if (waterSystem == null || levelManager == null) {
+            return 0;
+        }
+        int featureZone = levelManager.getFeatureZoneId();
+        int featureAct = levelManager.getFeatureActId();
+        if (!waterSystem.hasWater(featureZone, featureAct)) {
+            return 0;
+        }
+        return waterSystem.getWaterLevelY(featureZone, featureAct);
+    }
+
+    private void restoreSavedWaterLevelForStageReturn(int meanWaterLevel) {
+        if (meanWaterLevel <= 0 || waterSystem == null || levelManager == null) {
+            return;
+        }
+        int featureZone = levelManager.getFeatureZoneId();
+        int featureAct = levelManager.getFeatureActId();
+        if (!waterSystem.hasWater(featureZone, featureAct)) {
+            return;
+        }
+        waterSystem.setWaterLevelDirect(featureZone, featureAct, meanWaterLevel);
+        waterSystem.setWaterLevelTarget(featureZone, featureAct, meanWaterLevel);
     }
 
     static int encodeSavedShieldStatus(AbstractPlayableSprite playable) {
@@ -1808,7 +1835,8 @@ public class GameLoop {
             if (levelManager.hasBigRingReturn()) {
                 // S3K big ring path: restore all Saved2_* state
                 BigRingReturnState br = levelManager.getBigRingReturn();
-                br.restoreToPlayer(playable, camera, levelManager.getLevelGamestate());
+                br.restoreToPlayer(playable, camera, levelManager.getLevelGamestate(),
+                        waterSystem, levelManager.getFeatureZoneId(), levelManager.getFeatureActId());
                 // ROM: restore Dynamic_resize_routine AFTER initLevel() has reset it to 0.
                 // Without this, the resize state machine restarts from routine 0 and
                 // rapidly re-processes all boundary thresholds with the camera already
