@@ -72,6 +72,12 @@ class TestGlfwKeyNameResolver {
         assertTrue(GlfwKeyNameResolver.resolve(null).isEmpty());
     }
 
+    @Test
+    void resolve_unknown_returnsEmpty() {
+        // GLFW_KEY_UNKNOWN (-1) is filtered out to avoid collision with the "unbound" sentinel
+        assertTrue(GlfwKeyNameResolver.resolve("UNKNOWN").isEmpty());
+    }
+
     // --- nameOf() tests ---
 
     @Test
