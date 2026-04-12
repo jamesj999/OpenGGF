@@ -9,6 +9,9 @@ import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.BonusStageProvider;
+import com.openggf.game.MasterTitleScreen;
+import com.openggf.game.session.SessionManager;
+import com.openggf.graphics.FadeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -69,6 +72,44 @@ public class TestGameLoop {
     public void testStepWithoutInputHandlerThrows() {
         GameLoop loop = new GameLoop();
         assertThrows(IllegalStateException.class, loop::step);
+    }
+
+    @Test
+    public void testMasterTitleScreenStepDoesNotRequireGameplayRuntime() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+
+        InputHandler inputHandler = mock(InputHandler.class);
+        MasterTitleScreen masterTitleScreen = mock(MasterTitleScreen.class);
+        GameLoop loop = new GameLoop(inputHandler);
+        loop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
+        loop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
+
+        assertDoesNotThrow(loop::step);
+        verify(masterTitleScreen).update(inputHandler);
+        verify(inputHandler).update();
+    }
+
+    @Test
+    public void testMasterTitleScreenSelectionStartsBootstrapFadeWithoutGameplayRuntime() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+
+        InputHandler inputHandler = mock(InputHandler.class);
+        MasterTitleScreen masterTitleScreen = mock(MasterTitleScreen.class);
+        when(masterTitleScreen.isGameSelected()).thenReturn(true);
+        when(masterTitleScreen.getSelectedGameId()).thenReturn("s1");
+
+        FadeManager fadeManager = RuntimeManager.currentEngineServices().graphics().getFadeManager();
+        fadeManager.cancel();
+
+        GameLoop loop = new GameLoop(inputHandler);
+        loop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
+        loop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
+        loop.setMasterTitleExitHandler(gameId -> fail("Master title exit should wait for fade completion"));
+
+        assertDoesNotThrow(loop::step);
+        assertTrue(fadeManager.isActive(), "Bootstrap fade should start while no gameplay runtime exists");
     }
 
     // ==================== Game Mode Listener Tests ====================
