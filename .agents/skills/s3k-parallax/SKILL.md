@@ -21,13 +21,13 @@ If a zone analysis spec exists at `docs/s3k-zones/{zone}-analysis.md`, read it f
 
 This saves time on Phase 1 (finding the deform routine) but the disassembly remains the source of truth for implementation details.
 
-This spec is produced by the **s3k-zone-analysis** skill (`.claude/skills/s3k-zone-analysis/skill.md`).
+This spec is produced by the **s3k-zone-analysis** skill (`.agents/skills/s3k-zone-analysis/SKILL.md`).
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
-- **s3k-plc-system** (`.claude/skills/s3k-plc-system/skill.md`) for PLC-driven art loading during act transitions and boss arenas (PLCs can trigger mid-level background art changes).
-- **s3k-zone-analysis** (`.claude/skills/s3k-zone-analysis/skill.md`) for producing a zone analysis spec that pre-identifies deform routine locations and band counts.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
+- **s3k-plc-system** (`.agents/skills/s3k-plc-system/SKILL.md`) for PLC-driven art loading during act transitions and boss arenas (PLCs can trigger mid-level background art changes).
+- **s3k-zone-analysis** (`.agents/skills/s3k-zone-analysis/SKILL.md`) for producing a zone analysis spec that pre-identifies deform routine locations and band counts.
 
 ## Architecture Overview
 

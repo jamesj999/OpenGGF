@@ -13,7 +13,7 @@ $ARGUMENTS: Zone abbreviation (e.g., "AIZ", "HCZ", "CNZ", "LRZ1") + mode: `imple
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) -- disassembly navigation, label conventions, RomOffsetFinder commands, S&K vs S3 address selection.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) -- disassembly navigation, label conventions, RomOffsetFinder commands, S&K vs S3 address selection.
 - **s3k-zone-analysis** -- zone-level analysis spec generation (the palette cycling section of a zone analysis spec feeds directly into this skill).
 
 ## Architecture

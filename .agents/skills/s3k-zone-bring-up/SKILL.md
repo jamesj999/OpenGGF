@@ -25,12 +25,12 @@ CNZ --validate-only
 
 | Skill | Path | Purpose |
 |-------|------|---------|
-| **s3k-zone-analysis** | `.claude/skills/s3k-zone-analysis/skill.md` | Read the disassembly and produce a structured zone feature catalogue |
-| **s3k-zone-events** | `.claude/skills/s3k-zone-events/skill.md` | Implement camera locks, boss arenas, cutscenes, act transitions, palette mutations from Dynamic_Resize |
-| **s3k-parallax** | `.claude/skills/s3k-parallax/skill.md` | Implement per-line scroll handlers and deform routines |
-| **s3k-animated-tiles** | `.claude/skills/s3k-animated-tiles/skill.md` | Implement AniPLC script triggers, gating conditions, dynamic art overrides |
-| **s3k-palette-cycling** | `.claude/skills/s3k-palette-cycling/skill.md` | Implement AnPal handlers with counter/step/limit cycling and validation |
-| **s3k-zone-validate** | `.claude/skills/s3k-zone-validate/skill.md` | Visual comparison via stable-retro + image recognition for validation |
+| **s3k-zone-analysis** | `.agents/skills/s3k-zone-analysis/SKILL.md` | Read the disassembly and produce a structured zone feature catalogue |
+| **s3k-zone-events** | `.agents/skills/s3k-zone-events/SKILL.md` | Implement camera locks, boss arenas, cutscenes, act transitions, palette mutations from Dynamic_Resize |
+| **s3k-parallax** | `.agents/skills/s3k-parallax/SKILL.md` | Implement per-line scroll handlers and deform routines |
+| **s3k-animated-tiles** | `.agents/skills/s3k-animated-tiles/SKILL.md` | Implement AniPLC script triggers, gating conditions, dynamic art overrides |
+| **s3k-palette-cycling** | `.agents/skills/s3k-palette-cycling/SKILL.md` | Implement AnPal handlers with counter/step/limit cycling and validation |
+| **s3k-zone-validate** | `.agents/skills/s3k-zone-validate/SKILL.md` | Visual comparison via stable-retro + image recognition for validation |
 
 ## Zone Priority Order
 

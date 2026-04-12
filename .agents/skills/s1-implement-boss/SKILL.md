@@ -1,5 +1,5 @@
 ---
-title: Implement Sonic 1 Boss
+name: s1-implement-boss
 description: Guide for implementing Sonic 1 bosses with ROM-accurate behavior, arena setup, defeat flow, and disassembly cross-checks.
 ---
 
@@ -13,8 +13,8 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 
 ## Related Skills
 
-- **s1disasm-guide** (`.agents/skills/s1disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s1-implement-object** (`.agents/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
+- **s1disasm-guide** (`.agents/skills/s1disasm-guide/SKILL.md`) - Disassembly navigation, label conventions, RomOffsetFinder
+- **s1-implement-object** (`.agents/skills/s1-implement-object/SKILL.md`) - For non-boss Sonic 1 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Sonic 1 Boss List
 
@@ -52,7 +52,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 **Research checklist:**
 - [ ] Locate boss object file in `docs/s1disasm/_incObj/` (may have multiple parts)
@@ -325,8 +325,8 @@ Report any discrepancies with specific line references.
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s1disasm-guide/skill.md` |
-| **Object skill** | `.agents/skills/s1-implement-object/skill.md` |
+| **Disassembly guide** | `.agents/skills/s1disasm-guide/SKILL.md` |
+| **Object skill** | `.agents/skills/s1-implement-object/SKILL.md` |
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |

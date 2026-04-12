@@ -1,5 +1,5 @@
 ---
-title: Implement Sonic 1 Object/Badnik
+name: s1-implement-object
 description: Guide for implementing Sonic 1 objects and badniks with ROM-accurate art, behavior, subtypes, and disassembly validation.
 ---
 
@@ -26,7 +26,7 @@ When delegating agents to explore the disassembly, instruct them to use the **s1
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 Agents should:
 
@@ -154,7 +154,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 ```
 
 ##### Pattern 3: Boss
-**Use the dedicated `/s1-implement-boss` skill** (`.agents/skills/s1-implement-boss/skill.md`) for boss implementations.
+**Use the dedicated `/s1-implement-boss` skill** (`.agents/skills/s1-implement-boss/SKILL.md`) for boss implementations.
 
 **Detect a boss when:**
 - Object file is named `Boss - Zone Name.asm`
@@ -300,7 +300,7 @@ Ensure the implementation:
 
 Delegate to a review agent to cross-validate against the disassembly. **Include this instruction in the agent prompt:**
 
-> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/skill.md`) for reference on disassembly structure, label conventions, and object system patterns.
+> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, and object system patterns.
 
 ```
 Review the implementation of [ObjectName] (0xXX) against the Sonic 1 disassembly.
@@ -365,8 +365,8 @@ Once cross-validation is confirmed bug-free:
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s1disasm-guide/skill.md` |
-| **Boss skill** | `.agents/skills/s1-implement-boss/skill.md` |
+| **Disassembly guide** | `.agents/skills/s1disasm-guide/SKILL.md` |
+| **Boss skill** | `.agents/skills/s1-implement-boss/SKILL.md` |
 | Object IDs | `src/.../game/sonic1/constants/Sonic1ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic1/constants/Sonic1Constants.java` |
 | Registry | `src/.../game/sonic1/objects/Sonic1ObjectRegistry.java` |

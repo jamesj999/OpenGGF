@@ -13,9 +13,9 @@ $ARGUMENTS: Zone abbreviation (e.g., "HCZ", "MGZ", "CNZ1", "LBZ Act 2") and opti
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
 - **s3k-zone-analysis** for generating the analysis spec that feeds this skill Phase 1.
-- **s3k-plc-system** (`.claude/skills/s3k-plc-system/skill.md`) for PLC-driven art loading during act transitions and boss arenas. PLCs load Nemesis-compressed art; AniPLC loads uncompressed art. They target different VRAM regions but can overlap if not coordinated.
+- **s3k-plc-system** (`.agents/skills/s3k-plc-system/SKILL.md`) for PLC-driven art loading during act transitions and boss arenas. PLCs load Nemesis-compressed art; AniPLC loads uncompressed art. They target different VRAM regions but can overlap if not coordinated.
 
 ## Architecture
 

@@ -1,5 +1,5 @@
 ---
-title: Cross-Game Pattern Load Cue (PLC) System
+name: plc-system
 description: Reference for the shared Sonic 1, Sonic 2, and Sonic 3K PLC format and the engine's cross-game PlcParser usage.
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: s1disasm Navigation Guide
+name: s1disasm-guide
 description: Reference for navigating the Sonic 1 disassembly, locating assets and objects, and using RomOffsetFinder with S1 data.
 ---
 
