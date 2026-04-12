@@ -55,10 +55,12 @@ public class TestPixelFontTextRenderer {
         private int cleanupCalls;
         private int measureWidthValue = 77;
         private boolean failInit;
+        private String lastFontPath;
 
         @Override
         public void init(String fontPngPath, TexturedQuadRenderer renderer) throws IOException {
             initCalls++;
+            lastFontPath = fontPngPath;
             if (failInit) {
                 throw new IOException("boom");
             }
@@ -92,6 +94,10 @@ public class TestPixelFontTextRenderer {
             super(font);
         }
 
+        private RecordingPixelFontTextRenderer(PixelFont font, PixelFontVariant fontVariant) {
+            super(font, fontVariant);
+        }
+
         @Override
         protected void drawRawText(String text, int x, int y, DebugColor color) {
             calls.add(new DrawCall(text, x, y, color));
@@ -109,6 +115,11 @@ public class TestPixelFontTextRenderer {
 
         private TestablePixelFontTextRenderer(FakePixelFont font) {
             super(font);
+            this.font = font;
+        }
+
+        private TestablePixelFontTextRenderer(FakePixelFont font, PixelFontVariant fontVariant) {
+            super(font, fontVariant);
             this.font = font;
         }
 
@@ -162,6 +173,18 @@ public class TestPixelFontTextRenderer {
         assertEquals(List.of(
                 new DrawCall("Hello", 13, 35, DebugColor.BLACK, 0.5f),
                 new DrawCall("Hello", 12, 34, DebugColor.RED, 0.5f)
+        ), renderer.calls);
+    }
+
+    @Test
+    void drawShadowedText_noShadowVariant_emitsForegroundOnly() {
+        RecordingPixelFontTextRenderer renderer = new RecordingPixelFontTextRenderer(
+                new FakePixelFont(), PixelFontVariant.PIXEL_FONT_NO_SHADOW);
+
+        renderer.drawShadowedText("Hello", 12, 34, DebugColor.RED);
+
+        assertEquals(List.of(
+                new DrawCall("Hello", 12, 34, DebugColor.RED, 1.0f)
         ), renderer.calls);
     }
 
@@ -234,5 +257,26 @@ public class TestPixelFontTextRenderer {
 
         assertEquals("Failed to initialize pixel font renderer", exception.getMessage());
         assertEquals(1, renderer.renderer(0).cleanupCalls);
+    }
+
+    @Test
+    void defaultConstructor_usesDefaultPixelFontResource() {
+        FakePixelFont font = new FakePixelFont();
+        TestablePixelFontTextRenderer renderer = new TestablePixelFontTextRenderer(font);
+
+        renderer.drawSampleText();
+
+        assertEquals("pixel-font.png", font.lastFontPath);
+    }
+
+    @Test
+    void variantConstructor_usesSelectedPixelFontResource() {
+        FakePixelFont font = new FakePixelFont();
+        TestablePixelFontTextRenderer renderer =
+                new TestablePixelFontTextRenderer(font, PixelFontVariant.PIXEL_FONT_NO_SHADOW);
+
+        renderer.drawSampleText();
+
+        assertEquals("pixel-font-ns.png", font.lastFontPath);
     }
 }

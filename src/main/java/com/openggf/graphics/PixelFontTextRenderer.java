@@ -10,18 +10,26 @@ import java.util.Objects;
  */
 public class PixelFontTextRenderer {
 
-    private static final String FONT_PATH = "pixel-font.png";
-
     private final PixelFont font;
+    private final PixelFontVariant fontVariant;
     private TexturedQuadRenderer renderer;
     private float[] projectionMatrix;
 
     public PixelFontTextRenderer() {
-        this(new PixelFont());
+        this(new PixelFont(), PixelFontVariant.PIXEL_FONT);
+    }
+
+    public PixelFontTextRenderer(PixelFontVariant fontVariant) {
+        this(new PixelFont(), fontVariant);
     }
 
     protected PixelFontTextRenderer(PixelFont font) {
+        this(font, PixelFontVariant.PIXEL_FONT);
+    }
+
+    protected PixelFontTextRenderer(PixelFont font, PixelFontVariant fontVariant) {
         this.font = Objects.requireNonNull(font, "font");
+        this.fontVariant = Objects.requireNonNull(fontVariant, "fontVariant");
     }
 
     public int lineHeight() {
@@ -29,7 +37,7 @@ public class PixelFontTextRenderer {
     }
 
     public int lineHeight(float scale) {
-        return PixelFont.scaledGlyphHeight(scale) + shadowOffset(scale) + 1;
+        return PixelFont.scaledGlyphHeight(scale) + extraLinePadding(scale);
     }
 
     public int measureWidth(String text) {
@@ -52,8 +60,10 @@ public class PixelFontTextRenderer {
     }
 
     public void drawShadowedText(String text, int x, int y, DebugColor color, float scale) {
-        int shadowOffset = shadowOffset(scale);
-        drawRawText(text, x + shadowOffset, y + shadowOffset, DebugColor.BLACK, scale);
+        if (fontVariant.drawsShadow()) {
+            int shadowOffset = shadowOffset(scale);
+            drawRawText(text, x + shadowOffset, y + shadowOffset, DebugColor.BLACK, scale);
+        }
         drawRawText(text, x, y, color, scale);
     }
 
@@ -83,6 +93,10 @@ public class PixelFontTextRenderer {
         return Math.max(1, Math.round(scale));
     }
 
+    private int extraLinePadding(float scale) {
+        return fontVariant.drawsShadow() ? shadowOffset(scale) + 1 : 1;
+    }
+
     private void ensureInitialized() {
         if (renderer != null) {
             return;
@@ -90,7 +104,7 @@ public class PixelFontTextRenderer {
         try {
             renderer = createRenderer();
             renderer.init();
-            font.init(FONT_PATH, renderer);
+            font.init(fontVariant.resourcePath(), renderer);
             if (projectionMatrix != null) {
                 renderer.setProjectionMatrix(projectionMatrix);
             }

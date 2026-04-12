@@ -5,6 +5,7 @@
       { "pattern": "collisionindexes\\.txt" },
       { "pattern": "kosinski\\.txt" },
       { "pattern": "pixel-font\\.png" },
+      { "pattern": "pixel-font-ns\\.png" },
       { "pattern": "titlescreen/.*\\.png" },
       { "pattern": "shaders/.*\\.(glsl|vert|frag)" },
       { "pattern": "\\Qorg/lwjgl/\\E.*" }
