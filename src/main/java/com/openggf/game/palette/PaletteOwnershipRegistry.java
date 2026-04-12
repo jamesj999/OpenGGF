@@ -33,18 +33,17 @@ public final class PaletteOwnershipRegistry {
     public void resolveInto(Palette[] normal, Palette[] underwater,
                             GraphicsManager graphics, Palette normalLine0) {
         boolean[] normalDirty = new boolean[4];
-        boolean underwaterDirty = false;
 
-        writes.stream()
-                .sorted(Comparator.comparingInt(PaletteWrite::priority))
-                .forEach(write -> {
-                    applyWrite(surfaceArray(write.surface(), normal, underwater), write, normalDirty);
-                    applyOwners(write.surface(), write);
-                    if (write.mirrorToUnderwaterEnabled() && underwater != null) {
-                        applyWrite(underwater, write, null);
-                        applyOwners(PaletteSurface.UNDERWATER, write);
-                    }
-                });
+        List<PaletteWrite> sorted = new ArrayList<>(writes);
+        sorted.sort(Comparator.comparingInt(PaletteWrite::priority));
+        for (PaletteWrite write : sorted) {
+            applyWrite(surfaceArray(write.surface(), normal, underwater), write, normalDirty);
+            applyOwners(write.surface(), write);
+            if (write.mirrorToUnderwaterEnabled() && underwater != null) {
+                applyWrite(underwater, write, null);
+                applyOwners(PaletteSurface.UNDERWATER, write);
+            }
+        }
 
         if (graphics != null && graphics.isGlInitialized()) {
             for (int line = 0; line < normalDirty.length; line++) {
@@ -52,20 +51,21 @@ public final class PaletteOwnershipRegistry {
                     graphics.cachePaletteTexture(normal[line], line);
                 }
             }
-            if (underwater != null) {
-                for (int line = 0; line < 4; line++) {
-                    for (int color = 0; color < 16; color++) {
-                        if (!NO_OWNER.equals(owners[PaletteSurface.UNDERWATER.ordinal()][line][color])) {
-                            underwaterDirty = true;
-                            break;
-                        }
-                    }
-                }
-                if (underwaterDirty && normalLine0 != null) {
-                    graphics.cacheUnderwaterPaletteTexture(underwater, normalLine0);
+            if (underwater != null && hasUnderwaterOwner() && normalLine0 != null) {
+                graphics.cacheUnderwaterPaletteTexture(underwater, normalLine0);
+            }
+        }
+    }
+
+    private boolean hasUnderwaterOwner() {
+        for (int line = 0; line < 4; line++) {
+            for (int color = 0; color < 16; color++) {
+                if (!NO_OWNER.equals(owners[PaletteSurface.UNDERWATER.ordinal()][line][color])) {
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     private void applyWrite(Palette[] palettes, PaletteWrite write, boolean[] normalDirty) {
