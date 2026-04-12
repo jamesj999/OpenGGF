@@ -51,6 +51,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
     private static final Path HCZ_MINIBOSS_MAPPING_ASM = Path.of(
             "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Miniboss.asm");
+    private static final Path HCZ_END_BOSS_MAPPING_ASM = Path.of(
+            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - End Boss.asm");
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
@@ -147,6 +149,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         } else if (zoneIndex == 0x01) {
             loadSharedBossExplosionArt();
             loadHczMinibossArtFromPlc();
+            loadHczEndBossArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -1105,6 +1108,33 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     + decompressed.get(0).length + " tiles");
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ miniboss art from PLC: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads HCZ end boss art via PLC 0x6C, matching the ROM's Load_PLC call.
+     * PLC entries: 0=boss body, 1=Robotnik ship, 2=boss explosion, 3=egg capsule.
+     * Only loads entry 0 (boss body) here; explosion and egg capsule art loaded separately.
+     */
+    private void loadHczEndBossArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_HCZ_END_BOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+            if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
+                LOG.warning("HCZ end boss PLC produced no art");
+                return;
+            }
+            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_END_BOSS_MAPPING_ASM);
+            if (mappings.isEmpty()) {
+                LOG.warning("HCZ end boss asm mapping include produced no frames");
+                return;
+            }
+            registerSheet(Sonic3kObjectArtKeys.HCZ_END_BOSS,
+                    buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+        } catch (IOException e) {
+            LOG.warning("Failed to load HCZ end boss art: " + e.getMessage());
         }
     }
 

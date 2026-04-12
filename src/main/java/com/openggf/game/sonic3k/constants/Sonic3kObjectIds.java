@@ -78,6 +78,7 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_WATER_SPLASH = 0x6D;
     public static final int HCZ_WATER_DROP = 0x6E;
     public static final int HCZ_MINIBOSS = 0x99;
+    public static final int HCZ_END_BOSS = 0x9A;
 
     private Sonic3kObjectIds() {
     }

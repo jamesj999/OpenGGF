@@ -1246,6 +1246,14 @@ public class Sonic3kConstants {
     // ArtTile_HCZMiniboss - VRAM destination tile index from sonic3k.constants.asm.
     public static final int ART_TILE_HCZ_MINIBOSS = 0x0304;
 
+    // ===== HCZ End Boss (Obj_HCZEndBoss, Object 0x9A) =====
+    // PLC 0x6C loads boss body, Robotnik ship, boss explosion, and egg capsule art.
+    public static final int PLC_HCZ_END_BOSS = 0x6C;
+    // Pal_HCZEndBoss - end boss palette (palette line 1).
+    public static final int PAL_HCZ_END_BOSS_ADDR = 0x06BF0A;
+    // ArtTile_HCZEndBoss - VRAM destination tile index from sonic3k.constants.asm.
+    public static final int ARTTILE_HCZ_END_BOSS = 0x0320;
+
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)
     public static final int ART_KOSM_AIZ_END_BOSS_ADDR = 0x365260;
