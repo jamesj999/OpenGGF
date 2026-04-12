@@ -24,14 +24,47 @@ import java.util.logging.Logger;
  */
 public final class GlfwKeyNameResolver {
 
-    private static final Logger LOGGER = Logger.getLogger(GlfwKeyNameResolver.class.getName());
     private static final String GLFW_KEY_PREFIX = "GLFW_KEY_";
     private static final String KEY_PREFIX = "KEY_";
 
-    private static Map<String, Integer> nameToCode;
-    private static Map<Integer, String> codeToName;
-
     private GlfwKeyNameResolver() {
+    }
+
+    private static class Holder {
+        static final Map<String, Integer> NAME_TO_CODE;
+        static final Map<Integer, String> CODE_TO_NAME;
+
+        static {
+            Map<String, Integer> ntc = new HashMap<>();
+            Map<Integer, String> ctn = new HashMap<>();
+
+            try {
+                Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
+                for (Field field : glfwClass.getDeclaredFields()) {
+                    if (field.getType() == int.class
+                            && Modifier.isPublic(field.getModifiers())
+                            && Modifier.isStatic(field.getModifiers())
+                            && Modifier.isFinal(field.getModifiers())
+                            && field.getName().startsWith(GLFW_KEY_PREFIX)) {
+                        int code = field.getInt(null);
+                        if (code < 0) {
+                            continue; // Skip GLFW_KEY_UNKNOWN (-1)
+                        }
+                        String shortName = field.getName().substring(GLFW_KEY_PREFIX.length());
+                        ntc.put(shortName, code);
+                        // First constant wins for reverse lookup (avoids aliases)
+                        ctn.putIfAbsent(code, shortName);
+                    }
+                }
+            } catch (ReflectiveOperationException e) {
+                Logger.getLogger(GlfwKeyNameResolver.class.getName())
+                        .log(Level.WARNING, "Failed to build GLFW key name map via reflection; "
+                                + "all key name lookups will return empty", e);
+            }
+
+            NAME_TO_CODE = Map.copyOf(ntc);
+            CODE_TO_NAME = Map.copyOf(ctn);
+        }
     }
 
     /**
@@ -44,9 +77,8 @@ public final class GlfwKeyNameResolver {
         if (name == null || name.isEmpty()) {
             return OptionalInt.empty();
         }
-        ensureInitialised();
         String normalised = normalise(name);
-        Integer code = nameToCode.get(normalised);
+        Integer code = Holder.NAME_TO_CODE.get(normalised);
         return code != null ? OptionalInt.of(code) : OptionalInt.empty();
     }
 
@@ -56,8 +88,7 @@ public final class GlfwKeyNameResolver {
      * known GLFW_KEY_* constant.
      */
     public static String nameOf(int keyCode) {
-        ensureInitialised();
-        String name = codeToName.get(keyCode);
+        String name = Holder.CODE_TO_NAME.get(keyCode);
         return name != null ? name : Integer.toString(keyCode);
     }
 
@@ -70,32 +101,5 @@ public final class GlfwKeyNameResolver {
             return upper.substring(KEY_PREFIX.length());
         }
         return upper;
-    }
-
-    private static synchronized void ensureInitialised() {
-        if (nameToCode != null) {
-            return;
-        }
-        nameToCode = new HashMap<>();
-        codeToName = new HashMap<>();
-
-        try {
-            Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
-            for (Field field : glfwClass.getDeclaredFields()) {
-                if (field.getType() == int.class
-                        && Modifier.isPublic(field.getModifiers())
-                        && Modifier.isStatic(field.getModifiers())
-                        && Modifier.isFinal(field.getModifiers())
-                        && field.getName().startsWith(GLFW_KEY_PREFIX)) {
-                    String shortName = field.getName().substring(GLFW_KEY_PREFIX.length());
-                    int code = field.getInt(null);
-                    nameToCode.put(shortName, code);
-                    // First constant wins for reverse lookup (avoids aliases)
-                    codeToName.putIfAbsent(code, shortName);
-                }
-            }
-        } catch (ReflectiveOperationException e) {
-            LOGGER.log(Level.WARNING, "Failed to build GLFW key name map via reflection", e);
-        }
     }
 }
