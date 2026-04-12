@@ -326,19 +326,26 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position and ring count for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        // ROM line 52685-52701: saves position, rings, solid bits, camera, and
-        // Dynamic_resize_routine so the resize state machine resumes correctly.
+        // ROM line 52685-52701: saves position, rings, solid bits, camera,
+        // Dynamic_resize_routine, and Mean_water_level for the return.
         var camera = services().camera();
         int resizeRoutine = 0;
         var eventProvider = services().levelEventProvider();
         if (eventProvider instanceof Sonic3kLevelEventManager s3kEvents) {
             resizeRoutine = s3kEvents.getDynamicResizeRoutine();
         }
+        int meanWaterLevel = 0;
+        var waterSystem = services().waterSystem();
+        int featureZone = services().currentZone();
+        int featureAct = services().currentAct();
+        if (waterSystem != null && waterSystem.hasWater(featureZone, featureAct)) {
+            meanWaterLevel = waterSystem.getWaterLevelY(featureZone, featureAct);
+        }
         services().saveBigRingReturn(new BigRingReturnState(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY(), player.getRingCount(),
                 player.getTopSolidBit(), player.getLrbSolidBit(),
-                camera.getMaxY(), resizeRoutine));
+                camera.getMaxY(), resizeRoutine, meanWaterLevel));
 
         // Lock player: hidden + object controlled
         // ROM: move.b #$53,object_control(a2) — disables input
