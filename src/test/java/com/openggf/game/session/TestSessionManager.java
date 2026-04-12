@@ -4,6 +4,8 @@ import com.openggf.game.GameMode;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.save.SaveSessionContext;
+import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import org.junit.jupiter.api.AfterEach;
@@ -164,6 +166,15 @@ class TestSessionManager {
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         assertThrows(NullPointerException.class, () -> SessionManager.enterEditorMode(null));
+    }
+
+    @Test
+    void gameplaySession_preservesSaveSessionContext() {
+        GameModule module = new Sonic2GameModule();
+        SaveSessionContext ctx = SaveSessionContext.forSlot("s3k", 1,
+                new SelectedTeam("sonic", java.util.List.of("tails")), 0, 0);
+        GameplayModeContext gameplay = SessionManager.openGameplaySession(module, ctx);
+        assertEquals(1, gameplay.getWorldSession().getSaveSessionContext().activeSlot().orElseThrow());
     }
 }
 
