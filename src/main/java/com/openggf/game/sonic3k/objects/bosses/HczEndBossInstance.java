@@ -531,11 +531,15 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private void spawnChildren() {
         // Task 3: Propeller turbine at offset (0, 0x24)
         spawnChild(() -> new HczEndBossTurbine(this, TURBINE_OFFSET_X, TURBINE_OFFSET_Y));
-        // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 0, ...));
-        // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 1, ...));
-        // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 2, ...));
+        // Task 4: Blade children — ROM: ChildObjDat_6BD8A blade entries
+        // Index 0 (bottom, fires): xOffset=0x23, yOffset=0x12
+        // Index 1 (middle):        xOffset=0x1B, yOffset=0x0A
+        // Index 2 (top):           xOffset=0x13, yOffset=0x0A
+        spawnChild(() -> new HczEndBossBlade(this, 0, 0x23, 0x12));
+        spawnChild(() -> new HczEndBossBlade(this, 1, 0x1B, 0x0A));
+        spawnChild(() -> new HczEndBossBlade(this, 2, 0x13, 0x0A));
         // TODO Task 5: spawnChild(() -> new HczEndBossVisualChild(this, ...));
-        LOG.fine("HCZ End Boss: turbine spawned, blade/visual children deferred to Tasks 4-5");
+        LOG.fine("HCZ End Boss: turbine + 3 blades spawned, visual child deferred to Task 5");
     }
 
     // =========================================================================
@@ -702,6 +706,20 @@ public class HczEndBossInstance extends AbstractBossInstance {
 
     public void setBladeFireSignal(boolean signal) {
         this.bladeFireSignal = signal;
+    }
+
+    /** Called by blade child (index 0) after it has acknowledged the fire signal. */
+    public void clearBladeFireSignal() {
+        this.bladeFireSignal = false;
+    }
+
+    /**
+     * Whether the boss is currently facing right.
+     * ROM: xVel > 0 means moving right (and facing right).
+     * Returns false (facing left) when velocity is zero.
+     */
+    public boolean isFacingRight() {
+        return state.xVel > 0;
     }
 
     /** Whether the boss is defeated (children should clean up). */
