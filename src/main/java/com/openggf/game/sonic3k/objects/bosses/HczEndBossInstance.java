@@ -438,15 +438,15 @@ public class HczEndBossInstance extends AbstractBossInstance {
     /**
      * Called when camera lock is fully established.
      * Spawns children and begins descent into the arena.
-     * ROM: sets y_vel = 0x100 (descend) with wait timer for descent duration.
+     * ROM: sets y_vel = 0x80 (descend) with wait timer 0xEF (239 frames).
      */
     private void onCameraLockComplete() {
         LOG.info("HCZ End Boss: camera lock complete, spawning children");
         spawnChildren();
         // Begin descent into arena
         state.routine = ROUTINE_DESCEND;
-        state.yVel = 0x100;
-        setWait(0x7F, this::onDescentComplete);
+        state.yVel = 0x80;
+        setWait(0xEF, this::onDescentComplete);
     }
 
     // =========================================================================
@@ -483,6 +483,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
      * ROM: loc_6AF80 — After initial descent, transition to hover phase.
      * Sets routine to HOVER_WAIT, saves hover center Y, initializes swing
      * parameters, and starts a 0x3F-frame wait before pre-attack.
+     * ROM: 0x9F is the initial direction counter for the first attack pass,
+     * NOT a wait timer. Only a single 0x3F-frame wait is used here.
      */
     private void onDescentComplete() {
         state.routine = ROUTINE_HOVER_WAIT;
@@ -490,9 +492,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
         swingVelocity = SWING_AMPLITUDE;
         swingDown = false;
         state.yVel = 0;
-        setWait(0x9F, () -> {
-            setWait(0x3F, this::onPreAttackWaitComplete);
-        });
+        directionCounter = 0x9F; // initial direction counter (ROM: loc_6AF80)
+        setWait(0x3F, this::onPreAttackWaitComplete);
     }
 
     /**
@@ -540,13 +541,15 @@ public class HczEndBossInstance extends AbstractBossInstance {
      * ROM: loc_6B03A — Begin the attack patrol phase.
      * Clears propeller, sets horizontal velocity from savedPatrolVel,
      * initializes direction counter and attack pass counter.
+     * ROM: initial direction counter is 0x9F (loc_6AF80); 0x13F is only set
+     * after the first reversal in updateAttackPatrol().
      */
     private void beginAttackPhase() {
         state.routine = ROUTINE_ATTACK;
         propellerActive = false;
         state.xVel = savedPatrolVel;
         facingRight = (state.xVel > 0);
-        directionCounter = 0x13F;
+        directionCounter = 0x9F;
         attackPassCounter = 8;
         setWait(0xBF, this::onAttackPassComplete);
         // Re-init swing

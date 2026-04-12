@@ -40,7 +40,7 @@ import java.util.logging.Logger;
  *
  * <p>Animation: Map_HCZEndBoss frames 6–7, alternating every 4 game frames.
  *
- * <p>Collision when flying: collision_flags = 0x86 (harmful to player).
+ * <p>Collision when flying: collision_flags = 0 (visual only; blade does not hurt player).
  */
 public class HczEndBossBlade extends AbstractBossChild implements TouchResponseProvider {
     private static final Logger LOG = Logger.getLogger(HczEndBossBlade.class.getName());
@@ -59,10 +59,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     // =========================================================================
     // Collision
     // =========================================================================
-    /**
-     * ROM: collision_flags when flying — touch type $8 (hurts player), size 6.
-     */
-    private static final int FLY_COLLISION_FLAGS = 0x86;
+    // ROM: collision_flags = 0 (blade is visual only; no player collision)
 
     // =========================================================================
     // Animation — Map_HCZEndBoss frames 6 and 7
@@ -229,8 +226,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
      * Self-destructs when off-screen.
      */
     private void updateFly() {
-        // Advance fixed-point position
-        xFixed += (xVel << 8);
+        // Advance fixed-point position (16:8 format: xFixed += xVel, position = xFixed >> 8)
+        xFixed += xVel;
         currentX = xFixed >> 8;
         currentY = yFixed >> 8;  // y unchanged during pure flight
         updateDynamicSpawn();
@@ -257,7 +254,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private void updateFall() {
         xVel = 0;
         yVel += GRAVITY;
-        yFixed += (yVel << 8);
+        yFixed += yVel;
         currentY = yFixed >> 8;
         updateDynamicSpawn();
 
@@ -278,7 +275,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
      */
     private void updateUnderwaterFall() {
         yVel += GRAVITY;
-        yFixed += (yVel << 8);
+        yFixed += yVel;
         currentY = yFixed >> 8;
         updateDynamicSpawn();
 
@@ -318,7 +315,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     /**
      * Detaches the blade from the boss and fires it horizontally.
      * ROM: xVel = 0x100 if boss facing left, -0x100 if boss facing right.
-     * Collision becomes harmful (0x86).
+     * Blade is purely visual — collision_flags remains 0.
      */
     private void launchBlade() {
         // Snap fixed-point position to current world coordinates
@@ -330,7 +327,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         xVel = boss.isFacingRight() ? -FLY_XVEL : FLY_XVEL;
         yVel = 0;
 
-        collisionFlags = FLY_COLLISION_FLAGS;
+        // collision_flags stays 0 — blade is visual only (ROM: collision_flags = 0)
         routine = ROUTINE_FLY;
 
         LOG.fine(() -> "HCZ End Boss Blade[0]: launched xVel=" + xVel
