@@ -234,6 +234,11 @@ public class DoorObjectInstance extends AbstractObjectInstance
     }
 
     private void playDoorSound() {
+        // ROM: horizontal door variant (loc_31034) has no Play_SFX calls;
+        // only vertical doors (loc_30E8C) play sfx_FanLatch at endpoints.
+        if (horizontal) {
+            return;
+        }
         try {
             services().playSfx(Sonic3kSfx.FAN_LATCH.id);
         } catch (Exception e) {
