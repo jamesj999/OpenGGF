@@ -738,15 +738,27 @@ public class HczEndBossInstance extends AbstractBossInstance {
     }
 
     /**
-     * ROM: after capsule opened — transition to done state.
-     * The geyser cutscene will be spawned by Task 8.
+     * ROM: after capsule opened — spawn geyser cutscene and transition to done state.
+     *
+     * <p>ROM: loc_6B154 → capsule open check → spawn geyser cutscene object.
+     * Geyser X = Player_1 X position; geyser spawn Y = Camera_Y + $130.
      */
     private void onCapsuleOpened() {
         state.routine = ROUTINE_DONE;
         // Reset camera Y min to allow full vertical scrolling
         services().camera().setMinY((short) 0);
-        // Task 8: spawn geyser cutscene here
-        LOG.info("HCZ End Boss: capsule opened — geyser cutscene would spawn here");
+
+        // Resolve player X for geyser column (ROM: move.w Player_1+x_pos,d0)
+        var camera = services().camera();
+        AbstractPlayableSprite player =
+                (services().camera().getFocusedSprite() instanceof AbstractPlayableSprite aps) ? aps : null;
+        int geyserX   = (player != null) ? player.getCentreX() : state.x;
+        int geyserY   = camera.getY() + 0x130;
+
+        // Spawn geyser cutscene as a dynamic object (ROM: loc_6B7BC)
+        spawnChild(() -> new HczEndBossGeyserCutscene(geyserX, geyserY));
+        LOG.info("HCZ End Boss: capsule opened, geyser cutscene spawned at X="
+                + geyserX + " Y=" + geyserY);
         setDestroyed(true);
     }
 
