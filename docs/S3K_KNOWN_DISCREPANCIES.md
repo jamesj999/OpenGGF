@@ -8,6 +8,7 @@ This document tracks intentional deviations from the original Sonic 3 & Knuckles
 2. [Obj_Wait Timer Pattern](#obj_wait-timer-pattern)
 3. [Immediate Art Loading](#immediate-art-loading)
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
+5. [Save System](#save-system)
 
 ---
 
@@ -176,4 +177,37 @@ for (int frame = 0; frame < frameCount; frame++) {
 ### Verification
 
 Every Knuckles animation frame displays the correct patterns at the correct positions, matching the ROM's per-frame DPLC result.
+
+---
+
+## Save System
+
+**Location:** `com.openggf.game.save`, `com.openggf.game.dataselect`, `com.openggf.game.sonic3k.dataselect`
+**ROM Reference:** `sonic3k.asm` SRAM routines (`ReadSaveGame`, `WriteSaveGame`)
+
+### Original Implementation
+
+The ROM stores save data directly in battery-backed SRAM at fixed offsets. Each of the 8 slots occupies a contiguous region with zone/act, character, emerald, and clear flags packed into specific byte positions. Data integrity relies on a simple checksum.
+
+### Our Implementation
+
+OpenGGF uses JSON save slots plus a stored SHA-256 hash instead of the original SRAM layout. Key differences:
+
+- **Per-slot JSON files** stored at `saves/{game}/slotN.json` wrapped in a `SaveEnvelope` with version, game code, slot number, payload, and hash.
+- **SHA-256 integrity** rather than SRAM checksum. Hash mismatches log warnings during Data Select scan but do not block otherwise valid saves.
+- **Corrupt quarantine** — malformed or wrong-game save files are renamed to `.corrupt` and treated as empty slots.
+- **No-op unsaved sessions** — save requests route through `SaveSessionContext`; when no slot is active (e.g., "No Save" mode), they silently no-op.
+- **Snapshot providers** — game-specific payload capture is handled by `SaveSnapshotProvider` implementations (`S3kSaveSnapshotProvider`, `S2SaveSnapshotProvider`, `S1SaveSnapshotProvider`) rather than direct SRAM-style writes.
+- **Character teams** — `SelectedTeam` records hold the main character and sidekick list, supporting custom team combos via `DATA_SELECT_EXTRA_PLAYER_COMBOS` config.
+
+### Rationale
+
+1. **Platform independence** — JSON files work on any OS without SRAM hardware emulation.
+2. **Human-readable** — save files can be inspected and manually edited for debugging.
+3. **Extensible** — the envelope format supports versioning and per-game payload schemas.
+4. **Multi-game sharing** — the same `SaveManager` serves S1, S2, and S3K through game-specific profiles and providers.
+
+### Verification
+
+`TestSaveManager` verifies round-trip write/read, hash validation, corrupt quarantine, wrong-game detection, and no-op unsaved sessions. `TestS3kSaveSnapshotProvider` verifies payload capture includes team, zone, act, lives, and emerald count.
 
