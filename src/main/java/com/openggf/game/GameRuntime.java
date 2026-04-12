@@ -8,6 +8,8 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.level.rings.RingManager;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
@@ -47,6 +49,8 @@ public final class GameRuntime {
     private final SpriteManager spriteManager;
     private final LevelManager levelManager;
     private final GameRng rng;
+    private final ZoneRuntimeRegistry zoneRuntimeRegistry;
+    private final PaletteOwnershipRegistry paletteOwnershipRegistry;
 
     private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
@@ -62,7 +66,9 @@ public final class GameRuntime {
                 ParallaxManager parallaxManager,
                 TerrainCollisionManager terrainCollisionManager,
                 CollisionSystem collisionSystem, SpriteManager spriteManager,
-                LevelManager levelManager, GameRng rng) {
+                LevelManager levelManager, GameRng rng,
+                ZoneRuntimeRegistry zoneRuntimeRegistry,
+                PaletteOwnershipRegistry paletteOwnershipRegistry) {
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
         this.worldSession = worldSession;
         this.gameplayMode = gameplayMode;
@@ -77,6 +83,8 @@ public final class GameRuntime {
         this.spriteManager = spriteManager;
         this.levelManager = levelManager;
         this.rng = rng;
+        this.zoneRuntimeRegistry = Objects.requireNonNull(zoneRuntimeRegistry, "zoneRuntimeRegistry");
+        this.paletteOwnershipRegistry = Objects.requireNonNull(paletteOwnershipRegistry, "paletteOwnershipRegistry");
     }
 
     // ── Getters ──────────────────────────────────────────────────────────
@@ -95,6 +103,8 @@ public final class GameRuntime {
     public SpriteManager getSpriteManager() { return spriteManager; }
     public LevelManager getLevelManager() { return levelManager; }
     public GameRng getRng() { return rng; }
+    public ZoneRuntimeRegistry getZoneRuntimeRegistry() { return zoneRuntimeRegistry; }
+    public PaletteOwnershipRegistry getPaletteOwnershipRegistry() { return paletteOwnershipRegistry; }
 
     public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
 
@@ -124,6 +134,8 @@ public final class GameRuntime {
      * Called by {@link RuntimeManager#destroyCurrent()}.
      */
     public void destroy() {
+        paletteOwnershipRegistry.beginFrame();
+        zoneRuntimeRegistry.clear();
         levelManager.resetState();
         spriteManager.resetState();
         collisionSystem.resetState();

@@ -1,0 +1,67 @@
+#!/bin/bash
+# post-checkout hook: auto-link ROMs, config, and disassemblies in git worktrees
+#
+# When `git worktree add` creates a new worktree, gitignored files (ROMs,
+# config.json) and submodule directories (disassemblies) are missing. This hook
+# detects worktree context and creates symlinks back to the main
+# working tree so everything just works.
+#
+# Works on macOS (native bash) and Windows (Git Bash with Developer Mode).
+#
+# A tracked copy lives at .githooks/post-checkout
+
+# Only run on branch checkouts ($3=1), not file-level checkouts
+[ "$3" = "1" ] || exit 0
+
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)"
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"
+
+# Only run in worktrees — in the main repo, git-dir == git-common-dir
+[ "$GIT_DIR" != "$GIT_COMMON_DIR" ] || exit 0
+
+# Resolve paths: main working tree root and current worktree root
+MAIN_TREE="$(cd "$GIT_COMMON_DIR/.." && pwd)"
+WORK_TREE="$(git rev-parse --show-toplevel 2>/dev/null)"
+
+echo "[post-checkout] Worktree detected — linking shared resources from main tree"
+
+# Link a single file (idempotent, never clobbers)
+link_file() {
+    local src="$MAIN_TREE/$1"
+    local dst="$WORK_TREE/$1"
+    [ -e "$src" ] || return 0           # Source doesn't exist
+    [ -L "$dst" ] && return 0           # Already a symlink
+    [ -e "$dst" ] && return 0           # Real file exists — don't clobber
+    ln -s "$src" "$dst" && echo "  Linked: $1"
+}
+
+# Link a directory (idempotent, removes empty gitlink dirs before linking)
+link_dir() {
+    local src="$MAIN_TREE/$1"
+    local dst="$WORK_TREE/$1"
+    [ -d "$src" ] || return 0           # Source doesn't exist
+    [ -L "$dst" ] && return 0           # Already a symlink
+    # Git creates empty dirs for submodule gitlinks — safe to replace
+    if [ -d "$dst" ] && [ -z "$(ls -A "$dst" 2>/dev/null)" ]; then
+        rmdir "$dst" 2>/dev/null
+    fi
+    [ -e "$dst" ] && return 0           # Non-empty dir — don't clobber
+    mkdir -p "$(dirname "$dst")"
+    ln -s "$src" "$dst" && echo "  Linked: $1"
+}
+
+# --- ROMs (gitignored *.gen in project root) ---
+for rom in "$MAIN_TREE"/*.gen; do
+    [ -f "$rom" ] || continue
+    link_file "$(basename "$rom")"
+done
+
+# --- Config (gitignored) ---
+link_file "config.json"
+
+# --- Disassemblies (submodule gitlinks without .gitmodules) ---
+link_dir "docs/s1disasm"
+link_dir "docs/s2disasm"
+link_dir "docs/skdisasm"
+
+echo "[post-checkout] Done"
