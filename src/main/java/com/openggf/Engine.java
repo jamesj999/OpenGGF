@@ -1079,8 +1079,10 @@ public class Engine {
 
 	public void draw() {
 		if (getCurrentGameMode() == GameMode.MASTER_TITLE_SCREEN) {
-			camera.setX((short) 0);
-			camera.setY((short) 0);
+			if (camera != null) {
+				camera.setX((short) 0);
+				camera.setY((short) 0);
+			}
 			if (masterTitleScreen != null) {
 				masterTitleScreen.setProjectionMatrix(getProjectionMatrixBuffer());
 				masterTitleScreen.draw();

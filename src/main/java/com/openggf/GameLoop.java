@@ -759,6 +759,12 @@ public class GameLoop {
     private void syncPlaybackInputBridge() {
         playbackFrameConsumed = false;
         boolean shouldDrive = playbackDebugManager.isDriving(currentGameMode);
+        if (spriteManager == null) {
+            playbackDebugManager.clearLastAppliedState();
+            playbackForcedMaskApplied = false;
+            playbackInputSuppressed = false;
+            return;
+        }
         if (shouldDrive != playbackInputSuppressed) {
             spriteManager.setPlaybackInputSuppressed(shouldDrive);
             playbackInputSuppressed = shouldDrive;
@@ -783,6 +789,9 @@ public class GameLoop {
     }
 
     private AbstractPlayableSprite getMainPlayableSprite() {
+        if (spriteManager == null) {
+            return null;
+        }
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null || mainCode.isBlank()) {
             mainCode = "sonic";
@@ -2014,7 +2023,7 @@ public class GameLoop {
      * and transitions to the game-specific title screen.
      */
     private void exitMasterTitleScreen(MasterTitleScreen masterScreen) {
-        FadeManager fadeManager = this.fadeManager;
+        FadeManager fadeManager = resolveFadeManager();
         if (fadeManager.isActive()) {
             return;
         }
@@ -2045,9 +2054,17 @@ public class GameLoop {
             currentGameMode = GameMode.LEVEL;
         }
 
-        fadeManager.startFadeFromBlack(null);
+        resolveFadeManager().startFadeFromBlack(null);
 
         LOGGER.info("Exited master title screen, now in mode: " + currentGameMode);
+    }
+
+    private FadeManager resolveFadeManager() {
+        FadeManager manager = this.fadeManager;
+        if (manager != null) {
+            return manager;
+        }
+        return engineServices.graphics().getFadeManager();
     }
 
     // ==================== Title Screen Methods ====================
