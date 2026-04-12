@@ -9,6 +9,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.objects.Aiz2EndEggCapsuleInstance;
 import com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionChild;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionController;
@@ -607,7 +608,28 @@ public class HczEndBossInstance extends AbstractBossInstance {
     }
 
     // =========================================================================
-    // Stubbed defeat routines (full implementation in Task 7)
+    // Defeat & flee constants (ROM: loc_6B0B0–loc_6B154)
+    // =========================================================================
+    private static final int DEFEAT_WAIT = 0x3F;       // 63 frames of explosions
+    private static final int FADE_MUSIC_WAIT = 119;     // 0x77 frames before music resumes
+    private static final int FLEE_X_VEL = 0x200;
+    private static final int FLEE_Y_VEL = -0x200;
+    private static final int FLEE_GRAVITY = 0x18;
+
+    /** Egg capsule spawn positions — Sonic/Tails (ROM: loc_6B0E8). */
+    private static final int ST_CAPSULE_X = 0x4250;
+    private static final int ST_CAPSULE_Y = 0x7E0;
+    /** Egg capsule spawn positions — Knuckles. */
+    private static final int K_CAPSULE_X = 0x4760;
+    private static final int K_CAPSULE_Y = 0x360;
+
+    /** Camera expansion after flee complete (ROM: loc_6B0E8). */
+    private static final int POST_FLEE_CAMERA_EXPAND = 0x180;
+
+    private int fleeTimer;
+
+    // =========================================================================
+    // Defeat routines (ROM: BossDefeated → loc_6B154)
     // =========================================================================
 
     @Override
@@ -625,46 +647,107 @@ public class HczEndBossInstance extends AbstractBossInstance {
         defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
         services().fadeOutMusic();
         services().gameState().setCurrentBossId(0);
+        // Wait DEFEAT_WAIT frames for explosions, then begin flee
+        setWait(DEFEAT_WAIT, this::beginFleeSequence);
     }
 
-    /** Stub: explosion sequence during defeat. */
+    /**
+     * ROM: post-BossDefeated_StopTimer — tick explosion controller each frame,
+     * spawn visual explosion children, and tick the defeat wait timer.
+     */
     private void updateDefeated() {
-        if (defeatExplosionController == null) {
-            return;
-        }
-        defeatExplosionController.tick();
-        for (var pending : defeatExplosionController.drainPendingExplosions()) {
-            if (pending.playSfx()) {
-                services().playSfx(Sonic3kSfx.EXPLODE.id);
+        if (defeatExplosionController != null) {
+            defeatExplosionController.tick();
+            for (var pending : defeatExplosionController.drainPendingExplosions()) {
+                if (pending.playSfx()) {
+                    services().playSfx(Sonic3kSfx.EXPLODE.id);
+                }
+                spawnChild(() -> new S3kBossExplosionChild(pending.x(), pending.y()));
             }
-            spawnChild(() -> new S3kBossExplosionChild(pending.x(), pending.y()));
         }
-        if (!defeatExplosionController.isFinished()) {
-            return;
-        }
-        // Task 7: begin flee sequence
-        beginFleeSequence();
-    }
-
-    /** Stub: flee off-screen after defeat explosions. */
-    private void updateFlee() {
-        // Task 7: move boss upward and off-screen
-        state.applyVelocity();
         tickWait();
     }
 
-    /** Stub: wait for capsule to be opened. */
-    private void updateCapsuleWait() {
-        // Task 7: idle until capsule is broken
-        tickWait();
-    }
-
-    /** Stub: start flee sequence after explosions complete. */
+    /**
+     * ROM: loc_6B0B0 — Begin the flee sequence after defeat explosions.
+     * Boss flies up and to one side with a fade music wait timer.
+     */
     private void beginFleeSequence() {
         state.routine = ROUTINE_FLEE;
-        state.yVel = -0x800;
-        // Task 7: set timer, spawn signpost/capsule
-        LOG.fine("HCZ End Boss: flee sequence started (stub)");
+        // Flee away from the direction the boss is facing
+        state.xVel = facingRight ? -FLEE_X_VEL : FLEE_X_VEL;
+        state.yVel = FLEE_Y_VEL;
+        fleeTimer = FADE_MUSIC_WAIT;
+        LOG.fine("HCZ End Boss: flee sequence started");
+    }
+
+    /**
+     * ROM: loc_6B0CC — Each frame during flee: apply gravity, move, flicker,
+     * decrement timer. When timer expires, call onFleeComplete().
+     */
+    private void updateFlee() {
+        state.yVel += FLEE_GRAVITY;
+        state.applyVelocity();
+        fleeTimer--;
+        if (fleeTimer <= 0) {
+            onFleeComplete();
+        }
+    }
+
+    /**
+     * ROM: loc_6B0E8 — Flee complete. Hide boss, clear boss flag, expand camera,
+     * resume zone music, and spawn the egg capsule.
+     */
+    private void onFleeComplete() {
+        state.routine = ROUTINE_CAPSULE_WAIT;
+
+        // Clear boss flag
+        setBossFlag(false);
+
+        // Clear boss ID
+        services().gameState().setCurrentBossId(0);
+
+        // Expand camera rightward to allow player to proceed
+        var camera = services().camera();
+        camera.setMaxX((short) (targetLockXLeft + POST_FLEE_CAMERA_EXPAND));
+
+        // Resume zone music
+        services().playMusic(Sonic3kMusic.HCZ2.id);
+
+        // Spawn Egg Capsule at character-specific position
+        boolean isKnuckles = (getPlayerCharacter() == PlayerCharacter.KNUCKLES);
+        int capsuleX = isKnuckles ? K_CAPSULE_X : ST_CAPSULE_X;
+        int capsuleY = isKnuckles ? K_CAPSULE_Y : ST_CAPSULE_Y;
+        spawnChild(() -> new Aiz2EndEggCapsuleInstance(capsuleX, capsuleY));
+        LOG.fine("HCZ End Boss: flee complete, capsule spawned at (" + capsuleX + ", " + capsuleY + ")");
+    }
+
+    /**
+     * ROM: loc_6B154 — Wait for the capsule to be opened and the end-of-level
+     * sequence to begin. Lock camera from scrolling left each frame.
+     */
+    private void updateCapsuleWait() {
+        // Lock camera from scrolling left
+        var camera = services().camera();
+        camera.setMinX((short) camera.getX());
+
+        // Check if end-of-level has been signaled (capsule opened → results screen)
+        if (services().gameState().isEndOfLevelActive()) {
+            onCapsuleOpened();
+        }
+    }
+
+    /**
+     * ROM: after capsule opened — transition to done state.
+     * The geyser cutscene will be spawned by Task 8.
+     */
+    private void onCapsuleOpened() {
+        state.routine = ROUTINE_DONE;
+        // Reset camera Y min to allow full vertical scrolling
+        services().camera().setMinY((short) 0);
+        // Task 8: spawn geyser cutscene here
+        LOG.info("HCZ End Boss: capsule opened — geyser cutscene would spawn here");
+        setDestroyed(true);
     }
 
     // =========================================================================
@@ -912,6 +995,18 @@ public class HczEndBossInstance extends AbstractBossInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (state.routine < ROUTINE_DESCEND && !state.defeated) {
             return; // Not yet visible
+        }
+
+        // During flee: flicker — only render on odd frames
+        if (state.routine == ROUTINE_FLEE) {
+            if ((fleeTimer & 1) == 0) {
+                return;
+            }
+        }
+
+        // After flee complete: don't render at all (boss has left the arena)
+        if (state.routine >= ROUTINE_CAPSULE_WAIT) {
+            return;
         }
 
         // Body frame 0
