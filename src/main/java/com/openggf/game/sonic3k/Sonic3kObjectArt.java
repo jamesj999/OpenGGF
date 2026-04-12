@@ -806,6 +806,7 @@ public class Sonic3kObjectArt {
         if (entry.mappingAddr() <= 0) {
             List<SpriteMappingFrame> hardcoded = switch (entry.key()) {
                 case Sonic3kObjectArtKeys.HCZ_WATER_RUSH -> buildHczWaterRushMappings();
+                case Sonic3kObjectArtKeys.HCZ_WATER_SPLASH -> buildHczWaterSplashMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_HORZ -> buildHczGeyserHorzMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_VERT -> buildHczGeyserVertMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS -> buildHczGeyserDebrisMappings();
@@ -1251,6 +1252,35 @@ public class Sonic3kObjectArt {
         SpriteMappingFrame frame2 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-32, -32, 2, 4, 0x20, false, false, 0), new SpriteMappingPiece(-16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(-32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(0, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 2, 4, 0x30, false, false, 0)));
         SpriteMappingFrame frame3 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-32, -32, 2, 4, 0x20, false, false, 0), new SpriteMappingPiece(-16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(-64, 0, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-32, 0, 2, 4, 0x48, false, false, 0), new SpriteMappingPiece(-16, 0, 2, 4, 0x38, false, false, 0), new SpriteMappingPiece(0, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 2, 4, 0x30, false, false, 0)));
         return List.of(frame0, frame1, frame2, frame3);
+    }
+
+    /**
+     * Builds hardcoded mappings for HCZ Water Splash subtype 0 (Map_HCZWaterSplash).
+     * <p>
+     * From the disassembly (Map - Water Splash.asm):
+     * Frames 0-3 all share Frame_237C6A layout (2 pieces, 24 tiles per frame).
+     * DMA in ROM swaps art per frame; we pre-load all 96 tiles and offset per frame.
+     * <pre>
+     * Frame_237C6A: 2 pieces
+     *   piece 0: y=$F0(-16), size=$0B(3w×4h=12 tiles), tile=0, x=$FFE8(-24)
+     *   piece 1: y=$F0(-16), size=$0B(3w×4h=12 tiles), tile=$0C, x=$0000(0)
+     * Size $0B: bits 2-3=2 → width=3 tiles, bits 0-1=3 → height=4 tiles
+     * (matches S3kSpriteDataLoader: width = ((size>>2)&3)+1, height = (size&3)+1)
+     * </pre>
+     */
+    List<SpriteMappingFrame> buildHczWaterSplashMappings() {
+        // 4 animation frames, each uses 24 tiles. Frame N starts at tile N*24.
+        List<SpriteMappingFrame> frames = new java.util.ArrayList<>(4);
+        for (int f = 0; f < 4; f++) {
+            int tileBase = f * 24;
+            frames.add(new SpriteMappingFrame(List.of(
+                    // Piece 0: 3 wide × 4 tall (12 tiles) at (-24, -16)
+                    new SpriteMappingPiece(-24, -16, 3, 4, tileBase, false, false, 0, false),
+                    // Piece 1: 3 wide × 4 tall (12 tiles) at (0, -16)
+                    new SpriteMappingPiece(0, -16, 3, 4, tileBase + 12, false, false, 0, false)
+            )));
+        }
+        return frames;
     }
 
     /**
