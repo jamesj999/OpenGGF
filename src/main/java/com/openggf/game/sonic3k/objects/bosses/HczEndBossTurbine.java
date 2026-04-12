@@ -91,6 +91,9 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     private int animSpeed;
     private int sfxTimer;
 
+    /** Water column child — spawned when turbine becomes ACTIVE. */
+    private HczEndBossWaterColumn waterColumn;
+
     // =========================================================================
     // Constructor
     // =========================================================================
@@ -180,9 +183,15 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     /**
      * ROM routine 4: spinning at full speed, collision active.
      * Plays sfx_FanBig every FAN_SFX_INTERVAL frames.
+     * Spawns water column on first entry.
      * Transitions to WIND_DOWN when propellerActive is cleared.
      */
     private void updateActive() {
+        // Spawn water column on first entry (lazy — only once per ACTIVE phase)
+        if (waterColumn == null || waterColumn.isDestroyed()) {
+            spawnWaterColumn();
+        }
+
         // Animate fast spin
         animSpeed = ANIM_SPEED_ACTIVE;
         tickAnimation();
@@ -199,6 +208,16 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
             animSpeed = ANIM_SPEED_WIND_DOWN;
             routine = ROUTINE_WIND_DOWN;
         }
+    }
+
+    /**
+     * Spawns the water column child via the boss's public spawn delegate.
+     * ROM: water column is spawned when the turbine activates.
+     */
+    private void spawnWaterColumn() {
+        waterColumn = new HczEndBossWaterColumn(boss, this);
+        boss.spawnDynamicChild(() -> waterColumn);
+        LOG.fine("HCZ Turbine: spawned water column");
     }
 
     /**
