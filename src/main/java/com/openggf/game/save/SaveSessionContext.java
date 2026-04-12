@@ -1,5 +1,6 @@
 package com.openggf.game.save;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.OptionalInt;
 
@@ -47,5 +48,15 @@ public final class SaveSessionContext {
 
     public int startAct() {
         return startAct;
+    }
+
+    public void requestSave(SaveReason reason,
+                            RuntimeSaveContext context,
+                            SaveSnapshotProvider snapshotProvider,
+                            SaveManager saveManager) throws IOException {
+        if (activeSlot == null) {
+            return;
+        }
+        saveManager.writeSlot(gameCode, activeSlot, snapshotProvider.capture(context));
     }
 }

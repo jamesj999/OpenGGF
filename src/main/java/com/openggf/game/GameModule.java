@@ -223,6 +223,16 @@ public interface GameModule {
     }
 
     /**
+     * Returns the save snapshot provider for this game.
+     * Captures game-specific state into a map for save file serialization.
+     *
+     * @return the save snapshot provider
+     */
+    default com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return ctx -> java.util.Map.of();
+    }
+
+    /**
      * Returns the level select provider for this game.
      * Provides the game-specific level select screen with ROM-accurate
      * menu layout, text, and navigation.
