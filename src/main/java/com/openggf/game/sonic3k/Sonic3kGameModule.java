@@ -35,7 +35,9 @@ import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
 import com.openggf.game.sonic3k.titlescreen.Sonic3kTitleScreenManager;
+import com.openggf.game.DataSelectProvider;
 import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.levelselect.Sonic3kLevelSelectManager;
@@ -67,6 +69,7 @@ public class Sonic3kGameModule implements GameModule {
     private final Sonic3kZoneRegistry zoneRegistry = new Sonic3kZoneRegistry();
     private final Sonic3kTitleScreenManager titleScreenProvider = new Sonic3kTitleScreenManager();
     private final Sonic3kLevelSelectManager levelSelectProvider = new Sonic3kLevelSelectManager();
+    private final S3kDataSelectManager dataSelectProvider = new S3kDataSelectManager();
     private final com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager specialStageManager =
             new com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager();
     private final Sonic3kSpecialStageProvider specialStageProvider =
@@ -179,6 +182,11 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
         return levelSelectProvider;
+    }
+
+    @Override
+    public DataSelectProvider getDataSelectProvider() {
+        return dataSelectProvider;
     }
 
     @Override
