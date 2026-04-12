@@ -7,8 +7,6 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.ShaderProgram;
 
 import java.nio.FloatBuffer;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -79,14 +77,8 @@ public class PerformancePanelRenderer {
     private final int baseWidth;
     private final int baseHeight;
 
-    /** Reusable list for pie chart sections to avoid per-frame allocations */
-    private final List<SectionStats> pieChartSections = new ArrayList<>(16);
-
     /** Reusable StringBuilder for formatting stats text */
     private final StringBuilder perfBuilder = new StringBuilder(64);
-
-    /** Comparator for sorting sections by name (alphabetical order for stable pie chart) */
-    private static final Comparator<SectionStats> NAME_COMPARATOR = Comparator.comparing(SectionStats::name);
 
     // VAO/VBO for primitive rendering
     private int vaoId;
@@ -239,8 +231,8 @@ public class PerformancePanelRenderer {
         appendFixed1(pb, snapshot.fps()).append("fps");
         drawTextBottomLeft(pb.toString(), textX, textY, DebugColor.WHITE);
 
-        // Section legend — reuse the sorted list from getSectionsSortedByTime()
-        // (also used by drawPieChart, but it caches internally)
+        // Section legend uses time-sorted sections, while the pie chart uses
+        // a cached name-sorted view for stable slice positions.
         List<SectionStats> sections = snapshot.getSectionsSortedByTime();
         int legendY = textY - lineHeight;
 
@@ -297,11 +289,7 @@ public class PerformancePanelRenderer {
      * Sections are drawn in alphabetical order for stable positioning.
      */
     private void drawPieChart(int centerX, int centerY, int radius, ProfileSnapshot snapshot) {
-        // Sort by name for stable pie chart positioning
-        pieChartSections.clear();
-        pieChartSections.addAll(snapshot.getSectionsSortedByTime());
-        pieChartSections.sort(NAME_COMPARATOR);
-        List<SectionStats> sections = pieChartSections;
+        List<SectionStats> sections = snapshot.getSectionsSortedByName();
         if (sections.isEmpty()) {
             return;
         }
