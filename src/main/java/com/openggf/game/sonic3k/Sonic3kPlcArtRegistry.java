@@ -647,6 +647,18 @@ public final class Sonic3kPlcArtRegistry {
                 "buildHczWaterRushBlockSheet"
         ));
 
+        // Water Splash subtype 0: ArtUnc_HCZWaterSplash, uncompressed, palette 2
+        // ROM: make_art_tile(ArtTile_HCZWaterSplash, 2, 0), hardcoded mappings
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_SPLASH,
+                Sonic3kConstants.ART_UNC_HCZ_WATER_SPLASH_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_HCZ_WATER_SPLASH_SIZE,
+                0,
+                2,
+                -1
+        ));
+
         // HCZ Hand Launcher: ArtTile_HCZMisc + $1A, palette 1
         // ROM: make_art_tile(ArtTile_HCZMisc+$1A, 1, 0), Map_HCZHandLauncher (8 frames)
         levelArt.add(new LevelArtEntry(
