@@ -1,5 +1,6 @@
 package com.openggf.game.save;
 
+import java.util.Objects;
 import java.util.OptionalInt;
 
 public final class SaveSessionContext {
@@ -11,9 +12,9 @@ public final class SaveSessionContext {
 
     private SaveSessionContext(String gameCode, Integer activeSlot, SelectedTeam selectedTeam,
                                int startZone, int startAct) {
-        this.gameCode = gameCode;
+        this.gameCode = Objects.requireNonNull(gameCode, "gameCode");
         this.activeSlot = activeSlot;
-        this.selectedTeam = selectedTeam;
+        this.selectedTeam = Objects.requireNonNull(selectedTeam, "selectedTeam");
         this.startZone = startZone;
         this.startAct = startAct;
     }
