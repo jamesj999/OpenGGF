@@ -61,6 +61,12 @@ public class LevelResourceOverlayTest {
         assertEquals(0x67890, overlay.romAddr());
         assertEquals(CompressionType.KOSINSKI, overlay.compressionType());
         assertEquals(0x3F80, overlay.destOffsetBytes());
+
+        LoadOp appended = LoadOp.kosinskiAppend(0x24680);
+        assertEquals(0x24680, appended.romAddr());
+        assertEquals(CompressionType.KOSINSKI, appended.compressionType());
+        assertEquals(LoadOp.APPEND_TO_PREVIOUS, appended.destOffsetBytes());
+        assertTrue(appended.appendsToPrevious());
     }
 
     @Test
@@ -195,6 +201,23 @@ public class LevelResourceOverlayTest {
         byte[] overlayRegion = Arrays.copyOfRange(composedChunks, overlayOffset,
                 overlayOffset + htzOverlayChunks.length);
         assertArrayEquals(htzOverlayChunks, overlayRegion, "Overlay region should match HTZ chunk data");
+    }
+
+    @Test
+    public void testAppendOverlayMatchesExplicitOffsetForChunks() throws IOException {
+        ResourceLoader loader = new ResourceLoader(rom);
+
+        byte[] ehzChunks = loader.loadSingle(LoadOp.kosinskiBase(Sonic2Constants.HTZ_CHUNKS_BASE_ADDR));
+
+        byte[] explicit = loader.loadWithOverlays(Arrays.asList(
+                LoadOp.kosinskiBase(Sonic2Constants.HTZ_CHUNKS_BASE_ADDR),
+                LoadOp.kosinskiOverlay(Sonic2Constants.HTZ_CHUNKS_OVERLAY_ADDR, ehzChunks.length)), 0x10000);
+
+        byte[] appended = loader.loadWithOverlays(Arrays.asList(
+                LoadOp.kosinskiBase(Sonic2Constants.HTZ_CHUNKS_BASE_ADDR),
+                LoadOp.kosinskiAppend(Sonic2Constants.HTZ_CHUNKS_OVERLAY_ADDR)), 0x10000);
+
+        assertArrayEquals(explicit, appended, "Append-mode overlays should match explicit-offset composition");
     }
 
     @Test
