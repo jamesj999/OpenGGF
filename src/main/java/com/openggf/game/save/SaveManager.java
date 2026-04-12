@@ -54,7 +54,11 @@ public final class SaveManager {
                     ? new SaveSlotSummary(slot, SaveSlotState.VALID, payload)
                     : new SaveSlotSummary(slot, SaveSlotState.HASH_WARNING, payload);
         } catch (Exception ex) {
-            quarantine(file, ex.getMessage());
+            try {
+                quarantine(file, ex.getMessage());
+            } catch (IOException qe) {
+                LOG.warning("Failed to quarantine " + file + ": " + qe.getMessage());
+            }
             return SaveSlotSummary.empty(slot);
         }
     }
