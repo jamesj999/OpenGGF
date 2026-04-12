@@ -511,8 +511,30 @@ public class Engine {
 		}
 	}
 
+	private String resolveLaunchMainCharacter() {
+		var worldSession = SessionManager.getCurrentWorldSession();
+		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
+				&& worldSession != null
+				&& worldSession.getSaveSessionContext() != null
+				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
+			return worldSession.getSaveSessionContext().selectedTeam().mainCharacter();
+		}
+		return configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+	}
+
+	private List<String> resolveLaunchSidekicks() {
+		var worldSession = SessionManager.getCurrentWorldSession();
+		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
+				&& worldSession != null
+				&& worldSession.getSaveSessionContext() != null
+				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
+			return worldSession.getSaveSessionContext().selectedTeam().sidekicks();
+		}
+		return parseSidekickConfig(configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
+	}
+
 	private AbstractPlayableSprite createMainPlayableSprite() {
-		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+		String mainCode = resolveLaunchMainCharacter();
 		if ("tails".equalsIgnoreCase(mainCode)) {
 			return new Tails(mainCode, (short) 100, (short) 624);
 		}
@@ -523,8 +545,7 @@ public class Engine {
 	}
 
 	private void addConfiguredSidekicks(GameModule module, AbstractPlayableSprite mainSprite) {
-		List<String> sidekickNames = parseSidekickConfig(
-				configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
+		List<String> sidekickNames = resolveLaunchSidekicks();
 		boolean sidekickAllowed = module.supportsSidekick() || CrossGameFeatureProvider.isActive();
 		if (!sidekickAllowed) {
 			return;
