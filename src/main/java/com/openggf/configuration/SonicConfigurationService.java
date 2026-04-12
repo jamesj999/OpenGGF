@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -77,11 +78,33 @@ public class SonicConfigurationService {
 		if (value instanceof Integer) {
 			return ((Integer) value);
 		} else {
+			String str = getString(sonicConfiguration);
+			// Step 1: try numeric parse
 			try {
-				return Integer.parseInt(getString(sonicConfiguration));
-			} catch (NumberFormatException e) {
-				return -1;
+				return Integer.parseInt(str);
+			} catch (NumberFormatException ignored) {
 			}
+
+			// Step 2: try GLFW key name resolution
+			OptionalInt resolved = GlfwKeyNameResolver.resolve(str);
+			if (resolved.isPresent()) {
+				return resolved.getAsInt();
+			}
+
+			// Step 3: fall back to default with warning
+			if (!str.isEmpty()) {
+				Object defaultValue = defaults.get(sonicConfiguration.name());
+				if (defaultValue instanceof Integer intDefault && intDefault > 0) {
+					LOGGER.warning("'" + str + "' could not be interpreted as a valid input for "
+							+ sonicConfiguration.name() + ". Defaulting to '"
+							+ GlfwKeyNameResolver.nameOf(intDefault) + "'");
+					return intDefault;
+				} else {
+					LOGGER.warning("'" + str + "' could not be interpreted as a valid input for "
+							+ sonicConfiguration.name() + ". Defaulting to unbound");
+				}
+			}
+			return -1;
 		}
 	}
 
@@ -176,6 +199,14 @@ public class SonicConfigurationService {
 			sonicConfigurationService = new SonicConfigurationService();
 		}
 		return sonicConfigurationService;
+	}
+
+	/**
+	 * Resets the singleton instance. Used by tests that need a fresh
+	 * configuration with defaults re-applied.
+	 */
+	static void resetStaticInstance() {
+		sonicConfigurationService = null;
 	}
 
 	public void resetToDefaults() {
