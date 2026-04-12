@@ -36,6 +36,7 @@ import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
+import com.openggf.game.sonic3k.dataselect.S3kSaveSnapshotProvider;
 import com.openggf.game.sonic3k.titlescreen.Sonic3kTitleScreenManager;
 import com.openggf.game.DataSelectProvider;
 import com.openggf.game.LevelSelectProvider;
@@ -187,6 +188,11 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public DataSelectProvider getDataSelectProvider() {
         return dataSelectProvider;
+    }
+
+    @Override
+    public com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return new S3kSaveSnapshotProvider();
     }
 
     @Override
