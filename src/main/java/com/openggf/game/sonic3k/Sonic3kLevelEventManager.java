@@ -1,12 +1,17 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.HczZoneRuntimeState;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -126,6 +131,27 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
             hczEvents.init(act);
         } else {
             hczEvents = null;
+        }
+
+        // Install typed zone runtime state into the registry.
+        // Uses getActiveRuntime() to avoid the mode-checking side effects of
+        // getCurrent() which can destroy the runtime during level loading.
+        installZoneRuntimeState(zone, act);
+    }
+
+    private void installZoneRuntimeState(int zone, int act) {
+        GameRuntime runtime = RuntimeManager.getActiveRuntime();
+        if (runtime == null) {
+            LOG.warning("No active runtime during zone state registration for zone " + zone);
+            return;
+        }
+        ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+        if (zone == Sonic3kZoneIds.ZONE_AIZ && aizEvents != null) {
+            registry.install(new AizZoneRuntimeState(act, aizEvents));
+        } else if (zone == Sonic3kZoneIds.ZONE_HCZ && hczEvents != null) {
+            registry.install(new HczZoneRuntimeState(act, hczEvents));
+        } else {
+            registry.clear();
         }
     }
 

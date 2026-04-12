@@ -9,6 +9,7 @@ import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
@@ -167,11 +168,12 @@ public final class RuntimeManager {
         GameRng rng = new GameRng(currentModule != null
                 ? currentModule.rngFlavour()
                 : GameRng.Flavour.S1_S2);
+        ZoneRuntimeRegistry zoneRuntimeRegistry = new ZoneRuntimeRegistry();
 
         GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,
-                collisionSystem, spriteManager, levelManager, rng);
+                collisionSystem, spriteManager, levelManager, rng, zoneRuntimeRegistry);
         current = runtime;
         return runtime;
     }
