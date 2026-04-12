@@ -2332,6 +2332,9 @@ public class GameLoop {
         if (dataSelect != null) {
             dataSelect.reset();
         }
+        // Save on data select exit (NEW_SLOT_START for now; EXISTING_SLOT_LOAD and
+        // CLEAR_RESTART_COMMIT will be wired when full menu logic is implemented)
+        requestSessionSave(SaveReason.NEW_SLOT_START);
         // Transition to level loading (will be enhanced when slot selection is wired)
         setGameMode(GameMode.LEVEL);
         try {
