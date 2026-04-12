@@ -19,6 +19,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.SwingMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -98,6 +99,14 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private static final int FLASH_WHITE = 0xEEE;
 
     // =========================================================================
+    // Swing/movement constants (ROM: loc_6AF80, loc_6B064)
+    // =========================================================================
+    /** Per-frame swing acceleration (ROM: $40(a0)). */
+    private static final int SWING_ACCEL = 0x10;
+    /** Peak swing velocity magnitude (ROM: $3E(a0)). */
+    private static final int SWING_AMPLITUDE = 0xC0;
+
+    // =========================================================================
     // Child offsets (ROM: ChildObjDat_6BD8A)
     // =========================================================================
     /** Robotnik ship cockpit offset from boss center. */
@@ -127,6 +136,15 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private boolean customFlashDirty;
     private boolean cameraLockComplete;
     private int musicWaitTimer = -1;
+
+    // Movement state (Task 6)
+    private int swingVelocity;
+    private boolean swingDown;
+    private int hoverCentreY;
+    private int savedPatrolVel = -0x100;
+    private int directionCounter;
+    private int attackPassCounter;
+    private boolean facingRight;
 
     /** Stored camera bounds at time of boss trigger, for gradual lock. */
     private int storedMinY;
@@ -170,6 +188,13 @@ public class HczEndBossInstance extends AbstractBossInstance {
         bladeFireSignal = false;
         defeatSignal = false;
         defeatExplosionController = null;
+        swingVelocity = 0;
+        swingDown = false;
+        hoverCentreY = 0;
+        savedPatrolVel = -0x100;
+        directionCounter = 0;
+        attackPassCounter = 0;
+        facingRight = false;
 
         // Resolve character-specific lock targets
         boolean isKnuckles = (getPlayerCharacter() == PlayerCharacter.KNUCKLES);
@@ -412,16 +437,19 @@ public class HczEndBossInstance extends AbstractBossInstance {
     /**
      * Called when camera lock is fully established.
      * Spawns children and begins descent into the arena.
+     * ROM: sets y_vel = 0x100 (descend) with wait timer for descent duration.
      */
     private void onCameraLockComplete() {
         LOG.info("HCZ End Boss: camera lock complete, spawning children");
         spawnChildren();
-        // Begin descent into arena — full implementation in Task 6
+        // Begin descent into arena
         state.routine = ROUTINE_DESCEND;
+        state.yVel = 0x100;
+        setWait(0x7F, this::onDescentComplete);
     }
 
     // =========================================================================
-    // Stubbed movement routines (full implementation in Task 6)
+    // Movement routines (ROM: loc_6AF80–loc_6B0AE)
     // =========================================================================
 
     /**
@@ -437,19 +465,145 @@ public class HczEndBossInstance extends AbstractBossInstance {
     /**
      * Swing + Move + Wait pattern: hover oscillation with timer.
      * ROM: Used by HOVER_WAIT, PRE_ATTACK routines.
+     * Applies Swing_UpAndDown each frame then moves + ticks wait.
      */
     private void updateSwingAndWait() {
+        SwingMotion.Result result = SwingMotion.update(
+                SWING_ACCEL, swingVelocity, SWING_AMPLITUDE, swingDown);
+        swingVelocity = result.velocity();
+        swingDown = result.directionDown();
+        state.yVel = swingVelocity;
+
         state.applyVelocity();
         tickWait();
     }
 
     /**
-     * Attack patrol: swing + horizontal movement with blade firing.
-     * ROM: Used by ATTACK routine.
+     * ROM: loc_6AF80 — After initial descent, transition to hover phase.
+     * Sets routine to HOVER_WAIT, saves hover center Y, initializes swing
+     * parameters, and starts a 0x3F-frame wait before pre-attack.
+     */
+    private void onDescentComplete() {
+        state.routine = ROUTINE_HOVER_WAIT;
+        hoverCentreY = state.y;
+        swingVelocity = SWING_AMPLITUDE;
+        swingDown = false;
+        state.yVel = 0;
+        setWait(0x9F, () -> {
+            setWait(0x3F, this::onPreAttackWaitComplete);
+        });
+    }
+
+    /**
+     * ROM: loc_6AFC8 — Propeller spin-up, then branch by character.
+     * Sonic/Tails: slow descent then rise.
+     * Knuckles: skip straight to pre-attack wait.
+     */
+    private void onPreAttackWaitComplete() {
+        propellerActive = true;
+
+        if (getPlayerCharacter() != PlayerCharacter.KNUCKLES) {
+            // Sonic/Tails path
+            state.routine = ROUTINE_ST_DESCEND;
+            state.yVel = 0x80;
+            setWait(0x9F, this::onStDescentComplete);
+        } else {
+            // Knuckles path — skip intermediate descent/rise
+            state.routine = ROUTINE_PRE_ATTACK;
+            setWait(0x1FF, this::beginAttackPhase);
+        }
+    }
+
+    /**
+     * ROM: loc_6B008 — Sonic/Tails: after slow descent, begin rising.
+     */
+    private void onStDescentComplete() {
+        state.yVel = -0x100;
+        state.routine = ROUTINE_ST_RISE;
+        setWait(0x4F, this::onStRiseComplete);
+    }
+
+    /**
+     * ROM: loc_6B01E — Sonic/Tails: after rise, snap back to hover center
+     * and wait before attacking.
+     */
+    private void onStRiseComplete() {
+        state.routine = ROUTINE_PRE_ATTACK;
+        state.y = hoverCentreY;
+        state.yFixed = hoverCentreY << 16;
+        state.yVel = 0;
+        setWait(0xFF, this::beginAttackPhase);
+    }
+
+    /**
+     * ROM: loc_6B03A — Begin the attack patrol phase.
+     * Clears propeller, sets horizontal velocity from savedPatrolVel,
+     * initializes direction counter and attack pass counter.
+     */
+    private void beginAttackPhase() {
+        state.routine = ROUTINE_ATTACK;
+        propellerActive = false;
+        state.xVel = savedPatrolVel;
+        facingRight = (state.xVel > 0);
+        directionCounter = 0x13F;
+        attackPassCounter = 8;
+        setWait(0xBF, this::onAttackPassComplete);
+        // Re-init swing
+        swingVelocity = SWING_AMPLITUDE;
+        swingDown = false;
+    }
+
+    /**
+     * ROM: loc_6B064 — Attack patrol: every frame apply swing oscillation,
+     * move, tick wait, and check for direction reversal.
      */
     private void updateAttackPatrol() {
+        // Swing oscillation
+        SwingMotion.Result result = SwingMotion.update(
+                SWING_ACCEL, swingVelocity, SWING_AMPLITUDE, swingDown);
+        swingVelocity = result.velocity();
+        swingDown = result.directionDown();
+        state.yVel = swingVelocity;
+
+        // Apply velocity (both X and Y)
         state.applyVelocity();
+
+        // Tick wait timer
         tickWait();
+
+        // Direction reversal counter
+        directionCounter--;
+        if (directionCounter < 0) {
+            state.xVel = -state.xVel;
+            facingRight = !facingRight;
+            directionCounter = 0x13F;
+        }
+    }
+
+    /**
+     * ROM: loc_6B08E — One attack pass complete.
+     * Decrements pass counter; if passes remain, fires blade and continues.
+     * If all passes done, saves patrol velocity and returns to phase decision.
+     */
+    private void onAttackPassComplete() {
+        attackPassCounter--;
+        if (attackPassCounter >= 0) {
+            // More passes remaining — fire blade and continue
+            bladeFireSignal = true;
+            setWait(0x5F, this::continueAttackPatrol);
+        } else {
+            // All passes done — save velocity, return to hover/pre-attack cycle
+            savedPatrolVel = state.xVel;
+            state.xVel = 0;
+            setWait(0x5F, this::onPreAttackWaitComplete);
+        }
+    }
+
+    /**
+     * Continue attack patrol after blade fire pause.
+     */
+    private void continueAttackPatrol() {
+        setWait(0xBF, this::onAttackPassComplete);
     }
 
     // =========================================================================
@@ -715,11 +869,10 @@ public class HczEndBossInstance extends AbstractBossInstance {
 
     /**
      * Whether the boss is currently facing right.
-     * ROM: xVel > 0 means moving right (and facing right).
-     * Returns false (facing left) when velocity is zero.
+     * ROM: tracks direction based on patrol velocity sign.
      */
     public boolean isFacingRight() {
-        return state.xVel > 0;
+        return facingRight;
     }
 
     /** Whether the boss is defeated (children should clean up). */
