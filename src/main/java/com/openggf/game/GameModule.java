@@ -213,6 +213,16 @@ public interface GameModule {
     }
 
     /**
+     * Returns the data select provider for this game.
+     * Provides the save file selection screen (S3K-style).
+     *
+     * @return the data select provider
+     */
+    default DataSelectProvider getDataSelectProvider() {
+        return NoOpDataSelectProvider.INSTANCE;
+    }
+
+    /**
      * Returns the level select provider for this game.
      * Provides the game-specific level select screen with ROM-accurate
      * menu layout, text, and navigation.

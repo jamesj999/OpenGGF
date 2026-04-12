@@ -46,6 +46,13 @@ public class TestGameLoop {
         RuntimeManager.destroyCurrent();
     }
 
+    // ==================== Enum Tests ====================
+
+    @Test
+    void gameMode_containsDataSelect() {
+        assertNotNull(GameMode.valueOf("DATA_SELECT"));
+    }
+
     // ==================== Initialization Tests ====================
 
     @Test
