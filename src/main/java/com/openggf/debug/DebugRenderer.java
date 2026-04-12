@@ -23,6 +23,7 @@ import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
 import com.openggf.graphics.PixelFontTextRenderer;
+import com.openggf.graphics.PixelFontVariant;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.managers.SpriteManager;
@@ -88,7 +89,7 @@ public class DebugRenderer {
                 this.overlayManager = Objects.requireNonNull(overlayManager, "overlayManager");
                 this.playbackDebugManager = Objects.requireNonNull(playbackDebugManager, "playbackDebugManager");
                 this.profiler = Objects.requireNonNull(profiler, "profiler");
-                this.performanceTextRenderer = new PixelFontTextRenderer();
+                this.performanceTextRenderer = new PixelFontTextRenderer(PixelFontVariant.PIXEL_FONT_NO_SHADOW);
                 this.baseWidth = this.configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
                 this.baseHeight = this.configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
                 this.viewportWidth = baseWidth;
@@ -101,7 +102,8 @@ public class DebugRenderer {
 	public void eagerInit() {
 		if (glyphBatch == null) {
 			float scale = (float) Math.max(scaleX, scaleY);
-			glyphBatch = new GlyphBatchRenderer();
+			glyphBatch = new GlyphBatchRenderer(
+								new PixelFontTextRenderer(PixelFontVariant.PIXEL_FONT_NO_SHADOW));
 			glyphBatch.init(null, scale);
 		}
 	}
@@ -110,7 +112,8 @@ public class DebugRenderer {
                 // Lazy initialization of glyph batch renderer
                 float scale = (float) Math.max(scaleX, scaleY);
                 if (glyphBatch == null) {
-                        glyphBatch = new GlyphBatchRenderer();
+                        glyphBatch = new GlyphBatchRenderer(
+                                        new PixelFontTextRenderer(PixelFontVariant.PIXEL_FONT_NO_SHADOW));
                         glyphBatch.init(null, scale);
                 }
                 if (!glyphBatch.isInitialized()) {
