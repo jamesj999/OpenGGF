@@ -218,7 +218,7 @@ public abstract class Sonic3kZoneEvents {
         }
     }
 
-    protected static void loadPaletteFromPalPointers(int palPointersIndex) {
+    public static void loadPaletteFromPalPointers(int palPointersIndex) {
         try {
             Rom rom = GameServices.rom().getRom();
             int entryAddr = Sonic3kConstants.PAL_POINTERS_ADDR
