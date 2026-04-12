@@ -25,11 +25,19 @@ public class PixelFontTextRenderer {
     }
 
     public int lineHeight() {
-        return PixelFont.glyphHeight() + 2;
+        return lineHeight(1.0f);
+    }
+
+    public int lineHeight(float scale) {
+        return PixelFont.scaledGlyphHeight(scale) + shadowOffset(scale) + 1;
     }
 
     public int measureWidth(String text) {
-        return font.measureWidth(text);
+        return measureWidth(text, 1.0f);
+    }
+
+    public int measureWidth(String text, float scale) {
+        return font.measureWidth(text, scale);
     }
 
     public void setProjectionMatrix(float[] projectionMatrix) {
@@ -40,8 +48,13 @@ public class PixelFontTextRenderer {
     }
 
     public void drawShadowedText(String text, int x, int y, DebugColor color) {
-        drawRawText(text, x + 1, y + 1, DebugColor.BLACK);
-        drawRawText(text, x, y, color);
+        drawShadowedText(text, x, y, color, 1.0f);
+    }
+
+    public void drawShadowedText(String text, int x, int y, DebugColor color, float scale) {
+        int shadowOffset = shadowOffset(scale);
+        drawRawText(text, x + shadowOffset, y + shadowOffset, DebugColor.BLACK, scale);
+        drawRawText(text, x, y, color, scale);
     }
 
     public void cleanup() {
@@ -53,13 +66,21 @@ public class PixelFontTextRenderer {
     }
 
     protected void drawRawText(String text, int x, int y, DebugColor color) {
+        drawRawText(text, x, y, color, 1.0f);
+    }
+
+    protected void drawRawText(String text, int x, int y, DebugColor color, float scale) {
         ensureInitialized();
         float alpha = color.getAlpha() / 255f;
-        font.drawText(text, x, y,
+        font.drawText(text, x, y, scale,
                 color.getRed() / 255f,
                 color.getGreen() / 255f,
                 color.getBlue() / 255f,
                 alpha);
+    }
+
+    private static int shadowOffset(float scale) {
+        return Math.max(1, Math.round(scale));
     }
 
     private void ensureInitialized() {

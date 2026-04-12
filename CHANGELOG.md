@@ -2,6 +2,21 @@
 
 All notable changes to the OpenGGF project are documented in this file.
 
+## Unreleased
+
+### Debug Overlay Text Rendering
+
+- Switched the editor and debug text stack onto the shared pixel-font renderer without relying on
+  AWT font rendering in production code.
+- Reduced the main debug overlay and performance panel text to half-scale pixel-font rendering for
+  a denser on-screen layout.
+- Compacted the performance panel `Heap` and `GC` lines so they stay within the existing right-side
+  column at the smaller font size.
+- Removed a major source of per-frame debug text allocation by reusing the textured-quad vertex
+  buffer instead of allocating a fresh quad array and direct float buffer for every glyph draw.
+- Added regression coverage for debug glyph sizing, performance-panel formatting, scaled pixel-font
+  rendering, and reusable textured-quad vertex writes.
+
 ## v0.5.20260411 (Released 2026-04-11)
 
 Analysis range: `v0.4.20260304..v0.5.20260411` on `develop` (`2479` commits, `2298` non-merge commits,

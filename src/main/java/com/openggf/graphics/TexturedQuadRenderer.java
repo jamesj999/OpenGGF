@@ -17,6 +17,8 @@ import static org.lwjgl.opengl.GL30.*;
  */
 public class TexturedQuadRenderer {
 
+    private static final int QUAD_FLOATS = 6 * 4;
+
     private static final String VERT_PATH = "shaders/shader_rgba_texture.vert";
     private static final String FRAG_PATH = "shaders/shader_rgba_texture.frag";
 
@@ -26,6 +28,7 @@ public class TexturedQuadRenderer {
     private int projectionLocation;
     private int textureLocation;
     private int tintLocation;
+    private FloatBuffer quadVertexBuffer;
 
     public void init() throws IOException {
         shader = new ShaderProgram(VERT_PATH, FRAG_PATH);
@@ -53,6 +56,8 @@ public class TexturedQuadRenderer {
 
         glBindVertexArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        quadVertexBuffer = MemoryUtil.memAllocFloat(QUAD_FLOATS);
     }
 
     /**
@@ -86,24 +91,6 @@ public class TexturedQuadRenderer {
     public void drawTextureRegion(int textureId, float x, float y, float w, float h,
                                   float u0, float v0, float u1, float v1,
                                   float r, float g, float b, float a) {
-        // Build 6 vertices for 2 triangles (CCW winding)
-        // OpenGL screen coords: y=0 at bottom
-        float x0 = x;
-        float y0 = y;
-        float x1 = x + w;
-        float y1 = y + h;
-
-        float[] vertices = {
-            // Triangle 1
-            x0, y1, u0, v1,  // top-left
-            x0, y0, u0, v0,  // bottom-left
-            x1, y0, u1, v0,  // bottom-right
-            // Triangle 2
-            x0, y1, u0, v1,  // top-left
-            x1, y0, u1, v0,  // bottom-right
-            x1, y1, u1, v1,  // top-right
-        };
-
         shader.use();
 
         glActiveTexture(GL_TEXTURE0);
@@ -113,10 +100,13 @@ public class TexturedQuadRenderer {
 
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        FloatBuffer fb = MemoryUtil.memAllocFloat(vertices.length);
-        fb.put(vertices).flip();
-        glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
-        MemoryUtil.memFree(fb);
+        FloatBuffer vertexBuffer = quadVertexBuffer;
+        if (vertexBuffer == null) {
+            vertexBuffer = MemoryUtil.memAllocFloat(QUAD_FLOATS);
+            quadVertexBuffer = vertexBuffer;
+        }
+        writeQuadVertices(vertexBuffer, x, y, w, h, u0, v0, u1, v1);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, vertexBuffer);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -135,5 +125,27 @@ public class TexturedQuadRenderer {
         if (vbo != 0) {
             glDeleteBuffers(vbo);
         }
+        if (quadVertexBuffer != null) {
+            MemoryUtil.memFree(quadVertexBuffer);
+            quadVertexBuffer = null;
+        }
+    }
+
+    static void writeQuadVertices(FloatBuffer buffer,
+                                  float x, float y, float w, float h,
+                                  float u0, float v0, float u1, float v1) {
+        float x0 = x;
+        float y0 = y;
+        float x1 = x + w;
+        float y1 = y + h;
+
+        buffer.clear();
+        buffer.put(x0).put(y1).put(u0).put(v1);
+        buffer.put(x0).put(y0).put(u0).put(v0);
+        buffer.put(x1).put(y0).put(u1).put(v0);
+        buffer.put(x0).put(y1).put(u0).put(v1);
+        buffer.put(x1).put(y0).put(u1).put(v0);
+        buffer.put(x1).put(y1).put(u1).put(v1);
+        buffer.flip();
     }
 }
