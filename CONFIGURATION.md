@@ -80,7 +80,20 @@ Paths are relative to the working directory (where the JAR is launched).
 
 ## Key Bindings
 
-All key values are **GLFW key codes** (integers). The table lists each key's name, default code, and the human-readable key name for the default.
+Key bindings accept any of the following formats:
+
+| Format | Example | Notes |
+|--------|---------|-------|
+| GLFW numeric code | `81` | Traditional format |
+| Numeric string | `"81"` | Same as above, as a string |
+| Key name | `"Q"` | Human-readable, case-insensitive |
+| Named key | `"SPACE"`, `"ENTER"`, `"F9"` | Special keys by name |
+| Modifier key | `"LEFT_SHIFT"`, `"RIGHT_CONTROL"` | Modifier keys |
+| GLFW prefix | `"GLFW_KEY_Q"` | Full GLFW constant name (prefix stripped) |
+
+Invalid key names log a warning and fall back to the default binding for that key.
+
+The tables below list each key's name, default code, and the human-readable key name for the default.
 
 ### Gameplay Controls
 
@@ -152,12 +165,12 @@ These keys are only active while a Special Stage is running.
   "PSG_NOISE_SHIFT_EVERY_TOGGLE": true,
   "DEBUG_VIEW_ENABLED": true,
   "DEBUG_COLLISION_VIEW_ENABLED": false,
-  "UP": 265,
-  "DOWN": 264,
-  "LEFT": 263,
-  "RIGHT": 262,
-  "JUMP": 32,
-  "PAUSE_KEY": 257,
-  "FRAME_STEP_KEY": 81
+  "UP": "UP",
+  "DOWN": "DOWN",
+  "LEFT": "LEFT",
+  "RIGHT": "RIGHT",
+  "JUMP": "SPACE",
+  "PAUSE_KEY": "ENTER",
+  "FRAME_STEP_KEY": "Q"
 }
 ```
