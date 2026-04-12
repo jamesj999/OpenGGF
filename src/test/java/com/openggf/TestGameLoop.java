@@ -46,6 +46,15 @@ public class TestGameLoop {
         RuntimeManager.destroyCurrent();
     }
 
+    // ==================== Value Object Tests ====================
+
+    @Test
+    void selectedTeam_valueObjectPreservesMainAndSidekicks() {
+        com.openggf.game.save.SelectedTeam team = new com.openggf.game.save.SelectedTeam("knuckles", java.util.List.of("tails"));
+        assertEquals("knuckles", team.mainCharacter());
+        assertEquals(java.util.List.of("tails"), team.sidekicks());
+    }
+
     // ==================== Enum Tests ====================
 
     @Test
