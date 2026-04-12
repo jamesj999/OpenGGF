@@ -35,6 +35,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     private final PaletteOwnershipRegistry paletteRegistry;
     private final Palette[] explicitUnderwaterPalettes;
     private final List<PaletteCycle> cycles;
+    private Palette[] cachedLevelPalettes;
 
     static int resolveSlotsModeForTest(S3kSlotBonusStageRuntime runtime) {
         return runtime != null ? runtime.paletteCycleMode() : 0;
@@ -79,11 +80,13 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     }
 
     private Palette[] levelPalettes() {
-        Palette[] palettes = new Palette[level.getPaletteCount()];
-        for (int i = 0; i < palettes.length; i++) {
-            palettes[i] = level.getPalette(i);
+        if (cachedLevelPalettes == null || cachedLevelPalettes.length != level.getPaletteCount()) {
+            cachedLevelPalettes = new Palette[level.getPaletteCount()];
         }
-        return palettes;
+        for (int i = 0; i < cachedLevelPalettes.length; i++) {
+            cachedLevelPalettes[i] = level.getPalette(i);
+        }
+        return cachedLevelPalettes;
     }
 
     private Palette[] resolveUnderwaterPalettes() {
