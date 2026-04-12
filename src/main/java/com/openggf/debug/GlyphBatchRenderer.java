@@ -68,6 +68,7 @@ public class GlyphBatchRenderer {
         }
         batchActive = true;
         syncProjectionMatrix();
+        textRenderer.beginBatch();
     }
 
     public boolean isBatchActive() {
@@ -114,6 +115,9 @@ public class GlyphBatchRenderer {
     }
 
     public void end() {
+        if (batchActive) {
+            textRenderer.endBatch();
+        }
         batchActive = false;
     }
 
