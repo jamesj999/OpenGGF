@@ -975,6 +975,14 @@ public class Engine {
 			if (levelSelect != null) {
 				levelSelect.setClearColor();
 			}
+		} else if (getCurrentGameMode() == GameMode.DATA_SELECT) {
+			// Data select backdrop
+			DataSelectProvider dataSelect = gameLoop.getDataSelectProvider();
+			if (dataSelect != null) {
+				dataSelect.setClearColor();
+			} else {
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			}
 		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT
 				|| getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
 			// Ending: delegate to EndingProvider for phase-dependent background color
@@ -1171,6 +1179,14 @@ public class Engine {
 			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
 			if (levelSelect != null) {
 				levelSelect.draw();
+			}
+		} else if (getCurrentGameMode() == GameMode.DATA_SELECT) {
+			// Render data select screen
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			DataSelectProvider dataSelect = gameLoop.getDataSelectProvider();
+			if (dataSelect != null) {
+				dataSelect.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
 			// Ending cutscene: render DEZ background during sky phases, then cutscene sprites

@@ -582,6 +582,18 @@ public class GameLoop {
             inputHandler.update();
             profiler.endSection("input");
             return; // Don't process LEVEL mode logic
+        } else if (currentGameMode == GameMode.DATA_SELECT) {
+            // Update data select screen (S3K save slot selection)
+            DataSelectProvider dataSelect = getDataSelectProviderLazy();
+            if (dataSelect != null) {
+                dataSelect.update(inputHandler);
+                if (dataSelect.isExiting()) {
+                    exitDataSelect();
+                }
+            }
+            inputHandler.update();
+            profiler.endSection("input");
+            return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.CREDITS_TEXT
                 || currentGameMode == GameMode.CREDITS_DEMO
                 || currentGameMode == GameMode.TRY_AGAIN_END
@@ -2253,7 +2265,14 @@ public class GameLoop {
         if (gameModule != null) {
             TitleScreenProvider titleScreenProvider = gameModule.getTitleScreenProvider();
             if (titleScreenProvider != null) {
-                titleScreenProvider.setExitToLevelHandler(this::startLevelFromTitleScreenImmediate);
+                // S3K: route through data select screen instead of directly to level
+                DataSelectProvider dataSelectProvider = gameModule.getDataSelectProvider();
+                if (dataSelectProvider != null
+                        && !(dataSelectProvider instanceof NoOpDataSelectProvider)) {
+                    titleScreenProvider.setExitToLevelHandler(this::startDataSelectFromTitleScreen);
+                } else {
+                    titleScreenProvider.setExitToLevelHandler(this::startLevelFromTitleScreenImmediate);
+                }
             }
             return titleScreenProvider;
         }
@@ -2267,6 +2286,68 @@ public class GameLoop {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load title screen start level", e);
         }
+    }
+
+    // ==================== Data Select Methods ====================
+
+    /**
+     * Initializes the data select screen mode.
+     * Called when the S3K title screen exits (instead of going directly to level).
+     */
+    private void initializeDataSelectMode() {
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.DATA_SELECT;
+        camera.setX((short) 0);
+        camera.setY((short) 0);
+        var dataSelect = getDataSelectProviderLazy();
+        if (dataSelect != null) {
+            dataSelect.initialize();
+        }
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+    }
+
+    /**
+     * Transitions from the title screen to the data select screen.
+     * Used as the exitToLevelHandler for S3K title screen.
+     */
+    private void startDataSelectFromTitleScreen() {
+        initializeDataSelectMode();
+    }
+
+    /**
+     * Exits the data select screen.
+     * For now, transitions to level loading.
+     * This will be enhanced in later tasks to handle slot selection.
+     */
+    private void exitDataSelect() {
+        var dataSelect = getDataSelectProviderLazy();
+        if (dataSelect != null) {
+            dataSelect.reset();
+        }
+        // Transition to level loading (will be enhanced when slot selection is wired)
+        setGameMode(GameMode.LEVEL);
+        try {
+            levelManager.loadZoneAndAct(0, 0);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load level from data select", e);
+        }
+    }
+
+    /**
+     * Gets the data select provider from the current game module.
+     */
+    public DataSelectProvider getDataSelectProvider() {
+        return getDataSelectProviderLazy();
+    }
+
+    /**
+     * Lazily retrieves the data select provider from the current game module.
+     */
+    private DataSelectProvider getDataSelectProviderLazy() {
+        var gameModule = GameServices.module();
+        return gameModule != null ? gameModule.getDataSelectProvider() : null;
     }
 
     // ==================== Level Select Methods ====================

@@ -62,6 +62,11 @@ public class TestGameLoop {
         assertNotNull(GameMode.valueOf("DATA_SELECT"));
     }
 
+    @Test
+    void dataSelectMode_canBeResolvedFromEnum() {
+        assertEquals(GameMode.DATA_SELECT, GameMode.valueOf("DATA_SELECT"));
+    }
+
     // ==================== Initialization Tests ====================
 
     @Test
