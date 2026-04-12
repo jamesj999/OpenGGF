@@ -1517,6 +1517,53 @@ public class Sonic3kObjectArt {
         return List.of(placeholder, placeholder, f2, f3, f4, f5, f6, f7, f8, f9, f10);
     }
 
+    /**
+     * Builds the HCZ Water Drop sprite sheet (Map_HCZWaterDrop, frames 0-5 only).
+     * <p>
+     * Frames 0-5 use tiles from ArtTile_HCZ2Slide ($035C), palette 1.
+     * Frame 6 (spawner static drip) is not included: the ROM renders it via
+     * Sprite_OnScreen_Test, but art_tile addition overflows ($235C + $FCA4 = $2000)
+     * producing tile 0 / palette 1, which is effectively invisible in-game.
+     */
+    public ObjectSpriteSheet buildHczWaterDropSheet() {
+        if (level == null) return null;
+
+        int artTileBase = Sonic3kConstants.ARTTILE_HCZ2_SLIDE; // 0x035C
+        int levelPatternCount = level.getPatternCount();
+
+        // Tiles at artTileBase + 0..0xB (12 tiles from HCZ2Slide art)
+        int tileCount = 12;
+        Pattern[] patterns = new Pattern[tileCount];
+        for (int i = 0; i < tileCount; i++) {
+            int levelIndex = artTileBase + i;
+            patterns[i] = (levelIndex < levelPatternCount)
+                    ? level.getPattern(levelIndex) : new Pattern();
+        }
+
+        // Mapping pieces from Map_HCZWaterDrop (sonic3k.asm, Map - Water Drop.asm)
+        // Frame 0: 2x1, tile 0
+        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 0)));
+        // Frame 1: 2x1, tile 2
+        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 2, false, false, 0)));
+        // Frame 2: 1x2, tile 4
+        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -8, 1, 2, 4, false, false, 0)));
+        // Frame 3: 1x2, tile 6
+        SpriteMappingFrame f3 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -8, 1, 2, 6, false, false, 0)));
+        // Frame 4: 2x1, tile 8
+        SpriteMappingFrame f4 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0, 2, 1, 8, false, false, 0)));
+        // Frame 5: 2x1, tile 0xA
+        SpriteMappingFrame f5 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0, 2, 1, 0xA, false, false, 0)));
+
+        return new ObjectSpriteSheet(patterns,
+                List.of(f0, f1, f2, f3, f4, f5), 1, 1);
+    }
+
     public ObjectSpriteSheet buildHczWaterRushBlockSheet() {
         SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0)));
         SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-16, 0, 4, 4, 0x00, false, false, 0)));

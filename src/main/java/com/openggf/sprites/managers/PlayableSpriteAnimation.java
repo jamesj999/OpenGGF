@@ -14,6 +14,15 @@ public class PlayableSpriteAnimation {
     private final AbstractPlayableSprite sprite;
     private int lastAnimationId = -1;
 
+    /**
+     * Resets the tracked animation ID so the next update sees a mismatch
+     * and restarts the current animation script.
+     * ROM equivalent: clearing prev_anim to 0 when anim stays the same.
+     */
+    public void resetLastAnimationId() {
+        lastAnimationId = -1;
+    }
+
     public PlayableSpriteAnimation(AbstractPlayableSprite sprite) {
         this.sprite = sprite;
     }

@@ -137,6 +137,9 @@ public final class Sonic3kObjectArtKeys {
     // HCZ Water Splash (Object 0x6D, subtype 0)
     public static final String HCZ_WATER_SPLASH = "hcz_water_splash";
 
+    // HCZ Water Drop (Object 0x6E)
+    public static final String HCZ_WATER_DROP = "hcz_water_drop";
+
     // HCZ Water Wall / Geyser (Object 0x3B)
     public static final String HCZ_GEYSER_HORZ = "hcz_geyser_horz";
     public static final String HCZ_GEYSER_VERT = "hcz_geyser_vert";
