@@ -45,7 +45,7 @@ class TestS3kHpzPaletteOwnershipModel {
         Palette[] normal = blankPalettes();
 
         registry.beginFrame();
-        registry.submit(PaletteWrite.normal(S3kPaletteOwners.HPZ_PALETTE_CONTROL, 150, 1, 0, repeated(32, (byte) 0x0E)));
+        registry.submit(PaletteWrite.normal(S3kPaletteOwners.HPZ_PALETTE_CONTROL, S3kPaletteOwners.PRIORITY_ZONE_EVENT, 1, 0, repeated(32, (byte) 0x0E)));
         registry.submit(PaletteWrite.normal(
                 S3kPaletteOwners.HPZ_ZONE_CYCLE,
                 S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
