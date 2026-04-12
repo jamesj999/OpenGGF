@@ -18,8 +18,9 @@ mvn test -Dtest=TestCollisionLogic#testSlopeAngle
 mvn test -Dmse=off
 ```
 
-Tests are configured for parallel execution across 8 JVM forks. This significantly speeds
-up the full test suite but means tests must be independent of each other.
+Tests are configured for parallel execution across 4 JVM forks locally (`1` fork in CI).
+This significantly speeds up the full test suite but means tests must be independent of
+each other.
 
 ## ROM-Dependent Tests
 
@@ -27,48 +28,24 @@ Many tests require ROM files to load level data, object art, or audio. These tes
 **skip gracefully** when ROMs are absent, so CI and contributors without ROMs can still
 run the rest of the suite.
 
-### `@RequiresRom` Annotation (Preferred)
+### `@RequiresRom` Annotation
 
-The preferred approach is to annotate the test class with `@RequiresRom` and declare which
-game's ROM is needed. The test infrastructure handles ROM loading, game module detection,
-and environment reset automatically. When the ROM is absent, the entire class is skipped.
-
-**JUnit 5 (Jupiter):**
+Annotate the test class with `@RequiresRom` and declare which game's ROM is needed.
+The attached JUnit 5 extension handles ROM loading, game module detection, and environment
+reset automatically. When the ROM is absent, the entire class is skipped.
 
 ```java
 import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomCondition;
 import com.openggf.tests.rules.SonicGame;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.Test;
 
 @RequiresRom(SonicGame.SONIC_2)
-@ExtendWith(RequiresRomCondition.class)
 class TestMyFeature {
 
     @Test
     void testSomething() {
         // ROM is loaded, game module configured, environment reset —
         // just write your test logic
-    }
-}
-```
-
-**JUnit 4:**
-
-```java
-import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
-import com.openggf.tests.rules.SonicGame;
-
-@RequiresRom(SonicGame.SONIC_2)
-public class TestMyFeature {
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
-    @Test
-    public void testSomething() {
-        Rom rom = romRule.rom();  // Access the loaded ROM
-        // ...
     }
 }
 ```
@@ -88,19 +65,40 @@ For tests that need a game module configured but don't need real ROM data (e.g.,
 logic that only depends on which game is active):
 
 ```java
+import com.openggf.tests.rules.RequiresGameModule;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.Test;
+
 @RequiresGameModule(SonicGame.SONIC_2)
-public class TestGameSpecificLogic {
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
+class TestGameSpecificLogic {
 
     @Test
-    public void testSomething() {
+    void testSomething() {
         // Game module is set, but no ROM loaded
     }
 }
 ```
 
 Note: `@RequiresRom` and `@RequiresGameModule` are mutually exclusive on the same class.
+
+### `@FullReset`
+
+Use `@FullReset` when a test needs the full singleton/runtime reset path between methods.
+This is the preferred replacement for older manual reset boilerplate.
+
+```java
+import com.openggf.tests.FullReset;
+import org.junit.jupiter.api.Test;
+
+@FullReset
+class TestSomethingStateful {
+
+    @Test
+    void testSomething() {
+        // The test environment is fully reset before this runs
+    }
+}
+```
 
 ### Legacy: `RomTestUtils` (Manual Check)
 

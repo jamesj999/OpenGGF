@@ -4,7 +4,8 @@ All settings live in `config.json` in the working directory (next to the JAR). I
 bundled `src/main/resources/config.json` is used as the default. Keys are enum names from
 `SonicConfiguration`; values are JSON strings, numbers, or booleans.
 
-Key bindings use **GLFW key codes** (integers). See the
+Key bindings accept either **GLFW key codes** (integers) or human-readable key names such as
+`"SPACE"`, `"Q"`, and `"GLFW_KEY_F9"`. See the
 [GLFW key token reference](https://www.glfw.org/docs/latest/group__keys.html) for the full list.
 Common values are shown in the tables below.
 
@@ -74,6 +75,7 @@ Paths are relative to the working directory (where the JAR is launched).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `DEBUG_VIEW_ENABLED` | bool | `true` | Eagerly initialise the debug overlay subsystem. Required for any runtime debug keys to function. Does not show anything on-screen until debug mode is activated. |
+| `EDITOR_ENABLED` | bool | `false` | Allow the experimental in-engine editor overlay to be entered from gameplay with `Shift+Tab`. |
 | `DEBUG_COLLISION_VIEW_ENABLED` | bool | `false` | Draw collision sensor rays and solid object outlines over the scene at all times. |
 
 ---
@@ -164,6 +166,7 @@ These keys are only active while a Special Stage is running.
   "AUDIO_INTERNAL_RATE_OUTPUT": false,
   "PSG_NOISE_SHIFT_EVERY_TOGGLE": true,
   "DEBUG_VIEW_ENABLED": true,
+  "EDITOR_ENABLED": false,
   "DEBUG_COLLISION_VIEW_ENABLED": false,
   "UP": "UP",
   "DOWN": "DOWN",

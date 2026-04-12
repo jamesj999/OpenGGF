@@ -1,7 +1,8 @@
 # Controls Reference
 
 All controls are keyboard-based. Key bindings can be changed in `config.json`
-(see [Configuration](configuration.md)).
+(see [Configuration](configuration.md)) using either GLFW integer codes or
+human-readable key names such as `"SPACE"` and `"F9"`.
 
 ## Gameplay
 
@@ -46,6 +47,15 @@ These toggle visual debug information drawn over the game scene. They require
 |-----|--------|
 | D | Toggle free-fly debug mode (move camera freely with arrow keys) |
 | C | Teleport to the last checkpoint (furthest 'right') in this act. |
+
+## Experimental Editor
+
+These controls are only active when `EDITOR_ENABLED` is `true` in `config.json`.
+
+| Key | Action |
+|-----|--------|
+| Shift+Tab | Toggle between gameplay and the experimental editor overlay |
+| F5 | Restart the playtest from editor mode |
 
 ## Super Sonic / Emerald Debug
 

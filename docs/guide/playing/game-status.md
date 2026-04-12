@@ -1,6 +1,6 @@
 # Game Status
 
-Last updated: 2026-04-11 (v0.6.prerelease development)
+Last updated: 2026-04-12 (v0.6.prerelease development)
 
 This page describes the current state of each supported game. It is intended to set
 expectations honestly -- what works well, what is incomplete, and what you might encounter.
@@ -80,19 +80,21 @@ expectations honestly -- what works well, what is incomplete, and what you might
 
 ## Sonic 3 & Knuckles (S3K)
 
-**Status: Expanding. AIZ is substantially playable and HCZ now has early gameplay coverage.**
+**Status: Expanding. AIZ is substantially playable and HCZ now has early gameplay coverage into HCZ2.**
 
 ### What works
 
 - Angel Island Zone intro cutscene, Act 1 gameplay, miniboss defeat flow, signpost, and results.
 - AIZ fire transition, Flying Battery bombing sequence, AIZ2 end boss, post-boss capsule flow,
   and AIZ-to-HCZ transition.
-- HCZ water rush, conveyor, fan, block, door, water skim, miniboss, and HCZ1-to-HCZ2 transition work.
+- HCZ water rush, conveyor, fan, block, door, water skim, miniboss, HCZ1-to-HCZ2 transition,
+  and the HCZ2 moving-wall chase sequence work.
 - Title screen and level select screen.
 - Knuckles as a playable character, including glide/climb support.
 - Blue Ball special stages and active bonus-stage work across Gumball, Glowing Sphere/Pachinko,
   and Slots.
 - Shield system, water system, palette cycling, and expanding badnik/object coverage.
+- Water state now restores correctly after returning from side stages.
 - SMPS audio with S3K-specific driver configuration (Z80 bank-switching, DPCM).
 
 ### Known gaps
@@ -109,6 +111,23 @@ expectations honestly -- what works well, what is incomplete, and what you might
 - S3K uses KosinskiM (Kosinski Moduled) compression, combined 1P+2P mapping tables,
   and a more complex Z80 sound driver than S1/S2.
 - S3K remains the current development focus after v0.5; see ROADMAP.md for the v0.6+ direction.
+
+---
+
+## Experimental Tooling
+
+### Level Editor Overlay
+
+An experimental editor overlay is now available behind `EDITOR_ENABLED` in `config.json`.
+When enabled, use `Shift+Tab` during gameplay to park the current playtest and enter the editor
+overlay, then use the same shortcut to resume. The current snapshot supports:
+
+- World cursor and grid navigation.
+- Focused block and chunk previews.
+- Early derive/edit flows for live level data.
+- Resume and restart handling around editor playtests.
+
+This is still a development tool rather than a polished end-user level editor.
 
 ---
 
