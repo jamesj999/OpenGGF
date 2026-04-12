@@ -70,6 +70,11 @@ public class TestPixelFontTextRenderer {
         }
 
         @Override
+        public int measureWidth(String text, float scale) {
+            return measureWidthValue;
+        }
+
+        @Override
         public void cleanup() {
             cleanupCalls++;
         }
@@ -90,6 +95,11 @@ public class TestPixelFontTextRenderer {
         @Override
         protected void drawRawText(String text, int x, int y, DebugColor color) {
             calls.add(new DrawCall(text, x, y, color));
+        }
+
+        @Override
+        protected void drawRawText(String text, int x, int y, DebugColor color, float scale) {
+            calls.add(new DrawCall(text, x, y, color, scale));
         }
     }
 
@@ -118,7 +128,11 @@ public class TestPixelFontTextRenderer {
         }
     }
 
-    private record DrawCall(String text, int x, int y, DebugColor color) {}
+    private record DrawCall(String text, int x, int y, DebugColor color, float scale) {
+        private DrawCall(String text, int x, int y, DebugColor color) {
+            this(text, x, y, color, 1.0f);
+        }
+    }
 
     @Test
     void lineHeight_matchesPixelFontMetricsPlusShadowPadding() {
@@ -134,8 +148,20 @@ public class TestPixelFontTextRenderer {
         renderer.drawShadowedText("Hello", 12, 34, DebugColor.RED);
 
         assertEquals(List.of(
-                new DrawCall("Hello", 13, 35, DebugColor.BLACK),
-                new DrawCall("Hello", 12, 34, DebugColor.RED)
+                new DrawCall("Hello", 13, 35, DebugColor.BLACK, 1.0f),
+                new DrawCall("Hello", 12, 34, DebugColor.RED, 1.0f)
+        ), renderer.calls);
+    }
+
+    @Test
+    void drawShadowedText_withScale_emitsScaledShadowThenForeground() {
+        RecordingPixelFontTextRenderer renderer = new RecordingPixelFontTextRenderer(new FakePixelFont());
+
+        renderer.drawShadowedText("Hello", 12, 34, DebugColor.RED, 0.5f);
+
+        assertEquals(List.of(
+                new DrawCall("Hello", 13, 35, DebugColor.BLACK, 0.5f),
+                new DrawCall("Hello", 12, 34, DebugColor.RED, 0.5f)
         ), renderer.calls);
     }
 
@@ -147,6 +173,13 @@ public class TestPixelFontTextRenderer {
         PixelFontTextRenderer renderer = new PixelFontTextRenderer(font);
 
         assertEquals(123, renderer.measureWidth("ignored"));
+    }
+
+    @Test
+    void lineHeight_scalesWithPixelFontMetrics() {
+        PixelFontTextRenderer renderer = new PixelFontTextRenderer();
+
+        assertEquals(PixelFont.scaledGlyphHeight(0.5f) + 2, renderer.lineHeight(0.5f));
     }
 
     @Test

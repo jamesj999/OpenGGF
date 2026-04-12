@@ -26,6 +26,8 @@ import static org.lwjgl.opengl.GL30.*;
  */
 public class PerformancePanelRenderer {
 
+    static final float PERFORMANCE_TEXT_SCALE = 0.5f;
+
     /** Colors for pie chart sections (distinct, easy to differentiate) */
     private static final float[][] SECTION_COLORS = {
             {0.2f, 0.6f, 1.0f},   // Blue
@@ -263,19 +265,14 @@ public class PerformancePanelRenderer {
 
         // Memory stats below the frame graph
         int memY = graphY - 8;
-        pb.setLength(0);
-        pb.append("Heap: ");
-        appendFixed0(pb, memSnapshot.heapUsedMB()).append("MB/");
-        appendFixed0(pb, memSnapshot.heapMaxMB()).append("MB (");
-        pb.append(memSnapshot.heapPercentage()).append("%)");
-        drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY);
+        drawTextBottomLeft(formatHeapLine(pb, memSnapshot.heapUsedMB(),
+                memSnapshot.heapMaxMB(), memSnapshot.heapPercentage()),
+                textX, memY, DebugColor.LIGHT_GRAY);
 
         memY -= lineHeight;
-        pb.setLength(0);
-        pb.append("GC: ").append(memSnapshot.gcCount())
-          .append(" (").append(memSnapshot.gcTimeMs()).append("ms) | Alloc: ");
-        appendFixed1(pb, memSnapshot.allocationRateMBPerSec()).append("MB/s");
-        drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.LIGHT_GRAY);
+        drawTextBottomLeft(formatGcLine(pb, memSnapshot.gcCount(),
+                memSnapshot.gcTimeMs(), memSnapshot.allocationRateMBPerSec()),
+                textX, memY, DebugColor.LIGHT_GRAY);
 
         // Top allocators
         List<MemoryStats.SectionAllocation> topAllocators = memSnapshot.topAllocators();
@@ -448,16 +445,34 @@ public class PerformancePanelRenderer {
     }
 
     private void drawTextBottomLeft(String text, int x, int y, DebugColor color) {
-        int topLeftY = baseHeight - y - PixelFont.glyphHeight();
-        textRenderer.drawShadowedText(text, x, topLeftY, color);
+        int topLeftY = baseHeight - y - PixelFont.scaledGlyphHeight(PERFORMANCE_TEXT_SCALE);
+        textRenderer.drawShadowedText(text, x, topLeftY, color, PERFORMANCE_TEXT_SCALE);
     }
 
     private static int lineHeight(FontSize fontSize) {
-        return switch (fontSize) {
+        int baseHeight = switch (fontSize) {
             case SMALL -> 10;
             case MEDIUM -> 12;
             case LARGE -> 14;
         };
+        return Math.max(1, Math.round(baseHeight * PERFORMANCE_TEXT_SCALE));
+    }
+
+    private static String formatHeapLine(StringBuilder sb, double heapUsedMB, double heapMaxMB, int heapPercentage) {
+        sb.setLength(0);
+        sb.append("Heap ");
+        appendFixed0(sb, heapUsedMB).append('/');
+        appendFixed0(sb, heapMaxMB).append(' ');
+        sb.append(heapPercentage).append('%');
+        return sb.toString();
+    }
+
+    private static String formatGcLine(StringBuilder sb, long gcCount, long gcTimeMs, double allocationRateMBPerSec) {
+        sb.setLength(0);
+        sb.append("GC ").append(gcCount).append(' ')
+                .append(gcTimeMs).append("ms ");
+        appendFixed1(sb, allocationRateMBPerSec).append("M/s");
+        return sb.toString();
     }
 
     /** Append a double formatted to 1 decimal place without String.format. */

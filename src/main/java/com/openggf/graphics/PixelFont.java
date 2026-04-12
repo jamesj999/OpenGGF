@@ -64,6 +64,14 @@ public class PixelFont {
         return GLYPH_H;
     }
 
+    public static int scaledGlyphWidth(float scale) {
+        return Math.max(1, Math.round(GLYPH_W * scale));
+    }
+
+    public static int scaledGlyphHeight(float scale) {
+        return Math.max(1, Math.round(GLYPH_H * scale));
+    }
+
     private void buildLookup(String row, int rowIndex) {
         for (int col = 0; col < row.length() && col < COLS; col++) {
             char c = row.charAt(col);
@@ -84,11 +92,21 @@ public class PixelFont {
      * The renderer uses OpenGL coords (y=0 at bottom), so we flip internally.
      */
     public void drawText(String text, int x, int y, float r, float g, float b, float a) {
-        int cursorX = x;
+        drawText(text, x, y, 1.0f, r, g, b, a);
+    }
+
+    public void drawText(String text, int x, int y, float scale, float r, float g, float b, float a) {
+        drawText(text, (float) x, (float) y, scale, r, g, b, a);
+    }
+
+    public void drawText(String text, float x, float y, float scale, float r, float g, float b, float a) {
+        float glyphWidth = GLYPH_W * scale;
+        float glyphHeight = GLYPH_H * scale;
+        float cursorX = x;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (c == ' ') {
-                cursorX += GLYPH_W;
+                cursorX += glyphWidth;
                 continue;
             }
 
@@ -113,19 +131,19 @@ public class PixelFont {
                 float u1 = (float)(srcX + GLYPH_W) / textureWidth;
 
                 // Convert top-left game coords to OpenGL bottom-left coords
-                float glY = 224f - y - GLYPH_H;
+                float glY = 224f - y - glyphHeight;
 
                 // Texture is Y-flipped by PngTextureLoader: source top = v=1, bottom = v=0
                 float texTop = 1.0f - (float) srcY / textureHeight;
                 float texBottom = 1.0f - (float)(srcY + GLYPH_H) / textureHeight;
 
                 renderer.drawTextureRegion(textureId,
-                    cursorX, glY, GLYPH_W, GLYPH_H,
+                    cursorX, glY, glyphWidth, glyphHeight,
                     u0, texBottom, u1, texTop,
                     r, g, b, a);
             }
 
-            cursorX += GLYPH_W;
+            cursorX += glyphWidth;
         }
     }
 
@@ -143,7 +161,11 @@ public class PixelFont {
      * Returns the pixel width of a string.
      */
     public int measureWidth(String text) {
-        return text.length() * GLYPH_W;
+        return measureWidth(text, 1.0f);
+    }
+
+    public int measureWidth(String text, float scale) {
+        return Math.round(text.length() * GLYPH_W * scale);
     }
 
     public void cleanup() {

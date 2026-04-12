@@ -4,6 +4,8 @@ import com.openggf.game.GameServices;
 import com.openggf.graphics.PixelFont;
 import com.openggf.graphics.PixelFontTextRenderer;
 
+import java.util.Objects;
+
 /**
  * Temporary compatibility wrapper that preserves the old debug text API while
  * delegating to the pixel-font renderer.
@@ -12,13 +14,22 @@ public class GlyphBatchRenderer {
 
     private static final int BASE_WIDTH = 320;
     private static final int BASE_HEIGHT = 224;
+    private static final float DEBUG_FONT_SCALE = 0.5f;
 
-    private final PixelFontTextRenderer textRenderer = new PixelFontTextRenderer();
+    private final PixelFontTextRenderer textRenderer;
     private boolean initialized;
     private boolean batchActive;
     private int viewportWidth = BASE_WIDTH;
     private int viewportHeight = BASE_HEIGHT;
     private float currentScale = 1.0f;
+
+    public GlyphBatchRenderer() {
+        this(new PixelFontTextRenderer());
+    }
+
+    GlyphBatchRenderer(PixelFontTextRenderer textRenderer) {
+        this.textRenderer = Objects.requireNonNull(textRenderer, "textRenderer");
+    }
 
     public void init(Object ignoredFont) {
         init(ignoredFont, 1.0f);
@@ -67,10 +78,11 @@ public class GlyphBatchRenderer {
         if (!batchActive || text == null || text.isEmpty()) {
             return;
         }
+        float glyphScale = glyphScale(fontSize);
         int scaledX = scaleX(x);
         int scaledBottomY = scaleY(y);
-        int topLeftY = BASE_HEIGHT - scaledBottomY - PixelFont.glyphHeight();
-        textRenderer.drawShadowedText(text, scaledX, topLeftY, color);
+        int topLeftY = BASE_HEIGHT - scaledBottomY - PixelFont.scaledGlyphHeight(glyphScale);
+        textRenderer.drawShadowedText(text, scaledX, topLeftY, color, glyphScale);
     }
 
     public void drawTextOutlined(String text, int x, int y, DebugColor fillColor, FontSize fontSize) {
@@ -85,7 +97,7 @@ public class GlyphBatchRenderer {
         if (text == null || text.isEmpty()) {
             return 0;
         }
-        return Math.round(textRenderer.measureWidth(text) * viewportWidth / (float) BASE_WIDTH);
+        return Math.round(textRenderer.measureWidth(text, glyphScale(fontSize)) * viewportWidth / (float) BASE_WIDTH);
     }
 
     public int measureTextWidth(String text) {
@@ -93,7 +105,8 @@ public class GlyphBatchRenderer {
     }
 
     public int getLineHeight(FontSize fontSize) {
-        return Math.max(1, Math.round(baseLineHeight(fontSize) * viewportHeight / (float) BASE_HEIGHT));
+        return Math.max(1, Math.round(baseLineHeight(fontSize) * glyphScale(fontSize)
+                * viewportHeight / (float) BASE_HEIGHT));
     }
 
     public int getLineHeight() {
@@ -111,7 +124,12 @@ public class GlyphBatchRenderer {
     }
 
     private void syncProjectionMatrix() {
-        float[] projectionMatrix = GameServices.graphics().getProjectionMatrixBuffer();
+        float[] projectionMatrix;
+        try {
+            projectionMatrix = GameServices.graphics().getProjectionMatrixBuffer();
+        } catch (IllegalStateException e) {
+            return;
+        }
         if (projectionMatrix != null) {
             textRenderer.setProjectionMatrix(projectionMatrix);
         }
@@ -131,5 +149,9 @@ public class GlyphBatchRenderer {
             case MEDIUM -> 12;
             case LARGE -> 14;
         };
+    }
+
+    private static float glyphScale(FontSize fontSize) {
+        return DEBUG_FONT_SCALE;
     }
 }
