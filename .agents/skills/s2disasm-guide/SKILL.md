@@ -1,5 +1,5 @@
 ---
-title: s2disasm Navigation Guide
+name: s2disasm-guide
 description: Reference for navigating the Sonic 2 disassembly, locating assets and objects, and using RomOffsetFinder with S2 data.
 ---
 

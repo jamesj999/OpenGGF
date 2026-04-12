@@ -13,9 +13,9 @@ $ARGUMENTS: Zone abbreviation (e.g., "HCZ", "MGZ", "CNZ1", "LBZ Act 2") and opti
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
-- **s3k-zone-analysis** (`.agent/skills/s3k-zone-analysis/skill.md`) for generating the analysis spec that feeds into this skill's Phase 1.
-- **s3k-plc-system** (`.claude/skills/s3k-plc-system/skill.md`) for Pattern Load Cue operations triggered during boss spawns and act transitions.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
+- **s3k-zone-analysis** (`.agents/skills/s3k-zone-analysis/SKILL.md`) for generating the analysis spec that feeds into this skill's Phase 1.
+- **s3k-plc-system** (`.agents/skills/s3k-plc-system/SKILL.md`) for Pattern Load Cue operations triggered during boss spawns and act transitions.
 
 ## Architecture
 

@@ -1,5 +1,5 @@
 ---
-title: Implement Sonic 3&K Boss
+name: s3k-implement-boss
 description: Guide for implementing Sonic 3 and Knuckles bosses with ROM-accurate behavior, arena setup, and disassembly cross-checks.
 ---
 
@@ -13,8 +13,8 @@ $ARGUMENTS: Boss name or zone (e.g., "AIZ mini-boss", "Angel Island end boss", "
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s3k-implement-object** (`.agents/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) - Disassembly navigation, label conventions, RomOffsetFinder
+- **s3k-implement-object** (`.agents/skills/s3k-implement-object/SKILL.md`) - For non-boss Sonic 3&K objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Zone-Set-Aware Boss IDs
 
@@ -94,7 +94,7 @@ When RomOffsetFinder returns results from both `sonic3k.asm` and `s3.asm`, alway
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 **Research checklist:**
 - [ ] Locate boss object in `docs/skdisasm/sonic3k.asm` (search for `Obj_ZONEMiniboss` or `Obj_ZONEEndBoss`)
@@ -446,8 +446,8 @@ Report any discrepancies with specific line references.
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s3k-disasm-guide/skill.md` |
-| **Object skill** | `.agents/skills/s3k-implement-object/skill.md` |
+| **Disassembly guide** | `.agents/skills/s3k-disasm-guide/SKILL.md` |
+| **Object skill** | `.agents/skills/s3k-implement-object/SKILL.md` |
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |

@@ -15,7 +15,7 @@ $ARGUMENTS: Zone abbreviation (e.g., "AIZ", "HCZ", "MGZ", "CNZ", "FBZ", "ICZ", "
 
 ## Related Skills
 
-- **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) for disassembly navigation, label conventions, directory structure, RomOffsetFinder commands, and the S&K vs S3 ROM half address selection rule.
+- **s3k-disasm-guide** (`.agents/skills/s3k-disasm-guide/SKILL.md`) for disassembly navigation, label conventions, directory structure, RomOffsetFinder commands, and the S&K vs S3 ROM half address selection rule.
 
 ## Zone Reference
 

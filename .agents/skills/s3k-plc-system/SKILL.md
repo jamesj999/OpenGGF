@@ -1,5 +1,5 @@
 ---
-title: S3K Pattern Load Cue (PLC) System
+name: s3k-plc-system
 description: Reference for Sonic 3 and Knuckles PLC IDs, runtime loading, GPU refresh behavior, and S3K-specific PLC integration.
 ---
 

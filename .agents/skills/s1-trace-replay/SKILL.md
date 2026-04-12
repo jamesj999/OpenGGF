@@ -1,5 +1,5 @@
 ---
-title: S1 Trace Replay
+name: s1-trace-replay
 description: Workflow for recording Sonic 1 BizHawk traces, replaying them in tests, and interpreting divergence reports.
 ---
 
