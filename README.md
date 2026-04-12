@@ -31,8 +31,9 @@ A comprehensive user guide is available in [`docs/guide/`](docs/guide/index.md),
 
 ## Configuration
 
-The engine currently makes limited use of `config.json` to hold some basic configurations. Change
-these at your own risk.
+The engine reads runtime settings from `config.json`. Key bindings can be written either as GLFW
+integer codes or as human-readable names such as `"SPACE"`, `"Q"`, or `"F9"`. See
+[`CONFIGURATION.md`](CONFIGURATION.md) and the player guide for the full reference.
 
 ## Controls
 
@@ -62,6 +63,13 @@ these at your own risk.
 | F10 | Show/Hide Plane Switchers |
 | F11 | Show/Hide Touch Response |
 | F12 | Show/Hide Art Viewer |
+
+### Editor Controls
+
+| Key | Action |
+|-----|--------|
+| Shift+Tab | Toggle between gameplay and the experimental editor overlay (`EDITOR_ENABLED` must be `true`) |
+| F5 | Restart the playtest from editor mode |
 
 ## FAQ
 
@@ -93,7 +101,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), early Glowing Sphere bonus stage work (gumball/pachinko, WIP), palette cycling for all zones, per-character physics, insta-shield, spindash dust, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone is substantially playable, Hydrocity now has early HCZ2 chase coverage, and S3K includes title screen, level select, Knuckles glide/climb, Blue Ball special stages (WIP), bonus-stage parity work, palette cycling, and expanding object/badnik coverage. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -172,6 +180,26 @@ architecture that makes it relatively straightforward to add new objects, zones,
 behaviour.
 
 ## Releases
+
+### v0.6.prerelease (Current development snapshot)
+
+Development since `v0.5.20260411` has focused on making the in-engine editor usable without
+destabilising gameplay, while continuing the runtime cleanup needed for safe mode switching and
+further S3K parity work.
+
+- **Experimental editor overlay:** a config-gated editor/playtest loop now exists behind
+  `EDITOR_ENABLED`, with `Shift+Tab` to move between gameplay and the editor, focused block/chunk
+  previews, derive edits, world-grid navigation, and safer resume/restart handling.
+- **Runtime and singleton closure:** the engine-service and singleton-compatibility cleanup
+  continued across runtime, render, audio, title, special-stage, and editor paths, with JUnit 5
+  annotation-based ROM fixtures now the preferred test path.
+- **Configuration and debug UX:** `config.json` key bindings now accept human-readable names such
+  as `"SPACE"` and `"F9"`, and the debug/editor overlay text stack now uses the shared pixel-font
+  renderer with improved batching and overlap handling.
+- **S3K parity fixes:** HCZ2 now has the moving-wall chase sequence, HCZ water/column behavior was
+  corrected further, and water state is restored properly after stage returns.
+
+See CHANGELOG.md for the running list of unreleased changes.
 
 ### v0.5.20260411 (Released 2026-04-11)
 

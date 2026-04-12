@@ -4,18 +4,60 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
-### Debug Overlay Text Rendering
+### Experimental Level Editor Overlay
 
-- Switched the editor and debug text stack onto the shared pixel-font renderer without relying on
-  AWT font rendering in production code.
-- Reduced the main debug overlay and performance panel text to half-scale pixel-font rendering for
-  a denser on-screen layout.
-- Compacted the performance panel `Heap` and `GC` lines so they stay within the existing right-side
-  column at the smaller font size.
-- Removed a major source of per-frame debug text allocation by reusing the textured-quad vertex
-  buffer instead of allocating a fresh quad array and direct float buffer for every glyph draw.
-- Added regression coverage for debug glyph sizing, performance-panel formatting, scaled pixel-font
-  rendering, and reusable textured-quad vertex writes.
+- Added an experimental, config-gated editor overlay and playtest loop. Set
+  `EDITOR_ENABLED` to `true` to enter the editor from gameplay with `Shift+Tab`,
+  then return to the parked playtest with the same shortcut.
+- Added world-cursor navigation, focus regions, toolbar/library panes, focused
+  block and chunk previews, derive-edit commands, and bounded cursor/camera
+  sync so the editor can inspect and modify live level data safely.
+- Added session-level editor/runtime handoff (`WorldSession`,
+  `GameplayModeContext`, `EditorModeContext`, `EditorPlaytestStash`) so the
+  engine can park gameplay, edit, resume, and restart playtests without
+  tearing down unrelated state.
+- Added editor-specific resume/fade handling, restart flow, and pixel-font text
+  rendering so the overlay remains usable when bouncing between playtest and
+  edit mode.
+
+### Runtime, Services, and Testing
+
+- Completed another large service-boundary cleanup pass: the engine now owns an
+  explicit service root, `GameServices` is module-owned, and remaining
+  singleton compatibility fallbacks were removed from runtime, render, audio,
+  title, special-stage, and editor paths.
+- Migrated ROM-backed tests onto the JUnit 5 annotation/extension path and
+  tightened singleton-boundary guards around the runtime bootstrap. The
+  preferred fixtures are now `@RequiresRom`, `@RequiresGameModule`, and
+  `@FullReset`.
+- Reduced S3K load-time duplicate decompression and restored bootstrap-safe
+  module/title/runtime behavior after the service-closure refactor.
+
+### Configuration and Debug Tooling
+
+- `config.json` key bindings now accept human-readable names such as `"SPACE"`,
+  `"Q"`, `"F9"`, and `"GLFW_KEY_Q"` in addition to raw GLFW integer codes.
+  Invalid names fall back to the default binding for that action.
+- Switched the editor and debug text stack onto the shared no-shadow pixel-font
+  renderer without relying on AWT font rendering in production code.
+- Reduced the main debug overlay and performance panel text to half-scale
+  pixel-font rendering for a denser on-screen layout.
+- Compacted the performance panel `Heap` and `GC` lines so they stay within the
+  existing right-side column at the smaller font size.
+- Removed a major source of per-frame debug text allocation by reusing the
+  textured-quad vertex buffer instead of allocating a fresh quad array and
+  direct float buffer for every glyph draw.
+- Fixed debug overlay sensor label overlap and improved text batching/caching
+  so heavy overlay usage produces less garbage and more stable spacing.
+
+### Gameplay and Parity Fixes
+
+- Implemented the HCZ2 moving wall chase sequence and corrected HCZ water-skim
+  order of operations plus spinning-column flip synchronization.
+- Removed the `0x7FF` Y-mask from solid object contact resolution to prevent
+  phantom collisions in tall levels.
+- Fixed S3K water restoration after stage returns, and restored power-up
+  spawning plus slot-machine glass priority after runtime/bootstrap changes.
 
 ## v0.5.20260411 (Released 2026-04-11)
 

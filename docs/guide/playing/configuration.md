@@ -94,9 +94,19 @@ Both the base game ROM and the donor game ROM must be present.
 
 ## How do I change controls?
 
-Key bindings use GLFW key codes (integers). Find the code for your preferred key in the
-[GLFW key reference](https://www.glfw.org/docs/latest/group__keys.html), then set it in
-config.json.
+Key bindings accept either GLFW key codes (integers) or human-readable names. The following
+formats all work:
+
+- `81`
+- `"81"`
+- `"Q"`
+- `"SPACE"`
+- `"LEFT_SHIFT"`
+- `"GLFW_KEY_F9"`
+
+Invalid names log a warning and fall back to the default binding for that action. If you want
+the raw numeric values, find the code for your preferred key in the
+[GLFW key reference](https://www.glfw.org/docs/latest/group__keys.html).
 
 Common key codes:
 
@@ -113,11 +123,22 @@ Example: rebind jump to the A key:
 
 ```json
 {
-  "JUMP": 65
+  "JUMP": "A"
 }
 ```
 
 See [Controls](controls.md) for the full list of bindable actions.
+
+## How do I enable the editor overlay?
+
+```json
+{
+  "EDITOR_ENABLED": true
+}
+```
+
+With that enabled, press `Shift+Tab` during gameplay to enter the experimental editor overlay,
+and press `Shift+Tab` again to resume playtesting.
 
 ## How do I mute audio?
 
