@@ -20,6 +20,7 @@ public class SonicConfigurationService {
 	public static String ENGINE_VERSION = "0.5.prerelease";
 
 	private Map<String, Object> config;
+	private Map<String, Object> defaults = new HashMap<>();
 
 	private SonicConfigurationService() {
 		ObjectMapper mapper = new ObjectMapper();
@@ -139,6 +140,14 @@ public class SonicConfigurationService {
 		return null;
 	}
 
+	/**
+	 * Returns the default value for a configuration key, or {@code null} if
+	 * no default is registered. Package-private for testing.
+	 */
+	Object getDefaultValue(SonicConfiguration key) {
+		return defaults.get(key.name());
+	}
+
 	public void setConfigValue(SonicConfiguration key, Object value) {
 		if (config == null) {
 			config = new HashMap<>();
@@ -171,6 +180,7 @@ public class SonicConfigurationService {
 
 	public void resetToDefaults() {
 		config = new HashMap<>();
+		defaults = new HashMap<>();
 		applyDefaults();
 	}
 
@@ -260,6 +270,7 @@ public class SonicConfigurationService {
 			config = new HashMap<>();
 		}
 		config.putIfAbsent(key.name(), value);
+		defaults.put(key.name(), value);
 	}
 
 	/**
