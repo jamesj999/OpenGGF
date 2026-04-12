@@ -20,3 +20,10 @@ Sonic 3 & Knuckles baseline.
   from its AIZ/HCZ baseline rather than full start-to-finish coverage.
 
 See `CHANGELOG.md` for the running list of unreleased changes.
+
+Scan metadata:
+
+- Base release/tag: `v0.5.20260411`
+- Last code commit scanned for these notes: `20e8d8b43` (`Fix S3K water restore after stage returns`)
+- Notes-publishing commit: `a6e0c3992` (`docs: refresh v0.6 prerelease release notes`)
+- Recommended next comparison range: `20e8d8b43..HEAD`
