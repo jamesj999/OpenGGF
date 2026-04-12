@@ -529,12 +529,13 @@ public class HczEndBossInstance extends AbstractBossInstance {
      * </ul>
      */
     private void spawnChildren() {
-        // TODO Task 3: spawnChild(() -> new HczEndBossTurbineChild(this, ...));
+        // Task 3: Propeller turbine at offset (0, 0x24)
+        spawnChild(() -> new HczEndBossTurbine(this, TURBINE_OFFSET_X, TURBINE_OFFSET_Y));
         // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 0, ...));
         // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 1, ...));
         // TODO Task 4: spawnChild(() -> new HczEndBossBladeChild(this, 2, ...));
         // TODO Task 5: spawnChild(() -> new HczEndBossVisualChild(this, ...));
-        LOG.fine("HCZ End Boss: child spawning deferred to Tasks 3-5");
+        LOG.fine("HCZ End Boss: turbine spawned, blade/visual children deferred to Tasks 4-5");
     }
 
     // =========================================================================
