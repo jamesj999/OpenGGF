@@ -245,9 +245,9 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
         geyserTopY -= GEYSER_RISE_SPEED;
 
         // Move the grabbed player with the geyser
+        // ROM: subq.w #6,y_pos(a1) — directly subtract from player Y each frame
         if (player != null && playerGrabbed) {
-            short newY = (short) (player.getCentreY() - GEYSER_RISE_SPEED);
-            player.setY(newY);
+            player.setY((short) (player.getY() - GEYSER_RISE_SPEED));
         }
 
         timer--;
