@@ -17,6 +17,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
@@ -33,11 +36,14 @@ import static org.mockito.Mockito.mockStatic;
 
 @ExtendWith(SingletonResetExtension.class)
 @FullReset
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestTurboSpikerBadnikInstance {
 
     @BeforeEach
     public void setUp() {
         RuntimeManager.destroyCurrent();
+        AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
     }
 
     @AfterEach

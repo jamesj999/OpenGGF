@@ -17,6 +17,19 @@ public final class PaletteWrite {
                          boolean mirrorToUnderwater) {
         this.surface = Objects.requireNonNull(surface, "surface");
         this.ownerId = Objects.requireNonNull(ownerId, "ownerId");
+        Objects.requireNonNull(segaData, "segaData");
+        if (lineIndex < 0 || lineIndex >= 4) {
+            throw new IllegalArgumentException("lineIndex must be 0-3, was: " + lineIndex);
+        }
+        if (startColor < 0) {
+            throw new IllegalArgumentException("startColor must be >= 0, was: " + startColor);
+        }
+        if (segaData.length % 2 != 0) {
+            throw new IllegalArgumentException("segaData length must be even (2 bytes per color), was: " + segaData.length);
+        }
+        if (startColor + segaData.length / 2 > 16) {
+            throw new IllegalArgumentException("write overflows palette line: startColor=" + startColor + ", colors=" + segaData.length / 2);
+        }
         this.priority = priority;
         this.lineIndex = lineIndex;
         this.startColor = startColor;

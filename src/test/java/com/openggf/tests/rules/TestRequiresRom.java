@@ -50,9 +50,10 @@ class TestRequiresRom {
         RequiresRomCondition condition = new RequiresRomCondition();
         condition.beforeEach(extensionContextFor(target.testClass()));
 
-        assertEquals(target.expectedModuleId(), GameModuleRegistry.getCurrent().getIdentifier());
-        assertEquals(target.expectedModuleId(), SessionManager.requireCurrentGameModule().getIdentifier());
-        assertEquals(target.expectedModuleId(), RuntimeManager.getCurrent().getWorldSession().getGameModule().getIdentifier());
+        assertEquals(target.expectedModuleId(), GameModuleRegistry.getCurrent().getGameId().code());
+        assertEquals(target.expectedModuleId(), SessionManager.requireCurrentGameModule().getGameId().code());
+        assertEquals(target.expectedModuleId(),
+                RuntimeManager.getCurrent().getWorldSession().getGameModule().getGameId().code());
         assertSame(target.rom(), com.openggf.tests.TestEnvironment.currentRom());
     }
 
