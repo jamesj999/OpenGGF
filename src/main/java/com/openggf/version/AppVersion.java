@@ -18,18 +18,22 @@ public final class AppVersion {
     }
 
     private static String loadVersion() {
-        try (InputStream input = AppVersion.class.getResourceAsStream(RESOURCE_PATH)) {
-            if (input == null) {
+        return loadVersion(AppVersion.class.getResourceAsStream(RESOURCE_PATH));
+    }
+
+    private static String loadVersion(InputStream input) {
+        try (InputStream stream = input) {
+            if (stream == null) {
                 return DEFAULT_VERSION;
             }
             Properties properties = new Properties();
-            properties.load(input);
+            properties.load(stream);
             String version = properties.getProperty(PROPERTY_NAME);
             if (version == null || version.trim().isEmpty()) {
                 return DEFAULT_VERSION;
             }
             return version.trim();
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             return DEFAULT_VERSION;
         }
     }
