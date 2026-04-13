@@ -1120,12 +1120,15 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         try {
             Rom rom = GameServices.rom().getRom();
             if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
             PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_HCZ_END_BOSS);
             List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
             if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
                 LOG.warning("HCZ end boss PLC produced no art");
                 return;
             }
+
+            // Entry 0: Boss body art (Map_HCZEndBoss)
             List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_END_BOSS_MAPPING_ASM);
             if (mappings.isEmpty()) {
                 LOG.warning("HCZ end boss asm mapping include produced no frames");
@@ -1133,6 +1136,14 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             }
             registerSheet(Sonic3kObjectArtKeys.HCZ_END_BOSS,
                     buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+
+            // Entry 1: Robotnik ship art (ArtNem_RobotnikShip + Map_RobotnikShip)
+            if (decompressed.size() >= 2 && decompressed.get(1).length > 0
+                    && sheets.get(Sonic3kObjectArtKeys.ROBOTNIK_SHIP) == null) {
+                registerSheet(Sonic3kObjectArtKeys.ROBOTNIK_SHIP,
+                        buildSheetFromPatterns(decompressed.get(1), reader,
+                                Sonic3kConstants.MAP_ROBOTNIK_SHIP_ADDR, 0));
+            }
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ end boss art: " + e.getMessage());
         }
