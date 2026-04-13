@@ -82,6 +82,13 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private static final int OFFSCREEN_MARGIN = 32;
 
     // =========================================================================
+    // FLY animation (ROM: byte_6BE19 — dc.b 3, $D, $F, $11, $F4)
+    // 3 frames at delay 3 (4 ticks each) = 12 ticks total flight, then FALL.
+    // =========================================================================
+    private static final int[] FLY_ANIM_FRAMES = {0x0D, 0x0F, 0x11};
+    private static final int FLY_ANIM_DELAY = 3;
+
+    // =========================================================================
     // Spin-down animation
     // =========================================================================
     /** Number of animation cycles to complete before self-destructing in SPIN_DOWN. */
@@ -110,6 +117,10 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private int yVel;
 
     private int spinDownCycleCount;
+
+    // FLY animation state (ROM: byte_6BE19)
+    private int flyAnimIndex;
+    private int flyAnimTimer;
 
     // =========================================================================
     // Constructor
@@ -222,7 +233,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     /**
      * ROM routine 6 (FLY): horizontal projectile.
      * Advances fixed-point position by velocity each frame.
-     * Transitions to FALL when blade Y reaches the water level.
+     * Transitions to FALL when fly animation completes (ROM: byte_6BE19
+     * — 3 frames at delay 3, then $F4 command triggers FALL).
      * Self-destructs when off-screen.
      */
     private void updateFly() {
@@ -240,10 +252,16 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
             return;
         }
 
-        // Check water level — if blade reaches water surface, start falling
-        int waterY = getWaterLevelY();
-        if (currentY >= waterY) {
-            routine = ROUTINE_FALL;
+        // Tick fly animation timer — transition to FALL when animation completes
+        // ROM: byte_6BE19: delay 3 (4 ticks per frame), 3 frames, then $F4 → FALL
+        flyAnimTimer--;
+        if (flyAnimTimer < 0) {
+            flyAnimTimer = FLY_ANIM_DELAY;
+            flyAnimIndex++;
+            if (flyAnimIndex >= FLY_ANIM_FRAMES.length) {
+                // Animation complete — transition to FALL (ROM: $F4 command)
+                routine = ROUTINE_FALL;
+            }
         }
     }
 
@@ -326,6 +344,10 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         // (boss faces left while moving left, blade ejects rightward, and vice-versa)
         xVel = boss.isFacingRight() ? -FLY_XVEL : FLY_XVEL;
         yVel = 0;
+
+        // Initialize fly animation timer (ROM: byte_6BE19 — 3 frames at delay 3)
+        flyAnimIndex = 0;
+        flyAnimTimer = FLY_ANIM_DELAY;
 
         // collision_flags stays 0 — blade is visual only (ROM: collision_flags = 0)
         routine = ROUTINE_FLY;

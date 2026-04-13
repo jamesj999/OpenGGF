@@ -1029,15 +1029,16 @@ public class HczEndBossInstance extends AbstractBossInstance {
             return;
         }
 
-        // Body frame 0
+        // Body frame 0 — hFlip reflects boss facing direction (ROM: render_flags bit 0)
         PatternSpriteRenderer bossRenderer = getRenderer(Sonic3kObjectArtKeys.HCZ_END_BOSS);
         if (bossRenderer != null) {
-            bossRenderer.drawFrameIndex(0, state.x, state.y, false, false);
+            bossRenderer.drawFrameIndex(0, state.x, state.y, facingRight, false);
 
             // Visual child (propeller housing) at offset (0, 0x1C) — frame 1
+            // X offset is 0, so flipping doesn't affect the child position
             bossRenderer.drawFrameIndex(1,
                     state.x + VISUAL_OFFSET_X, state.y + VISUAL_OFFSET_Y,
-                    false, false);
+                    facingRight, false);
         }
         // Robotnik ship is now rendered by HczEndBossRobotnikShip child object
     }
