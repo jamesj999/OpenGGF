@@ -45,10 +45,11 @@ import java.util.logging.Logger;
  * <p>The check runs until {@code anim_frame >= $30} (frame 48), after
  * which the chute is dissipating and no longer launches.
  *
- * <h3>Animation scripts ({@code off_6B998}, Animate_Raw format):</h3>
+ * <h3>Animation scripts ({@code off_6B998}, Animate_RawMultiDelay format):</h3>
  * <p>Each subtype has a different-length animation script. Higher subtypes
  * (further from water) have shorter sequences since they appear and
- * dissipate faster. All scripts end with {@code $F4} (end+callback).
+ * dissipate faster. The scripts are stored as alternating
+ * {@code mapping_frame, delay} bytes and end with {@code $F4} (end+callback).
  * The scripts use Map_HCZEndBoss frames showing water column segments.
  */
 public class HczEndBossBladeWaterChute extends AbstractBossChild {
@@ -77,7 +78,7 @@ public class HczEndBossBladeWaterChute extends AbstractBossChild {
 
     // =========================================================================
     // Animation scripts (ROM: off_6B998 → byte_6BE3F..byte_6BEEB)
-    // Format: Animate_Raw (byte 0 = base delay, then frame indices, $F4 = end)
+    // Format: Animate_RawMultiDelay (mapping_frame, delay pairs; $F4 = end)
     // =========================================================================
     private static final int[][] ANIM_SCRIPTS = {
         // byte_6BE3F (subtype 0, closest to water — longest)
@@ -117,9 +118,8 @@ public class HczEndBossBladeWaterChute extends AbstractBossChild {
     private int state;
     private int waitTimer;               // staggered start delay
 
-    // Animate_Raw emulation
-    private int animBaseDelay;           // byte 0 of script
-    private int animFrameIndex;          // current index into frame sequence (0-based)
+    // Animate_RawMultiDelay emulation
+    private int animFrameIndex;          // ROM anim_frame byte offset into animScript
     private int animFrameTimer;          // ticks remaining for current frame
     private int mappingFrame;            // current mapping frame being displayed
     private boolean animComplete;        // true when $F4 end reached
@@ -148,10 +148,11 @@ public class HczEndBossBladeWaterChute extends AbstractBossChild {
         this.waitTimer = this.slotIndex * 2;
         this.state = STATE_WAIT;
 
-        // Init animation (Animate_Raw: byte 0 = base delay)
-        this.animBaseDelay = animScript[0];
+        // Init animation to the SetUp_ObjAttributes mapping frame.
+        // Animate_RawMultiDelay starts with anim_frame/anim_frame_timer at 0,
+        // so the first active frame advances to byte offset 2 immediately.
         this.animFrameIndex = 0;
-        this.animFrameTimer = animBaseDelay;
+        this.animFrameTimer = 0;
         // ROM: SetUp_ObjAttributes with initial mapping_frame = 8
         this.mappingFrame = 8;
         this.animComplete = false;
@@ -279,13 +280,14 @@ public class HczEndBossBladeWaterChute extends AbstractBossChild {
     }
 
     // =========================================================================
-    // Animation (Animate_Raw emulation)
+    // Animation (Animate_RawMultiDelay emulation)
     // =========================================================================
 
     /**
-     * Emulates Animate_Raw: decrements frame timer, advances frame index
-     * on expiry, reads next mapping frame from the script. When $F4 end
-     * command would be reached, marks animation as complete for deletion.
+     * Emulates Animate_RawMultiDelay: decrements the current timer each frame.
+     * When it expires, advances ROM {@code anim_frame} by 2 and reads the next
+     * {@code mapping_frame, delay} pair from the script. A negative byte marks
+     * a command such as {@code $F4} end.
      */
     private void tickAnimation() {
         animFrameTimer--;
@@ -293,25 +295,21 @@ public class HczEndBossBladeWaterChute extends AbstractBossChild {
             return;
         }
 
-        // Advance to next frame
-        animFrameIndex++;
-        int scriptDataIndex = 1 + animFrameIndex;  // +1 because byte 0 is delay
-
-        if (scriptDataIndex >= animScript.length) {
-            // Past end of script — $F4 end command
+        int nextFrameIndex = animFrameIndex + 2;
+        if (nextFrameIndex >= animScript.length) {
             animComplete = true;
             return;
         }
 
-        int frameValue = animScript[scriptDataIndex];
+        int frameValue = animScript[nextFrameIndex];
         if (frameValue >= 0x80) {
-            // This would be a command byte ($FC/$F4/$F8) in ROM
             animComplete = true;
             return;
         }
 
+        animFrameIndex = nextFrameIndex;
         mappingFrame = frameValue;
-        animFrameTimer = animBaseDelay;
+        animFrameTimer = animScript[nextFrameIndex + 1];
     }
 
     // =========================================================================

@@ -750,10 +750,10 @@ public final class Sonic3kPlcArtRegistry {
         ));
 
         // Geyser debris art (Map_HCZWaterWallDebris, tiles at ArtTile_HCZGeyser+$58)
-        // Uses same compressed art as horizontal geyser but with debris mappings.
+        // HCZ2 cutscene debris uses the vertical cutscene geyser art source.
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS,
-                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR,
                 CompressionType.KOSINSKI_MODULED,
                 0,
                 0,

@@ -1175,7 +1175,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 return;
             }
             registerSheet(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE,
-                    buildSheetFromPatterns(patterns, mappings, 0));
+                    buildSheetFromPatterns(patterns, mappings, 2));
             LOG.info("Loaded HCZ geyser cutscene art: " + patterns.length + " tiles, "
                     + mappings.size() + " mapping frames");
         } catch (IOException e) {

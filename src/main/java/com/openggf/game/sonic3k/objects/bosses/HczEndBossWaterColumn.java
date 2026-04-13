@@ -36,6 +36,9 @@ import java.util.logging.Logger;
  *       callback loc_6B37A sets up PLATFORM phase.</li>
  *   <li>PLATFORM (10, loc_6B394): SolidObjectTop + Animate_Raw + Obj_Wait ($F frames),
  *       then callback loc_6B3BC displaces player off and deletes sprite.</li>
+ *   <li>DETACHED_FALL (engine parity for {@code sub_6BC42 -> loc_6B3C8}): when the
+ *       boss defeat bit is set, the column detaches, displaces riders, falls with
+ *       {@code y_vel=$100}, and deletes once it drops past the stored water base.</li>
  * </ol>
  *
  * <h3>sub_6BC8A — height tracking:</h3>
@@ -87,6 +90,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     private static final int ROUTINE_HOLD     = 6;
     private static final int ROUTINE_DESCEND  = 8;
     private static final int ROUTINE_PLATFORM = 10;
+    private static final int ROUTINE_DETACHED_FALL = 12;
 
     // =========================================================================
     // Physics (ROM 8.8 fixed-point: 0x100 = 1 pixel/frame)
@@ -255,12 +259,8 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             return;
         }
 
-        // Self-destruct on defeat (sub_6BC42 checks boss status bit 7)
-        if (boss.isDefeatSignal()) {
-            solidActive = false;
-            releaseAllGrabbedPlayers(player);
-            setDestroyed(true);
-            return;
+        if (boss.isDefeatSignal() && routine != ROUTINE_DETACHED_FALL) {
+            beginDefeatDetach(player);
         }
 
         switch (routine) {
@@ -270,6 +270,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             case ROUTINE_HOLD     -> updateHold(player);
             case ROUTINE_DESCEND  -> updateRiseDescend(player);
             case ROUTINE_PLATFORM -> updatePlatform(player);
+            case ROUTINE_DETACHED_FALL -> updateDetachedFall();
             default               -> { }
         }
     }
@@ -465,6 +466,9 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             yFixed = currentY << 8;
             solidActive = true;
             LOG.fine("HCZ Water Column: reached water, entering PLATFORM");
+        } else if (routine == ROUTINE_DETACHED_FALL) {
+            solidActive = false;
+            setDestroyed(true);
         }
     }
 
@@ -532,6 +536,33 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             releaseAllGrabbedPlayers(player);
             setDestroyed(true);
         }
+    }
+
+    /**
+     * ROM sub_6BC42: on boss defeat, detach into loc_6B3C8, apply y_vel=$100,
+     * clear riders, and delete once sub_6BC8A detects the column has dropped
+     * below its stored water-base Y.
+     */
+    private void beginDefeatDetach(PlayableEntity player) {
+        routine = ROUTINE_DETACHED_FALL;
+        solidActive = false;
+        xVel = 0;
+        yVel = 0x100;
+        xFixed = currentX << 8;
+        yFixed = currentY << 8;
+        releaseAllGrabbedPlayers(player);
+        displaceRidingPlayers(player);
+    }
+
+    private void updateDetachedFall() {
+        solidActive = false;
+        yFixed += yVel;
+        currentY = yFixed >> 8;
+        xFixed += xVel;
+        currentX = xFixed >> 8;
+        updateDynamicSpawn();
+        tickColumnAnimation();
+        doHeightCheck(null);
     }
 
     // =========================================================================
@@ -838,6 +869,29 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
                     releasePlayer(sprite, false);
                     break;
                 }
+            }
+        }
+    }
+
+    private void displaceRidingPlayers(PlayableEntity player) {
+        var objectManager = services().objectManager();
+        if (objectManager == null) {
+            return;
+        }
+
+        if (player instanceof AbstractPlayableSprite sprite
+                && objectManager.isRidingObject(player, this)) {
+            objectManager.clearRidingObject(player);
+            sprite.setOnObject(false);
+            sprite.setAir(true);
+        }
+
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sprite
+                    && objectManager.isRidingObject(sidekick, this)) {
+                objectManager.clearRidingObject(sidekick);
+                sprite.setOnObject(false);
+                sprite.setAir(true);
             }
         }
     }

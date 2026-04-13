@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  *
  * <p>Sits below the boss at a fixed Y offset. When the boss sets
  * {@code propellerActive}, the turbine spins up, becomes a collision hazard
- * (collision_flags = 0xA6), and plays sfx_FanBig approximately every 32 frames.
+ * (collision_flags = 0xA6), and keeps the continuous sfx_FanBig alive while spinning.
  * When {@code propellerActive} is cleared it winds down, losing collision.
  * When {@code defeatSignal} is set the turbine destroys itself.
  *
@@ -73,8 +73,8 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     private static final int ANIM_SPEED_WIND_DOWN = 4;
     private static final int ANIM_SPEED_STOPPING = 8;
 
-    /** How many frames between sfx_FanBig replays while ACTIVE. */
-    private static final int FAN_SFX_INTERVAL = 32;
+    /** Continuous SFX refresh cadence used by other HCZ fans in-engine. */
+    private static final int FAN_SFX_INTERVAL = 16;
 
     // =========================================================================
     // Instance state
@@ -89,8 +89,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
     private int animFrame;
     private int animCounter;
     private int animSpeed;
-    private int sfxTimer;
-
     /** Water column child — spawned when turbine becomes ACTIVE. */
     private HczEndBossWaterColumn waterColumn;
 
@@ -113,7 +111,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
         this.animFrame = 0;
         this.animCounter = 0;
         this.animSpeed = ANIM_SPEED_ACTIVE;
-        this.sfxTimer = 0;
     }
 
     // =========================================================================
@@ -141,8 +138,8 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
         switch (routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT -> updateWait();
-            case ROUTINE_ACTIVE -> updateActive();
-            case ROUTINE_WIND_DOWN -> updateWindDown();
+            case ROUTINE_ACTIVE -> updateActive(frameCounter);
+            case ROUTINE_WIND_DOWN -> updateWindDown(frameCounter);
             case ROUTINE_STOPPING -> updateStopping();
             default -> { }
         }
@@ -161,7 +158,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
         animFrame = 0;
         animCounter = 0;
         animSpeed = ANIM_SPEED_ACTIVE;
-        sfxTimer = 0;
         routine = ROUTINE_WAIT;
     }
 
@@ -174,7 +170,6 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
             // Spin up: set collision, play SFX immediately, transition to ACTIVE
             collisionFlags = ACTIVE_COLLISION_FLAGS;
             animSpeed = ANIM_SPEED_ACTIVE;
-            sfxTimer = 0;
             services().playSfx(Sonic3kSfx.FAN_BIG.id);
             routine = ROUTINE_ACTIVE;
         }
@@ -182,11 +177,11 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
 
     /**
      * ROM routine 4: spinning at full speed, collision active.
-     * Plays sfx_FanBig every FAN_SFX_INTERVAL frames.
+     * Refreshes the continuous sfx_FanBig while ACTIVE.
      * Spawns water column on first entry.
      * Transitions to WIND_DOWN when propellerActive is cleared.
      */
-    private void updateActive() {
+    private void updateActive(int frameCounter) {
         // Spawn water column on first entry (lazy — only once per ACTIVE phase)
         if (waterColumn == null || waterColumn.isDestroyed()) {
             spawnWaterColumn();
@@ -196,11 +191,9 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
         animSpeed = ANIM_SPEED_ACTIVE;
         tickAnimation();
 
-        // Periodic SFX
-        sfxTimer--;
-        if (sfxTimer <= 0) {
+        // Refresh the continuous fan SFX often enough that the audio backend extends it
+        if ((frameCounter & (FAN_SFX_INTERVAL - 1)) == 0 && isOnScreen()) {
             services().playSfx(Sonic3kSfx.FAN_BIG.id);
-            sfxTimer = FAN_SFX_INTERVAL;
         }
 
         // Check for wind-down signal
@@ -225,7 +218,7 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
      * Checks whether propellerActive has gone back high (re-spin) or
      * remains low (proceed to STOPPING).
      */
-    private void updateWindDown() {
+    private void updateWindDown(int frameCounter) {
         // Animate at reduced speed
         animSpeed = ANIM_SPEED_WIND_DOWN;
         tickAnimation();
@@ -234,10 +227,13 @@ public class HczEndBossTurbine extends AbstractBossChild implements TouchRespons
         if (boss.isPropellerActive()) {
             collisionFlags = ACTIVE_COLLISION_FLAGS;
             animSpeed = ANIM_SPEED_ACTIVE;
-            sfxTimer = 0;
             services().playSfx(Sonic3kSfx.FAN_BIG.id);
             routine = ROUTINE_ACTIVE;
             return;
+        }
+
+        if ((frameCounter & (FAN_SFX_INTERVAL - 1)) == 0 && isOnScreen()) {
+            services().playSfx(Sonic3kSfx.FAN_BIG.id);
         }
 
         // When the animation completes one full revolution at wind-down speed,
