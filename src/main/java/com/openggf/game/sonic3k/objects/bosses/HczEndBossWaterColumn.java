@@ -167,6 +167,16 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     // Height check: transition at 5 segments (sub_6BC8A)
     // =========================================================================
     private static final int RISE_SEGMENT_THRESHOLD = 5;
+    /** Maximum segment count (ROM table off_6B954 has 6 entries, indices 0-5). */
+    private static final int MAX_SEGMENT_COUNT = 5;
+
+    // =========================================================================
+    // Carry constants (sub_6BA06 / loc_6BA6C)
+    // =========================================================================
+    /** Horizontal range for carry continuation: ±$12 (18 px). ROM: cmpi #-$12 / cmpi #$12 */
+    private static final int CARRY_H_RANGE = 0x12;
+    /** Horizontal centering force applied to player x_vel each frame. ROM: move.w #$80,d2 */
+    private static final short CARRY_H_FORCE = 0x80;
 
     // =========================================================================
     // Floor sentinel
@@ -216,8 +226,10 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     /** Whether solid platform is active for this frame. */
     private boolean solidActive;
 
-    /** Whether a player is currently grabbed by the column. */
-    private boolean playerGrabbed;
+    /** ROM $42: per-player grab flag for player 1. True if this column has grabbed player 1. */
+    private boolean player1Grabbed;
+    /** ROM $43: per-player grab flag for player 2 / sidekick. */
+    private boolean player2Grabbed;
 
     // =========================================================================
     // Constructor
@@ -229,7 +241,8 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         this.turbine = turbine;
         this.routine = ROUTINE_INIT;
         this.solidActive = false;
-        this.playerGrabbed = false;
+        this.player1Grabbed = false;
+        this.player2Grabbed = false;
     }
 
     // =========================================================================
@@ -245,7 +258,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         // Self-destruct on defeat (sub_6BC42 checks boss status bit 7)
         if (boss.isDefeatSignal()) {
             solidActive = false;
-            releaseGrabbedPlayer(player);
+            releaseAllGrabbedPlayers(player);
             setDestroyed(true);
             return;
         }
@@ -406,13 +419,19 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         }
 
         segmentCount = (heightDiff & 0xF0) >> 4;
+        // Cap to valid range — ROM's off_6B954 spray animation table has 6
+        // entries (indices 0-5).  With y_vel=-$100 the ROM never overshoots,
+        // but our frame timing can occasionally push segmentCount to 6+.
+        if (segmentCount > MAX_SEGMENT_COUNT) {
+            segmentCount = MAX_SEGMENT_COUNT;
+        }
 
-        // Update spray animation if segment count changed
+        // Update spray animation if segment count changed (ROM: sub_6B916
+        // resets anim_frame_timer and changes animation pointer)
         if (segmentCount != prevSegmentCount) {
             prevSegmentCount = segmentCount;
             sprayAnimTimer = SPRAY_ANIM_DELAY;
-            // Don't reset sprayAnimIndex — ROM resets anim_frame_timer but
-            // frame index persists (Animate_Raw continues from current frame)
+            sprayAnimIndex = 0;
         }
 
         if (yVel >= 0) {
@@ -486,8 +505,8 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
                 xVel = -xVel;
             }
 
-            // Release grabbed player on descent
-            releaseGrabbedPlayer(player);
+            // ROM loc_6BB1E: release any grabbed players on descent start
+            releaseAllGrabbedPlayers(player);
 
             LOG.fine("HCZ Water Column: propeller stopped, entering DESCEND");
         }
@@ -510,7 +529,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         if (platformWait <= 0) {
             // loc_6B3BC: Displace_PlayerOffObject + Go_Delete_Sprite_2
             solidActive = false;
-            releaseGrabbedPlayer(player);
+            releaseAllGrabbedPlayers(player);
             setDestroyed(true);
         }
     }
@@ -546,32 +565,34 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     }
 
     // =========================================================================
-    // Suction (sub_6B9AC — spray child) + Grab (sub_6B9E2)
+    // Suction (sub_6B9AC) + Grab/Carry (sub_6B9E2 + sub_6BA06)
     // =========================================================================
 
     /**
-     * ROM sub_6B9AC (in spray child): push player horizontally at 0x20000
-     * subpixels/frame when above water level and within column X proximity.
-     *
-     * ROM sub_6B9E2 (in spray child): grab player when within Y-zone
-     * (word_6BAC2) and 32px horizontal range.
+     * ROM: the spray child calls sub_6B9E2 (grab/carry), sub_6B9AC (horizontal
+     * suction), and sub_6B916 (animation update) each frame.
+     * We replicate the grab/carry and suction here inline.
      */
     private void applySuction(PlayableEntity player) {
+        // Spray Y position for grab zone calculations
+        int sprayY = getSprayY();
+
         if (player instanceof AbstractPlayableSprite sprite) {
+            applyGrabAndCarry(sprite, true, sprayY);
             applySuctionTo(sprite);
-            applyGrab(sprite);
         }
         for (PlayableEntity sidekick : services().sidekicks()) {
             if (sidekick instanceof AbstractPlayableSprite sprite) {
+                applyGrabAndCarry(sprite, false, sprayY);
                 applySuctionTo(sprite);
-                applyGrab(sprite);
             }
         }
     }
 
     /**
-     * sub_6B9AC: horizontal push. If player is above water level,
-     * push them toward/away from column X at 0x20000 subpixels (2 px/frame).
+     * sub_6B9AC + sub_6B9C8: horizontal push toward column.
+     * ROM: $20000 (2.0 in 16.16) applied to x_pos when player is above
+     * water+8 and not object-controlled.
      */
     private void applySuctionTo(AbstractPlayableSprite sprite) {
         if (sprite.getDead() || sprite.isObjectControlled()) {
@@ -587,91 +608,242 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         }
 
         int spriteX = sprite.getCentreX();
-        // ROM: push = $20000 (2.0 in 16.16), applied to x_pos directly
-        // If sprite X > column X, push adds positive (away? or toward?)
-        // ROM: cmp.w x_pos(a1),d0; bhs loc_9DC; neg.l d2; add.l d2,x_pos
-        // If column_x >= sprite_x → don't negate → add positive (push right, toward column)
-        // If column_x < sprite_x → negate → add negative (push left, toward column)
-        // So this always pushes TOWARD the column
+        // ROM: cmp.w x_pos(a1),d0; bhs.s loc_6B9DC; neg.l d2
+        // If column_x >= sprite_x: push right (positive). Otherwise: push left.
         if (spriteX < currentX) {
-            sprite.shiftX(2);  // push right toward column
+            sprite.shiftX(2);
         } else if (spriteX > currentX) {
-            sprite.shiftX(-2); // push left toward column
+            sprite.shiftX(-2);
         }
     }
 
     /**
-     * sub_6B9E2 + sub_6BA06: grab player when in Y-zone and close enough.
-     * Y-zone is defined by word_6BAC2 indexed by segment count.
-     * H range: 32 px total (ROM: addi #$10, cmpi #$20).
+     * ROM sub_6BA06: full grab, carry, and release logic for one player.
+     *
+     * <p>Flow:
+     * <ol>
+     *   <li>If boss defeated → release (sub_6BB02)</li>
+     *   <li>If player dead/dying or invulnerable → displace off + clear</li>
+     *   <li>If player NOT object-controlled → range check → initial grab (sub_6BADA)</li>
+     *   <li>If player IS object-controlled AND is grabbed by us → carry (loc_6BA6C)</li>
+     *   <li>Carry: check player above top of zone → release. Check ±$12 H → release.
+     *       Otherwise push toward center, apply velocity, move up 2px.</li>
+     * </ol>
+     *
+     * @param isPlayer1 true for main player, false for sidekick
+     * @param sprayY    precomputed spray Y position for this frame
      */
-    private void applyGrab(AbstractPlayableSprite sprite) {
-        if (sprite.getDead()) {  // ROM: cmpi.b #6,routine(a2) — dead/dying
-            return;
-        }
-        if (sprite.getInvulnerable()) {  // ROM: tst.b invulnerability_timer(a2)
-            return;
-        }
+    private void applyGrabAndCarry(AbstractPlayableSprite sprite, boolean isPlayer1, int sprayY) {
+        boolean isGrabbed = isPlayer1 ? player1Grabbed : player2Grabbed;
+
+        // ROM: btst #7,status(a3) — if boss defeated, release
         if (boss.isDefeatSignal()) {
+            if (isGrabbed) {
+                releasePlayer(sprite, isPlayer1);
+            }
             return;
         }
 
+        // ROM: cmpi.b #6,routine(a2) — dead/dying → displace off
+        if (sprite.getDead()) {
+            if (isGrabbed) {
+                clearGrabFlag(isPlayer1);
+                sprite.setObjectControlled(false);
+            }
+            return;
+        }
+
+        // ROM: tst.b invulnerability_timer(a2) — invulnerable → displace off
+        if (sprite.getInvulnerable()) {
+            if (isGrabbed) {
+                clearGrabFlag(isPlayer1);
+                sprite.setObjectControlled(false);
+            }
+            return;
+        }
+
+        // ROM: tst.b object_control(a2) — check if player is controlled
+        if (sprite.isObjectControlled()) {
+            // ROM: tst.b (a0,d4.w) — is THIS column grabbing this player?
+            if (!isGrabbed) {
+                // Another object has control. Fall through to range check
+                // (ROM falls through to loc_6BA32). But since we don't own
+                // this player, just skip.
+                return;
+            }
+            // We own this player — go to carry logic (loc_6BA6C)
+            doCarry(sprite, isPlayer1, sprayY);
+            return;
+        }
+
+        // Player is NOT object-controlled — range check + initial grab (loc_6BA32)
         int idx = Math.min(segmentCount, GRAB_ZONES.length - 1);
         int[] zone = GRAB_ZONES[idx];
 
-        // Spray Y position = Water_level + SPRAY_Y_OFFSETS[segmentCount]
-        int sprayY = getWaterLevelY() + SPRAY_Y_OFFSETS[Math.min(segmentCount,
-                SPRAY_Y_OFFSETS.length - 1)];
-
         int spriteY = sprite.getCentreY();
         int yTop = sprayY + zone[0];
-        int yBottom = yTop + zone[1];
+        int yHeight = zone[1];
 
-        if (spriteY < yTop || spriteY >= yBottom) {
+        // ROM: add.w (a1),d0; cmp.w d0,d2; blo locret — player above zone top
+        if (spriteY < yTop) {
+            return;
+        }
+        // ROM: add.w 2(a1),d0; cmp.w d0,d2; bhs locret — player below zone bottom
+        if (spriteY >= yTop + yHeight) {
             return;
         }
 
+        // ROM: x range check: sub.w d2,d0; addi.w #$10,d0; cmpi.w #$20,d0
         int spriteX = sprite.getCentreX();
-        int hDist = currentX - spriteX + GRAB_H_DIST;  // ROM: sub, addi #$10
-        if (hDist < 0 || hDist >= (GRAB_H_DIST * 2)) { // ROM: cmpi #$20
+        int hDist = currentX - spriteX + GRAB_H_DIST;
+        if (hDist < 0 || hDist >= (GRAB_H_DIST * 2)) {
             return;
         }
 
-        // Player is in grab zone
-        if (!sprite.isObjectControlled()) {
-            // ROM sub_6BADA: lock player
-            sprite.setObjectControlled(true);
-            sprite.setAir(true);
-            sprite.setForcedAnimationId(Sonic3kAnimationIds.FLOAT2.id());
-            sprite.setXSpeed((short) 0);
-            sprite.setYSpeed((short) 0);
-            playerGrabbed = true;
+        // In range — initial grab (sub_6BADA)
+        doInitialGrab(sprite, isPlayer1);
+
+        // Immediately enter carry logic this frame (ROM falls through to loc_6BA6C)
+        doCarry(sprite, isPlayer1, sprayY);
+    }
+
+    /**
+     * ROM sub_6BADA: initial grab — lock player, set animation, clear velocities.
+     * <pre>
+     *   st    (a0,d4.w)             ; set per-player grabbed flag
+     *   bset  #Status_InAir,status  ; set airborne
+     *   move.b #1,object_control    ; lock player
+     *   move.b #$18,anim            ; death/tumble animation
+     *   clr.b  spin_dash_flag
+     *   clr.w  x_vel, y_vel, ground_vel
+     * </pre>
+     */
+    private void doInitialGrab(AbstractPlayableSprite sprite, boolean isPlayer1) {
+        if (isPlayer1) {
+            player1Grabbed = true;
+        } else {
+            player2Grabbed = true;
+        }
+        sprite.setAir(true);
+        sprite.setObjectControlled(true);
+        // ROM: move.b #$18,anim(a2) — animation $18 = tumbling/death sprite pose.
+        // In the vortex context this shows the player spinning in the water column.
+        sprite.setForcedAnimationId(Sonic3kAnimationIds.DEATH.id());
+        sprite.setSpindashCounter((short) 0);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
+    }
+
+    /**
+     * ROM loc_6BA6C: per-frame carry logic for a grabbed player.
+     *
+     * <p>Checks release conditions (above top of zone, outside ±$12 H range),
+     * applies horizontal centering force, and moves the player upward 2 px/frame.
+     *
+     * <pre>
+     *   ; Check if player is above top of grab zone
+     *   move.w y_pos(a0),d0 / add.w (a1)+,d0 / cmp.w d0,d2; blo sub_6BB02
+     *   ; Check horizontal ±$12
+     *   sub.w x_pos(a0),d0 / cmpi.w #-$12,d0; ble sub_6BB02
+     *   cmpi.w #$12,d0; bge sub_6BB02
+     *   ; Apply centering force
+     *   move.w #$80,d2 / tst.w d0; bmi loc_6BA9E; neg.w d2
+     *   add.w d2,d1 / move.w d1,x_vel / ext.l / lsl.l #8 / add.l x_pos
+     *   ; Move up
+     *   subq.w #2,y_pos(a2)
+     * </pre>
+     */
+    private void doCarry(AbstractPlayableSprite sprite, boolean isPlayer1, int sprayY) {
+        int idx = Math.min(segmentCount, GRAB_ZONES.length - 1);
+        int[] zone = GRAB_ZONES[idx];
+        int spriteY = sprite.getCentreY();
+
+        // ROM: check if player has risen above the top of grab zone → release
+        int yTop = sprayY + zone[0];
+        if (spriteY < yTop) {
+            releasePlayer(sprite, isPlayer1);
+            return;
+        }
+
+        // ROM: horizontal distance check — release if outside ±$12
+        int spriteX = sprite.getCentreX();
+        int hDist = spriteX - currentX;  // ROM: sub.w x_pos(a0),d0
+        if (hDist <= -CARRY_H_RANGE || hDist >= CARRY_H_RANGE) {
+            releasePlayer(sprite, isPlayer1);
+            return;
+        }
+
+        // ROM: centering force — push toward column center
+        // If hDist < 0 (player left of column): force = +$80 (push right)
+        // If hDist >= 0 (player right of column): force = -$80 (push left)
+        short xVelPlayer = sprite.getXSpeed();
+        short force = CARRY_H_FORCE;
+        if (hDist >= 0) {
+            force = (short) -force;
+        }
+        xVelPlayer = (short) (xVelPlayer + force);
+        sprite.setXSpeed(xVelPlayer);
+
+        // ROM: ext.l d1; lsl.l #8,d1; add.l d1,x_pos(a2)
+        // Apply velocity to position (16.16 fixed-point update).
+        // AbstractSprite.move() does exactly: xPos += (xSpeed << 8)
+        sprite.move(xVelPlayer, (short) 0);
+
+        // ROM: subq.w #2,y_pos(a2) — move player up 2 pixels per frame
+        sprite.shiftY(-2);
+    }
+
+    /**
+     * ROM sub_6BB02: release a grabbed player.
+     * <pre>
+     *   clr.b  (a0,d4.w)             ; clear per-player grabbed flag
+     *   bset   #Status_InAir,status   ; set airborne
+     *   clr.b  object_control         ; unlock player
+     *   move.b #2,anim               ; ROLL animation
+     *   move.w #-$200,y_vel           ; launch upward
+     * </pre>
+     */
+    private void releasePlayer(AbstractPlayableSprite sprite, boolean isPlayer1) {
+        clearGrabFlag(isPlayer1);
+        sprite.setAir(true);
+        sprite.setObjectControlled(false);
+        // ROM: move.b #2,anim(a2) — roll animation
+        sprite.setForcedAnimationId(Sonic3kAnimationIds.ROLL.id());
+        sprite.setYSpeed((short) -0x200);
+    }
+
+    private void clearGrabFlag(boolean isPlayer1) {
+        if (isPlayer1) {
+            player1Grabbed = false;
+        } else {
+            player2Grabbed = false;
         }
     }
 
     /**
-     * Release a grabbed player (ROM sub_6BB02 equivalent).
-     * ROM: clears object_control, sets y_vel = -$200.
+     * Release all grabbed players (ROM loc_6BB1E equivalent, called on
+     * DESCEND transition and object destruction).
      */
-    private void releaseGrabbedPlayer(PlayableEntity player) {
-        if (!playerGrabbed) {
-            return;
+    private void releaseAllGrabbedPlayers(PlayableEntity player) {
+        if (player1Grabbed && player instanceof AbstractPlayableSprite sprite) {
+            releasePlayer(sprite, true);
         }
-        playerGrabbed = false;
-        if (player instanceof AbstractPlayableSprite sprite && sprite.isObjectControlled()) {
-            sprite.setObjectControlled(false);
-            sprite.setYSpeed((short) -0x200);
-            sprite.setXSpeed((short) 0);
-            sprite.setAir(true);
-        }
-        for (PlayableEntity sidekick : services().sidekicks()) {
-            if (sidekick instanceof AbstractPlayableSprite sprite && sprite.isObjectControlled()) {
-                sprite.setObjectControlled(false);
-                sprite.setYSpeed((short) -0x200);
-                sprite.setXSpeed((short) 0);
-                sprite.setAir(true);
+        if (player2Grabbed) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
+                if (sidekick instanceof AbstractPlayableSprite sprite) {
+                    releasePlayer(sprite, false);
+                    break;
+                }
             }
         }
+    }
+
+    /** Compute the spray child's Y position for this frame. */
+    private int getSprayY() {
+        int waterY = getWaterLevelY();
+        int offsetIdx = Math.min(segmentCount, SPRAY_Y_OFFSETS.length - 1);
+        return waterY + SPRAY_Y_OFFSETS[offsetIdx];
     }
 
     // =========================================================================
