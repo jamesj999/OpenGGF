@@ -15,33 +15,64 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * HCZ end boss water column child (ROM: loc_6B26E).
+ * HCZ end boss water column platform (ROM: loc_6B26E).
  *
- * <p>When the turbine is spinning, a column of water rises from the water surface
- * up to the turbine. While held at target height the column acts as a solid-top
- * platform and pulls nearby players toward its centre (suction), optionally
- * locking them if they are very close (grab). When the turbine stops, the column
- * descends back to the water surface and is deleted.
+ * <p>Rises from the water surface to the turbine, acts as a solid-top platform,
+ * and renders both the platform frame and the whirlpool/spray body.
  *
- * <p>State machine (5 routines, ROM stride 2):
+ * <h3>ROM state machine (6 routines, stride 2):</h3>
  * <ol start="0">
- *   <li>INIT (0): Place at water level directly below turbine X.</li>
- *   <li>RISE (4): Rise toward turbine at {@code y_vel = -0x100}; apply suction.</li>
- *   <li>HOLD (6): At target height; maintain suction; act as solid-top platform.</li>
- *   <li>DESCEND (8): Descend when turbine deactivates; track boss X.</li>
- *   <li>PLATFORM (10): Brief solid platform phase then self-destruct.</li>
+ *   <li>INIT (0, loc_6B2AA): place at Water_level - 8, set animation to byte_6BE0C
+ *       (spin-up), spawn water surface children and bubble particles.</li>
+ *   <li>ANIMATE (2, loc_6B2F2): Animate_Raw on byte_6BE0C. On completion ($F4),
+ *       callback loc_6B2F8 sets routine 4, y_vel=-$100, animation byte_6BE15,
+ *       and spawns spray child (loc_6B3DE).</li>
+ *   <li>RISE (4, loc_6B31E): MoveSprite2 + Animate_Raw + sub_6BC8A height check.
+ *       When segment_count >= 5, callback loc_6B32E sets routine 6 (HOLD).</li>
+ *   <li>HOLD (6, loc_6B336): Animate_Raw, wait for boss bit 3 of $38 to clear
+ *       (propellerActive goes false). Then transition to DESCEND.</li>
+ *   <li>DESCEND (8, loc_6B31E): same handler as RISE, y_vel=$80, x_vel=$80
+ *       (sign matches boss direction). When y_pos crosses $3A (water level),
+ *       callback loc_6B37A sets up PLATFORM phase.</li>
+ *   <li>PLATFORM (10, loc_6B394): SolidObjectTop + Animate_Raw + Obj_Wait ($F frames),
+ *       then callback loc_6B3BC displaces player off and deletes sprite.</li>
  * </ol>
  *
- * <p>Solid top: ROM uses SolidObjectTop with d1=0x1F (half-width 31), d2=0x0C, d3=0x0C.
+ * <h3>sub_6BC8A — height tracking:</h3>
+ * <pre>
+ *   segment_count = ($3A - y_pos) AND $F0, >> 4
+ *   Store in $39 (read by spray child for visual height)
+ *   If rising and segment_count >= 5 → fire callback
+ *   If y_pos > $3A (overshot) → fire callback
+ * </pre>
  *
- * <p>Suction (sub_6B9AC, line 141757):
+ * <h3>Rendering:</h3>
+ * The platform object draws ONE mapping frame via Draw_Sprite. The growing
+ * whirlpool body is drawn by a separate spray child (loc_6B3DE) which selects
+ * progressively taller mapping frames based on the parent's $39 segment count.
+ * Since the spray child is not yet its own class, this object also renders the
+ * spray visual inline using the ROM's frame tables and Y-offset tables.
+ *
+ * <h3>Animation scripts (Animate_Raw format: delay, frames..., command):</h3>
  * <ul>
- *   <li>Horizontal: player within 128 px H and 192 px V — accelerate toward centre
- *       at 0x20 subpixels per frame.</li>
- *   <li>Grab (sub_6B9E2): player within 32 px H and 64 px V — lock them
- *       (object_control=1, clear velocities).</li>
+ *   <li>byte_6BE0C (spin-up): 3, $17,$17,$22,$16,$21,$15,$20, $F4</li>
+ *   <li>byte_6BE15 (rise/hold): 3, $15,$20, $FC (loop)</li>
+ *   <li>Spray animations per segment count 0-5 (sub_6B916 / off_6B954):</li>
+ *   <li>  0: byte_6BE19: 3, $0D,$0F,$11, $FC</li>
+ *   <li>  1: byte_6BE1E: 3, $24,$25,$26, $FC</li>
+ *   <li>  2: byte_6BE23: 3, $27,$28,$29, $FC</li>
+ *   <li>  3: byte_6BE28: 3, $2A,$2B,$2C, $FC</li>
+ *   <li>  4: byte_6BE2D: 3, $2D,$2E,$2F, $FC</li>
+ *   <li>  5: byte_6BE2D: 3, $2D,$2E,$2F, $FC</li>
  * </ul>
- * Player eject y_vel = -0x200 when released.
+ *
+ * <p>Solid top: ROM uses SolidObjectTop with d1=0x1F, d2=0x0C, d3=0x0C.
+ *
+ * <p>Suction (sub_6B9AC): horizontal push at 0x20000 subpixels when player is
+ * above water level and near column X. Applied by spray child, replicated here.
+ *
+ * <p>Grab (sub_6B9E2): player within Y-zone table (word_6BAC2) and 32px H —
+ * lock object_control, forced float animation.
  */
 public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObjectProvider {
 
@@ -58,58 +89,87 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     private static final int ROUTINE_PLATFORM = 10;
 
     // =========================================================================
-    // Physics constants (ROM 8.8 fixed-point: 0x100 = 1 pixel/frame)
+    // Physics (ROM 8.8 fixed-point: 0x100 = 1 pixel/frame)
     // =========================================================================
-    /** Rise velocity (upward = negative Y). */
-    private static final int RISE_YVEL = -0x100;
-    /** Descend velocity (downward = positive Y). */
-    private static final int DESCEND_YVEL = 0x100;
-    /** Player eject velocity when grab is released. */
-    private static final int EJECT_YVEL = -0x200;
+    private static final int RISE_YVEL    = -0x100;   // routine 4 y_vel
+    private static final int DESCEND_YVEL =  0x80;    // routine 8 y_vel
+    private static final int DESCEND_XVEL =  0x80;    // routine 8 x_vel (sign from boss)
 
     // =========================================================================
-    // Solid platform parameters (ROM: d1=0x1F, d2=0x0C, d3=0x0C)
+    // Solid platform (ROM: d1=0x1F, d2=0x0C, d3=0x0C)
     // =========================================================================
-    private static final int SOLID_HALF_WIDTH    = 0x1F; // 31 px
-    private static final int SOLID_HALF_HEIGHT   = 0x0C; // 12 px
+    private static final int SOLID_HALF_WIDTH  = 0x1F;
+    private static final int SOLID_HALF_HEIGHT = 0x0C;
     private static final SolidObjectParams SOLID_PARAMS =
             new SolidObjectParams(SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT, SOLID_HALF_HEIGHT);
 
     // =========================================================================
-    // Suction zone (sub_6B9AC)
-    // =========================================================================
-    /** Horizontal proximity for suction pull to begin (128 px). */
-    private static final int SUCTION_H_DIST = 128;
-    /** Vertical proximity for suction pull to begin (192 px). */
-    private static final int SUCTION_V_DIST = 192;
-    /** Horizontal acceleration applied toward column centre each frame (subpixels). */
-    private static final int SUCTION_X_ACCEL = 0x20;
-    /** Horizontal proximity for player grab / lock (32 px). */
-    private static final int GRAB_H_DIST = 32;
-    /** Vertical proximity for player grab / lock (64 px). */
-    private static final int GRAB_V_DIST = 64;
-
-    // =========================================================================
-    // Animation: Map_HCZEndBoss frame 8 area, 4-frame cycle
-    // =========================================================================
-    private static final int ANIM_FRAME_BASE  = 8;
-    private static final int ANIM_FRAME_COUNT = 4;
-    private static final int ANIM_SPEED       = 4; // frames per step
-    /** Vertical spacing between tiled column segments (pixels). */
-    private static final int COLUMN_SEGMENT_HEIGHT = 16;
-
-    // =========================================================================
-    // Spin-up animation (ROM: byte_6BE0C, routine 2)
-    // Delay 3 (4 ticks per frame), 7 frames total = 28 ticks before RISE.
-    // Frame sequence from ROM: $17, $17, $22, $16, $21, $15, $20
-    // On completion ($F4 command): transition to RISE, set y_vel = -$100,
-    // spawn water spray child.
+    // Spin-up animation: byte_6BE0C
+    // Delay=3 (4 ticks per frame), 7 frames, end command $F4
     // =========================================================================
     private static final int[] SPINUP_FRAMES = {0x17, 0x17, 0x22, 0x16, 0x21, 0x15, 0x20};
-    private static final int SPINUP_DELAY = 3; // 4 ticks per frame (0-indexed delay)
+    private static final int SPINUP_DELAY = 3;
 
     // =========================================================================
-    // Floor sentinel (far below level)
+    // Rise/hold animation: byte_6BE15
+    // Delay=3, frames $15,$20, loop $FC
+    // =========================================================================
+    private static final int[] COLUMN_FRAMES = {0x15, 0x20};
+    private static final int COLUMN_ANIM_DELAY = 3;
+
+    // =========================================================================
+    // Spray animation tables (sub_6B916 / off_6B954)
+    // Indexed by segment count (0-5). Each is a looping 3-frame animation.
+    // =========================================================================
+    private static final int[][] SPRAY_FRAMES = {
+        {0x0D, 0x0F, 0x11},   // segment 0: byte_6BE19
+        {0x24, 0x25, 0x26},   // segment 1: byte_6BE1E
+        {0x27, 0x28, 0x29},   // segment 2: byte_6BE23
+        {0x2A, 0x2B, 0x2C},   // segment 3: byte_6BE28
+        {0x2D, 0x2E, 0x2F},   // segment 4: byte_6BE2D
+        {0x2D, 0x2E, 0x2F},   // segment 5: byte_6BE2D (same as 4)
+    };
+    private static final int SPRAY_ANIM_DELAY = 3;
+
+    // =========================================================================
+    // Spray Y offsets from water level (byte_6B948, read at +1 offset)
+    // Indexed by segment count (0-5)
+    // =========================================================================
+    private static final int[] SPRAY_Y_OFFSETS = {
+        -8,     // segment 0
+        -0x10,  // segment 1
+        -0x18,  // segment 2
+        -0x20,  // segment 3
+        -0x28,  // segment 4
+        -0x28,  // segment 5
+    };
+
+    // =========================================================================
+    // Grab zones per segment count (word_6BAC2, 4 bytes each)
+    // Each entry: {y_top_offset, y_height}, relative to spray y_pos
+    // =========================================================================
+    private static final int[][] GRAB_ZONES = {
+        {-0x18, 0x48},  // segment 0
+        {-0x20, 0x58},  // segment 1
+        {-0x28, 0x68},  // segment 2
+        {-0x30, 0x78},  // segment 3
+        {-0x38, 0x88},  // segment 4
+        {-0x48, 0x88},  // segment 5
+    };
+    private static final int GRAB_H_DIST = 0x10;  // 16 px half-width (ROM: addi #$10, cmpi #$20)
+
+    // =========================================================================
+    // Platform phase wait timer (ROM: $2E = $F)
+    // =========================================================================
+    private static final int PLATFORM_WAIT = 0x0F;
+
+    // =========================================================================
+    // Height check: transition at 5 segments (sub_6BC8A)
+    // =========================================================================
+    private static final int RISE_SEGMENT_THRESHOLD = 5;
+
+    // =========================================================================
+    // Floor sentinel
     // =========================================================================
     private static final int FLOOR_Y_LIMIT = 0x1000;
 
@@ -120,41 +180,54 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     private final HczEndBossTurbine turbine;
 
     private int routine;
-    private int animFrame;
-    private int animCounter;
 
-    /** Fixed-point Y position (16:8 — pixel * 256). */
+    /** Fixed-point Y (16:8). */
     private int yFixed;
-    /** Target Y when rising (turbine Y position). */
-    private int targetY;
+    /** Fixed-point X (16:8) — used during DESCEND for x_vel tracking. */
+    private int xFixed;
+    /** X velocity in 8.8 fixed-point — used during DESCEND. */
+    private int xVel;
+    /** Y velocity in 8.8 fixed-point. */
+    private int yVel;
 
-    /** Whether the current frame has solid platform active. */
+    /** ROM $3A: stored water level Y at init (base for height calculation). */
+    private int waterBaseY;
+
+    /** ROM $39: current segment count (height / 16). */
+    private int segmentCount;
+    /** Previous segment count (for spray animation reset). */
+    private int prevSegmentCount = -1;
+
+    // -- Column animation state (byte_6BE15: frames $15,$20 looping) --
+    private int columnAnimIndex;
+    private int columnAnimTimer;
+
+    // -- Spin-up animation state (byte_6BE0C) --
+    private int spinupIndex;
+    private int spinupTimer;
+
+    // -- Spray animation state (inline — replaces spray child loc_6B3DE) --
+    private int sprayAnimIndex;
+    private int sprayAnimTimer;
+
+    /** Platform wait counter for ROUTINE_PLATFORM (ROM $2E). */
+    private int platformWait;
+
+    /** Whether solid platform is active for this frame. */
     private boolean solidActive;
 
-    /** Whether the player was grabbed last frame (prevents re-grab every frame). */
+    /** Whether a player is currently grabbed by the column. */
     private boolean playerGrabbed;
-
-    /** Spin-up animation: current index into SPINUP_FRAMES. */
-    private int spinupIndex;
-    /** Spin-up animation: tick countdown (resets to SPINUP_DELAY each frame advance). */
-    private int spinupTimer;
 
     // =========================================================================
     // Constructor
     // =========================================================================
 
-    /**
-     * @param boss    Parent boss instance.
-     * @param turbine The turbine child — used to read turbine position and
-     *                spinning state.
-     */
     public HczEndBossWaterColumn(HczEndBossInstance boss, HczEndBossTurbine turbine) {
         super(boss, "HCZEndBossWaterColumn", 3, 0);
-        this.boss    = boss;
+        this.boss = boss;
         this.turbine = turbine;
         this.routine = ROUTINE_INIT;
-        this.animFrame   = 0;
-        this.animCounter = 0;
         this.solidActive = false;
         this.playerGrabbed = false;
     }
@@ -169,7 +242,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             return;
         }
 
-        // Self-destruct on defeat
+        // Self-destruct on defeat (sub_6BC42 checks boss status bit 7)
         if (boss.isDefeatSignal()) {
             solidActive = false;
             releaseGrabbedPlayer(player);
@@ -180,159 +253,262 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         switch (routine) {
             case ROUTINE_INIT     -> updateInit();
             case ROUTINE_ANIMATE  -> updateAnimate();
-            case ROUTINE_RISE     -> updateRise(player);
+            case ROUTINE_RISE     -> updateRiseDescend(player);
             case ROUTINE_HOLD     -> updateHold(player);
-            case ROUTINE_DESCEND  -> updateDescend(player);
+            case ROUTINE_DESCEND  -> updateRiseDescend(player);
             case ROUTINE_PLATFORM -> updatePlatform(player);
             default               -> { }
         }
     }
 
     // =========================================================================
-    // Routine handlers
+    // Routine 0: INIT (loc_6B2AA)
     // =========================================================================
 
     /**
-     * ROM routine 0 (INIT): position at water level directly below turbine X,
-     * then transition to ANIMATE (spin-up) phase.
+     * ROM loc_6B2AA: SetUp_ObjAttributes2 with word_6BD3E, place at Water_level - 8,
+     * store water Y in $3A, set spin-up animation (byte_6BE0C) with callback to
+     * loc_6B2F8, spawn 2 water surface children and 20 bubble particles.
+     * Then advance to routine 2 (ANIMATE).
      */
     private void updateInit() {
         int waterY = getWaterLevelY();
+        // ROM: move.w (Water_level).w,d0; subq.w #8,d0; move.w d0,y_pos; move.w d0,$3A
         currentX = turbine.getCurrentX();
-        currentY = waterY;
-        yFixed   = currentY << 8;
-        targetY  = turbine.getCurrentY();
+        currentY = waterY - 8;
+        yFixed = currentY << 8;
+        waterBaseY = currentY;  // $3A — base for height calculation
+        xFixed = currentX << 8;
+        xVel = 0;
+        yVel = 0;
+        segmentCount = 0;
+        prevSegmentCount = -1;
+
         solidActive = false;
-        updateDynamicSpawn();
-        // Transition to spin-up animation (ROM routine 2)
-        routine = ROUTINE_ANIMATE;
+
+        // Init spin-up animation (byte_6BE0C)
         spinupIndex = 0;
         spinupTimer = SPINUP_DELAY;
+
+        // Init column animation (will be used after spin-up)
+        columnAnimIndex = 0;
+        columnAnimTimer = COLUMN_ANIM_DELAY;
+
+        // Init spray animation
+        sprayAnimIndex = 0;
+        sprayAnimTimer = SPRAY_ANIM_DELAY;
+
+        updateDynamicSpawn();
+
+        // Transition to ANIMATE immediately
+        routine = ROUTINE_ANIMATE;
+        LOG.fine("HCZ Water Column: INIT, waterBaseY=" + waterBaseY);
     }
 
+    // =========================================================================
+    // Routine 2: ANIMATE — spin-up (loc_6B2F2)
+    // =========================================================================
+
     /**
-     * ROM routine 2 (ANIMATE): plays the turbine spin-up animation (byte_6BE0C).
-     * 7 frames at 4 ticks each = 28 frames total. On completion, transitions
-     * to RISE with y_vel = -0x100.
-     *
-     * <p>ROM: loc_6B2F2 — single {@code Animate_Raw} call on byte_6BE0C.
-     * Frame sequence: $17, $17, $22, $16, $21, $15, $20 (Map_HCZEndBoss frames).
-     * End command $F4 triggers transition to routine 4 (RISE).
+     * ROM loc_6B2F2: just Animate_Raw on byte_6BE0C.
+     * Animate_Raw decrements the delay counter. When it hits 0, advances the
+     * frame index and resets delay. When the $F4 end command is reached,
+     * the callback at $34 (loc_6B2F8) fires.
      */
     private void updateAnimate() {
-        // Track turbine X position during spin-up
+        // Track turbine X during spin-up
         currentX = turbine.getCurrentX();
 
+        // Animate_Raw tick
         spinupTimer--;
         if (spinupTimer < 0) {
             spinupTimer = SPINUP_DELAY;
             spinupIndex++;
             if (spinupIndex >= SPINUP_FRAMES.length) {
-                // Spin-up complete — transition to RISE (ROM routine 4)
-                routine = ROUTINE_RISE;
-                yFixed = currentY << 8;
-                LOG.fine("HCZ Water Column: spin-up complete, entering RISE");
+                // $F4 end command → callback loc_6B2F8
+                onSpinupComplete();
                 return;
             }
         }
     }
 
     /**
-     * ROM routine 4 (RISE): move upward at RISE_YVEL, track turbine X,
-     * apply suction to player.
+     * ROM loc_6B2F8: callback when spin-up animation completes.
+     * Sets routine 4, animation to byte_6BE15, y_vel = -$100,
+     * callback to loc_6B32E (→ routine 6), spawns spray child.
      */
-    private void updateRise(PlayableEntity player) {
-        // Track turbine X (boss horizontal position)
-        currentX = turbine.getCurrentX();
-        targetY  = turbine.getCurrentY();
+    private void onSpinupComplete() {
+        routine = ROUTINE_RISE;
+        yVel = RISE_YVEL;
+        yFixed = currentY << 8;
 
-        // Rise: advance fixed-point Y by velocity
-        yFixed  += RISE_YVEL;
-        currentY = yFixed >> 8;
-        updateDynamicSpawn();
+        // Init column animation (byte_6BE15: frames $15, $20 looping)
+        columnAnimIndex = 0;
+        columnAnimTimer = COLUMN_ANIM_DELAY;
 
-        tickAnimation();
-        solidActive = true; // platform active while rising too
-
-        // Apply suction
-        applySuction(player);
-
-        // Reached target height?
-        if (currentY <= targetY) {
-            currentY = targetY;
-            yFixed   = currentY << 8;
-            routine  = ROUTINE_HOLD;
-            LOG.fine("HCZ Water Column: reached target Y=" + targetY + ", entering HOLD");
-        }
-
-        // Turbine stopped — abort rise, descend immediately
-        if (!turbine.isSpinning()) {
-            routine = ROUTINE_DESCEND;
-        }
+        LOG.fine("HCZ Water Column: spin-up complete, entering RISE");
     }
 
+    // =========================================================================
+    // Routines 4 & 8: RISE / DESCEND (loc_6B31E — shared handler)
+    // =========================================================================
+
     /**
-     * ROM routine 6 (HOLD): column at target height, maintain suction,
-     * act as solid-top platform.
+     * ROM loc_6B31E: MoveSprite2 (apply velocities), Animate_Raw, sub_6BC8A.
+     * Used for both RISE (routine 4) and DESCEND (routine 8).
      */
-    private void updateHold(PlayableEntity player) {
-        // Track turbine X
-        currentX = turbine.getCurrentX();
-        currentY = turbine.getCurrentY();
-        yFixed   = currentY << 8;
+    private void updateRiseDescend(PlayableEntity player) {
+        // Track turbine X during rise
+        if (routine == ROUTINE_RISE) {
+            currentX = turbine.getCurrentX();
+            xFixed = currentX << 8;
+        }
+
+        // MoveSprite2: apply velocities
+        yFixed += yVel;
+        currentY = yFixed >> 8;
+        xFixed += xVel;
+        currentX = xFixed >> 8;
         updateDynamicSpawn();
 
-        tickAnimation();
+        // Animate_Raw on byte_6BE15 (column platform animation)
+        tickColumnAnimation();
+
+        // sub_6BC8A: height tracking and transition check
+        doHeightCheck(player);
+
+        // Solid platform active during rise/descend
         solidActive = true;
 
-        applySuction(player);
-
-        // Turbine wound down — start descend
-        if (!turbine.isSpinning()) {
-            routine = ROUTINE_DESCEND;
-            LOG.fine("HCZ Water Column: turbine stopped, descending");
+        // Suction (replicated from spray child sub_6B9AC + sub_6B9E2)
+        if (routine == ROUTINE_RISE) {
+            applySuction(player);
         }
     }
 
     /**
-     * ROM routine 8 (DESCEND): descend back to water surface while tracking
-     * boss X.
+     * ROM sub_6BC8A: calculate segment count from height, store in $39.
+     * <pre>
+     *   d0 = $3A - y_pos
+     *   if d0 < 0 (bcs): fire callback ($34)
+     *   d0 = (d0 AND $F0) >> 4  — segment count
+     *   store $39
+     *   if y_vel >= 0: return (descending — no threshold check)
+     *   if segment_count >= 5: fire callback
+     * </pre>
      */
-    private void updateDescend(PlayableEntity player) {
-        // Release any grabbed player on descent start
-        releaseGrabbedPlayer(player);
-        solidActive = false;
+    private void doHeightCheck(PlayableEntity player) {
+        int heightDiff = waterBaseY - currentY;
+        if (heightDiff < 0) {
+            // y_pos went below water base — fire callback
+            fireHeightCallback(player);
+            return;
+        }
 
-        // Track boss X (boss moves during this phase)
-        currentX = boss.getState().x;
+        segmentCount = (heightDiff & 0xF0) >> 4;
 
-        // Descend
-        yFixed  += DESCEND_YVEL;
-        currentY = yFixed >> 8;
+        // Update spray animation if segment count changed
+        if (segmentCount != prevSegmentCount) {
+            prevSegmentCount = segmentCount;
+            sprayAnimTimer = SPRAY_ANIM_DELAY;
+            // Don't reset sprayAnimIndex — ROM resets anim_frame_timer but
+            // frame index persists (Animate_Raw continues from current frame)
+        }
+
+        if (yVel >= 0) {
+            // Descending — no threshold check
+            return;
+        }
+
+        // Rising: check if reached 5 segments
+        if (segmentCount >= RISE_SEGMENT_THRESHOLD) {
+            fireHeightCallback(player);
+        }
+    }
+
+    /**
+     * Fire the appropriate callback based on current routine.
+     * RISE → HOLD (loc_6B32E), DESCEND → PLATFORM (loc_6B37A).
+     */
+    private void fireHeightCallback(PlayableEntity player) {
+        if (routine == ROUTINE_RISE) {
+            // loc_6B32E: set routine 6 (HOLD)
+            routine = ROUTINE_HOLD;
+            yVel = 0;
+            LOG.fine("HCZ Water Column: reached 5 segments, entering HOLD");
+        } else if (routine == ROUTINE_DESCEND) {
+            // loc_6B37A: set up PLATFORM phase
+            routine = ROUTINE_PLATFORM;
+            platformWait = PLATFORM_WAIT;
+            xVel = 0;
+            yVel = 0;
+            currentY = waterBaseY;
+            yFixed = currentY << 8;
+            solidActive = true;
+            LOG.fine("HCZ Water Column: reached water, entering PLATFORM");
+        }
+    }
+
+    // =========================================================================
+    // Routine 6: HOLD (loc_6B336)
+    // =========================================================================
+
+    /**
+     * ROM loc_6B336: Animate_Raw. Check boss $38 bit 3 (propellerActive).
+     * If set → hold. If clear → transition to DESCEND (loc_6B34A).
+     */
+    private void updateHold(PlayableEntity player) {
+        // Track turbine position
+        currentX = turbine.getCurrentX();
+        xFixed = currentX << 8;
         updateDynamicSpawn();
 
-        tickAnimation();
+        // Animate column frames
+        tickColumnAnimation();
 
-        // Reached water level?
-        int waterY = getWaterLevelY();
-        if (currentY >= waterY) {
-            currentY = waterY;
-            yFixed   = currentY << 8;
-            solidActive = true;
-            routine = ROUTINE_PLATFORM;
+        solidActive = true;
+
+        // Suction/grab during hold
+        applySuction(player);
+
+        // Check boss propeller state (ROM: btst #3,$38(a1))
+        if (!boss.isPropellerActive()) {
+            // loc_6B34A: transition to DESCEND
+            routine = ROUTINE_DESCEND;
+
+            // ROM: bset #3,$38(a0) — set own flag (not used elsewhere)
+            // ROM: y_vel = $80
+            yVel = DESCEND_YVEL;
+
+            // ROM: x_vel = $80, negate if boss moving left
+            xVel = DESCEND_XVEL;
+            if (boss.getState().xVel < 0) {
+                xVel = -xVel;
+            }
+
+            // Release grabbed player on descent
+            releaseGrabbedPlayer(player);
+
+            LOG.fine("HCZ Water Column: propeller stopped, entering DESCEND");
         }
     }
 
+    // =========================================================================
+    // Routine 10: PLATFORM (loc_6B394)
+    // =========================================================================
+
     /**
-     * ROM routine 10 (PLATFORM): brief solid phase at water level, then destroy.
-     * ROM: column sits as solid for a few frames to let the player land, then deletes.
+     * ROM loc_6B394: SolidObjectTop + Animate_Raw + Obj_Wait.
+     * Wait timer ($2E) = $F (15 frames). On expiry, callback loc_6B3BC
+     * displaces player off object and deletes.
      */
     private void updatePlatform(PlayableEntity player) {
         solidActive = true;
-        tickAnimation();
+        tickColumnAnimation();
 
-        // One animation cycle at water level then destroy
-        if (animFrame == 0 && animCounter == 0) {
+        platformWait--;
+        if (platformWait <= 0) {
+            // loc_6B3BC: Displace_PlayerOffObject + Go_Delete_Sprite_2
             solidActive = false;
             releaseGrabbedPlayer(player);
             setDestroyed(true);
@@ -340,81 +516,142 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     }
 
     // =========================================================================
-    // Suction (sub_6B9AC + sub_6B9E2)
+    // Column animation (byte_6BE15: delay=3, frames $15,$20, $FC loop)
+    // =========================================================================
+
+    private void tickColumnAnimation() {
+        columnAnimTimer--;
+        if (columnAnimTimer < 0) {
+            columnAnimTimer = COLUMN_ANIM_DELAY;
+            columnAnimIndex = (columnAnimIndex + 1) % COLUMN_FRAMES.length;
+        }
+    }
+
+    // =========================================================================
+    // Spray animation (per-segment-count, all delay=3, 3 frames, $FC loop)
+    // =========================================================================
+
+    private void tickSprayAnimation() {
+        sprayAnimTimer--;
+        if (sprayAnimTimer < 0) {
+            sprayAnimTimer = SPRAY_ANIM_DELAY;
+            int maxFrames = getSprayFrameCount();
+            sprayAnimIndex = (sprayAnimIndex + 1) % maxFrames;
+        }
+    }
+
+    private int getSprayFrameCount() {
+        int idx = Math.min(segmentCount, SPRAY_FRAMES.length - 1);
+        return SPRAY_FRAMES[idx].length;
+    }
+
+    // =========================================================================
+    // Suction (sub_6B9AC — spray child) + Grab (sub_6B9E2)
     // =========================================================================
 
     /**
-     * Applies suction and grab behaviour to the main player and any sidekicks.
-     * ROM sub_6B9AC: horizontal suction within 128 px H / 192 px V.
-     * ROM sub_6B9E2: grab/lock within 32 px H / 64 px V.
+     * ROM sub_6B9AC (in spray child): push player horizontally at 0x20000
+     * subpixels/frame when above water level and within column X proximity.
+     *
+     * ROM sub_6B9E2 (in spray child): grab player when within Y-zone
+     * (word_6BAC2) and 32px horizontal range.
      */
     private void applySuction(PlayableEntity player) {
         if (player instanceof AbstractPlayableSprite sprite) {
             applySuctionTo(sprite);
+            applyGrab(sprite);
         }
-
         for (PlayableEntity sidekick : services().sidekicks()) {
             if (sidekick instanceof AbstractPlayableSprite sprite) {
                 applySuctionTo(sprite);
+                applyGrab(sprite);
             }
         }
     }
 
     /**
-     * Apply suction + optional grab to a single sprite.
+     * sub_6B9AC: horizontal push. If player is above water level,
+     * push them toward/away from column X at 0x20000 subpixels (2 px/frame).
      */
     private void applySuctionTo(AbstractPlayableSprite sprite) {
-        if (sprite.getDead()) {
+        if (sprite.getDead() || sprite.isObjectControlled()) {
             return;
         }
 
-        int px = sprite.getCentreX();
-        int py = sprite.getCentreY();
+        int waterY = getWaterLevelY();
+        int spriteY = sprite.getCentreY();
 
-        int hDist = Math.abs(px - currentX);
-        int vDist = Math.abs(py - currentY);
-
-        // Outside outer suction zone — no effect
-        if (hDist > SUCTION_H_DIST || vDist > SUCTION_V_DIST) {
+        // ROM: cmp.w y_pos(a1),d1; bhs locret — only affects players above water+8
+        if (spriteY >= waterY + 8) {
             return;
         }
 
-        // Inner grab zone (sub_6B9E2): lock player to column
-        if (hDist <= GRAB_H_DIST && vDist <= GRAB_V_DIST) {
-            if (!sprite.isObjectControlled()) {
-                sprite.setObjectControlled(true);
-                sprite.setForcedAnimationId(Sonic3kAnimationIds.FLOAT2.id());
-                sprite.setXSpeed((short) 0);
-                sprite.setYSpeed((short) 0);
-                playerGrabbed = true;
-            }
-            // Nudge toward column centre — tiny corrections to keep player centered
-            if (px < currentX) {
-                sprite.shiftX(1);
-            } else if (px > currentX) {
-                sprite.shiftX(-1);
-            }
-            return;
+        int spriteX = sprite.getCentreX();
+        // ROM: push = $20000 (2.0 in 16.16), applied to x_pos directly
+        // If sprite X > column X, push adds positive (away? or toward?)
+        // ROM: cmp.w x_pos(a1),d0; bhs loc_9DC; neg.l d2; add.l d2,x_pos
+        // If column_x >= sprite_x → don't negate → add positive (push right, toward column)
+        // If column_x < sprite_x → negate → add negative (push left, toward column)
+        // So this always pushes TOWARD the column
+        if (spriteX < currentX) {
+            sprite.shiftX(2);  // push right toward column
+        } else if (spriteX > currentX) {
+            sprite.shiftX(-2); // push left toward column
         }
-
-        // Outer suction zone: accelerate player horizontally toward column centre
-        short xVel = sprite.getXSpeed();
-        int xAccel;
-        if (px < currentX) {
-            // Player is left of column — pull right
-            xAccel = SUCTION_X_ACCEL;
-        } else {
-            // Player is right of column — pull left
-            xAccel = -SUCTION_X_ACCEL;
-        }
-        xVel = (short) (xVel + xAccel);
-        sprite.setXSpeed(xVel);
-        sprite.shiftX(xVel >> 8);
     }
 
     /**
-     * Release a grabbed player with upward eject velocity.
-     * ROM: y_vel = -0x200 on release.
+     * sub_6B9E2 + sub_6BA06: grab player when in Y-zone and close enough.
+     * Y-zone is defined by word_6BAC2 indexed by segment count.
+     * H range: 32 px total (ROM: addi #$10, cmpi #$20).
+     */
+    private void applyGrab(AbstractPlayableSprite sprite) {
+        if (sprite.getDead()) {  // ROM: cmpi.b #6,routine(a2) — dead/dying
+            return;
+        }
+        if (sprite.getInvulnerable()) {  // ROM: tst.b invulnerability_timer(a2)
+            return;
+        }
+        if (boss.isDefeatSignal()) {
+            return;
+        }
+
+        int idx = Math.min(segmentCount, GRAB_ZONES.length - 1);
+        int[] zone = GRAB_ZONES[idx];
+
+        // Spray Y position = Water_level + SPRAY_Y_OFFSETS[segmentCount]
+        int sprayY = getWaterLevelY() + SPRAY_Y_OFFSETS[Math.min(segmentCount,
+                SPRAY_Y_OFFSETS.length - 1)];
+
+        int spriteY = sprite.getCentreY();
+        int yTop = sprayY + zone[0];
+        int yBottom = yTop + zone[1];
+
+        if (spriteY < yTop || spriteY >= yBottom) {
+            return;
+        }
+
+        int spriteX = sprite.getCentreX();
+        int hDist = currentX - spriteX + GRAB_H_DIST;  // ROM: sub, addi #$10
+        if (hDist < 0 || hDist >= (GRAB_H_DIST * 2)) { // ROM: cmpi #$20
+            return;
+        }
+
+        // Player is in grab zone
+        if (!sprite.isObjectControlled()) {
+            // ROM sub_6BADA: lock player
+            sprite.setObjectControlled(true);
+            sprite.setAir(true);
+            sprite.setForcedAnimationId(Sonic3kAnimationIds.FLOAT2.id());
+            sprite.setXSpeed((short) 0);
+            sprite.setYSpeed((short) 0);
+            playerGrabbed = true;
+        }
+    }
+
+    /**
+     * Release a grabbed player (ROM sub_6BB02 equivalent).
+     * ROM: clears object_control, sets y_vel = -$200.
      */
     private void releaseGrabbedPlayer(PlayableEntity player) {
         if (!playerGrabbed) {
@@ -423,14 +660,14 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         playerGrabbed = false;
         if (player instanceof AbstractPlayableSprite sprite && sprite.isObjectControlled()) {
             sprite.setObjectControlled(false);
-            sprite.setYSpeed((short) EJECT_YVEL);
+            sprite.setYSpeed((short) -0x200);
             sprite.setXSpeed((short) 0);
             sprite.setAir(true);
         }
         for (PlayableEntity sidekick : services().sidekicks()) {
             if (sidekick instanceof AbstractPlayableSprite sprite && sprite.isObjectControlled()) {
                 sprite.setObjectControlled(false);
-                sprite.setYSpeed((short) EJECT_YVEL);
+                sprite.setYSpeed((short) -0x200);
                 sprite.setXSpeed((short) 0);
                 sprite.setAir(true);
             }
@@ -438,19 +675,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     }
 
     // =========================================================================
-    // Animation helper
-    // =========================================================================
-
-    private void tickAnimation() {
-        animCounter++;
-        if (animCounter >= ANIM_SPEED) {
-            animCounter = 0;
-            animFrame   = (animFrame + 1) % ANIM_FRAME_COUNT;
-        }
-    }
-
-    // =========================================================================
-    // Water level access (same pattern as HczEndBossBlade)
+    // Water level access
     // =========================================================================
 
     private int getWaterLevelY() {
@@ -460,7 +685,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
                 return FLOOR_Y_LIMIT;
             }
             int zoneId = services().featureZoneId();
-            int actId  = services().featureActId();
+            int actId = services().featureActId();
             if (ws.hasWater(zoneId, actId)) {
                 return ws.getWaterLevelY(zoneId, actId);
             }
@@ -471,7 +696,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     }
 
     // =========================================================================
-    // SolidObjectProvider — top-solid only platform (ROM: SolidObjectTop)
+    // SolidObjectProvider
     // =========================================================================
 
     @Override
@@ -491,13 +716,11 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
 
     @Override
     public boolean usesStickyContactBuffer() {
-        // Moving platform — keep sticky contact to avoid edge jitter
         return true;
     }
 
     @Override
     public boolean dropOnFloor() {
-        // Column can push the player upward; run terrain check after repositioning
         return true;
     }
 
@@ -516,26 +739,44 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             return;
         }
 
-        // During spin-up animation, render the current spin-up frame
+        // ---------------------------------------------------------------
+        // Spin-up phase: render single frame from byte_6BE0C
+        // ---------------------------------------------------------------
         if (routine == ROUTINE_ANIMATE) {
-            int frame = SPINUP_FRAMES[spinupIndex];
+            int frame = SPINUP_FRAMES[Math.min(spinupIndex, SPINUP_FRAMES.length - 1)];
             renderer.drawFrameIndex(frame, currentX, currentY, false, false);
             return;
         }
 
-        // During RISE/HOLD/DESCEND: render column segments from currentY down to water level.
-        // Each segment uses the cycling animation frame and is tiled vertically at
-        // COLUMN_SEGMENT_HEIGHT intervals to form a tall water column visual.
-        int frameIndex = ANIM_FRAME_BASE + animFrame;
-        int waterY = getWaterLevelY();
-        int drawY = currentY;
-        while (drawY < waterY) {
-            renderer.drawFrameIndex(frameIndex, currentX, drawY, false, false);
-            drawY += COLUMN_SEGMENT_HEIGHT;
-        }
-        // Always draw at least one frame at the column top position
-        if (drawY >= waterY && currentY >= waterY) {
-            renderer.drawFrameIndex(frameIndex, currentX, currentY, false, false);
+        // ---------------------------------------------------------------
+        // RISE / HOLD / DESCEND / PLATFORM:
+        // 1) Draw the platform frame (byte_6BE15 animation) at column position
+        // 2) Draw the spray body at spray Y position (sub_6B916 Y offsets)
+        // ---------------------------------------------------------------
+
+        // 1) Column platform frame — ROM Draw_Sprite renders ONE frame
+        int columnFrame = COLUMN_FRAMES[columnAnimIndex % COLUMN_FRAMES.length];
+        renderer.drawFrameIndex(columnFrame, currentX, currentY, false, false);
+
+        // 2) Spray body — inline rendering of what loc_6B3DE would draw
+        //    The spray child picks animation table and Y position based on
+        //    parent's $39 (segment count), then Animate_Raw cycles through
+        //    the 3 frames. Rendered via Child_Draw_Sprite2.
+        if (segmentCount >= 0 && segmentCount <= 5) {
+            // Tick spray animation
+            tickSprayAnimation();
+
+            int sprayIdx = Math.min(segmentCount, SPRAY_FRAMES.length - 1);
+            int[] frames = SPRAY_FRAMES[sprayIdx];
+            int sprayFrame = frames[sprayAnimIndex % frames.length];
+
+            // Spray Y = Water_level + SPRAY_Y_OFFSETS[segmentCount]
+            int waterY = getWaterLevelY();
+            int sprayYOffset = SPRAY_Y_OFFSETS[Math.min(segmentCount,
+                    SPRAY_Y_OFFSETS.length - 1)];
+            int sprayY = waterY + sprayYOffset;
+
+            renderer.drawFrameIndex(sprayFrame, currentX, sprayY, false, false);
         }
     }
 }
