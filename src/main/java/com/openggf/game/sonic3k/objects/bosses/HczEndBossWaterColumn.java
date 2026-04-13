@@ -95,6 +95,8 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     private static final int ANIM_FRAME_BASE  = 8;
     private static final int ANIM_FRAME_COUNT = 4;
     private static final int ANIM_SPEED       = 4; // frames per step
+    /** Vertical spacing between tiled column segments (pixels). */
+    private static final int COLUMN_SEGMENT_HEIGHT = 16;
 
     // =========================================================================
     // Spin-up animation (ROM: byte_6BE0C, routine 2)
@@ -521,7 +523,19 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
             return;
         }
 
+        // During RISE/HOLD/DESCEND: render column segments from currentY down to water level.
+        // Each segment uses the cycling animation frame and is tiled vertically at
+        // COLUMN_SEGMENT_HEIGHT intervals to form a tall water column visual.
         int frameIndex = ANIM_FRAME_BASE + animFrame;
-        renderer.drawFrameIndex(frameIndex, currentX, currentY, false, false);
+        int waterY = getWaterLevelY();
+        int drawY = currentY;
+        while (drawY < waterY) {
+            renderer.drawFrameIndex(frameIndex, currentX, drawY, false, false);
+            drawY += COLUMN_SEGMENT_HEIGHT;
+        }
+        // Always draw at least one frame at the column top position
+        if (drawY >= waterY && currentY >= waterY) {
+            renderer.drawFrameIndex(frameIndex, currentX, currentY, false, false);
+        }
     }
 }
