@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.Ym2612Chip;
 import com.openggf.data.Rom;
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 import com.openggf.game.sonic2.audio.smps.Sonic2SmpsLoader;
 import static com.openggf.tests.RomTestUtils.ensureRomAvailable;
@@ -61,6 +63,7 @@ public class AudioRegressionTest {
 
     @BeforeAll
     public static void setUpClass() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         File romFile = ensureRomAvailable();
         if (romFile == null) {
             // ROM not available, tests will be skipped
@@ -77,6 +80,11 @@ public class AudioRegressionTest {
 
         // Check if reference files exist
         referenceFilesExist = referenceFileExists("music_ehz.wav");
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    public static void tearDownClass() {
+        RuntimeManager.destroyCurrent();
     }
 
     @BeforeEach

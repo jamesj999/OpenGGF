@@ -71,25 +71,29 @@
 
 ### Act 1 Miniboss
 
-- **Object:** `Obj_HCZMiniboss` at line 139224
+- **Object:** `Obj_HCZMiniboss` at line 139224 (`0x99`)
 - **Spawn trigger:** `Check_CameraInRange` with bounds Y=$300-$400, X=$3500-$3700
 - **PLC load:** PLC ID $5B loaded at spawn time
 - **Arena boundaries:** Initially Camera_min_Y_pos=$300; then when Camera Y >= $638, locks Y min/max to $638; when Camera X >= $3680, locks X min/max to $3680
-- **Music:** Fades out current music, then plays `mus_Miniboss`; loads `Pal_HCZMiniboss` palette to line 1
-- **Defeat behavior:** Creates child objects (ChildObjDat_6AD6E), operates as a water-based boss with rockets and engine sub-objects (Obj_HCZMiniboss_Rockets, Obj_HCZMiniboss_Engine)
-- **Confidence:** MEDIUM -- entry/arena logic clear, but the boss loop (Obj_HCZ_MinibossLoop, line 139291) and child structure need deeper reading for full implementation
+- **Music:** Fades current music, then plays `mus_Miniboss`; loads `Pal_HCZMiniboss` / `Pal_HCZMinibossWater` into palette line 1
+- **State flow:** init -> trigger wait -> fade wait -> descend -> wait -> rise -> dive -> strafe -> ascend -> pre-vortex drift -> vortex -> cooldown -> slow rise -> defeated
+- **Attack logic:** `ATTACK_PATTERNS` alternates `{0x40,1}`, `{0x100,1}`, `{0x40,0}`, `{0x40,1}`, `{0x100,0}`, `{0x100,1}`, `{0x40,0}`, `{0x100,0}`. The rocket orbit uses the same folded 128-entry lookup for both X and Y, then slows through 4 -> 2 -> 1 -> 0 on wind-down and 1 -> 2 -> 4 on wind-up.
+- **Defeat behavior:** Creates the ship, rocket, and engine helper tree, then enters a vortex phase that captures the player and sidekicks, spawns 0x1E bubble children, and ends in a signpost-style clear handoff.
+- **Confidence:** HIGH -- the state machine, trigger window, and helper roles are concrete. The only narrow gap is frame-level verification of a few child spawn timings.
 
 ### Act 2 End Boss
 
-- **Object:** `Obj_HCZEndBoss` at line 140778
+- **Object:** `Obj_HCZEndBoss` at line 140778 (`0x9A`)
 - **Spawn trigger:** `Check_CameraInRange` with character-dependent bounds:
   - **Sonic/Tails:** Y=$438-$838, X=$3F00-$4100 (tight Y, tighter X at $4000-$4050)
   - **Knuckles:** Y=$000-$3B8, X=$44E0-$4640 (wider arena at $4540-$4590)
 - **PLC load:** PLC ID $6C loaded at spawn time
 - **Arena boundaries:** Set by `Check_CameraInRange` data (two 4-word entries per character: first = camera trigger region, second = locked arena bounds)
 - **Music:** `mus_EndBoss`; loads `Pal_HCZEndBoss` palette to line 1; clears Normal_palette+$1E
-- **Defeat behavior:** Complex multi-phase boss with 7 routine stages; creates child objects (ChildObjDat_6BDEC, ChildObjDat_6BD8A); uses MoveSprite2 and Obj_Wait patterns
-- **Confidence:** MEDIUM -- entry points and arena setup clear, but full boss AI (7 routine stages at off_6AF24) and sub-object roles need detailed reading
+- **Routine table:** `off_6AF24` uses routine bytes 0, 2, 4, 6, 8, A, C. The shared `loc_6AF74` path is the generic wait/move step; `loc_6AFB6` is the swing/hover step; `loc_6B064` is the late-stage oscillation and turn-around path.
+- **State flow:** setup -> generic wait/move -> swing/hover -> character-dependent retreat/reopen -> post-vortex oscillation -> final escape
+- **Child tree:** Spawns the Robotnik ship child and two arm children up front, then branches into propeller/flame/explosion helpers as the attack and escape sequence advances. Knuckles uses the alternate branch at `loc_6AFF2` / `loc_6B138`, including the alternate Egg Capsule spawn at $4760,$360 instead of $4250,$7E0.
+- **Confidence:** MEDIUM -- the top-level state table and character split are exact, but the frame-level choreography of the helper children is still distributed across several secondary routines.
 
 ## Parallax
 
@@ -97,22 +101,19 @@
 
 **Disassembly location:** `sonic3k.asm` line 105796
 
-This is a highly complex deformation routine that simulates the waterline extending into the background. It is NOT a simple band-based parallax.
+This routine is the waterline parallax generator, not a simple banded scroll. It splits the HScroll table into three regions and uses `Events_bg+$10` as the signed waterline displacement signal.
 
-**Core mechanic:** The BG camera Y is computed from `Camera_Y_pos_copy - $610` (water equilibrium point), then divided by 4 and offset by $190. The variable `Events_bg+$10` tracks the difference between effective BG Y and actual camera offset, which drives the waterline tile art swapping.
+**Core values:**
+- `Camera_Y_pos_copy - $610` is the equilibrium delta.
+- `Camera_Y_pos_BG_copy = ((cameraY - $610) / 4) + $190`.
+- `Events_bg+$10 = ((cameraY - $610) / 4) - (cameraY - $610)`.
 
-**Top bands (HScroll_table $00-$18):** 7 bands written individually at decreasing speeds:
-- Each band: Camera_X_copy / 4, then successively subtracting Camera_X_copy / 32
-- Written in pairs to mirror positions (e.g., offset $00 and $18, $02 and $16, etc.)
-- Fastest speed at top, slowest at middle
-
-**Water transition zone (HScroll_table $1A-$19A):** 48 ($30) lines of water deformation
-- When BG is above water: fills from $1A downward with progressively faster scroll
-- When BG is below water: fills from $19A upward with progressively faster scroll
-- Uses `HCZ_WaterlineScroll_Data` binary lookup table for waterline distortion effect
-- Per-line scroll using data-driven index into the deformation bands
-
-**Bottom band (HScroll_table $19A):** Single value from the deepest parallax speed
+**HScroll layout:**
+- `HScroll_table+$00-$18` and `$19A` are mirrored 7-band cave parallax values.
+- The top/bottom cave bands use `cameraX / 4` as the base and subtract `cameraX / 32` per speed step.
+- `HScroll_table+$01A-$19A` is the 96-word middle gradient section. If `d2 <= -$60`, it is filled forward from `$01A`; otherwise it is filled backward from `$19A`.
+- When `-$60 < d2 < $60`, the middle band is remapped through `HCZ_WaterlineScroll_Data` to create the visible water surface ripple.
+- The binary waterline table is 9312 bytes, i.e. 97 positions x 96-byte lookup rows.
 
 **BG height array:** `HCZ1_BGDeformArray` (defined in `Lockon S3/Screen Events.asm` line 972):
 ```
@@ -124,7 +125,7 @@ $40, 8, 8, 5, 5, 6, $F0, 6, 5, 5, 8, 8, $30, $80C0, $7FFF
 
 **Auto-scroll accumulators:** None (no persistent per-frame accumulation)
 
-**Confidence:** LOW -- This is one of the most complex deformation routines in S3K. The waterline scroll logic interweaves per-scanline distortion, dynamic tile art swapping (via AnimateTiles_HCZ1), and camera-relative band calculations. The HCZ_WaterlineScroll_Data binary is opaque without dumping it. Full implementation will require careful study of how the 48-line transition zone is computed.
+**Confidence:** MEDIUM -- the control flow, table split, and band math are exact. The only unresolved piece is the exact byte content of `HCZ_WaterlineScroll_Data`, not the routine structure.
 
 ### Act 1 Background Events (HCZ1_BackgroundEvent)
 
@@ -223,21 +224,22 @@ HCZ2_ScreenEvent adds `Screen_shake_offset` to `Camera_Y_pos_copy` before callin
 ### Custom: Act 1 Waterline Tile Swapping (AnimateTiles_HCZ1)
 
 - **Disassembly location:** `sonic3k.asm` line 53969
-- **Description:** Dynamically loads different tile art based on whether the BG camera is above or below the water equilibrium point. Uses `Events_bg+$10` (computed by HCZ1_Deform) to determine waterline position and swaps between `ArtUnc_AniHCZ1_WaterlineBelow` and `ArtUnc_AniHCZ1_WaterlineAbove` art, plus `HCZ_WaterlineScroll_Data` for per-line distortion. Also fixes lower/upper BG art via `AniHCZ_FixLowerBG`/`AniHCZ_FixUpperBG`.
-- **Gating:** Disabled when `Events_bg+$16` is set (boss flag / act transition)
-- **VRAM destinations:** Tiles $2DC (below waterline), $2F4 (above waterline), $2E8/$300 (fix BG art)
-- **Confidence:** LOW -- highly complex, interleaves DMA queue operations with waterline scroll data lookups. The binary data file `HCZ Waterline Scroll Data.bin` is opaque.
+- **Description:** Uses `Events_bg+$10` as a cached signed waterline offset. When the value changes, it loads either `ArtUnc_AniHCZ1_WaterlineBelow` or `ArtUnc_AniHCZ1_WaterlineAbove` into `Chunk_table+$7C00`, one row at a time, using the same 96-byte-per-position `HCZ_WaterlineScroll_Data` window that `HCZ1_Deform` consults. The matching fix pass then restores whichever cave background strip was overwritten by the opposite waterline state.
+- **Gating:** Disabled when `Events_bg+$16` is set (boss flag / act transition). `Anim_Counters+4` caches the last waterline state so DMA only fires on transitions.
+- **VRAM destinations:** Tiles $2DC/$2E8 for the below-waterline state, $2F4/$300 for the above-waterline state. The fix routines queue two DMA uploads each.
+- **State detail:** `d1 == 0` seeds the lower-bg repair path, `d1 < 0` selects the below-waterline art path, and `d1 > 0` selects the above-waterline art path.
+- **Confidence:** MEDIUM -- the DMA flow and state transitions are exact. The remaining gap is visual verification of the swapped chunk art, not the branching logic.
 
 ### Custom: Act 2 Multi-Channel BG Animation (AnimateTiles_HCZ2)
 
 - **Disassembly location:** `sonic3k.asm` line 54158
-- **Description:** Four independent animated tile channels driven by Events_bg+$10/12/14 (computed by HCZ2_Deform). Each channel loads different BG art at different scroll rates:
-  - **Channel 0** (Events_bg+$12 & $1F): Small BG line art (`ArtUnc_AniHCZ2_SmallBGLine`) -> VRAM $2D2
-  - **Channel 1** (Events_bg+$12 & $1F): Medium BG art (`ArtUnc_AniHCZ2_2`) -> VRAM $2D6
-  - **Channel 2** (Events_bg+$14 & $1F): Large BG art (`ArtUnc_AniHCZ2_3`) -> VRAM $2DE
-  - **Channel 3** (Events_bg+$14 & $3F): Extra large BG art (`ArtUnc_AniHCZ2_4`) -> VRAM $2EE, with reversed direction
-- **Notes:** Each channel uses a split-DMA pattern (two DMA transfers per update, with a data table selecting the split point). The art sources contain pre-rendered parallax frames at different scroll offsets.
-- **Confidence:** MEDIUM -- the DMA split pattern and data tables are understood, but the actual visual effect and art layout need verification.
+- **Description:** Four split-DMA channels, each keyed off a cached `Anim_Counters` byte and driven by the HCZ2 deform offsets:
+  - **Channel 0:** `Events_bg+$12 & $1F`, source `ArtUnc_AniHCZ2_SmallBGLine`, VRAM $2D2. The phase is broken by `word_27AB8`.
+  - **Channel 1:** `Events_bg+$12 & $1F`, source `ArtUnc_AniHCZ2_2`, VRAM $2D6. The phase is broken by `word_27B24`.
+  - **Channel 2:** `Events_bg+$14 & $1F`, source `ArtUnc_AniHCZ2_3`, VRAM $2DE. The phase is broken by `word_27B90`.
+  - **Channel 3:** `Events_bg+$14 & $3F`, source `ArtUnc_AniHCZ2_4`, VRAM $2EE. The phase is inverted with `neg.w` before indexing, so this strip scrolls in the opposite direction.
+- **Notes:** Channels 0/1 share the same source phase but use different packing tables; channels 2/3 do the same at a wider cadence. Every channel performs at most two DMA transfers per update.
+- **Confidence:** HIGH -- the channel masks, split tables, and VRAM destinations are all concrete.
 
 ## Palette Cycling
 
@@ -247,10 +249,10 @@ HCZ2_ScreenEvent adds `Screen_shake_offset` to `Camera_Y_pos_copy` before callin
 - **Counter:** `Palette_cycle_counter0`
 - **Step:** 8 bytes (4 colors per tick)
 - **Limit:** $20 (4 frames in cycle)
-- **Timer:** 7 game frames between ticks (Palette_cycle_counter1), BUT when `Palette_cycle_counters+$00` != 0, timer is forced to 0 (every-frame updates)
+- **Timer:** 7 game frames between ticks (`Palette_cycle_counter1`)
 - **Table:** `AnPal_PalHCZ1` at line 4087
-- **Data:** `$EC8, $EC0, $EA0, $E80 | $EC0, $EA0, $E80, $EC8 | $EA0, $E80, $EC8, $EC0 | $E80, $EC8, $EC0, $EA0` (4 rotating blue shades)
-- **Destination:** Palette line 3, colors 3-6 (Normal_palette_line_3+$06, 4 bytes + 4 bytes = 8 bytes covering 4 colors); also mirrored to Water_palette_line_3+$06
+- **Data:** four 8-byte frames that rotate the same blue quartet through the sequence `EC8/EC0/EA0/E80` in all four phase offsets.
+- **Destination:** Palette line 3, colors 3-6 (`Normal_palette_line_3+$06`); the ROM also mirrors the same four colors into `Water_palette_line_3+$06`.
 - **Conditional:** No (always active in Act 1)
 - **Confidence:** HIGH
 
@@ -262,31 +264,31 @@ HCZ2_ScreenEvent adds `Screen_shake_offset` to `Camera_Y_pos_copy` before callin
 
 ### Engine Implementation Status
 
-HCZ palette cycling is listed as **Implemented** in AGENTS_S3K.md zone inventory, but `Sonic3kPaletteCycler.loadCycles()` only has a branch for zoneIndex == 0 (AIZ). HCZ (zoneIndex == 1) has **no implementation** in the cycler. The inventory status appears to be aspirational or reflects a different code path. Needs verification.
+HCZ palette cycling is implemented in `Sonic3kPaletteCycler` for `zoneIndex == 1`, act 0 only. The engine loads `HczCycle`, which mirrors the Act 1 water shimmer and the camera-triggered cave lighting mutation. Act 2 remains an explicit no-op because `AnPal_HCZ2` is `rts`. The remaining parity gap is the underwater mirror write to `Water_palette_line_3+$06/$0A`, which the cycler still marks as `TODO`.
 
 ## Notable Objects
 
 | Object ID | Name | Description | Zone-Specific? | Notes |
 |-----------|------|-------------|----------------|-------|
-| -- | Obj_HCZBreakableBar | Breakable barrier/bar | Yes | Line 42726 |
-| -- | Obj_HCZWaveSplash | Water surface wave splash effect | Yes | Line 43161, loaded at level start |
-| -- | Obj_HCZBlock | Pushable/intractable block | Yes | Line 43233 |
-| -- | Obj_HCZSnakeBlocks | Snake block platform path | Yes | Line 50869 |
-| -- | Obj_HCZWaterRush | Water rush/current object | Yes | Line 64743 |
-| -- | Obj_HCZWaterWall | Water wall barrier | Yes | Line 64835 |
-| -- | Obj_HCZCGZFan | Fan (shared with CGZ?) | Shared? | Line 65309 |
-| -- | Obj_HCZLargeFan | Large fan | Yes | Line 65583 |
-| -- | Obj_HCZHandLauncher | Hand launcher mechanism | Yes | Line 65730 |
-| -- | Obj_HCZConveyorBelt | Conveyor belt | Yes | Line 66306 |
-| -- | Obj_HCZConveryorSpike | Conveyor belt with spikes | Yes | Line 66626 (note: typo in original disasm label) |
-| -- | Obj_HCZSpinningColumn | Spinning column/pole | Yes | Line 68108 |
-| -- | Obj_HCZWaterSplash | Water splash effect | Yes | Line 75247, loaded during transitions |
-| -- | Obj_HCZTwistingLoop | Twisting tube/loop transport | Yes | Line 76425 |
-| -- | Obj_HCZ2Wall | Collapsing wall (Act 2 chase) | Yes | Line 106226 |
-| -- | Obj_HCZMiniboss | Act 1 miniboss (underwater) | Yes | Line 139224 |
-| -- | Obj_HCZEndBoss | Act 2 end boss | Yes | Line 140778 |
+| 0x36 | Obj_HCZBreakableBar | Breakable barrier/bar | Yes | `Sonic3kObjectIds.HCZ_BREAKABLE_BAR` |
+| direct | Obj_HCZWaveSplash | Water surface wave splash effect | No table ID | Spawned directly into the `Wave_Splash` RAM slot at load time |
+| 0x40 | Obj_HCZBlock | Pushable/intractable block | Yes | `Sonic3kObjectIds.HCZ_BLOCK` |
+| 0x67 | Obj_HCZSnakeBlocks | Snake block platform path | Yes | `Sonic3kObjectIds.HCZ_SNAKE_BLOCKS` |
+| 0x37 | Obj_HCZWaterRush | Water rush/current object | Yes | `Sonic3kObjectIds.HCZ_WATER_RUSH` |
+| 0x3B | Obj_HCZWaterWall | Water wall barrier | Yes | `Sonic3kObjectIds.HCZ_WATER_WALL` |
+| 0x38 | Obj_HCZCGZFan | Fan (shared with CGZ) | Shared | `Sonic3kObjectIds.HCZ_CGZ_FAN` |
+| 0x39 | Obj_HCZLargeFan | Large fan | Yes | `Sonic3kObjectIds.HCZ_LARGE_FAN` |
+| 0x3A | Obj_HCZHandLauncher | Hand launcher mechanism | Yes | `Sonic3kObjectIds.HCZ_HAND_LAUNCHER` |
+| 0x3E | Obj_HCZConveyorBelt | Conveyor belt | Yes | `Sonic3kObjectIds.HCZ_CONVEYOR_BELT` |
+| 0x3F | Obj_HCZConveryorSpike | Conveyor belt with spikes | Yes | `Sonic3kObjectIds.HCZ_CONVEYOR_SPIKE` (disasm label typo preserved) |
+| 0x68 | Obj_HCZSpinningColumn | Spinning column/pole | Yes | `Sonic3kObjectIds.HCZ_SPINNING_COLUMN` |
+| 0x6D | Obj_HCZWaterSplash | Water skim splash effect | Yes | `Sonic3kObjectRegistry` maps 0x6D to `HCZWaterSplash` |
+| 0x69 | Obj_HCZTwistingLoop | Twisting tube/loop transport | Yes | `Sonic3kObjectIds.HCZ_TWISTING_LOOP` |
+| direct | Obj_HCZ2Wall | Collapsing wall (Act 2 chase) | No table ID | Spawned directly by the HCZ2 background event |
+| 0x99 | Obj_HCZMiniboss | Act 1 miniboss (underwater) | Yes | `Sonic3kObjectIds.HCZ_MINIBOSS` |
+| 0x9A | Obj_HCZEndBoss | Act 2 end boss | Yes | `Sonic3kObjectIds.HCZ_END_BOSS` |
 
-**Note:** Object IDs are not captured here because S3K uses the zone-set dual pointer table system. These would need to be looked up in the Sonic3kObjectRegistry for their S3KL IDs.
+**Note:** Normal HCZ objects are mapped directly in `Sonic3kObjectRegistry.getPrimaryName()` and `Sonic3kObjectProfile`. `Obj_HCZWaveSplash` and `Obj_HCZ2Wall` are event/direct-spawn objects, so they do not come from the zone object pointer table.
 
 ## Cross-Cutting Concerns
 
@@ -299,7 +301,7 @@ HCZ palette cycling is listed as **Implemented** in AGENTS_S3K.md zone inventory
 - **Screen shake:** Present in Act 2 during the wall chase section. Two modes: constant shake (wall moving) and timed shake (wall stopped). ShakeScreen_Setup called in HCZ2 BackgroundEvent.
 - **Act transition:** HCZ1 ends with a **seamless transition** to HCZ2. No boss in Act 1 triggers the transition; instead, when Camera X >= $C00 in HCZ2_Resize stage 0, it sets Events_fg_5 which triggers the BG event to queue HCZ2 art loading and perform the layout swap. Camera/object positions are offset by -$3600 X. This is one of the most complex act transitions in S3K.
 - **Character paths:** Knuckles has different dynamic water heights in Act 2 (different table at `word_6EC2`). The end boss uses completely different arena bounds for Knuckles ($44E0-$4640 X vs $3F00-$4100 X for Sonic/Tails), indicating a separate boss arena location.
-- **Dynamic tilemap:** The Act 1->2 transition loads entirely new level layout, blocks, chunks, and patterns via Kos queue. The AnimateTiles_HCZ1 routine dynamically swaps waterline tile art based on camera position.
+- **Dynamic tilemap:** The Act 1->2 transition loads entirely new level layout, blocks, chunks, and patterns via Kos queue. `AnimateTiles_HCZ1` rewrites the waterline chunk strip in `Chunk_table+$7C00` and repairs the affected cave strip with the matching fix DMA uploads.
 - **PLC loading:**
   - Act transition: PLC $10 and $11 loaded during HCZ1BGE_Normal (line 105729-105730)
   - Miniboss: PLC $5B loaded at spawn (line 139231)
@@ -334,8 +336,8 @@ HCZ palette cycling is listed as **Implemented** in AGENTS_S3K.md zone inventory
 - End boss Knuckles path requires `character_id` checking in boss spawn code
 
 ### Known Risks
-- **LOW confidence: HCZ1_Deform waterline logic** -- The 48-line transition zone with HCZ_WaterlineScroll_Data binary lookup is the hardest piece. May need to dump and analyze the binary data file manually.
-- **LOW confidence: AnimateTiles_HCZ1** -- Tightly coupled to HCZ1_Deform via Events_bg+$10. The waterline tile art swapping and DMA queue interaction are non-trivial.
+- **Residual gap: HCZ1_Deform data dump** -- The control flow is pinned down, but the exact byte contents of `HCZ_WaterlineScroll_Data` still need visual verification against the ROM.
+- **Residual gap: AnimateTiles_HCZ1 visual parity** -- The DMA sequencing is concrete, but the swapped chunk art and fix passes should still be screenshot-checked in-engine.
 - **Seamless act transition** -- The HCZ1->HCZ2 seamless transition is one of the most complex in S3K (layout reload, camera offset, object offset, Kos queue dependency). May need engine-level support for mid-gameplay level reloads.
 - **Background collision flag** -- The Act 2 wall chase enables BG collision only in a specific player position range. The engine's collision system may need to support toggling BG collision dynamically.
-- **Palette cycling status discrepancy** -- AGENTS_S3K.md lists HCZ as "Implemented" but the code only implements AIZ. Needs clarification before work begins.
+- **Palette cycling parity** -- Act 1 HCZ palette cycling is present in the engine, but the underwater mirror write remains unimplemented; Act 2 is intentionally `rts`.

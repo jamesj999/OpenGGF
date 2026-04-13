@@ -2,11 +2,15 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameServices;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.palette.PaletteWrite;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.tools.KosinskiReader;
 
@@ -15,7 +19,6 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
-import com.openggf.game.GameServices;
 
 /**
  * Applies Sonic 3&amp;K palette cycling for supported zones.
@@ -27,7 +30,12 @@ import com.openggf.game.GameServices;
  */
 class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     private final Level level;
+    private final int zoneIndex;
+    private final int actIndex;
+    private final PaletteOwnershipRegistry paletteRegistry;
+    private final Palette[] explicitUnderwaterPalettes;
     private final List<PaletteCycle> cycles;
+    private Palette[] cachedLevelPalettes;
 
     static int resolveSlotsModeForTest(S3kSlotBonusStageRuntime runtime) {
         return runtime != null ? runtime.paletteCycleMode() : 0;
@@ -38,7 +46,21 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     }
 
     Sonic3kPaletteCycler(RomByteReader reader, Level level, int zoneIndex, int actIndex) {
+        this(reader, level, zoneIndex, actIndex,
+                GameServices.paletteOwnershipRegistryOrNull() != null
+                        ? GameServices.paletteOwnershipRegistryOrNull()
+                        : new PaletteOwnershipRegistry(),
+                null);
+    }
+
+    Sonic3kPaletteCycler(RomByteReader reader, Level level, int zoneIndex, int actIndex,
+                         PaletteOwnershipRegistry paletteRegistry,
+                         Palette[] explicitUnderwaterPalettes) {
         this.level = level;
+        this.zoneIndex = zoneIndex;
+        this.actIndex = actIndex;
+        this.paletteRegistry = paletteRegistry;
+        this.explicitUnderwaterPalettes = explicitUnderwaterPalettes;
         this.cycles = loadCycles(reader, zoneIndex, actIndex);
     }
 
@@ -47,11 +69,35 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         if (cycles == null || cycles.isEmpty()) {
             return;
         }
+        paletteRegistry.beginFrame();
         // ROM: AnimatePalettes dispatches to AnPal_* every frame unconditionally,
         // regardless of fire transition state.  Never suspend palette cycling.
         for (PaletteCycle cycle : cycles) {
-            cycle.tick(level, GameServices.graphics());
+            cycle.tick(level, paletteRegistry);
         }
+        paletteRegistry.resolveInto(levelPalettes(), resolveUnderwaterPalettes(),
+                GameServices.graphics(), level.getPalette(0));
+    }
+
+    private Palette[] levelPalettes() {
+        if (cachedLevelPalettes == null || cachedLevelPalettes.length != level.getPaletteCount()) {
+            cachedLevelPalettes = new Palette[level.getPaletteCount()];
+        }
+        for (int i = 0; i < cachedLevelPalettes.length; i++) {
+            cachedLevelPalettes[i] = level.getPalette(i);
+        }
+        return cachedLevelPalettes;
+    }
+
+    private Palette[] resolveUnderwaterPalettes() {
+        if (explicitUnderwaterPalettes != null) {
+            return explicitUnderwaterPalettes;
+        }
+        WaterSystem water = GameServices.waterOrNull();
+        if (water != null) {
+            return water.getUnderwaterPalette(zoneIndex, actIndex);
+        }
+        return null;
     }
 
     private List<PaletteCycle> loadCycles(RomByteReader reader, int zoneIndex, int actIndex) {
@@ -294,7 +340,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
     // ========== Base class ==========
     private static abstract class PaletteCycle {
-        abstract void tick(Level level, GraphicsManager gm);
+        abstract void tick(Level level, PaletteOwnershipRegistry registry);
     }
 
     // ========== AIZ1 Unified Cycle ==========
@@ -340,7 +386,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // ROM: AIZ1_Resize routine 0 (line 38873-38877) clears the flag once
             // when Camera X >= 0x1000. It never re-sets it.
             if (introFlag && (GameServices.camera().getX() & 0xFFFF) >= 0x1000) {
@@ -459,7 +506,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             if (timer > 0) {
                 timer--;
             } else {
@@ -527,7 +575,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             if (timer > 0) {
                 timer--;
             } else {
@@ -567,35 +616,22 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         // Water cycle state
         private int timer;
         private int counter0;
-        private boolean dirty2;
 
         // Cave lighting state (HCZ1_Resize secondary behavior)
         // Routine 0 = watch for cave entry, routine 2 = watch for exit, routine 4 = idle
         private int resizeRoutine;
-        private boolean dirty3;
 
         HczCycle(byte[] waterData) {
             this.waterData = waterData;
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
-            tickWaterCycle(level);
-            tickCaveLighting(level);
-
-            if (gm.isGlInitialized()) {
-                if (dirty2) {
-                    gm.cachePaletteTexture(level.getPalette(2), 2);
-                    dirty2 = false;
-                }
-                if (dirty3) {
-                    gm.cachePaletteTexture(level.getPalette(3), 3);
-                    dirty3 = false;
-                }
-            }
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            tickWaterCycle(level, registry);
+            tickCaveLighting(level, registry);
         }
 
-        private void tickWaterCycle(Level level) {
+        private void tickWaterCycle(Level level, PaletteOwnershipRegistry registry) {
             if (timer > 0) {
                 timer--;
                 return;
@@ -609,16 +645,20 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 counter0 = 0;
             }
 
-            Palette pal2 = level.getPalette(2);
-            pal2.getColor(3).fromSegaFormat(waterData, d0);
-            pal2.getColor(4).fromSegaFormat(waterData, d0 + 2);
-            pal2.getColor(5).fromSegaFormat(waterData, d0 + 4);
-            pal2.getColor(6).fromSegaFormat(waterData, d0 + 6);
-            // TODO: sync to underwater palette (Water_palette_line_3+$06/$0A)
-            dirty2 = true;
+            registry.submit(PaletteWrite.normal(
+                    S3kPaletteOwners.HCZ_WATER_CYCLE,
+                    S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
+                    2,
+                    3,
+                    new byte[] {
+                            waterData[d0], waterData[d0 + 1],
+                            waterData[d0 + 2], waterData[d0 + 3],
+                            waterData[d0 + 4], waterData[d0 + 5],
+                            waterData[d0 + 6], waterData[d0 + 7]
+                    }).mirrorToUnderwater());
         }
 
-        private void tickCaveLighting(Level level) {
+        private void tickCaveLighting(Level level, PaletteOwnershipRegistry registry) {
             // HCZ1_Resize secondary behavior: per-frame camera-dependent palette mutation.
             // Palette[3] colors 8-10 = Normal_palette_line_4+$10 (3 words = 3 colors)
             Camera cam = GameServices.camera();
@@ -628,11 +668,12 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             if (resizeRoutine == 0) {
                 // Watch for cave entry: cameraX < $360 AND cameraY >= $3E0
                 if (cameraX < 0x360 && cameraY >= 0x3E0) {
-                    Palette pal3 = level.getPalette(3);
-                    pal3.getColor(8).fromSegaFormat(new byte[]{0x06, (byte) 0x80}, 0);
-                    pal3.getColor(9).fromSegaFormat(new byte[]{0x02, 0x40}, 0);
-                    pal3.getColor(10).fromSegaFormat(new byte[]{0x02, 0x20}, 0);
-                    dirty3 = true;
+                    registry.submit(PaletteWrite.normal(
+                            S3kPaletteOwners.HCZ_CAVE_LIGHTING,
+                            S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
+                            3,
+                            8,
+                            new byte[] { 0x06, (byte) 0x80, 0x02, 0x40, 0x02, 0x20 }));
                     resizeRoutine = 2;
                 }
             } else if (resizeRoutine == 2) {
@@ -641,11 +682,12 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                     // Back to cave entry watch
                     resizeRoutine = 0;
                 } else if (cameraX >= 0x900 && cameraY >= 0x500) {
-                    Palette pal3 = level.getPalette(3);
-                    pal3.getColor(8).fromSegaFormat(new byte[]{0x0C, (byte) 0xEE}, 0);
-                    pal3.getColor(9).fromSegaFormat(new byte[]{0x0A, (byte) 0xCE}, 0);
-                    pal3.getColor(10).fromSegaFormat(new byte[]{0x00, (byte) 0x8A}, 0);
-                    dirty3 = true;
+                    registry.submit(PaletteWrite.normal(
+                            S3kPaletteOwners.HCZ_CAVE_LIGHTING,
+                            S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
+                            3,
+                            8,
+                            new byte[] { 0x0C, (byte) 0xEE, 0x0A, (byte) 0xCE, 0x00, (byte) 0x8A }));
                     resizeRoutine = 4;
                 }
             }
@@ -696,7 +738,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Channel 1 (bumpers) — gated by timer1
             if (timer1 > 0) {
                 timer1--;
@@ -803,7 +846,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Channel 1 (and 4): timer1
             if (timer1 > 0) {
                 timer1--;
@@ -897,7 +941,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             if (timer > 0) {
                 timer--;
             } else {
@@ -957,7 +1002,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Shared timer (channels A+B): period 16
             if (timerAB > 0) {
                 timerAB--;
@@ -1056,7 +1102,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Shared timer (channels A+B): period 16
             if (timerAB > 0) {
                 timerAB--;
@@ -1156,7 +1203,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Channel 1: Balloons → palette 2, colors 13-15
             if (timer1 > 0) {
                 timer1--;
@@ -1219,7 +1267,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             if (timer > 0) {
                 timer--;
             } else {
@@ -1271,7 +1320,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             // Channel 1: emerald glow → palette 2 color 14
             if (glowTimer > 0) {
                 glowTimer--;
@@ -1338,7 +1388,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             int mode = resolveMode();
             if (mode < 0) {
                 return;
@@ -1446,7 +1497,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         @Override
-        void tick(Level level, GraphicsManager gm) {
+        void tick(Level level, PaletteOwnershipRegistry registry) {
+            GraphicsManager gm = GameServices.graphics();
             if (line4Timer > 0) {
                 line4Timer--;
             } else {
