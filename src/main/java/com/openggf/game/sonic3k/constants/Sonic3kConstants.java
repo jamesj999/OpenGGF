@@ -612,7 +612,7 @@ public class Sonic3kConstants {
     public static final int ANPAL_AIZ2_4_ADDR = 0x002CA6;
     public static final int ANPAL_AIZ2_4_SIZE = 52;
     // AIZ2 torch glow post-fire (palette 3, color 1): 26 frames x 2 bytes = 52 bytes
-    public static final int ANPAL_AIZ2_5_ADDR = 0x002CD8;
+    public static final int ANPAL_AIZ2_5_ADDR = 0x002CDA;
     public static final int ANPAL_AIZ2_5_SIZE = 52;
     // HCZ1 water animation (palette 2, colors 3-6): 4 frames x 8 bytes = 32 bytes
     // ROM: AnPal_PalHCZ1 — verified by ROM binary search for 0EC8 0EC0 0EA0 0E80 full sequence

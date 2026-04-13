@@ -1173,7 +1173,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
         if (!battleshipSpawned) {
             battleshipSpawned = true;
-            int baseSecondaryY = camera().getY() + 0x08F0;
+            int baseSecondaryY = (camera().getY() + 0x08F0) & 0x0FF0;
             ObjectSpawn shipSpawn = new ObjectSpawn(cameraX, baseSecondaryY, 0, 0, 0, false, 0);
             AizBattleshipInstance ship = new AizBattleshipInstance(shipSpawn, baseSecondaryY);
             var objManager = levelManager().getObjectManager();
