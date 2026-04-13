@@ -137,6 +137,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private boolean customFlashDirty;
     private boolean cameraLockComplete;
     private int musicWaitTimer = -1;
+    private boolean approachFromBelow;   // ROM: bit 7 of $27(a0)
+    private boolean approachFromRight;   // ROM: bit 6 of $27(a0)
 
     // Movement state (Task 6)
     private int swingVelocity;
@@ -146,12 +148,6 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private int directionCounter;
     private int attackPassCounter;
     private boolean facingRight;
-
-    /** Stored camera bounds at time of boss trigger, for gradual lock. */
-    private int storedMinY;
-    private int storedMaxY;
-    private int storedMinX;
-    private int storedMaxX;
 
     /** Character-resolved lock targets for the current fight. */
     private int targetLockYTop;
@@ -188,6 +184,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
         propellerActive = false;
         bladeFireSignal = false;
         defeatSignal = false;
+        approachFromBelow = false;
+        approachFromRight = false;
         defeatExplosionController = null;
         swingVelocity = 0;
         swingDown = false;
@@ -323,12 +321,10 @@ public class HczEndBossInstance extends AbstractBossInstance {
         // Set Boss_flag on HCZ events
         setBossFlag(true);
 
-        // Store current camera bounds before locking
+        // ROM: Check_CameraInRange sets approach-direction bits in $27(a0)
         var camera = services().camera();
-        storedMinY = camera.getMinY();
-        storedMaxY = camera.getMaxY();
-        storedMinX = camera.getMinX();
-        storedMaxX = camera.getMaxX();
+        approachFromBelow = (camera.getY() > targetLockYTop);
+        approachFromRight = (camera.getX() > targetLockXLeft);
 
         // Fade out current music
         services().fadeOutMusic();
@@ -357,16 +353,24 @@ public class HczEndBossInstance extends AbstractBossInstance {
     // =========================================================================
 
     /**
-     * Gradually locks camera boundaries toward the target values.
-     * ROM: Increments/decrements by 2 per frame until target is reached.
-     * Y boundaries are locked first, then X boundaries.
+     * ROM: loc_85CA4 — Follow-camera-then-snap lock algorithm.
+     *
+     * <p>Each axis follows the camera position each frame, then snaps both
+     * min and max when the camera reaches the target zone. Y and X run
+     * in parallel. Completion requires music played + Y locked + X locked.
+     *
+     * <p>Approach direction (set in updateInit from Check_CameraInRange):
+     * <ul>
+     *   <li>approachFromBelow (bit 7): camera Y > targetLockYTop at trigger</li>
+     *   <li>approachFromRight (bit 6): camera X > targetLockXLeft at trigger</li>
+     * </ul>
      */
     private void updateCameraLock() {
         if (cameraLockComplete) {
             return;
         }
 
-        // Music wait timer: play boss music after delay
+        // Music wait timer: play boss music after delay (ROM: bit 0 of $27)
         if (musicWaitTimer >= 0) {
             musicWaitTimer--;
             if (musicWaitTimer < 0) {
@@ -377,61 +381,62 @@ public class HczEndBossInstance extends AbstractBossInstance {
 
         var camera = services().camera();
 
-        // Phase 1: Lock Y boundaries
+        // Y lock — follow camera, snap when reached (ROM: bit 1 of $27)
         if (!arenaYLocked) {
-            boolean yDone = true;
-
-            int currentMinY = camera.getMinY();
-            if (currentMinY < targetLockYTop) {
-                camera.setMinY((short) Math.min(currentMinY + 2, targetLockYTop));
-                yDone = false;
-            } else if (currentMinY > targetLockYTop) {
-                camera.setMinY((short) Math.max(currentMinY - 2, targetLockYTop));
-                yDone = false;
+            int cameraY = camera.getY();
+            if (!approachFromBelow) {
+                // Approaching from above: follow camera downward
+                if (cameraY >= targetLockYTop) {
+                    // Snap
+                    camera.setMinY((short) targetLockYTop);
+                    camera.setMaxY((short) targetLockYBottom);
+                    arenaYLocked = true;
+                } else {
+                    camera.setMinY((short) cameraY);
+                }
+            } else {
+                // Approaching from below: follow camera upward
+                if (cameraY <= targetLockYBottom) {
+                    // Snap
+                    camera.setMinY((short) targetLockYTop);
+                    camera.setMaxY((short) targetLockYBottom);
+                    arenaYLocked = true;
+                } else {
+                    camera.setMaxY((short) cameraY);
+                }
             }
-
-            int currentMaxY = camera.getMaxY();
-            if (currentMaxY < targetLockYBottom) {
-                camera.setMaxY((short) Math.min(currentMaxY + 2, targetLockYBottom));
-                yDone = false;
-            } else if (currentMaxY > targetLockYBottom) {
-                camera.setMaxY((short) Math.max(currentMaxY - 2, targetLockYBottom));
-                yDone = false;
-            }
-
-            if (yDone) {
-                arenaYLocked = true;
-            }
-            return; // Don't start X lock until Y is done
         }
 
-        // Phase 2: Lock X boundaries
+        // X lock — runs in parallel with Y (ROM: bit 2 of $27)
         if (!arenaXLocked) {
-            boolean xDone = true;
-
-            int currentMinX = camera.getMinX();
-            if (currentMinX < targetLockXLeft) {
-                camera.setMinX((short) Math.min(currentMinX + 2, targetLockXLeft));
-                xDone = false;
-            } else if (currentMinX > targetLockXLeft) {
-                camera.setMinX((short) Math.max(currentMinX - 2, targetLockXLeft));
-                xDone = false;
+            int cameraX = camera.getX();
+            if (!approachFromRight) {
+                // Approaching from left: follow camera rightward
+                if (cameraX >= targetLockXLeft) {
+                    // Snap
+                    camera.setMinX((short) targetLockXLeft);
+                    camera.setMaxX((short) targetLockXRight);
+                    arenaXLocked = true;
+                } else {
+                    camera.setMinX((short) cameraX);
+                }
+            } else {
+                // Approaching from right: follow camera leftward
+                if (cameraX <= targetLockXRight) {
+                    // Snap
+                    camera.setMinX((short) targetLockXLeft);
+                    camera.setMaxX((short) targetLockXRight);
+                    arenaXLocked = true;
+                } else {
+                    camera.setMaxX((short) cameraX);
+                }
             }
+        }
 
-            int currentMaxX = camera.getMaxX();
-            if (currentMaxX < targetLockXRight) {
-                camera.setMaxX((short) Math.min(currentMaxX + 2, targetLockXRight));
-                xDone = false;
-            } else if (currentMaxX > targetLockXRight) {
-                camera.setMaxX((short) Math.max(currentMaxX - 2, targetLockXRight));
-                xDone = false;
-            }
-
-            if (xDone) {
-                arenaXLocked = true;
-                cameraLockComplete = true;
-                onCameraLockComplete();
-            }
+        // Check completion: music played + Y locked + X locked (ROM: $27 bits 0,1,2 = 7)
+        if (musicWaitTimer < 0 && arenaYLocked && arenaXLocked) {
+            cameraLockComplete = true;
+            onCameraLockComplete();
         }
     }
 
