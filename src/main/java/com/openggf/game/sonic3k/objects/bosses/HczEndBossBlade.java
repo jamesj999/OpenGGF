@@ -8,6 +8,8 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -80,6 +82,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private static final int FLOOR_Y_LIMIT = 0x1000;
     /** Off-screen margin for deletion while flying. */
     private static final int OFFSCREEN_MARGIN = 32;
+    /** Y radius for floor collision checks (ROM: move.b #8,y_radius(a0) in loc_6B5E6). */
+    private static final int Y_RADIUS = 8;
 
     // =========================================================================
     // FLY animation (ROM: byte_6BE19 — dc.b 3, $D, $F, $11, $F4)
@@ -180,7 +184,9 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     // =========================================================================
 
     /**
-     * ROM routine 0 (ATTACHED): track parent position, animate blade.
+     * ROM routine 0 (ATTACHED): track parent position with static frame.
+     * ROM: SetUp_ObjAttributes3 sets mapping_frame = 6 from ObjDat word_6BD38.
+     * No animation cycling occurs — blade stays at its initial frame.
      * Index 0 transitions to WAIT_FIRE after one frame of initialization.
      * Indices 1 and 2 remain ATTACHED permanently (they never fire).
      */
@@ -190,7 +196,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
         collisionFlags = 0;
-        tickAnimation();
+        // ROM: no animation call during ATTACHED — blade shows static frame 6
 
         // Only the bottom blade proceeds to WAIT_FIRE
         if (bladeIndex == 0) {
@@ -201,13 +207,14 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     /**
      * ROM routine 2 (WAIT_FIRE): bottom blade only.
      * Follow parent; wait for {@code boss.isBladeFireSignal()}.
+     * ROM: no animation call — blade shows static frame.
      */
     private void updateWaitFire() {
         currentX = boss.getState().x + xOffset;
         currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
         collisionFlags = 0;
-        tickAnimation();
+        // ROM: no animation call during WAIT_FIRE — blade shows static frame
 
         if (boss.isBladeFireSignal()) {
             // Acknowledge fire signal but wait for it to clear before flying
@@ -219,6 +226,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
      * ROM routine 4 (WAIT_CLEAR): acknowledge signal then wait for boss to clear it.
      * ROM pattern: blade clears the bit itself, then waits one frame for the boss to
      * re-sample. Here the blade clears it immediately and proceeds.
+     * ROM: no animation call — blade shows static frame until launch.
      */
     private void updateWaitClear() {
         currentX = boss.getState().x + xOffset;
@@ -266,13 +274,26 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     }
 
     /**
-     * ROM routine 8 (FALL): gravity-accelerated fall after hitting water.
-     * Blade no longer moves horizontally.
+     * ROM routine 8 (FALL): gravity-accelerated fall.
+     * ROM (loc_6B6E6): first checks water level — if at/below water, transitions
+     * to UNDERWATER_FALL and spawns splash. Otherwise applies MoveSprite_LightGravity
+     * then ObjHitFloor_DoRoutine (floor collision with snap + transition to SPIN_DOWN).
      */
     private void updateFall() {
-        xVel = 0;
+        // ROM: check water level first
+        int waterY = getWaterLevelY();
+        if (currentY >= waterY) {
+            // At or below water level — transition to UNDERWATER_FALL
+            // ROM: spawns splash child here (ChildObjDat_6BDD8) — omitted for now
+            routine = ROUTINE_UNDERWATER_FALL;
+            return;
+        }
+
+        // ROM: MoveSprite_LightGravity — apply gravity and velocity
         yVel += GRAVITY;
         yFixed += yVel;
+        xFixed += xVel;
+        currentX = xFixed >> 8;
         currentY = yFixed >> 8;
         updateDynamicSpawn();
 
@@ -284,30 +305,41 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
             return;
         }
 
-        // Proceed to UNDERWATER_FALL once blade is clearly submerged
-        routine = ROUTINE_UNDERWATER_FALL;
+        // ROM: ObjHitFloor_DoRoutine — check floor only when falling (yVel >= 0)
+        if (yVel >= 0) {
+            checkFloorAndSnap();
+        }
     }
 
     /**
-     * ROM routine 10 (UNDERWATER_FALL): continue falling with floor check.
+     * ROM routine 10 (UNDERWATER_FALL): continue falling underwater with floor check.
+     * ROM (loc_6B70E): MoveSprite_LightGravity + ObjHitFloor_DoRoutine.
+     * When floor is hit, callback (loc_6B71C) transitions to SPIN_DOWN.
      */
     private void updateUnderwaterFall() {
+        // ROM: MoveSprite_LightGravity — apply gravity and velocity
         yVel += GRAVITY;
         yFixed += yVel;
+        xFixed += xVel;
+        currentX = xFixed >> 8;
         currentY = yFixed >> 8;
         updateDynamicSpawn();
 
         tickAnimation();
 
-        // Destroy on floor boundary
+        // Off-screen / floor boundary safety net
         if (currentY >= FLOOR_Y_LIMIT) {
             setDestroyed(true);
             return;
         }
-
-        // Off-screen deletion
         if (!isOnScreen(OFFSCREEN_MARGIN)) {
             setDestroyed(true);
+            return;
+        }
+
+        // ROM: ObjHitFloor_DoRoutine — check floor only when falling (yVel >= 0)
+        if (yVel >= 0) {
+            checkFloorAndSnap();
         }
     }
 
@@ -354,6 +386,46 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
 
         LOG.fine(() -> "HCZ End Boss Blade[0]: launched xVel=" + xVel
                 + " from x=" + currentX + " y=" + currentY);
+    }
+
+    // =========================================================================
+    // Floor collision helper (ROM: ObjHitFloor_DoRoutine)
+    // =========================================================================
+
+    /**
+     * ROM: ObjHitFloor_DoRoutine (loc_848A0).
+     * Checks floor distance via ObjCheckFloorDist. If distance <= 0 (on or below
+     * floor), snaps Y position to floor surface and transitions to SPIN_DOWN
+     * (the callback at $34, which is loc_6B71C).
+     */
+    private void checkFloorAndSnap() {
+        try {
+            TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(
+                    currentX, currentY, Y_RADIUS);
+            if (floor.hasCollision()) {
+                // ROM: add.w d1,y_pos(a0) — snap to floor surface
+                currentY += floor.distance();
+                yFixed = currentY << 8;
+                yVel = 0;
+                // ROM callback loc_6B71C: transition to SPIN_DOWN (routine $C)
+                transitionToSpinDown();
+            }
+        } catch (Exception e) {
+            LOG.fine(() -> "HczEndBossBlade.checkFloorAndSnap: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ROM: loc_6B71C — callback when blade hits floor.
+     * Sets routine to SPIN_DOWN ($C), sets up animation and next callback.
+     */
+    private void transitionToSpinDown() {
+        routine = ROUTINE_SPIN_DOWN;
+        // Reset animation state for spin-down cycling
+        animFrame = 0;
+        animCounter = 0;
+        spinDownCycleCount = 0;
+        LOG.fine(() -> "HCZ End Boss Blade: hit floor at y=" + currentY + ", transitioning to SPIN_DOWN");
     }
 
     // =========================================================================
