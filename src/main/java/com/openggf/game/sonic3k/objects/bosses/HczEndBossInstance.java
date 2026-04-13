@@ -9,7 +9,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
-import com.openggf.game.sonic3k.objects.Aiz2EndEggCapsuleInstance;
+// HczEndBossEggCapsuleInstance is in the same package (bosses)
 import com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionChild;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionController;
@@ -724,29 +724,39 @@ public class HczEndBossInstance extends AbstractBossInstance {
         boolean isKnuckles = (getPlayerCharacter() == PlayerCharacter.KNUCKLES);
         int capsuleX = isKnuckles ? K_CAPSULE_X : ST_CAPSULE_X;
         int capsuleY = isKnuckles ? K_CAPSULE_Y : ST_CAPSULE_Y;
-        spawnChild(() -> new Aiz2EndEggCapsuleInstance(capsuleX, capsuleY));
-        LOG.fine("HCZ End Boss: flee complete, capsule spawned at (" + capsuleX + ", " + capsuleY + ")");
+        spawnChild(() -> new HczEndBossEggCapsuleInstance(capsuleX, capsuleY));
+        LOG.fine("HCZ End Boss: flee complete, ground capsule spawned at (" + capsuleX + ", " + capsuleY + ")");
     }
 
     /**
-     * ROM: loc_6B154 — Wait for the capsule to be opened and the end-of-level
-     * sequence to begin. Lock camera from scrolling left each frame.
+     * ROM: loc_6B154 — Wait for the capsule results sequence to COMPLETE.
+     * Lock camera from scrolling left each frame.
+     *
+     * <p>ROM uses _unkFAA8 flag: boss sets 0xFF when spawning capsule,
+     * Obj_LevelResults clears it after full results (360-frame wait +
+     * score tally + 90-frame wait). Only then does the boss spawn the geyser.
+     *
+     * <p>In the engine, {@code isEndOfLevelFlag()} is set by the results
+     * screen's {@code onExitReady()} (after tally + post-wait complete),
+     * matching the ROM's _unkFAA8 clear timing. Do NOT use
+     * {@code isEndOfLevelActive()} here — that fires when the capsule
+     * opens, before the results are shown.
      */
     private void updateCapsuleWait() {
         // Lock camera from scrolling left
         var camera = services().camera();
         camera.setMinX((short) camera.getX());
 
-        // Check if end-of-level has been signaled (capsule opened → results screen)
-        if (services().gameState().isEndOfLevelActive()) {
+        // Check if results have COMPLETED (not just started)
+        if (services().gameState().isEndOfLevelFlag()) {
             onCapsuleOpened();
         }
     }
 
     /**
-     * ROM: after capsule opened — spawn geyser cutscene and transition to done state.
+     * ROM: after results complete — spawn geyser cutscene and transition to done state.
      *
-     * <p>ROM: loc_6B154 → capsule open check → spawn geyser cutscene object.
+     * <p>ROM: loc_6B154 → _unkFAA8 cleared by Obj_LevelResults → spawn geyser.
      * Geyser X = Player_1 X position; geyser spawn Y = Camera_Y + $130.
      */
     private void onCapsuleOpened() {
