@@ -382,6 +382,10 @@ public class Sonic3kConstants {
     // Pal_CutsceneKnux - Knuckles cutscene palette (32 bytes = 16 colors)
     public static final int PAL_CUTSCENE_KNUX_ADDR = 0x066912;
 
+    // PalPointers index for HCZ2 main palette (Pal_HCZ2 → palette lines 1-3)
+    // Used by CutsceneKnux_HCZ2 to restore normal palette after cutscene.
+    public static final int PAL_POINTERS_HCZ2_INDEX = 13;
+
     // Pal_AIZIntroEmeralds - Emerald palette (32 bytes = 16 colors)
     public static final int PAL_AIZ_INTRO_EMERALDS_ADDR = 0x067AAA;
 
@@ -1119,6 +1123,7 @@ public class Sonic3kConstants {
     public static final int MAP_HCZ_BUTTON_ADDR = 0x22BD1A;
     public static final int MAP_CNZ_BUTTON_ADDR = 0x22BD4A;
     public static final int ARTTILE_GRAY_BUTTON = 0x0456;
+    public static final int ART_NEM_GRAY_BUTTON_ADDR = 0x190AC4;
     public static final int ARTTILE_HCZ_BUTTON = 0x0426;
     public static final int ARTTILE_CNZ_BUTTON = 0x041A; // ArtTile_CNZMisc + $C9
     public static final int ARTTILE_LRZ_MISC = 0x03A1;
