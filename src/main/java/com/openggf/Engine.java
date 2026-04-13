@@ -2,7 +2,6 @@ package com.openggf;
 
 import com.openggf.game.*;
 import com.openggf.graphics.*;
-import com.openggf.version.AppVersion;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryStack;
@@ -207,10 +206,6 @@ public class Engine {
 		instance = this;
 	}
 
-	static String buildWindowTitle() {
-		return "OpenGGF " + AppVersion.get();
-	}
-
 	public void setInputHandler(InputHandler inputHandler) {
 		this.inputHandler = inputHandler;
 		gameLoop.setInputHandler(inputHandler);
@@ -249,8 +244,9 @@ public class Engine {
 		glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE); // Required for macOS
 
 		// Create the window
+		String version = SonicConfigurationService.ENGINE_VERSION;
 		window = glfwCreateWindow(windowWidth, windowHeight,
-				buildWindowTitle(), NULL, NULL);
+				"OpenGGF " + version, NULL, NULL);
 		if (window == NULL) {
 			throw new RuntimeException("Failed to create the GLFW window");
 		}
