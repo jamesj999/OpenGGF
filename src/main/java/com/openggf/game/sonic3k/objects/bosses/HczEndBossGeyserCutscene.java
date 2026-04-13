@@ -7,7 +7,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.HCZWaterRushObjectInstance;
 import com.openggf.game.sonic3k.scroll.SwScrlHcz;
-import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
@@ -26,7 +26,7 @@ import java.util.logging.Logger;
  *
  * <ol>
  *   <li><b>SHAKE (95 frames)</b> -- screen shakes, sfx_Rumble2 plays every 8 frames.</li>
- *   <li><b>GEYSER_RISE</b> -- a column sprite rises from Camera_Y + 0x130 at 6 px/frame.
+ *   <li><b>GEYSER_RISE</b> -- a geyser object rises from Camera_Y + 0x130 at 6 px/frame.
  *       When the geyser top reaches player_Y - 0x60 the player is grabbed (HURT anim set)
  *       and the phase transitions to CARRY.</li>
  *   <li><b>CARRY (95 frames)</b> -- geyser and grabbed player both move up 6 px/frame.
@@ -34,9 +34,7 @@ import java.util.logging.Logger;
  *       (zone 0x02, act 0) matching the ROM {@code StartNewLevel} call.</li>
  * </ol>
  *
- * <p>Art: uses Map_HCZWaterWall frame 1 (tall vertical water column, 12 pieces)
- * tiled from the geyser top down to the bottom of the screen. Splash animation
- * (frames 3-5) plays at the top.
+ * <p>Art: uses Map_HCZWaterWall frame 1 as a single ROM-accurate sprite.
  *
  * <p>Debris: 8 {@link GeyserDebrisChild} objects are spawned at geyser setup time
  * (ROM: loc_6BCB2). These use Map_HCZWaterWallDebris with 8 cycling frames,
@@ -136,8 +134,8 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     private int timer;
     private int rumbleTimer;
 
-    /** Geyser column top Y (world coordinates), updated each frame in RISE/CARRY. */
-    private int geyserTopY;
+    /** ROM y_pos for the geyser object, updated each frame in RISE/CARRY. */
+    private int geyserY;
 
     /** Geyser column X (player_1 X at spawn time, held constant). */
     private int geyserX;
@@ -148,10 +146,10 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     /** True once debris children have been spawned. */
     private boolean debrisSpawned;
 
-    /** Splash animation frame index (cycles through 0..SPLASH_FRAME_COUNT-1). */
-    private int splashFrame;
-    /** Splash animation tick counter. */
-    private int splashTimer;
+    /** ROM root object uses priority $280. */
+    private static final int GEYSER_PRIORITY_BUCKET = 5;
+    /** Debris uses priority $280 in the ROM. */
+    private static final int DEBRIS_PRIORITY_BUCKET = 5;
 
     // =========================================================================
     // Constructor
@@ -164,7 +162,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     public HczEndBossGeyserCutscene(int spawnX, int spawnY) {
         super(new ObjectSpawn(spawnX, spawnY, 0, 0, 0, false, 0), "HCZGeyserCutscene");
         this.geyserX    = spawnX;
-        this.geyserTopY = spawnY;
+        this.geyserY    = spawnY;
         this.timer      = SHAKE_DURATION;
         this.rumbleTimer = 0;
         this.playerGrabbed = false;
@@ -216,7 +214,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
             // Shake complete -- set up the geyser column (ROM: loc_6B832)
             clearScreenShake();
             setupGeyserColumn(player);
-            LOG.fine("HCZ Geyser Cutscene: shake done, geyser rising from Y=" + geyserTopY);
+            LOG.fine("HCZ Geyser Cutscene: shake done, geyser rising from Y=" + geyserY);
         }
     }
 
@@ -248,7 +246,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
         if (player != null) {
             geyserX = player.getCentreX();
         }
-        geyserTopY = camera.getY() + SPAWN_CAMERA_Y_OFFSET;
+        geyserY = camera.getY() + SPAWN_CAMERA_Y_OFFSET;
 
         // Spawn 8 debris children (ROM: jmp loc_6BCB2)
         spawnDebris();
@@ -271,7 +269,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
         if (debrisSpawned) return;
         debrisSpawned = true;
 
-        int debrisBaseY = geyserTopY - 0x80; // ROM: subi.w #$80,d3
+        int debrisBaseY = geyserY - 0x80; // ROM: subi.w #$80,d3
 
         for (int i = 0; i < DEBRIS_TABLE.length; i++) {
             int[] entry = DEBRIS_TABLE[i];
@@ -295,24 +293,24 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
 
     /**
      * Rises the geyser column at 6 px/frame. When the column top reaches
-     * player_Y - 0x60 the player is grabbed (object_control set, HURT anim,
+     * the player, the player is grabbed (object_control set, HURT anim,
      * velocities cleared) and the phase transitions to CARRY.
      *
-     * <p>ROM: {@code sub.w d1,y_pos(a0); subi.w #$60,d0; cmp.w y_pos(a1),d0;
-     * bhs.s loc_6B8B2} -- if the geyser top minus 0x60 is still above or at the
-     * player, keep rising; otherwise grab.
+     * <p>ROM: {@code subq.w #6,d0; move.w d0,y_pos(a0); subi.w #$60,d0;
+     * cmp.w y_pos(a1),d0; bhs.s loc_6B8B2} -- keep rising while
+     * (geyserY - $60) >= playerY; grab when (geyserY - $60) < playerY.
      */
     private void updateGeyserRise(AbstractPlayableSprite player) {
-        geyserTopY -= GEYSER_RISE_SPEED;
+        geyserY -= GEYSER_RISE_SPEED;
 
         if (player == null || playerGrabbed) {
             return;
         }
 
         int playerY = player.getCentreY();
-        int dist    = playerY - geyserTopY;
-
-        if (dist <= GRAB_Y_OFFSET) {
+        // ROM: d0 = geyserY - $60; cmp.w y_pos(a1),d0; bhs.s skip_grab
+        // Grab when (geyserY - GRAB_Y_OFFSET) < playerY
+        if (geyserY - GRAB_Y_OFFSET < playerY) {
             // Grab the player (ROM: loc_6B882 grab branch)
             // ROM: move.b #$81,object_control(a1)
             player.setObjectControlled(true);
@@ -325,7 +323,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
             playerGrabbed = true;
             timer = CARRY_DURATION;
             phase = PHASE_CARRY;
-            LOG.fine("HCZ Geyser Cutscene: player grabbed at geyserY=" + geyserTopY
+            LOG.fine("HCZ Geyser Cutscene: player grabbed at geyserY=" + geyserY
                     + " playerY=" + playerY);
         }
     }
@@ -340,7 +338,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
      */
     private void updateCarry(AbstractPlayableSprite player) {
         // ROM: subq.w #6,y_pos(a0)
-        geyserTopY -= GEYSER_RISE_SPEED;
+        geyserY -= GEYSER_RISE_SPEED;
 
         // ROM: subq.w #6,y_pos(a1) -- directly subtract from player Y each frame
         if (player != null && playerGrabbed) {
@@ -368,81 +366,22 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     // =========================================================================
 
     /**
-     * Draws the geyser using dedicated cutscene art (Map_HCZWaterWall).
-     * Frame 1 is a tall vertical water column (12 mapping pieces, ~96 px tall).
-     * The column is tiled from the geyser top downward to fill the screen.
-     * Frames 3-5 are splash sprites animated at the geyser top.
+     * Draws the geyser as the ROM does: a single Map_HCZWaterWall frame-1 sprite.
      *
      * <p>ROM: ObjDat3_6BD7E specifies Map_HCZWaterWall, palette 2,
      * width $20 (32px), height $60 (96px), mapping_frame 1.
      */
     @Override
-    public void appendRenderCommands(List<GLCommand> commands) {
+    public void appendRenderCommands(List<com.openggf.graphics.GLCommand> commands) {
         if (isDestroyed() || phase == PHASE_SHAKE) {
             return;
         }
 
-        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE);
+        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_GEYSER_VERT);
         if (renderer == null) {
-            // Fallback: try the regular vertical geyser art (same ArtKosM_HCZGeyserVert)
-            renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_GEYSER_VERT);
-        }
-        if (renderer == null) {
-            // Last resort: draw a debug placeholder so it's not completely invisible
-            appendDebugColumn(commands);
             return;
         }
-
-        // Draw column segments from geyserTopY downward to the screen bottom
-        var camera = services().camera();
-        int screenBottomY = camera.getY() + 224; // standard 224-px screen height
-        int segmentHeight = 96;                   // frame 1 is ~96 px tall (12 pieces * 8px)
-        int segY = geyserTopY;
-        while (segY < screenBottomY) {
-            renderer.drawFrameIndex(COLUMN_FRAME_INDEX, geyserX, segY, false, false);
-            segY += segmentHeight;
-        }
-
-        // Draw splash animation at geyser top
-        tickSplashAnimation();
-        int splashFrameIndex = SPLASH_FRAME_BASE + splashFrame;
-        renderer.drawFrameIndex(splashFrameIndex, geyserX, geyserTopY, false, false);
-    }
-
-    /**
-     * Ticks the splash animation cycle (frames 3-5 of Map_HCZWaterWall).
-     */
-    private void tickSplashAnimation() {
-        splashTimer++;
-        if (splashTimer >= SPLASH_ANIM_SPEED) {
-            splashTimer = 0;
-            splashFrame = (splashFrame + 1) % SPLASH_FRAME_COUNT;
-        }
-    }
-
-    /**
-     * Draws a simple debug column when no art renderer is available.
-     * Renders a semi-transparent blue rectangle from geyserTopY to screen bottom.
-     */
-    private void appendDebugColumn(List<GLCommand> commands) {
-        var camera = services().camera();
-        int screenBottomY = camera.getY() + 224;
-        int halfWidth = 0x20; // ROM: width_pixels = $20
-        int l = geyserX - halfWidth;
-        int r = geyserX + halfWidth;
-        int t = geyserTopY;
-        int bot = screenBottomY;
-
-        // Draw a filled quad as 2 triangles (6 vertices)
-        float cr = 0.2f, cg = 0.5f, cb = 1.0f;
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, cr, cg, cb, l, t, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, cr, cg, cb, r, t, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, cr, cg, cb, r, bot, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, cr, cg, cb, l, bot, 0, 0));
+        renderer.drawFrameIndex(COLUMN_FRAME_INDEX, geyserX, geyserY, false, false);
     }
 
     // =========================================================================
@@ -492,7 +431,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 1;
+        return RenderPriority.clamp(GEYSER_PRIORITY_BUCKET);
     }
 
     // =========================================================================
@@ -599,34 +538,19 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
         }
 
         @Override
-        public void appendRenderCommands(List<GLCommand> commands) {
+        public void appendRenderCommands(List<com.openggf.graphics.GLCommand> commands) {
             // Use the existing debris art (Map_HCZWaterWallDebris).
             // The cutscene debris uses ArtTile_HCZCutsceneGeyser+$58, palette 2,
             // which is compatible with the HCZ_GEYSER_DEBRIS art key.
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS);
             if (renderer != null) {
                 renderer.drawFrameIndex(mappingFrame, motion.x, motion.y, false, false);
-            } else {
-                // Debug fallback: small blue box
-                int sz = 4;
-                commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                        GLCommand.BlendType.SOLID, 0.3f, 0.6f, 1.0f,
-                        motion.x - sz, motion.y - sz, 0, 0));
-                commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                        GLCommand.BlendType.SOLID, 0.3f, 0.6f, 1.0f,
-                        motion.x + sz, motion.y - sz, 0, 0));
-                commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                        GLCommand.BlendType.SOLID, 0.3f, 0.6f, 1.0f,
-                        motion.x + sz, motion.y + sz, 0, 0));
-                commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                        GLCommand.BlendType.SOLID, 0.3f, 0.6f, 1.0f,
-                        motion.x - sz, motion.y + sz, 0, 0));
             }
         }
 
         @Override
         public int getPriorityBucket() {
-            return 1; // ROM: priority $280
+            return RenderPriority.clamp(DEBRIS_PRIORITY_BUCKET);
         }
     }
 }

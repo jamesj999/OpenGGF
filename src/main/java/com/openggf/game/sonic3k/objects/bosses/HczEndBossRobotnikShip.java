@@ -47,7 +47,8 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
     // Ship constants
     // =========================================================================
     /** Map_RobotnikShip frame index for subtype 5 (full ship body). */
-    private static final int SHIP_FRAME = 5;
+    private static final int SHIP_FRAME_IDLE = 5;
+    private static final int SHIP_FRAME_ESCAPE = 10;
     /** Offset from boss center to ship position. */
     private static final int CHILD_OFFSET_X = 0;
     private static final int CHILD_OFFSET_Y = 0x0C;
@@ -97,6 +98,10 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
     private int headAnimCounter;
     /** Current head idle frame (0 or 1). */
     private int headIdleFrame;
+    /** Current ship body mapping frame. */
+    private int shipFrame;
+    /** Ship-facing state derived from the child object's own render flags. */
+    private boolean shipFacingRight;
 
     // =========================================================================
     // Constructor
@@ -108,6 +113,8 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
         this.routine = ROUTINE_INIT;
         this.headAnimCounter = 0;
         this.headIdleFrame = HEAD_FRAME_IDLE_A;
+        this.shipFrame = SHIP_FRAME_IDLE;
+        this.shipFacingRight = false;
     }
 
     // =========================================================================
@@ -141,47 +148,44 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
      * ROM routine 0: Init — set mapping_frame = subtype (5), advance to MAIN.
      */
     private void updateInit() {
-        // Follow parent immediately
-        currentX = boss.getState().x + CHILD_OFFSET_X;
+        // Follow parent immediately (ROM: Refresh_ChildPositionAdjusted)
+        int dx = boss.isFacingRight() ? -CHILD_OFFSET_X : CHILD_OFFSET_X;
+        currentX = boss.getState().x + dx;
         currentY = boss.getState().y + CHILD_OFFSET_Y;
         xFixed = currentX << 16;
         yFixed = currentY << 16;
+        shipFrame = SHIP_FRAME_IDLE;
+        shipFacingRight = boss.isFacingRight();
         routine = ROUTINE_MAIN;
     }
 
     /**
      * ROM routine 2: Main — follow parent position each frame.
-     * Transitions to WAIT_DEFEAT when defeatSignal is set.
+     * ROM: Refresh_ChildPositionAdjusted negates child_dx when parent
+     * render_flags bit 0 is set (facing right), and copies that bit to
+     * the child's render_flags.
+     * Transitions to WAIT_DEFEAT when the parent enters defeated status.
      */
     private void updateMain() {
-        currentX = boss.getState().x + CHILD_OFFSET_X;
+        int dx = boss.isFacingRight() ? -CHILD_OFFSET_X : CHILD_OFFSET_X;
+        currentX = boss.getState().x + dx;
         currentY = boss.getState().y + CHILD_OFFSET_Y;
         xFixed = currentX << 16;
         yFixed = currentY << 16;
+        shipFacingRight = boss.isFacingRight();
 
-        if (boss.isDefeatSignal()) {
+        if (boss.getState().defeated) {
             routine = ROUTINE_WAIT_DEFEAT;
         }
     }
 
     /**
-     * ROM routine 4: Wait for defeat — continues following parent, waits for
-     * defeat signal to stabilize (boss explosion phase complete).
-     * ROM: checks bit 4 of $38 (defeatSignal). When set, advance to READY.
-     *
-     * <p>Since the boss sets defeatSignal in onDefeatStarted(), we transition
-     * immediately. The ship continues to follow the parent during the defeat
-     * explosion phase, then detaches to rise when the boss starts fleeing.
+     * ROM routine 4: wait for parent bit 4 of $38, which HCZ sets when the
+     * post-defeat explosion phase finishes and the ship is ready to leave.
      */
     private void updateWaitDefeat() {
-        currentX = boss.getState().x + CHILD_OFFSET_X;
-        currentY = boss.getState().y + CHILD_OFFSET_Y;
-        xFixed = currentX << 16;
-        yFixed = currentY << 16;
-
-        // Transition to READY when parent has started fleeing
-        // (i.e., the defeat explosion phase is done and the boss body is fleeing)
-        if (boss.getState().routine >= 16) { // ROUTINE_FLEE = 16
+        if (boss.getState().routine >= 16) { // ROUTINE_FLEE
+            shipFrame = SHIP_FRAME_ESCAPE;
             xVel = 0;
             yVel = READY_RISE_VEL;
             routine = ROUTINE_READY;
@@ -201,6 +205,7 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
         if (currentY <= targetY) {
             currentY = targetY;
             yFixed = currentY << 16;
+            shipFacingRight = true;
             xVel = ESCAPE_X_VEL;
             yVel = 0;
             timer = ESCAPE_TIMER;
@@ -283,15 +288,10 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
             return;
         }
 
-        // Ship body: frame 5 at ship position — hFlip matches boss facing direction
-        // ROM: Child_Draw_Sprite2 inherits parent render_flags including h-flip bit
-        boolean hFlip = boss.isFacingRight();
-        shipRenderer.drawFrameIndex(SHIP_FRAME, currentX, currentY, hFlip, false);
+        shipRenderer.drawFrameIndex(shipFrame, currentX, currentY, shipFacingRight, false);
 
-        // Eggman head: at offset from ship position — inherits same hFlip
-        // ROM: Obj_RobotnikHead uses Child_Draw_Sprite2 which inherits parent render_flags
         int headX = currentX + HEAD_OFFSET_X;
         int headY = currentY + HEAD_OFFSET_Y;
-        shipRenderer.drawFrameIndex(getHeadFrame(), headX, headY, hFlip, false);
+        shipRenderer.drawFrameIndex(getHeadFrame(), headX, headY, shipFacingRight, false);
     }
 }

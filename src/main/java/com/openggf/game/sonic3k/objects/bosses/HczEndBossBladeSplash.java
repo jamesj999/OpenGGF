@@ -24,8 +24,8 @@ import java.util.logging.Logger;
  *       art_tile = ArtTile_HCZEndBoss, priority = $80,
  *       width = $C, height = $8, mapping_frame = $18.</li>
  *   <li>Main handler = {@code AnimateRaw_DrawTouch}</li>
- *   <li>Animation = {@code byte_6BE36}: delay=$18 (24 ticks),
- *       frames 2, 0x18, 2, 0x30, 3, 0x19, 4, then $F4 (end→delete)</li>
+ *   <li>Animation = {@code byte_6BE36}: Animate_RawMultiDelay script
+ *       {@code $18,2 / $18,2 / $30,3 / $19,4 / $F4}</li>
  *   <li>Positioned at {@code (Water_level - 4)} via {@code loc_6B46E}</li>
  * </ul>
  *
@@ -36,11 +36,10 @@ public class HczEndBossBladeSplash extends AbstractBossChild {
     private static final Logger LOG = Logger.getLogger(HczEndBossBladeSplash.class.getName());
 
     // =========================================================================
-    // Animation: byte_6BE36 (Animate_Raw format)
-    // delay=$18, frames: 2, $18, 2, $30, 3, $19, 4, end $F4
+    // Animation: byte_6BE36 (Animate_RawMultiDelay format)
+    // Stored as mapping_frame, delay pairs. $F4 = end.
     // =========================================================================
-    private static final int ANIM_BASE_DELAY = 0x18;  // 24 ticks per frame
-    private static final int[] ANIM_FRAMES = { 2, 0x18, 2, 0x30, 3, 0x19, 4 };
+    private static final int[] ANIM_SCRIPT = { 0x18, 2, 0x18, 2, 0x30, 3, 0x19, 4, 0xF4 };
 
     // =========================================================================
     // Instance state
@@ -71,7 +70,7 @@ public class HczEndBossBladeSplash extends AbstractBossChild {
         // ROM: initial mapping_frame = $18 (from word_6BD52)
         this.mappingFrame = 0x18;
         this.animFrameIndex = 0;
-        this.animFrameTimer = ANIM_BASE_DELAY;
+        this.animFrameTimer = 0;
         this.animComplete = false;
 
         updateDynamicSpawn();
@@ -99,7 +98,7 @@ public class HczEndBossBladeSplash extends AbstractBossChild {
     }
 
     // =========================================================================
-    // Animation (Animate_Raw emulation)
+    // Animation (Animate_RawMultiDelay emulation)
     // =========================================================================
 
     private void tickAnimation() {
@@ -108,15 +107,21 @@ public class HczEndBossBladeSplash extends AbstractBossChild {
             return;
         }
 
-        animFrameIndex++;
-        if (animFrameIndex >= ANIM_FRAMES.length) {
-            // $F4 end → delete
+        int nextFrameIndex = animFrameIndex + 2;
+        if (nextFrameIndex >= ANIM_SCRIPT.length) {
             animComplete = true;
             return;
         }
 
-        mappingFrame = ANIM_FRAMES[animFrameIndex];
-        animFrameTimer = ANIM_BASE_DELAY;
+        int frameValue = ANIM_SCRIPT[nextFrameIndex];
+        if (frameValue >= 0x80) {
+            animComplete = true;
+            return;
+        }
+
+        animFrameIndex = nextFrameIndex;
+        mappingFrame = frameValue;
+        animFrameTimer = ANIM_SCRIPT[nextFrameIndex + 1];
     }
 
     // =========================================================================
