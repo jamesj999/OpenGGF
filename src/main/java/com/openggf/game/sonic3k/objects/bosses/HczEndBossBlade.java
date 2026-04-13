@@ -370,7 +370,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         int waterY = getWaterLevelY();
         if (currentY >= waterY) {
             // At or below water level — transition to UNDERWATER_FALL
-            // ROM: spawns splash child here (ChildObjDat_6BDD8) — omitted for now
+            // ROM: spawns splash child (ChildObjDat_6BDD8 → loc_6B4A2)
+            spawnSplash();
             routine = ROUTINE_UNDERWATER_FALL;
             return;
         }
@@ -485,11 +486,13 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
 
     /**
      * ROM: loc_6B73A — spin-down animation complete callback.
-     * Spawns debris, plays SFX, spawns explosion, deletes self.
+     * Spawns water chute children, plays SFX, spawns explosion, deletes self.
      */
     private void onSpinDownComplete() {
-        // 1. Spawn debris children (ROM: ChildObjDat_6BDE0, 5 children via CreateChild6_Simple)
-        //    These are blade fragment debris — omitted for now (visual-only cosmetic debris)
+        // 1. Spawn water chute children (ROM: ChildObjDat_6BDE0, 5 children via CreateChild6_Simple)
+        //    These are NOT debris — they form a vertical water column that launches the player!
+        //    ROM: loc_6B4C4, subtypes 0/2/4/6/8, positioned at water level + Y offsets.
+        spawnWaterChute();
 
         // 2. Play sfx_MissileExplode
         try {
@@ -510,7 +513,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         setDestroyed(true);
 
         LOG.fine(() -> "HCZ End Boss Blade: spin-down complete at x=" + currentX
-                + " y=" + currentY + ", explosion spawned");
+                + " y=" + currentY + ", water chute + explosion spawned");
     }
 
     // =========================================================================
@@ -540,6 +543,48 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
 
         LOG.fine(() -> "HCZ End Boss Blade[st0]: launched xVel=" + xVel
                 + " from x=" + currentX + " y=" + currentY);
+    }
+
+    // =========================================================================
+    // Water chute / splash spawning
+    // =========================================================================
+
+    /**
+     * ROM: ChildObjDat_6BDD8 → loc_6B4A2 (splash at water surface).
+     * Spawned when the blade crosses the water level during FALL.
+     * Single child at the blade's current X, positioned at water_level - 4.
+     */
+    private void spawnSplash() {
+        try {
+            final int splashX = currentX;
+            boss.spawnDynamicChild(() -> new HczEndBossBladeSplash(boss, splashX));
+            LOG.fine(() -> "HCZ End Boss Blade: spawned water splash at x=" + splashX);
+        } catch (Exception e) {
+            LOG.fine(() -> "HczEndBossBlade.spawnSplash: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ROM: ChildObjDat_6BDE0 → loc_6B4C4 (water chute segments).
+     * Spawned when the blade's spin-down animation completes ({@code loc_6B73A}).
+     * Creates 5 children via CreateChild6_Simple with incrementing subtypes
+     * (0, 2, 4, 6, 8). Each child positions at a different Y offset above
+     * the water surface, together forming a vertical column that can launch
+     * the player upward with y_vel = -$800.
+     */
+    private void spawnWaterChute() {
+        final int chuteX = currentX;
+        for (int i = 0; i < 5; i++) {
+            final int slotIndex = i;
+            try {
+                boss.spawnDynamicChild(() ->
+                        new HczEndBossBladeWaterChute(boss, chuteX, slotIndex));
+            } catch (Exception e) {
+                LOG.fine(() -> "HczEndBossBlade.spawnWaterChute[" + slotIndex + "]: "
+                        + e.getMessage());
+            }
+        }
+        LOG.fine(() -> "HCZ End Boss Blade: spawned 5 water chute segments at x=" + chuteX);
     }
 
     // =========================================================================
