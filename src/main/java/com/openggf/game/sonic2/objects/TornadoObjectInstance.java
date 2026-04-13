@@ -1048,8 +1048,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         int signedMain = currentX - mainPlayer.getCentreX();
         int absMain = Math.abs(signedMain);
 
-        // ROM: Obj_GetOrientationToPlayer always considers both players,
-        // returning the closest one. No zone-specific filtering.
+        // The sidekick list already reflects zone-specific suppression (for example SCZ),
+        // so this helper just picks the closest available player from that filtered set.
         for (PlayableEntity sidekick : services().sidekicks()) {
             if (!sidekick.getDead()) {
                 int signedSidekick = currentX - sidekick.getCentreX();

@@ -4,6 +4,12 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.data.Rom;
+import com.openggf.data.RomManager;
+import com.openggf.game.EngineServices;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -11,6 +17,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.SonicGame;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -36,14 +43,20 @@ public final class SharedLevel {
     private final SonicGame game;
     private final int zone;
     private final int act;
+    private final boolean skipIntros;
     private final String mainCharCode;
+    private final String sidekickCharCode;
 
-    private SharedLevel(Level level, SonicGame game, int zone, int act, String mainCharCode) {
+    private SharedLevel(Level level, SonicGame game, int zone, int act,
+                        boolean skipIntros, String mainCharCode,
+                        String sidekickCharCode) {
         this.level = level;
         this.game = game;
         this.zone = zone;
         this.act = act;
+        this.skipIntros = skipIntros;
         this.mainCharCode = mainCharCode;
+        this.sidekickCharCode = sidekickCharCode;
     }
 
     /**
@@ -67,10 +80,13 @@ public final class SharedLevel {
      * @return a new {@code SharedLevel} with the loaded level data
      */
     public static SharedLevel load(SonicGame game, int zone, int act) throws IOException {
+        bootstrapRuntimeForSharedLevel(game);
         GraphicsManager.getInstance().initHeadless();
 
         SonicConfigurationService cs = SonicConfigurationService.getInstance();
+        boolean skipIntros = cs.getBoolean(SonicConfiguration.S3K_SKIP_INTROS);
         String mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String sidekickCharCode = cs.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
 
         Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
         GameServices.sprites().addSprite(temp);
@@ -85,7 +101,35 @@ public final class SharedLevel {
         // InitCamera (bounds, snap, vertical wrap) and InitLevelEvents.
         // No manual camera setup needed.
 
-        return new SharedLevel(lm.getCurrentLevel(), game, zone, act, mainCharCode);
+        return new SharedLevel(
+                lm.getCurrentLevel(), game, zone, act,
+                skipIntros, mainCharCode, sidekickCharCode);
+    }
+
+    private static void bootstrapRuntimeForSharedLevel(SonicGame game) throws IOException {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+
+        File romFile = switch (game) {
+            case SONIC_1 -> RomTestUtils.ensureSonic1RomAvailable();
+            case SONIC_2 -> RomTestUtils.ensureSonic2RomAvailable();
+            case SONIC_3K -> RomTestUtils.ensureSonic3kRomAvailable();
+        };
+        if (romFile == null) {
+            throw new IOException("Required ROM not available for shared level fixture: " + game);
+        }
+
+        Rom rom = new Rom();
+        String romPath = romFile.getAbsolutePath();
+        if (!rom.open(romPath)) {
+            throw new IOException("Failed to open ROM for shared level fixture: " + romPath);
+        }
+
+        RomManager.getInstance().setRom(rom);
+        GameModuleRegistry.detectAndSetModule(rom);
+
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
     }
 
     /**
@@ -119,6 +163,16 @@ public final class SharedLevel {
     /** Returns the main character code used to create the player sprite. */
     public String mainCharCode() {
         return mainCharCode;
+    }
+
+    /** Returns whether S3K intro skip was enabled when the shared level was loaded. */
+    public boolean skipIntros() {
+        return skipIntros;
+    }
+
+    /** Returns the sidekick character configuration captured at load time. */
+    public String sidekickCharCode() {
+        return sidekickCharCode;
     }
 }
 

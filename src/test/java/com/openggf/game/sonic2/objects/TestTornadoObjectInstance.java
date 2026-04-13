@@ -2,16 +2,21 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.EngineServices;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.session.SessionManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -21,20 +26,25 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestTornadoObjectInstance {
 
     private GameModule previousModule;
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.createGameplay();
         previousModule = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        SessionManager.openGameplaySession(GameModuleRegistry.getCurrent());
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         GameServices.sprites().resetState();
         GameServices.level().resetState();
@@ -82,25 +92,24 @@ public class TestTornadoObjectInstance {
 
     @Test
     public void moveWithPlayerTransitionUsesClosestPlayerInScz() throws Exception {
-        // ROM: Obj_GetOrientationToPlayer always considers both players, even in SCZ.
-        // SpriteManager suppresses CPU sidekick for SCZ, so this tests that the
-        // Tornado correctly uses the main player when sidekick is not available.
+        // SCZ suppression reaches Tornado as an empty sidekick list, so this unit
+        // test exercises the fallback path directly instead of depending on
+        // runtime-global SpriteManager suppression state.
         TornadoObjectInstance tornado = createTornado(150, 0x100, 0x50);
         TestPlayableSprite main = new TestPlayableSprite("main", (short) 300, (short) 100);
         TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", (short) 140, (short) 100);
         sidekick.setCpuControlled(true);
 
-        GameServices.sprites().addSprite(main);
-        GameServices.sprites().addSprite(sidekick);
+        tornado.setServices(new TestObjectServices()
+                .withCamera(GameServices.camera())
+                .withParallaxManager(GameServices.parallax())
+                .withSidekicks(List.of()));
         setField(GameServices.level(), "currentZone", 8);
         setField(tornado, "standingTransition", true);
 
         invokePrivate(tornado, "moveWithPlayer",
                 new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, false);
 
-        // SCZ suppresses CPU sidekick (isCpuSidekickSuppressed()), so the Tornado
-        // anchors to main player. Sidekick at 140 would give smoothOffsetX=-10 (closer),
-        // but it's suppressed, so main at 300 gives smoothOffsetX=150.
         assertEquals(151, tornado.getX(), "SCZ Tornado anchors to main when sidekick is suppressed");
     }
 

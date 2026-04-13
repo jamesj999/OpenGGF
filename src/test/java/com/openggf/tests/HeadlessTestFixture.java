@@ -1,17 +1,15 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.playback.Bk2Movie;
 import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 
@@ -100,6 +98,7 @@ public final class HeadlessTestFixture {
         private Bk2Movie bk2Movie;
         private int bk2FrameOffset;
         private boolean startPositionIsCentre;
+        private boolean customStartPositionProvided;
 
         private Builder() {}
 
@@ -117,6 +116,7 @@ public final class HeadlessTestFixture {
         public Builder startPosition(short x, short y) {
             this.startX = x;
             this.startY = y;
+            this.customStartPositionProvided = true;
             return this;
         }
 
@@ -149,13 +149,54 @@ public final class HeadlessTestFixture {
             // 1. Reset transient per-test state
             TestEnvironment.resetPerTest();
 
-            // 2. If withZoneAndAct was used, load the level now (full production path)
+            // 2. Shared-level tests rely on the config snapshot that was active
+            // when the level was originally loaded. @RequiresRom rebuilds the
+            // runtime before each test method, which restores default config.
+            if (sharedLevel != null) {
+                SonicConfigurationService config = SonicConfigurationService.getInstance();
+                config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, sharedLevel.skipIntros());
+                config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, sharedLevel.mainCharCode());
+                config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, sharedLevel.sidekickCharCode());
+            }
+
+            // 3. Determine character code before any reload path that needs a
+            // registered player sprite.
+            String charCode;
+            if (sharedLevel != null) {
+                charCode = sharedLevel.mainCharCode();
+            } else {
+                charCode = SonicConfigurationService.getInstance()
+                        .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+            }
+
+            // 4. Shared-level tests rebuild the runtime before each method via
+            // @RequiresRom. When the level has to be reloaded into that fresh
+            // runtime, register the sprite first so loadZoneAndAct() executes
+            // the normal spawn-time initialization path.
+            boolean needsSharedLevelReload = sharedLevel != null
+                    && GameServices.level().getCurrentLevel() == null;
+
+            Sonic sprite = null;
+            if (needsSharedLevelReload) {
+                sprite = new Sonic(charCode, startX, startY);
+                GameServices.sprites().addSprite(sprite);
+            }
+
+            // 5. Load or rewire the requested level.
             if (sharedLevel == null) {
                 try {
                     GameServices.level().loadZoneAndAct(zone, act);
                 } catch (IOException e) {
                     throw new UncheckedIOException(
                             "Failed to load zone " + zone + " act " + act, e);
+                }
+            } else if (GameServices.level().getCurrentLevel() == null) {
+                try {
+                    GameServices.level().loadZoneAndAct(sharedLevel.zone(), sharedLevel.act());
+                } catch (IOException e) {
+                    throw new UncheckedIOException(
+                            "Failed to reload shared level zone " + sharedLevel.zone()
+                                    + " act " + sharedLevel.act(), e);
                 }
             } else {
                 // Re-wire CollisionSystem after per-test reset when using SharedLevel.
@@ -167,50 +208,47 @@ public final class HeadlessTestFixture {
                 }
             }
 
-            // 3. Determine character code
-            String charCode;
-            if (sharedLevel != null) {
-                charCode = sharedLevel.mainCharCode();
-            } else {
-                charCode = SonicConfigurationService.getInstance()
-                        .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+            // 6. Create/register the sprite if the reload path did not already do it.
+            if (sprite == null) {
+                sprite = new Sonic(charCode, startX, startY);
+                GameServices.sprites().addSprite(sprite);
             }
 
-            // 4. Create sprite at start position
-            Sonic sprite = new Sonic(charCode, startX, startY);
-            if (startPositionIsCentre) {
-                // ROM start coordinates are centre-based. setCentreX/Y adjusts xPixel
-                // to (x - width/2), matching LevelManager.spawnPlayerAtStartPosition().
-                sprite.setCentreX(startX);
-                sprite.setCentreY(startY);
+            // 7. Preserve existing builder semantics for explicit custom starts by
+            // reapplying the requested coordinates after any level load.
+            if (customStartPositionProvided) {
+                if (startPositionIsCentre) {
+                    sprite.setCentreX(startX);
+                    sprite.setCentreY(startY);
+                } else {
+                    sprite.setX(startX);
+                    sprite.setY(startY);
+                }
             }
 
-            // 5. Register with SpriteManager
-            GameServices.sprites().addSprite(sprite);
-
-            // 6. Wire GroundSensor
+            // 8. Wire GroundSensor
             GroundSensor.setLevelManager(GameServices.level());
 
-            // 7. Initialize camera via production path
+            // 9. Initialize camera via production path
             GameServices.level().initCameraForLevel();
 
-            // 8. Initialize level events via production path
+            // 10. Initialize level events via production path
             GameServices.level().initLevelEventsForLevel();
 
-            // 9. Initial ground snap — ROM runs terrain probes during title card
-            //    frames (~120 frames) which snap the player to ground and set the
-            //    correct terrain angle. Tests skip the title card, so do one probe
-            //    to establish ground attachment. Uses threshold=14 (S1 always uses
-            //    14; S2/S3K at speed=0 would use min(0+4,14)=4, but 14 is safe for
-            //    a static snap at spawn).
+            // 11. Initial ground snap. ROM runs terrain probes during title card
+            // frames (~120 frames) which snap the player to ground and set the
+            // correct terrain angle. Tests skip the title card, so do one probe
+            // to establish ground attachment. Uses threshold=14 (S1 always uses
+            // 14; S2/S3K at speed=0 would use min(0+4,14)=4, but 14 is safe for
+            // a static snap at spawn).
             GameServices.collision().resolveGroundAttachment(
                     sprite, 14, () -> false);
 
-            // 10. Get runtime and create runner
+            // 12. Get runtime and create runner
             GameRuntime runtime = RuntimeManager.getCurrent();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
 
-            // 11. Wire BK2 recording if provided
+            // 13. Wire BK2 recording if provided
             if (bk2Movie != null) {
                 runner.setBk2Movie(bk2Movie, bk2FrameOffset);
             }
@@ -219,5 +257,3 @@ public final class HeadlessTestFixture {
         }
     }
 }
-
-

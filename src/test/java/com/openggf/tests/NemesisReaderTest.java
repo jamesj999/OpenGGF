@@ -26,7 +26,7 @@ public class NemesisReaderTest {
         result = NemesisReader.decompress(channel);
 
         assertEquals(14 * 0x20, result.length, "Ring art should be 14 patterns");
-        assertEquals(md5Hex(result), "Ring art checksum mismatch", "3167aa6aa97faabadff19b28953ad122");
+        assertEquals("3167aa6aa97faabadff19b28953ad122", md5Hex(result), "Ring art checksum mismatch");
     }
 
     @Test
