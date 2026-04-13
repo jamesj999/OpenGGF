@@ -69,7 +69,7 @@ import java.util.logging.Logger;
  * <p>Solid top: ROM uses SolidObjectTop with d1=0x1F, d2=0x0C, d3=0x0C.
  *
  * <p>Suction (sub_6B9AC): horizontal push at 0x20000 subpixels when player is
- * above water level and near column X. Applied by spray child, replicated here.
+ * below water level + 8 and near column X. Applied by spray child, replicated here.
  *
  * <p>Grab (sub_6B9E2): player within Y-zone table (word_6BAC2) and 32px H —
  * lock object_control, forced float animation.
@@ -591,8 +591,10 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
 
     /**
      * sub_6B9AC + sub_6B9C8: horizontal push toward column.
-     * ROM: $20000 (2.0 in 16.16) applied to x_pos when player is above
-     * water+8 and not object-controlled.
+     * ROM: $20000 (2.0 in 16.16) applied to x_pos when player is below
+     * water+8 and not object-controlled. This is a gentle positional drag
+     * (not velocity-based), so the player can escape by running/swimming
+     * in the opposite direction.
      */
     private void applySuctionTo(AbstractPlayableSprite sprite) {
         if (sprite.getDead() || sprite.isObjectControlled()) {
@@ -602,8 +604,9 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         int waterY = getWaterLevelY();
         int spriteY = sprite.getCentreY();
 
-        // ROM: cmp.w y_pos(a1),d1; bhs locret — only affects players above water+8
-        if (spriteY >= waterY + 8) {
+        // ROM: cmp.w y_pos(a1),d1; bhs locret — skip if water+8 >= player_y
+        // (skip when player is above water+8; apply when player is below water+8)
+        if (spriteY <= waterY + 8) {
             return;
         }
 
