@@ -35,6 +35,11 @@ public class PixelFont {
     private TexturedQuadRenderer renderer;
     private float[] batchedQuadVertices = new float[TexturedQuadRenderer.QUAD_FLOATS * 16];
 
+    // Mega-batch mode: accumulate per-vertex-colored quads across multiple drawText calls
+    private boolean megaBatchActive;
+    private float[] megaBatchVertices = new float[TexturedQuadRenderer.COLORED_QUAD_FLOATS * 64];
+    private int megaBatchQuadCount;
+
     // Fast ASCII lookup (0-127)
     private final int[] charToCol = new int[128];
     private final int[] charToRow = new int[128];
@@ -101,6 +106,10 @@ public class PixelFont {
     }
 
     public void drawText(String text, float x, float y, float scale, float r, float g, float b, float a) {
+        if (megaBatchActive) {
+            drawTextMegaBatched(text, x, y, scale, r, g, b, a);
+            return;
+        }
         float glyphWidth = GLYPH_W * scale;
         float glyphHeight = GLYPH_H * scale;
         float cursorX = x;
@@ -151,6 +160,87 @@ public class PixelFont {
         if (quadCount > 0) {
             renderer.drawTextureBatch(textureId, batchedQuadVertices, quadCount, r, g, b, a);
         }
+    }
+
+    /**
+     * Starts mega-batch mode. All subsequent drawText calls accumulate quads
+     * with per-vertex color into a shared buffer instead of issuing GL draw calls.
+     * Call {@link #endMegaBatch()} to flush everything in a single draw call.
+     */
+    public void beginMegaBatch() {
+        megaBatchActive = true;
+        megaBatchQuadCount = 0;
+    }
+
+    /**
+     * Flushes all accumulated mega-batch quads in a single GL draw call and
+     * exits mega-batch mode.
+     */
+    public void endMegaBatch() {
+        if (megaBatchQuadCount > 0) {
+            renderer.drawColoredTextureBatch(textureId, megaBatchVertices, megaBatchQuadCount);
+        }
+        megaBatchActive = false;
+        megaBatchQuadCount = 0;
+    }
+
+    private void drawTextMegaBatched(String text, float x, float y, float scale,
+                                     float r, float g, float b, float a) {
+        float glyphWidth = GLYPH_W * scale;
+        float glyphHeight = GLYPH_H * scale;
+        float cursorX = x;
+        float glY = 224f - y - glyphHeight;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == ' ') {
+                cursorX += glyphWidth;
+                continue;
+            }
+
+            int col = -1, row = -1;
+            if (c < 128 && charKnown[c]) {
+                col = charToCol[c];
+                row = charToRow[c];
+            } else {
+                int[] ext = extendedChars.get(c);
+                if (ext != null) {
+                    row = ext[0];
+                    col = ext[1];
+                }
+            }
+
+            if (col >= 0) {
+                int srcX = GLYPH_OFFSET_X + col * CELL_W;
+                int srcY = GLYPH_OFFSET_Y + row * CELL_H;
+                float u0 = (float) srcX / textureWidth;
+                float u1 = (float) (srcX + GLYPH_W) / textureWidth;
+                float texTop = 1.0f - (float) srcY / textureHeight;
+                float texBottom = 1.0f - (float) (srcY + GLYPH_H) / textureHeight;
+
+                ensureMegaBatchCapacity(megaBatchQuadCount + 1);
+                TexturedQuadRenderer.writeColoredQuadVerticesAtOffset(
+                        megaBatchVertices,
+                        megaBatchQuadCount * TexturedQuadRenderer.COLORED_QUAD_FLOATS,
+                        cursorX, glY, glyphWidth, glyphHeight,
+                        u0, texBottom, u1, texTop,
+                        r, g, b, a);
+                megaBatchQuadCount++;
+            }
+
+            cursorX += glyphWidth;
+        }
+    }
+
+    private void ensureMegaBatchCapacity(int quadCount) {
+        int requiredFloats = quadCount * TexturedQuadRenderer.COLORED_QUAD_FLOATS;
+        if (requiredFloats <= megaBatchVertices.length) {
+            return;
+        }
+        float[] grown = new float[Math.max(requiredFloats, megaBatchVertices.length * 2)];
+        System.arraycopy(megaBatchVertices, 0, grown, 0,
+                megaBatchQuadCount * TexturedQuadRenderer.COLORED_QUAD_FLOATS);
+        megaBatchVertices = grown;
     }
 
     /**

@@ -142,6 +142,22 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZTwistingLoopObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.HCZ_WATER_SPLASH,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZWaterSplashObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.HCZ_WATER_DROP,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZWaterDropObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.TENSION_BRIDGE,
                 (spawn, registry) -> new TensionBridgeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.HCZ_WATER_RUSH,

@@ -61,9 +61,9 @@ class TestRequiresRomConditionParity {
 
     private FixtureState snapshot() {
         return new FixtureState(
-                GameModuleRegistry.getCurrent().getIdentifier(),
-                SessionManager.requireCurrentGameModule().getIdentifier(),
-                RuntimeManager.getCurrent().getWorldSession().getGameModule().getIdentifier());
+                GameModuleRegistry.getCurrent().getGameId().code(),
+                SessionManager.requireCurrentGameModule().getGameId().code(),
+                RuntimeManager.getCurrent().getWorldSession().getGameModule().getGameId().code());
     }
 
     private ExtensionContext extensionContextFor(Class<?> testClass) {

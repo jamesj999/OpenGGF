@@ -1773,8 +1773,9 @@ public class LevelManager {
 
         parallaxManager.update(currentZone, currentAct, camera, frameCounter, bgScrollY, level);
 
-        // Propagate shake offsets from parallax manager to camera
-        // This allows FG tilemap and sprite rendering to use shake-adjusted positions
+        // Propagate shake offsets from parallax manager to camera.
+        // This allows sprite rendering (via GraphicsManager.flush()) to shake
+        // in sync with FG tiles.
         camera.setShakeOffsets(
                 parallaxManager.getShakeOffsetX(),
                 parallaxManager.getShakeOffsetY());
@@ -2274,15 +2275,17 @@ public class LevelManager {
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
         boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
-        // Use shake-adjusted Y for water line calculation
-        float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
 
         int screenW = cachedScreenWidth;
         int screenH = cachedScreenHeight;
-        // Use shake-adjusted camera positions for FG tilemap rendering
-        // This makes the foreground tiles shake in sync with sprites
+        // FG tile world offsets.
+        // Y: vscrollFactorFG already includes scroll-handler shake (HTZ earthquake,
+        //    HCZ2 wall push, MCZ boss, etc.).  Do NOT add getShakeOffsetY() again
+        //    — that caused double-amplitude shake on FG tiles.
         float worldOffsetX = camera.getXWithShake();
-        float worldOffsetY = parallaxManager.getVscrollFactorFG() + parallaxManager.getShakeOffsetY();
+        float worldOffsetY = parallaxManager.getVscrollFactorFG();
+        // Waterline tracks the same Y offset as tile rendering
+        float waterlineScreenY = (float) (waterLevel - worldOffsetY);
 
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();

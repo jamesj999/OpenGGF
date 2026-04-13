@@ -250,6 +250,12 @@ public class Sonic3kConstants {
     // ArtTile_HCZLargeFan = $0500 (sonic3k.constants.asm), palette 1
     public static final int ARTTILE_HCZ_LARGE_FAN = 0x0500;
 
+    // ===== HCZ Water Drop (Obj_WaterDrop, ID 0x6E, sonic3k.asm:75145) =====
+    // ArtTile_HCZ2Slide = $035C (sonic3k.constants.asm:1183), palette 1
+    public static final int ARTTILE_HCZ2_SLIDE = 0x035C;
+    // Map_HCZWaterDrop (7 frames), ROM address derived from label Frame_23795C
+    public static final int MAP_HCZ_WATER_DROP_ADDR = 0x23794E;
+
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
