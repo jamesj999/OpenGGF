@@ -626,6 +626,19 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Gray Button: ArtNem_GrayButton, palette 0
+        // ROM: PLC_CutsceneButton loads this at runtime for the Knuckles cutscene.
+        // Cutscene button uses palette 0 so it survives Pal_CutsceneKnux on line 1.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.ART_NEM_GRAY_BUTTON_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                0,   // palette 0
+                -1   // no DPLC
+        ));
+
         // Water Rush main sprite: ArtNem_HCZWaterRush, loaded via PLC_0E
         // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
         standalone.add(new StandaloneArtEntry(
