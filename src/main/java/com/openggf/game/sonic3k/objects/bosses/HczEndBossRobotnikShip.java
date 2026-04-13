@@ -283,12 +283,15 @@ public class HczEndBossRobotnikShip extends AbstractBossChild {
             return;
         }
 
-        // Ship body: frame 5 at ship position
-        shipRenderer.drawFrameIndex(SHIP_FRAME, currentX, currentY, false, false);
+        // Ship body: frame 5 at ship position — hFlip matches boss facing direction
+        // ROM: Child_Draw_Sprite2 inherits parent render_flags including h-flip bit
+        boolean hFlip = boss.isFacingRight();
+        shipRenderer.drawFrameIndex(SHIP_FRAME, currentX, currentY, hFlip, false);
 
-        // Eggman head: at offset from ship position
+        // Eggman head: at offset from ship position — inherits same hFlip
+        // ROM: Obj_RobotnikHead uses Child_Draw_Sprite2 which inherits parent render_flags
         int headX = currentX + HEAD_OFFSET_X;
         int headY = currentY + HEAD_OFFSET_Y;
-        shipRenderer.drawFrameIndex(getHeadFrame(), headX, headY, false, false);
+        shipRenderer.drawFrameIndex(getHeadFrame(), headX, headY, hFlip, false);
     }
 }
