@@ -17,7 +17,6 @@ import static org.lwjgl.glfw.GLFW.*;
 public class SonicConfigurationService {
 	private static final Logger LOGGER = Logger.getLogger(SonicConfigurationService.class.getName());
 	private static SonicConfigurationService sonicConfigurationService;
-	public static String ENGINE_VERSION = "0.5.prerelease";
 
 	private Map<String, Object> config;
 
