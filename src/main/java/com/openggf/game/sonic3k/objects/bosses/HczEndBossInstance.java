@@ -110,9 +110,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
     // =========================================================================
     // Child offsets (ROM: ChildObjDat_6BD8A)
     // =========================================================================
-    /** Robotnik ship cockpit offset from boss center. */
-    private static final int ROBOTNIK_OFFSET_X = 0;
-    private static final int ROBOTNIK_OFFSET_Y = 0x0C;
+    // Robotnik ship cockpit offset is now managed by HczEndBossRobotnikShip child
     /** Visual child (propeller housing) offset from boss center. */
     private static final int VISUAL_OFFSET_X = 0;
     private static final int VISUAL_OFFSET_Y = 0x1C;
@@ -786,6 +784,8 @@ public class HczEndBossInstance extends AbstractBossInstance {
      * </ul>
      */
     private void spawnChildren() {
+        // Robotnik ship cockpit at offset (0, 0x0C) — Obj_RobotnikShip2 subtype 5
+        spawnChild(() -> new HczEndBossRobotnikShip(this));
         // Task 3: Propeller turbine at offset (0, 0x24)
         spawnChild(() -> new HczEndBossTurbine(this, TURBINE_OFFSET_X, TURBINE_OFFSET_Y));
         // Task 4: Blade children — ROM: ChildObjDat_6BD8A blade entries
@@ -796,7 +796,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
         spawnChild(() -> new HczEndBossBlade(this, 1, 0x1B, 0x0A));
         spawnChild(() -> new HczEndBossBlade(this, 2, 0x13, 0x0A));
         // Task 5: Water column is spawned lazily by HczEndBossTurbine when it enters ACTIVE
-        LOG.fine("HCZ End Boss: turbine + 3 blades spawned; water column spawned by turbine on activation");
+        LOG.fine("HCZ End Boss: ship + turbine + 3 blades spawned; water column spawned by turbine on activation");
     }
 
     // =========================================================================
@@ -1039,13 +1039,6 @@ public class HczEndBossInstance extends AbstractBossInstance {
                     state.x + VISUAL_OFFSET_X, state.y + VISUAL_OFFSET_Y,
                     false, false);
         }
-
-        // Robotnik ship cockpit at offset (0, 0x0C) — uses ROBOTNIK_SHIP art
-        PatternSpriteRenderer robotnikRenderer = getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
-        if (robotnikRenderer != null) {
-            robotnikRenderer.drawFrameIndex(0,
-                    state.x + ROBOTNIK_OFFSET_X, state.y + ROBOTNIK_OFFSET_Y,
-                    false, false);
-        }
+        // Robotnik ship is now rendered by HczEndBossRobotnikShip child object
     }
 }
