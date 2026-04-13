@@ -10,7 +10,6 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
 // HczEndBossEggCapsuleInstance is in the same package (bosses)
-import com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionChild;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionController;
 import com.openggf.graphics.GLCommand;
@@ -21,7 +20,6 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.SwingMotion;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -292,8 +290,6 @@ public class HczEndBossInstance extends AbstractBossInstance {
             case ROUTINE_ATTACK -> updateAttackPatrol();
             case ROUTINE_DEFEATED -> updateDefeated();
             case ROUTINE_FLEE -> updateFlee();
-            case ROUTINE_CAPSULE_WAIT -> updateCapsuleWait();
-            case ROUTINE_DONE -> { /* terminal */ }
             default -> { }
         }
 
@@ -589,28 +585,29 @@ public class HczEndBossInstance extends AbstractBossInstance {
 
     /**
      * ROM: loc_6B08E — One attack pass complete.
-     * Decrements pass counter; if passes remain, fires blade and continues.
-     * If all passes done, saves patrol velocity and returns to phase decision.
+     * Decrements pass counter; if passes remain, fires blade and waits 0x5F
+     * frames before re-entering this callback. If all passes done, saves
+     * patrol velocity and jumps DIRECTLY to onPreAttackWaitComplete (ROM:
+     * bra.w loc_6AFC8 — same-frame jump, no wait).
+     *
+     * <p>ROM detail: $34 callback is always loc_6B08E (this method). After
+     * blade fire, $2E is set to 0x5F and execution returns — the main loop
+     * continues patrolling with the same callback. No intermediate
+     * continueAttackPatrol step exists in the ROM.
      */
     private void onAttackPassComplete() {
         attackPassCounter--;
         if (attackPassCounter >= 0) {
-            // More passes remaining — fire blade and continue
+            // More passes remaining — fire blade, wait 0x5F, same callback
             bladeFireSignal = true;
-            setWait(0x5F, this::continueAttackPatrol);
+            setWait(0x5F, this::onAttackPassComplete);
         } else {
-            // All passes done — save velocity, return to hover/pre-attack cycle
+            // All passes done — save velocity, jump directly to phase decision
+            // ROM: bra.w loc_6AFC8 (immediate, no wait)
             savedPatrolVel = state.xVel;
             state.xVel = 0;
-            setWait(0x5F, this::onPreAttackWaitComplete);
+            onPreAttackWaitComplete();
         }
-    }
-
-    /**
-     * Continue attack patrol after blade fire pause.
-     */
-    private void continueAttackPatrol() {
-        setWait(0xBF, this::onAttackPassComplete);
     }
 
     // =========================================================================
@@ -703,10 +700,14 @@ public class HczEndBossInstance extends AbstractBossInstance {
     /**
      * ROM: loc_6B0E8 — Flee complete. Hide boss, clear boss flag, expand camera,
      * resume zone music, and spawn the egg capsule.
+     *
+     * <p>The boss self-destructs here. The egg capsule takes responsibility for
+     * polling the results-complete flag and spawning the geyser cutscene.
+     * This avoids the boss being culled by the object manager's out-of-range
+     * check (it has flown far off-screen during the flee) before it can poll
+     * the flag.
      */
     private void onFleeComplete() {
-        state.routine = ROUTINE_CAPSULE_WAIT;
-
         // Clear boss flag
         setBossFlag(false);
 
@@ -720,61 +721,15 @@ public class HczEndBossInstance extends AbstractBossInstance {
         // Resume zone music
         services().playMusic(Sonic3kMusic.HCZ2.id);
 
-        // Spawn Egg Capsule at character-specific position
+        // Spawn Egg Capsule at character-specific position.
+        // The capsule handles the geyser spawn after results complete.
         boolean isKnuckles = (getPlayerCharacter() == PlayerCharacter.KNUCKLES);
         int capsuleX = isKnuckles ? K_CAPSULE_X : ST_CAPSULE_X;
         int capsuleY = isKnuckles ? K_CAPSULE_Y : ST_CAPSULE_Y;
         spawnChild(() -> new HczEndBossEggCapsuleInstance(capsuleX, capsuleY));
         LOG.fine("HCZ End Boss: flee complete, ground capsule spawned at (" + capsuleX + ", " + capsuleY + ")");
-    }
 
-    /**
-     * ROM: loc_6B154 — Wait for the capsule results sequence to COMPLETE.
-     * Lock camera from scrolling left each frame.
-     *
-     * <p>ROM uses _unkFAA8 flag: boss sets 0xFF when spawning capsule,
-     * Obj_LevelResults clears it after full results (360-frame wait +
-     * score tally + 90-frame wait). Only then does the boss spawn the geyser.
-     *
-     * <p>In the engine, {@code isEndOfLevelFlag()} is set by the results
-     * screen's {@code onExitReady()} (after tally + post-wait complete),
-     * matching the ROM's _unkFAA8 clear timing. Do NOT use
-     * {@code isEndOfLevelActive()} here — that fires when the capsule
-     * opens, before the results are shown.
-     */
-    private void updateCapsuleWait() {
-        // Lock camera from scrolling left
-        var camera = services().camera();
-        camera.setMinX((short) camera.getX());
-
-        // Check if results have COMPLETED (not just started)
-        if (services().gameState().isEndOfLevelFlag()) {
-            onCapsuleOpened();
-        }
-    }
-
-    /**
-     * ROM: after results complete — spawn geyser cutscene and transition to done state.
-     *
-     * <p>ROM: loc_6B154 → _unkFAA8 cleared by Obj_LevelResults → spawn geyser.
-     * Geyser X = Player_1 X position; geyser spawn Y = Camera_Y + $130.
-     */
-    private void onCapsuleOpened() {
-        state.routine = ROUTINE_DONE;
-        // Reset camera Y min to allow full vertical scrolling
-        services().camera().setMinY((short) 0);
-
-        // Resolve player X for geyser column (ROM: move.w Player_1+x_pos,d0)
-        var camera = services().camera();
-        AbstractPlayableSprite player =
-                (services().camera().getFocusedSprite() instanceof AbstractPlayableSprite aps) ? aps : null;
-        int geyserX   = (player != null) ? player.getCentreX() : state.x;
-        int geyserY   = camera.getY() + 0x130;
-
-        // Spawn geyser cutscene as a dynamic object (ROM: loc_6B7BC)
-        spawnChild(() -> new HczEndBossGeyserCutscene(geyserX, geyserY));
-        LOG.info("HCZ End Boss: capsule opened, geyser cutscene spawned at X="
-                + geyserX + " Y=" + geyserY);
+        // Boss is done — capsule + geyser handle the rest
         setDestroyed(true);
     }
 

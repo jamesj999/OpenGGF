@@ -77,6 +77,7 @@ public class HczEndBossEggCapsuleInstance extends AbstractObjectInstance
     private int mappingFrame;
     private boolean opened;
     private boolean resultsStarted;
+    private boolean geyserSpawned;
     private int postOpenTimer;
 
     // Explosion controller (spawned when capsule opens)
@@ -152,6 +153,15 @@ public class HczEndBossEggCapsuleInstance extends AbstractObjectInstance
                     && playerEntity instanceof AbstractPlayableSprite player
                     && !player.getAir()) {
                 startResults(player);
+            }
+        } else if (!geyserSpawned) {
+            // ROM: loc_6B154 — Lock camera from scrolling left each frame
+            // and wait for results to COMPLETE before spawning the geyser.
+            var camera = services().camera();
+            camera.setMinX((short) camera.getX());
+
+            if (services().gameState().isEndOfLevelFlag()) {
+                spawnGeyserCutscene();
             }
         }
     }
@@ -283,6 +293,37 @@ public class HczEndBossEggCapsuleInstance extends AbstractObjectInstance
         } catch (Exception e) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }
+    }
+
+    // ===== Geyser cutscene (delegated from HczEndBossInstance) =====
+
+    /**
+     * ROM: loc_6B154 after results complete — spawn geyser cutscene.
+     *
+     * <p>Originally this logic lived in {@code HczEndBossInstance.updateCapsuleWait()},
+     * but the boss flies off-screen during the flee sequence and gets culled by the
+     * object manager's out-of-range check before it can poll the results-complete flag.
+     * The capsule is persistent and remains on-screen, so it handles this instead.
+     *
+     * <p>ROM: Geyser X = Player_1 X position; geyser spawn Y = Camera_Y + $130.
+     */
+    private void spawnGeyserCutscene() {
+        geyserSpawned = true;
+
+        // Reset camera Y min to allow full vertical scrolling
+        services().camera().setMinY((short) 0);
+
+        // Resolve player X for geyser column (ROM: move.w Player_1+x_pos,d0)
+        var camera = services().camera();
+        AbstractPlayableSprite player =
+                (camera.getFocusedSprite() instanceof AbstractPlayableSprite aps) ? aps : null;
+        int geyserX = (player != null) ? player.getCentreX() : fixedX;
+        int geyserY = camera.getY() + 0x130;
+
+        // Spawn geyser cutscene as a dynamic object (ROM: loc_6B7BC)
+        spawnChild(() -> new HczEndBossGeyserCutscene(geyserX, geyserY));
+        LOG.info("HCZ Egg Capsule: results complete, geyser cutscene spawned at X="
+                + geyserX + " Y=" + geyserY);
     }
 
     // ===== Rendering =====
