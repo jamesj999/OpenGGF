@@ -3,6 +3,8 @@ package com.openggf.game.sonic3k.objects.bosses;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.objects.S3kBossExplosionChild;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -18,29 +20,35 @@ import java.util.logging.Logger;
  * HCZ end boss propeller blade child (ROM: loc_6B5C4).
  *
  * <p>Three blade segments sit at different Y offsets below the boss and
- * counter-rotate as the propeller spins. Blade index 0 (the bottom blade)
- * is the only one that fires: when the boss sets {@code bladeFireSignal},
- * this blade detaches and flies horizontally as a projectile.
+ * counter-rotate as the propeller spins. The bottom blade (subtype 0)
+ * fires when the boss sets {@code bladeFireSignal}. After it detaches,
+ * the remaining blades shift down one position (subtype -= 2) and a
+ * replacement blade is spawned at the top (subtype 4), creating a
+ * conveyor belt of blades.
  *
  * <p>Spawned by the boss as:
  * <pre>
- *   spawnChild(() -> new HczEndBossBlade(this, 0, 0x23, 0x12)); // fires
- *   spawnChild(() -> new HczEndBossBlade(this, 1, 0x1B, 0x0A)); // passive
- *   spawnChild(() -> new HczEndBossBlade(this, 2, 0x13, 0x0A)); // passive
+ *   spawnChild(() -> new HczEndBossBlade(this, 0, 0x23, 0x12)); // bottom, fires
+ *   spawnChild(() -> new HczEndBossBlade(this, 2, 0x1B, 0x0A)); // middle
+ *   spawnChild(() -> new HczEndBossBlade(this, 4, 0x13, 0x0A)); // top
  * </pre>
  *
  * <p>State machine (7 routines, ROM stride 2):
  * <ol start="0">
- *   <li>ATTACHED (0): Follow parent at fixed offset; animate blade frame.</li>
- *   <li>WAIT_FIRE (2): Blade index 0 only — wait for {@code boss.isBladeFireSignal()}.</li>
- *   <li>WAIT_CLEAR (4): Acknowledge fire signal; wait for it to be cleared.</li>
- *   <li>FLY (6): Horizontal projectile flight at constant velocity.</li>
- *   <li>FALL (8): Gravity-accelerated fall after hitting water level.</li>
- *   <li>UNDERWATER_FALL (10): Continue falling with floor check.</li>
- *   <li>SPIN_DOWN (12): Animate to rest then self-destruct.</li>
+ *   <li>ATTACHED (0): Follow parent at fixed offset; static frame.</li>
+ *   <li>WAIT_FIRE (2): Wait for {@code boss.isBladeFireSignal()}.
+ *       When set, subtype 0 transitions to PRE_LAUNCH; others to WAIT_CLEAR.</li>
+ *   <li>WAIT_CLEAR (4): Non-firing blades wait for fire signal to clear,
+ *       then shift down (subtype -= 2) and return to WAIT_FIRE.
+ *       The blade that becomes subtype 0 spawns a replacement at subtype 4.</li>
+ *   <li>PRE_LAUNCH (6): Briefly spin attached for 3 frames before detaching.</li>
+ *   <li>FALL (8): Horizontal + gravity fall with water level check.</li>
+ *   <li>UNDERWATER_FALL (A): Continue falling underwater with floor check.</li>
+ *   <li>SPIN_DOWN (C): Animate_RawGetFaster to rest, then explode + delete.</li>
  * </ol>
  *
- * <p>Animation: Map_HCZEndBoss frames 6–7, alternating every 4 game frames.
+ * <p>Animation: Map_HCZEndBoss frames 6–7 (attached spin), frames 8/6/7
+ * (spin-down via Animate_RawGetFaster byte_6BE07).
  *
  * <p>Collision when flying: collision_flags = 0 (visual only; blade does not hurt player).
  */
@@ -53,7 +61,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private static final int ROUTINE_ATTACHED       = 0;
     private static final int ROUTINE_WAIT_FIRE      = 2;
     private static final int ROUTINE_WAIT_CLEAR     = 4;
-    private static final int ROUTINE_FLY            = 6;
+    private static final int ROUTINE_PRE_LAUNCH     = 6;
     private static final int ROUTINE_FALL           = 8;
     private static final int ROUTINE_UNDERWATER_FALL = 10;
     private static final int ROUTINE_SPIN_DOWN      = 12;
@@ -86,28 +94,39 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private static final int Y_RADIUS = 8;
 
     // =========================================================================
-    // FLY animation (ROM: byte_6BE19 — dc.b 3, $D, $F, $11, $F4)
-    // 3 frames at delay 3 (4 ticks each) = 12 ticks total flight, then FALL.
+    // PRE_LAUNCH timing (ROM: loc_6B622, $2E = 3)
     // =========================================================================
-    private static final int[] FLY_ANIM_FRAMES = {0x0D, 0x0F, 0x11};
-    private static final int FLY_ANIM_DELAY = 3;
+    /** Frames to remain attached (spinning) before launching. */
+    private static final int PRE_LAUNCH_WAIT = 3;
 
     // =========================================================================
-    // Spin-down animation
+    // WAIT_CLEAR shift timing (ROM: loc_6B658, $2E = 7)
     // =========================================================================
-    /** Number of animation cycles to complete before self-destructing in SPIN_DOWN. */
-    private static final int SPIN_DOWN_CYCLES = 6;
+    /** Frames the non-firing blades wait during shift animation. */
+    private static final int SHIFT_WAIT = 7;
+
+    // =========================================================================
+    // Spin-down animation (ROM: byte_6BE07 via Animate_RawGetFaster)
+    // byte_6BE07: dc.b 5, 8, 6, 7, $FC
+    //   Initial delay = 5, frames: 8, 6, 7, loops with decrementing delay.
+    //   When delay counter reaches 0, calls $34 callback (loc_6B73A).
+    // =========================================================================
+    private static final int[] SPIN_DOWN_FRAMES = {8, 6, 7};
+    private static final int SPIN_DOWN_INITIAL_DELAY = 5;
 
     // =========================================================================
     // Instance state
     // =========================================================================
     private final HczEndBossInstance boss;
-    /** 0 = bottom (fires), 1 = middle, 2 = top. */
-    private final int bladeIndex;
+    /**
+     * ROM subtype: 0 = bottom (fires), 2 = middle, 4 = top.
+     * Mutable — shifts down by 2 after each blade fires.
+     */
+    private int subtype;
     /** X offset from boss center when attached (pixels, signed). */
-    private final int xOffset;
+    private int xOffset;
     /** Y offset from boss center when attached (pixels). */
-    private final int yOffset;
+    private int yOffset;
 
     private int routine;
     private int animFrame;       // 0 = BLADE_FRAME_A, 1 = BLADE_FRAME_B
@@ -120,26 +139,40 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private int xVel;
     private int yVel;
 
-    private int spinDownCycleCount;
+    // PRE_LAUNCH / SHIFT wait timer
+    private int waitTimer;
 
-    // FLY animation state (ROM: byte_6BE19)
-    private int flyAnimIndex;
-    private int flyAnimTimer;
+    // Spin-down state (Animate_RawGetFaster emulation)
+    private int spinDownDelayCounter;  // starts at 5, decrements each loop
+    private int spinDownFrameIndex;    // index into SPIN_DOWN_FRAMES
+    private int spinDownFrameTimer;    // ticks remaining for current frame
+
+    /** Current mapping frame for rendering. */
+    private int mappingFrame;
+
+    // =========================================================================
+    // Subtype-to-offset mapping (ROM: ChildObjDat_6BD8A)
+    // =========================================================================
+    private static final int[][] SUBTYPE_OFFSETS = {
+        {0x23, 0x12},  // subtype 0 (bottom)
+        {0x1B, 0x0A},  // subtype 2 (middle)
+        {0x13, 0x0A},  // subtype 4 (top)
+    };
 
     // =========================================================================
     // Constructor
     // =========================================================================
 
     /**
-     * @param boss       Parent boss instance.
-     * @param bladeIndex 0 = bottom (fires), 1 = middle, 2 = top.
-     * @param xOffset    Horizontal offset from boss center (pixels, positive = right of boss).
-     * @param yOffset    Vertical offset from boss center (pixels, positive = below boss).
+     * @param boss    Parent boss instance.
+     * @param subtype ROM subtype: 0 = bottom (fires), 2 = middle, 4 = top.
+     * @param xOffset Horizontal offset from boss center (pixels, positive = right of boss).
+     * @param yOffset Vertical offset from boss center (pixels, positive = below boss).
      */
-    public HczEndBossBlade(HczEndBossInstance boss, int bladeIndex, int xOffset, int yOffset) {
-        super(boss, "HCZEndBossBlade[" + bladeIndex + "]", 3, 0);
+    public HczEndBossBlade(HczEndBossInstance boss, int subtype, int xOffset, int yOffset) {
+        super(boss, "HCZEndBossBlade[st" + subtype + "]", 3, 0);
         this.boss = boss;
-        this.bladeIndex = bladeIndex;
+        this.subtype = subtype;
         this.xOffset = xOffset;
         this.yOffset = yOffset;
         this.routine = ROUTINE_ATTACHED;
@@ -147,7 +180,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         this.animCounter = 0;
         this.xVel = 0;
         this.yVel = 0;
-        this.spinDownCycleCount = 0;
+        this.waitTimer = -1;
+        this.mappingFrame = BLADE_FRAME_A;
     }
 
     // =========================================================================
@@ -168,14 +202,14 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         }
 
         switch (routine) {
-            case ROUTINE_ATTACHED      -> updateAttached();
-            case ROUTINE_WAIT_FIRE     -> updateWaitFire();
-            case ROUTINE_WAIT_CLEAR    -> updateWaitClear();
-            case ROUTINE_FLY           -> updateFly();
-            case ROUTINE_FALL          -> updateFall();
+            case ROUTINE_ATTACHED       -> updateAttached();
+            case ROUTINE_WAIT_FIRE      -> updateWaitFire();
+            case ROUTINE_WAIT_CLEAR     -> updateWaitClear();
+            case ROUTINE_PRE_LAUNCH     -> updatePreLaunch();
+            case ROUTINE_FALL           -> updateFall();
             case ROUTINE_UNDERWATER_FALL -> updateUnderwaterFall();
-            case ROUTINE_SPIN_DOWN     -> updateSpinDown();
-            default                    -> { }
+            case ROUTINE_SPIN_DOWN      -> updateSpinDown();
+            default                     -> { }
         }
     }
 
@@ -187,8 +221,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
      * ROM routine 0 (ATTACHED): track parent position with static frame.
      * ROM: SetUp_ObjAttributes3 sets mapping_frame = 6 from ObjDat word_6BD38.
      * No animation cycling occurs — blade stays at its initial frame.
-     * Index 0 transitions to WAIT_FIRE after one frame of initialization.
-     * Indices 1 and 2 remain ATTACHED permanently (they never fire).
+     * Transitions immediately to WAIT_FIRE.
      */
     private void updateAttached() {
         // Track boss position with offset
@@ -196,85 +229,138 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
         collisionFlags = 0;
-        // ROM: no animation call during ATTACHED — blade shows static frame 6
-
-        // Only the bottom blade proceeds to WAIT_FIRE
-        if (bladeIndex == 0) {
-            routine = ROUTINE_WAIT_FIRE;
-        }
+        mappingFrame = BLADE_FRAME_A;
+        // ROM: all blades proceed to WAIT_FIRE after init
+        routine = ROUTINE_WAIT_FIRE;
     }
 
     /**
-     * ROM routine 2 (WAIT_FIRE): bottom blade only.
-     * Follow parent; wait for {@code boss.isBladeFireSignal()}.
-     * ROM: no animation call — blade shows static frame.
+     * ROM routine 2 (WAIT_FIRE): all blades follow parent and wait for fire signal.
+     * ROM (loc_6B600): Refresh_ChildPositionAdjusted + check bit 1 of parent $38.
+     * When fire signal is set:
+     *   - subtype 0 (bottom): transitions to PRE_LAUNCH (routine 6)
+     *   - subtype != 0: transitions to WAIT_CLEAR (routine 4)
      */
     private void updateWaitFire() {
         currentX = boss.getState().x + xOffset;
         currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
         collisionFlags = 0;
-        // ROM: no animation call during WAIT_FIRE — blade shows static frame
+        // ROM: no animation call — static frame
+        mappingFrame = BLADE_FRAME_A;
 
         if (boss.isBladeFireSignal()) {
-            // Acknowledge fire signal but wait for it to clear before flying
-            routine = ROUTINE_WAIT_CLEAR;
+            // ROM: loc_6B614 — all blades see the signal
+            routine = ROUTINE_WAIT_CLEAR;  // default for non-firing blades
+            if (subtype == 0) {
+                // Bottom blade: transition to PRE_LAUNCH (ROM: loc_6B622)
+                routine = ROUTINE_PRE_LAUNCH;
+                waitTimer = PRE_LAUNCH_WAIT;
+                // ROM: $40=1, $41=0 (rotation speed — cosmetic, we just tick animation)
+            }
         }
     }
 
     /**
-     * ROM routine 4 (WAIT_CLEAR): acknowledge signal then wait for boss to clear it.
-     * ROM pattern: blade clears the bit itself, then waits one frame for the boss to
-     * re-sample. Here the blade clears it immediately and proceeds.
-     * ROM: no animation call — blade shows static frame until launch.
+     * ROM routine 4 (WAIT_CLEAR): non-firing blades wait for fire signal to clear.
+     * ROM (loc_6B644): Refresh_ChildPositionAdjusted + wait for bit 1 cleared.
+     * When cleared (loc_6B658):
+     *   - subtype -= 2 (shift down one slot)
+     *   - Wait 7 frames, then transition back to WAIT_FIRE
+     *   - If the blade became subtype 0 (new bottom): spawn replacement at top
      */
     private void updateWaitClear() {
         currentX = boss.getState().x + xOffset;
         currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
 
-        // Clear the signal on the boss and launch the blade
-        boss.clearBladeFireSignal();
-        launchBlade();
+        if (boss.isBladeFireSignal()) {
+            // Signal still active — keep waiting (ROM: btst+rts)
+            return;
+        }
+
+        // Signal cleared — shift down (ROM: loc_6B658)
+        subtype -= 2;
+        // Update offsets to match new position
+        int slotIndex = subtype / 2;
+        if (slotIndex >= 0 && slotIndex < SUBTYPE_OFFSETS.length) {
+            xOffset = SUBTYPE_OFFSETS[slotIndex][0];
+            yOffset = SUBTYPE_OFFSETS[slotIndex][1];
+        }
+
+        // ROM: $2E = 7 (wait 7 frames), $34 = loc_6B694, then routine = 6
+        // We use a simple timer in the same routine since the visual behavior
+        // during the shift is just following parent position.
+        waitTimer = SHIFT_WAIT;
+        routine = ROUTINE_PRE_LAUNCH;  // reuse PRE_LAUNCH for the wait, but with shift callback
     }
 
     /**
-     * ROM routine 6 (FLY): horizontal projectile.
-     * Advances fixed-point position by velocity each frame.
-     * Transitions to FALL when fly animation completes (ROM: byte_6BE19
-     * — 3 frames at delay 3, then $F4 command triggers FALL).
-     * Self-destructs when off-screen.
+     * ROM routine 6 (PRE_LAUNCH / shift wait): position-adjusting wait state.
+     * ROM (loc_6B678): adds rotation increments, Refresh_ChildPositionAdjusted, Obj_Wait.
+     *
+     * <p>Used for two purposes:
+     * <ul>
+     *   <li>Bottom blade pre-launch: 3-frame wait before launching</li>
+     *   <li>Non-firing blade shift: 7-frame wait after shifting down</li>
+     * </ul>
+     *
+     * <p>The callback differs based on which path entered this state:
+     * <ul>
+     *   <li>subtype 0 entering from WAIT_FIRE: launches blade (loc_6B6BA)</li>
+     *   <li>subtype 0/2 entering from WAIT_CLEAR: goes back to WAIT_FIRE,
+     *       and if now subtype 0, spawns replacement (loc_6B694)</li>
+     * </ul>
      */
-    private void updateFly() {
-        // Advance fixed-point position (16:8 format: xFixed += xVel, position = xFixed >> 8)
-        xFixed += xVel;
-        currentX = xFixed >> 8;
-        currentY = yFixed >> 8;  // y unchanged during pure flight
+    private void updatePreLaunch() {
+        // Track boss position
+        currentX = boss.getState().x + xOffset;
+        currentY = boss.getState().y + yOffset;
         updateDynamicSpawn();
 
         tickAnimation();
 
-        // Off-screen deletion
-        if (!isOnScreen(OFFSCREEN_MARGIN)) {
-            setDestroyed(true);
+        // Decrement wait timer
+        waitTimer--;
+        if (waitTimer >= 0) {
             return;
         }
 
-        // Tick fly animation timer — transition to FALL when animation completes
-        // ROM: byte_6BE19: delay 3 (4 ticks per frame), 3 frames, then $F4 → FALL
-        flyAnimTimer--;
-        if (flyAnimTimer < 0) {
-            flyAnimTimer = FLY_ANIM_DELAY;
-            flyAnimIndex++;
-            if (flyAnimIndex >= FLY_ANIM_FRAMES.length) {
-                // Animation complete — transition to FALL (ROM: $F4 command)
-                routine = ROUTINE_FALL;
+        // Timer expired — determine callback based on context
+        if (subtype == 0 && boss.isBladeFireSignal()) {
+            // This is the bottom blade launching (ROM: loc_6B6BA callback)
+            launchBlade();
+        } else {
+            // This is a shifted blade returning to WAIT_FIRE (ROM: loc_6B694 callback)
+            onShiftComplete();
+        }
+    }
+
+    /**
+     * ROM callback loc_6B694: blade shift complete.
+     * Returns to WAIT_FIRE. If this blade is now subtype 0 (new bottom),
+     * spawns a replacement blade at the top (subtype 4).
+     */
+    private void onShiftComplete() {
+        routine = ROUTINE_WAIT_FIRE;
+
+        if (subtype == 0) {
+            // Spawn replacement blade at top position (ROM: ChildObjDat_6BDAA)
+            // ChildObjDat_6BDAA: loc_6B5C4, xOffset=0x13, yOffset=0x0A
+            // ROM sets subtype=4 on the new child
+            try {
+                boss.spawnDynamicChild(() ->
+                        new HczEndBossBlade(boss, 4, 0x13, 0x0A));
+                LOG.fine("HCZ End Boss Blade: spawned replacement blade at top (subtype 4)");
+            } catch (Exception e) {
+                LOG.fine(() -> "HczEndBossBlade.onShiftComplete: failed to spawn replacement: "
+                        + e.getMessage());
             }
         }
     }
 
     /**
-     * ROM routine 8 (FALL): gravity-accelerated fall.
+     * ROM routine 8 (FALL): gravity-accelerated fall with horizontal velocity.
      * ROM (loc_6B6E6): first checks water level — if at/below water, transitions
      * to UNDERWATER_FALL and spawns splash. Otherwise applies MoveSprite_LightGravity
      * then ObjHitFloor_DoRoutine (floor collision with snap + transition to SPIN_DOWN).
@@ -312,7 +398,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     }
 
     /**
-     * ROM routine 10 (UNDERWATER_FALL): continue falling underwater with floor check.
+     * ROM routine A (UNDERWATER_FALL): continue falling underwater with floor check.
      * ROM (loc_6B70E): MoveSprite_LightGravity + ObjHitFloor_DoRoutine.
      * When floor is hit, callback (loc_6B71C) transitions to SPIN_DOWN.
      */
@@ -344,18 +430,87 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     }
 
     /**
-     * ROM routine 12 (SPIN_DOWN): animate to rest then self-destruct.
-     * After SPIN_DOWN_CYCLES complete animation cycles the blade is destroyed.
+     * ROM routine C (SPIN_DOWN): Animate_RawGetFaster animation to rest.
+     *
+     * <p>ROM (loc_6B734): {@code jmp (Animate_RawGetFaster).l}
+     *
+     * <p>Animation script byte_6BE07: {@code dc.b 5, 8, 6, 7, $FC}
+     * <ul>
+     *   <li>Initial delay = 5 (frames per animation step)</li>
+     *   <li>Frame sequence: 8 → 6 → 7, then loop</li>
+     *   <li>Each complete loop decrements the delay counter by 1</li>
+     *   <li>When delay counter reaches 0 after a loop: calls $34 callback</li>
+     * </ul>
+     *
+     * <p>$34 callback = loc_6B73A:
+     * <ol>
+     *   <li>Spawn 5 debris children via ChildObjDat_6BDE0 (CreateChild6_Simple)</li>
+     *   <li>Play sfx_MissileExplode</li>
+     *   <li>Spawn explosion child via ChildObjDat_6BDB2 (loc_6B77C)</li>
+     *   <li>Delete self (Go_Delete_Sprite)</li>
+     * </ol>
      */
     private void updateSpinDown() {
         collisionFlags = 0;
-        tickAnimation();
-        if (animFrame == 0 && animCounter == 0) {
-            spinDownCycleCount++;
-            if (spinDownCycleCount >= SPIN_DOWN_CYCLES) {
-                setDestroyed(true);
-            }
+
+        // Emulate Animate_RawGetFaster
+        spinDownFrameTimer--;
+        if (spinDownFrameTimer >= 0) {
+            // Still displaying current frame
+            return;
         }
+
+        // Advance to next frame in the sequence
+        spinDownFrameIndex++;
+        if (spinDownFrameIndex < SPIN_DOWN_FRAMES.length) {
+            // Show next frame at current delay
+            mappingFrame = SPIN_DOWN_FRAMES[spinDownFrameIndex];
+            spinDownFrameTimer = spinDownDelayCounter;
+            return;
+        }
+
+        // Completed one loop through the sequence — check if delay exhausted
+        if (spinDownDelayCounter <= 0) {
+            // Animation complete — ROM: loc_6B73A callback
+            onSpinDownComplete();
+            return;
+        }
+
+        // Decrement delay and restart loop (gets faster each time)
+        spinDownDelayCounter--;
+        spinDownFrameIndex = 0;
+        mappingFrame = SPIN_DOWN_FRAMES[0];
+        spinDownFrameTimer = spinDownDelayCounter;
+    }
+
+    /**
+     * ROM: loc_6B73A — spin-down animation complete callback.
+     * Spawns debris, plays SFX, spawns explosion, deletes self.
+     */
+    private void onSpinDownComplete() {
+        // 1. Spawn debris children (ROM: ChildObjDat_6BDE0, 5 children via CreateChild6_Simple)
+        //    These are blade fragment debris — omitted for now (visual-only cosmetic debris)
+
+        // 2. Play sfx_MissileExplode
+        try {
+            services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
+        } catch (Exception e) {
+            LOG.fine(() -> "HczEndBossBlade.onSpinDownComplete: SFX failed: " + e.getMessage());
+        }
+
+        // 3. Spawn explosion child (ROM: ChildObjDat_6BDB2 → loc_6B77C, Map_Explosion)
+        try {
+            boss.spawnDynamicChild(() -> new S3kBossExplosionChild(currentX, currentY));
+        } catch (Exception e) {
+            LOG.fine(() -> "HczEndBossBlade.onSpinDownComplete: explosion spawn failed: "
+                    + e.getMessage());
+        }
+
+        // 4. Delete self (ROM: Go_Delete_Sprite)
+        setDestroyed(true);
+
+        LOG.fine(() -> "HCZ End Boss Blade: spin-down complete at x=" + currentX
+                + " y=" + currentY + ", explosion spawned");
     }
 
     // =========================================================================
@@ -364,27 +519,26 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
 
     /**
      * Detaches the blade from the boss and fires it horizontally.
-     * ROM: xVel = 0x100 if boss facing left, -0x100 if boss facing right.
-     * Blade is purely visual — collision_flags remains 0.
+     * ROM (loc_6B6BA): sets routine=8, x_vel=0x100, clears fire signal.
+     * ROM: x_vel negated if parent render_flags bit 0 set (facing right).
      */
     private void launchBlade() {
         // Snap fixed-point position to current world coordinates
         xFixed = currentX << 8;
         yFixed = currentY << 8;
 
-        // ROM: blade fires opposite to boss travel direction
-        // (boss faces left while moving left, blade ejects rightward, and vice-versa)
+        // ROM: blade fires in the direction the boss is facing
+        // loc_6B6BA: x_vel = $100, negated if render_flags bit 0 (facing right)
         xVel = boss.isFacingRight() ? -FLY_XVEL : FLY_XVEL;
         yVel = 0;
 
-        // Initialize fly animation timer (ROM: byte_6BE19 — 3 frames at delay 3)
-        flyAnimIndex = 0;
-        flyAnimTimer = FLY_ANIM_DELAY;
+        // ROM: bclr #1,$38(a1) — clear fire signal on parent
+        boss.clearBladeFireSignal();
 
         // collision_flags stays 0 — blade is visual only (ROM: collision_flags = 0)
-        routine = ROUTINE_FLY;
+        routine = ROUTINE_FALL;
 
-        LOG.fine(() -> "HCZ End Boss Blade[0]: launched xVel=" + xVel
+        LOG.fine(() -> "HCZ End Boss Blade[st0]: launched xVel=" + xVel
                 + " from x=" + currentX + " y=" + currentY);
     }
 
@@ -417,14 +571,18 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
 
     /**
      * ROM: loc_6B71C — callback when blade hits floor.
-     * Sets routine to SPIN_DOWN ($C), sets up animation and next callback.
+     * Sets routine to SPIN_DOWN ($C), initializes Animate_RawGetFaster state.
+     * ROM: $30 = byte_6BE07, $34 = loc_6B73A
      */
     private void transitionToSpinDown() {
         routine = ROUTINE_SPIN_DOWN;
-        // Reset animation state for spin-down cycling
-        animFrame = 0;
-        animCounter = 0;
-        spinDownCycleCount = 0;
+        // Initialize Animate_RawGetFaster state (ROM: byte_6BE07)
+        // byte_6BE07: dc.b 5, 8, 6, 7, $FC
+        // Animate_RawGetFaster initializes: $2E = first byte (5), anim_frame = 0
+        spinDownDelayCounter = SPIN_DOWN_INITIAL_DELAY;
+        spinDownFrameIndex = 0;
+        spinDownFrameTimer = spinDownDelayCounter;
+        mappingFrame = SPIN_DOWN_FRAMES[0];  // frame 8
         LOG.fine(() -> "HCZ End Boss Blade: hit floor at y=" + currentY + ", transitioning to SPIN_DOWN");
     }
 
@@ -435,12 +593,14 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     /**
      * Advance the blade animation by one counter tick.
      * Cycles between BLADE_FRAME_A and BLADE_FRAME_B at ANIM_SPEED rate.
+     * Used during attached/pre-launch/fall states.
      */
     private void tickAnimation() {
         animCounter++;
         if (animCounter >= ANIM_SPEED) {
             animCounter = 0;
             animFrame = 1 - animFrame; // toggle 0 <-> 1
+            mappingFrame = (animFrame == 0) ? BLADE_FRAME_A : BLADE_FRAME_B;
         }
     }
 
@@ -500,10 +660,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
             return;
         }
 
-        int frame = (animFrame == 0) ? BLADE_FRAME_A : BLADE_FRAME_B;
-
         // Mirror around boss center: blades on the left side flip when boss faces right
         boolean hFlip = boss.isFacingRight();
-        renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false);
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, hFlip, false);
     }
 }

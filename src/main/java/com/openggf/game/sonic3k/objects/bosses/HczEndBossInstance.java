@@ -764,12 +764,12 @@ public class HczEndBossInstance extends AbstractBossInstance {
         // Task 3: Propeller turbine at offset (0, 0x24)
         spawnChild(() -> new HczEndBossTurbine(this, TURBINE_OFFSET_X, TURBINE_OFFSET_Y));
         // Task 4: Blade children — ROM: ChildObjDat_6BD8A blade entries
-        // Index 0 (bottom, fires): xOffset=0x23, yOffset=0x12
-        // Index 1 (middle):        xOffset=0x1B, yOffset=0x0A
-        // Index 2 (top):           xOffset=0x13, yOffset=0x0A
+        // Subtype 0 (bottom, fires): xOffset=0x23, yOffset=0x12
+        // Subtype 2 (middle):        xOffset=0x1B, yOffset=0x0A
+        // Subtype 4 (top):           xOffset=0x13, yOffset=0x0A
         spawnChild(() -> new HczEndBossBlade(this, 0, 0x23, 0x12));
-        spawnChild(() -> new HczEndBossBlade(this, 1, 0x1B, 0x0A));
-        spawnChild(() -> new HczEndBossBlade(this, 2, 0x13, 0x0A));
+        spawnChild(() -> new HczEndBossBlade(this, 2, 0x1B, 0x0A));
+        spawnChild(() -> new HczEndBossBlade(this, 4, 0x13, 0x0A));
         // Task 5: Water column is spawned lazily by HczEndBossTurbine when it enters ACTIVE
         LOG.fine("HCZ End Boss: ship + turbine + 3 blades spawned; water column spawned by turbine on activation");
     }
