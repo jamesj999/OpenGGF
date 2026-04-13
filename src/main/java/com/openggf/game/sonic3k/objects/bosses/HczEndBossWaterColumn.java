@@ -51,6 +51,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     // State machine routines (ROM stride 2)
     // =========================================================================
     private static final int ROUTINE_INIT     = 0;
+    private static final int ROUTINE_ANIMATE  = 2;
     private static final int ROUTINE_RISE     = 4;
     private static final int ROUTINE_HOLD     = 6;
     private static final int ROUTINE_DESCEND  = 8;
@@ -96,6 +97,16 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     private static final int ANIM_SPEED       = 4; // frames per step
 
     // =========================================================================
+    // Spin-up animation (ROM: byte_6BE0C, routine 2)
+    // Delay 3 (4 ticks per frame), 7 frames total = 28 ticks before RISE.
+    // Frame sequence from ROM: $17, $17, $22, $16, $21, $15, $20
+    // On completion ($F4 command): transition to RISE, set y_vel = -$100,
+    // spawn water spray child.
+    // =========================================================================
+    private static final int[] SPINUP_FRAMES = {0x17, 0x17, 0x22, 0x16, 0x21, 0x15, 0x20};
+    private static final int SPINUP_DELAY = 3; // 4 ticks per frame (0-indexed delay)
+
+    // =========================================================================
     // Floor sentinel (far below level)
     // =========================================================================
     private static final int FLOOR_Y_LIMIT = 0x1000;
@@ -120,6 +131,11 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
 
     /** Whether the player was grabbed last frame (prevents re-grab every frame). */
     private boolean playerGrabbed;
+
+    /** Spin-up animation: current index into SPINUP_FRAMES. */
+    private int spinupIndex;
+    /** Spin-up animation: tick countdown (resets to SPINUP_DELAY each frame advance). */
+    private int spinupTimer;
 
     // =========================================================================
     // Constructor
@@ -161,6 +177,7 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
 
         switch (routine) {
             case ROUTINE_INIT     -> updateInit();
+            case ROUTINE_ANIMATE  -> updateAnimate();
             case ROUTINE_RISE     -> updateRise(player);
             case ROUTINE_HOLD     -> updateHold(player);
             case ROUTINE_DESCEND  -> updateDescend(player);
@@ -174,7 +191,8 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
     // =========================================================================
 
     /**
-     * ROM routine 0 (INIT): position at water level directly below turbine X.
+     * ROM routine 0 (INIT): position at water level directly below turbine X,
+     * then transition to ANIMATE (spin-up) phase.
      */
     private void updateInit() {
         int waterY = getWaterLevelY();
@@ -184,7 +202,37 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
         targetY  = turbine.getCurrentY();
         solidActive = false;
         updateDynamicSpawn();
-        routine = ROUTINE_RISE;
+        // Transition to spin-up animation (ROM routine 2)
+        routine = ROUTINE_ANIMATE;
+        spinupIndex = 0;
+        spinupTimer = SPINUP_DELAY;
+    }
+
+    /**
+     * ROM routine 2 (ANIMATE): plays the turbine spin-up animation (byte_6BE0C).
+     * 7 frames at 4 ticks each = 28 frames total. On completion, transitions
+     * to RISE with y_vel = -0x100.
+     *
+     * <p>ROM: loc_6B2F2 — single {@code Animate_Raw} call on byte_6BE0C.
+     * Frame sequence: $17, $17, $22, $16, $21, $15, $20 (Map_HCZEndBoss frames).
+     * End command $F4 triggers transition to routine 4 (RISE).
+     */
+    private void updateAnimate() {
+        // Track turbine X position during spin-up
+        currentX = turbine.getCurrentX();
+
+        spinupTimer--;
+        if (spinupTimer < 0) {
+            spinupTimer = SPINUP_DELAY;
+            spinupIndex++;
+            if (spinupIndex >= SPINUP_FRAMES.length) {
+                // Spin-up complete — transition to RISE (ROM routine 4)
+                routine = ROUTINE_RISE;
+                yFixed = currentY << 8;
+                LOG.fine("HCZ Water Column: spin-up complete, entering RISE");
+                return;
+            }
+        }
     }
 
     /**
@@ -463,6 +511,13 @@ public class HczEndBossWaterColumn extends AbstractBossChild implements SolidObj
 
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_END_BOSS);
         if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        // During spin-up animation, render the current spin-up frame
+        if (routine == ROUTINE_ANIMATE) {
+            int frame = SPINUP_FRAMES[spinupIndex];
+            renderer.drawFrameIndex(frame, currentX, currentY, false, false);
             return;
         }
 
