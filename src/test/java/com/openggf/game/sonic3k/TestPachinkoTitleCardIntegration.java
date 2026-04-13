@@ -11,7 +11,6 @@ import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -96,7 +95,7 @@ public class TestPachinkoTitleCardIntegration {
         AbstractPlayableSprite player = fixture.sprite();
         DefaultPowerUpSpawner spawner = new DefaultPowerUpSpawner(GameServices.level().getObjectManager());
         if (player.getInstaShieldObject() == null) {
-            player.setInstaShieldObject(new InstaShieldObjectInstance(player));
+            player.setInstaShieldObject(spawner.createInstaShield(player));
         }
         assertNotNull(player.getInstaShieldObject(), "Sonic should have a persistent insta-shield object");
         spawner.registerObject(player.getInstaShieldObject());

@@ -122,9 +122,11 @@ public class TestS3kHcz1ButtonWalkOnto {
         // to prevent interference with the button collision test.
         var om = GameServices.level().getObjectManager();
         for (ObjectInstance obj : new java.util.ArrayList<>(om.getActiveObjects())) {
+            var spawn = obj.getSpawn();
             if (obj instanceof com.openggf.level.objects.AbstractObjectInstance absObj
-                    && obj.getSpawn().objectId() != 0x33
-                    && Math.abs(obj.getX() - BUTTON_X) < 60) {
+                    && spawn != null
+                    && spawn.objectId() != 0x33
+                    && Math.abs(spawn.x() - BUTTON_X) < 60) {
                 absObj.setDestroyed(true);
             }
         }

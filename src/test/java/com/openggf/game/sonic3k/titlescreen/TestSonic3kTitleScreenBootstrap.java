@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.titlescreen;
 
+import com.openggf.data.RomManager;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +32,7 @@ public class TestSonic3kTitleScreenBootstrap {
 
     @Test
     public void titleScreenDataLoaderReturnsFalseWithoutRom() {
+        RomManager.getInstance().setRom(null);
         Sonic3kTitleScreenDataLoader loader = new Sonic3kTitleScreenDataLoader();
         assertFalse(loader.loadData());
     }
