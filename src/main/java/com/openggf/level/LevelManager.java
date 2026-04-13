@@ -3677,19 +3677,25 @@ public class LevelManager {
         // our managers capture act-specific scripts at construction time.
         initAnimatedContent();
 
-        // 4b. Re-register level-art-based object sheets for the new act.
-        // Act-specific objects (e.g. cork floor, floating platform) use different art
-        // keys per act; without re-registration they resolve to stale AIZ1 keys and
-        // appear invisible after the AIZ1→AIZ2 fakeout transition.
+        // 4b. Reload standalone (ROM-compressed) object art for the new act.
+        // Act-specific badniks use different standalone art per act (e.g. HCZ Act 1
+        // has Blastoid, Act 2 has Jawz). Without this, act-specific objects spawned
+        // after the transition have no art registered and render invisibly.
         ObjectArtProvider artProvider = gameModule != null ? gameModule.getObjectArtProvider() : null;
         if (artProvider != null) {
+            artProvider.reloadStandaloneArtForActTransition(currentZone);
+
+            // 4c. Re-register level-art-based object sheets for the new act.
+            // Act-specific objects (e.g. cork floor, floating platform) use different art
+            // keys per act; without re-registration they resolve to stale keys and
+            // appear invisible after the transition.
             artProvider.registerLevelTileArt(level, currentZone);
             if (objectRenderManager != null) {
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
         }
 
-        // 4c. Reinitialize water for the new act.
+        // 4d. Reinitialize water for the new act.
         // ROM: CheckLevelForWater (s3.asm:5811) runs during every level load,
         // including act transitions. Sets Water_flag, Water_level, Mean_water_level,
         // Target_water_level, Water_speed, and the zone-specific dynamic handler.

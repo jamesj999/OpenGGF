@@ -882,6 +882,22 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         registerLevelArtSheets(level, zoneIndex);
     }
 
+    @Override
+    public void reloadStandaloneArtForActTransition(int zoneIndex) {
+        // Refresh act index from LevelManager (act has changed since initial load)
+        currentActIndex = GameServices.level().getCurrentAct();
+
+        // Get the new act's art plan and reload standalone entries.
+        // Shared entries (explosion, monitor, shields, etc.) are already loaded
+        // and will simply be re-registered with the same key, which is harmless.
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
+        loadStandaloneFromRegistry(plan);
+
+        LOG.info("Reloaded standalone art for zone " + zoneIndex
+                + " act " + currentActIndex);
+    }
+
     /**
      * Registers object sprite sheets that use level patterns.
      * Must be called AFTER the level is loaded.
