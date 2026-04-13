@@ -51,6 +51,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
     public static final String HCZ_MINIBOSS = "hcz_miniboss";
     public static final String HCZ_END_BOSS = "hcz_end_boss";
+    public static final String HCZ_GEYSER_CUTSCENE = "hcz_geyser_cutscene";
 
     // AIZ End Boss (Object 0x92)
     public static final String AIZ_END_BOSS = "aiz_end_boss";

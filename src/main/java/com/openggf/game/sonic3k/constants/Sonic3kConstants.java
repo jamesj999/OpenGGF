@@ -1254,6 +1254,9 @@ public class Sonic3kConstants {
     // ArtTile_HCZEndBoss - VRAM destination tile index from sonic3k.constants.asm.
     public static final int ARTTILE_HCZ_END_BOSS = 0x0320;
 
+    // HCZ Geyser Cutscene Art (ArtTile_HCZCutsceneGeyser, from sonic3k.constants.asm)
+    public static final int ARTTILE_HCZ_CUTSCENE_GEYSER = 0x036B;
+
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)
     public static final int ART_KOSM_AIZ_END_BOSS_ADDR = 0x365260;

@@ -53,6 +53,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Miniboss.asm");
     private static final Path HCZ_END_BOSS_MAPPING_ASM = Path.of(
             "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - End Boss.asm");
+    private static final Path HCZ_WATERWALL_MAPPING_ASM = Path.of(
+            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Waterfall.asm");
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
@@ -150,6 +152,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             loadSharedBossExplosionArt();
             loadHczMinibossArtFromPlc();
             loadHczEndBossArt();
+            loadHczGeyserCutsceneArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -1146,6 +1149,37 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             }
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ end boss art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads HCZ geyser cutscene art (ArtKosM_HCZGeyserVert + Map_HCZWaterWall).
+     * ROM: The post-defeat geyser cutscene uses dedicated geyser art at
+     * ArtTile_HCZCutsceneGeyser (0x036B), not the boss body art.
+     * Frame 1 of Map_HCZWaterWall is the tall vertical water column (12 pieces).
+     * Frames 3-5 are splash sprites.
+     */
+    private void loadHczGeyserCutsceneArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            Pattern[] patterns = decompressKosinskiModuled(rom,
+                    Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR);
+            if (patterns == null || patterns.length == 0) {
+                LOG.warning("HCZ geyser cutscene art decompression produced no tiles");
+                return;
+            }
+            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_WATERWALL_MAPPING_ASM);
+            if (mappings.isEmpty()) {
+                LOG.warning("HCZ geyser cutscene mapping (Map_HCZWaterWall) produced no frames");
+                return;
+            }
+            registerSheet(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE,
+                    buildSheetFromPatterns(patterns, mappings, 0));
+            LOG.info("Loaded HCZ geyser cutscene art: " + patterns.length + " tiles, "
+                    + mappings.size() + " mapping frames");
+        } catch (IOException e) {
+            LOG.warning("Failed to load HCZ geyser cutscene art: " + e.getMessage());
         }
     }
 

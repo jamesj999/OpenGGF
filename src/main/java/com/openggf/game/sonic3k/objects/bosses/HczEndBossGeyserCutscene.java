@@ -82,9 +82,14 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     private static final int SPAWN_CAMERA_Y_OFFSET = 0x130;
 
     // =========================================================================
-    // Art: Map_HCZEndBoss frame 8 segment used as placeholder column tile
+    // Art: Map_HCZWaterWall frame indices (dedicated geyser cutscene art)
+    // Frame 1 = tall vertical water column (12 pieces)
+    // Frames 3-5 = splash sprites at the geyser top
     // =========================================================================
-    private static final int COLUMN_FRAME_INDEX = 8;
+    private static final int COLUMN_FRAME_INDEX = 1;
+    private static final int SPLASH_FRAME_BASE  = 3;
+    private static final int SPLASH_FRAME_COUNT = 3; // frames 3, 4, 5
+    private static final int SPLASH_ANIM_SPEED  = 4; // ticks per splash frame
 
     // =========================================================================
     // Next level (ROM: StartNewLevel zone $0200 = MGZ Act 1)
@@ -116,6 +121,11 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
 
     /** True once the player has been grabbed by the rising column. */
     private boolean playerGrabbed;
+
+    /** Splash animation frame index (cycles through 0..SPLASH_FRAME_COUNT-1). */
+    private int splashFrame;
+    /** Splash animation tick counter. */
+    private int splashTimer;
 
     // =========================================================================
     // Constructor
@@ -261,12 +271,10 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
     // =========================================================================
 
     /**
-     * Draws the geyser as a column of Map_HCZEndBoss frame 8 segments from the
-     * bottom of the screen up to {@link #geyserTopY}.
-     *
-     * <p>The HCZ end boss art sheet must already be loaded (it is, since the boss
-     * was alive until capsule-open). Each segment is 16 px tall (one chunk row).
-     * Segments are stacked upward from the screen bottom to the column top.
+     * Draws the geyser using dedicated cutscene art (Map_HCZWaterWall).
+     * Frame 1 is a tall vertical water column (12 mapping pieces, ~96 px tall).
+     * The column is tiled from the geyser top downward to fill the screen.
+     * Frames 3-5 are splash sprites animated at the geyser top.
      */
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
@@ -274,7 +282,7 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
             return;
         }
 
-        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_END_BOSS);
+        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
@@ -282,11 +290,27 @@ public class HczEndBossGeyserCutscene extends AbstractObjectInstance {
         // Draw column segments from geyserTopY downward to the screen bottom
         var camera = services().camera();
         int screenBottomY = camera.getY() + 224; // standard 224-px screen height
-        int segmentHeight = 16;                   // one chunk row
+        int segmentHeight = 96;                   // frame 1 is ~96 px tall (12 pieces * 8px)
         int segY = geyserTopY;
         while (segY < screenBottomY) {
             renderer.drawFrameIndex(COLUMN_FRAME_INDEX, geyserX, segY, false, false);
             segY += segmentHeight;
+        }
+
+        // Draw splash animation at geyser top
+        tickSplashAnimation();
+        int splashFrameIndex = SPLASH_FRAME_BASE + splashFrame;
+        renderer.drawFrameIndex(splashFrameIndex, geyserX, geyserTopY, false, false);
+    }
+
+    /**
+     * Ticks the splash animation cycle (frames 3-5 of Map_HCZWaterWall).
+     */
+    private void tickSplashAnimation() {
+        splashTimer++;
+        if (splashTimer >= SPLASH_ANIM_SPEED) {
+            splashTimer = 0;
+            splashFrame = (splashFrame + 1) % SPLASH_FRAME_COUNT;
         }
     }
 
