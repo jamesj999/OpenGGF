@@ -154,4 +154,16 @@ public interface ObjectArtProvider {
     default void registerLevelTileArt(Level level, int zoneIndex) {
         // Default no-op — games without level-tile-based object art need not override
     }
+
+    /**
+     * Reloads standalone (ROM-compressed) object art for the current act.
+     * Called during seamless act transitions to pick up act-specific badnik art
+     * (e.g., HCZ Act 1 has Blastoid, Act 2 has Jawz) that differs from the
+     * previous act's art plan.
+     *
+     * @param zoneIndex the current zone index
+     */
+    default void reloadStandaloneArtForActTransition(int zoneIndex) {
+        // Default no-op — only S3K has act-specific standalone art plans
+    }
 }
