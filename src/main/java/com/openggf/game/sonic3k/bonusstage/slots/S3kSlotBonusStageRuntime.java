@@ -329,7 +329,7 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public void renderSlotLayout(com.openggf.camera.Camera camera) {
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = GameServices.levelOrNull();
         if (camera == null || levelManager == null) {
             return;
         }
@@ -344,7 +344,7 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public int ensureForegroundGlassPriority() {
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = GameServices.levelOrNull();
         if (levelManager == null) {
             return 0;
         }

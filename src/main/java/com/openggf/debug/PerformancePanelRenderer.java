@@ -195,7 +195,9 @@ public class PerformancePanelRenderer {
         int panelTop = baseHeight - 8;     // 8 pixels from top (in screen terms, high Y in GL)
 
         if (!snapshot.hasData()) {
+            textRenderer.beginBatch();
             drawTextBottomLeft("Perf: collecting...", panelRight - 80, panelTop - 10, DebugColor.WHITE);
+            textRenderer.endBatch();
             return;
         }
 
@@ -221,6 +223,9 @@ public class PerformancePanelRenderer {
         int textY = panelTop - 10;
         int lineHeight = lineHeight(PERF_FONT);
         StringBuilder pb = perfBuilder;
+
+        // Batch all text into a single GL draw call
+        textRenderer.beginBatch();
 
         // Header line - show work time and actual FPS
         double workMs = snapshot.totalFrameTimeMs();
@@ -281,6 +286,8 @@ public class PerformancePanelRenderer {
                 drawTextBottomLeft(pb.toString(), textX, memY, DebugColor.ORANGE);
             }
         }
+
+        textRenderer.endBatch();
     }
 
     /**

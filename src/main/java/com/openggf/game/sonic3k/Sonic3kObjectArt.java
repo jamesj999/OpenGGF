@@ -806,6 +806,7 @@ public class Sonic3kObjectArt {
         if (entry.mappingAddr() <= 0) {
             List<SpriteMappingFrame> hardcoded = switch (entry.key()) {
                 case Sonic3kObjectArtKeys.HCZ_WATER_RUSH -> buildHczWaterRushMappings();
+                case Sonic3kObjectArtKeys.HCZ_WATER_SPLASH -> buildHczWaterSplashMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_HORZ -> buildHczGeyserHorzMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_VERT -> buildHczGeyserVertMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS -> buildHczGeyserDebrisMappings();
@@ -1254,6 +1255,35 @@ public class Sonic3kObjectArt {
     }
 
     /**
+     * Builds hardcoded mappings for HCZ Water Splash subtype 0 (Map_HCZWaterSplash).
+     * <p>
+     * From the disassembly (Map - Water Splash.asm):
+     * Frames 0-3 all share Frame_237C6A layout (2 pieces, 24 tiles per frame).
+     * DMA in ROM swaps art per frame; we pre-load all 96 tiles and offset per frame.
+     * <pre>
+     * Frame_237C6A: 2 pieces
+     *   piece 0: y=$F0(-16), size=$0B(3w×4h=12 tiles), tile=0, x=$FFE8(-24)
+     *   piece 1: y=$F0(-16), size=$0B(3w×4h=12 tiles), tile=$0C, x=$0000(0)
+     * Size $0B: bits 2-3=2 → width=3 tiles, bits 0-1=3 → height=4 tiles
+     * (matches S3kSpriteDataLoader: width = ((size>>2)&3)+1, height = (size&3)+1)
+     * </pre>
+     */
+    List<SpriteMappingFrame> buildHczWaterSplashMappings() {
+        // 4 animation frames, each uses 24 tiles. Frame N starts at tile N*24.
+        List<SpriteMappingFrame> frames = new java.util.ArrayList<>(4);
+        for (int f = 0; f < 4; f++) {
+            int tileBase = f * 24;
+            frames.add(new SpriteMappingFrame(List.of(
+                    // Piece 0: 3 wide × 4 tall (12 tiles) at (-24, -16)
+                    new SpriteMappingPiece(-24, -16, 3, 4, tileBase, false, false, 0, false),
+                    // Piece 1: 3 wide × 4 tall (12 tiles) at (0, -16)
+                    new SpriteMappingPiece(0, -16, 3, 4, tileBase + 12, false, false, 0, false)
+            )));
+        }
+        return frames;
+    }
+
+    /**
      * Builds hardcoded mappings for HCZ horizontal geyser art (Map_HCZWaterWall).
      * All 11 frames: frame 0 is the wide horizontal wall, frame 1 is the vertical
      * column, frames 2-10 are small splash/debris pieces used by child objects.
@@ -1485,6 +1515,53 @@ public class Sonic3kObjectArt {
         SpriteMappingFrame f10 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-16, -22, 4, 3, ofs + 0x0E, false, false, 0)));
         return List.of(placeholder, placeholder, f2, f3, f4, f5, f6, f7, f8, f9, f10);
+    }
+
+    /**
+     * Builds the HCZ Water Drop sprite sheet (Map_HCZWaterDrop, frames 0-5 only).
+     * <p>
+     * Frames 0-5 use tiles from ArtTile_HCZ2Slide ($035C), palette 1.
+     * Frame 6 (spawner static drip) is not included: the ROM renders it via
+     * Sprite_OnScreen_Test, but art_tile addition overflows ($235C + $FCA4 = $2000)
+     * producing tile 0 / palette 1, which is effectively invisible in-game.
+     */
+    public ObjectSpriteSheet buildHczWaterDropSheet() {
+        if (level == null) return null;
+
+        int artTileBase = Sonic3kConstants.ARTTILE_HCZ2_SLIDE; // 0x035C
+        int levelPatternCount = level.getPatternCount();
+
+        // Tiles at artTileBase + 0..0xB (12 tiles from HCZ2Slide art)
+        int tileCount = 12;
+        Pattern[] patterns = new Pattern[tileCount];
+        for (int i = 0; i < tileCount; i++) {
+            int levelIndex = artTileBase + i;
+            patterns[i] = (levelIndex < levelPatternCount)
+                    ? level.getPattern(levelIndex) : new Pattern();
+        }
+
+        // Mapping pieces from Map_HCZWaterDrop (sonic3k.asm, Map - Water Drop.asm)
+        // Frame 0: 2x1, tile 0
+        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 0, false, false, 0)));
+        // Frame 1: 2x1, tile 2
+        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 1, 2, false, false, 0)));
+        // Frame 2: 1x2, tile 4
+        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -8, 1, 2, 4, false, false, 0)));
+        // Frame 3: 1x2, tile 6
+        SpriteMappingFrame f3 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -8, 1, 2, 6, false, false, 0)));
+        // Frame 4: 2x1, tile 8
+        SpriteMappingFrame f4 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0, 2, 1, 8, false, false, 0)));
+        // Frame 5: 2x1, tile 0xA
+        SpriteMappingFrame f5 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, 0, 2, 1, 0xA, false, false, 0)));
+
+        return new ObjectSpriteSheet(patterns,
+                List.of(f0, f1, f2, f3, f4, f5), 1, 1);
     }
 
     public ObjectSpriteSheet buildHczWaterRushBlockSheet() {

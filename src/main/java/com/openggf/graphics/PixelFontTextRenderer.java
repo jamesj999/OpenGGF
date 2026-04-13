@@ -55,6 +55,22 @@ public class PixelFontTextRenderer {
         }
     }
 
+    /**
+     * Starts mega-batch mode. All subsequent text draws accumulate into a shared
+     * buffer and are flushed as a single GL draw call when {@link #endBatch()} is called.
+     */
+    public void beginBatch() {
+        ensureInitialized();
+        font.beginMegaBatch();
+    }
+
+    /**
+     * Flushes all accumulated text from mega-batch mode in a single GL draw call.
+     */
+    public void endBatch() {
+        font.endMegaBatch();
+    }
+
     public void drawShadowedText(String text, int x, int y, DebugColor color) {
         drawShadowedText(text, x, y, color, 1.0f);
     }

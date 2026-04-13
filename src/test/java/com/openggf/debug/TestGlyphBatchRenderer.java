@@ -32,6 +32,16 @@ class TestGlyphBatchRenderer {
             lastColor = color;
             lastScale = scale;
         }
+
+        @Override
+        public void beginBatch() {
+            // No-op: skip GL initialization in tests
+        }
+
+        @Override
+        public void endBatch() {
+            // No-op: skip GL flush in tests
+        }
     }
 
     @Test

@@ -66,6 +66,12 @@ public interface PlayableEntity {
     boolean isCpuControlled();
     int getAnimationId();
 
+    /**
+     * Forces the animation system to restart the current animation script.
+     * ROM equivalent: clearing prev_anim to trigger anim != prev_anim on next frame.
+     */
+    void forceAnimationRestart();
+
     // ── Collision path ──────────────────────────────────────────────
     void setTopSolidBit(byte topSolidBit);
     void setLrbSolidBit(byte lrbSolidBit);

@@ -78,8 +78,15 @@ public class HCZLargeFanObjectInstance extends AbstractObjectInstance {
             }
         }
 
+        // ROM: sfx_FanBig every 16 frames (sonic3k.asm:65632-65636)
+        // ROM uses (Level_frame_counter+1) & $F, matching global frame counter
         if ((frameCounter & 0x0F) == 0) {
-            services().playSfx(Sonic3kSfx.FAN_BIG.id);
+            // ROM: only reaches this code if Sprite_OnScreen_Test passes (object
+            // is deleted when off-screen).  Guard with isOnScreen() so we don't
+            // play the sound for a fan that has scrolled out of view.
+            if (isOnScreen()) {
+                services().playSfx(Sonic3kSfx.FAN_BIG.id);
+            }
         }
 
         animFrameTimer--;
@@ -89,6 +96,14 @@ public class HCZLargeFanObjectInstance extends AbstractObjectInstance {
             if (mappingFrame >= FAN_FRAME_COUNT) {
                 mappingFrame = 0;
             }
+        }
+
+        // ROM: jmp (Sprite_OnScreen_Test).l — deletes sprite when off-screen.
+        // Our object manager handles OOR culling, but the ROM uses a tighter
+        // on-screen window.  Self-destroy when clearly off-screen to match ROM
+        // lifetime and prevent lingering SFX.
+        if (!isOnScreen(64)) {
+            setDestroyed(true);
         }
     }
 

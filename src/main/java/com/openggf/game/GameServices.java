@@ -8,6 +8,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.FadeManager;
@@ -192,6 +193,14 @@ public final class GameServices {
         return zoneRuntimeRegistry().current();
     }
 
+    public static PaletteOwnershipRegistry paletteOwnershipRegistry() {
+        return requireRuntime("paletteOwnershipRegistry").getPaletteOwnershipRegistry();
+    }
+
+    public static PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getPaletteOwnershipRegistry() : null;
+    }
     //â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {

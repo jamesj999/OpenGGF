@@ -626,7 +626,7 @@ public class AizIntroArtLoader {
     public static void ensureRenderersCached(ObjectServices services) {
         if (renderersCached || !loaded) return;
         GraphicsManager gm = graphicsManager(services);
-        if (gm == null || !gm.isGlInitialized()) return;
+        if (gm == null) return;
 
         int nextBase = INTRO_PATTERN_BASE;
 
@@ -934,7 +934,10 @@ public class AizIntroArtLoader {
     }
 
     private static GraphicsManager graphicsManager(ObjectServices services) {
-        return services != null ? services.graphicsManager() : null;
+        if (services != null && services.graphicsManager() != null) {
+            return services.graphicsManager();
+        }
+        return activeServices != null ? activeServices.graphicsManager() : null;
     }
 
     /**
