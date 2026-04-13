@@ -119,7 +119,10 @@ public class HczEndBossEggCapsuleInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(PlayableEntity player) {
-        return !opened;  // Capsule loses solidity once opened
+        // ROM: SolidObjectFull is called every frame unconditionally (line 181502-181506),
+        // before the routine dispatch. The capsule body remains solid throughout the
+        // entire sequence — before, during, and after opening.
+        return true;
     }
 
     // ===== Update =====
