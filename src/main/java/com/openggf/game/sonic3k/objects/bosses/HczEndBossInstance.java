@@ -75,6 +75,12 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private static final int ST_LOCK_X_LEFT = 0x4000;
     private static final int ST_LOCK_X_RIGHT = 0x4050;
 
+    /**
+     * ROM: loc_85CE6 adds $60 to the lock Y target when checking approach-from-below.
+     * If Camera_Y is within this tolerance of the target, snap immediately.
+     */
+    private static final int APPROACH_FROM_BELOW_Y_TOLERANCE = 0x60;
+
     // =========================================================================
     // Arena bounds — Knuckles (ROM: word_6AEA6)
     // =========================================================================
@@ -375,29 +381,33 @@ public class HczEndBossInstance extends AbstractBossInstance {
 
         var camera = services().camera();
 
-        // Y lock — follow camera, snap when reached (ROM: bit 1 of $27)
+        // Y lock — follow camera, snap when reached (ROM: loc_85CC6–loc_85CF2)
         if (!arenaYLocked) {
             int cameraY = camera.getY();
             if (!approachFromBelow) {
-                // Approaching from above: follow camera downward
+                // Approaching from above (bit 7 clear): follow camera downward
+                // ROM: cmp.w _unkFAB0,d0 / bhs.s snap
                 if (cameraY >= targetLockYTop) {
-                    // Snap
+                    // Snap: set min_Y and target_max_Y
                     camera.setMinY((short) targetLockYTop);
-                    camera.setMaxY((short) targetLockYBottom);
+                    camera.setMaxYTarget((short) targetLockYBottom);
                     arenaYLocked = true;
                 } else {
+                    // Follow: prevent upscroll past current position
                     camera.setMinY((short) cameraY);
                 }
             } else {
-                // Approaching from below: follow camera upward
-                if (cameraY <= targetLockYBottom) {
-                    // Snap
+                // Approaching from below (bit 7 set): ROM loc_85CE6
+                // ROM adds $60 tolerance: if Camera_Y <= target + $60, snap immediately.
+                // No "follow" step — ROM just skips Y entirely if too far below.
+                int snapThreshold = targetLockYBottom + APPROACH_FROM_BELOW_Y_TOLERANCE;
+                if (cameraY <= snapThreshold) {
+                    // Close enough — snap
                     camera.setMinY((short) targetLockYTop);
-                    camera.setMaxY((short) targetLockYBottom);
+                    camera.setMaxYTarget((short) targetLockYBottom);
                     arenaYLocked = true;
-                } else {
-                    camera.setMaxY((short) cameraY);
                 }
+                // else: too far below, do nothing (ROM: bhi.s loc_85D06 — skip Y)
             }
         }
 
