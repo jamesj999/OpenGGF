@@ -155,9 +155,10 @@ and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
 
 The runtime-owned framework stack is the preferred architecture, but migration is still partial:
 
-- Sonic 2 already uses it for HTZ/CNZ typed runtime state, palette ownership, animated tile orchestration, some mutation-driven arena changes, and staged render effects.
-- Sonic 3&K currently uses it for AIZ and HCZ typed runtime state, AIZ fire-transition mutation/render flows, HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior.
-- Other implemented zones still mix runtime-owned systems with older zone-local machinery. Before extending a zone, inspect whether it already has a typed runtime-state adapter, palette ownership integration, channel-graph usage, mutation-pipeline usage, or render-registry wiring.
+- Sonic 2 uses it for HTZ/CNZ typed runtime state, palette ownership, animated tile orchestration, and CNZ staged render effects (slot overlay).
+- Sonic 3&K uses it for AIZ and HCZ typed runtime state, AIZ staged render effects and advanced render modes (fire-transition/battleship overlays), HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior.
+- `ZoneLayoutMutationPipeline` is wired into `GameRuntime` but has no zone-level consumers yet — it is infrastructure awaiting first adoption.
+- Other implemented zones still mix runtime-owned systems with older zone-local machinery. Before extending a zone, inspect whether it already has a typed runtime-state adapter, palette ownership integration, channel-graph usage, or render-registry wiring.
 
 As a contributor, be aware that:
 

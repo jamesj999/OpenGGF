@@ -392,7 +392,8 @@ git commit --allow-empty -m "chore: record passing runtime framework verificatio
 ```markdown
 ### Runtime Framework Migration Status
 
-- Landed on the runtime-owned stack: Sonic 2 palette cycling, Sonic 2 animated tiles, Sonic 2 HTZ/CNZ runtime state, Sonic 2 staged special renders, S3K HCZ/SOZ animated tiles, S3K AIZ staged renders/mutations, S3K CNZ runtime state.
+- Landed on the runtime-owned stack: Sonic 2 palette cycling, Sonic 2 animated tiles, Sonic 2 HTZ/CNZ runtime state, Sonic 2 CNZ staged render effects, S3K HCZ/SOZ animated tiles, S3K AIZ staged render effects and advanced render modes, S3K CNZ runtime state.
+- Infrastructure ready but no zone consumers yet: `ZoneLayoutMutationPipeline` (boss arena layout edits and act-transition tile swaps are natural first adopters).
 - Not yet fully migrated: remaining Sonic 1 retrofit work, additional S3K zones beyond the current adopters, and any legacy zone-local booleans/buffers not yet routed through `GameRuntime`.
 ```
 
