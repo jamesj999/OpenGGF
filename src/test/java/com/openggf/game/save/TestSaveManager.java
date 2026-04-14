@@ -26,6 +26,21 @@ class TestSaveManager {
     }
 
     @Test
+    void malformedFile_replacesExistingCorruptArtifact() throws Exception {
+        Path slot = root.resolve("s3k").resolve("slot1.json");
+        Path corrupt = slot.resolveSibling("slot1.json.corrupt");
+        Files.createDirectories(slot.getParent());
+        Files.writeString(slot, "{ not-json");
+        Files.writeString(corrupt, "old");
+        SaveManager manager = new SaveManager(root);
+
+        SaveSlotSummary summary = manager.readSlotSummary("s3k", 1);
+
+        assertEquals(SaveSlotState.EMPTY, summary.state());
+        assertEquals("{ not-json", Files.readString(corrupt));
+    }
+
+    @Test
     void hashMismatch_warnsButStillLoads() throws Exception {
         SaveManager manager = new SaveManager(root);
         manager.writeSlot("s3k", 1, Map.of("zone", 0, "act", 0));
@@ -72,13 +87,31 @@ class TestSaveManager {
     }
 
     @Test
+    void structurallyInvalidPayload_quarantinesFile() throws Exception {
+        SaveManager manager = new SaveManager(root);
+        manager.writeSlot("s3k", 1, Map.of(
+                "zone", 99,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", java.util.List.of(),
+                "lives", 3,
+                "chaosEmeralds", java.util.List.of(),
+                "superEmeralds", java.util.List.of(),
+                "clear", false
+        ));
+        SaveSlotSummary summary = manager.readSlotSummary("s3k", 1, new com.openggf.game.sonic3k.dataselect.S3kDataSelectProfile());
+        assertEquals(SaveSlotState.EMPTY, summary.state());
+        assertTrue(Files.exists(root.resolve("s3k").resolve("slot1.json.corrupt")));
+    }
+
+    @Test
     void noSaveSession_requestSaveDoesNotWriteFile() throws Exception {
         SaveManager manager = new SaveManager(root);
         SaveSessionContext ctx = SaveSessionContext.noSave("s3k",
                 new SelectedTeam("sonic", java.util.List.of()), 0, 0);
-        ctx.requestSave(SaveReason.LEVEL_PROGRESS,
+        ctx.requestSave(SaveReason.PROGRESSION_SAVE,
                 new RuntimeSaveContext(null, ctx),
-                runtime -> java.util.Map.of("zone", 0, "act", 1),
+                (reason, runtime) -> java.util.Map.of("zone", 0, "act", 1),
                 manager);
         assertTrue(Files.notExists(root.resolve("s3k").resolve("slot1.json")));
     }

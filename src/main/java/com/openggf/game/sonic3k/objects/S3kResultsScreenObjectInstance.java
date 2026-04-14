@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.data.Rom;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.save.SaveReason;
 import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -413,6 +414,10 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
         if (!result.anyRemaining()) {
             playTallyEndSound();
+            int zone = services().romZoneId();
+            if ((act != 0) || (zone == 0x0A)) {
+                services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
+            }
             state = STATE_WAIT;
             stateTimer = 0;
         }

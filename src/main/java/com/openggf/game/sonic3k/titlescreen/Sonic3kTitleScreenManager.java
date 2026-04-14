@@ -465,6 +465,11 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     }
 
     @Override
+    public TitleScreenAction consumeExitAction() {
+        return menuSelection == 0 ? TitleScreenAction.ONE_PLAYER : TitleScreenAction.TWO_PLAYER;
+    }
+
+    @Override
     public void setExitToLevelHandler(Runnable handler) {
         this.exitToLevelHandler = handler != null ? handler : () -> {};
     }
@@ -679,8 +684,14 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             GameServices.audio().playSfx(Sonic3kSfx.SWITCH.id);
         }
 
-        // Start pressed - begin exit fade
+        // Start pressed - Data Select path uses the normal GameLoop fade, while
+        // the competition path keeps the provider-owned fade sequence.
         if (input.isKeyPressed(jumpKey)) {
+            if (menuSelection == 0) {
+                state = State.EXITING;
+                LOGGER.info("S3K title screen exiting via GameLoop fade for 1 PLAYER");
+                return;
+            }
             phase = Phase.FADE_OUT;
             phaseTimer = 0;
             // State stays ACTIVE during our fade — we only set EXITING once

@@ -27,9 +27,14 @@ import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.dataselect.DataSelectSessionController;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.credits.Sonic1EndingProvider;
+import com.openggf.game.sonic1.dataselect.S1DataSelectProfile;
+import com.openggf.game.sonic1.dataselect.S1DataSelectManager;
 import com.openggf.game.sonic1.dataselect.S1SaveSnapshotProvider;
 import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
@@ -64,6 +69,8 @@ public class Sonic1GameModule implements GameModule {
     private final Sonic1TitleCardManager titleCardProvider = new Sonic1TitleCardManager();
     private final Sonic1TitleScreenManager titleScreenProvider = new Sonic1TitleScreenManager();
     private final Sonic1LevelSelectManager levelSelectProvider = new Sonic1LevelSelectManager();
+    private final S1DataSelectProfile dataSelectHostProfile = new S1DataSelectProfile();
+    private DataSelectPresentationProvider dataSelectPresentationProvider;
     private final LevelInitProfile levelInitProfile =
             new Sonic1LevelInitProfile(levelEventManager, switchManager, conveyorState);
     private PhysicsProvider physicsProvider;
@@ -189,6 +196,25 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
         return levelSelectProvider;
+    }
+
+    @Override
+    public com.openggf.game.DataSelectProvider getDataSelectProvider() {
+        return getDataSelectPresentationProvider();
+    }
+
+    @Override
+    public DataSelectPresentationProvider getDataSelectPresentationProvider() {
+        if (dataSelectPresentationProvider == null) {
+            dataSelectPresentationProvider = new DataSelectPresentationProvider(S1DataSelectManager::new,
+                    new DataSelectSessionController(dataSelectHostProfile));
+        }
+        return dataSelectPresentationProvider;
+    }
+
+    @Override
+    public DataSelectHostProfile getDataSelectHostProfile() {
+        return dataSelectHostProfile;
     }
 
     @Override

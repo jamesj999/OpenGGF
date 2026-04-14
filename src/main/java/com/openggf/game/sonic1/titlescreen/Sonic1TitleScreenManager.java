@@ -4,6 +4,7 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.GameServices;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.SwScrlGhz;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.glClearColor;
-import com.openggf.game.GameServices;
 
 /**
  * Manages the Sonic 1 Title Screen.
@@ -44,7 +44,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
 
     private static Sonic1TitleScreenManager instance;
 
-    private final SonicConfigurationService configService = GameServices.configuration();
+    private final SonicConfigurationService configService;
     private final Sonic1TitleScreenDataLoader dataLoader = new Sonic1TitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -116,13 +116,23 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     // Credit text rendering
     private boolean creditTextCached = false;
 
-    public Sonic1TitleScreenManager() {}
+    public Sonic1TitleScreenManager() {
+        this(null);
+    }
+
+    Sonic1TitleScreenManager(SonicConfigurationService configService) {
+        this.configService = configService;
+    }
 
     public static Sonic1TitleScreenManager getInstance() {
         if (instance == null) {
             instance = new Sonic1TitleScreenManager();
         }
         return instance;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService != null ? configService : GameServices.configuration();
     }
 
     /**
@@ -185,7 +195,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
 
         frameCounter++;
 
-        int startKey = configService.getInt(SonicConfiguration.JUMP);
+        int startKey = configuration().getInt(SonicConfiguration.JUMP);
 
         switch (state) {
             case INTRO_TEXT_FADE_IN:

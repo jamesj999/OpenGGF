@@ -12,7 +12,9 @@ import java.util.List;
  * @param mainCharacter the main playable character identifier
  * @param sidekicks     list of sidekick character identifiers
  * @param lives         the player's remaining lives
- * @param emeraldCount  number of collected chaos emeralds
+ * @param continues     the player's remaining continues
+ * @param chaosEmeralds collected chaos emerald indices
+ * @param superEmeralds collected super emerald indices
  * @param clear         whether this slot represents a completed game
  */
 public record S3kSavePayload(
@@ -21,6 +23,8 @@ public record S3kSavePayload(
         String mainCharacter,
         List<String> sidekicks,
         int lives,
-        int emeraldCount,
+        int continues,
+        List<Integer> chaosEmeralds,
+        List<Integer> superEmeralds,
         boolean clear
 ) {}

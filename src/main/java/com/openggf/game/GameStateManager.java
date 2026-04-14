@@ -1,5 +1,7 @@
 package com.openggf.game;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -17,12 +19,14 @@ public class GameStateManager {
 
     private int score;
     private int lives;
+    private int continues;
 
     private int currentSpecialStageIndex;
     private int emeraldCount;
     private int specialStageCount;
     private int chaosEmeraldCount;
     private boolean[] gotEmeralds;
+    private boolean[] gotSuperEmeralds;
 
     /**
      * Current boss ID (ROM: Current_Boss_ID).
@@ -131,11 +135,17 @@ public class GameStateManager {
     public void resetSession() {
         this.score = 0;
         this.lives = 3;
+        this.continues = 0;
 
         this.currentSpecialStageIndex = 0;
         this.emeraldCount = 0;
         for (int i = 0; i < gotEmeralds.length; i++) {
             gotEmeralds[i] = false;
+        }
+        if (gotSuperEmeralds != null) {
+            for (int i = 0; i < gotSuperEmeralds.length; i++) {
+                gotSuperEmeralds[i] = false;
+            }
         }
 
         this.currentBossId = 0;
@@ -189,6 +199,45 @@ public class GameStateManager {
         this.lives++;
     }
 
+    public int getContinues() {
+        return continues;
+    }
+
+    public void addContinue() {
+        this.continues++;
+    }
+
+    public void restoreSaveProgress(int lives, int continues, List<Integer> chaosEmeralds, List<Integer> superEmeralds) {
+        this.lives = Math.max(0, lives);
+        this.continues = Math.max(0, continues);
+        this.emeraldCount = 0;
+        for (int i = 0; i < gotEmeralds.length; i++) {
+            gotEmeralds[i] = false;
+        }
+        if (gotSuperEmeralds != null) {
+            for (int i = 0; i < gotSuperEmeralds.length; i++) {
+                gotSuperEmeralds[i] = false;
+            }
+        }
+        if (chaosEmeralds != null) {
+            for (Integer emeraldIndex : chaosEmeralds) {
+                if (emeraldIndex != null && emeraldIndex >= 0 && emeraldIndex < gotEmeralds.length
+                        && !gotEmeralds[emeraldIndex]) {
+                    gotEmeralds[emeraldIndex] = true;
+                    emeraldCount++;
+                }
+            }
+        }
+        if (gotSuperEmeralds != null && superEmeralds != null) {
+            for (Integer emeraldIndex : superEmeralds) {
+                if (emeraldIndex != null && emeraldIndex >= 0 && emeraldIndex < gotSuperEmeralds.length
+                        && gotEmeralds[emeraldIndex]) {
+                    gotSuperEmeralds[emeraldIndex] = true;
+                }
+            }
+        }
+    }
+
     public void loseLife() {
         if (this.lives > 0) {
             this.lives--;
@@ -231,6 +280,29 @@ public class GameStateManager {
         return index >= 0 && index < gotEmeralds.length && gotEmeralds[index];
     }
 
+    public List<Integer> getCollectedChaosEmeraldIndices() {
+        List<Integer> indices = new ArrayList<>();
+        for (int i = 0; i < gotEmeralds.length; i++) {
+            if (gotEmeralds[i]) {
+                indices.add(i);
+            }
+        }
+        return List.copyOf(indices);
+    }
+
+    public List<Integer> getCollectedSuperEmeraldIndices() {
+        List<Integer> indices = new ArrayList<>();
+        if (gotSuperEmeralds == null) {
+            return List.of();
+        }
+        for (int i = 0; i < gotSuperEmeralds.length; i++) {
+            if (gotSuperEmeralds[i]) {
+                indices.add(i);
+            }
+        }
+        return List.copyOf(indices);
+    }
+
     /**
      * Marks an emerald as collected.
      * @param index Emerald index (0-6)
@@ -245,6 +317,34 @@ public class GameStateManager {
             gotEmeralds[index] = true;
             emeraldCount++;
         }
+    }
+
+    public boolean hasSuperEmerald(int index) {
+        return gotSuperEmeralds != null
+                && index >= 0
+                && index < gotSuperEmeralds.length
+                && gotSuperEmeralds[index];
+    }
+
+    public synchronized void markSuperEmeraldCollected(int index) {
+        if (gotSuperEmeralds == null || index < 0 || index >= gotSuperEmeralds.length) {
+            LOGGER.warning("Attempted to mark super emerald " + index +
+                    " but valid range is 0-" + ((gotSuperEmeralds == null ? 0 : gotSuperEmeralds.length) - 1));
+            return;
+        }
+        gotSuperEmeralds[index] = true;
+    }
+
+    public boolean hasAllSuperEmeralds() {
+        if (gotSuperEmeralds == null || gotSuperEmeralds.length == 0) {
+            return false;
+        }
+        for (boolean gotSuperEmerald : gotSuperEmeralds) {
+            if (!gotSuperEmerald) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -267,6 +367,7 @@ public class GameStateManager {
         this.specialStageCount = safeStageCount;
         this.chaosEmeraldCount = safeEmeraldTarget;
         this.gotEmeralds = new boolean[safeEmeraldTarget];
+        this.gotSuperEmeralds = new boolean[safeEmeraldTarget];
         this.currentSpecialStageIndex = 0;
         this.emeraldCount = 0;
     }

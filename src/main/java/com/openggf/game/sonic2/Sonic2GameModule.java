@@ -8,6 +8,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
+import com.openggf.game.sonic2.dataselect.S2DataSelectManager;
 import com.openggf.game.sonic2.dataselect.S2SaveSnapshotProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.levelselect.LevelSelectManager;
@@ -52,7 +53,11 @@ import com.openggf.game.GameId;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.TitleScreenProvider;
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.dataselect.DataSelectSessionController;
 import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
+import com.openggf.game.sonic2.dataselect.S2DataSelectProfile;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
@@ -74,6 +79,8 @@ public class Sonic2GameModule implements GameModule {
     private final TitleCardManager titleCardProvider = new TitleCardManager();
     private final TitleScreenManager titleScreenProvider = new TitleScreenManager();
     private final LevelSelectManager levelSelectProvider = new LevelSelectManager();
+    private final S2DataSelectProfile dataSelectHostProfile = new S2DataSelectProfile();
+    private DataSelectPresentationProvider dataSelectPresentationProvider;
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
     private PhysicsProvider physicsProvider;
@@ -258,6 +265,25 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
         return levelSelectProvider;
+    }
+
+    @Override
+    public com.openggf.game.DataSelectProvider getDataSelectProvider() {
+        return getDataSelectPresentationProvider();
+    }
+
+    @Override
+    public DataSelectPresentationProvider getDataSelectPresentationProvider() {
+        if (dataSelectPresentationProvider == null) {
+            dataSelectPresentationProvider = new DataSelectPresentationProvider(S2DataSelectManager::new,
+                    new DataSelectSessionController(dataSelectHostProfile));
+        }
+        return dataSelectPresentationProvider;
+    }
+
+    @Override
+    public DataSelectHostProfile getDataSelectHostProfile() {
+        return dataSelectHostProfile;
     }
 
     // Lazily cached — same instance across level loads. Reset via module replacement.

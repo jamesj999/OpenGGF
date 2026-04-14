@@ -2,15 +2,19 @@ package com.openggf.game.save;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openggf.game.dataselect.DataSelectGameProfile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.logging.Logger;
+
+import static java.security.MessageDigest.getInstance;
 
 public final class SaveManager {
 
@@ -32,6 +36,10 @@ public final class SaveManager {
     }
 
     public SaveSlotSummary readSlotSummary(String game, int slot) throws IOException {
+        return readSlotSummary(game, slot, null);
+    }
+
+    public SaveSlotSummary readSlotSummary(String game, int slot, DataSelectGameProfile profile) throws IOException {
         Path file = slotPath(game, slot);
         if (!Files.exists(file)) {
             return SaveSlotSummary.empty(slot);
@@ -48,8 +56,15 @@ public final class SaveManager {
                 quarantine(file, "missing payload");
                 return SaveSlotSummary.empty(slot);
             }
+            if (profile != null && !profile.isPayloadValid(payload)) {
+                quarantine(file, "invalid payload");
+                return SaveSlotSummary.empty(slot);
+            }
             String actual = sha256(mapper.writeValueAsString(payload));
             String expected = String.valueOf(raw.get("hash"));
+            if (!actual.equals(expected)) {
+                LOG.warning("Hash mismatch while reading save " + file);
+            }
             return actual.equals(expected)
                     ? new SaveSlotSummary(slot, SaveSlotState.VALID, payload)
                     : new SaveSlotSummary(slot, SaveSlotState.HASH_WARNING, payload);
@@ -65,7 +80,17 @@ public final class SaveManager {
 
     private void quarantine(Path file, String reason) throws IOException {
         LOG.warning("Quarantining corrupt save " + file + ": " + reason);
-        Files.move(file, file.resolveSibling(file.getFileName() + ".corrupt"));
+        Files.move(file, file.resolveSibling(file.getFileName() + ".corrupt"),
+                StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    public void deleteSlot(String game, int slot) {
+        Path file = slotPath(game, slot);
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            LOG.warning("Failed to delete save " + file + ": " + e.getMessage());
+        }
     }
 
     private Path slotPath(String game, int slot) {
@@ -74,7 +99,7 @@ public final class SaveManager {
 
     private static String sha256(String value) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new IllegalStateException(e);

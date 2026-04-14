@@ -30,6 +30,9 @@ import com.openggf.debug.PerformanceProfiler;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
+import com.openggf.game.startup.DataSelectPresentationResolution;
+import com.openggf.game.startup.StartupRouteResolver;
+import com.openggf.game.startup.TitleActionRoute;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -45,9 +48,8 @@ import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.data.RomManager;
-import com.openggf.game.save.RuntimeSaveContext;
-import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveReason;
+import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.session.SessionManager;
 
 import java.io.IOException;
@@ -102,7 +104,7 @@ public class GameLoop {
     private WaterSystem waterSystem;
     private final PerformanceProfiler profiler;
     private final PlaybackDebugManager playbackDebugManager;
-    private final SaveManager saveManager;
+    private final StartupRouteResolver startupRouteResolver = new StartupRouteResolver();
 
     // The gameplay runtime facade — set by Engine after RuntimeManager.createGameplay(...).
     // When non-null, cached fields above are sourced from the runtime's gameplay context.
@@ -120,6 +122,7 @@ public class GameLoop {
     private Runnable editorStateSyncHandler;
     private Supplier<MasterTitleScreen> masterTitleScreenSupplier;
     private Consumer<String> masterTitleExitHandler;
+    private Consumer<com.openggf.game.dataselect.DataSelectAction> dataSelectActionHandler;
 
     // Special stage results screen
     private ResultsScreen resultsScreen;
@@ -190,7 +193,6 @@ public class GameLoop {
         this.debugOverlayManager = this.engineServices.debugOverlay();
         this.profiler = this.engineServices.profiler();
         this.playbackDebugManager = this.engineServices.playbackDebug();
-        this.saveManager = new SaveManager(java.nio.file.Path.of("saves"));
         refreshRuntimeBindings();
     }
 
@@ -237,6 +239,10 @@ public class GameLoop {
 
     public void setEditorPlaytestToggleHandler(Runnable editorPlaytestToggleHandler) {
         this.editorPlaytestToggleHandler = editorPlaytestToggleHandler;
+    }
+
+    public void setDataSelectActionHandler(Consumer<com.openggf.game.dataselect.DataSelectAction> dataSelectActionHandler) {
+        this.dataSelectActionHandler = dataSelectActionHandler;
     }
 
     public void setEditorFreshStartHandler(Runnable editorFreshStartHandler) {
@@ -1566,7 +1572,6 @@ public class GameLoop {
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
-
         LOGGER.info("Exiting bonus stage, entering zone title card for zone " + zone + " act " + act);
     }
 
@@ -1828,6 +1833,7 @@ public class GameLoop {
         // from exitResultsScreen()'s fade-to-white). Without this, the white overlay
         // persists indefinitely because completeFade() sees no new fade was started.
         fadeManager.startFadeFromWhite(null);
+        requestSessionSave(SaveReason.SPECIAL_STAGE_SAVE);
 
         LOGGER.info("Exited Results Screen, entering Title Card for zone " + zoneIndex + " act " + actIndex);
     }
@@ -2165,13 +2171,13 @@ public class GameLoop {
             return;
         }
 
-        boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+        TitleActionRoute route = resolveTitleActionRoute(titleScreen);
 
         // Sonic 1 level select: immediate transition, no fade, music continues.
         // The original game loads Pal_LevelSel and clears the BG plane instantly.
         // Title screen art data is kept loaded so it can be rendered behind the
         // level select text with the brown/sepia palette tint.
-        if (levelSelectOnStartup && titleScreen.supportsLevelSelectOverlay()) {
+        if (route == TitleActionRoute.LEVEL_SELECT && titleScreen.supportsLevelSelectOverlay()) {
             doEnterLevelSelectFromTitleScreen();
             return;
         }
@@ -2186,9 +2192,7 @@ public class GameLoop {
         audioManager.fadeOutMusic();
 
         // Start fade-to-black, then transition
-        fadeManager.startFadeToBlack(() -> {
-            doExitTitleScreen();
-        });
+        fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
 
         LOGGER.info("Starting fade-to-black for Title Screen exit");
     }
@@ -2230,33 +2234,16 @@ public class GameLoop {
      */
     private void doExitTitleScreen() {
         TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        doExitTitleScreen(resolveTitleActionRoute(titleScreen));
+    }
+
+    private void doExitTitleScreen(TitleActionRoute route) {
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
         if (titleScreen != null) {
             titleScreen.reset();
         }
 
-        boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
-        if (levelSelectOnStartup) {
-            // Transition to level select
-            doEnterLevelSelect();
-        } else {
-            // Load EHZ Act 1
-            GameMode oldMode = currentGameMode;
-            currentGameMode = GameMode.LEVEL;
-
-            try {
-                levelManager.loadZoneAndAct(0, 0);
-            } catch (IOException e) {
-                LOGGER.severe("Failed to load EHZ Act 1: " + e.getMessage());
-                throw new RuntimeException("Failed to load EHZ Act 1", e);
-            }
-
-            if (gameModeChangeListener != null) {
-                gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
-            }
-
-            fadeManager.startFadeFromBlack(null);
-            LOGGER.info("Title screen -> EHZ Act 1");
-        }
+        executeTitleActionRoute(route);
     }
 
     /**
@@ -2271,14 +2258,7 @@ public class GameLoop {
         if (gameModule != null) {
             TitleScreenProvider titleScreenProvider = gameModule.getTitleScreenProvider();
             if (titleScreenProvider != null) {
-                // S3K: route through data select screen instead of directly to level
-                DataSelectProvider dataSelectProvider = gameModule.getDataSelectProvider();
-                if (dataSelectProvider != null
-                        && !(dataSelectProvider instanceof NoOpDataSelectProvider)) {
-                    titleScreenProvider.setExitToLevelHandler(this::startDataSelectFromTitleScreen);
-                } else {
-                    titleScreenProvider.setExitToLevelHandler(this::startLevelFromTitleScreenImmediate);
-                }
+                titleScreenProvider.setExitToLevelHandler(this::handleTitleScreenExitFromProvider);
             }
             return titleScreenProvider;
         }
@@ -2291,6 +2271,69 @@ public class GameLoop {
             levelManager.loadZoneAndAct(0, 0);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load title screen start level", e);
+        }
+    }
+
+    private void handleTitleScreenExitFromProvider() {
+        TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
+        if (titleScreen == null) {
+            return;
+        }
+
+        TitleActionRoute route = resolveTitleActionRoute(titleScreen);
+        // Provider callbacks fire after the provider has already completed its
+        // own fade-out, so this path must route directly without starting the
+        // generic FadeManager fade a second time.
+        if (route == TitleActionRoute.LEVEL_SELECT && titleScreen.supportsLevelSelectOverlay()) {
+            doEnterLevelSelectFromTitleScreen();
+            return;
+        }
+
+        if (route == TitleActionRoute.DATA_SELECT) {
+            exitTitleScreen();
+            return;
+        }
+
+        doExitTitleScreen(route);
+    }
+
+    private TitleActionRoute resolveTitleActionRoute(TitleScreenProvider titleScreen) {
+        var gameModule = GameServices.module();
+        if (gameModule == null || titleScreen == null) {
+            return TitleActionRoute.LEVEL;
+        }
+        TitleScreenProvider.TitleScreenAction exitAction = titleScreen.consumeExitAction();
+        if (exitAction == null) {
+            exitAction = TitleScreenProvider.TitleScreenAction.OTHER;
+        }
+        return startupRouteResolver.resolveTitleAction(
+                gameModule,
+                resolveDataSelectPresentation(),
+                true,
+                configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP),
+                exitAction);
+    }
+
+    private DataSelectPresentationResolution resolveDataSelectPresentation() {
+        var gameModule = GameServices.module();
+        if (gameModule == null) {
+            return new DataSelectPresentationResolution(false, null);
+        }
+
+        DataSelectProvider dataSelectProvider = getDataSelectProviderLazy();
+        boolean dataSelectEligible = dataSelectProvider != null
+                && !(dataSelectProvider instanceof NoOpDataSelectProvider);
+        // Task 1 keeps presentation routing local and explicit. Cross-game donated
+        // presentation wiring belongs to later tasks; until that seam exists, route
+        // against the active module only.
+        return new DataSelectPresentationResolution(dataSelectEligible, gameModule.getGameId());
+    }
+
+    private void executeTitleActionRoute(TitleActionRoute route) {
+        switch (route) {
+            case DATA_SELECT -> initializeDataSelectMode();
+            case LEVEL_SELECT -> doEnterLevelSelect();
+            case LEVEL, TWO_PLAYER, OPTIONS, OTHER -> startLevelFromTitleScreenImmediate();
         }
     }
 
@@ -2328,20 +2371,44 @@ public class GameLoop {
      * This will be enhanced in later tasks to handle slot selection.
      */
     private void exitDataSelect() {
+        if (resolveFadeManager().isActive()) {
+            return;
+        }
         var dataSelect = getDataSelectProviderLazy();
+        com.openggf.game.dataselect.DataSelectAction action = com.openggf.game.dataselect.DataSelectAction.none();
+        if (dataSelect instanceof com.openggf.game.dataselect.AbstractDataSelectProvider provider) {
+            action = provider.consumePendingAction();
+        }
+        if (action.type() == com.openggf.game.dataselect.DataSelectActionType.NONE
+                || dataSelectActionHandler == null) {
+            if (dataSelect != null) {
+                dataSelect.reset();
+            }
+            return;
+        }
+        if (isDataSelectGameplayAction(action.type())) {
+            com.openggf.game.dataselect.DataSelectAction pendingAction = action;
+            audioManager.fadeOutMusic();
+            resolveFadeManager().startFadeToBlack(() -> {
+                if (dataSelect != null) {
+                    dataSelect.reset();
+                }
+                dataSelectActionHandler.accept(pendingAction);
+                resolveFadeManager().startFadeFromBlack(null);
+            });
+            return;
+        }
         if (dataSelect != null) {
             dataSelect.reset();
         }
-        // Save on data select exit (NEW_SLOT_START for now; EXISTING_SLOT_LOAD and
-        // CLEAR_RESTART_COMMIT will be wired when full menu logic is implemented)
-        requestSessionSave(SaveReason.NEW_SLOT_START);
-        // Transition to level loading (will be enhanced when slot selection is wired)
-        setGameMode(GameMode.LEVEL);
-        try {
-            levelManager.loadZoneAndAct(0, 0);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load level from data select", e);
-        }
+        dataSelectActionHandler.accept(action);
+    }
+
+    private boolean isDataSelectGameplayAction(com.openggf.game.dataselect.DataSelectActionType type) {
+        return switch (type) {
+            case NO_SAVE_START, NEW_SLOT_START, LOAD_SLOT, CLEAR_RESTART -> true;
+            case NONE, DELETE_SLOT -> false;
+        };
     }
 
     /**
@@ -2685,20 +2752,11 @@ public class GameLoop {
      * @param reason the reason triggering this save
      */
     private void requestSessionSave(SaveReason reason) {
-        var worldSession = SessionManager.getCurrentWorldSession();
-        if (worldSession == null || worldSession.getSaveSessionContext() == null) {
-            return;
-        }
-        try {
-            worldSession.getSaveSessionContext().requestSave(
-                    reason,
-                    new RuntimeSaveContext(GameServices.runtimeOrNull(),
-                            worldSession.getSaveSessionContext()),
-                    GameServices.module().getSaveSnapshotProvider(),
-                    saveManager);
-        } catch (IOException e) {
-            LOGGER.warning("Failed to write save: " + e.getMessage());
-        }
+        SessionSaveRequests.requestCurrentSessionSave(reason);
+    }
+
+    public void requestSaveForCurrentSession(SaveReason reason) {
+        requestSessionSave(reason);
     }
 
     /**

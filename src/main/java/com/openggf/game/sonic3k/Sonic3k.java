@@ -11,6 +11,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.game.DynamicStartPositionProvider;
 import com.openggf.game.GameServices;
+import com.openggf.game.session.SessionManager;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
@@ -301,8 +302,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
 
         // Character palette — Knuckles uses Pal_Knuckles, Sonic/Tails share Pal_SonicTails
-        String mainCharCode = GameServices.configuration()
-                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCharCode = resolveActiveMainCharacterCode();
         int characterPaletteAddr;
         if ("knuckles".equalsIgnoreCase(mainCharCode)) {
             characterPaletteAddr = Sonic3kConstants.KNUCKLES_PALETTE_ADDR;
@@ -498,8 +498,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int getCharacterStartTableAddr() {
-        String mainCharacterCode = GameServices.configuration()
-                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCharacterCode = resolveActiveMainCharacterCode();
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return Sonic3kConstants.KNUX_START_LOCATIONS_ADDR;
         }
@@ -705,8 +704,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
     }
 
     private int resolveStartupCharacterPlcIndex() {
-        String mainCharacterCode = GameServices.configuration()
-                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCharacterCode = resolveActiveMainCharacterCode();
         if ("knuckles".equalsIgnoreCase(mainCharacterCode)) {
             return 0x05;
         }
@@ -714,6 +712,16 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
             return 0x07;
         }
         return 0x01;
+    }
+
+    private String resolveActiveMainCharacterCode() {
+        var worldSession = SessionManager.getCurrentWorldSession();
+        if (worldSession != null
+                && worldSession.getSaveSessionContext() != null
+                && worldSession.getSaveSessionContext().selectedTeam() != null) {
+            return worldSession.getSaveSessionContext().selectedTeam().mainCharacter();
+        }
+        return GameServices.configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
     }
 
     private void appendPlcPatternOps(LevelResourcePlan.Builder planBuilder, int plcIndex) {

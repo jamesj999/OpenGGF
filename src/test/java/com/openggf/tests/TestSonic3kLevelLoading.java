@@ -7,7 +7,11 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicStartPositionProvider;
+import com.openggf.game.save.SaveSessionContext;
+import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3k;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
 import com.openggf.level.Level;
@@ -18,7 +22,10 @@ import com.openggf.tests.rules.SonicGame;
 
 import org.junit.jupiter.api.AfterEach;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +46,7 @@ public class TestSonic3kLevelLoading {
 
     @AfterEach
     public void tearDown() {
+        SessionManager.clear();
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, oldSkipIntros != null ? oldSkipIntros : false);
     }
 
@@ -58,6 +66,32 @@ public class TestSonic3kLevelLoading {
         // LevelData fallback should also match ROM values
         assertEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartXPos(), start[0]);
         assertEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartYPos(), start[1]);
+    }
+
+    @Test
+    public void aiz1UsesKnucklesStartPositionWhenSessionSelectedTeamIsKnuckles() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        try {
+            assertTrue(game instanceof DynamicStartPositionProvider);
+            DynamicStartPositionProvider provider = (DynamicStartPositionProvider) game;
+
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "knuckles");
+            int[] expectedKnuckles = provider.getStartPosition(0, 0);
+
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            SessionManager.openGameplaySession(new Sonic3kGameModule(),
+                    SaveSessionContext.noSave("s3k", new SelectedTeam("knuckles", List.of()), 0, 0));
+            int[] sessionKnuckles = provider.getStartPosition(0, 0);
+
+            assertNotNull(expectedKnuckles);
+            assertNotNull(sessionKnuckles);
+            assertArrayEquals(expectedKnuckles, sessionKnuckles);
+            assertNotEquals(0x40, sessionKnuckles[0]);
+            assertNotEquals(0x420, sessionKnuckles[1]);
+        } finally {
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, oldMain);
+        }
     }
 
     @Test

@@ -39,6 +39,9 @@ import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
+import com.openggf.game.save.SaveManager;
+import com.openggf.game.save.SaveSlotSummary;
+import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
@@ -47,9 +50,13 @@ import com.openggf.physics.Direction;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.Callbacks.*;
@@ -181,6 +188,7 @@ public class Engine {
 		this.gameLoop.setEditorStateSyncHandler(this::syncEditorState);
 		this.gameLoop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
 		this.gameLoop.setMasterTitleExitHandler(this::exitMasterTitleScreen);
+		this.gameLoop.setDataSelectActionHandler(this::launchGameplayFromDataSelect);
 		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.projectionWidth = realWidth;
@@ -607,6 +615,132 @@ public class Engine {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	private void launchGameplayFromDataSelect(com.openggf.game.dataselect.DataSelectAction action) {
+		GameModule module = SessionManager.requireCurrentGameModule();
+		SaveManager saveManager = new SaveManager(Path.of("saves"));
+		Map<String, Object> loadedPayload = loadDataSelectPayload(module, action, saveManager);
+		com.openggf.game.save.SaveSessionContext saveContext = createDataSelectSaveContext(module, action, saveManager);
+
+		GameplayModeContext gameplay = SessionManager.openGameplaySession(module, saveContext);
+		RuntimeManager.destroyCurrent();
+		initializeGameplayRuntime(gameplay, false);
+		loadLevelFromDataSelect(action.zone(), action.act());
+		restoreRuntimeFromDataSelectPayload(runtime, loadedPayload);
+		gameLoop.setGameMode(GameMode.LEVEL);
+
+		dataSelectLaunchSaveReason(action.type())
+				.ifPresent(gameLoop::requestSaveForCurrentSession);
+	}
+
+	static Optional<com.openggf.game.save.SaveReason> dataSelectLaunchSaveReason(
+			com.openggf.game.dataselect.DataSelectActionType actionType) {
+		return switch (actionType) {
+			case NEW_SLOT_START -> Optional.of(com.openggf.game.save.SaveReason.NEW_SLOT_START);
+			case LOAD_SLOT -> Optional.of(com.openggf.game.save.SaveReason.EXISTING_SLOT_LOAD);
+			case CLEAR_RESTART -> Optional.of(com.openggf.game.save.SaveReason.CLEAR_RESTART_COMMIT);
+			case NONE, NO_SAVE_START, DELETE_SLOT -> Optional.empty();
+		};
+	}
+
+	private void loadLevelFromDataSelect(int zone, int act) {
+		try {
+			levelManager.loadZoneAndAct(zone, act);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to load zone " + zone + " act " + act + " from data select", e);
+		}
+	}
+
+	static com.openggf.game.save.SaveSessionContext createDataSelectSaveContext(
+			GameModule module,
+			com.openggf.game.dataselect.DataSelectAction action,
+			SaveManager saveManager) {
+		String gameCode = switch (module.getGameId()) {
+			case S1 -> "s1";
+			case S2 -> "s2";
+			case S3K -> "s3k";
+		};
+		Map<String, Object> payload = loadDataSelectPayload(module, action, saveManager);
+		SelectedTeam team = payload == null ? action.team() : teamFromPayload(payload, action.team());
+		com.openggf.game.save.SaveSessionContext context =
+				action.slot() > 0
+						? com.openggf.game.save.SaveSessionContext.forSlot(
+								gameCode, action.slot(), team, action.zone(), action.act())
+						: com.openggf.game.save.SaveSessionContext.noSave(
+								gameCode, team, action.zone(), action.act());
+		if (payload != null && Boolean.TRUE.equals(payload.get("clear"))) {
+			context.markClear();
+		}
+		return context;
+	}
+
+	private static Map<String, Object> loadDataSelectPayload(
+			GameModule module,
+			com.openggf.game.dataselect.DataSelectAction action,
+			SaveManager saveManager) {
+		if (action.slot() <= 0) {
+			return null;
+		}
+		return switch (action.type()) {
+			case LOAD_SLOT, CLEAR_RESTART -> {
+				try {
+					String gameCode = switch (module.getGameId()) {
+						case S1 -> "s1";
+						case S2 -> "s2";
+						case S3K -> "s3k";
+					};
+					SaveSlotSummary summary = saveManager.readSlotSummary(gameCode, action.slot());
+					yield summary.state() == com.openggf.game.save.SaveSlotState.EMPTY ? null : summary.payload();
+				} catch (IOException e) {
+					throw new RuntimeException("Failed to read save slot " + action.slot() + " for data select launch", e);
+				}
+			}
+			case NONE, NO_SAVE_START, NEW_SLOT_START, DELETE_SLOT -> null;
+		};
+	}
+
+	static void restoreRuntimeFromDataSelectPayload(com.openggf.game.GameRuntime runtime, Map<String, Object> payload) {
+		if (runtime == null || payload == null) {
+			return;
+		}
+		int lives = readInt(payload, "lives", runtime.getGameState().getLives());
+		int continues = readInt(payload, "continues", runtime.getGameState().getContinues());
+		runtime.getGameState().restoreSaveProgress(
+				lives,
+				continues,
+				readIntList(payload.get("chaosEmeralds")),
+				readIntList(payload.get("superEmeralds")));
+	}
+
+	private static SelectedTeam teamFromPayload(Map<String, Object> payload, SelectedTeam fallback) {
+		Object mainRaw = payload.get("mainCharacter");
+		if (!(mainRaw instanceof String main)) {
+			return fallback;
+		}
+		Object sidekicksRaw = payload.get("sidekicks");
+		List<String> sidekicks = sidekicksRaw instanceof List<?>
+				? ((List<?>) sidekicksRaw).stream().map(String::valueOf).toList()
+				: List.of();
+		return new SelectedTeam(main, sidekicks);
+	}
+
+	private static int readInt(Map<String, Object> payload, String key, int fallback) {
+		Object value = payload.get(key);
+		return value instanceof Number number ? number.intValue() : fallback;
+	}
+
+	private static List<Integer> readIntList(Object raw) {
+		if (!(raw instanceof List<?> list)) {
+			return List.of();
+		}
+		List<Integer> values = new ArrayList<>();
+		for (Object value : list) {
+			if (value instanceof Number number) {
+				values.add(number.intValue());
+			}
+		}
+		return List.copyOf(values);
 	}
 
 	public void toggleEditorPlaytestMode() {

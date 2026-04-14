@@ -10,6 +10,7 @@ public abstract class AbstractDataSelectProvider implements DataSelectProvider {
 
     protected State state = State.INACTIVE;
     protected DataSelectAction pendingAction = DataSelectAction.none();
+    protected DataSelectSessionController sessionController;
 
     /**
      * Consumes and returns the pending action, resetting it to {@link DataSelectAction#none()}.
@@ -17,8 +18,19 @@ public abstract class AbstractDataSelectProvider implements DataSelectProvider {
      * @return the action that was pending, or a NONE action if nothing was pending
      */
     public DataSelectAction consumePendingAction() {
+        if (sessionController != null) {
+            return sessionController.consumePendingAction();
+        }
         DataSelectAction action = pendingAction;
         pendingAction = DataSelectAction.none();
         return action;
+    }
+
+    public DataSelectSessionController getSessionController() {
+        return sessionController;
+    }
+
+    protected void attachSessionController(DataSelectSessionController controller) {
+        this.sessionController = controller;
     }
 }

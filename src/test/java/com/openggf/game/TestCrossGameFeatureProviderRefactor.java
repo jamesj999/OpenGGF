@@ -1,15 +1,23 @@
 package com.openggf.game;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestCrossGameFeatureProviderRefactor {
 
+    @BeforeEach
+    void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
+
     @AfterEach
     void cleanup() {
         CrossGameFeatureProvider.getInstance().resetState();
+        RuntimeManager.destroyCurrent();
         GameModuleRegistry.reset();
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     @Test

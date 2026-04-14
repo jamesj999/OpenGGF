@@ -54,6 +54,7 @@ Paths are relative to the working directory (where the JAR is launched).
 |-----|------|---------|-------------|
 | `MAIN_CHARACTER_CODE` | string | `"sonic"` | Identity of the player-controlled character. Currently only `"sonic"` is supported. |
 | `SIDEKICK_CHARACTER_CODE` | string | `""` | CPU-controlled sidekick spawned alongside the main character. Set to `"tails"` to enable Tails AI, `"sonic"` to clone the player, or `""` (empty) to disable. |
+| `DATA_SELECT_EXTRA_PLAYER_COMBOS` | string | `""` | Extra team combinations shown on the S3K Data Select screen. Format is `main,sidekick1,sidekick2;main2,sidekick1`. The first character in each group is the main character; remaining entries are sidekicks. Example: `"sonic,knuckles;sonic,tails,tails;knuckles,tails"`. This only affects Data Select team choices; normal gameplay and Level Select still use `MAIN_CHARACTER_CODE` and `SIDEKICK_CHARACTER_CODE`. |
 
 ---
 

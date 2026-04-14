@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -129,6 +130,7 @@ public class Aiz2BossEndSequenceController extends AbstractObjectInstance {
             int transitionY = arenaBaseY + NEXT_LEVEL_Y_OFFSET;
             if ((player.getY() & 0xFFFF) >= transitionY) {
                 transitionRequested = true;
+                services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
                 services().requestZoneAndAct(Sonic3kZoneIds.ZONE_HCZ, 0);
             }
         }

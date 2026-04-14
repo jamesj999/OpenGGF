@@ -1,9 +1,14 @@
 package com.openggf.game.sonic2.dataselect;
 
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectDestination;
 import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,5 +43,33 @@ class TestS2DataSelectProfile {
         var summary = profile.summarizeFreshSlot(3);
         assertEquals(3, summary.slot());
         assertTrue(summary.payload().isEmpty());
+    }
+
+    @Test
+    void clearRestartDestinations_coverS2MainPath() {
+        S2DataSelectProfile profile = new S2DataSelectProfile();
+        List<DataSelectDestination> destinations = profile.clearRestartDestinations(Map.of(
+                "zone", Sonic2ZoneConstants.ZONE_DEZ,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", List.of("tails"),
+                "emeraldCount", 7,
+                "clear", true
+        ));
+
+        assertEquals(new DataSelectDestination(Sonic2ZoneConstants.ZONE_EHZ, 0), destinations.getFirst());
+        assertEquals(new DataSelectDestination(Sonic2ZoneConstants.ZONE_DEZ, 0), destinations.getLast());
+        assertTrue(destinations.contains(new DataSelectDestination(Sonic2ZoneConstants.ZONE_WFZ, 0)));
+    }
+
+    @Test
+    void module_exposesHostProfileSeparatelyFromPresentationProvider() {
+        Sonic2GameModule module = new Sonic2GameModule();
+
+        DataSelectHostProfile hostProfile = module.getDataSelectHostProfile();
+
+        assertNotNull(hostProfile);
+        assertEquals("s2", hostProfile.gameCode());
+        assertNotNull(module.getDataSelectPresentationProvider());
     }
 }
