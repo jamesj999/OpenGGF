@@ -101,7 +101,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone is substantially playable, Hydrocity now has early HCZ2 chase coverage, and S3K includes title screen, level select, Knuckles glide/climb, Blue Ball special stages (WIP), bonus-stage parity work, palette cycling, and expanding object/badnik coverage. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone is substantially playable, Hydrocity now has early HCZ2 chase coverage, and S3K includes title screen, level select, data select with save/load support, Knuckles glide/climb, Blue Ball special stages (WIP), bonus-stage parity work, palette cycling, and expanding object/badnik coverage. Data select can also be donated to S1/S2 via cross-game donation. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -122,9 +122,11 @@ ROM addresses are verified against these specific builds. ROM filenames are conf
 
 ### What is cross-game feature donation?
 
-A feature that lets a donor game (S2 or S3K) provide player sprites, spindash mechanics, and sound
-effects while you play a different base game (e.g. Sonic 1). This means you can play S1 levels
-with S2's Sonic and Tails sprites, spindash, and sidekick AI. Enable it in `config.json`:
+A feature that lets a donor game (S2 or S3K) provide player sprites, spindash mechanics, sound
+effects, and the data select (save/load) screen while you play a different base game (e.g.
+Sonic 1). This means you can play S1 levels with S2's Sonic and Tails sprites, spindash, and
+sidekick AI — and when S3K is the donor, you also get the full S3K data select screen with
+save slots and team selection before gameplay begins. Enable it in `config.json`:
 
 ```json
 {
@@ -198,6 +200,13 @@ further S3K parity work.
   renderer with improved batching and overlap handling.
 - **S3K parity fixes:** HCZ2 now has the moving-wall chase sequence, HCZ water/column behavior was
   corrected further, and water state is restored properly after stage returns.
+- **Data select and save system:** a full S3K data select screen with ROM-accurate rendering,
+  8 save slots, team selection (Sonic+Tails, Sonic, Tails, Knuckles), and JSON-based save
+  persistence with integrity verification. S1 and S2 can use the S3K data select via cross-game
+  donation, with each game retaining its own save profiles and zone progression.
+- **Runtime-owned frameworks:** `PaletteOwnershipRegistry` for multi-writer palette arbitration,
+  `ZoneRuntimeRegistry` for typed per-zone state adapters, and related shared registries that
+  normalize zone-specific behavior across games.
 
 See CHANGELOG.md for the running list of unreleased changes.
 

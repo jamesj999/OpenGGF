@@ -7,7 +7,7 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 3.  Provide modern tooling such as a level editor and an open framework for modding and customisation.
 
 ## Current Status
-The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor.
+The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor. A data select and save system is now implemented: S3K has a ROM-accurate data select screen with 8 save slots and team selection, and S1/S2 can use this screen via cross-game donation while retaining their own save profiles.
 
 ### Rendering
 *   **Status:** ✅ Functional.
@@ -41,7 +41,7 @@ The project is in an **alpha** state. Core systems are functional with extensive
 1.  **S3K object implementation** – Implement zone-specific objects, badniks, and bosses for S3K zones.
 2.  **S3K scroll handlers** – Add dedicated scroll handlers for remaining S3K zones beyond AIZ and MGZ.
 3.  **S2 remaining bosses** – Implement bosses for OOZ, WFZ, SCZ, DEZ (EHZ, CPZ, HTZ, ARZ, CNZ, MCZ done).
-4.  **Level select / save system** – Implement S3K save file system and level select menus.
+4.  **Data select parity** – The S3K data select and save system is implemented with cross-game donation to S1/S2. Remaining work: native selector mapping art, save-slot visual states, and emerald display parity.
 5.  **Special Stage polish** – S2 special stage is functional; S1 special stage rendering is in progress.
 
 ## Agent Directives
@@ -64,6 +64,8 @@ The project is in an **alpha** state. Core systems are functional with extensive
     *   `data` – ROM loading (`Rom`, `RomManager`, `RomByteReader`), game interface, art providers
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag
     *   `game` – core game-agnostic interfaces, providers, `GameServices` façade, `GameRuntime`, `RuntimeManager`, `PlayableEntity`, `DamageCause`, `AbstractZoneRegistry`
+    *   `game.dataselect` – shared data select framework: `DataSelectProvider`, `DataSelectSessionController`, `DataSelectHostProfile`, `DataSelectAction`
+    *   `game.save` – save system: `SaveManager` (JSON + SHA256), `SaveSessionContext`, `SaveSlotSummary`, `SelectedTeam`
     *   `game.sonic1` – Sonic 1 game module, zone registry, level events, objects, badniks, bosses, scroll handlers, audio, title screen, special stage
     *   `game.sonic2` – Sonic 2-specific implementations
     *   `game.sonic2.objects` – object factories and instance classes
@@ -71,6 +73,7 @@ The project is in an **alpha** state. Core systems are functional with extensive
     *   `game.sonic2.constants` – ROM offsets, object IDs, audio constants
     *   `game.sonic3k` – Sonic 3&K game module, level loading, and bootstrap logic
     *   `game.sonic3k.constants` – Sonic 3&K ROM offsets and table metadata
+    *   `game.sonic3k.dataselect` – S3K data select: `S3kDataSelectManager`, `S3kDataSelectPresentation`, `S3kDataSelectRenderer`, `S3kDataSelectDataLoader`, save payloads
     *   `graphics` – GL wrappers and render managers
     *   `level` – level structures (patterns, blocks, chunks, collision), `MutableLevel`, `AbstractLevel`, `LevelTilemapManager`, `LevelTransitionCoordinator`, `LevelDebugRenderer`
     *   `level.objects` – unified `ObjectManager` with placement, collision, touch response; `ObjectServices` interface and `DefaultObjectServices`; shared base classes (`AbstractBadnikInstance`, `AbstractSpikeObjectInstance`, `AbstractMonitorObjectInstance`, `AbstractProjectileInstance`, etc.); utility helpers (`SubpixelMotion`, `PatrolMovementHelper`, `PlatformBobHelper`, `DestructionEffects`, etc.)

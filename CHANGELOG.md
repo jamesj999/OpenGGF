@@ -50,6 +50,36 @@ All notable changes to the OpenGGF project are documented in this file.
 - Fixed debug overlay sensor label overlap and improved text batching/caching
   so heavy overlay usage produces less garbage and more stable spacing.
 
+### Data Select and Save System
+
+- Added a shared data select framework (`DataSelectProvider`,
+  `DataSelectSessionController`, `DataSelectHostProfile`, `DataSelectAction`)
+  that separates presentation from game-specific save logic.
+- Implemented the S3K data select screen (`S3kDataSelectManager`,
+  `S3kDataSelectPresentation`, `S3kDataSelectRenderer`,
+  `S3kDataSelectDataLoader`) with ROM-accurate rendering, 8 save slots, team
+  selection (Sonic+Tails, Sonic, Tails, Knuckles), and selector state machine.
+- Added `SaveManager` with JSON file persistence, SHA256 integrity hash, and
+  corrupt-file quarantine. Save session context tracks active slot, team, and
+  zone/act for level launch via `SaveSessionContext`.
+- Added `StartupRouteResolver` to route title screen `ONE_PLAYER` actions to
+  data select when S3K presentation is available.
+- Added S1 and S2 data select host profiles (`S1DataSelectProfile`,
+  `S2DataSelectProfile`) enabling cross-game data select donation: S1/S2 can
+  use the S3K data select screen while retaining their own save ownership,
+  zone labels, and team configurations.
+- Wired `GameLoop.DataSelectActionHandler` and
+  `Engine.launchGameplayFromDataSelect()` to consume data select actions and
+  launch gameplay with the selected team and restored game state.
+
+### Runtime-Owned Frameworks
+
+- Added `PaletteOwnershipRegistry` for multi-writer palette arbitration with
+  precedence ordering and underwater mirroring.
+- Added `ZoneRuntimeRegistry` for typed per-zone runtime state adapters over
+  raw event/state bytes, with S3K AIZ and HCZ adapters.
+- Routed HCZ palette cycling through the palette ownership registry.
+
 ### Gameplay and Parity Fixes
 
 - Implemented the HCZ2 moving wall chase sequence and corrected HCZ water-skim
@@ -58,6 +88,7 @@ All notable changes to the OpenGGF project are documented in this file.
   phantom collisions in tall levels.
 - Fixed S3K water restoration after stage returns, and restored power-up
   spawning plus slot-machine glass priority after runtime/bootstrap changes.
+- Skipped already-collected S3K special stages on entry.
 
 ## v0.5.20260411 (Released 2026-04-11)
 
