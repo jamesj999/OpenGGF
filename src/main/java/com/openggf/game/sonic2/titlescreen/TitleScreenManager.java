@@ -1508,6 +1508,11 @@ public class TitleScreenManager implements TitleScreenProvider {
         return state != State.INACTIVE;
     }
 
+    @Override
+    public TitleScreenAction consumeExitAction() {
+        return TitleScreenAction.ONE_PLAYER;
+    }
+
     /**
      * Lightweight animated sprite state for the title screen intro.
      */

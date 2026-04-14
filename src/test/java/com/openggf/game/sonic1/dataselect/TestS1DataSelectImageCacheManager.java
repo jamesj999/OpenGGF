@@ -184,6 +184,21 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     @Test
+    void cacheInvalidWhenZoneImageHasWrongDimensions() throws Exception {
+        Map<String, String> zones = writeZoneSet();
+        writeZonePng(tempDir.resolve(zones.get("ghz")).getFileName().toString(), 1, 1);
+        writeManifest("sha-dimensions", zones);
+
+        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                tempDir,
+                config,
+                () -> "sha-dimensions",
+                mapper);
+
+        assertFalse(manager.cacheValid());
+    }
+
+    @Test
     void settleFramesAcceptsConfiguredPositiveValue() {
         config.setConfigValue(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
 
@@ -268,7 +283,7 @@ public class TestS1DataSelectImageCacheManager {
             assertSame(captured, result);
             org.mockito.Mockito.verify(camera).setX((short) (0x180 - 152));
             org.mockito.Mockito.verify(camera).setY((short) (0x100 - 96));
-            org.mockito.Mockito.verify(camera, org.mockito.Mockito.times(3)).updatePosition(true);
+            org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).updatePosition(true);
         }
     }
 
@@ -361,8 +376,12 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     private String writeZonePng(String fileName) throws IOException {
+        return writeZonePng(fileName, S1DataSelectImageGenerator.PREVIEW_WIDTH, S1DataSelectImageGenerator.PREVIEW_HEIGHT);
+    }
+
+    private String writeZonePng(String fileName, int width, int height) throws IOException {
         Path file = tempDir.resolve(fileName);
-        BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         ImageIO.write(image, "png", file.toFile());
         return file.getFileName().toString();
     }
@@ -432,6 +451,3 @@ public class TestS1DataSelectImageCacheManager {
         }
     }
 }
-
-
-

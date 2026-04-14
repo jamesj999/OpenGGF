@@ -39,7 +39,7 @@ public class S1DataSelectImageCacheManager {
 	private final ObjectMapper mapper;
 	private final S1DataSelectImageGenerator generator;
 
-	private CompletableFuture<Void> inFlight;
+	private volatile CompletableFuture<Void> inFlight;
 
 	public S1DataSelectImageCacheManager(Path cacheRoot, SonicConfigurationService config,
 			Supplier<String> romSha256Supplier, ObjectMapper mapper) {
@@ -144,15 +144,11 @@ public class S1DataSelectImageCacheManager {
 		int[] spawnPoint = new com.openggf.game.sonic1.Sonic1ZoneRegistry().getStartPosition(zoneId, 0);
 		int centreX = capturePoint != null ? capturePoint.centreX() : spawnPoint[0];
 		int centreY = capturePoint != null ? capturePoint.centreY() : spawnPoint[1];
-		int framesToSettle = Math.max(0, settleFrames);
 		return GraphicsManager.getInstance()
 				.submitRenderThreadTask(() -> {
 					Camera camera = GameServices.camera();
 					camera.setX((short) (centreX - 152));
 					camera.setY((short) (centreY - 96));
-					for (int i = 0; i < framesToSettle; i++) {
-						camera.updatePosition(true);
-					}
 					return ScreenshotCapture.captureFramebuffer(320, 224);
 				})
 				.join();
@@ -173,7 +169,9 @@ public class S1DataSelectImageCacheManager {
 	private boolean isDecodablePng(Path imagePath) {
 		try {
 			BufferedImage image = ImageIO.read(imagePath.toFile());
-			return image != null;
+			return image != null
+                    && image.getWidth() == S1DataSelectImageGenerator.PREVIEW_WIDTH
+                    && image.getHeight() == S1DataSelectImageGenerator.PREVIEW_HEIGHT;
 		} catch (IOException e) {
 			return false;
 		}

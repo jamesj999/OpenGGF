@@ -144,6 +144,35 @@ class TestEngine {
     }
 
     @Test
+    void sonic1GameModuleWarmupStartsGenerationThroughRealManager() throws Exception {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        Sonic1GameModule module = new Sonic1GameModule();
+
+        GraphicsManager originalGraphicsManager = replaceGraphicsManagerSingleton(mock(GraphicsManager.class));
+        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
+
+            GraphicsManager graphics = GraphicsManager.getInstance();
+            CompletableFuture<Object> blocked = new CompletableFuture<>();
+            when(graphics.submitRenderThreadTask(any())).thenReturn((CompletableFuture) blocked);
+
+            S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
+            assertTrue(manager instanceof Sonic1GameModule.S1DataSelectImageWarmup);
+
+            ((Sonic1GameModule.S1DataSelectImageWarmup) manager).ensureGenerationStarted();
+
+            Field inFlightField = S1DataSelectImageCacheManager.class.getDeclaredField("inFlight");
+            inFlightField.setAccessible(true);
+            assertNotNull(inFlightField.get(manager));
+            blocked.complete(new com.openggf.graphics.RgbaImage(320, 224, new int[320 * 224]));
+            manager.awaitGenerationIfRunning();
+        } finally {
+            replaceGraphicsManagerSingleton(originalGraphicsManager);
+        }
+    }
+
+
+    @Test
     void initializeGame_runsS1WarmupBeforeStartupModeEntry() throws Exception {
         try (BootstrapHarness harness = createBootstrapHarness(true)) {
             harness.engine.initializeGame();
@@ -343,6 +372,14 @@ class TestEngine {
             donor.close();
             runtimeManager.close();
         }
+    }
+
+    private static GraphicsManager replaceGraphicsManagerSingleton(GraphicsManager replacement) throws Exception {
+        Field field = GraphicsManager.class.getDeclaredField("graphicsManager");
+        field.setAccessible(true);
+        GraphicsManager previous = (GraphicsManager) field.get(null);
+        field.set(null, replacement);
+        return previous;
     }
 
     private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {

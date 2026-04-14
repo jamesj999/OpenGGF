@@ -59,6 +59,8 @@ import com.openggf.sprites.playable.SuperStateController;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 /**
  * GameModule implementation for Sonic the Hedgehog 1 (Mega Drive/Genesis).
@@ -325,10 +327,20 @@ public class Sonic1GameModule implements GameModule {
             dataSelectImageCacheManager = new WarmupAwareS1DataSelectImageCacheManager(
                     Path.of("saves", "image-cache", "s1"),
                     GameServices.configuration(),
-                    () -> "unknown",
+                    this::romSha256,
                     new ObjectMapper());
         }
         return dataSelectImageCacheManager;
+    }
+
+    private String romSha256() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(rom.readAllBytes()));
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to hash Sonic 1 ROM for data select image generation", e);
+        }
     }
 
     public interface S1DataSelectImageWarmup {
@@ -347,7 +359,7 @@ public class Sonic1GameModule implements GameModule {
 
         @Override
         public void ensureGenerationStarted() {
-            // Task 2 only wires bootstrap warmup; generation logic comes later.
+            super.ensureGenerationStarted();
         }
     }
 

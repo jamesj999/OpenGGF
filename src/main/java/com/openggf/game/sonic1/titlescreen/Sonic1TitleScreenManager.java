@@ -844,6 +844,11 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     }
 
     @Override
+    public TitleScreenAction consumeExitAction() {
+        return TitleScreenAction.ONE_PLAYER;
+    }
+
+    @Override
     public boolean supportsLevelSelectOverlay() {
         return true;
     }
