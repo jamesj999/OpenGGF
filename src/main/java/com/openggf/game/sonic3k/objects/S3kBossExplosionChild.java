@@ -71,7 +71,15 @@ public class S3kBossExplosionChild extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: Obj_BossExplosion uses make_art_tile(ArtTile_BossExplosion2,0,1) for AIZ
+        // (and make_art_tile(ArtTile_BossExplosion,0,1) for other zones) — priority bit = 1.
+        return true;
+    }
+
+    @Override
     public int getPriorityBucket() {
-        return 1;
+        // ROM: ObjDat_BossExplosion dc.w 0 → sprite_priority $0000 → bucket 0
+        return 0;
     }
 }
