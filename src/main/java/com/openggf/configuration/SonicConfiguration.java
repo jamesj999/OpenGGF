@@ -316,6 +316,16 @@ public enum SonicConfiguration {
 	CROSS_GAME_FEATURES_ENABLED,
 
 	/**
+	 * Whether to force regeneration of the Sonic 1 data select image cache.
+	 */
+	CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE,
+
+	/**
+	 * Number of frames to wait before settling the Sonic 1 data select image generator.
+	 */
+	CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES,
+
+	/**
 	 * Which game to use as the donor for cross-game features: "s2" or "s3k".
 	 * Only used when CROSS_GAME_FEATURES_ENABLED is true.
 	 */
