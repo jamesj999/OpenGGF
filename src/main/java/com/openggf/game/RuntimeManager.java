@@ -1,6 +1,10 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.animation.AnimatedTileChannelGraph;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.FadeManager;
@@ -171,12 +175,18 @@ public final class RuntimeManager {
                 : GameRng.Flavour.S1_S2);
         ZoneRuntimeRegistry zoneRuntimeRegistry = new ZoneRuntimeRegistry();
         PaletteOwnershipRegistry paletteOwnershipRegistry = new PaletteOwnershipRegistry();
+        AnimatedTileChannelGraph animatedTileChannelGraph = new AnimatedTileChannelGraph();
+        SpecialRenderEffectRegistry specialRenderEffectRegistry = new SpecialRenderEffectRegistry();
+        AdvancedRenderModeController advancedRenderModeController = new AdvancedRenderModeController();
+        ZoneLayoutMutationPipeline zoneLayoutMutationPipeline = new ZoneLayoutMutationPipeline();
 
         GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,
                 collisionSystem, spriteManager, levelManager, rng, zoneRuntimeRegistry,
-                paletteOwnershipRegistry);
+                paletteOwnershipRegistry, animatedTileChannelGraph, specialRenderEffectRegistry,
+                advancedRenderModeController,
+                zoneLayoutMutationPipeline);
         current = runtime;
         return runtime;
     }
@@ -188,6 +198,7 @@ public final class RuntimeManager {
         if (current == null) {
             return;
         }
+        current.clearTransientFrameState();
         parked = current;
         current = null;
         suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
@@ -205,6 +216,7 @@ public final class RuntimeManager {
             destroyParkedRuntimeIfSupersededBy(null);
             return createGameplay(gameplayMode);
         }
+        parked.clearTransientFrameState();
         parked.updateGameplayModeContext(gameplayMode);
         current = parked;
         parked = null;
