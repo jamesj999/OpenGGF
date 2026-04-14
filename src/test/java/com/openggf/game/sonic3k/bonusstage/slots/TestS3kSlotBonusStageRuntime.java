@@ -22,6 +22,9 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
+import com.openggf.tests.TestEnvironment;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +41,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotBonusStageRuntime {
+    @BeforeEach
+    void setUp() {
+        TestEnvironment.configureGameModuleFixture(SonicGame.SONIC_3K);
+    }
+
     @AfterEach
     void tearDown() {
         RuntimeManager.destroyCurrent();

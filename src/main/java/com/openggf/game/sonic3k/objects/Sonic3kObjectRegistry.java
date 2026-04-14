@@ -60,6 +60,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.COLLAPSING_BRIDGE,
                 (spawn, registry) -> new CollapsingBridgeObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AUTOMATIC_TUNNEL,
+                (spawn, registry) -> new AutomaticTunnelObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AUTO_SPIN,
                 (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,

@@ -55,8 +55,8 @@ public class S3kBossExplosionController {
         this.timer = params[0];
         this.xRange = params[1];
         this.yRange = params[2];
-        // ROM: initial $2E = 3-1 (same as between-explosion wait)
-        this.intervalCounter = SPAWN_INTERVAL;
+        // ROM: move.w #3-1,$2E(a0) — initial wait is same as between-explosion wait
+        this.intervalCounter = SPAWN_INTERVAL - 1;
     }
 
     public void tick() {
