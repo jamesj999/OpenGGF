@@ -2165,12 +2165,12 @@ public class GameLoop {
     }
 
     /**
-     * Exits the title screen. Fades to black, then transitions to level select
-     * (if LEVEL_SELECT_ON_STARTUP is true) or loads EHZ Act 1.
+     * Exits the title screen and hands off directly to the resolved destination.
      *
-     * <p>Special case: If the title screen supports a level select overlay
-     * (e.g. Sonic 1), the transition is immediate with no fade and no music
-     * restart, matching the original hardware behaviour.
+     * <p>The destination flow owns the visual transition: Sonic 1 level select
+     * reuses the frozen title backdrop, Sonic 2 level start goes straight into
+     * the pre-level/title-card pipeline, and S3K data select performs its own
+     * entry fade.
      */
     private void exitTitleScreen() {
         TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
@@ -2189,19 +2189,11 @@ public class GameLoop {
             return;
         }
 
-        // Don't start another fade if one is already in progress
-        FadeManager fadeManager = this.fadeManager;
-        if (fadeManager.isActive()) {
-            return;
-        }
-
         // Fade out title music
         audioManager.fadeOutMusic();
 
-        // Start fade-to-black, then transition
-        fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
-
-        LOGGER.info("Starting fade-to-black for Title Screen exit");
+        doExitTitleScreen(route);
+        LOGGER.info("Title screen exit routed directly to " + route);
     }
 
     /**
@@ -2279,6 +2271,7 @@ public class GameLoop {
         } catch (IOException e) {
             throw new RuntimeException("Failed to load title screen start level", e);
         }
+        fadeManager.startFadeFromBlack(null);
     }
 
     private void handleTitleScreenExitFromProvider() {
@@ -2288,16 +2281,10 @@ public class GameLoop {
         }
 
         TitleActionRoute route = resolveTitleActionRoute(titleScreen);
-        // Provider callbacks fire after the provider has already completed its
-        // own fade-out, so this path must route directly without starting the
-        // generic FadeManager fade a second time.
+        // Provider callbacks fire after the provider has already finished its
+        // own staged exit, so this path must hand off directly.
         if (route == TitleActionRoute.LEVEL_SELECT && titleScreen.supportsLevelSelectOverlay()) {
             doEnterLevelSelectFromTitleScreen();
-            return;
-        }
-
-        if (route == TitleActionRoute.DATA_SELECT) {
-            exitTitleScreen();
             return;
         }
 
@@ -2963,6 +2950,9 @@ public class GameLoop {
      */
     private void startEndingFade() {
         LOGGER.info("Starting fade-to-white for ending sequence");
+        if (GameServices.module().getGameId() == GameId.S2) {
+            requestSessionSave(SaveReason.PROGRESSION_SAVE);
+        }
         audioManager.fadeOutMusic();
         fadeManager.startFadeToWhite(this::doEnterEnding);
     }

@@ -28,6 +28,7 @@ import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRng;
 import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.game.dataselect.DataSelectSessionController;
+import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic3k.dataselect.S3kDataSelectProfile;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
@@ -572,6 +573,57 @@ public class TestGameLoop {
     }
 
     @Test
+    void testStepWritesSaveForS2CreditsTransition() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        gameLoop.setRuntime(null);
+
+        String gameCode = "test_s2_credits_transition";
+        Path saveDir = Path.of("saves").resolve(gameCode);
+        deleteRecursively(saveDir);
+
+        GameModule module = mock(GameModule.class);
+        when(module.getSaveSnapshotProvider()).thenReturn((reason, ctx) -> Map.of("marker", "credits"));
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S2);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+
+        SaveSessionContext saveContext = SaveSessionContext.forSlot(
+                gameCode, 1, new SelectedTeam("sonic", List.of()), 10, 0);
+        SessionManager.openGameplaySession(module, saveContext);
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        com.openggf.sprites.managers.SpriteManager spriteManager = mock(com.openggf.sprites.managers.SpriteManager.class);
+        FadeManager fadeManager = mock(FadeManager.class);
+        when(levelManager.consumeSeamlessTransitionRequest()).thenReturn(null);
+        when(levelManager.consumeInLevelTitleCardRequest()).thenReturn(false);
+        when(levelManager.consumeTitleCardRequest()).thenReturn(false);
+        when(levelManager.consumeRespawnRequest()).thenReturn(false);
+        when(levelManager.consumeNextActRequest()).thenReturn(false);
+        when(levelManager.consumeNextZoneRequest()).thenReturn(false);
+        when(levelManager.consumeZoneActRequest()).thenReturn(false);
+        when(levelManager.consumeCreditsRequest()).thenReturn(true);
+        when(fadeManager.isActive()).thenReturn(false);
+
+        GameRuntime runtime = mock(GameRuntime.class);
+        when(runtime.getLevelManager()).thenReturn(levelManager);
+        when(runtime.getSpriteManager()).thenReturn(spriteManager);
+        when(runtime.getCamera()).thenReturn(mock(com.openggf.camera.Camera.class));
+        when(runtime.getTimers()).thenReturn(mock(com.openggf.timer.TimerManager.class));
+        when(runtime.getGameState()).thenReturn(mock(com.openggf.game.GameStateManager.class));
+        when(runtime.getFadeManager()).thenReturn(fadeManager);
+        when(runtime.getWaterSystem()).thenReturn(mock(com.openggf.level.WaterSystem.class));
+        gameLoop.setRuntime(runtime);
+
+        setPrivateField(gameLoop, "currentGameMode", GameMode.LEVEL);
+        setPrivateField(gameLoop, "audioManager", mock(com.openggf.audio.AudioManager.class));
+
+        gameLoop.step();
+
+        assertTrue(Files.exists(saveDir.resolve("slot1.json")));
+        deleteRecursively(saveDir);
+    }
+
+    @Test
     void testDoEnterEndingDoesNotWriteSaveForActiveSlot() throws Exception {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
@@ -759,6 +811,84 @@ public class TestGameLoop {
     }
 
     @Test
+    void testDoExitTitleScreenDoesNotUseGenericFadeToBlackWhenRoutingToLevel() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        com.openggf.game.TitleScreenProvider titleScreen = mock(com.openggf.game.TitleScreenProvider.class);
+        StubDataSelectProvider dataSelect = new StubDataSelectProvider(DataSelectAction.none());
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S2);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        FadeManager fadeManager = mock(FadeManager.class);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+        setPrivateField(gameLoop, "fadeManager", fadeManager);
+
+        invokePrivateMethod(gameLoop, "doExitTitleScreen");
+
+        assertEquals(GameMode.LEVEL, gameLoop.getCurrentGameMode());
+        verify(titleScreen).reset();
+        verify(levelManager).loadZoneAndAct(0, 0);
+        verify(fadeManager, never()).startFadeToBlack(any());
+    }
+
+    @Test
+    void testDoExitTitleScreenStartsFadeFromBlackWhenRoutingToLevel() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        com.openggf.game.TitleScreenProvider titleScreen = mock(com.openggf.game.TitleScreenProvider.class);
+        StubDataSelectProvider dataSelect = new StubDataSelectProvider(DataSelectAction.none());
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S2);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        FadeManager fadeManager = mock(FadeManager.class);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+        setPrivateField(gameLoop, "fadeManager", fadeManager);
+
+        invokePrivateMethod(gameLoop, "doExitTitleScreen");
+
+        assertEquals(GameMode.LEVEL, gameLoop.getCurrentGameMode());
+        verify(titleScreen).reset();
+        verify(levelManager).loadZoneAndAct(0, 0);
+        verify(fadeManager).startFadeFromBlack(isNull());
+    }
+
+    @Test
+    void testRealSonic2TitleScreenAdvertisesOnePlayerExitAction() {
+        Sonic2GameModule module = new Sonic2GameModule();
+
+        assertEquals(TitleScreenAction.ONE_PLAYER,
+                module.getTitleScreenProvider().consumeExitAction());
+    }
+
+    @Test
+    void testRealSonic1TitleScreenAdvertisesOnePlayerExitAction() {
+        Sonic1GameModule module = new Sonic1GameModule();
+
+        assertEquals(TitleScreenAction.ONE_PLAYER,
+                module.getTitleScreenProvider().consumeExitAction());
+    }
+
+    @Test
     void testTitleScreenExitHandlerUsesExplicitRouteResolutionWithoutStartingSecondFade() throws Exception {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
@@ -792,7 +922,7 @@ public class TestGameLoop {
     }
 
     @Test
-    void testTitleScreenExitHandlerStartsFadeBeforeEnteringDataSelect() throws Exception {
+    void testTitleScreenExitHandlerEntersDataSelectWithoutGenericFade() throws Exception {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         com.openggf.configuration.SonicConfigurationService.getInstance()
@@ -814,11 +944,6 @@ public class TestGameLoop {
         com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
         FadeManager fadeManager = mock(FadeManager.class);
         when(fadeManager.isActive()).thenReturn(false);
-        AtomicReference<Runnable> fadeCallback = new AtomicReference<>();
-        doAnswer(invocation -> {
-            fadeCallback.set(invocation.getArgument(0));
-            return null;
-        }).when(fadeManager).startFadeToBlack(any());
         setPrivateField(gameLoop, "levelManager", levelManager);
         setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
         setPrivateField(gameLoop, "fadeManager", fadeManager);
@@ -826,17 +951,75 @@ public class TestGameLoop {
         gameLoop.getTitleScreenProvider();
         titleScreen.triggerExitHandler();
 
-        verify(fadeManager).startFadeToBlack(any());
-        assertEquals(GameMode.TITLE_SCREEN, gameLoop.getCurrentGameMode(),
-                "Data Select should wait for fade completion before entering");
-        assertEquals(0, nativeDelegate.initializeCalls,
-                "Data Select must not initialize until the title fade completes");
+        assertEquals(GameMode.DATA_SELECT, gameLoop.getCurrentGameMode());
+        assertEquals(1, nativeDelegate.initializeCalls);
+        verify(fadeManager, never()).startFadeToBlack(any());
+        verify(levelManager, never()).loadZoneAndAct(anyInt(), anyInt());
+    }
 
-        assertNotNull(fadeCallback.get(), "Title -> Data Select should register a fade completion callback");
-        fadeCallback.get().run();
+    @Test
+    void testExitTitleScreenRoutesLevelWithoutGenericFade() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        StubTitleScreenProvider titleScreen = new StubTitleScreenProvider(TitleScreenAction.OPTIONS);
+        StubDataSelectProvider dataSelect = new StubDataSelectProvider(DataSelectAction.none());
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S2);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        FadeManager fadeManager = mock(FadeManager.class);
+        when(fadeManager.isActive()).thenReturn(false);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+        setPrivateField(gameLoop, "fadeManager", fadeManager);
+
+        invokePrivateMethod(gameLoop, "exitTitleScreen");
+
+        assertEquals(GameMode.LEVEL, gameLoop.getCurrentGameMode());
+        verify(levelManager).loadZoneAndAct(0, 0);
+        verify(fadeManager, never()).startFadeToBlack(any());
+    }
+
+    @Test
+    void testExitTitleScreenRoutesDataSelectWithoutGenericFade() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        StubTitleScreenProvider titleScreen = new StubTitleScreenProvider(TitleScreenAction.ONE_PLAYER);
+        TrackingNativeDataSelectProvider nativeDelegate = new TrackingNativeDataSelectProvider();
+        DataSelectPresentationProvider dataSelect = new DataSelectPresentationProvider(
+                nativeDelegate,
+                new DataSelectSessionController(new S3kDataSelectProfile()));
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S3K);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S3K);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        FadeManager fadeManager = mock(FadeManager.class);
+        when(fadeManager.isActive()).thenReturn(false);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+        setPrivateField(gameLoop, "fadeManager", fadeManager);
+
+        invokePrivateMethod(gameLoop, "exitTitleScreen");
 
         assertEquals(GameMode.DATA_SELECT, gameLoop.getCurrentGameMode());
         assertEquals(1, nativeDelegate.initializeCalls);
+        verify(fadeManager, never()).startFadeToBlack(any());
         verify(levelManager, never()).loadZoneAndAct(anyInt(), anyInt());
     }
 
