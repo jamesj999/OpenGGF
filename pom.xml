@@ -13,7 +13,8 @@
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
         <mockito.version>5.14.2</mockito.version>
-        <mockito.agent.argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</mockito.agent.argLine>
+        <mockito.agent.path>"${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar"</mockito.agent.path>
+        <mockito.agent.argLine>-javaagent:${mockito.agent.path}</mockito.agent.argLine>
         <test.cds.argLine>-Xshare:off</test.cds.argLine>
         <surefire.argLine>${test.cds.argLine} ${mockito.agent.argLine} -Xmx1g</surefire.argLine>
         <surefire.forkCount>4</surefire.forkCount>
