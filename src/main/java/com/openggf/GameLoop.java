@@ -30,6 +30,7 @@ import com.openggf.debug.PerformanceProfiler;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -360,6 +361,10 @@ public class GameLoop {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
         refreshRuntimeBindings();
+        PaletteOwnershipRegistry paletteRegistry = GameServices.paletteOwnershipRegistryOrNull();
+        if (paletteRegistry != null) {
+            paletteRegistry.beginFrame();
+        }
         playbackDebugManager.handleInput(inputHandler);
         syncPlaybackInputBridge();
         playbackDebugManager.setObservedMode(currentGameMode);

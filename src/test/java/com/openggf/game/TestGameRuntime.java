@@ -1,6 +1,13 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.animation.AnimatedTileChannel;
+import com.openggf.game.animation.AnimatedTileCachePolicy;
+import com.openggf.game.animation.DestinationPlan;
+import com.openggf.game.mutation.MutationEffects;
+import com.openggf.game.render.SpecialRenderEffect;
+import com.openggf.game.render.SpecialRenderEffectContext;
+import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -16,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,6 +61,8 @@ public class TestGameRuntime {
         assertNotNull(runtime.getCollisionSystem(), "collisionSystem");
         assertNotNull(runtime.getSpriteManager(), "spriteManager");
         assertNotNull(runtime.getLevelManager(), "levelManager");
+        assertNotNull(runtime.getSpecialRenderEffectRegistry(), "specialRenderEffectRegistry");
+        assertNotNull(runtime.getAdvancedRenderModeController(), "advancedRenderModeController");
     }
 
     @Test
@@ -69,6 +79,8 @@ public class TestGameRuntime {
         assertSame(runtime.getTerrainCollisionManager(), GameServices.terrainCollision());
         assertSame(runtime.getWaterSystem(), GameServices.water());
         assertSame(runtime.getParallaxManager(), GameServices.parallax());
+        assertSame(runtime.getSpecialRenderEffectRegistry(), GameServices.specialRenderEffectRegistry());
+        assertSame(runtime.getAdvancedRenderModeController(), GameServices.advancedRenderModeController());
 
         assertNotNull(runtime.getCamera());
         assertNotNull(runtime.getSpriteManager());
@@ -78,6 +90,8 @@ public class TestGameRuntime {
         assertNotNull(runtime.getTerrainCollisionManager());
         assertNotNull(runtime.getWaterSystem());
         assertNotNull(runtime.getParallaxManager());
+        assertNotNull(runtime.getSpecialRenderEffectRegistry());
+        assertNotNull(runtime.getAdvancedRenderModeController());
     }
 
     @Test
@@ -245,6 +259,75 @@ public class TestGameRuntime {
 
         assertSame(runtime.getWorldSession(), GameServices.worldSession());
         assertSame(runtime.getWorldSession().getGameModule(), GameServices.module());
+    }
+
+    @Test
+    public void gameServices_animatedTileChannelGraphDelegatesToRuntimeAndClearsOnDestroy() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
+
+        assertSame(runtime.getAnimatedTileChannelGraph(), GameServices.animatedTileChannelGraph());
+        assertSame(runtime.getAnimatedTileChannelGraph(), GameServices.animatedTileChannelGraphOrNull());
+
+        runtime.getAnimatedTileChannelGraph().install(List.of(
+                new AnimatedTileChannel(
+                        "graph-lifecycle",
+                        () -> true,
+                        ctx -> 1,
+                        DestinationPlan.single(0x120),
+                        AnimatedTileCachePolicy.ALWAYS,
+                        ctx -> { })));
+        assertEquals(1, runtime.getAnimatedTileChannelGraph().channels().size());
+
+        RuntimeManager.destroyCurrent();
+
+        assertNull(GameServices.animatedTileChannelGraphOrNull());
+        assertThrows(IllegalStateException.class, GameServices::animatedTileChannelGraph);
+        assertEquals(0, runtime.getAnimatedTileChannelGraph().channels().size());
+    }
+
+    @Test
+    public void gameServices_specialRenderEffectRegistryDelegatesToRuntimeAndClearsOnDestroy() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
+
+        assertSame(runtime.getSpecialRenderEffectRegistry(), GameServices.specialRenderEffectRegistry());
+        assertSame(runtime.getSpecialRenderEffectRegistry(), GameServices.specialRenderEffectRegistryOrNull());
+
+        runtime.getSpecialRenderEffectRegistry().register(new SpecialRenderEffect() {
+            @Override
+            public SpecialRenderEffectStage stage() {
+                return SpecialRenderEffectStage.AFTER_BACKGROUND;
+            }
+
+            @Override
+            public void render(SpecialRenderEffectContext context) {
+                // no-op
+            }
+        });
+
+        assertFalse(runtime.getSpecialRenderEffectRegistry().isEmpty());
+
+        RuntimeManager.destroyCurrent();
+
+        assertNull(GameServices.specialRenderEffectRegistryOrNull());
+        assertThrows(IllegalStateException.class, GameServices::specialRenderEffectRegistry);
+        assertTrue(runtime.getSpecialRenderEffectRegistry().isEmpty());
+    }
+
+    @Test
+    public void gameServices_zoneLayoutMutationPipelineDelegatesToRuntimeAndClearsOnDestroy() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
+
+        assertSame(runtime.getZoneLayoutMutationPipeline(), GameServices.zoneLayoutMutationPipeline());
+        assertSame(runtime.getZoneLayoutMutationPipeline(), GameServices.zoneLayoutMutationPipelineOrNull());
+
+        runtime.getZoneLayoutMutationPipeline().queue(context -> MutationEffects.redrawAllTilemaps());
+        assertFalse(runtime.getZoneLayoutMutationPipeline().isEmpty());
+
+        RuntimeManager.destroyCurrent();
+
+        assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
+        assertThrows(IllegalStateException.class, GameServices::zoneLayoutMutationPipeline);
+        assertTrue(runtime.getZoneLayoutMutationPipeline().isEmpty());
     }
 
     /**

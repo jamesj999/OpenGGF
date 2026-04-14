@@ -7,6 +7,10 @@ import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.game.animation.AnimatedTileChannelGraph;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.WorldSession;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
@@ -109,6 +113,26 @@ public final class GameServices {
         return rt != null ? rt.getWaterSystem() : null;
     }
 
+    public static AnimatedTileChannelGraph animatedTileChannelGraphOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getAnimatedTileChannelGraph() : null;
+    }
+
+    public static ZoneLayoutMutationPipeline zoneLayoutMutationPipelineOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getZoneLayoutMutationPipeline() : null;
+    }
+
+    public static SpecialRenderEffectRegistry specialRenderEffectRegistryOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getSpecialRenderEffectRegistry() : null;
+    }
+
+    public static AdvancedRenderModeController advancedRenderModeControllerOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getAdvancedRenderModeController() : null;
+    }
+
     public static BonusStageProvider bonusStageOrNull() {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getActiveBonusStageProvider() : null;
@@ -166,6 +190,22 @@ public final class GameServices {
 
     public static WaterSystem water() {
         return requireRuntime("water").getWaterSystem();
+    }
+
+    public static AnimatedTileChannelGraph animatedTileChannelGraph() {
+        return requireRuntime("animatedTileChannelGraph").getAnimatedTileChannelGraph();
+    }
+
+    public static ZoneLayoutMutationPipeline zoneLayoutMutationPipeline() {
+        return requireRuntime("zoneLayoutMutationPipeline").getZoneLayoutMutationPipeline();
+    }
+
+    public static SpecialRenderEffectRegistry specialRenderEffectRegistry() {
+        return requireRuntime("specialRenderEffectRegistry").getSpecialRenderEffectRegistry();
+    }
+
+    public static AdvancedRenderModeController advancedRenderModeController() {
+        return requireRuntime("advancedRenderModeController").getAdvancedRenderModeController();
     }
 
     public static WorldSession worldSession() {

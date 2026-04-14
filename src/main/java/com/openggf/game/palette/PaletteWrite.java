@@ -42,6 +42,11 @@ public final class PaletteWrite {
         return new PaletteWrite(PaletteSurface.NORMAL, ownerId, priority, lineIndex, startColor, segaData, false);
     }
 
+    public static PaletteWrite underwater(String ownerId, int priority,
+                                          int lineIndex, int startColor, byte[] segaData) {
+        return new PaletteWrite(PaletteSurface.UNDERWATER, ownerId, priority, lineIndex, startColor, segaData, false);
+    }
+
     public PaletteWrite mirrorToUnderwater() {
         return new PaletteWrite(surface, ownerId, priority, lineIndex, startColor, segaData, true);
     }

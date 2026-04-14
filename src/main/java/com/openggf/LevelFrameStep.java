@@ -100,6 +100,8 @@ public final class LevelFrameStep {
             levelEvents.update();
         }
 
+        levelManager.flushQueuedLayoutMutations();
+
         BonusStageProvider bonusStageProvider = GameServices.bonusStage();
         boolean integratedBonusStageUpdate = bonusStageProvider != null
                 && bonusStageProvider.updateDuringLevelFrame();
