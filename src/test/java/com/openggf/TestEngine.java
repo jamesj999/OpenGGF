@@ -50,6 +50,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -99,6 +101,46 @@ class TestEngine {
 
         assertTrue(future.isDone());
         assertEquals(42, future.join());
+    }
+
+    @Test
+    void resetState_discardsPendingRenderThreadTasks() throws Exception {
+        GraphicsManager graphics = new GraphicsManager();
+        AtomicInteger runs = new AtomicInteger();
+        CompletableFuture<Integer> future = graphics.submitRenderThreadTask(() -> runs.incrementAndGet());
+
+        graphics.resetState();
+        graphics.runPendingRenderThreadTasks();
+
+        assertEquals(0, runs.get());
+        assertTrue(future.isCancelled());
+    }
+
+    @Test
+    void cleanup_discardsPendingRenderThreadTasks() throws Exception {
+        GraphicsManager graphics = new GraphicsManager();
+        graphics.initHeadless();
+        AtomicInteger runs = new AtomicInteger();
+        CompletableFuture<Integer> future = graphics.submitRenderThreadTask(() -> runs.incrementAndGet());
+
+        graphics.cleanup();
+        graphics.runPendingRenderThreadTasks();
+
+        assertEquals(0, runs.get());
+        assertTrue(future.isCancelled());
+    }
+
+    @Test
+    void sonic1GameModule_exposesWarmupCapableImageCacheManager() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        Sonic1GameModule module = new Sonic1GameModule();
+
+        S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
+        S1DataSelectImageCacheManager secondLookup = module.getGameService(S1DataSelectImageCacheManager.class);
+
+        assertNotNull(manager);
+        assertTrue(manager instanceof Sonic1GameModule.S1DataSelectImageWarmup);
+        assertSame(manager, secondLookup);
     }
 
     @Test
