@@ -203,6 +203,50 @@ public class TestGameStateManager {
         assertEquals(java.util.List.of(2, 6), gsm.getCollectedSuperEmeraldIndices(),
                 "Super emerald identities should restore from save payload");
     }
+
+    @Test
+    public void testS3kSpecialStageSelectionSkipsCollectedChaosEmeraldStages() {
+        gsm.markEmeraldCollected(0);
+        gsm.markEmeraldCollected(1);
+        gsm.markEmeraldCollected(2);
+
+        assertEquals(3, gsm.consumeCurrentSpecialStageIndexAndAdvanceS3k(false),
+                "S3K should skip already-collected chaos emerald stages");
+        assertEquals(4, gsm.getCurrentSpecialStageIndex(),
+                "Next S3K special stage should advance after the selected uncollected stage");
+    }
+
+    @Test
+    public void testS3kSpecialStageSelectionWrapsToNextUncollectedChaosStage() {
+        for (int i = 0; i < 5; i++) {
+            assertEquals(i, gsm.consumeCurrentSpecialStageIndexAndAdvance(),
+                    "Precondition: generic stage rotation should advance to index 5");
+        }
+        gsm.markEmeraldCollected(5);
+        gsm.markEmeraldCollected(6);
+        gsm.markEmeraldCollected(0);
+        gsm.markEmeraldCollected(1);
+
+        assertEquals(2, gsm.consumeCurrentSpecialStageIndexAndAdvanceS3k(false),
+                "S3K should wrap around to the next uncollected chaos emerald stage");
+        assertEquals(3, gsm.getCurrentSpecialStageIndex(),
+                "Next S3K special stage should advance after the wrapped selection");
+    }
+
+    @Test
+    public void testS3kSpecialStageSelectionSkipsCollectedSuperEmeraldStages() {
+        for (int i = 0; i < 7; i++) {
+            gsm.markEmeraldCollected(i);
+        }
+        gsm.markSuperEmeraldCollected(0);
+        gsm.markSuperEmeraldCollected(1);
+        gsm.markSuperEmeraldCollected(2);
+
+        assertEquals(3, gsm.consumeCurrentSpecialStageIndexAndAdvanceS3k(true),
+                "S3K super stage selection should skip already-collected super emerald stages");
+        assertEquals(4, gsm.getCurrentSpecialStageIndex(),
+                "Next S3K super special stage should advance after the selected uncollected stage");
+    }
 }
 
 
