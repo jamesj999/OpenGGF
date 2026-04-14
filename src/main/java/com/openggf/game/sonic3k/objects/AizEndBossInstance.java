@@ -219,6 +219,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
     }
 
     @Override
+    protected boolean usesBaseHitHandler() {
+        return false; // ROM: sub_69BE2 — self-contained flash + timer in updateBossLogic()
+    }
+
+    @Override
     protected int getBossHitSfxId() {
         return Sonic3kSfx.BOSS_HIT.id;
     }

@@ -84,7 +84,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity player) {
-        if (!state.defeated) {
+        if (!state.defeated && usesBaseHitHandler()) {
             hitHandler.update();
             // Note: paletteFlasher.update() is now called inside hitHandler.update()
             // to match ROM order: flash first, then decrement timer
@@ -164,6 +164,19 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
      */
     protected int getPaletteLineForFlash() {
         return 1;
+    }
+
+    /**
+     * Whether this boss uses the base class hit handler for invulnerability
+     * timer management and palette flashing.
+     * <p>S3K bosses with custom palette flash (sub_69C5C-style) should override
+     * this to return {@code false} and manage invulnerability entirely in
+     * {@link #updateBossLogic}. This prevents the base {@code hitHandler} from
+     * decrementing the timer before the custom flash reads bit&nbsp;0, which
+     * would invert the flash/normal alternation.
+     */
+    protected boolean usesBaseHitHandler() {
+        return true;
     }
 
     /**
