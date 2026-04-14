@@ -105,7 +105,24 @@ Objects receive `ObjectServices` via injection at construction time (ThreadLocal
 
 ### GameRuntime
 
-`GameRuntime` (`com.openggf.game`) is the explicit runtime object that will own all mutable gameplay state. `RuntimeManager` manages its lifecycle. This is the foundation for safe editor mode enter/exit, level rebuilds, and undo/redo. Currently `GameRuntime` coordinates singleton `resetState()` calls; the long-term goal is for it to own the state directly.
+`GameRuntime` (`com.openggf.game`) is the explicit runtime object that owns mutable gameplay state. `RuntimeManager` manages its lifecycle. This is the foundation for safe editor mode enter/exit, level rebuilds, undo/redo, and the runtime-owned shared framework stack used by zone logic.
+
+### Runtime-Owned Framework Stack
+
+`GameRuntime` now hosts the shared registries/controllers used to normalize zone-specific behavior across games:
+
+- `ZoneRuntimeRegistry` - Typed per-zone runtime state adapters over raw event/state bytes
+- `PaletteOwnershipRegistry` - Multi-writer palette arbitration, precedence, and underwater mirroring
+- `AnimatedTileChannelGraph` - Shared animated tile channels for script-driven and custom tile uploads
+- `ZoneLayoutMutationPipeline` - Deterministic queued/immediate live layout edits and redraw sequencing
+- `SpecialRenderEffectRegistry` - Staged additional render passes layered into the normal scene
+- `AdvancedRenderModeController` - Frame-level render-mode state such as per-line/per-cell scroll overrides
+
+Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer` and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
+
+When adding or refactoring gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
+
+Current adoption is partial rather than complete. Sonic 2 already uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tiles, mutation-driven arena changes, and staged render effects. Sonic 3&K currently uses it for AIZ and HCZ runtime-state adapters, AIZ fire-transition mutation/render flows, HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. Treat other zones as mixed old/new architecture until the code proves otherwise.
 
 ### Core Managers
 - **LevelManager** - Thin coordinator after decomposition (see below)
@@ -139,9 +156,11 @@ Objects receive `ObjectServices` via injection at construction time (ThreadLocal
 | `level` | Level structures, rendering, scrolling, `MutableLevel`, `AbstractLevel` |
 | `level.objects` | Game object management, `ObjectServices`, shared base classes, utility helpers |
 | `level.scroll` | `AbstractZoneScrollHandler` and per-zone scroll handlers |
+| `level.scroll.compose` | Shared deform/parallax composition helpers built around `ScrollEffectComposer` |
 | `audio` | SMPS driver, YM2612/PSG chip emulation, `AbstractAudioProfile`, `AbstractSmpsLoader` |
 | `data` | ROM loading/reading (`Rom`, `RomManager`, `RomByteReader`), `Game`/`GameFactory`, art provider interfaces |
 | `game` | Core game-agnostic interfaces, providers, `GameServices`, `GameRuntime`, `PlayableEntity`, `DamageCause` |
+| `game.zone` / `game.palette` / `game.animation` / `game.mutation` / `game.render` | Runtime-owned shared frameworks for typed zone state, palette ownership, animated tiles, layout mutation, staged special render effects, and advanced render modes |
 | `game.sonic2` | Sonic 2-specific implementations |
 | `game.sonic2.objects` | Object factories, instance classes, badnik AI |
 | `game.sonic2.constants` | ROM offsets, object IDs, audio constants |

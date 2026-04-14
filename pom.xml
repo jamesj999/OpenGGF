@@ -12,7 +12,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
-        <surefire.argLine>-Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+        <surefire.argLine>-Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
         <surefire.forkCount>4</surefire.forkCount>
     </properties>
 
@@ -34,7 +34,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -44,7 +44,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -75,7 +75,7 @@
                 </property>
             </activation>
             <properties>
-                <surefire.argLine>-Xmx512m -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+                <surefire.argLine>-Xmx512m -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
                 <surefire.forkCount>1</surefire.forkCount>
             </properties>
         </profile>
