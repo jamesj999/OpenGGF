@@ -3,7 +3,9 @@ package com.openggf.game.sonic2;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
-import com.openggf.graphics.GraphicsManager;
+import com.openggf.game.animation.AnimatedTileChannelGraph;
+import com.openggf.game.animation.ChannelContext;
+import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.level.Level;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.level.animation.AniPlcParser;
@@ -73,14 +75,20 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
     };
 
     private final Level level;
+    private final AnimatedTileChannelGraph graph;
     private final List<AniPlcScriptState> scripts;
+    private final int zoneIndex;
     private int tableAddr = -1;
+    private int frameCounter;
 
     public Sonic2PatternAnimator(Rom rom, Level level, int zoneIndex) throws IOException {
         this.level = level;
+        this.graph = GameServices.animatedTileChannelGraph();
+        this.zoneIndex = zoneIndex;
         RomByteReader reader = RomByteReader.fromRom(rom);
         this.tableAddr = scanForTable(reader);
         this.scripts = loadScriptsForZone(reader, zoneIndex);
+        this.graph.install(Sonic2AnimatedTileChannels.fromScripts(this.scripts));
     }
 
     private int scanForTable(RomByteReader reader) {
@@ -114,10 +122,9 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
         if (scripts == null || scripts.isEmpty()) {
             return;
         }
-        GraphicsManager graphicsManager = GameServices.graphics();
-        for (AniPlcScriptState script : scripts) {
-            script.tick(level, graphicsManager);
-        }
+        ZoneRuntimeState runtimeState = GameServices.zoneRuntimeState();
+        int actIndex = GameServices.level().getCurrentAct();
+        graph.update(new ChannelContext(graph, null, level, runtimeState, zoneIndex, actIndex, frameCounter++));
     }
 
     private List<AniPlcScriptState> loadScriptsForZone(RomByteReader reader, int zoneIndex) {

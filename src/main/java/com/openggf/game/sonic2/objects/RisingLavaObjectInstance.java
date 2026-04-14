@@ -2,8 +2,9 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.GameServices;
+import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -44,7 +45,7 @@ import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
  *   <li>HTZ2: 4 instances [0x06, 0x08]</li>
  * </ul>
  *
- * @see LevelEventManager#getCameraBgYOffset() For earthquake Y offset
+ * @see HtzRuntimeState#cameraBgYOffset() For earthquake Y offset
  */
 public class RisingLavaObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SlopedSolidProvider, SolidObjectListener {
@@ -190,7 +191,10 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
         // Ripple shake is a global screen-space effect applied via Camera shake offsets,
         // so objects don't add it to their world positions.
-        int bgYOffset = ((Sonic2LevelEventManager) services().levelEventProvider()).getCameraBgYOffset();
+        int bgYOffset = GameServices.zoneRuntimeRegistry()
+                .currentAs(HtzRuntimeState.class)
+                .map(HtzRuntimeState::cameraBgYOffset)
+                .orElseThrow(() -> new IllegalStateException("HTZ runtime state not installed"));
         currentY = baseY + bgYOffset;
 
         updateDynamicSpawn(baseX, currentY);
