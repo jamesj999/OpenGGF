@@ -1,10 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -148,14 +147,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
         services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
 
         // ROM: move.w #$10,(Screen_shake_flag).w — 16-frame timed screen shake
-        try {
-            Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
-            if (events != null) {
-                events.triggerScreenShake(SCREEN_SHAKE_FRAMES);
-            }
-        } catch (Exception e) {
-            // Non-fatal
-        }
+        S3kAizEventWriteSupport.triggerScreenShake(services(), SCREEN_SHAKE_FRAMES);
 
         spawnExplosionFragments();
         setDestroyed(true);

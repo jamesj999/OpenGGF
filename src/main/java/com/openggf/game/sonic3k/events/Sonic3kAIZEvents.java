@@ -3,7 +3,10 @@ package com.openggf.game.sonic3k.events;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
@@ -586,9 +589,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             segaColor = PALETTE_MUT_COLOR_DARK;
         }
 
-        byte[] colorBytes = {(byte) ((segaColor >> 8) & 0xFF), (byte) (segaColor & 0xFF)};
-        pal2.getColor(15).fromSegaFormat(colorBytes, 0);
-        cachePaletteTextureIfReady(pal2, 2);
+        S3kPaletteWriteSupport.applyColors(
+                GameServices.paletteOwnershipRegistryOrNull(),
+                level,
+                graphics(),
+                S3kPaletteOwners.AIZ_RESIZE_MUTATION,
+                S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                2,
+                new int[] {15},
+                new int[] {segaColor});
     }
 
     /**
@@ -1733,7 +1742,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             lineData[offset] = (byte) ((word >>> 8) & 0xFF);
             lineData[offset + 1] = (byte) (word & 0xFF);
         }
-        levelManager.updatePalette(3, lineData);
+        S3kPaletteWriteSupport.applyLine(
+                GameServices.paletteOwnershipRegistryOrNull(),
+                currentLevel,
+                GameServices.graphics(),
+                S3kPaletteOwners.AIZ_FIRE_TRANSITION,
+                S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                3,
+                lineData);
     }
 
     private static int toSegaColorWord(Palette.Color color) {

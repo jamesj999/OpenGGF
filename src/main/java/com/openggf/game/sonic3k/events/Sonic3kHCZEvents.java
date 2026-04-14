@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.events;
 
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -483,14 +483,12 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     private void requestHcz2Transition() {
         transitionRequested = true;
 
-        // Tell the event manager that the next HCZ Act 2 init should release the player.
+        // Tell the transition bridge that the next HCZ Act 2 init should release the player.
         // The player is still in the victory pose (objectControlled) so they don't land
         // on the old terrain. After the level reloads as Act 2, releasing them lets them
         // fall through the gap in Act 2's terrain.
-        Sonic3kLevelEventManager levelEventManager = levelEventManagerOrNull();
-        if (levelEventManager != null) {
-            levelEventManager.setHczPendingPostTransitionCutscene(true);
-        }
+        S3kTransitionWriteSupport.requestHczPostTransitionCutscene(
+                GameServices.module().getLevelEventProvider());
 
         LevelManager lm = levelManager();
         lm.requestSeamlessTransition(

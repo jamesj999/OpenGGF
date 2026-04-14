@@ -8,6 +8,7 @@ import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.events.S3kTransitionWriteSupport;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
@@ -461,10 +462,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             int zone = services().romZoneId();
             if (zone == 0x00) return;  // AIZ — handled by fire transition
             if (zone == 0x05) return;  // ICZ — different transition mechanism
-            var eventManager = services().levelEventProvider();
-            if (eventManager instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
-                s3kEvents.setEventsFg5ForActTransition();
-            }
+            S3kTransitionWriteSupport.signalActTransition(services());
         } catch (Exception e) {
             LOG.fine("Could not signal act transition: " + e.getMessage());
         }

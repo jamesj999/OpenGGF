@@ -5,8 +5,9 @@ import com.openggf.game.GameServices;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.animation.ChannelContext;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Pattern;
@@ -459,23 +460,14 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     private boolean isAizBossActive() {
         try {
-            Sonic3kLevelEventManager lem = resolveLevelEventManager();
-            if (lem != null) {
-                Sonic3kAIZEvents aizEvents = lem.getAizEvents();
-                if (aizEvents != null) {
-                    return aizEvents.isBossFlag();
-                }
-            }
+            AizZoneRuntimeState aizState = GameServices.hasRuntime()
+                    ? S3kRuntimeStates.currentAiz(GameServices.zoneRuntimeRegistry()).orElse(null)
+                    : null;
+            return aizState != null && aizState.isBossFlagActive();
         } catch (Exception e) {
             LOG.fine(() -> "Sonic3kPatternAnimator.isAizBossActive: " + e.getMessage());
         }
         return false;
-    }
-
-    private Sonic3kLevelEventManager resolveLevelEventManager() {
-        return GameServices.hasRuntime()
-                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
-                : null;
     }
 
     boolean shouldRunScriptChannels() {

@@ -13,7 +13,6 @@ import com.openggf.game.render.AdvancedRenderMode;
 import com.openggf.game.render.AdvancedRenderModeContext;
 import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
@@ -21,6 +20,8 @@ import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotMachinePanelAnimator;
 import com.openggf.game.sonic3k.features.HCZWaterSkimHandler;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -112,9 +113,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             return;
         }
 
-        Sonic3kAIZEvents aizEvents = getAizEvents();
-        boolean forestFrontPhaseActive = aizEvents != null && aizEvents.isBattleshipForestFrontPhaseActive();
-        boolean bossArenaFrontPriority = aizEvents != null && aizEvents.isBossFlag();
+        AizZoneRuntimeState aizState = getAizState();
+        boolean forestFrontPhaseActive = aizState != null && aizState.isBattleshipForestFrontPhaseActive();
+        boolean bossArenaFrontPriority = aizState != null && aizState.isBossFlagActive();
 
         // ROM: During the post-boss cutscene (egg capsule, results, walk-right,
         // bridge collapse) the player's art_tile high-priority bit stays set.
@@ -373,20 +374,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         return zoneIndex == Sonic3kZoneIds.ZONE_GUMBALL;
     }
 
-    protected Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager levelEventManager = resolveLevelEventManager();
-        return levelEventManager != null ? levelEventManager.getAizEvents() : null;
+    protected AizZoneRuntimeState getAizState() {
+        return GameServices.hasRuntime()
+                ? S3kRuntimeStates.currentAiz(GameServices.zoneRuntimeRegistry()).orElse(null)
+                : null;
     }
 
     protected int getFeatureActId() {
         var levelManager = GameServices.levelOrNull();
         return levelManager != null ? levelManager.getFeatureActId() : 0;
-    }
-
-    private Sonic3kLevelEventManager resolveLevelEventManager() {
-        return GameServices.hasRuntime()
-                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
-                : null;
     }
 
 }

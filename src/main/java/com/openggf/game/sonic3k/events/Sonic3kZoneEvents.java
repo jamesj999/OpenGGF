@@ -6,13 +6,14 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.configuration.SonicConfiguration;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
@@ -100,31 +101,10 @@ public abstract class Sonic3kZoneEvents {
         }
     }
 
-    protected Sonic3kLevelEventManager levelEventManagerOrNull() {
-        Object provider = GameServices.module().getLevelEventProvider();
-        return provider instanceof Sonic3kLevelEventManager s3k ? s3k : null;
-    }
-
     protected PlayerCharacter playerCharacter() {
-        Sonic3kLevelEventManager levelEventManager = levelEventManagerOrNull();
-        if (levelEventManager != null) {
-            return levelEventManager.getPlayerCharacter();
-        }
-
-        String mainChar = GameServices.configuration()
-                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("knuckles".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.KNUCKLES;
-        } else if ("tails".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-
-        String sidekick = GameServices.configuration()
-                .getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekick == null || sidekick.isBlank()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                GameServices.hasRuntime() ? GameServices.zoneRuntimeRegistry() : null,
+                GameServices.configuration());
     }
 
     /** Reset event state for a new level load. */
@@ -188,7 +168,14 @@ public abstract class Sonic3kZoneEvents {
             Rom rom = GameServices.rom().getRom();
             LevelManager levelManager = GameServices.level();
             byte[] paletteData = rom.readBytes(romAddr, PALETTE_LINE_SIZE);
-            levelManager.updatePalette(paletteLine, paletteData);
+            S3kPaletteWriteSupport.applyLine(
+                    GameServices.paletteOwnershipRegistryOrNull(),
+                    levelManager.getCurrentLevel(),
+                    GameServices.graphics(),
+                    S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
+                    S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                    paletteLine,
+                    paletteData);
         } catch (Exception e) {
             LOGGER.warning("Failed to load palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());
@@ -239,7 +226,14 @@ public abstract class Sonic3kZoneEvents {
             for (int i = 0; i < lineCount; i++) {
                 byte[] lineData = new byte[PALETTE_LINE_SIZE];
                 System.arraycopy(data, i * PALETTE_LINE_SIZE, lineData, 0, PALETTE_LINE_SIZE);
-                levelManager.updatePalette(startLine + i, lineData);
+                S3kPaletteWriteSupport.applyLine(
+                        GameServices.paletteOwnershipRegistryOrNull(),
+                        levelManager.getCurrentLevel(),
+                        GameServices.graphics(),
+                        S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
+                        S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                        startLine + i,
+                        lineData);
             }
             LOGGER.info("Loaded palette #" + palPointersIndex + ": " + lineCount
                     + " lines from 0x" + Integer.toHexString(sourceAddr)

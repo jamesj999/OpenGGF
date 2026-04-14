@@ -1,9 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -163,22 +162,11 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
         int shipX = shipXFixed >> 16;
 
         // Signal the event system that the battleship is complete
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.onBattleshipComplete();
-        }
+        S3kAizEventWriteSupport.onBattleshipComplete(services());
 
         LOG.info("AIZ2 battleship: ship exited at shipX=0x" + Integer.toHexString(shipX)
                 + " after " + frameCounter + " frames, " + scriptIndex + " bombs dropped");
         setDestroyed(true);
-    }
-
-    private Sonic3kAIZEvents getAizEvents() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     @Override

@@ -1,8 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -142,14 +141,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
 
     private void updateSpawnSignpost() {
         // Clear boss flag and boss ID so level events resume normal behavior
-        try {
-            Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
-            if (events != null) {
-                events.setBossFlag(false);
-            }
-        } catch (Exception e) {
-            LOG.fine("Could not clear boss flag: " + e.getMessage());
-        }
+        S3kAizEventWriteSupport.setBossFlag(services(), false);
         services().gameState().setCurrentBossId(0);
 
         // Spawn signpost above camera

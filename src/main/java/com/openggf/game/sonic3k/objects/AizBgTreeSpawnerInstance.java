@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -64,8 +64,8 @@ public class AizBgTreeSpawnerInstance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity player) {
         if (isDestroyed()) return;
 
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events == null) {
+        AizZoneRuntimeState state = currentAizState();
+        if (state == null) {
             return;
         }
 
@@ -76,14 +76,14 @@ public class AizBgTreeSpawnerInstance extends AbstractObjectInstance {
                 return;
             }
             activated = true;
-            activationSmoothScrollX = events.getBattleshipSmoothScrollX();
+            activationSmoothScrollX = state.getBattleshipSmoothScrollX();
             LOG.info("AIZ2 tree spawner: activated at cameraX=0x"
                     + Integer.toHexString(cameraX)
                     + ", smoothX=0x" + Integer.toHexString(activationSmoothScrollX));
         }
 
         // Process script entries
-        int currentSmooth = events.getBattleshipSmoothScrollX();
+        int currentSmooth = state.getBattleshipSmoothScrollX();
         int scrollDistance = currentSmooth - activationSmoothScrollX;
 
         while (scriptIndex < TREE_SCRIPT.length) {
@@ -117,11 +117,7 @@ public class AizBgTreeSpawnerInstance extends AbstractObjectInstance {
         // No-op: spawner has no visual representation
     }
 
-    private Sonic3kAIZEvents getAizEvents() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
-        } catch (Exception e) {
-            return null;
-        }
+    private AizZoneRuntimeState currentAizState() {
+        return S3kRuntimeStates.currentAiz(services().zoneRuntimeRegistry()).orElse(null);
     }
 }

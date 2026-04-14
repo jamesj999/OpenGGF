@@ -2,12 +2,14 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
@@ -311,10 +313,7 @@ public class AizEndBossInstance extends AbstractBossInstance {
         services().camera().setMaxX((short) cameraLockX);
 
         // Set Boss_flag to lock screen (ROM: st (Boss_flag).w)
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(true);
-        }
+        S3kAizEventWriteSupport.setBossFlag(services(), true);
         services().gameState().setCurrentBossId(0x92);
 
         // Fade out current music
@@ -702,10 +701,7 @@ public class AizEndBossInstance extends AbstractBossInstance {
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
 
         // Clear Boss_flag (ROM: clr.b (Boss_flag).w)
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(false);
-        }
+        S3kAizEventWriteSupport.setBossFlag(services(), false);
         services().gameState().setCurrentBossId(0);
 
         // ROM: AfterBoss_AIZ2 — load fire palette.
@@ -796,40 +792,46 @@ public class AizEndBossInstance extends AbstractBossInstance {
         var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= BOSS_PALETTE_INDEX) return;
 
-        Palette pal = level.getPalette(BOSS_PALETTE_INDEX);
         boolean flash = (state.invulnerabilityTimer & 1) == 0;
         int[] colors = flash ? FLASH_HIT_COLORS : FLASH_NORMAL_COLORS;
-        for (int i = 0; i < FLASH_PAL_INDICES.length; i++) {
-            byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
-            pal.getColor(FLASH_PAL_INDICES[i]).fromSegaFormat(bytes, 0);
-        }
-        var gm = services().graphicsManager();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(pal, BOSS_PALETTE_INDEX);
-        }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.AIZ_END_BOSS,
+                S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                BOSS_PALETTE_INDEX,
+                FLASH_PAL_INDICES,
+                colors);
     }
 
     private void restoreNormalPalette() {
         var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= BOSS_PALETTE_INDEX) return;
 
-        Palette pal = level.getPalette(BOSS_PALETTE_INDEX);
-        for (int i = 0; i < FLASH_PAL_INDICES.length; i++) {
-            byte[] bytes = {(byte) ((FLASH_NORMAL_COLORS[i] >> 8) & 0xFF),
-                    (byte) (FLASH_NORMAL_COLORS[i] & 0xFF)};
-            pal.getColor(FLASH_PAL_INDICES[i]).fromSegaFormat(bytes, 0);
-        }
-        var gm = services().graphicsManager();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(pal, BOSS_PALETTE_INDEX);
-        }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.AIZ_END_BOSS,
+                S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                BOSS_PALETTE_INDEX,
+                FLASH_PAL_INDICES,
+                FLASH_NORMAL_COLORS);
     }
 
     private void loadBossPalette() {
         try {
             byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_END_BOSS_ADDR, 32);
-            services().updatePalette(BOSS_PALETTE_INDEX, line);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.AIZ_END_BOSS,
+                    S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                    BOSS_PALETTE_INDEX,
+                    line);
         } catch (Exception e) {
             LOG.fine(() -> "AizEndBossInstance.loadBossPalette: " + e.getMessage());
         }
@@ -851,7 +853,14 @@ public class AizEndBossInstance extends AbstractBossInstance {
             // level tiles are not corrupted and no PLC reload is needed.
             byte[] firePal = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-            services().updatePalette(BOSS_PALETTE_INDEX, firePal);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.AIZ_END_BOSS,
+                    S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                    BOSS_PALETTE_INDEX,
+                    firePal);
         } catch (Exception e) {
             LOG.fine(() -> "AizEndBossInstance.loadAfterBossArt: " + e.getMessage());
         }
@@ -1001,20 +1010,10 @@ public class AizEndBossInstance extends AbstractBossInstance {
         cb.run();
     }
 
-    private Sonic3kAIZEvents getAizEvents() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     // Package-private: accessed by AizEndBossPropellerChild for the Knuckles multi-fire check.
     PlayerCharacter getPlayerCharacter() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
-        } catch (Exception e) {
-            return PlayerCharacter.SONIC_AND_TAILS;
-        }
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration());
     }
 }
