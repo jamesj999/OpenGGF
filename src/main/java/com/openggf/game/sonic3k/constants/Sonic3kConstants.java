@@ -382,6 +382,10 @@ public class Sonic3kConstants {
     // Pal_CutsceneKnux - Knuckles cutscene palette (32 bytes = 16 colors)
     public static final int PAL_CUTSCENE_KNUX_ADDR = 0x066912;
 
+    // PalPointers index for HCZ2 main palette (Pal_HCZ2 → palette lines 1-3)
+    // Used by CutsceneKnux_HCZ2 to restore normal palette after cutscene.
+    public static final int PAL_POINTERS_HCZ2_INDEX = 13;
+
     // Pal_AIZIntroEmeralds - Emerald palette (32 bytes = 16 colors)
     public static final int PAL_AIZ_INTRO_EMERALDS_ADDR = 0x067AAA;
 
@@ -608,7 +612,7 @@ public class Sonic3kConstants {
     public static final int ANPAL_AIZ2_4_ADDR = 0x002CA6;
     public static final int ANPAL_AIZ2_4_SIZE = 52;
     // AIZ2 torch glow post-fire (palette 3, color 1): 26 frames x 2 bytes = 52 bytes
-    public static final int ANPAL_AIZ2_5_ADDR = 0x002CD8;
+    public static final int ANPAL_AIZ2_5_ADDR = 0x002CDA;
     public static final int ANPAL_AIZ2_5_SIZE = 52;
     // HCZ1 water animation (palette 2, colors 3-6): 4 frames x 8 bytes = 32 bytes
     // ROM: AnPal_PalHCZ1 — verified by ROM binary search for 0EC8 0EC0 0EA0 0E80 full sequence
@@ -1119,6 +1123,7 @@ public class Sonic3kConstants {
     public static final int MAP_HCZ_BUTTON_ADDR = 0x22BD1A;
     public static final int MAP_CNZ_BUTTON_ADDR = 0x22BD4A;
     public static final int ARTTILE_GRAY_BUTTON = 0x0456;
+    public static final int ART_NEM_GRAY_BUTTON_ADDR = 0x190AC4;
     public static final int ARTTILE_HCZ_BUTTON = 0x0426;
     public static final int ARTTILE_CNZ_BUTTON = 0x041A; // ArtTile_CNZMisc + $C9
     public static final int ARTTILE_LRZ_MISC = 0x03A1;
@@ -1240,6 +1245,17 @@ public class Sonic3kConstants {
     public static final int MAP_HCZ_MINIBOSS_ADDR = 0x362A28;
     // ArtTile_HCZMiniboss - VRAM destination tile index from sonic3k.constants.asm.
     public static final int ART_TILE_HCZ_MINIBOSS = 0x0304;
+
+    // ===== HCZ End Boss (Obj_HCZEndBoss, Object 0x9A) =====
+    // PLC 0x6C loads boss body, Robotnik ship, boss explosion, and egg capsule art.
+    public static final int PLC_HCZ_END_BOSS = 0x6C;
+    // Pal_HCZEndBoss - end boss palette (palette line 1).
+    public static final int PAL_HCZ_END_BOSS_ADDR = 0x06BF0A;
+    // ArtTile_HCZEndBoss - VRAM destination tile index from sonic3k.constants.asm.
+    public static final int ARTTILE_HCZ_END_BOSS = 0x0320;
+
+    // HCZ Geyser Cutscene Art (ArtTile_HCZCutsceneGeyser, from sonic3k.constants.asm)
+    public static final int ARTTILE_HCZ_CUTSCENE_GEYSER = 0x036B;
 
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)

@@ -97,8 +97,11 @@ public final class AizBattleshipRenderFeature {
 
         pendingStripHeight = Math.min(STRIP_HEIGHT_PX, screenHeight);
         GraphicsManager graphicsManager = GameServices.graphics();
-        graphicsManager.registerCommand(prepareOverlayCommand);
+        // Render attached bombs BEFORE the scissor so the full bomb sprite is
+        // visible as it emerges from the port.  The ship strip drawn afterwards
+        // (within scissor) covers the portion behind the hull via painter's algorithm.
         renderAttachedBombs(levelManager);
+        graphicsManager.registerCommand(prepareOverlayCommand);
         renderShipStrip(camera, battleship, screenWidth, pendingStripHeight);
         renderPropellers(camera, battleship, frameCounter, levelManager);
         graphicsManager.registerCommand(cleanupOverlayCommand);

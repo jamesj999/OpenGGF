@@ -89,6 +89,7 @@ public class HczMinibossInstance extends AbstractBossInstance {
     private static final int PRE_VORTEX_DRIFT_GRAVITY = 0x20;
     private static final int SLOW_RISE_VEL = -0x20;
     private static final int VORTEX_APPROACH_Y = 0x108;
+    private static final int CONTINUOUS_SFX_INTERVAL = 16;
 
 
     private static final int[][] ATTACK_PATTERNS = {
@@ -535,7 +536,7 @@ public class HczMinibossInstance extends AbstractBossInstance {
         state.yVel = 0;
         vortexActive = true;
         crossedWaterThisPass = true;
-        services().playSfx(Sonic3kSfx.FAN_BIG.id);
+        services().playSfx(Sonic3kSfx.BOSS_ROTATE.id);
         spawnVortexBubbleBatch();
         setWait(VORTEX_TIME, this::endVortex);
     }
@@ -659,6 +660,9 @@ public class HczMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateVortex(AbstractPlayableSprite player) {
+        if ((lastFrameCounter & (CONTINUOUS_SFX_INTERVAL - 1)) == 0 && isOnScreen()) {
+            services().playSfx(Sonic3kSfx.BOSS_ROTATE.id);
+        }
         applyVortexPull(player);
         tickWait();
     }

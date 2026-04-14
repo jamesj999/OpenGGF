@@ -62,7 +62,9 @@ public class StillSpriteInstance extends AbstractObjectInstance {
             if (renderManager != null) {
                 PatternSpriteRenderer renderer = renderManager.getRenderer(info.artKey);
                 if (renderer != null && renderer.isReady()) {
-                    renderer.drawFrameIndex(info.localFrame, getX(), getY(), false, false);
+                    boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
+                    boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
+                    renderer.drawFrameIndex(info.localFrame, getX(), getY(), hFlip, vFlip);
                     return;
                 }
             }

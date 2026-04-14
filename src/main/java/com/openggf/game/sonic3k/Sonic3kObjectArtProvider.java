@@ -51,6 +51,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
     private static final Path HCZ_MINIBOSS_MAPPING_ASM = Path.of(
             "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Miniboss.asm");
+    private static final Path HCZ_END_BOSS_MAPPING_ASM = Path.of(
+            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - End Boss.asm");
+    private static final Path HCZ_WATERWALL_MAPPING_ASM = Path.of(
+            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Waterfall.asm");
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
@@ -147,6 +151,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         } else if (zoneIndex == 0x01) {
             loadSharedBossExplosionArt();
             loadHczMinibossArtFromPlc();
+            loadHczEndBossArt();
+            loadHczGeyserCutsceneArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -876,6 +882,22 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         registerLevelArtSheets(level, zoneIndex);
     }
 
+    @Override
+    public void reloadStandaloneArtForActTransition(int zoneIndex) {
+        // Refresh act index from LevelManager (act has changed since initial load)
+        currentActIndex = GameServices.level().getCurrentAct();
+
+        // Get the new act's art plan and reload standalone entries.
+        // Shared entries (explosion, monitor, shields, etc.) are already loaded
+        // and will simply be re-registered with the same key, which is harmless.
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
+        loadStandaloneFromRegistry(plan);
+
+        LOG.info("Reloaded standalone art for zone " + zoneIndex
+                + " act " + currentActIndex);
+    }
+
     /**
      * Registers object sprite sheets that use level patterns.
      * Must be called AFTER the level is loaded.
@@ -1105,6 +1127,75 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     + decompressed.get(0).length + " tiles");
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ miniboss art from PLC: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads HCZ end boss art via PLC 0x6C, matching the ROM's Load_PLC call.
+     * PLC entries: 0=boss body, 1=Robotnik ship, 2=boss explosion, 3=egg capsule.
+     * Only loads entry 0 (boss body) here; explosion and egg capsule art loaded separately.
+     */
+    private void loadHczEndBossArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_HCZ_END_BOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+            if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
+                LOG.warning("HCZ end boss PLC produced no art");
+                return;
+            }
+
+            // Entry 0: Boss body art (Map_HCZEndBoss)
+            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_END_BOSS_MAPPING_ASM);
+            if (mappings.isEmpty()) {
+                LOG.warning("HCZ end boss asm mapping include produced no frames");
+                return;
+            }
+            registerSheet(Sonic3kObjectArtKeys.HCZ_END_BOSS,
+                    buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+
+            // Entry 1: Robotnik ship art (ArtNem_RobotnikShip + Map_RobotnikShip)
+            if (decompressed.size() >= 2 && decompressed.get(1).length > 0
+                    && sheets.get(Sonic3kObjectArtKeys.ROBOTNIK_SHIP) == null) {
+                registerSheet(Sonic3kObjectArtKeys.ROBOTNIK_SHIP,
+                        buildSheetFromPatterns(decompressed.get(1), reader,
+                                Sonic3kConstants.MAP_ROBOTNIK_SHIP_ADDR, 0));
+            }
+        } catch (IOException e) {
+            LOG.warning("Failed to load HCZ end boss art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads HCZ geyser cutscene art (ArtKosM_HCZGeyserVert + Map_HCZWaterWall).
+     * ROM: The post-defeat geyser cutscene uses dedicated geyser art at
+     * ArtTile_HCZCutsceneGeyser (0x036B), not the boss body art.
+     * Frame 1 of Map_HCZWaterWall is the tall vertical water column (12 pieces).
+     * Frames 3-5 are splash sprites.
+     */
+    private void loadHczGeyserCutsceneArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            Pattern[] patterns = decompressKosinskiModuled(rom,
+                    Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR);
+            if (patterns == null || patterns.length == 0) {
+                LOG.warning("HCZ geyser cutscene art decompression produced no tiles");
+                return;
+            }
+            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_WATERWALL_MAPPING_ASM);
+            if (mappings.isEmpty()) {
+                LOG.warning("HCZ geyser cutscene mapping (Map_HCZWaterWall) produced no frames");
+                return;
+            }
+            registerSheet(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE,
+                    buildSheetFromPatterns(patterns, mappings, 2));
+            LOG.info("Loaded HCZ geyser cutscene art: " + patterns.length + " tiles, "
+                    + mappings.size() + " mapping frames");
+        } catch (IOException e) {
+            LOG.warning("Failed to load HCZ geyser cutscene art: " + e.getMessage());
         }
     }
 

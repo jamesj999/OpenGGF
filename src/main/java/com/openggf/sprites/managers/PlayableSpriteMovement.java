@@ -1552,18 +1552,19 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short gSpeed = sprite.getGSpeed();
 		camera().easeYBiasToDefault();
 
+		// ROM: tst.b spin_dash_flag(a0) / bmi.w loc_115C6 (sonic3k.asm:22935-22936)
+		// When pinballSpeedLock is set (spin_dash_flag bit 7 = 0x81), skip input,
+		// friction, and deceleration — go straight to velocity conversion.
+		// Speed is only modified by slope gravity (Player_RollRepel, called before this).
+		if (sprite.getPinballSpeedLock()) {
+			convertRollVelocity(gSpeed);
+			return;
+		}
+
 		// ROM: tst.b (f_slidemode).w / bne.w loc_131CC (s1.asm:602-603)
 		// When sliding, skip input and friction — go straight to velocity conversion.
 		if (sprite.isSliding()) {
-			sprite.setGSpeed(gSpeed);
-			// Convert to X/Y with cap (same as below)
-			int hexAngle = sprite.getAngle() & 0xFF;
-			short xVel = (short) ((gSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8);
-			short yVel = (short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8);
-			xVel = (short) Math.max(-0x1000, Math.min(0x1000, xVel));
-			sprite.setXSpeed(xVel);
-			sprite.setYSpeed(yVel);
-			collisionSystem().resolveGroundWallCollision(sprite);
+			convertRollVelocity(gSpeed);
 			return;
 		}
 
@@ -1598,13 +1599,19 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		sprite.setGSpeed(gSpeed);
+		convertRollVelocity(gSpeed);
+	}
 
-		// Convert to X/Y with cap
+	/**
+	 * Converts ground_vel to x_vel/y_vel using angle, caps x_vel to ±0x1000,
+	 * then resolves ground wall collision.
+	 * ROM: loc_115C6 (sonic3k.asm lines 23013-23031).
+	 */
+	private void convertRollVelocity(short gSpeed) {
 		int hexAngle = sprite.getAngle() & 0xFF;
 		short xVel = (short) ((gSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8);
 		short yVel = (short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8);
 		xVel = (short) Math.max(-0x1000, Math.min(0x1000, xVel));
-
 		sprite.setXSpeed(xVel);
 		sprite.setYSpeed(yVel);
 		collisionSystem().resolveGroundWallCollision(sprite);
