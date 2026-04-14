@@ -2,6 +2,13 @@ package com.openggf.game.mutation;
 
 import java.util.BitSet;
 
+/**
+ * Side effects produced by one layout mutation.
+ *
+ * <p>Mutation code returns data changes separately from the engine work needed
+ * to make those changes visible, such as dirty pattern uploads, redraws, or
+ * object/ring spawn resync.
+ */
 public record MutationEffects(
         BitSet dirtyPatterns,
         boolean dirtyRegionProcessingRequired,
@@ -17,40 +24,49 @@ public record MutationEffects(
         dirtyPatterns = dirtyPatterns == null ? new BitSet() : (BitSet) dirtyPatterns.clone();
     }
 
+    /** Returns effects requesting dirty-region processing only. */
     public static MutationEffects dirtyRegionProcessing() {
         return new MutationEffects(new BitSet(), true, false, false, false, false);
     }
 
+    /** Returns effects requesting foreground redraw only. */
     public static MutationEffects foregroundRedraw() {
         return new MutationEffects(new BitSet(), false, true, false, false, false);
     }
 
+    /** Returns effects requesting full tilemap redraw. */
     public static MutationEffects redrawAllTilemaps() {
         return new MutationEffects(new BitSet(), false, false, true, false, false);
     }
 
+    /** Alias for {@link #foregroundRedraw()}. */
     public static MutationEffects redraw() {
         return foregroundRedraw();
     }
 
+    /** Returns effects requesting object spawn resynchronization. */
     public static MutationEffects objectResync() {
         return new MutationEffects(new BitSet(), false, false, false, true, false);
     }
 
+    /** Returns effects requesting ring spawn resynchronization. */
     public static MutationEffects ringResync() {
         return new MutationEffects(new BitSet(), false, false, false, false, true);
     }
 
+    /** Returns effects marking one pattern index for reupload. */
     public static MutationEffects reuploadPattern(int patternIndex) {
         BitSet dirtyPatterns = new BitSet();
         dirtyPatterns.set(patternIndex);
         return new MutationEffects(dirtyPatterns, false, false, false, false, false);
     }
 
+    /** Returns {@code true} when one or more pattern uploads are required. */
     public boolean hasDirtyPatterns() {
         return !dirtyPatterns.isEmpty();
     }
 
+    /** Returns {@code true} when the mutation produced no visible side effects. */
     public boolean isEmpty() {
         return dirtyPatterns.isEmpty()
                 && !dirtyRegionProcessingRequired

@@ -7,6 +7,10 @@ import java.util.Objects;
 
 /**
  * Runtime-owned registry for staged special render effects.
+ *
+ * <p>Effects are grouped by {@link SpecialRenderEffectStage} and dispatched from
+ * the standard scene pipeline at fixed points between background, foreground,
+ * and sprite rendering.
  */
 public final class SpecialRenderEffectRegistry {
 
@@ -19,17 +23,20 @@ public final class SpecialRenderEffectRegistry {
         }
     }
 
+    /** Registers one effect at its declared stage. */
     public void register(SpecialRenderEffect effect) {
         Objects.requireNonNull(effect, "effect");
         effectsByStage.get(effect.stage()).add(effect);
     }
 
+    /** Removes all staged effects. */
     public void clear() {
         for (List<SpecialRenderEffect> effects : effectsByStage.values()) {
             effects.clear();
         }
     }
 
+    /** Returns {@code true} when no stage contains any registered effects. */
     public boolean isEmpty() {
         for (List<SpecialRenderEffect> effects : effectsByStage.values()) {
             if (!effects.isEmpty()) {
@@ -39,12 +46,14 @@ public final class SpecialRenderEffectRegistry {
         return true;
     }
 
+    /** Returns the number of registered effects for one stage. */
     public int size(SpecialRenderEffectStage stage) {
         Objects.requireNonNull(stage, "stage");
         List<SpecialRenderEffect> effects = effectsByStage.get(stage);
         return effects != null ? effects.size() : 0;
     }
 
+    /** Executes all effects registered for the requested stage. */
     public void dispatch(SpecialRenderEffectStage stage, SpecialRenderEffectContext context) {
         Objects.requireNonNull(stage, "stage");
         Objects.requireNonNull(context, "context");
