@@ -293,6 +293,8 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
 		putDefault(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP, true);
 		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 
