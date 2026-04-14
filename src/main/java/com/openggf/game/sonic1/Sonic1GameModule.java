@@ -6,6 +6,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic1.audio.Sonic1AudioProfile;
 import com.openggf.game.sonic1.events.Sonic1LevelEventManager;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.game.sonic1.objects.Sonic1StomperDoorObjectInstance;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.game.sonic1.specialstage.Sonic1SpecialStageProvider;
@@ -55,6 +56,9 @@ import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.nio.file.Path;
 
 /**
  * GameModule implementation for Sonic the Hedgehog 1 (Mega Drive/Genesis).
@@ -71,6 +75,7 @@ public class Sonic1GameModule implements GameModule {
     private final Sonic1LevelSelectManager levelSelectProvider = new Sonic1LevelSelectManager();
     private final S1DataSelectProfile dataSelectHostProfile = new S1DataSelectProfile();
     private DataSelectPresentationProvider dataSelectPresentationProvider;
+    private S1DataSelectImageCacheManager dataSelectImageCacheManager;
     private final LevelInitProfile levelInitProfile =
             new Sonic1LevelInitProfile(levelEventManager, switchManager, conveyorState);
     private PhysicsProvider physicsProvider;
@@ -231,6 +236,7 @@ public class Sonic1GameModule implements GameModule {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getGameService(Class<T> type) {
+        if (type == S1DataSelectImageCacheManager.class) return (T) getDataSelectImageCacheManager();
         if (type == Sonic1LevelEventManager.class) return (T) levelEventManager;
         if (type == Sonic1ZoneRegistry.class) return (T) zoneRegistry;
         if (type == Sonic1SwitchManager.class) return (T) switchManager;
@@ -312,6 +318,37 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public DonorCapabilities getDonorCapabilities() {
         return Sonic1DonorCapabilities.INSTANCE;
+    }
+
+    private S1DataSelectImageCacheManager getDataSelectImageCacheManager() {
+        if (dataSelectImageCacheManager == null) {
+            dataSelectImageCacheManager = new WarmupAwareS1DataSelectImageCacheManager(
+                    Path.of("saves", "image-cache", "s1"),
+                    GameServices.configuration(),
+                    () -> "unknown",
+                    new ObjectMapper());
+        }
+        return dataSelectImageCacheManager;
+    }
+
+    public interface S1DataSelectImageWarmup {
+        void ensureGenerationStarted();
+    }
+
+    private static final class WarmupAwareS1DataSelectImageCacheManager
+            extends S1DataSelectImageCacheManager implements S1DataSelectImageWarmup {
+
+        private WarmupAwareS1DataSelectImageCacheManager(Path cacheRoot,
+                                                         com.openggf.configuration.SonicConfigurationService config,
+                                                         java.util.function.Supplier<String> romSha256Supplier,
+                                                         ObjectMapper mapper) {
+            super(cacheRoot, config, romSha256Supplier, mapper);
+        }
+
+        @Override
+        public void ensureGenerationStarted() {
+            // Task 2 only wires bootstrap warmup; generation logic comes later.
+        }
     }
 
     /** Lazily-constructed singleton holding S1 donation metadata. */

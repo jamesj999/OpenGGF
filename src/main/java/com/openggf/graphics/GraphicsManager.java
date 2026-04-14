@@ -20,8 +20,12 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL20.*;
 
+import java.util.Queue;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +38,7 @@ public class GraphicsManager {
 
 	private static GraphicsManager graphicsManager;
 	List<GLCommandable> commands = new ArrayList<>();
+	private final Queue<PendingRenderThreadTask<?>> pendingRenderThreadTasks = new ConcurrentLinkedQueue<>();
 
 	private final Map<String, Integer> paletteTextureMap = new HashMap<>(); // Map for palette textures
 	private Integer combinedPaletteTextureId;
@@ -147,6 +152,19 @@ public class GraphicsManager {
 
 	public void registerCommand(GLCommandable command) {
 		commands.add(command);
+	}
+
+	public <T> CompletableFuture<T> submitRenderThreadTask(Callable<T> callable) {
+		CompletableFuture<T> future = new CompletableFuture<>();
+		pendingRenderThreadTasks.add(new PendingRenderThreadTask<>(callable, future));
+		return future;
+	}
+
+	public void runPendingRenderThreadTasks() {
+		PendingRenderThreadTask<?> task;
+		while ((task = pendingRenderThreadTasks.poll()) != null) {
+			task.run();
+		}
 	}
 
 	/**
@@ -575,6 +593,29 @@ public class GraphicsManager {
 			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, this);
 			registerCommand(command);
 		}
+	}
+
+	public void renderPatternWithIdScaled(int patternId, PatternDesc desc, float x, float y, float width, float height) {
+		if (headlessMode) {
+			return;
+		}
+
+		ensurePatternAtlas();
+		PatternAtlas.Entry entry = patternAtlas != null ? patternAtlas.getEntry(patternId) : null;
+
+		Integer paletteTextureId;
+		if (useUnderwaterPaletteForBackground && underwaterPaletteTextureId != null) {
+			paletteTextureId = underwaterPaletteTextureId;
+		} else {
+			paletteTextureId = combinedPaletteTextureId;
+		}
+
+		if (entry == null || paletteTextureId == null) {
+			return;
+		}
+
+		PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, width, height, this);
+		registerCommand(command);
 	}
 
 	/**
@@ -1552,6 +1593,16 @@ public class GraphicsManager {
 			return;
 		}
 		tilePriorityFBO.end();
+	}
+
+	private record PendingRenderThreadTask<T>(Callable<T> callable, CompletableFuture<T> future) {
+		void run() {
+			try {
+				future.complete(callable.call());
+			} catch (Throwable t) {
+				future.completeExceptionally(t);
+			}
+		}
 	}
 }
 
