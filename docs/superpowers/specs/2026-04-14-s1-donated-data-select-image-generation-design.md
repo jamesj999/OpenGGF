@@ -17,6 +17,7 @@ The new S1 path should generate a small image cache on first donated boot, persi
 ## Requirements
 
 - Generate S1 donated Data Select preview images at runtime, not at build time.
+- Only generate previews when Sonic 1 is the loaded host game and the donor presentation is S3K.
 - Store generated files under `saves/image-cache/s1/`.
 - Generate all 7 S1 zone previews as one batch.
 - Use the zone spawn position by default.
@@ -26,6 +27,7 @@ The new S1 path should generate a small image cache on first donated boot, persi
 - Invalidate the cache when the engine version changes, the generator format version changes, the ROM changes, or the override config forces regeneration.
 - Do not expose a generation UI to the user.
 - Start generation during the master-title to Sonic 1 bootstrap path when donation is relevant.
+- Never trigger generation for normal non-donated Sonic 1 loads.
 - If the user reaches donated S1 Data Select before generation finishes, wait for completion.
 - Capture raw level imagery only: no HUD, no title card, no debug overlays.
 - Make the settle frame count configurable so testing can use `0`.
@@ -98,6 +100,7 @@ Responsibilities:
 - Resolve the cache root `saves/image-cache/s1/`.
 - Load and validate `manifest.json`.
 - Compare manifest metadata against the current environment.
+- Gate the feature to `host=S1` and `donor=S3K`.
 - Start generation once.
 - Expose `ensureGenerationStarted()`.
 - Expose `awaitGenerationIfRunning()`.
@@ -105,6 +108,11 @@ Responsibilities:
 - Surface a boolean or result object indicating whether image-backed previews are available.
 
 The manager should be idempotent. Multiple callers should share one in-flight generation task rather than starting duplicate work.
+
+Ownership:
+
+- The manager should live under the Sonic 1 donated Data Select feature area, not as a generic engine-wide image cache.
+- It should be resolved through existing donated Data Select and host-profile seams so the feature is naturally unavailable for normal S1 gameplay and for non-S3K donation modes.
 
 ### 2. `S1DataSelectImageGenerator`
 
@@ -148,6 +156,11 @@ Responsibilities:
 - Provide S1-specific selected-slot imagery through the same `S3kDataSelectAssetSource` hooks already used by S2.
 
 This preserves a single donated Data Select renderer path instead of creating an S1-specific renderer fork.
+
+Integration preference:
+
+- Extend the current donated S3K asset loading path in `S3kDataSelectPresentation` rather than introducing a second donated Data Select renderer or a parallel startup-only subsystem.
+- Treat S1 the same way S2 is currently treated: the host profile decides what preview should be shown, and the donated S3K asset source provides the host-specific selected-slot asset when available.
 
 ## Capture Target Resolution
 
@@ -238,11 +251,13 @@ Invalidation is whole-cache only. Do not attempt partial repair in the first ver
 When the user selects Sonic 1 from the master title flow:
 
 1. Engine resets bootstrap state and starts Sonic 1 initialization.
-2. If cross-game donation is active and the donated Data Select path can be relevant, call `ensureGenerationStarted()`.
+2. If and only if Sonic 1 is the host game, cross-game donation is active, and the donor presentation resolves to S3K, call `ensureGenerationStarted()`.
 3. Manifest validation runs immediately on a worker thread.
 4. If regeneration is needed, the worker thread requests hidden capture jobs for each S1 zone.
 
 This work should begin after the selected game has enough runtime/ROM state available to resolve zone metadata and capture images safely.
+
+If Sonic 1 is loaded normally without S3K donation, this path must do nothing.
 
 ### Donated S1 Data Select Entry
 
@@ -303,6 +318,7 @@ For S1:
 - `S1DataSelectProfile` should stop being permanently text-only when cached image previews are available.
 - The donated S3K Data Select asset source should add an S1-specific preview loader alongside the existing S2 path.
 - The selected-slot preview should use PNG-backed image assets loaded from `saves/image-cache/s1/`.
+- The generation start hook should be reached through existing host/donor route resolution, not through a broad “S1 startup always warms cache” rule.
 
 If the cache manager reports that S1 previews are unavailable, `S1DataSelectProfile` should continue to fall back to `TEXT_ONLY`.
 
