@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.dataselect;
 
 import com.openggf.game.dataselect.DataSelectDestination;
 import com.openggf.game.dataselect.DataSelectGameProfile;
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -64,5 +65,21 @@ public final class S2DataSelectProfile implements DataSelectGameProfile {
     public boolean isPayloadValid(Map<String, Object> payload) {
         return com.openggf.game.sonic1.dataselect.DataSelectPayloadValidators
                 .validateCommonPayload(payload, 10, 7);
+    }
+
+    private static final String[] ZONE_LABELS = {"EHZ", "CPZ", "ARZ", "CNZ", "HTZ", "MCZ", "OOZ", "MTZ", "SCZ", "WFZ", "DEZ"};
+
+    @Override
+    public HostSlotPreview resolveSlotPreview(Map<String, Object> payload) {
+        if (payload == null) {
+            return null;
+        }
+        Object zoneObj = payload.get("zone");
+        if (!(zoneObj instanceof Number zone)) {
+            return null;
+        }
+        int zoneId = zone.intValue();
+        String label = zoneId >= 0 && zoneId < ZONE_LABELS.length ? ZONE_LABELS[zoneId] : "ZONE";
+        return new HostSlotPreview(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, label);
     }
 }

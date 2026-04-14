@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.dataselect;
 
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.level.render.SpriteMappingFrame;
 
 import java.util.List;
@@ -70,7 +71,8 @@ public record S3kSaveScreenObjectState(
                                   int headerStyleIndex,
                                   int lives,
                                   int continuesCount,
-                                  List<Integer> emeraldMappingFrames) {
+                                  List<Integer> emeraldMappingFrames,
+                                  HostSlotPreview hostPreview) {
         public SlotVisualState {
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(labelKind, "labelKind");
@@ -78,7 +80,7 @@ public record S3kSaveScreenObjectState(
         }
 
         public SlotVisualState(int slotIndex, SlotVisualKind kind) {
-            this(slotIndex, kind, 4, null, -1, SlotLabelKind.BLANK, 0, 0, 0, 0, List.of());
+            this(slotIndex, kind, 4, null, -1, SlotLabelKind.BLANK, 0, 0, 0, 0, List.of(), null);
         }
 
         public SlotVisualState(int slotIndex,
@@ -92,7 +94,7 @@ public record S3kSaveScreenObjectState(
                                int continuesCount,
                                List<Integer> emeraldMappingFrames) {
             this(slotIndex, kind, objectMappingFrame, null, sub2MappingFrame, labelKind, zoneDisplayNumber,
-                    headerStyleIndex, lives, continuesCount, emeraldMappingFrames);
+                    headerStyleIndex, lives, continuesCount, emeraldMappingFrames, null);
         }
     }
 
