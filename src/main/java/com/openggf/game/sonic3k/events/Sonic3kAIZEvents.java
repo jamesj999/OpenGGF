@@ -188,6 +188,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int PLAYER_RIGHT_MARGIN = 0xA0;
     /** Camera max X to set when the small boss exits (end of sequence). */
     private static final int BATTLESHIP_END_CAMERA_MAX_X = 0x6000;
+    /** Camera X at which parallax trees delete themselves. ROM: cmpi.w #$4880,(Camera_X_pos).w. */
+    private static final int BATTLESHIP_TREE_DELETE_CAMERA_X = 0x4880;
 
     private final Sonic3kLoadBootstrap bootstrap;
     private boolean introSpawned;
@@ -246,10 +248,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * Cumulative scroll distance during the battleship sequence (never wraps).
      * Used by the parallax scroll handler to compute smooth BG deformation
      * even when the camera X wraps back by $200.
-     * ROM equivalent: in the ROM the camera never wraps back for the BG plane;
-     * instead, DrawTilesAsYouMove + Level_repeat_offset handle the FG tile columns.
+     * ROM equivalent: Events_fg_1 — accumulated via Adjust_BGDuringLoop every frame.
      */
     private int battleshipSmoothScrollX;
+    /**
+     * Camera X snapshot for post-auto-scroll smooth tracking.
+     * ROM: Adjust_BGDuringLoop uses Events_fg_0 to track previous Camera_X_pos_copy
+     * and accumulate deltas into Events_fg_1 every frame — even after the auto-scroll
+     * loop stops. This field mirrors Events_fg_0 for the post-scroll phase so that
+     * battleshipSmoothScrollX continues to increment as the camera follows Sonic,
+     * allowing parallax trees to scroll off-screen naturally.
+     * Set to -1 when not active.
+     */
+    private int battleshipPostScrollCameraX;
     /** Current vertical shake offset produced by {@link #screenShakeTimer}. */
     private int screenShakeOffsetY;
     /** True after the act switch request has been sent to LevelManager. */
@@ -404,6 +415,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         levelRepeatOffset = 0;
         battleshipBgYOffset = 0;
         battleshipSmoothScrollX = 0;
+        battleshipPostScrollCameraX = -1;
         screenShakeTimer = 0;
         screenShakeOffsetY = 0;
         act2TransitionRequested = false;
@@ -918,6 +930,21 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // Battleship auto-scroll loop
         if (battleshipAutoScrollActive) {
             updateBattleshipAutoScroll();
+        }
+
+        // ROM: Adjust_BGDuringLoop runs every frame unconditionally at the top of
+        // AIZ2_BackgroundEvent, accumulating camera deltas into Events_fg_1 even
+        // after the auto-scroll loop has stopped. This keeps the parallax trees
+        // scrolling left as the camera follows Sonic through the forest.
+        if (battleshipPostScrollCameraX >= 0) {
+            int cameraX = camera().getX();
+            int delta = cameraX - battleshipPostScrollCameraX;
+            battleshipSmoothScrollX += delta;
+            battleshipPostScrollCameraX = cameraX;
+            // Stop tracking once trees are cleaned up
+            if (cameraX >= BATTLESHIP_TREE_DELETE_CAMERA_X) {
+                battleshipPostScrollCameraX = -1;
+            }
         }
 
         // ROM: ShakeScreen_Setup — timed (bomb) and constant (water trigger) modes
@@ -1438,6 +1465,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      */
     public void onBossSmallComplete() {
         battleshipAutoScrollActive = false;
+
+        // ROM: Adjust_BGDuringLoop continues to track camera deltas into Events_fg_1
+        // after the auto-scroll loop ends, so parallax trees scroll off naturally.
+        // Snapshot current camera X as the baseline for post-scroll delta tracking.
+        battleshipPostScrollCameraX = camera().getX();
 
         // Unlock camera: set maxX to end of level / boss arena
         camera().setMaxX((short) BATTLESHIP_END_CAMERA_MAX_X);
