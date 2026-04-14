@@ -77,11 +77,11 @@ public interface ObjectServices {
     }
 
     default ZoneRuntimeRegistry zoneRuntimeRegistry() {
-        return GameServices.zoneRuntimeRegistry();
+        return GameServices.hasRuntime() ? GameServices.zoneRuntimeRegistry() : new ZoneRuntimeRegistry();
     }
 
     default ZoneRuntimeState zoneRuntimeState() {
-        return GameServices.zoneRuntimeState();
+        return GameServices.hasRuntime() ? GameServices.zoneRuntimeState() : zoneRuntimeRegistry().current();
     }
 
     default PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
