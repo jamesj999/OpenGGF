@@ -71,6 +71,32 @@ class TestS3kPaletteWriteSupport {
     }
 
     @Test
+    void applyLineCanResolveImmediatelyWhenRequested() {
+        StubLevel level = new StubLevel();
+        PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
+        byte[] line = new byte[32];
+        line[0] = 0x02;
+        line[1] = 0x22;
+        line[2] = 0x0C;
+        line[3] = (byte) 0xEE;
+
+        S3kPaletteWriteSupport.applyLine(
+                registry,
+                level,
+                null,
+                S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
+                S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                1,
+                line,
+                true);
+
+        assertEquals(S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD, registry.ownerAt(PaletteSurface.NORMAL, 1, 0));
+        assertEquals(S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD, registry.ownerAt(PaletteSurface.NORMAL, 1, 1));
+        assertColorWord(level.getPalette(1), 0, 0x0222);
+        assertColorWord(level.getPalette(1), 1, 0x0CEE);
+    }
+
+    @Test
     void applyColorsSubmitsHczMinibossOwnershipClaimsWhenRegistryPresent() {
         StubLevel level = new StubLevel();
         PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();

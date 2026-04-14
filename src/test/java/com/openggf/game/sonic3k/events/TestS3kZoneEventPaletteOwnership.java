@@ -69,7 +69,6 @@ class TestS3kZoneEventPaletteOwnership {
 
         registry.beginFrame();
         Sonic3kZoneEvents.loadPalette(1, Sonic3kConstants.PAL_AIZ_BATTLESHIP_ADDR);
-        registry.resolveInto(normalPalettes(level), null, null, level.getPalette(0));
 
         byte[] expectedLine = rom.readBytes(Sonic3kConstants.PAL_AIZ_BATTLESHIP_ADDR, 32);
         assertEquals(S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
@@ -92,21 +91,12 @@ class TestS3kZoneEventPaletteOwnership {
 
         registry.beginFrame();
         Sonic3kZoneEvents.loadPaletteFromPalPointers(PAL_POINTER_AIZ_INDEX);
-        registry.resolveInto(normalPalettes(level), null, null, level.getPalette(0));
 
         byte[] expectedLine = rom.readBytes(sourceAddr, 32);
         assertEquals(S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
                 registry.ownerAt(PaletteSurface.NORMAL, startLine, 0));
         assertColorWord(level.getPalette(startLine), 0, segaWord(expectedLine, 0));
         assertColorWord(level.getPalette(startLine), 1, segaWord(expectedLine, 2));
-    }
-
-    private static Palette[] normalPalettes(Level level) {
-        Palette[] palettes = new Palette[level.getPaletteCount()];
-        for (int i = 0; i < palettes.length; i++) {
-            palettes[i] = level.getPalette(i);
-        }
-        return palettes;
     }
 
     private static int segaWord(byte[] data, int offset) {
