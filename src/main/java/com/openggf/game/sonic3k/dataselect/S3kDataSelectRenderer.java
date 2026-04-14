@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.dataselect;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
@@ -14,6 +15,14 @@ import java.util.Arrays;
 
 import static org.lwjgl.opengl.GL11.glClearColor;
 
+/**
+ * ROM-backed asset contract for the donated S3K Data Select renderer.
+ *
+ * <p>Palette accessors are renderer-facing contracts, not arbitrary raw palette dumps.
+ * In particular, {@link #getEmeraldPaletteBytes()} must provide bytes already shaped for
+ * the save-card overlay path: the emerald bytes are applied onto palette line 2 starting
+ * at color 1, while color 0 stays owned by the underlying character palette.</p>
+ */
 interface S3kDataSelectAssetSource {
     void loadData() throws java.io.IOException;
     boolean isLoaded();
@@ -34,11 +43,28 @@ interface S3kDataSelectAssetSource {
     default Pattern[] getSlotIconPatterns(int iconIndex) {
         return new Pattern[0];
     }
+    default Palette getSelectedSlotIconPalette(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+        return null;
+    }
+    default SpriteMappingFrame getSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+        return null;
+    }
+    default boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+        return false;
+    }
     Pattern[] getSkZonePatterns();
     Pattern[] getPortraitPatterns();
     Pattern[] getS3ZonePatterns();
     byte[] getMenuBackgroundPaletteBytes();
     byte[] getCharacterPaletteBytes();
+    /**
+     * Returns emerald palette bytes for the save-card overlay path.
+     *
+     * <p>This is not a free-form host palette line. The renderer overlays these bytes onto
+     * palette line 2 starting at color 1 so the native S3K save-card emerald mappings can
+     * keep working. Donated hosts may therefore adapt their colors into this format instead
+     * of returning raw source palette slots unchanged.</p>
+     */
     byte[] getEmeraldPaletteBytes();
     byte[][] getFinishCardPalettes();
     byte[][] getZoneCardPalettes();
@@ -66,6 +92,10 @@ public class S3kDataSelectRenderer {
     private static final int SAVE_TEXT_OFFSET = 0x0C0C;
     private static final int DELETE_TEXT_OFFSET = 0x0CEC;
     private static final int SELECTED_ICON_DMA_TILE_COUNT = (0x460 * 2) / Pattern.PATTERN_SIZE_IN_ROM;
+    private static final int SELECTED_ICON_TARGET_X = -40;
+    private static final int SELECTED_ICON_TARGET_Y = -120;
+    private static final float SELECTED_ICON_TARGET_WIDTH = 80f;
+    private static final float SELECTED_ICON_TARGET_HEIGHT = 56f;
 
     private static final int DATA_SELECT_PATTERN_BASE = 0x50000;
     private static final int TILE_WORD_FLAGS = 0xA000;
@@ -184,6 +214,11 @@ public class S3kDataSelectRenderer {
         cachePatterns(graphics,
                 java.util.Arrays.copyOf(patterns, Math.min(patterns.length, SELECTED_ICON_DMA_TILE_COUNT)),
                 patternBase);
+        Palette selectedPalette = assets.getSelectedSlotIconPalette(selectedSlotIcon);
+        if (selectedPalette != null) {
+            graphics.cachePaletteTexture(selectedPalette.deepCopy(), 3);
+            return;
+        }
         byte[] paletteBytes = selectedSlotIcon.finishCard()
                 ? paletteAt(assets.getFinishCardPalettes(), selectedSlotIcon.paletteIndex())
                 : selectedIconZonePaletteBytes(assets, selectedSlotIcon.paletteIndex());
@@ -306,6 +341,22 @@ public class S3kDataSelectRenderer {
         if (selectedSlotIcon == null) {
             return;
         }
+        SpriteMappingFrame customFrame = assets.getSelectedSlotIconFrame(selectedSlotIcon);
+        if (customFrame != null) {
+            if (assets.useScaledSelectedSlotIconFrame(selectedSlotIcon)) {
+                renderScaledMappingFrame(graphics, customFrame,
+                        selectedSlotIcon.worldX() - cameraX - 128,
+                        selectedSlotIcon.worldY() - 128,
+                        DATA_SELECT_PATTERN_BASE + Sonic3kConstants.ARTTILE_SAVE_MISC);
+                return;
+            }
+            renderMappingFrame(graphics, customFrame,
+                    selectedSlotIcon.worldX() - cameraX - 128,
+                    selectedSlotIcon.worldY() - 128,
+                    DATA_SELECT_PATTERN_BASE + Sonic3kConstants.ARTTILE_SAVE_MISC,
+                    SAVE_SCREEN_OBJECT_BASE_DESC);
+            return;
+        }
         renderObjectFrame(graphics, assets, selectedSlotIcon.mappingFrame(),
                 selectedSlotIcon.worldX() - cameraX, selectedSlotIcon.worldY(),
                 SAVE_SCREEN_OBJECT_BASE_DESC);
@@ -327,6 +378,81 @@ public class S3kDataSelectRenderer {
                     layoutObjects.noSave().worldX() - cameraX, layoutObjects.noSave().worldY(),
                     SAVE_SCREEN_OBJECT_BASE_DESC);
         }
+    }
+
+    private void renderScaledMappingFrame(GraphicsManager graphics,
+                                          SpriteMappingFrame frame,
+                                          int worldX,
+                                          int worldY,
+                                          int patternBase) {
+        if (frame == null || frame.pieces().isEmpty()) {
+            return;
+        }
+        float[] bounds = mappingFrameBounds(frame);
+        float sourceX = bounds[0];
+        float sourceY = bounds[1];
+        float sourceWidth = bounds[2];
+        float sourceHeight = bounds[3];
+        if (sourceWidth <= 0f || sourceHeight <= 0f) {
+            return;
+        }
+        List<SpriteMappingPiece> pieces = frame.pieces();
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            renderScaledMappingPiece(graphics, pieces.get(i), worldX, worldY, patternBase,
+                    sourceX, sourceY, sourceWidth, sourceHeight);
+        }
+    }
+
+    private void renderScaledMappingPiece(GraphicsManager graphics,
+                                          SpriteMappingPiece piece,
+                                          int worldX,
+                                          int worldY,
+                                          int patternBase,
+                                          float sourceX,
+                                          float sourceY,
+                                          float sourceWidth,
+                                          float sourceHeight) {
+        float tileWidth = SELECTED_ICON_TARGET_WIDTH / sourceWidth * 8f;
+        float tileHeight = SELECTED_ICON_TARGET_HEIGHT / sourceHeight * 8f;
+        for (int tx = 0; tx < piece.widthTiles(); tx++) {
+            for (int ty = 0; ty < piece.heightTiles(); ty++) {
+                int tileOffset = tx * piece.heightTiles() + ty;
+                int patternId = patternBase + piece.tileIndex() + tileOffset;
+                float sourceTileX = piece.xOffset() + (tx * 8f);
+                float sourceTileY = piece.yOffset() + (ty * 8f);
+                float targetTileX = worldX + SELECTED_ICON_TARGET_X
+                        + ((sourceTileX - sourceX) / sourceWidth) * SELECTED_ICON_TARGET_WIDTH;
+                float targetTileY = worldY + SELECTED_ICON_TARGET_Y
+                        + ((sourceTileY - sourceY) / sourceHeight) * SELECTED_ICON_TARGET_HEIGHT;
+                reusableDesc.set(patternId & 0x7FF);
+                if (piece.hFlip()) {
+                    reusableDesc.set(reusableDesc.get() | 0x0800);
+                }
+                if (piece.vFlip()) {
+                    reusableDesc.set(reusableDesc.get() | 0x1000);
+                }
+                reusableDesc.set(reusableDesc.get() | ((piece.paletteIndex() & 0x3) << 13));
+                if (piece.priority()) {
+                    reusableDesc.set(reusableDesc.get() | 0x8000);
+                }
+                graphics.renderPatternWithIdScaled(patternId, reusableDesc,
+                        targetTileX, targetTileY, tileWidth, tileHeight);
+            }
+        }
+    }
+
+    private float[] mappingFrameBounds(SpriteMappingFrame frame) {
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+        for (SpriteMappingPiece piece : frame.pieces()) {
+            minX = Math.min(minX, piece.xOffset());
+            minY = Math.min(minY, piece.yOffset());
+            maxX = Math.max(maxX, piece.xOffset() + piece.widthTiles() * 8f);
+            maxY = Math.max(maxY, piece.yOffset() + piece.heightTiles() * 8f);
+        }
+        return new float[]{minX, minY, maxX - minX, maxY - minY};
     }
 
     private void renderNoSaveOverlay(GraphicsManager graphics,
@@ -405,6 +531,12 @@ public class S3kDataSelectRenderer {
             }
             case ZONE -> {
                 if (slotState.hostPreview() != null
+                        && slotState.hostPreview().type() == HostSlotPreview.HostSlotPreviewType.NUMBERED_ZONE
+                        && slotState.hostPreview().zoneDisplayNumber() != null) {
+                    renderPlaneOverlayTilemap(graphics,
+                            zoneLabelWords(slotState.hostPreview().zoneDisplayNumber()),
+                            6, 1, labelOffset - 2, cameraX, highPriority);
+                } else if (slotState.hostPreview() != null
                         && slotState.hostPreview().zoneLabelText() != null) {
                     renderPlaneOverlayTilemap(graphics,
                             hostZoneLabelWords(slotState.hostPreview().zoneLabelText()),
@@ -704,6 +836,14 @@ public class S3kDataSelectRenderer {
         }
     }
 
+    /**
+     * Builds the save-card character palette stack.
+     *
+     * <p>Line 1 comes directly from the character palette. Line 2 starts from the
+     * character palette's third line and then overlays emerald colors beginning at
+     * color 1. Color 0 is intentionally preserved so donated emerald colors cannot
+     * clobber the character backdrop/shadow slot that the S3K save-card art relies on.</p>
+     */
     private void cacheCharacterAndEmeraldPalettes(GraphicsManager graphics,
                                                   byte[] characterPaletteBytes,
                                                   byte[] emeraldPaletteBytes) {
@@ -733,6 +873,13 @@ public class S3kDataSelectRenderer {
         return Arrays.copyOfRange(segaBytes, startByte, end);
     }
 
+    /**
+     * Overlays a Sega-format palette fragment into an existing palette.
+     *
+     * <p>The caller chooses the destination start color. For donated save-card emeralds
+     * this is always color 1, which is why host emerald colors must be pre-adapted to the
+     * S3K save-card slot ordering before they reach this method.</p>
+     */
     private void overlayPaletteBytes(Palette palette, byte[] segaBytes, int startColorIndex) {
         if (palette == null || segaBytes == null || segaBytes.length == 0) {
             return;

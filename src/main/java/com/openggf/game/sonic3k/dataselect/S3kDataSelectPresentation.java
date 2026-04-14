@@ -10,6 +10,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.dataselect.AbstractDataSelectProvider;
 import com.openggf.game.dataselect.DataSelectAction;
 import com.openggf.game.dataselect.DataSelectActionType;
+import com.openggf.game.dataselect.DataSelectDestination;
 import com.openggf.game.dataselect.DataSelectGameProfile;
 import com.openggf.game.dataselect.DataSelectHostProfile;
 import com.openggf.game.dataselect.DataSelectMenuModel;
@@ -19,6 +20,7 @@ import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveSlotState;
 import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.sonic2.levelselect.LevelSelectDataLoader;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -627,10 +629,18 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             return null;
         }
         // Host preview active → suppress the S3K zone card icon (no host zone art available)
-        if (hostProfile.resolveSlotPreview(summary.payload()) != null) {
-            return null;
-        }
         S3kSaveScreenLayoutObjects.SaveSlotObject slotObject = assets.getSaveScreenLayoutObjects().slots().get(slotIndex);
+        int hostIconIndex = resolveHostSelectedSlotIconIndex(summary);
+        if (hostIconIndex >= 0) {
+            return new S3kSaveScreenObjectState.SelectedSlotIcon(
+                    slotIndex,
+                    slotObject.worldX(),
+                    slotObject.worldY(),
+                    hostIconIndex,
+                    false,
+                    hostIconIndex,
+                    0x17);
+        }
         int progressCode = Math.max(1, S3kSaveProgressions.progressCodeForPayload(summary.payload()));
         if (Boolean.TRUE.equals(summary.payload().get("clear"))) {
             int iconIndex = Math.max(0, Math.min(14, sessionController.currentClearRestartIndex()));
@@ -654,6 +664,17 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 false,
                 iconIndex,
                 0x17);
+    }
+
+    private int resolveHostSelectedSlotIconIndex(SaveSlotSummary summary) {
+        if (summary == null || (summary.state() != SaveSlotState.VALID
+                && summary.state() != SaveSlotState.HASH_WARNING)) {
+            return -1;
+        }
+        DataSelectDestination clearDestination = Boolean.TRUE.equals(summary.payload().get("clear"))
+                ? sessionController.currentClearRestartDestination()
+                : null;
+        return hostProfile.resolveSelectedSlotIconIndex(summary.payload(), clearDestination);
     }
 
     private S3kSaveScreenObjectState.SlotVisualState buildSlotVisualState(int slotIndex,
@@ -863,8 +884,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         return new LoaderBackedAssets(S3kDataSelectPresentation::resolvePrimaryRom);
     }
 
-    static S3kDataSelectAssetSource createDonorAssets() {
-        return new LoaderBackedAssets(() -> GameServices.rom().getSecondaryRom("s3k"));
+    static S3kDataSelectAssetSource createDonorAssets(DataSelectHostProfile hostProfile) {
+        return new LoaderBackedAssets(() -> GameServices.rom().getSecondaryRom("s3k"),
+                hostProfile != null ? hostProfile.gameCode() : null);
     }
 
     private static Rom resolvePrimaryRom() throws IOException {
@@ -895,12 +917,26 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     private static final class LoaderBackedAssets implements S3kDataSelectAssetSource {
+        private static final int S2_ICON_TILE_COUNT = 12;
+        private static final int S2_SELECTED_ICON_TILE_BASE = 0x31B;
+        private static final int S2_SELECTED_ICON_X_OFFSET = -40;
+        private static final int S2_SELECTED_ICON_Y_OFFSET = -120;
+
         private final RomSource romSource;
+        private final String hostGameCode;
         private S3kDataSelectDataLoader loader;
+        private LevelSelectDataLoader s2PreviewLoader;
+        private List<com.openggf.level.render.SpriteMappingFrame> s2SelectedIconFrames = List.of();
+        private byte[] hostEmeraldPaletteBytes = new byte[0];
         private boolean loaded;
 
         LoaderBackedAssets(RomSource romSource) {
+            this(romSource, null);
+        }
+
+        LoaderBackedAssets(RomSource romSource, String hostGameCode) {
             this.romSource = romSource;
+            this.hostGameCode = hostGameCode;
         }
 
         @Override
@@ -910,6 +946,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             }
             loader = requireLoader();
             loader.loadData();
+            loadHostPreviewAssets();
             loaded = true;
         }
 
@@ -970,7 +1007,35 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
 
         @Override
         public com.openggf.level.Pattern[] getSlotIconPatterns(int iconIndex) {
+            if (s2PreviewLoader != null) {
+                return s2SlotIconPatterns(iconIndex);
+            }
             return loader != null ? loader.getSlotIconPatterns(iconIndex) : new com.openggf.level.Pattern[0];
+        }
+
+        @Override
+        public com.openggf.level.Palette getSelectedSlotIconPalette(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            if (s2PreviewLoader == null || selectedSlotIcon == null) {
+                return null;
+            }
+            return s2PreviewLoader.getIconPalette(selectedSlotIcon.iconIndex());
+        }
+
+        @Override
+        public com.openggf.level.render.SpriteMappingFrame getSelectedSlotIconFrame(
+                S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            if (s2PreviewLoader == null || selectedSlotIcon == null) {
+                return null;
+            }
+            int iconIndex = selectedSlotIcon.iconIndex();
+            return iconIndex >= 0 && iconIndex < s2SelectedIconFrames.size()
+                    ? s2SelectedIconFrames.get(iconIndex)
+                    : null;
+        }
+
+        @Override
+        public boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return s2PreviewLoader != null && selectedSlotIcon != null;
         }
 
         @Override
@@ -1000,6 +1065,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
 
         @Override
         public byte[] getEmeraldPaletteBytes() {
+            if (hostEmeraldPaletteBytes.length > 0) {
+                return hostEmeraldPaletteBytes;
+            }
             return loader != null ? loader.getEmeraldPaletteBytes() : new byte[0];
         }
 
@@ -1026,6 +1094,93 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         @Override
         public S3kSaveScreenLayoutObjects getSaveScreenLayoutObjects() {
             return loader != null ? loader.getSaveScreenLayoutObjects() : S3kSaveScreenLayoutObjects.original();
+        }
+
+        /**
+         * Loads host-owned preview data on top of the donated S3K frontend.
+         *
+         * <p>Selected-slot zone imagery may come from the host game, but emerald rendering
+         * stays on the native S3K save-card geometry. Host emerald colors are therefore
+         * adapted into the S3K save-card palette contract rather than drawn through raw host
+         * emerald tiles on the save card.</p>
+         */
+        private void loadHostPreviewAssets() {
+            Rom hostRom = null;
+            if (GameServices.rom() != null) {
+                try {
+                    hostRom = GameServices.rom().getRom();
+                } catch (IOException ignored) {
+                    hostRom = null;
+                }
+            }
+            hostEmeraldPaletteBytes = HostEmeraldPaletteBuilder.buildForHostGame(hostGameCode, hostRom);
+            if (!"s2".equals(hostGameCode)) {
+                return;
+            }
+            LevelSelectDataLoader previewLoader = new LevelSelectDataLoader();
+            if (!previewLoader.loadData()) {
+                return;
+            }
+            s2PreviewLoader = previewLoader;
+            s2SelectedIconFrames = buildS2SelectedIconFrames(previewLoader);
+        }
+
+        private com.openggf.level.Pattern[] s2SlotIconPatterns(int iconIndex) {
+            com.openggf.level.Pattern[] allPatterns = s2PreviewLoader.getLevelSelectPicsPatterns();
+            int start = iconIndex * S2_ICON_TILE_COUNT;
+            if (allPatterns == null || start < 0 || start + S2_ICON_TILE_COUNT > allPatterns.length) {
+                return new com.openggf.level.Pattern[0];
+            }
+            return java.util.Arrays.copyOfRange(allPatterns, start, start + S2_ICON_TILE_COUNT);
+        }
+
+        private List<com.openggf.level.render.SpriteMappingFrame> buildS2SelectedIconFrames(LevelSelectDataLoader previewLoader) {
+            List<com.openggf.level.render.SpriteMappingFrame> frames = new ArrayList<>(15);
+            for (int iconIndex = 0; iconIndex < 15; iconIndex++) {
+                frames.add(buildS2SelectedIconFrame(previewLoader, iconIndex));
+            }
+            return List.copyOf(frames);
+        }
+
+        private com.openggf.level.render.SpriteMappingFrame buildS2SelectedIconFrame(LevelSelectDataLoader previewLoader,
+                                                                                     int iconIndex) {
+            int[] iconMappings = previewLoader.getIconMappings();
+            int iconMapWidth = previewLoader.getIconMappingsWidth();
+            int patternBase = previewLoader.getLevelSelectPicsOffset() + (iconIndex * S2_ICON_TILE_COUNT);
+            if (iconMappings == null || iconMapWidth <= 0) {
+                return null;
+            }
+            List<com.openggf.level.render.SpriteMappingPiece> pieces = new ArrayList<>(S2_ICON_TILE_COUNT);
+            int iconRowStart = iconIndex * 3;
+            for (int row = 0; row < 3; row++) {
+                int baseIndex = (iconRowStart + row) * iconMapWidth;
+                for (int col = 0; col < 4; col++) {
+                    int idx = baseIndex + col;
+                    if (idx < 0 || idx >= iconMappings.length) {
+                        continue;
+                    }
+                    int word = iconMappings[idx];
+                    if (word == 0) {
+                        continue;
+                    }
+                    int originalTile = word & 0x7FF;
+                    int tileOffset = originalTile - patternBase;
+                    if (tileOffset < 0 || tileOffset >= S2_ICON_TILE_COUNT) {
+                        continue;
+                    }
+                    pieces.add(new com.openggf.level.render.SpriteMappingPiece(
+                            S2_SELECTED_ICON_X_OFFSET + (col * 8),
+                            S2_SELECTED_ICON_Y_OFFSET + (row * 8),
+                            1,
+                            1,
+                            S2_SELECTED_ICON_TILE_BASE + tileOffset,
+                            (word & 0x0800) != 0,
+                            (word & 0x1000) != 0,
+                            3,
+                            (word & 0x8000) != 0));
+                }
+            }
+            return pieces.isEmpty() ? null : new com.openggf.level.render.SpriteMappingFrame(List.copyOf(pieces));
         }
 
         private S3kDataSelectDataLoader requireLoader() {

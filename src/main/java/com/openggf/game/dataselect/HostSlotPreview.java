@@ -6,14 +6,29 @@ package com.openggf.game.dataselect;
  * host-appropriate zone labels and preview art instead of S3K zone data.
  *
  * @param type the preview rendering mode
- * @param zoneLabelText short label for the zone (e.g. "GHZ", "EHZ 1"), max ~6 chars;
+ * @param zoneLabelText short label for the zone (e.g. "GHZ"), max ~6 chars;
  *                       must only use characters supported by {@code S3kSaveTextCodec}
+ * @param zoneDisplayNumber numeric zone label to render using the native "ZONE" card digits
  */
-public record HostSlotPreview(HostSlotPreviewType type, String zoneLabelText) {
+public record HostSlotPreview(HostSlotPreviewType type, String zoneLabelText, Integer zoneDisplayNumber) {
+
+    public HostSlotPreview(HostSlotPreviewType type, String zoneLabelText) {
+        this(type, zoneLabelText, null);
+    }
+
+    public static HostSlotPreview textOnly(String zoneLabelText) {
+        return new HostSlotPreview(HostSlotPreviewType.TEXT_ONLY, zoneLabelText, null);
+    }
+
+    public static HostSlotPreview numberedZone(int zoneDisplayNumber) {
+        return new HostSlotPreview(HostSlotPreviewType.NUMBERED_ZONE, null, zoneDisplayNumber);
+    }
 
     public enum HostSlotPreviewType {
         /** Render zone name as text only (no zone card image). */
         TEXT_ONLY,
+        /** Render the native S3K numeric "ZONE" label with a host-supplied number. */
+        NUMBERED_ZONE,
         /** Render a scaled host-game image (reserved for future use). */
         IMAGE
     }

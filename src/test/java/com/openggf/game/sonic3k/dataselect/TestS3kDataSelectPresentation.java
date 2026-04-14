@@ -7,6 +7,8 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.game.dataselect.AbstractDataSelectProvider;
 import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.game.dataselect.DataSelectSessionController;
+import com.openggf.game.sonic1.dataselect.S1DataSelectProfile;
+import com.openggf.game.sonic2.dataselect.S2DataSelectProfile;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.save.SaveManager;
@@ -392,6 +394,113 @@ class TestS3kDataSelectPresentation {
         presentation.draw();
         assertNotNull(renderer.lastObjectState.selectedSlotIcon(),
                 "highlighted slot image should appear once the selector settles on the new slot");
+    }
+
+    @Test
+    void donatedS2Host_draw_settledOccupiedSlotShowsHostSelectedIcon() throws Exception {
+        SaveManager saveManager = new SaveManager(root);
+        saveManager.writeSlot("s2", 1, java.util.Map.of(
+                "zone", 0,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", List.of("tails"),
+                "lives", 5,
+                "chaosEmeralds", List.of(0, 1, 2),
+                "clear", false
+        ));
+
+        RecordingAssets assets = new RecordingAssets(0x2A);
+        RecordingRenderer renderer = new RecordingRenderer();
+        DataSelectSessionController controller = new DataSelectSessionController(new S2DataSelectProfile());
+
+        S3kDataSelectPresentation presentation = new S3kDataSelectPresentation(
+                controller,
+                saveManager,
+                RuntimeManager.currentEngineServices().configuration(),
+                assets,
+                renderer,
+                ignored -> {
+                });
+
+        presentation.initialize();
+
+        InputHandler input = new InputHandler();
+        int rightKey = RuntimeManager.currentEngineServices().configuration().getInt(SonicConfiguration.RIGHT);
+        input.handleKeyEvent(rightKey, GLFW_PRESS);
+        presentation.update(input);
+        settleHorizontalMove(presentation);
+        presentation.draw();
+
+        assertNotNull(renderer.lastObjectState.selectedSlotIcon(),
+                "donated S2 saves should still show a selected zone preview image");
+        assertEquals(0, renderer.lastObjectState.selectedSlotIcon().iconIndex());
+        assertFalse(renderer.lastObjectState.selectedSlotIcon().finishCard());
+    }
+
+    @Test
+    void donatedS1Host_draw_usesIndividualEmeraldFramesFromChaosList() throws Exception {
+        SaveManager saveManager = new SaveManager(root);
+        saveManager.writeSlot("s1", 1, java.util.Map.of(
+                "zone", 0,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", List.of(),
+                "lives", 5,
+                "chaosEmeralds", List.of(0, 2, 5),
+                "clear", false
+        ));
+
+        RecordingAssets assets = new RecordingAssets(0x2A);
+        RecordingRenderer renderer = new RecordingRenderer();
+        DataSelectSessionController controller = new DataSelectSessionController(new S1DataSelectProfile());
+
+        S3kDataSelectPresentation presentation = new S3kDataSelectPresentation(
+                controller,
+                saveManager,
+                RuntimeManager.currentEngineServices().configuration(),
+                assets,
+                renderer,
+                ignored -> {
+                });
+
+        presentation.initialize();
+        presentation.draw();
+
+        assertEquals(List.of(0x10, 0x12, 0x15),
+                renderer.lastObjectState.visualState().slotStates().get(0).emeraldMappingFrames());
+    }
+
+    @Test
+    void donatedS2Host_draw_usesIndividualEmeraldFramesFromChaosList() throws Exception {
+        SaveManager saveManager = new SaveManager(root);
+        saveManager.writeSlot("s2", 1, java.util.Map.of(
+                "zone", 0,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", List.of("tails"),
+                "lives", 5,
+                "chaosEmeralds", List.of(1, 4, 6),
+                "clear", false
+        ));
+
+        RecordingAssets assets = new RecordingAssets(0x2A);
+        RecordingRenderer renderer = new RecordingRenderer();
+        DataSelectSessionController controller = new DataSelectSessionController(new S2DataSelectProfile());
+
+        S3kDataSelectPresentation presentation = new S3kDataSelectPresentation(
+                controller,
+                saveManager,
+                RuntimeManager.currentEngineServices().configuration(),
+                assets,
+                renderer,
+                ignored -> {
+                });
+
+        presentation.initialize();
+        presentation.draw();
+
+        assertEquals(List.of(0x11, 0x14, 0x16),
+                renderer.lastObjectState.visualState().slotStates().get(0).emeraldMappingFrames());
     }
 
     @Test
@@ -1780,6 +1889,44 @@ class TestS3kDataSelectPresentation {
     }
 
     @Test
+    void render_selectedOccupiedSlotUsesCustomHostSelectedIconFrame() {
+        RecordingGraphics graphics = new RecordingGraphics();
+        HostSelectedSlotIconAssets assets = new HostSelectedSlotIconAssets();
+        S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        assets.getSaveScreenLayoutObjects(),
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(assets.getSaveScreenLayoutObjects(), 4, 0xD,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY,
+                                S3kSaveScreenObjectState.SlotVisualKind.EMPTY),
+                        new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17)));
+
+        assertEquals(12, graphics.scaledRenderCalls().size(),
+                "host-selected previews should render as a scaled 4x3 tile grid");
+        RecordingGraphics.ScaledRenderCall firstTile = graphics.scaledRenderCalls().getFirst();
+        RecordingGraphics.ScaledRenderCall lastTile = graphics.scaledRenderCalls().getLast();
+        assertEquals(0x50000 + Sonic3kConstants.ARTTILE_SAVE_MISC + 0x31B, firstTile.patternId());
+        assertEquals(104f, firstTile.x(), 0.01f);
+        assertEquals(16f, firstTile.y(), 0.01f);
+        assertEquals(20f, firstTile.width(), 0.01f);
+        assertEquals(56f / 3f, firstTile.height(), 0.01f);
+        assertEquals(0x50000 + Sonic3kConstants.ARTTILE_SAVE_MISC + 0x326, lastTile.patternId());
+        assertEquals(164f, lastTile.x(), 0.01f);
+        assertEquals(16f + ((56f / 3f) * 2f), lastTile.y(), 0.02f);
+        assertNotNull(graphics.cachedPalette(3),
+                "host-selected previews should also cache their host palette into line 3");
+    }
+
+    @Test
     void render_selectedOccupiedSlotZoneImageRendersAboveStaticCardOverlay() {
         RecordingGraphics graphics = new RecordingGraphics();
         SelectedIconOverStaticOverlayAssets assets = new SelectedIconOverStaticOverlayAssets();
@@ -2269,6 +2416,7 @@ class TestS3kDataSelectPresentation {
         private int flushBatchCalls;
         private final List<RenderPosition> renderPositions = new ArrayList<>();
         private final List<RenderCall> renderCalls = new ArrayList<>();
+        private final List<ScaledRenderCall> scaledRenderCalls = new ArrayList<>();
         private final List<Integer> cachedPatternIds = new ArrayList<>();
         private final java.util.Map<Integer, Palette> cachedPalettes = new java.util.HashMap<>();
 
@@ -2284,6 +2432,11 @@ class TestS3kDataSelectPresentation {
             renderPatternCalls++;
             renderPositions.add(new RenderPosition(x, y));
             renderCalls.add(new RenderCall(patternId, new PatternDesc(desc.get()), x, y));
+        }
+
+        @Override
+        public void renderPatternWithIdScaled(int patternId, PatternDesc desc, float x, float y, float width, float height) {
+            scaledRenderCalls.add(new ScaledRenderCall(patternId, new PatternDesc(desc.get()), x, y, width, height));
         }
 
         @Override
@@ -2357,6 +2510,10 @@ class TestS3kDataSelectPresentation {
             return List.copyOf(renderCalls);
         }
 
+        List<ScaledRenderCall> scaledRenderCalls() {
+            return List.copyOf(scaledRenderCalls);
+        }
+
         int cachedPatternIdsInRange(int startInclusive, int endExclusive) {
             return (int) cachedPatternIds.stream()
                     .filter(id -> id >= startInclusive && id < endExclusive)
@@ -2373,6 +2530,9 @@ class TestS3kDataSelectPresentation {
 
         int flushBatchCalls() {
             return flushBatchCalls;
+        }
+
+        private record ScaledRenderCall(int patternId, PatternDesc desc, float x, float y, float width, float height) {
         }
     }
 
@@ -2514,6 +2674,60 @@ class TestS3kDataSelectPresentation {
         @Override
         public List<SpriteMappingFrame> getSaveScreenMappings() {
             return mappings;
+        }
+    }
+
+    private static final class HostSelectedSlotIconAssets extends RecordingAssets {
+        private final Pattern[] slotIconPatterns = new Pattern[12];
+        private final SpriteMappingFrame customFrame = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-40, -120, 4, 3, 0x31B, false, false, 3, false)));
+
+        private HostSelectedSlotIconAssets() {
+            super(0x2A);
+            for (int i = 0; i < slotIconPatterns.length; i++) {
+                slotIconPatterns[i] = new Pattern();
+            }
+            loadData();
+        }
+
+        @Override
+        public Pattern[] getMenuBackgroundPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getMiscPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getExtraPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getTextPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getSlotIconPatterns(int iconIndex) {
+            return slotIconPatterns;
+        }
+
+        @Override
+        public Palette getSelectedSlotIconPalette(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return new Palette();
+        }
+
+        @Override
+        public SpriteMappingFrame getSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return customFrame;
+        }
+
+        @Override
+        public boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return true;
         }
     }
 
