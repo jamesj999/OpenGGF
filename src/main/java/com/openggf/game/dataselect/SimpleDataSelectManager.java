@@ -237,9 +237,9 @@ public class SimpleDataSelectManager extends AbstractDataSelectProvider {
         if (lives instanceof Number number) {
             builder.append(" | L").append(number.intValue());
         }
-        Object emeralds = payload.get("emeraldCount");
-        if (emeralds instanceof Number number) {
-            builder.append(" | E").append(number.intValue());
+        int emeralds = readEmeraldCount(payload);
+        if (emeralds > 0) {
+            builder.append(" | E").append(emeralds);
         }
         return builder.toString();
     }
@@ -295,5 +295,10 @@ public class SimpleDataSelectManager extends AbstractDataSelectProvider {
     private static int readInt(Map<String, Object> payload, String key, int fallback) {
         Object value = payload.get(key);
         return value instanceof Number number ? number.intValue() : fallback;
+    }
+
+    private static int readEmeraldCount(Map<String, Object> payload) {
+        Object emeralds = payload.get("chaosEmeralds");
+        return emeralds instanceof List<?> list ? list.size() : 0;
     }
 }
