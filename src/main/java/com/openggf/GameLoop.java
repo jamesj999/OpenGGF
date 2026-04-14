@@ -1095,7 +1095,13 @@ public class GameLoop {
 
         // Determine which stage to enter
         GameStateManager gsm = this.gameState;
-        final int stageIndex = gsm.consumeCurrentSpecialStageIndexAndAdvance();
+        boolean s3kStageSelection = GameServices.module().getGameId() == GameId.S3K;
+        boolean superEmeraldMode = s3kStageSelection
+                && gsm.hasAllEmeralds()
+                && !gsm.hasAllSuperEmeralds();
+        final int stageIndex = s3kStageSelection
+                ? gsm.consumeCurrentSpecialStageIndexAndAdvanceS3k(superEmeraldMode)
+                : gsm.consumeCurrentSpecialStageIndexAndAdvance();
 
         if (screenAlreadyFaded) {
             // Screen is already fully faded (from S1 results screen after big ring).

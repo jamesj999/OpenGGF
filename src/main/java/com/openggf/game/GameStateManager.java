@@ -266,6 +266,39 @@ public class GameStateManager {
     }
 
     /**
+     * S3K behavior: scan from the current special stage index until an
+     * uncollected stage for the active emerald mode is found, then advance
+     * the cursor to the following slot.
+     *
+     * @param superEmeraldMode when true, skip collected super emerald stages;
+     *                         otherwise skip collected chaos emerald stages
+     * @return the stage index selected for entry
+     */
+    public int consumeCurrentSpecialStageIndexAndAdvanceS3k(boolean superEmeraldMode) {
+        if (specialStageCount <= 0) {
+            return 0;
+        }
+        int startIndex = Math.floorMod(currentSpecialStageIndex, specialStageCount);
+        int selectedIndex = startIndex;
+        for (int offset = 0; offset < specialStageCount; offset++) {
+            int candidateIndex = (startIndex + offset) % specialStageCount;
+            if (isS3kSpecialStageUncollected(candidateIndex, superEmeraldMode)) {
+                selectedIndex = candidateIndex;
+                break;
+            }
+        }
+        currentSpecialStageIndex = (selectedIndex + 1) % specialStageCount;
+        return selectedIndex;
+    }
+
+    private boolean isS3kSpecialStageUncollected(int index, boolean superEmeraldMode) {
+        if (superEmeraldMode) {
+            return !hasSuperEmerald(index);
+        }
+        return !hasEmerald(index);
+    }
+
+    /**
      * Gets the total number of emeralds collected (0-7).
      */
     public int getEmeraldCount() {
