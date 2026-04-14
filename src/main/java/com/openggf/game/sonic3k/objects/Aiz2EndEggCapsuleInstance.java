@@ -11,8 +11,8 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.EggPrisonAnimalInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.MultiPieceSolidProvider;
 import com.openggf.level.objects.SolidObjectParams;
-import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -34,7 +34,7 @@ import java.util.logging.Logger;
  * boss explosion (subtype 8).
  */
 public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
-        implements SolidObjectProvider {
+        implements MultiPieceSolidProvider {
     private static final Logger LOG = Logger.getLogger(Aiz2EndEggCapsuleInstance.class.getName());
 
     private static final int OBJECT_ID = 0x81;
@@ -45,22 +45,37 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     private static final int RIGHT_BOUND_OFFSET = 0x110;
     private static final int PRIORITY = 5;
 
-    // ROM: SolidObjectFull parameters (sonic3k.asm:181502-181506)
+    // ROM: SolidObjectFull parameters for capsule body (sonic3k.asm:181502-181506)
     private static final int SOLID_HALF_WIDTH = 0x2B;
     private static final int SOLID_HALF_HEIGHT = 0x18;
 
-    // ROM: Check_PlayerInRange bounds for the button child (word_867C2).
-    // word_867C2: dc.w -$1A, $34, -$1C, $38
-    // Check_PlayerInRange interprets these as (offset, size) pairs, NOT (min, max):
-    //   X: left = obj_x + (-$1A), right = left + $34 → obj_x - $1A to obj_x + $1A
-    //   Y: top  = obj_y + (-$1C), bottom = top + $38 → obj_y - $1C to obj_y + $1C
-    private static final int BUTTON_X_LEFT = -0x1A;
-    private static final int BUTTON_X_RIGHT = -0x1A + 0x34;  // = +$1A
-    private static final int BUTTON_Y_TOP = -0x1C;
-    private static final int BUTTON_Y_BOTTOM = -0x1C + 0x38;  // = +$1C
+    // ROM: SolidObjectFull parameters for button child (sub_86A54: d1=$1B, d2=$5, d3=$9)
+    private static final int BUTTON_SOLID_HALF_WIDTH = 0x1B;
+    private static final int BUTTON_SOLID_HALF_HEIGHT_AIR = 0x5;
+    private static final int BUTTON_SOLID_HALF_HEIGHT_GROUND = 0x9;
+
+    // ROM: subq.b #8,child_dy(a0) — button recesses 8px when pressed (loc_867AA)
+    private static final int BUTTON_RECESS = 8;
+
+    // MultiPieceSolidProvider piece indices
+    private static final int PIECE_BODY = 0;
+    private static final int PIECE_BUTTON = 1;
 
     // Button offset from capsule centre (ROM: ChildObjDat_86B64, child_dy=+$24)
     private static final int BUTTON_Y_OFFSET = 0x24;
+
+    // ROM: Check_PlayerInRange bounds for the button child (word_867C2).
+    // word_867C2: dc.w -$1A, $34, -$1C, $38
+    // Check_PlayerInRange interprets these as (offset, size) pairs:
+    //   X: left = obj_x + (-$1A), right = left + $34 → obj_x - $1A to obj_x + $1A
+    //   Y: top  = obj_y + (-$1C), bottom = top + $38 → obj_y - $1C to obj_y + $1C
+    // This detection area is intentionally LARGER than the button's SolidObjectFull
+    // zone (d2=5 → maxTop=24 → 48px tall). The extra range below (bobY+56 to bobY+64)
+    // provides the trigger window where no solid collision has yet zeroed ySpeed.
+    private static final int TRIGGER_X_LEFT = -0x1A;
+    private static final int TRIGGER_X_RIGHT = -0x1A + 0x34;  // = +$1A
+    private static final int TRIGGER_Y_TOP = -0x1C;
+    private static final int TRIGGER_Y_BOTTOM = -0x1C + 0x38;  // = +$1C
 
     // Post-open delay before results (frames to let explosions play out)
     private static final int POST_OPEN_DELAY = 60;
@@ -72,12 +87,14 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     private int currentY;
     private int verticalAccumulator;
     private int bobAngle;
+    private int bobOffset;
     private int xDirection = 1;
     private int mappingFrame;
     private boolean opened;
     private boolean resultsStarted;
     private boolean releaseTriggered;
     private int postOpenTimer;
+    private int buttonRecess;
 
     // Explosion controller (spawned when capsule opens)
     private S3kBossExplosionController explosionController;
@@ -119,7 +136,12 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         return true;
     }
 
-    // ===== Solid collision (ROM: SolidObjectFull d1=$2B, d2=$18, d3=$18) =====
+    // ===== Solid collision =====
+    // ROM: SolidObjectFull is called unconditionally every frame (sonic3k.asm:181502-181506),
+    // AFTER the routine handler returns. The capsule body remains solid throughout —
+    // before, during, and after opening. The button child also runs its own
+    // SolidObjectFull (sub_86A54) every frame in both pre-open (loc_86770) and
+    // post-open (loc_867CA) states.
 
     @Override
     public SolidObjectParams getSolidParams() {
@@ -127,14 +149,44 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(PlayableEntity player) {
-        return !opened;  // Capsule loses solidity once opened
+    public int getPieceCount() {
+        return 2;
+    }
+
+    @Override
+    public int getPieceX(int pieceIndex) {
+        return currentX;
+    }
+
+    @Override
+    public int getPieceY(int pieceIndex) {
+        // ROM: Swing_UpAndDown modifies y_pos before SolidObjectFull runs,
+        // so collision position includes the bob offset.
+        int bobY = currentY + bobOffset;
+        if (pieceIndex == PIECE_BUTTON) {
+            return bobY + BUTTON_Y_OFFSET - buttonRecess;
+        }
+        return bobY;
+    }
+
+    @Override
+    public SolidObjectParams getPieceParams(int pieceIndex) {
+        if (pieceIndex == PIECE_BUTTON) {
+            return new SolidObjectParams(BUTTON_SOLID_HALF_WIDTH,
+                    BUTTON_SOLID_HALF_HEIGHT_AIR, BUTTON_SOLID_HALF_HEIGHT_GROUND);
+        }
+        return getSolidParams();
     }
 
     // ===== Update =====
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        // ROM: Swing_UpAndDown runs inside the routine handler, before
+        // SolidObjectFull. Compute bob offset early so solid collision
+        // (via getPieceY) uses the current bob position this frame.
+        bobOffset = (int) Math.round(Math.sin((bobAngle * Math.PI * 2.0) / 256.0) * 3.0);
+
         // ROM: Once opened, the capsule stops all movement (no panning, no
         // camera tracking). It stays at its current position and only the
         // bob animation continues. The camera scrolls past it naturally.
@@ -143,7 +195,11 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         }
 
         if (!opened) {
-            // Check if player hits the button from below
+            // ROM: loc_86770 — Check_PlayerInRange (word_867C2) on the button child.
+            // This range check runs in the button child's update, BEFORE any
+            // SolidObjectFull modifies the player state. The detection area is
+            // intentionally larger than the button's solid collision zone, providing
+            // a trigger window where the body's ceiling hit hasn't zeroed ySpeed.
             if (playerEntity instanceof AbstractPlayableSprite player && shouldHitButton(player)) {
                 openCapsule();
             }
@@ -169,7 +225,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
                     && !player.getAir()) {
                 startResults(player);
             }
-        } else if (!releaseTriggered && services().gameState().isEndOfLevelFlag()) {
+        } else if (resultsStarted && !releaseTriggered && services().gameState().isEndOfLevelFlag()) {
             releaseTriggered = true;
             Aiz2BossEndSequenceState.releaseEggCapsule();
             // ROM: The capsule stays visible — it doesn't disappear.
@@ -216,23 +272,26 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
 
     /**
      * ROM: Check_PlayerInRange on the button child (loc_86770 / word_867C2).
-     * Player must be jumping upward (y_vel < 0) within the button's
-     * collision box, which is offset below the capsule body.
+     * The detection area is larger than the button's SolidObjectFull zone.
+     * The body's SolidObjectFull (d1=$2B, d2=$18) covers up to ~bodyY+39,
+     * and the button's SolidObjectFull (d2=$5) covers up to ~bodyY+56, but
+     * Check_PlayerInRange extends to bodyY+64. The 8-pixel band between
+     * bodyY+56 and bodyY+64 is where the trigger fires: the player is close
+     * enough for detection but no solid collision has zeroed their ySpeed.
+     *
+     * <p>ROM checks: in range + y_vel < 0 + (anim==2 OR character_id==1).
+     * In S3K a normal jump always sets anim=2 (ball/rolling), so the
+     * anim check effectively just confirms the player is jumping.
      */
     private boolean shouldHitButton(AbstractPlayableSprite player) {
-        // ROM: loc_86770 — Check_PlayerInRange (word_867C2) bounds relative to
-        // the button child at child_dy=+$24 below the capsule centre.
-        // ROM checks: in range + y_vel < 0 + (anim==2 OR character_id==1).
-        // In S3K a normal jump always sets anim=2 (ball/rolling), so the
-        // anim check effectively just confirms the player is jumping.
-        int buttonY = currentY + BUTTON_Y_OFFSET;
+        int buttonY = currentY + bobOffset + BUTTON_Y_OFFSET - buttonRecess;
         int dx = player.getCentreX() - currentX;
         int dy = player.getCentreY() - buttonY;
         return player.getYSpeed() < 0
-                && dx >= BUTTON_X_LEFT
-                && dx < BUTTON_X_RIGHT
-                && dy >= BUTTON_Y_TOP
-                && dy < BUTTON_Y_BOTTOM;
+                && dx >= TRIGGER_X_LEFT
+                && dx < TRIGGER_X_RIGHT
+                && dy >= TRIGGER_Y_TOP
+                && dy < TRIGGER_Y_BOTTOM;
     }
 
     // ===== Capsule opening =====
@@ -246,6 +305,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         }
         opened = true;
         mappingFrame = 1;  // ROM: move.b #1,mapping_frame(a0) — open lid
+        buttonRecess = BUTTON_RECESS;  // ROM: subq.b #8,child_dy(a0) at loc_867AA
         postOpenTimer = POST_OPEN_DELAY;
 
         // Play explosion SFX
@@ -361,7 +421,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        int bobY = currentY + (int) Math.round(Math.sin((bobAngle * Math.PI * 2.0) / 256.0) * 3.0);
+        int bobY = currentY + bobOffset;
 
         // ROM: loc_86592 sets bset #1,render_flags(a0) for the floating capsule.
         // Draw body vFlip=true to hang upside-down.
@@ -369,8 +429,9 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
 
         // ROM: The button child sits at child_dy=+$24 below the capsule centre.
         // It hangs below the upside-down capsule body, facing the ground.
+        // ROM: subq.b #8,child_dy(a0) recesses button 8px when pressed.
         int buttonFrame = opened ? 0xC : 0x5;
-        int buttonY = bobY + BUTTON_Y_OFFSET;
+        int buttonY = bobY + BUTTON_Y_OFFSET - buttonRecess;
         renderer.drawFrameIndex(buttonFrame, currentX, buttonY, false, true);
     }
 }
