@@ -913,6 +913,10 @@ public class AizEndBossInstance extends AbstractBossInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed() || defeatRenderComplete) return;
+        // ROM: Draw_And_Touch_Sprite is only called from Obj_AIZEndBossMain, which
+        // is not reached until after Obj_Wait + Obj_AIZEndBossMusic + beginEmerge().
+        // Before that, the object just does rts — completely invisible.
+        if ((flags38 & FLAG_EMERGE_STARTED) == 0) return;
         if ((flags38 & FLAG_HIDDEN) != 0) return;
 
         ObjectRenderManager renderManager = services().renderManager();
