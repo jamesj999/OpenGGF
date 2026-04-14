@@ -25,6 +25,8 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
 import com.openggf.control.InputHandler;
 import com.openggf.tests.RomTestUtils;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
+@RequiresRom(SonicGame.SONIC_3K)
 class TestS3kDataSelectPresentation {
     @TempDir
     Path root;
@@ -978,7 +981,7 @@ class TestS3kDataSelectPresentation {
     @Test
     void render_realAssets_emptySlotBodyUsesExpectedS3kBodyTiles() throws Exception {
         File romFile = RomTestUtils.ensureSonic3kRomAvailable();
-        assertNotNull(romFile, "S3K ROM not available");
+        assumeTrue(romFile != null, "S3K ROM not available");
 
         try (Rom rom = new Rom()) {
             assertTrue(rom.open(romFile.getPath()), "Failed to open S3K ROM");
@@ -1018,7 +1021,7 @@ class TestS3kDataSelectPresentation {
     @Test
     void nativeSelectorRendering_usesAuthoredMappingFramesInsteadOfRectiOverlay() throws Exception {
         File romFile = RomTestUtils.ensureSonic3kRomAvailable();
-        assertNotNull(romFile, "S3K ROM not available");
+        assumeTrue(romFile != null, "S3K ROM not available");
 
         try (Rom rom = new Rom()) {
             assertTrue(rom.open(romFile.getPath()), "Failed to open S3K ROM");
