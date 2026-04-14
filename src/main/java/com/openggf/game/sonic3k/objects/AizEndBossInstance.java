@@ -142,6 +142,9 @@ public class AizEndBossInstance extends AbstractBossInstance {
     private boolean highPriorityArt;
     private int mappingFrame;
 
+    /** Set once when Obj_AIZEndBossMain begins; never cleared. Gates rendering. */
+    private boolean renderActivated;
+
     // Swing state
     private int swingVelocity;
     private boolean swingDown;
@@ -176,6 +179,7 @@ public class AizEndBossInstance extends AbstractBossInstance {
         collisionEnabled = false;
         highPriorityArt = false;
         mappingFrame = 0;
+        renderActivated = false;
         flags38 = 0;
         facingRight = false;
         angle = 0;
@@ -345,6 +349,10 @@ public class AizEndBossInstance extends AbstractBossInstance {
      * Called after music starts playing.
      */
     private void doMainInit() {
+        // ROM: Obj_AIZEndBossMain is the first code path that calls
+        // Draw_And_Touch_Sprite — activate rendering from this point on.
+        renderActivated = true;
+
         // ROM: SetUp_ObjAttributes, ObjDat_AIZEndBoss
         // collision_property = 8 (already set)
         // render_flags bit 0 = 1 (face right)
@@ -914,9 +922,9 @@ public class AizEndBossInstance extends AbstractBossInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed() || defeatRenderComplete) return;
         // ROM: Draw_And_Touch_Sprite is only called from Obj_AIZEndBossMain, which
-        // is not reached until after Obj_Wait + Obj_AIZEndBossMusic + beginEmerge().
+        // is not reached until after Obj_Wait + Obj_AIZEndBossMusic + doMainInit().
         // Before that, the object just does rts — completely invisible.
-        if ((flags38 & FLAG_EMERGE_STARTED) == 0) return;
+        if (!renderActivated) return;
         if ((flags38 & FLAG_HIDDEN) != 0) return;
 
         ObjectRenderManager renderManager = services().renderManager();
