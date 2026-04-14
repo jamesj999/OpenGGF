@@ -26,9 +26,20 @@ public final class S3kDataSelectManager extends S3kDataSelectPresentation {
         this(controller,
                 Path.of("saves"),
                 RuntimeManager.currentEngineServices().configuration(),
-                createDefaultAssets(),
+                resolveAssets(controller),
                 new S3kDataSelectRenderer(),
                 S3kDataSelectPresentation::playMusicSafely);
+    }
+
+    /**
+     * Native S3K uses the primary ROM; a donated host (S1/S2) needs the
+     * S3K ROM opened as a secondary ROM since the primary is the host game.
+     */
+    private static S3kDataSelectAssetSource resolveAssets(DataSelectSessionController controller) {
+        if (!"s3k".equals(controller.hostProfile().gameCode())) {
+            return createDonorAssets();
+        }
+        return createDefaultAssets();
     }
 
     public S3kDataSelectManager(DataSelectSessionController controller,
