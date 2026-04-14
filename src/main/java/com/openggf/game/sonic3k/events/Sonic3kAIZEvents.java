@@ -1315,17 +1315,31 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     + Integer.toHexString(newCameraX));
         }
 
-        // Clamp player X within camera bounds during auto-scroll
+        // ROM: sub_50318 — clamp X within camera margins for BOTH players.
+        // Called for Player_1 then Player_2 in AIZ2_DoShipLoop.
+        int camX = cam.getX();
         if (cam.getFocusedSprite() instanceof AbstractPlayableSprite player) {
-            int camX = cam.getX();
-            int minPlayerX = camX + PLAYER_LEFT_MARGIN;
-            int maxPlayerX = camX + PLAYER_RIGHT_MARGIN;
-            short playerX = player.getX();
-            if (playerX < minPlayerX) {
-                player.setX((short) minPlayerX);
-            } else if (playerX > maxPlayerX) {
-                player.setX((short) maxPlayerX);
-            }
+            clampPlayerDuringAutoScroll(player, camX);
+        }
+        for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
+            clampPlayerDuringAutoScroll(sidekick, camX);
+        }
+    }
+
+    /**
+     * ROM: sub_50318 — clamp a player's X position within the auto-scroll camera margins.
+     * If pushed rightward from the left edge, ground velocity is set to $400.
+     */
+    private static void clampPlayerDuringAutoScroll(AbstractPlayableSprite sprite, int camX) {
+        int minPlayerX = camX + PLAYER_LEFT_MARGIN;
+        int maxPlayerX = camX + PLAYER_RIGHT_MARGIN;
+        short playerX = sprite.getX();
+        if (playerX < minPlayerX) {
+            sprite.setX((short) minPlayerX);
+            // ROM: move.w #$400,ground_vel(a1) — push player rightward with the scroll
+            sprite.setGSpeed((short) 0x400);
+        } else if (playerX > maxPlayerX) {
+            sprite.setX((short) maxPlayerX);
         }
     }
 
