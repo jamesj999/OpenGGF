@@ -87,6 +87,30 @@ class TestS3kPaletteOwnershipRegistryIntegration {
                 registry.ownerAt(PaletteSurface.NORMAL, 2, 3));
     }
 
+    @Test
+    void hczCyclePreservesPreSubmittedClaimsForTheFrame() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        StubLevel level = new StubLevel();
+        PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
+        RomByteReader reader = RomByteReader.fromRom(TestEnvironment.currentRom());
+
+        registry.beginFrame();
+        registry.submit(com.openggf.game.palette.PaletteWrite.normal(
+                "preexisting.owner",
+                500,
+                2,
+                3,
+                new byte[] { 0x0E, (byte) 0xEE, 0x0C, (byte) 0xCC, 0x0A, (byte) 0xAA, 0x08, (byte) 0x88 }));
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(
+                reader, level, ZONE_HCZ, 0x00, registry, null);
+
+        cycler.update();
+
+        assertEquals("preexisting.owner", registry.ownerAt(PaletteSurface.NORMAL, 2, 3));
+        assertColorWord(level.getPalette(2), 3, 0x0EEE);
+    }
+
     // ========== Helpers ==========
 
     private static void assertColorEquals(Palette expected, int expectedIdx,
@@ -99,6 +123,20 @@ class TestS3kPaletteOwnershipRegistryIntegration {
                 "Green mismatch at color " + actualIdx);
         assertEquals(e.b & 0xFF, a.b & 0xFF,
                 "Blue mismatch at color " + actualIdx);
+    }
+
+    private static void assertColorWord(Palette palette, int colorIndex, int segaWord) {
+        byte highByte = (byte) ((segaWord >> 8) & 0xFF);
+        byte lowByte = (byte) (segaWord & 0xFF);
+        int r3 = (lowByte >> 1) & 0x07;
+        int g3 = (lowByte >> 5) & 0x07;
+        int b3 = (highByte >> 1) & 0x07;
+        int expectedR = (r3 * 255 + 3) / 7;
+        int expectedG = (g3 * 255 + 3) / 7;
+        int expectedB = (b3 * 255 + 3) / 7;
+        assertEquals(expectedR, palette.getColor(colorIndex).r & 0xFF);
+        assertEquals(expectedG, palette.getColor(colorIndex).g & 0xFF);
+        assertEquals(expectedB, palette.getColor(colorIndex).b & 0xFF);
     }
 
     static Palette[] blankPalettes() {

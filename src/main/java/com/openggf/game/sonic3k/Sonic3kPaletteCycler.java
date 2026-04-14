@@ -69,7 +69,6 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         if (cycles == null || cycles.isEmpty()) {
             return;
         }
-        paletteRegistry.beginFrame();
         // ROM: AnimatePalettes dispatches to AnPal_* every frame unconditionally,
         // regardless of fire transition state.  Never suspend palette cycling.
         for (PaletteCycle cycle : cycles) {

@@ -4,6 +4,12 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.render.AdvancedRenderFrameState;
+import com.openggf.game.render.AdvancedRenderMode;
+import com.openggf.game.render.AdvancedRenderModeContext;
+import com.openggf.game.render.SpecialRenderEffect;
+import com.openggf.game.render.SpecialRenderEffectContext;
+import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
@@ -18,7 +24,7 @@ import com.openggf.level.LevelManager;
  * - post-burn foreground heat haze gating
  * - post-sprite fire curtain draw during the AIZ1 miniboss fake-out transition
  */
-public final class AizTransitionRenderFeature {
+public final class AizTransitionRenderFeature implements SpecialRenderEffect, AdvancedRenderMode {
     private static final java.util.logging.Logger LOG =
             java.util.logging.Logger.getLogger(AizTransitionRenderFeature.class.getName());
 
@@ -50,6 +56,28 @@ public final class AizTransitionRenderFeature {
             return events.isPostFireHazeActive();
         }
         return actIndex > 0;
+    }
+
+    @Override
+    public String id() {
+        return "aiz-foreground-heat-haze";
+    }
+
+    @Override
+    public void contribute(AdvancedRenderModeContext context, AdvancedRenderFrameState.Builder builder) {
+        if (shouldEnableForegroundHeatHaze(context.zoneIndex(), context.actIndex(), context.cameraX())) {
+            builder.enableForegroundHeatHaze();
+        }
+    }
+
+    @Override
+    public SpecialRenderEffectStage stage() {
+        return SpecialRenderEffectStage.AFTER_SPRITES;
+    }
+
+    @Override
+    public void render(SpecialRenderEffectContext context) {
+        renderFlameOverlay(context.camera(), context.frameCounter());
     }
 
     public void renderFlameOverlay(Camera camera, int frameCounter) {

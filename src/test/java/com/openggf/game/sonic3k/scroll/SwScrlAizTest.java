@@ -1,20 +1,18 @@
 package com.openggf.game.sonic3k.scroll;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
-import com.openggf.game.RuntimeManager;
-import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
-import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.tests.TestEnvironment;
+import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -26,7 +24,9 @@ import static com.openggf.level.scroll.M68KMath.asrWord;
 import static com.openggf.level.scroll.M68KMath.negWord;
 import static com.openggf.level.scroll.M68KMath.packScrollWords;
 import static com.openggf.level.scroll.M68KMath.unpackBG;
+import static com.openggf.level.scroll.M68KMath.unpackFG;
 
+@RequiresRom(SonicGame.SONIC_3K)
 public class SwScrlAizTest {
 
     private static final int INTRO_DEFORM_BANDS = 0x25;
@@ -40,16 +40,14 @@ public class SwScrlAizTest {
     private SwScrlAiz handler;
     private Camera camera;
     private Sonic3kLevelEventManager eventsManager;
+    private HeadlessTestFixture fixture;
 
     @BeforeEach
     public void setUp() {
-        TestEnvironment.resetAll();
-        RuntimeManager.destroyCurrent();
-        SessionManager.clear();
-        Sonic3kGameModule module = new Sonic3kGameModule();
-        GameModuleRegistry.setCurrent(module);
-        SessionManager.openGameplaySession(module);
-        camera = RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode()).getCamera();
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 0)
+                .build();
+        camera = fixture.camera();
         handler = new SwScrlAiz();
         camera.setLevelStarted(true);
         eventsManager = (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
@@ -62,8 +60,6 @@ public class SwScrlAizTest {
         camera.setLevelStarted(true);
         eventsManager.resetState();
         resetIntroScrollState();
-        RuntimeManager.destroyCurrent();
-        SessionManager.clear();
     }
 
     @Test
@@ -207,6 +203,62 @@ public class SwScrlAizTest {
         // base*14 >> 16 = 112, which is 14x the base speed of 8
         assertEquals((short) -112, bg8, "Band 8 speed = base*14");
         assertEquals((short) -160, bg11, "Band 11 speed = base*20");
+    }
+
+    @Test
+    public void aiz1StartingInsideFlaggedPerLineBandConsumesCorrectVisibleGradientSlice() {
+        camera.setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+        int cameraX = 0x1400;
+        int cameraY = 0x30A; // bgY = 0x185, five lines into the flagged 13-line band
+
+        handler.update(buffer, cameraX, cameraY, 0, 0);
+
+        assertEquals(asrWord(cameraY, 1), handler.getVscrollFactorBG());
+
+        int relative = (short) (cameraX - DEFORM_ORIGIN_X);
+        long base = ((long) relative << 16) >> 5;
+        long increment = base >> 3;
+        long value = base;
+        short[] flaggedValues = new short[13];
+        for (int i = 0; i < flaggedValues.length; i++) {
+            value += increment;
+            flaggedValues[i] = negWord((short) (value >> 16));
+        }
+
+        for (int line = 0; line < 8; line++) {
+            assertEquals(flaggedValues[5 + line], unpackBG(buffer[line]), "Flagged band line " + line);
+        }
+        assertNotEquals(unpackBG(buffer[0]), unpackBG(buffer[1]), "Flagged lines must remain per-line distinct");
+
+        long d1 = base + base;
+        long mountain = (d1 << 3) - d1; // base*14
+        short bg8 = negWord((short) (mountain >> 16));
+        for (int line = 8; line <= 22; line++) {
+            assertEquals(bg8, unpackBG(buffer[line]), "Band 8 should follow immediately after flagged slice");
+        }
+    }
+
+    @Test
+    public void aiz1HighYPastAllBandsClampsToLastMountainBand() {
+        camera.setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+        int cameraX = 0x1400;
+        int cameraY = 0x800; // bgY = 0x400, below all authored AIZ1 bands
+
+        handler.update(buffer, cameraX, cameraY, 0, 0);
+
+        int relative = (short) (cameraX - DEFORM_ORIGIN_X);
+        long base = ((long) relative << 16) >> 5;
+        long d1 = base + base;
+        long mountain = (d1 << 3) - d1; // base*14
+        mountain += d1; // base*16
+        mountain += d1; // base*18 (band 10)
+        short expectedBg = negWord((short) (mountain >> 16)); // final authored band 12 = base*18
+
+        for (int line = 0; line < VISIBLE_LINES; line++) {
+            assertEquals(expectedBg, unpackBG(buffer[line]), "High-Y clamp mismatch at scanline " + line);
+        }
     }
 
     @Test
@@ -390,6 +442,25 @@ public class SwScrlAizTest {
             short expectedFg = (short) (baseFg + AIZ_FINE_HAZE_FG_DEFORM[(phase + line) & 0x1F]);
             assertEquals(expectedFg, actualFg, "FG haze mismatch at scanline " + line);
         }
+    }
+
+    @Test
+    public void postBurnFineHazeUpdatesScrollBoundsFromFinalPackedOutput() {
+        camera.setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+
+        handler.update(buffer, 0x2E20, 0x180, 19, 0);
+
+        int expectedMin = Integer.MAX_VALUE;
+        int expectedMax = Integer.MIN_VALUE;
+        for (int packed : buffer) {
+            int offset = unpackBG(packed) - unpackFG(packed);
+            expectedMin = Math.min(expectedMin, offset);
+            expectedMax = Math.max(expectedMax, offset);
+        }
+
+        assertEquals(expectedMin, handler.getMinScrollOffset(), "Min offset should match final haze-adjusted buffer");
+        assertEquals(expectedMax, handler.getMaxScrollOffset(), "Max offset should match final haze-adjusted buffer");
     }
 
     private int[] buildExpectedIntroBuffer(int cameraX, int cameraY, int source) {
