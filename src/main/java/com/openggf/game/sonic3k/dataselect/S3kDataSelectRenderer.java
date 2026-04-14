@@ -403,8 +403,17 @@ public class S3kDataSelectRenderer {
                         labelPrefixOffset, cameraX, highPriority);
                 renderPlaneOverlayTilemap(graphics, clearLabelWords(), 5, 1, labelOffset, cameraX, highPriority);
             }
-            case ZONE -> renderPlaneOverlayTilemap(graphics, zoneLabelWords(slotState.zoneDisplayNumber()),
-                    6, 1, labelOffset - 2, cameraX, highPriority);
+            case ZONE -> {
+                if (slotState.hostPreview() != null
+                        && slotState.hostPreview().zoneLabelText() != null) {
+                    renderPlaneOverlayTilemap(graphics,
+                            hostZoneLabelWords(slotState.hostPreview().zoneLabelText()),
+                            6, 1, labelOffset - 2, cameraX, highPriority);
+                } else {
+                    renderPlaneOverlayTilemap(graphics, zoneLabelWords(slotState.zoneDisplayNumber()),
+                            6, 1, labelOffset - 2, cameraX, highPriority);
+                }
+            }
         }
 
         int livesOffset = SAVE_SLOT_LIVES_OFFSET + (slotIndex * SAVE_SLOT_PLANE_STEP);
@@ -499,6 +508,22 @@ public class S3kDataSelectRenderer {
                 tens == 0 ? highPriorityWord() : saveTextDigitWord(tens),
                 saveTextDigitWord(ones)
         };
+    }
+
+    /**
+     * Renders a host zone label (e.g. "GHZ", "EHZ") left-justified in the
+     * 6-tile label area, padded with blank high-priority tiles.
+     */
+    private int[] hostZoneLabelWords(String label) {
+        int[] words = new int[6];
+        int len = Math.min(label.length(), 6);
+        for (int i = 0; i < len; i++) {
+            words[i] = saveTextWord(label.charAt(i));
+        }
+        for (int i = len; i < 6; i++) {
+            words[i] = blankPriorityWord();
+        }
+        return words;
     }
 
     private int[] livesContinueHeaderWords(int headerStyleIndex) {

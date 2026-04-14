@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.dataselect;
 import com.openggf.game.dataselect.DataSelectHostProfile;
 import com.openggf.game.dataselect.DataSelectDestination;
 import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SelectedTeam;
@@ -76,6 +77,28 @@ class TestS1DataSelectProfile {
         assertEquals(new DataSelectDestination(Sonic1ZoneConstants.ZONE_GHZ, 0), destinations.getFirst());
         assertEquals(new DataSelectDestination(Sonic1ZoneConstants.ZONE_FZ, 0), destinations.getLast());
         assertTrue(destinations.contains(new DataSelectDestination(Sonic1ZoneConstants.ZONE_SBZ, 0)));
+    }
+
+    @Test
+    void resolveSlotPreview_returnsTextOnlyWithZoneLabel() {
+        S1DataSelectProfile profile = new S1DataSelectProfile();
+
+        HostSlotPreview ghzPreview = profile.resolveSlotPreview(Map.of("zone", 0));
+        HostSlotPreview mzPreview = profile.resolveSlotPreview(Map.of("zone", 1));
+        HostSlotPreview fzPreview = profile.resolveSlotPreview(Map.of("zone", 6));
+
+        assertNotNull(ghzPreview);
+        assertEquals(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, ghzPreview.type());
+        assertEquals("GHZ", ghzPreview.zoneLabelText());
+        assertEquals("MZ", mzPreview.zoneLabelText());
+        assertEquals("FZ", fzPreview.zoneLabelText());
+    }
+
+    @Test
+    void resolveSlotPreview_returnsNullForEmptyPayload() {
+        S1DataSelectProfile profile = new S1DataSelectProfile();
+        assertNull(profile.resolveSlotPreview(null));
+        assertNull(profile.resolveSlotPreview(Map.of()));
     }
 
     @Test

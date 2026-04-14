@@ -41,4 +41,15 @@ public interface DataSelectHostProfile {
     default int defaultClearRestartIndex(Map<String, Object> payload) {
         return 0;
     }
+
+    /**
+     * Returns a host-specific preview for the given save slot payload,
+     * or {@code null} if the native S3K zone card rendering should be used.
+     *
+     * <p>S1 and S2 override this to provide zone abbreviation labels so the
+     * donated S3K data select screen shows host zone names instead of S3K zone numbers.
+     */
+    default HostSlotPreview resolveSlotPreview(Map<String, Object> payload) {
+        return null;
+    }
 }

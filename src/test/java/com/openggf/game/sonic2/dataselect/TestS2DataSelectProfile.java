@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.dataselect;
 import com.openggf.game.dataselect.DataSelectHostProfile;
 import com.openggf.game.dataselect.DataSelectDestination;
 import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SelectedTeam;
@@ -76,6 +77,28 @@ class TestS2DataSelectProfile {
         assertEquals(new DataSelectDestination(Sonic2ZoneConstants.ZONE_EHZ, 0), destinations.getFirst());
         assertEquals(new DataSelectDestination(Sonic2ZoneConstants.ZONE_DEZ, 0), destinations.getLast());
         assertTrue(destinations.contains(new DataSelectDestination(Sonic2ZoneConstants.ZONE_WFZ, 0)));
+    }
+
+    @Test
+    void resolveSlotPreview_returnsTextOnlyWithZoneLabel() {
+        S2DataSelectProfile profile = new S2DataSelectProfile();
+
+        HostSlotPreview ehzPreview = profile.resolveSlotPreview(Map.of("zone", 0));
+        HostSlotPreview cpzPreview = profile.resolveSlotPreview(Map.of("zone", 1));
+        HostSlotPreview dezPreview = profile.resolveSlotPreview(Map.of("zone", 10));
+
+        assertNotNull(ehzPreview);
+        assertEquals(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, ehzPreview.type());
+        assertEquals("EHZ", ehzPreview.zoneLabelText());
+        assertEquals("CPZ", cpzPreview.zoneLabelText());
+        assertEquals("DEZ", dezPreview.zoneLabelText());
+    }
+
+    @Test
+    void resolveSlotPreview_returnsNullForEmptyPayload() {
+        S2DataSelectProfile profile = new S2DataSelectProfile();
+        assertNull(profile.resolveSlotPreview(null));
+        assertNull(profile.resolveSlotPreview(Map.of()));
     }
 
     @Test

@@ -14,6 +14,7 @@ import com.openggf.game.dataselect.DataSelectGameProfile;
 import com.openggf.game.dataselect.DataSelectHostProfile;
 import com.openggf.game.dataselect.DataSelectMenuModel;
 import com.openggf.game.dataselect.DataSelectSessionController;
+import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveSlotState;
 import com.openggf.game.save.SaveSlotSummary;
@@ -625,6 +626,10 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 && summary.state() != SaveSlotState.HASH_WARNING)) {
             return null;
         }
+        // Host preview active → suppress the S3K zone card icon (no host zone art available)
+        if (hostProfile.resolveSlotPreview(summary.payload()) != null) {
+            return null;
+        }
         S3kSaveScreenLayoutObjects.SaveSlotObject slotObject = assets.getSaveScreenLayoutObjects().slots().get(slotIndex);
         int progressCode = Math.max(1, S3kSaveProgressions.progressCodeForPayload(summary.payload()));
         if (Boolean.TRUE.equals(summary.payload().get("clear"))) {
@@ -664,6 +669,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         int headerStyleIndex = resolveHeaderStyleIndex(summary, selected);
         int lives = resolveSlotStat(summary, "lives");
         int continuesCount = resolveSlotStat(summary, "continues");
+        HostSlotPreview preview = resolveHostSlotPreview(summary, kind);
         return new S3kSaveScreenObjectState.SlotVisualState(
                 slotIndex,
                 kind,
@@ -675,7 +681,19 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 headerStyleIndex,
                 lives,
                 continuesCount,
-                resolveEmeraldMappingFrames(summary));
+                resolveEmeraldMappingFrames(summary),
+                preview);
+    }
+
+    private HostSlotPreview resolveHostSlotPreview(SaveSlotSummary summary,
+                                                    S3kSaveScreenObjectState.SlotVisualKind kind) {
+        if (kind == S3kSaveScreenObjectState.SlotVisualKind.EMPTY) {
+            return null;
+        }
+        if (summary == null || summary.payload() == null) {
+            return null;
+        }
+        return hostProfile.resolveSlotPreview(summary.payload());
     }
 
     private SelectedTeam resolveTeamForSlot(int slotIndex, SaveSlotSummary summary) {
