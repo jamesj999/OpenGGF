@@ -12,7 +12,10 @@
         <maven.compiler.release>21</maven.compiler.release>
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
-        <surefire.argLine>-Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
+        <mockito.version>5.14.2</mockito.version>
+        <mockito.agent.argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</mockito.agent.argLine>
+        <test.cds.argLine>-Xshare:off</test.cds.argLine>
+        <surefire.argLine>${test.cds.argLine} ${mockito.agent.argLine} -Xmx1g</surefire.argLine>
         <surefire.forkCount>4</surefire.forkCount>
     </properties>
 
@@ -34,7 +37,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread ${test.cds.argLine} ${mockito.agent.argLine} -Xmx1g</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -44,7 +47,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread ${test.cds.argLine} ${mockito.agent.argLine} -Xmx1g</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -75,7 +78,7 @@
                 </property>
             </activation>
             <properties>
-                <surefire.argLine>-Xmx512m -Djdk.attach.allowAttachSelf=true -XX:+EnableDynamicAgentLoading</surefire.argLine>
+                <surefire.argLine>${test.cds.argLine} ${mockito.agent.argLine} -Xmx512m</surefire.argLine>
                 <surefire.forkCount>1</surefire.forkCount>
             </properties>
         </profile>
@@ -391,7 +394,7 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.14.2</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
