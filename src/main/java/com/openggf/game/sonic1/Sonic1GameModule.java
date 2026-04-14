@@ -34,7 +34,7 @@ import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.credits.Sonic1EndingProvider;
 import com.openggf.game.sonic1.dataselect.S1DataSelectProfile;
-import com.openggf.game.sonic1.dataselect.S1DataSelectManager;
+import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
 import com.openggf.game.sonic1.dataselect.S1SaveSnapshotProvider;
 import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
@@ -206,7 +206,7 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public DataSelectPresentationProvider getDataSelectPresentationProvider() {
         if (dataSelectPresentationProvider == null) {
-            dataSelectPresentationProvider = new DataSelectPresentationProvider(S1DataSelectManager::new,
+            dataSelectPresentationProvider = new DataSelectPresentationProvider(S3kDataSelectManager::new,
                     new DataSelectSessionController(dataSelectHostProfile));
         }
         return dataSelectPresentationProvider;

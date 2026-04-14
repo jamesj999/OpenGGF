@@ -8,7 +8,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
-import com.openggf.game.sonic2.dataselect.S2DataSelectManager;
+import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
 import com.openggf.game.sonic2.dataselect.S2SaveSnapshotProvider;
 import com.openggf.game.sonic2.debug.Sonic2DebugModeProvider;
 import com.openggf.game.sonic2.levelselect.LevelSelectManager;
@@ -275,7 +275,7 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public DataSelectPresentationProvider getDataSelectPresentationProvider() {
         if (dataSelectPresentationProvider == null) {
-            dataSelectPresentationProvider = new DataSelectPresentationProvider(S2DataSelectManager::new,
+            dataSelectPresentationProvider = new DataSelectPresentationProvider(S3kDataSelectManager::new,
                     new DataSelectSessionController(dataSelectHostProfile));
         }
         return dataSelectPresentationProvider;

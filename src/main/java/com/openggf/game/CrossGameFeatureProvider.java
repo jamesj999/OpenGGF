@@ -158,6 +158,15 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return instance != null && instance.active;
     }
 
+    /**
+     * Returns true if the cross-game feature provider is active and the donor
+     * game is Sonic 3&amp;K. Used to gate features that require S3K donation
+     * specifically (e.g., donated data select presentation).
+     */
+    public static boolean isS3kDonorActive() {
+        return isActive() && instance.donorGameId == GameId.S3K;
+    }
+
     @Override
     public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
         if (donorCapabilities == null) {
