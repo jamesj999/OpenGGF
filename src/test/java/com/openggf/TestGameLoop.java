@@ -635,6 +635,70 @@ public class TestGameLoop {
     }
 
     @Test
+    void testDoExitTitleScreenRoutesS1OnePlayerToDonatedDataSelectWhenPresentationResolvesToS3k() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        StubTitleScreenProvider titleScreen = new StubTitleScreenProvider(TitleScreenAction.ONE_PLAYER);
+        DataSelectPresentationProvider dataSelect = new DataSelectPresentationProvider(
+                S3kDataSelectManager::new,
+                new DataSelectSessionController(new S3kDataSelectProfile()));
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S1);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        assertInstanceOf(S3kDataSelectManager.class, dataSelect.delegate(),
+                "Donated S1 data select should resolve to the native S3K manager");
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+
+        invokePrivateMethod(gameLoop, "doExitTitleScreen");
+
+        assertEquals(GameMode.DATA_SELECT, gameLoop.getCurrentGameMode());
+        verify(levelManager, never()).loadZoneAndAct(anyInt(), anyInt());
+    }
+
+    @Test
+    void testDoExitTitleScreenRoutesS2OnePlayerToDonatedDataSelectWhenPresentationResolvesToS3k() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        com.openggf.configuration.SonicConfigurationService.getInstance()
+                .setConfigValue(com.openggf.configuration.SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+
+        StubTitleScreenProvider titleScreen = new StubTitleScreenProvider(TitleScreenAction.ONE_PLAYER);
+        DataSelectPresentationProvider dataSelect = new DataSelectPresentationProvider(
+                S3kDataSelectManager::new,
+                new DataSelectSessionController(new S3kDataSelectProfile()));
+        GameModule module = mock(GameModule.class);
+        when(module.getTitleScreenProvider()).thenReturn(titleScreen);
+        when(module.getDataSelectProvider()).thenReturn(dataSelect);
+        when(module.getGameId()).thenReturn(com.openggf.game.GameId.S2);
+        when(module.rngFlavour()).thenReturn(GameRng.Flavour.S1_S2);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
+        gameLoop.setRuntime(RuntimeManager.createGameplay(gameplayMode));
+
+        assertInstanceOf(S3kDataSelectManager.class, dataSelect.delegate(),
+                "Donated S2 data select should resolve to the native S3K manager");
+
+        com.openggf.level.LevelManager levelManager = mock(com.openggf.level.LevelManager.class);
+        setPrivateField(gameLoop, "levelManager", levelManager);
+        setPrivateField(gameLoop, "currentGameMode", GameMode.TITLE_SCREEN);
+
+        invokePrivateMethod(gameLoop, "doExitTitleScreen");
+
+        assertEquals(GameMode.DATA_SELECT, gameLoop.getCurrentGameMode());
+        verify(levelManager, never()).loadZoneAndAct(anyInt(), anyInt());
+    }
+
+    @Test
     void testDoExitTitleScreenRoutesTwoPlayerAwayFromDataSelect() throws Exception {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
