@@ -626,6 +626,19 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Gray Button: ArtNem_GrayButton, palette 0
+        // ROM: PLC_CutsceneButton loads this at runtime for the Knuckles cutscene.
+        // Cutscene button uses palette 0 so it survives Pal_CutsceneKnux on line 1.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.ART_NEM_GRAY_BUTTON_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                0,   // palette 0
+                -1   // no DPLC
+        ));
+
         // Water Rush main sprite: ArtNem_HCZWaterRush, loaded via PLC_0E
         // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
         standalone.add(new StandaloneArtEntry(
@@ -737,10 +750,10 @@ public final class Sonic3kPlcArtRegistry {
         ));
 
         // Geyser debris art (Map_HCZWaterWallDebris, tiles at ArtTile_HCZGeyser+$58)
-        // Uses same compressed art as horizontal geyser but with debris mappings.
+        // HCZ2 cutscene debris uses the vertical cutscene geyser art source.
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS,
-                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR,
                 CompressionType.KOSINSKI_MODULED,
                 0,
                 0,

@@ -25,14 +25,10 @@ import java.util.List;
 public class AizBombExplosionInstance extends AbstractObjectInstance implements TouchResponseProvider {
 
     private static final int COLLISION_FLAGS = 0x8B;
-    private static final int FRAME_DURATION = 3;
-
-    private static final int[][] ANIM_FRAMES = {
-            {1, 2, 3, 4, 5},    // Anim 0: large explosion
-            {6, 7, 8, 9, 10},   // Anim 1: small explosion
+    private static final int[][][] ANIM_SCRIPTS = {
+            {{1, 3}, {2, 4}, {3, 5}, {4, 5}, {5, 5}},
+            {{6, 2}, {7, 3}, {8, 4}, {9, 5}, {10, 5}, {11, 5}},
     };
-
-    private static final int COLLISION_ACTIVE_FRAMES = 3;
 
     /** World-space X position. */
     private int posX;
@@ -41,8 +37,8 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
     private final int initialDelay;
 
     private int delayTimer;
-    private int animFrame;
-    private int frameTick;
+    private int scriptStep;
+    private int scriptDelay;
     private boolean active;
 
     /**
@@ -55,11 +51,11 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
         super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "AIZBombExplosion");
         this.posX = x;
         this.posY = y;
-        this.animIndex = Math.min(animIndex, ANIM_FRAMES.length - 1);
+        this.animIndex = Math.min(animIndex, ANIM_SCRIPTS.length - 1);
         this.initialDelay = delay;
         this.delayTimer = delay;
-        this.animFrame = 0;
-        this.frameTick = 0;
+        this.scriptStep = 0;
+        this.scriptDelay = currentStepDelay();
         this.active = (delay == 0);
     }
 
@@ -71,28 +67,28 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
             delayTimer--;
             if (delayTimer <= 0) {
                 active = true;
+                scriptDelay = currentStepDelay();
             }
             return;
         }
 
-        frameTick++;
-        if (frameTick >= FRAME_DURATION) {
-            frameTick = 0;
-            animFrame++;
-
-            int[] frames = ANIM_FRAMES[animIndex];
-            if (animFrame >= frames.length) {
+        scriptDelay--;
+        if (scriptDelay <= 0) {
+            scriptStep++;
+            if (scriptStep >= ANIM_SCRIPTS[animIndex].length) {
                 setDestroyed(true);
+                return;
             }
+            scriptDelay = currentStepDelay();
         }
     }
 
     @Override
     public int getCollisionFlags() {
-        if (!active || animFrame >= COLLISION_ACTIVE_FRAMES) {
+        if (!active) {
             return 0;
         }
-        return COLLISION_FLAGS;
+        return currentMappingFrame() <= (4 + animIndex) ? COLLISION_FLAGS : 0;
     }
 
     @Override
@@ -113,16 +109,13 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed() || !active) return;
 
-        int[] frames = ANIM_FRAMES[animIndex];
-        if (animFrame >= frames.length) return;
-
         ObjectRenderManager rm = services().renderManager();
         if (rm == null) return;
 
         PatternSpriteRenderer renderer = rm.getRenderer(Sonic3kObjectArtKeys.AIZ2_BOMB_EXPLODE);
         if (renderer == null || !renderer.isReady()) return;
 
-        renderer.drawFrameIndex(frames[animFrame], getX(), posY, false, false);
+        renderer.drawFrameIndex(currentMappingFrame(), getX(), posY, false, false);
     }
 
     @Override
@@ -130,4 +123,20 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
 
     @Override
     public int getPriorityBucket() { return 1; }
+
+    private int currentMappingFrame() {
+        int[][] script = ANIM_SCRIPTS[animIndex];
+        if (scriptStep < 0 || scriptStep >= script.length) {
+            return script[script.length - 1][0];
+        }
+        return script[scriptStep][0];
+    }
+
+    private int currentStepDelay() {
+        int[][] script = ANIM_SCRIPTS[animIndex];
+        if (scriptStep < 0 || scriptStep >= script.length) {
+            return 1;
+        }
+        return script[scriptStep][1];
+    }
 }

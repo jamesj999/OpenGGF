@@ -13,6 +13,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
+import com.openggf.game.sonic3k.objects.bosses.HczEndBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.PlaceholderObjectInstance;
 
@@ -59,6 +60,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.COLLAPSING_BRIDGE,
                 (spawn, registry) -> new CollapsingBridgeObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AUTOMATIC_TUNNEL,
+                (spawn, registry) -> new AutomaticTunnelObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AUTO_SPIN,
                 (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,
@@ -131,7 +134,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
         factories.put(Sonic3kObjectIds.BUTTON,
                 (spawn, registry) -> new Sonic3kButtonObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CUTSCENE_BUTTON,
-                (spawn, registry) -> new S3kCutsceneButtonObjectInstance(spawn));
+                (spawn, registry) -> {
+                    // ROM: Obj_CutsceneButton dispatches on subtype (0=AIZ2, 2=CNZ2, 4=HCZ2, 6=LBZ).
+                    // Route to zone-specific button implementations.
+                    if (currentRomZoneId() == Sonic3kZoneIds.ZONE_HCZ) {
+                        return new Hcz2CutsceneButtonInstance(spawn);
+                    }
+                    return new S3kCutsceneButtonObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.STAR_POST,
                 (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.HCZ_TWISTING_LOOP,
@@ -402,8 +412,25 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HczMinibossInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.HCZ_END_BOSS,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HczEndBossInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.CUTSCENE_KNUCKLES,
-                (spawn, registry) -> new CutsceneKnucklesAiz2Instance(spawn));
+                (spawn, registry) -> {
+                    // ROM: Obj_CutsceneKnuckles uses subtype as longword index into
+                    // CutsceneKnuckles_Index: 0=AIZ1, 4=AIZ2, 8=HCZ2, 12=CNZ2A, etc.
+                    int subtype = spawn.subtype();
+                    if (subtype == 8) {
+                        return new CutsceneKnucklesHcz2Instance(spawn);
+                    }
+                    // Default: AIZ2 variant (handles subtypes 0 and 4)
+                    return new CutsceneKnucklesAiz2Instance(spawn);
+                });
     }
 
     private S3kZoneSet getCurrentZoneSet() {

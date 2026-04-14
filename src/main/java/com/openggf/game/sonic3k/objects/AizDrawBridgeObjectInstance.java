@@ -228,7 +228,7 @@ public class AizDrawBridgeObjectInstance extends AbstractObjectInstance
             this.x = x;
             this.y = y;
             this.delay = delay;
-            this.motion = new SubpixelMotion.State(0, y, 0, x, 0, 0);
+            this.motion = new SubpixelMotion.State(x, y, 0, 0, 0, 0);
         }
 
         @Override
@@ -249,6 +249,11 @@ public class AizDrawBridgeObjectInstance extends AbstractObjectInstance
         @Override
         public int getPriorityBucket() {
             return RenderPriority.clamp(PRIORITY);
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return true;
         }
 
         @Override

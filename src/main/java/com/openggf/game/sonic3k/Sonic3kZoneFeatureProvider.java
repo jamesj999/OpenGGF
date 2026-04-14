@@ -186,6 +186,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         // Render water skim splash sprites (at water level, following player)
         HCZWaterSkimHandler.render(camera);
+        // Ship overlay renders after sprites so the high-priority ship strip tiles
+        // correctly cover low-priority bomb sprites (VDP: high-pri plane > low-pri sprite).
+        aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
         var levelManager = GameServices.levelOrNull();
         if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
@@ -246,7 +249,6 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
                 && coordinator.activeSlotRuntime() != null) {
             coordinator.activeSlotRuntime().ensureForegroundGlassPriority();
         }
-        aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
     }
 
     @Override

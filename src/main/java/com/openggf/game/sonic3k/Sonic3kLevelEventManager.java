@@ -15,6 +15,7 @@ import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.objects.CutsceneKnucklesHcz2Instance;
 import com.openggf.game.sonic3k.objects.HCZConveyorBeltObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -393,6 +394,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         introFallActiveOnPlayer = false;
         introFallActiveOnSidekick = false;
         Sonic3kAIZEvents.resetGlobalState();
+        CutsceneKnucklesHcz2Instance.clearActiveInstance();
         HCZWaterTunnelHandler.reset();
         HCZConveyorBeltObjectInstance.resetLoadArray();
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
