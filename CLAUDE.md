@@ -122,7 +122,7 @@ Related scroll/deform reuse lives in `level.scroll.compose`, centered on `Scroll
 
 When adding or refactoring gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
 
-Current adoption is partial rather than complete. Sonic 2 already uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tiles, mutation-driven arena changes, and staged render effects. Sonic 3&K currently uses it for AIZ and HCZ runtime-state adapters, AIZ fire-transition mutation/render flows, HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. Treat other zones as mixed old/new architecture until the code proves otherwise.
+Current adoption is partial rather than complete. Sonic 2 already uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tiles, and CNZ staged render effects (slot overlay). Sonic 3&K currently uses it for AIZ and HCZ runtime-state adapters, AIZ staged render effects and advanced render modes (fire-transition/battleship overlays), HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. `ZoneLayoutMutationPipeline` is wired into `GameRuntime` but has no zone-level consumers yet. Treat other zones as mixed old/new architecture until the code proves otherwise.
 
 ### Core Managers
 - **LevelManager** - Thin coordinator after decomposition (see below)

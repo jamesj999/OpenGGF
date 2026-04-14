@@ -9,9 +9,9 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 ## Current Status
 The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor.
 
-Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
+Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits — infrastructure ready, no zone consumers yet), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
 
-Current migration status is partial. Sonic 2 already routes HTZ/CNZ runtime state, palette ownership, animated tiles, some mutation-driven arena changes, and staged render effects through the runtime-owned stack. Sonic 3&K currently uses the same shared systems for AIZ and HCZ runtime-state integrations, AIZ fire-transition mutation/render paths, HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. Do not assume all implemented zones are fully migrated; audit the existing zone before extending it.
+Current migration status is partial. Sonic 2 routes HTZ/CNZ runtime state, palette ownership, and animated tiles through the runtime-owned stack, plus CNZ staged render effects (slot overlay). Sonic 3&K uses the same shared systems for AIZ and HCZ runtime-state adapters, AIZ staged render effects and advanced render modes (fire-transition/battleship overlays), HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. Do not assume all implemented zones are fully migrated; audit the existing zone before extending it.
 
 ### Rendering
 *   **Status:** ✅ Functional.
@@ -184,13 +184,13 @@ services().zoneFeatureProvider()  // ZoneFeatureProvider
 - `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
 - `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom tile uploads
-- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing
+- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing (infrastructure ready, no zone consumers yet)
 - `SpecialRenderEffectRegistry` - staged additional render passes layered into the normal scene
 - `AdvancedRenderModeController` - frame-level render-mode state such as per-line/per-cell scroll overrides
 
 Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer` and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
 
-When adding new gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
+When adding new gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state. `ZoneLayoutMutationPipeline` in particular is ready to adopt — boss arena layout edits and act-transition tile swaps are natural first consumers.
 
 ## Consolidated Subsystems
 
