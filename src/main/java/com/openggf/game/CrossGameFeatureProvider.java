@@ -104,7 +104,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         this.donorGameId = GameId.fromCode(donorGameCode);
 
         // Same-game guard: disable donation when donor == host
-        GameId hostId = GameServices.module().getGameId();
+        GameId hostId = resolveHostGameId();
         if (donorGameId == hostId) {
             LOGGER.info("Donor same as host (" + donorGameId.code() + "), donation disabled");
             active = false;
@@ -381,6 +381,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     public void close() {
+        donorGameId = null;
         donorReader = null;
         s2PlayerArt = null;
         s3kPlayerArt = null;
@@ -394,6 +395,13 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         instaShieldArtSet = null;
         donorCapabilities = null;
         active = false;
+    }
+
+    private GameId resolveHostGameId() {
+        if (GameServices.hasRuntime()) {
+            return GameServices.module().getGameId();
+        }
+        return RuntimeManager.resolveCurrentOrBootstrapGameModule().getGameId();
     }
 
     /**

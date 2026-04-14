@@ -4,6 +4,9 @@ import org.junit.jupiter.api.Test;
 import com.openggf.graphics.PatternAtlas;
 import com.openggf.level.Pattern;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -29,6 +32,32 @@ public class PatternAtlasFallbackTest {
 
         PatternAtlas.Entry third = atlas.cachePatternHeadless(patternC, 2);
         assertNull(third);
+    }
+
+    @Test
+    public void batchUploadPreservesPatternXAxisAndYAxis() throws Exception {
+        PatternAtlas atlas = new PatternAtlas(8, 8);
+        atlas.beginBatch();
+
+        Pattern pattern = new Pattern();
+        pattern.setPixel(1, 6, (byte) 5);
+
+        PatternAtlas.Entry entry = atlas.cachePatternHeadless(pattern, 0x12345);
+        assertNotNull(entry);
+
+        Method uploadPattern = PatternAtlas.class.getDeclaredMethod("uploadPattern", Pattern.class, PatternAtlas.Entry.class);
+        uploadPattern.setAccessible(true);
+        uploadPattern.invoke(atlas, pattern, entry);
+
+        Field cpuPixelsField = PatternAtlas.class.getDeclaredField("cpuPixels");
+        cpuPixelsField.setAccessible(true);
+        byte[][] cpuPixels = (byte[][]) cpuPixelsField.get(atlas);
+        byte[] page = cpuPixels[entry.atlasIndex()];
+
+        assertEquals(5, page[6 * 8 + 1] & 0xFF,
+                "pattern pixel should be uploaded to matching x/y coordinates");
+        assertEquals(0, page[1 * 8 + 6] & 0xFF,
+                "pattern upload must not transpose x and y");
     }
 }
 

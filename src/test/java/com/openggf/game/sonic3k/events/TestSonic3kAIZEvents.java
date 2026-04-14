@@ -1,8 +1,17 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
+import com.openggf.game.GameModule;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.save.SaveSessionContext;
+import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.session.GameplayModeContext;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
@@ -10,21 +19,33 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestSonic3kAIZEvents {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.createGameplay();
     }
 
     @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
     }
 
     @Test
@@ -91,6 +112,42 @@ public class TestSonic3kAIZEvents {
         assertFalse(request.showInLevelTitleCard());
         assertEquals(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2, request.mutationKey());
         assertTrue(request.musicOverrideId() >= 0);
+    }
+
+    @Test
+    public void eventsFg5TransitionWritesProgressionSaveForActiveSlot() throws Exception {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+
+        String gameCode = "test_aiz_transition_save";
+        Path saveDir = Path.of("saves").resolve(gameCode);
+        deleteRecursively(saveDir);
+
+        GameModule sessionModule = mock(GameModule.class);
+        when(sessionModule.getSaveSnapshotProvider()).thenReturn((reason, ctx) -> Map.of("marker", "aiz_transition"));
+        when(sessionModule.rngFlavour()).thenReturn(GameRng.Flavour.S3K);
+
+        SaveSessionContext saveContext = SaveSessionContext.forSlot(
+                gameCode, 1, new SelectedTeam("sonic", List.of("tails")), 0, 0);
+        GameplayModeContext gameplayMode = SessionManager.openGameplaySession(sessionModule, saveContext);
+        RuntimeManager.createGameplay(gameplayMode);
+
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x2F10);
+        camera.setY((short) 0x0200);
+
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        events.setEventsFg5(true);
+
+        for (int i = 1; i < 320 && !events.isAct2TransitionRequested(); i++) {
+            events.update(0, i);
+        }
+
+        assertTrue(events.isAct2TransitionRequested());
+        assertTrue(Files.exists(saveDir.resolve("slot1.json")));
+        deleteRecursively(saveDir);
     }
 
     @Test
@@ -466,6 +523,27 @@ public class TestSonic3kAIZEvents {
         events.setBossFlag(true);
         events.init(0);
         assertFalse(events.isBossFlag(), "Boss flag should reset to false on init");
+    }
+
+    private static void deleteRecursively(Path path) throws IOException {
+        if (Files.notExists(path)) {
+            return;
+        }
+        try (var stream = Files.walk(path)) {
+            stream.sorted((a, b) -> b.getNameCount() - a.getNameCount())
+                    .forEach(p -> {
+                        try {
+                            Files.deleteIfExists(p);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof IOException io) {
+                throw io;
+            }
+            throw e;
+        }
     }
 }
 

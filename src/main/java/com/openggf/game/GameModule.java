@@ -4,6 +4,8 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
@@ -219,7 +221,17 @@ public interface GameModule {
      * @return the data select provider
      */
     default DataSelectProvider getDataSelectProvider() {
-        return NoOpDataSelectProvider.INSTANCE;
+        return getDataSelectPresentationProvider();
+    }
+
+    /** Returns the presentation provider used to render and update data select. */
+    default DataSelectPresentationProvider getDataSelectPresentationProvider() {
+        return new DataSelectPresentationProvider(ignored -> NoOpDataSelectProvider.INSTANCE, null);
+    }
+
+    /** Returns the host-owned data select profile for this game, if supported. */
+    default DataSelectHostProfile getDataSelectHostProfile() {
+        return null;
     }
 
     /**
@@ -229,7 +241,7 @@ public interface GameModule {
      * @return the save snapshot provider
      */
     default com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
-        return ctx -> java.util.Map.of();
+        return (reason, ctx) -> java.util.Map.of();
     }
 
     /**

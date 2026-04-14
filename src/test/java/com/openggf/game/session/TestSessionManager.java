@@ -4,16 +4,23 @@ import com.openggf.game.GameMode;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.EngineServices;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestSessionManager {
+
+    @BeforeEach
+    void configureServices() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
 
     @AfterEach
     void tearDown() {

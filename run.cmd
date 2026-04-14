@@ -1,5 +1,5 @@
 @echo off
-call mvn package -q
+call mvn -Dmse=off -DskipTests package -q
 if %ERRORLEVEL% neq 0 exit /b %ERRORLEVEL%
 
 set "JAR="

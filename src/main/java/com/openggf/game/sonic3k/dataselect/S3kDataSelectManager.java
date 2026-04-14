@@ -1,53 +1,47 @@
 package com.openggf.game.sonic3k.dataselect;
 
-import com.openggf.control.InputHandler;
-import com.openggf.game.dataselect.AbstractDataSelectProvider;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.dataselect.DataSelectSessionController;
+import com.openggf.game.save.SaveManager;
 
-/**
- * S3K-specific data select screen manager.
- * Implements the data select lifecycle for Sonic 3 &amp; Knuckles save file selection.
- */
-public final class S3kDataSelectManager extends AbstractDataSelectProvider {
+import java.nio.file.Path;
+import java.util.function.IntConsumer;
 
-    @Override
-    public void initialize() {
-        state = State.FADE_IN;
+public final class S3kDataSelectManager extends S3kDataSelectPresentation {
+    public S3kDataSelectManager() {
+        this(new DataSelectSessionController(new S3kDataSelectProfile()),
+                Path.of("saves"),
+                RuntimeManager.currentEngineServices().configuration(),
+                createDefaultAssets(),
+                new S3kDataSelectRenderer(),
+                S3kDataSelectPresentation::playMusicSafely);
     }
 
-    @Override
-    public void update(InputHandler input) {
-        if (state == State.FADE_IN) {
-            state = State.ACTIVE;
-        }
+    public S3kDataSelectManager(Path saveRoot, SonicConfigurationService config) {
+        this(new DataSelectSessionController(new S3kDataSelectProfile()), saveRoot, config);
     }
 
-    @Override
-    public void draw() {
-        // Will be implemented in future tasks with actual rendering
+    public S3kDataSelectManager(DataSelectSessionController controller) {
+        this(controller,
+                Path.of("saves"),
+                RuntimeManager.currentEngineServices().configuration(),
+                createDefaultAssets(),
+                new S3kDataSelectRenderer(),
+                S3kDataSelectPresentation::playMusicSafely);
     }
 
-    @Override
-    public void setClearColor() {
-        // Will be implemented in future tasks
+    public S3kDataSelectManager(DataSelectSessionController controller,
+                                Path saveRoot, SonicConfigurationService config) {
+        super(controller, saveRoot, config);
     }
 
-    @Override
-    public void reset() {
-        state = State.INACTIVE;
-    }
-
-    @Override
-    public State getState() {
-        return state;
-    }
-
-    @Override
-    public boolean isExiting() {
-        return state == State.EXITING;
-    }
-
-    @Override
-    public boolean isActive() {
-        return state != State.INACTIVE;
+    S3kDataSelectManager(DataSelectSessionController controller,
+                         Path saveRoot,
+                         SonicConfigurationService config,
+                         S3kDataSelectAssetSource assets,
+                         S3kDataSelectRenderer renderer,
+                         IntConsumer musicPlayer) {
+        super(controller, new SaveManager(saveRoot), config, assets, renderer, musicPlayer);
     }
 }

@@ -10,6 +10,7 @@ public final class SaveSessionContext {
     private final SelectedTeam selectedTeam;
     private final int startZone;
     private final int startAct;
+    private boolean clear;
 
     private SaveSessionContext(String gameCode, Integer activeSlot, SelectedTeam selectedTeam,
                                int startZone, int startAct) {
@@ -50,6 +51,14 @@ public final class SaveSessionContext {
         return startAct;
     }
 
+    public boolean isClear() {
+        return clear;
+    }
+
+    public void markClear() {
+        this.clear = true;
+    }
+
     public void requestSave(SaveReason reason,
                             RuntimeSaveContext context,
                             SaveSnapshotProvider snapshotProvider,
@@ -57,6 +66,6 @@ public final class SaveSessionContext {
         if (activeSlot == null) {
             return;
         }
-        saveManager.writeSlot(gameCode, activeSlot, snapshotProvider.capture(context));
+        saveManager.writeSlot(gameCode, activeSlot, snapshotProvider.capture(reason, context));
     }
 }
