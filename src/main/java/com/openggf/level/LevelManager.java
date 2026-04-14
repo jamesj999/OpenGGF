@@ -3769,6 +3769,15 @@ public class LevelManager {
         // Camera.resetState() in test teardown or level reload)
         Camera cam = camera;
 
+        // Clear end-of-level flags from the previous act. The results screen
+        // sets endOfLevelFlag=true when its tally completes, and seamless
+        // transitions don't do a full game-state reset. Without this, stale
+        // flags persist into the new act — e.g. AIZ1 results set the flag,
+        // the fire transition reloads as AIZ2, and the AIZ2 egg capsule
+        // immediately detects the stale flag and triggers its post-boss
+        // cutscene during the AIZ2 results tally.
+        GameServices.gameState().resetForLevel();
+
         // Suppress music reload if requested (ROM: music continues through transition)
         if (request.preserveMusic()) {
             setSuppressNextMusicChange(true);

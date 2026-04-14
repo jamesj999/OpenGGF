@@ -25,12 +25,13 @@ public class TestS3kBossExplosionController {
     @Test
     public void initialWaitBeforeFirstExplosion() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        // ROM: initial $2E = 2 (3-1), Obj_Wait counts 2â†’1â†’0â†’-1 = 3 frames
-        for (int i = 0; i < 3; i++) {
+        // ROM: initial $2E = 2 (3-1), Obj_Wait counts 2→1→0→-1 = 3 frames
+        // (intervalCounter decrements from 2: 2→1, 1→0, 0→-1 triggers spawn)
+        for (int i = 0; i < 2; i++) {
             controller.tick();
             assertEquals(0, controller.drainPendingExplosions().size(), "No explosions during initial wait frame " + i);
         }
-        // Frame 4: first explosion
+        // Frame 3: first explosion
         controller.tick();
         assertEquals(1, controller.drainPendingExplosions().size());
     }
@@ -38,8 +39,8 @@ public class TestS3kBossExplosionController {
     @Test
     public void threeFrameSpacingBetweenExplosions() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        // Skip initial wait
-        for (int i = 0; i < 3; i++) {
+        // Skip initial wait (2 frames)
+        for (int i = 0; i < 2; i++) {
             controller.tick();
             controller.drainPendingExplosions();
         }
@@ -59,8 +60,8 @@ public class TestS3kBossExplosionController {
     @Test
     public void explosionOffsetsAreWithinRange() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        // Skip to first explosion
-        for (int i = 0; i < 4; i++) {
+        // Skip to first explosion (2 wait frames + 1 spawn frame)
+        for (int i = 0; i < 3; i++) {
             controller.tick();
         }
         for (var explosion : controller.drainPendingExplosions()) {

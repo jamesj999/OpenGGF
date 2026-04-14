@@ -144,6 +144,9 @@ public class AizEndBossInstance extends AbstractBossInstance {
     private boolean highPriorityArt;
     private int mappingFrame;
 
+    /** Set once when Obj_AIZEndBossMain begins; never cleared. Gates rendering. */
+    private boolean renderActivated;
+
     // Swing state
     private int swingVelocity;
     private boolean swingDown;
@@ -178,6 +181,7 @@ public class AizEndBossInstance extends AbstractBossInstance {
         collisionEnabled = false;
         highPriorityArt = false;
         mappingFrame = 0;
+        renderActivated = false;
         flags38 = 0;
         facingRight = false;
         angle = 0;
@@ -214,6 +218,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
     @Override
     protected int getPaletteLineForFlash() {
         return -1; // Custom palette flash (ROM: sub_69C5C, Normal_palette_line_2 / engine index 1)
+    }
+
+    @Override
+    protected boolean usesBaseHitHandler() {
+        return false; // ROM: sub_69BE2 — self-contained flash + timer in updateBossLogic()
     }
 
     @Override
@@ -344,6 +353,10 @@ public class AizEndBossInstance extends AbstractBossInstance {
      * Called after music starts playing.
      */
     private void doMainInit() {
+        // ROM: Obj_AIZEndBossMain is the first code path that calls
+        // Draw_And_Touch_Sprite — activate rendering from this point on.
+        renderActivated = true;
+
         // ROM: SetUp_ObjAttributes, ObjDat_AIZEndBoss
         // collision_property = 8 (already set)
         // render_flags bit 0 = 1 (face right)
@@ -656,27 +669,37 @@ public class AizEndBossInstance extends AbstractBossInstance {
         waitTimer = -1;
         waitCallback = null;
         flags38 |= FLAG_DEFEAT_STARTED;
-        // ROM: The boss remains visible during the defeat explosion sequence.
-        // Don't set FLAG_HIDDEN yet — let the defeat animation play out.
-        // Keep highPriorityArt so the boss renders in front of the waterfall.
+        // ROM: loc_47A74 — bset #7,art_tile hides the boss machine body.
+        // The Robotnik ship child (AizEndBossShipChild) keeps rendering independently.
+        flags38 |= FLAG_HIDDEN;
         highPriorityArt = true;
         collisionEnabled = false;
         mappingFrame = 0;
 
-        // Signal children
+        // Signal combat children (arms, propellers, flames, column) to self-destruct.
+        // The ship child checks boss.getState().defeated instead and handles its own
+        // multi-phase defeat animation (ROM: Obj_RobotnikShip routines 2-6).
         defeatSignal = true;
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
 
         // ROM: BossDefeated_StopTimer — timer stop handled by gameState
 
-        // ROM: Wait_FadeToLevelMusic then callback loc_69482
+        // ROM: loc_47360 — fade music, wait $7F frames, then spawn egg capsule
         services().fadeOutMusic();
 
-        // Spawn 6 debris explosion children (ROM: ChildObjDat_69D66)
+        // ROM: The ship child (Obj_RobotnikShip) creates its own explosion controller
+        // via Child6_CreateBossExplosion subtype 4 at loc_460DC. In the engine we keep
+        // this on the boss for simplicity — subtype 0 produces the same visual effect.
         defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0, services().rng());
 
-        // After explosions: spawn egg capsule
-        defeatPhaseTimer = 60; // Wait for explosions before capsule
+        // ROM: ChildObjDat_47BBC — spawn 6 debris pieces that flicker and fly outward
+        ObjectManager objectManager = services().objectManager();
+        if (objectManager != null) {
+            AizEndBossDebrisChild.spawnAll(state.x, state.y, objectManager);
+        }
+
+        // ROM: move.w #$7F,$2E(a0) — 127 frame wait before egg capsule
+        defeatPhaseTimer = 0x7F;
     }
 
     private int defeatPhaseTimer;
@@ -922,6 +945,10 @@ public class AizEndBossInstance extends AbstractBossInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed() || defeatRenderComplete) return;
+        // ROM: Draw_And_Touch_Sprite is only called from Obj_AIZEndBossMain, which
+        // is not reached until after Obj_Wait + Obj_AIZEndBossMusic + doMainInit().
+        // Before that, the object just does rts — completely invisible.
+        if (!renderActivated) return;
         if ((flags38 & FLAG_HIDDEN) != 0) return;
 
         ObjectRenderManager renderManager = services().renderManager();
@@ -977,6 +1004,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
 
     public boolean isDefeatSignal() {
         return defeatSignal;
+    }
+
+    /** ROM: $38 bit 4 — set when defeat phase 1 begins (signals ship child to escape). */
+    public boolean isDefeatStarted() {
+        return (flags38 & FLAG_DEFEAT_STARTED) != 0;
     }
 
     public boolean isHidden() {
