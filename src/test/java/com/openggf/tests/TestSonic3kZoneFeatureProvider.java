@@ -68,6 +68,27 @@ public class TestSonic3kZoneFeatureProvider {
     }
 
     @Test
+    public void forestFrontPhaseAlsoForcesCpuSidekickInFrontOfForestMask() {
+        RuntimeManager.createGameplay();
+        TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
+        TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0, (short) 0);
+        TestablePlayableSprite sidekick = new TestablePlayableSprite("tails", (short) 0, (short) 0);
+        sidekick.setCpuControlled(true);
+        GameServices.sprites().addSprite(sidekick, "tails");
+
+        FakeAizEvents aizEvents = new FakeAizEvents();
+        aizEvents.setForestFrontPhaseActive(true);
+        provider.setAizEvents(aizEvents);
+
+        provider.update(player, 0x44D0, Sonic3kZoneIds.ZONE_AIZ);
+
+        assertTrue(sidekick.isHighPriority(),
+                "AIZ forest handoff should force CPU Tails in front of the forest mask");
+        assertEquals(RenderPriority.MIN, sidekick.getPriorityBucket(),
+                "AIZ forest handoff should also move CPU Tails into the front display bucket");
+    }
+
+    @Test
     public void forestFrontOverrideOnlyAppliesInAct2() {
         TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0, (short) 0);
@@ -148,5 +169,4 @@ public class TestSonic3kZoneFeatureProvider {
         }
     }
 }
-
 
