@@ -70,7 +70,7 @@ class TestS2DataSelectProfile {
                 "act", 0,
                 "mainCharacter", "sonic",
                 "sidekicks", List.of("tails"),
-                "emeraldCount", 7,
+                "chaosEmeralds", List.of(0, 1, 2, 3, 4, 5, 6),
                 "clear", true
         ));
 
@@ -88,10 +88,10 @@ class TestS2DataSelectProfile {
         HostSlotPreview dezPreview = profile.resolveSlotPreview(Map.of("zone", 10));
 
         assertNotNull(ehzPreview);
-        assertEquals(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, ehzPreview.type());
-        assertEquals("EHZ", ehzPreview.zoneLabelText());
-        assertEquals("CPZ", cpzPreview.zoneLabelText());
-        assertEquals("DEZ", dezPreview.zoneLabelText());
+        assertEquals(HostSlotPreview.HostSlotPreviewType.NUMBERED_ZONE, ehzPreview.type());
+        assertEquals(1, ehzPreview.zoneDisplayNumber());
+        assertEquals(2, cpzPreview.zoneDisplayNumber());
+        assertEquals(11, dezPreview.zoneDisplayNumber());
     }
 
     @Test
@@ -99,6 +99,16 @@ class TestS2DataSelectProfile {
         S2DataSelectProfile profile = new S2DataSelectProfile();
         assertNull(profile.resolveSlotPreview(null));
         assertNull(profile.resolveSlotPreview(Map.of()));
+    }
+
+    @Test
+    void resolveSelectedSlotIconIndex_usesClearRestartDestinationWhenProvided() {
+        S2DataSelectProfile profile = new S2DataSelectProfile();
+
+        int wfzIcon = profile.resolveSelectedSlotIconIndex(Map.of("zone", 0),
+                new DataSelectDestination(Sonic2ZoneConstants.ZONE_WFZ, 0));
+
+        assertEquals(10, wfzIcon);
     }
 
     @Test

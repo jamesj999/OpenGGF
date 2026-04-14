@@ -52,4 +52,15 @@ public interface DataSelectHostProfile {
     default HostSlotPreview resolveSlotPreview(Map<String, Object> payload) {
         return null;
     }
+
+    /**
+     * Returns a host-specific selected-slot icon index for the donated S3K
+     * presentation, or {@code -1} if the native S3K stage card should be used.
+     *
+     * <p>{@code clearDestination} is the currently selected clear-restart
+     * destination when the save is marked clear; otherwise it is {@code null}.
+     */
+    default int resolveSelectedSlotIconIndex(Map<String, Object> payload, DataSelectDestination clearDestination) {
+        return -1;
+    }
 }
