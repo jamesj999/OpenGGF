@@ -164,6 +164,10 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         return cameraBgYOffset;
     }
 
+    public boolean isEarthquakeActive() {
+        return gameState().isHtzScreenShakeActive();
+    }
+
     /**
      * Gets the current Camera_BG_X_offset used by HTZ earthquake BG scrolling.
      * Top route / Act 1 use 0; Act 2 bottom route uses -$680.

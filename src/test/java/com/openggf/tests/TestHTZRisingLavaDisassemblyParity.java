@@ -4,9 +4,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.game.sonic2.objects.RisingLavaObjectInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
@@ -29,6 +31,11 @@ public class TestHTZRisingLavaDisassemblyParity {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
+        com.openggf.game.GameModuleRegistry.reset();
+        com.openggf.game.GameModuleRegistry.setCurrent(new com.openggf.game.sonic2.Sonic2GameModule());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
@@ -58,13 +65,13 @@ public class TestHTZRisingLavaDisassemblyParity {
         for (int i = 0; i < 16; i++) {
             levelEvents.update();
         }
-        assertEquals(300, levelEvents.getCameraBgYOffset());
+        assertEquals(300, htzState().cameraBgYOffset());
 
         camera.setX((short) 0x1980); // >= $1978, oscillation now allowed
         for (int i = 0; i < 8; i++) {
             levelEvents.update();
         }
-        assertTrue(levelEvents.getCameraBgYOffset() > 300);
+        assertTrue(htzState().cameraBgYOffset() > 300);
     }
 
     @Test
@@ -76,20 +83,21 @@ public class TestHTZRisingLavaDisassemblyParity {
         levelEvents.update();
 
         assertEquals(8, levelEvents.getEventRoutine());
-        assertEquals(0x300, levelEvents.getCameraBgYOffset());
-        assertEquals(-0x680, levelEvents.getHtzBgXOffset());
+        assertEquals(0x300, htzState().cameraBgYOffset());
+        assertEquals(-0x680, htzState().cameraBgXOffset());
         assertTrue(GameServices.gameState().isHtzScreenShakeActive());
-        assertEquals(0, levelEvents.getHtzBgVerticalShift());
+        assertEquals(0, htzState().bgVerticalShift());
 
         Object htzHandler = getHtzHandler(levelEvents);
         setPrivateInt(htzHandler, "cameraBgYOffset", 0x2F0);
-        assertEquals(0x10, levelEvents.getHtzBgVerticalShift());
+        assertEquals(0x10, htzState().bgVerticalShift());
     }
 
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
+        levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 0);
         GameServices.gameState().setHtzScreenShakeActive(true);
-        // Wire in levelEvents so that update() can call getCameraBgYOffset() for
+        // Wire in levelEvents so that update() can read HTZ runtime state for
         // enabled objects without hitting a NullPointerException.
         ObjectServices services = new TestObjectServices() {
             @Override
@@ -155,6 +163,12 @@ public class TestHTZRisingLavaDisassemblyParity {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setBoolean(target, value);
+    }
+
+    private static HtzRuntimeState htzState() {
+        return GameServices.zoneRuntimeRegistry()
+                .currentAs(HtzRuntimeState.class)
+                .orElseThrow(() -> new AssertionError("Expected HTZ runtime state to be installed"));
     }
     @SuppressWarnings("unchecked")
     private static void setConstructionContext(ObjectServices svc) {

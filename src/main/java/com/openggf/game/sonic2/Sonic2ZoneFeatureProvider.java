@@ -5,6 +5,10 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureRenderer;
+import com.openggf.game.render.SpecialRenderEffect;
+import com.openggf.game.render.SpecialRenderEffectContext;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
+import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.CPZPylonObjectInstance;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -61,6 +65,28 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     // Deferred slot machine renders (queued during object phase, rendered after tilemap)
     // Each entry: {worldX, worldY, offsetX, offsetY} - offset values are from cage to display
     private final java.util.List<int[]> pendingSlotRenders = new java.util.ArrayList<>();
+    private final SpecialRenderEffect cnzSlotOverlayEffect = new SpecialRenderEffect() {
+        @Override
+        public SpecialRenderEffectStage stage() {
+            return SpecialRenderEffectStage.AFTER_FOREGROUND;
+        }
+
+        @Override
+        public void render(SpecialRenderEffectContext context) {
+            renderCnzSlotOverlay(context.camera());
+        }
+    };
+    private final SpecialRenderEffect waterSurfaceEffect = new SpecialRenderEffect() {
+        @Override
+        public SpecialRenderEffectStage stage() {
+            return SpecialRenderEffectStage.AFTER_SPRITES;
+        }
+
+        @Override
+        public void render(SpecialRenderEffectContext context) {
+            renderWaterSurface(context.camera(), context.frameCounter());
+        }
+    };
 
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
@@ -242,17 +268,38 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void render(Camera camera, int frameCounter) {
-        if (waterSurfaceManager != null && waterSurfaceManager.isInitialized()) {
-            waterSurfaceManager.render(camera, frameCounter);
-        }
-        // Note: Slot machine rendering moved to renderAfterForeground() so it appears
-        // behind sprites but on top of the corrupted foreground tiles
+        // Water surfaces now render through the staged special render effect registry.
     }
 
     @Override
     public void renderAfterForeground(Camera camera) {
-        // Queue slot machine display commands (executed during flush, after high-priority foreground but before sprites)
-        if (!pendingSlotRenders.isEmpty() && cnzSlotMachineRenderer != null && cnzSlotMachineRenderer.isInitialized()) {
+        // Slot rendering is now dispatched through the staged special render effect
+        // registry. This remains as a compatibility no-op for the provider hook.
+    }
+
+    @Override
+    public void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
+        if (zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CNZ) {
+            registry.register(cnzSlotOverlayEffect);
+        }
+        if ((zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CPZ && actIndex == 1)
+                || zoneIndex == Sonic2ZoneConstants.ROM_ZONE_ARZ) {
+            registry.register(waterSurfaceEffect);
+        }
+    }
+
+    private void renderWaterSurface(Camera camera, int frameCounter) {
+        if (waterSurfaceManager != null && waterSurfaceManager.isInitialized()) {
+            waterSurfaceManager.render(camera, frameCounter);
+        }
+    }
+
+    private void renderCnzSlotOverlay(Camera camera) {
+        if (pendingSlotRenders.isEmpty()) {
+            return;
+        }
+        try {
+            if (cnzSlotMachineRenderer != null && cnzSlotMachineRenderer.isInitialized()) {
             GraphicsManager graphicsManager = GameServices.graphics();
             if (!graphicsManager.isHeadlessMode() && cnzSlotMachineManager != null) {
                 Integer paletteTextureId = graphicsManager.getCombinedPaletteTextureId();
@@ -276,6 +323,8 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
                     }
                 }
             }
+            }
+        } finally {
             pendingSlotRenders.clear();
         }
     }
@@ -304,6 +353,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     public void reset() {
         cnzBumperManager = null;
         cnzSlotMachineManager = null;
+        pendingSlotRenders.clear();
         if (cnzSlotMachineRenderer != null) {
             cnzSlotMachineRenderer.cleanup();
             cnzSlotMachineRenderer = null;
