@@ -3,6 +3,10 @@ package com.openggf.game.sonic1.dataselect;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.RgbaImage;
+import com.openggf.graphics.ScreenshotCapture;
 import com.openggf.version.AppVersion;
 
 import javax.imageio.ImageIO;
@@ -10,26 +14,30 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class S1DataSelectImageCacheManager {
 	static final int GENERATOR_FORMAT_VERSION = 1;
 	private static final String MANIFEST_FILE_NAME = "manifest.json";
 	private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
-			"ghz1", "ghz2", "ghz3",
-			"lz1", "lz2", "lz3",
-			"mz1", "mz2", "mz3",
-			"slz1", "slz2", "slz3",
-			"syz1", "syz2", "syz3",
-			"sbz1", "sbz2", "sbz3",
-			"fz1");
+			"ghz",
+			"mz",
+			"syz",
+			"lz",
+			"slz",
+			"sbz",
+			"fz");
 
 	private final Path cacheRoot;
 	private final SonicConfigurationService config;
 	private final Supplier<String> romSha256Supplier;
 	private final ObjectMapper mapper;
+	private final S1DataSelectImageGenerator generator;
+
+	private CompletableFuture<Void> inFlight;
 
 	public S1DataSelectImageCacheManager(Path cacheRoot, SonicConfigurationService config,
 			Supplier<String> romSha256Supplier, ObjectMapper mapper) {
@@ -37,6 +45,23 @@ public class S1DataSelectImageCacheManager {
 		this.config = Objects.requireNonNull(config, "config");
 		this.romSha256Supplier = Objects.requireNonNull(romSha256Supplier, "romSha256Supplier");
 		this.mapper = Objects.requireNonNull(mapper, "mapper");
+		this.generator = new S1DataSelectImageGenerator(
+				cacheRoot,
+				this::captureFramebuffer,
+				romSha256Supplier,
+				settleFrames());
+		startGenerationIfEligible();
+	}
+
+	public synchronized void ensureGenerationStarted() {
+		startGenerationIfEligible();
+	}
+
+	public void awaitGenerationIfRunning() {
+		CompletableFuture<Void> future = inFlight;
+		if (future != null) {
+			future.join();
+		}
 	}
 
 	public boolean cacheValid() {
@@ -78,6 +103,46 @@ public class S1DataSelectImageCacheManager {
 
 	public int settleFrames() {
 		return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
+	}
+
+	private synchronized void startGenerationIfEligible() {
+		if (!isEligibleForDonatedS3k()) {
+			return;
+		}
+		CompletableFuture<Void> current = inFlight;
+		if (current != null && !current.isDone()) {
+			return;
+		}
+		if (cacheValid()) {
+			return;
+		}
+
+		CompletableFuture<Void> next = CompletableFuture.runAsync(() -> {
+			try {
+				generator.generateAll();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
+		inFlight = next;
+		next.whenComplete((ignored, ignoredThrowable) -> {
+			synchronized (S1DataSelectImageCacheManager.this) {
+				if (inFlight == next) {
+					inFlight = null;
+				}
+			}
+		});
+	}
+
+	private boolean isEligibleForDonatedS3k() {
+		return CrossGameFeatureProvider.isS3kDonorActive();
+	}
+
+	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCapturePoint capturePoint,
+			int settleFrames) {
+		return GraphicsManager.getInstance()
+				.submitRenderThreadTask(() -> ScreenshotCapture.captureFramebuffer(320, 224))
+				.join();
 	}
 
 	private S1DataSelectImageManifest readManifest() {
