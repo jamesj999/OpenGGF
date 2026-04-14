@@ -11,6 +11,7 @@ import com.openggf.game.BonusStageType;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -39,6 +40,7 @@ public class TestBonusStageReturnWaterRestore {
 
     @Test
     public void bonusStageReturn_restoresSavedWaterLevelImmediately() throws Exception {
+        GraphicsManager.getInstance().initHeadless();
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(ZONE_HCZ, ACT_1)
                 .build();
