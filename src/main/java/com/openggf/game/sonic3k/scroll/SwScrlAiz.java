@@ -9,6 +9,9 @@ import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
+import com.openggf.level.scroll.compose.DeformationPlan;
+import com.openggf.level.scroll.compose.ScrollEffectComposer;
+import com.openggf.level.scroll.compose.ScrollValueTable;
 
 import java.util.Arrays;
 import java.util.logging.Logger;
@@ -63,6 +66,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
     /** Total words in the flat HScroll_table value array ($008-$038). */
     private static final int FLAT_VALUE_COUNT = 25;
+    private static final DeformationPlan.ScrollValueTransform NEGATE_WORD = value -> negWord(value);
 
     /** Origin X for AIZ1_Deform base calculation (subi.w #$1300,d0). */
     private static final int DEFORM_ORIGIN_X = 0x1300;
@@ -107,15 +111,12 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
              1,  1,  1,  1,  1,  0, -1, -2, -2, -1,  0,  2,  2,  2,  2,  0
     };
 
-    private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
-    private final short[] perColumnVScrollBG = new short[Sonic3kAIZEvents.FIRE_WAVE_COLUMN_COUNT];
-    private boolean hasPerColumnVScrollBG;
+    private final ScrollEffectComposer composer = new ScrollEffectComposer();
+    private final ScrollValueTable introBandValues = ScrollValueTable.ofLength(INTRO_DEFORM_BANDS);
+    private final ScrollValueTable deformValues = ScrollValueTable.ofLength(FLAT_VALUE_COUNT);
 
     /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
     private long waveAccum;
-    private short vscrollFactorFG;
-    private int shakeOffsetX;
-    private int shakeOffsetY;
 
     @Override
     public void update(int[] horizScrollBuf,
@@ -123,17 +124,15 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                        int cameraY,
                        int frameCounter,
                        int actId) {
-        resetScrollTracking();
-        hasPerColumnVScrollBG = false;
-        Arrays.fill(perColumnVScrollBG, (short) 0);
-        vscrollFactorFG = (short) cameraY;
-        shakeOffsetX = 0;
-        shakeOffsetY = 0;
+        composer.reset();
+        composer.setVscrollFactorFG((short) cameraY);
+        composer.setShakeOffsetX(0);
+        composer.setShakeOffsetY(0);
 
         short fgScroll = negWord(cameraX);
         Sonic3kAIZEvents aizEvents = resolveAizEvents();
         if (aizEvents != null) {
-            shakeOffsetY = aizEvents.getScreenShakeOffsetY();
+            composer.setShakeOffsetY(aizEvents.getScreenShakeOffsetY());
         }
         FireCurtainRenderState curtainState = aizEvents != null
                 ? aizEvents.getFireCurtainRenderState(VISIBLE_LINES)
@@ -156,24 +155,24 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
             int introOffset = AizPlaneIntroInstance.getIntroScrollOffset();
             int source = introOffset < 0 ? introOffset : cameraX;
             buildIntroBandValues(source);
-            vscrollFactorBG = wordOf(cameraY);
-            writeIntroScroll(horizScrollBuf, fgScroll, cameraY);
+            composer.setVscrollFactorBG(wordOf(cameraY));
+            writeIntroScroll(fgScroll, cameraY);
         } else {
             if (fireTransition) {
                 // ROM fire-transition path uses PlainDeformation, not AIZ1_Deform:
                 // FG scroll stays tied to the camera, BG scroll is flat and driven by
                 // Camera_X_pos_BG_copy while the column VScroll wave adds the wobble.
-                vscrollFactorBG = wordOf(aizEvents.getFireTransitionBgY());
-                writePlainDeformation(horizScrollBuf, fgScroll, negWord(bgSourceX));
+                composer.setVscrollFactorBG(wordOf(aizEvents.getFireTransitionBgY()));
+                writePlainDeformation(fgScroll, negWord(bgSourceX));
             } else if (actId > 0) {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
                 // BG vertical scroll = (cameraY - shake) / 2 + shake.
-                short shakeY = (short) shakeOffsetY;
-                vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
+                short shakeY = (short) composer.getShakeOffsetY();
+                composer.setVscrollFactorBG((short) (asrWord(cameraY, 1) + shakeY));
                 // ROM: AIZ2BGE_Normal applies a one-time BG Y offset when the
                 // battleship sequence approaches. Add it to the BG vertical scroll.
                 if (aizEvents != null && aizEvents.getBattleshipBgYOffset() != 0) {
-                    vscrollFactorBG = (short) (vscrollFactorBG + aizEvents.getBattleshipBgYOffset());
+                    composer.setVscrollFactorBG((short) (composer.getVscrollFactorBG() + aizEvents.getBattleshipBgYOffset()));
                 }
                 // During battleship auto-scroll, use the smooth (non-wrapping) X for
                 // BG parallax to avoid visible background jumps on camera wrap-back.
@@ -181,17 +180,17 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 if (aizEvents != null && aizEvents.isBattleshipAutoScrollActive()) {
                     bgDeformX = aizEvents.getBattleshipSmoothScrollX();
                 }
-                computeAiz2Deform(horizScrollBuf, fgScroll, bgDeformX);
+                computeAiz2Deform(fgScroll, bgDeformX);
             } else {
                 // AIZ1_Deform: multi-band BG parallax with per-band speeds.
                 // BG vertical scroll = camera Y / 2.
-                vscrollFactorBG = asrWord(cameraY, 1);
-                computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
+                composer.setVscrollFactorBG(asrWord(cameraY, 1));
+                computeAiz1Deform(fgScroll, bgSourceX);
             }
         }
 
-        if (shakeOffsetY != 0) {
-            vscrollFactorFG = (short) (cameraY + shakeOffsetY);
+        if (composer.getShakeOffsetY() != 0) {
+            composer.setVscrollFactorFG((short) (cameraY + composer.getShakeOffsetY()));
         }
 
         // Fine post-burn haze (AIZ2 style) is a subtle per-line FG deformation.
@@ -202,12 +201,18 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 || cameraX >= 0x2E00);
         if (fineHeatHazeActive) {
             int waterScreenY = resolveWaterScreenY(actId, cameraY);
-            applyFgDeformation(horizScrollBuf, cameraX, cameraY, frameCounter, waterScreenY);
+            applyFgDeformation(cameraX, cameraY, frameCounter, waterScreenY);
+            composer.recalculateTrackedOffsets();
         }
 
         if (fireTransition) {
             applyFireWaveVScroll(curtainState.columnWaveOffsetsPx());
         }
+
+        composer.copyPackedScrollWordsTo(horizScrollBuf);
+        minScrollOffset = composer.getMinScrollOffset();
+        maxScrollOffset = composer.getMaxScrollOffset();
+        vscrollFactorBG = composer.getVscrollFactorBG();
     }
 
     /**
@@ -223,13 +228,12 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
      *   <li>Bands 8-12 (5 words): mountain/sky at base*14, 16, 18, 20, 18</li>
      * </ul>
      */
-    private void computeAiz1Deform(int[] horizScrollBuf, short fgScroll,
-                                    int cameraX, int cameraY) {
+    private void computeAiz1Deform(short fgScroll, int cameraX) {
         // base = (cameraX - $1300) << 11 in 16.16 fixed-point
         int relative = (short) (cameraX - DEFORM_ORIGIN_X);
         long base = ((long) relative << 16) >> 5; // = relative << 11
 
-        short[] values = new short[FLAT_VALUE_COUNT];
+        deformValues.clear();
 
         // --- Bands 0-5: tree canopy with wave (HScroll_table+$008...$012) ---
         // Wave accumulator persists across frames (ROM: HScroll_table+$03C += $2000)
@@ -241,12 +245,12 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         long d0 = base >> 1; // base / 2
         for (int i = 5; i >= 0; i--) {
             d0 += d3;
-            values[i] = (short) (d0 >> 16);
+            deformValues.set(i, (short) (d0 >> 16));
             d0 += base;
         }
 
         // --- Band 6: transition (HScroll_table+$014) ---
-        values[6] = (short) (base >> 16);
+        deformValues.set(6, (short) (base >> 16));
 
         // --- Band 7: per-line gradient (HScroll_table+$016...$02E, 13 words) ---
         // ROM: d0 = base, d2 = base/8, loop 13x: d0 += d2, store
@@ -254,24 +258,31 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         d0 = base;
         for (int i = 0; i < 13; i++) {
             d0 += increment;
-            values[7 + i] = (short) (d0 >> 16);
+            deformValues.set(7 + i, (short) (d0 >> 16));
         }
 
         // --- Bands 8-12: mountain/sky (HScroll_table+$030...$038, 5 words) ---
         // ROM: d1 = base*2, d0 = d1*8 - d1 = base*14, then d0 += d1 each step
         long d1 = base + base;          // base*2
         d0 = (d1 << 3) - d1;            // base*16 - base*2 = base*14
-        values[20] = (short) (d0 >> 16); // band 8: base*14
+        deformValues.set(20, (short) (d0 >> 16)); // band 8: base*14
         d0 += d1;
-        values[21] = (short) (d0 >> 16); // band 9: base*16
+        deformValues.set(21, (short) (d0 >> 16)); // band 9: base*16
         d0 += d1;
-        values[22] = (short) (d0 >> 16); // band 10: base*18
+        deformValues.set(22, (short) (d0 >> 16)); // band 10: base*18
         d0 += d1;
-        values[23] = (short) (d0 >> 16); // band 11: base*20
-        values[24] = values[22];          // band 12: base*18 (same as band 10)
+        deformValues.set(23, (short) (d0 >> 16)); // band 11: base*20
+        deformValues.set(24, deformValues.get(22)); // band 12: base*18 (same as band 10)
 
         // Distribute values across scanlines using AIZ1_DeformArray heights.
-        writeDeformBands(horizScrollBuf, fgScroll, values, AIZ1_DEFORM_HEIGHTS);
+        DeformationPlan.applyFlaggedTableBands(
+                composer,
+                composer.getVscrollFactorBG(),
+                fgScroll,
+                deformValues,
+                AIZ1_DEFORM_HEIGHTS,
+                0,
+                NEGATE_WORD);
     }
 
     /**
@@ -284,8 +295,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
      * The resulting wave pattern has slowest scrolling (speed 0) at the
      * distant sky bands and fastest (speed 6) at the nearest tree bands.
      */
-    private void computeAiz2Deform(int[] horizScrollBuf, short fgScroll,
-                                    int cameraX) {
+    private void computeAiz2Deform(short fgScroll, int cameraX) {
         // ROM: d0 = Events_fg_1 << 15 (signed 16.16 fixed-point)
         short relX = (short) cameraX;
         long base = (long) relX << 15;
@@ -306,100 +316,20 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         }
 
         // Scatter into 25-entry flat value array using BGDeformMake pattern
-        short[] values = new short[FLAT_VALUE_COUNT];
+        deformValues.clear();
         for (int i = 0; i < FLAT_VALUE_COUNT; i++) {
-            values[i] = speedValues[AIZ2_SPEED_MAP[i]];
+            deformValues.set(i, speedValues[AIZ2_SPEED_MAP[i]]);
         }
 
         // Distribute across scanlines using AIZ2_BGDeformArray heights.
-        writeDeformBands(horizScrollBuf, fgScroll, values, AIZ2_DEFORM_HEIGHTS);
-    }
-
-    /**
-     * Distribute flat BG scroll values across visible scanlines using
-     * the given deform heights array.
-     *
-     * <p>ROM: ApplyDeformation reads Camera_Y_pos_BG_copy to determine which
-     * bands are above the visible area, then writes packed (FG,BG) entries
-     * for each visible scanline. BG values are negated (ROM: neg.w d3).
-     *
-     * <p>Bands with the PER_LINE_FLAG consume one value per scanline from
-     * the flat array; normal bands consume one value repeated for all lines.
-     */
-    private void writeDeformBands(int[] horizScrollBuf, short fgScroll,
-                                   short[] flatValues, int[] deformHeights) {
-        int bandCount = deformHeights.length;
-        int remainingY = (short) vscrollFactorBG;
-        int lineIndex = 0;
-        int bandIndex = 0;
-        int valueIndex = 0;
-
-        // Skip bands above the visible area
-        while (bandIndex < bandCount) {
-            int raw = deformHeights[bandIndex];
-            boolean perLine = (raw & PER_LINE_FLAG) != 0;
-            int height = raw & 0x7FFF;
-
-            int next = remainingY - height;
-            if (next < 0) {
-                // Top of screen is within this band
-                int invisibleCount = remainingY;
-                int visibleLines = -next;
-
-                if (perLine) {
-                    valueIndex += invisibleCount;
-                    for (int i = 0; i < visibleLines && lineIndex < VISIBLE_LINES; i++) {
-                        short bgScroll = negWord(flatValues[valueIndex++]);
-                        int packed = packScrollWords(fgScroll, bgScroll);
-                        trackOffset(fgScroll, bgScroll);
-                        horizScrollBuf[lineIndex++] = packed;
-                    }
-                } else {
-                    short bgScroll = negWord(flatValues[valueIndex++]);
-                    lineIndex = writeSegment(horizScrollBuf, lineIndex, visibleLines, fgScroll, bgScroll);
-                }
-                bandIndex++;
-                break;
-            }
-
-            // Whole band is above screen — skip its values
-            if (perLine) {
-                valueIndex += height;
-            } else {
-                valueIndex++;
-            }
-            remainingY = next;
-            bandIndex++;
-        }
-
-        // Write remaining visible bands
-        while (lineIndex < VISIBLE_LINES && bandIndex < bandCount) {
-            int raw = deformHeights[bandIndex];
-            boolean perLine = (raw & PER_LINE_FLAG) != 0;
-            int height = raw & 0x7FFF;
-            int count = Math.min(height, VISIBLE_LINES - lineIndex);
-
-            if (perLine) {
-                for (int i = 0; i < count; i++) {
-                    short bgScroll = negWord(flatValues[valueIndex++]);
-                    int packed = packScrollWords(fgScroll, bgScroll);
-                    trackOffset(fgScroll, bgScroll);
-                    horizScrollBuf[lineIndex++] = packed;
-                }
-            } else {
-                short bgScroll = negWord(flatValues[valueIndex++]);
-                lineIndex = writeSegment(horizScrollBuf, lineIndex, count, fgScroll, bgScroll);
-            }
-            bandIndex++;
-        }
-
-        // Pad remaining lines with the last band value
-        short lastBg = valueIndex > 0 ? negWord(flatValues[valueIndex - 1]) : 0;
-        while (lineIndex < VISIBLE_LINES) {
-            int packed = packScrollWords(fgScroll, lastBg);
-            trackOffset(fgScroll, lastBg);
-            horizScrollBuf[lineIndex++] = packed;
-        }
+        DeformationPlan.applyTableBands(
+                composer,
+                composer.getVscrollFactorBG(),
+                fgScroll,
+                deformValues,
+                AIZ2_DEFORM_HEIGHTS,
+                0,
+                NEGATE_WORD);
     }
 
     private void buildIntroBandValues(int source) {
@@ -409,102 +339,34 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         if (d0 >= INTRO_DEFORM_CAP) {
             short value = (short) d0;
             for (int i = 0; i < INTRO_DEFORM_BANDS; i++) {
-                introBandValues[i] = value;
+                introBandValues.set(i, value);
             }
             return;
         }
 
-        introBandValues[0] = (short) d0;
+        introBandValues.set(0, (short) d0);
 
         int accum = (d0 - INTRO_DEFORM_CAP) << 16;
         int step = accum >> 5;
         for (int i = 1; i < INTRO_DEFORM_BANDS; i++) {
             accum += step;
-            introBandValues[i] = (short) ((accum >> 16) + INTRO_DEFORM_CAP);
+            introBandValues.set(i, (short) ((accum >> 16) + INTRO_DEFORM_CAP));
         }
     }
 
-    private void writePlainDeformation(int[] horizScrollBuf, short fgScroll, short bgScroll) {
-        int packed = packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
-        Arrays.fill(horizScrollBuf, packed);
+    private void writePlainDeformation(short fgScroll, short bgScroll) {
+        composer.fillPackedScrollWords(0, VISIBLE_LINES, fgScroll, bgScroll);
     }
 
-    private void writeIntroScroll(int[] horizScrollBuf, short fgScroll, int cameraY) {
-        // ApplyDeformation uses Camera_Y_pos_BG_copy as signed word.
-        int remainingY = (short) cameraY;
-        int lineIndex = 0;
-        int segmentIndex = 0;
-        int valueIndex = 0;
-
-        // Skip whole deformation segments until the first visible segment is found.
-        while (segmentIndex < INTRO_DEFORM_SEGMENTS.length) {
-            int segmentHeight = INTRO_DEFORM_SEGMENTS[segmentIndex];
-            if (segmentHeight == INTRO_DEFORM_TERMINATOR) {
-                break;
-            }
-
-            int next = remainingY - segmentHeight;
-            if (next >= 0) {
-                remainingY = next;
-                segmentIndex++;
-                if (valueIndex < INTRO_DEFORM_BANDS - 1) {
-                    valueIndex++;
-                }
-                continue;
-            }
-
-            // Top of the screen is inside this segment.
-            int visibleLinesInCurrentSegment = -next;
-            short bgScroll = negWord(introBandValues[valueIndex]);
-            lineIndex = writeSegment(horizScrollBuf, lineIndex, visibleLinesInCurrentSegment, fgScroll, bgScroll);
-
-            segmentIndex++;
-            if (valueIndex < INTRO_DEFORM_BANDS - 1) {
-                valueIndex++;
-            }
-
-            // Emit following segments until the screen is filled.
-            while (lineIndex < VISIBLE_LINES && segmentIndex < INTRO_DEFORM_SEGMENTS.length) {
-                segmentHeight = INTRO_DEFORM_SEGMENTS[segmentIndex];
-                if (segmentHeight == INTRO_DEFORM_TERMINATOR) {
-                    break;
-                }
-                int count = Math.min(segmentHeight, VISIBLE_LINES - lineIndex);
-                bgScroll = negWord(introBandValues[valueIndex]);
-                lineIndex = writeSegment(horizScrollBuf, lineIndex, count, fgScroll, bgScroll);
-                segmentIndex++;
-                if (valueIndex < INTRO_DEFORM_BANDS - 1) {
-                    valueIndex++;
-                }
-            }
-            break;
-        }
-
-        // Safety fallback: if decomposition ended early, pad with the last value.
-        short fallbackBg = negWord(introBandValues[Math.min(valueIndex, INTRO_DEFORM_BANDS - 1)]);
-        while (lineIndex < VISIBLE_LINES) {
-            int packed = packScrollWords(fgScroll, fallbackBg);
-            trackOffset(fgScroll, fallbackBg);
-            horizScrollBuf[lineIndex++] = packed;
-        }
-    }
-
-    private int writeSegment(int[] horizScrollBuf,
-                             int start,
-                             int count,
-                             short fgScroll,
-                             short bgScroll) {
-        if (count <= 0 || start >= VISIBLE_LINES) {
-            return start;
-        }
-        int packed = packScrollWords(fgScroll, bgScroll);
-        trackOffset(fgScroll, bgScroll);
-        int end = Math.min(VISIBLE_LINES, start + count);
-        for (int i = start; i < end; i++) {
-            horizScrollBuf[i] = packed;
-        }
-        return end;
+    private void writeIntroScroll(short fgScroll, int cameraY) {
+        DeformationPlan.applyTableBands(
+                composer,
+                cameraY,
+                fgScroll,
+                introBandValues,
+                INTRO_DEFORM_SEGMENTS,
+                0,
+                NEGATE_WORD);
     }
 
     private static int[] buildIntroDeformSegments() {
@@ -520,23 +382,24 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
     @Override
     public short[] getPerLineVScrollBG() {
-        return null;
+        return composer.getPerLineVScrollBG();
     }
 
     @Override
     public short[] getPerColumnVScrollBG() {
-        return hasPerColumnVScrollBG ? perColumnVScrollBG : null;
+        return composer.getPerColumnVScrollBG();
     }
 
     private void applyFireWaveVScroll(int[] columnWaveOffsetsPx) {
         if (columnWaveOffsetsPx == null || columnWaveOffsetsPx.length == 0) {
-            hasPerColumnVScrollBG = false;
+            composer.clearPerColumnVScrollBG();
             return;
         }
-        for (int i = 0; i < perColumnVScrollBG.length; i++) {
-            perColumnVScrollBG[i] = (short) (i < columnWaveOffsetsPx.length ? columnWaveOffsetsPx[i] : 0);
+        short[] fireWaveColumns = composer.writablePerColumnVScrollBG(Sonic3kAIZEvents.FIRE_WAVE_COLUMN_COUNT);
+        Arrays.fill(fireWaveColumns, (short) 0);
+        for (int i = 0; i < fireWaveColumns.length; i++) {
+            fireWaveColumns[i] = (short) (i < columnWaveOffsetsPx.length ? columnWaveOffsetsPx[i] : 0);
         }
-        hasPerColumnVScrollBG = true;
     }
 
     /**
@@ -563,8 +426,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
      * @param waterScreenY screen-relative water Y (0..223 = split, &ge;224 = no water visible,
      *                     &le;0 = entirely underwater)
      */
-    private void applyFgDeformation(int[] horizScrollBuf, int cameraX, int cameraY,
-                                     int frameCounter, int waterScreenY) {
+    private void applyFgDeformation(int cameraX, int cameraY, int frameCounter, int waterScreenY) {
         short baseFg = negWord(cameraX);
 
         // FG heat haze phase (above water): ROM uses Camera_Y_pos_copy in the phase
@@ -575,7 +437,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         int fgWaterPhase = ((frameCounter + (waterLevel << 1)) & 0x7E) >> 1;
 
         // BG heat haze phase (above water): ROM uses (frameCounter>>1) + Camera_Y_pos_BG_copy*2
-        short bgY = vscrollFactorBG;
+        short bgY = composer.getVscrollFactorBG();
         int bgHazePhase = (((frameCounter >> 1) + (bgY << 1)) & 0x3E) >> 1;
 
         // BG water ripple phase (below water): ROM uses waterBgY = Water_level - cameraY + bgY
@@ -587,18 +449,18 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
         // Above water: heat haze deformation (FG + BG)
         for (int line = 0; line < hazeEnd; line++) {
-            int packed = horizScrollBuf[line];
+            int packed = composer.packedScrollWordAt(line);
             short bg = (short) (unpackBG(packed) + AIZ_BG_HAZE_DEFORM[(bgHazePhase + line) & 0x1F]);
             short fg = (short) (baseFg + AIZ_FINE_HAZE_FG_DEFORM[(fgHazePhase + line) & 0x1F]);
-            horizScrollBuf[line] = packScrollWords(fg, bg);
+            composer.writePackedScrollWord(line, fg, bg);
         }
 
         // Below water: water ripple deformation (FG + BG)
         for (int line = hazeEnd; line < VISIBLE_LINES; line++) {
-            int packed = horizScrollBuf[line];
+            int packed = composer.packedScrollWordAt(line);
             short bg = (short) (unpackBG(packed) + AIZ_WATER_BG_DEFORM[(bgWaterPhase + line) & 0x3F]);
             short fg = (short) (baseFg + AIZ_WATER_FG_DEFORM[(fgWaterPhase + line) & 0x3F]);
-            horizScrollBuf[line] = packScrollWords(fg, bg);
+            composer.writePackedScrollWord(line, fg, bg);
         }
     }
 
@@ -633,16 +495,16 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
     @Override
     public int getShakeOffsetX() {
-        return shakeOffsetX;
+        return composer.getShakeOffsetX();
     }
 
     @Override
     public int getShakeOffsetY() {
-        return shakeOffsetY;
+        return composer.getShakeOffsetY();
     }
 
     @Override
     public short getVscrollFactorFG() {
-        return vscrollFactorFG;
+        return composer.getVscrollFactorFG();
     }
 }

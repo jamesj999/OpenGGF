@@ -2,29 +2,105 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
-import com.openggf.level.LevelManager;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import com.openggf.level.objects.TestObjectServices;
+import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.LogCaptureHandler;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@RequiresRom(SonicGame.SONIC_3K)
 public class TestSonic3kAIZEvents {
+    private HeadlessTestFixture fixture;
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.createGameplay();
+        AizIntroArtLoader.reset();
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 0)
+                .build();
     }
 
     @AfterEach
     public void tearDown() {
-        RuntimeManager.destroyCurrent();
+        AizIntroArtLoader.reset();
+    }
+
+    @Test
+    public void introArtFallbackDoesNotLogWarningsWhenRomBackedAssetsAreUnavailable() {
+        Logger logger = Logger.getLogger(AizIntroArtLoader.class.getName());
+        LogCaptureHandler handler = new LogCaptureHandler();
+        boolean useParentHandlers = logger.getUseParentHandlers();
+        Level previousLevel = logger.getLevel();
+        logger.addHandler(handler);
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.ALL);
+        try {
+            AizIntroArtLoader.reset();
+            AizIntroArtLoader.loadAllIntroArt(new TestObjectServices());
+            assertEquals(0, handler.countAtOrAbove(Level.WARNING));
+        } finally {
+            logger.removeHandler(handler);
+            logger.setUseParentHandlers(useParentHandlers);
+            logger.setLevel(previousLevel);
+            AizIntroArtLoader.reset();
+        }
+    }
+
+    @Test
+    public void fireTransitionOnRomBackedAizLevelDoesNotLogWarnings() {
+        Logger zoneLogger = Logger.getLogger(Sonic3kZoneEvents.class.getName());
+        Logger introLogger = Logger.getLogger(AizPlaneIntroInstance.class.getName());
+        LogCaptureHandler zoneHandler = new LogCaptureHandler();
+        LogCaptureHandler introHandler = new LogCaptureHandler();
+        boolean zoneUseParentHandlers = zoneLogger.getUseParentHandlers();
+        boolean introUseParentHandlers = introLogger.getUseParentHandlers();
+        Level previousZoneLevel = zoneLogger.getLevel();
+        Level previousIntroLevel = introLogger.getLevel();
+        zoneLogger.addHandler(zoneHandler);
+        introLogger.addHandler(introHandler);
+        zoneLogger.setUseParentHandlers(false);
+        introLogger.setUseParentHandlers(false);
+        zoneLogger.setLevel(Level.ALL);
+        introLogger.setLevel(Level.ALL);
+        try {
+            Camera camera = GameServices.camera();
+            camera.setX((short) 0x2F10);
+            camera.setY((short) 0x0200);
+
+            var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+            events.init(0);
+            events.setEventsFg5(true);
+
+            for (int i = 0; i < 320 && !events.isAct2TransitionRequested(); i++) {
+                events.update(0, i);
+            }
+
+            assertTrue(events.isAct2TransitionRequested());
+            assertEquals(0, zoneHandler.countAtOrAbove(Level.WARNING));
+            assertEquals(0, introHandler.countAtOrAbove(Level.WARNING));
+        } finally {
+            zoneLogger.removeHandler(zoneHandler);
+            introLogger.removeHandler(introHandler);
+            zoneLogger.setUseParentHandlers(zoneUseParentHandlers);
+            introLogger.setUseParentHandlers(introUseParentHandlers);
+            zoneLogger.setLevel(previousZoneLevel);
+            introLogger.setLevel(previousIntroLevel);
+        }
     }
 
     @Test
@@ -64,7 +140,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void eventsFg5StartsFireTransitionAndRequestsSeamlessFlow() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -95,9 +170,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireTransitionAppliesMutationBeforeActReload() {
-        LevelManager levelManager = GameServices.level();
-        levelManager.resetState();
-
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -121,9 +193,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void postFireHazeOnlyEnablesAfterBurnHandoff() {
-        LevelManager levelManager = GameServices.level();
-        levelManager.resetState();
-
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -155,9 +224,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainRenderStateCarriesAcrossSeamlessReload() {
-        LevelManager levelManager = GameServices.level();
-        levelManager.resetState();
-
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -191,9 +257,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainIsFullScreenWhenFireMutationStarts() {
-        LevelManager levelManager = GameServices.level();
-        levelManager.resetState();
-
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -216,7 +279,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainCoverHeightIsMonotonicDuringRise() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -240,7 +302,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainStartsImmediatelyAndReachesFullCoverByMutation() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -279,7 +340,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainStateExposesDeterministicTwentyColumnWaveData() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -306,7 +366,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainHandoffAccessorIsPureWithinTheSameFrame() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -332,7 +391,6 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void act2ContinuationKeepsCurtainUntilWaitFireFinishes() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
@@ -381,7 +439,6 @@ public class TestSonic3kAIZEvents {
      */
     @Test
     public void aiz2FromFireTransitionDoesNotSkipMinibossPath() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
 
         // Simulate arrival from AIZ1 fire transition: run act 1 fire sequence
@@ -423,7 +480,6 @@ public class TestSonic3kAIZEvents {
      */
     @Test
     public void aiz2DirectEntrySkipsMinibossPath() {
-        GameServices.level().resetState();
         Camera camera = GameServices.camera();
 
         // Direct entry: no pending fire sequence

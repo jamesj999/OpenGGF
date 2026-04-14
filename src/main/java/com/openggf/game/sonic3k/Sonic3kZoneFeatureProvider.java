@@ -8,6 +8,11 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.render.AdvancedRenderFrameState;
+import com.openggf.game.render.AdvancedRenderMode;
+import com.openggf.game.render.AdvancedRenderModeContext;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -37,6 +42,19 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     private final AizBattleshipRenderFeature aizBattleshipRenderFeature = new AizBattleshipRenderFeature();
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
+    private final AdvancedRenderMode slotMachineForegroundScrollMode = new AdvancedRenderMode() {
+        @Override
+        public String id() {
+            return "s3k-slot-machine-foreground-scroll";
+        }
+
+        @Override
+        public void contribute(AdvancedRenderModeContext context, AdvancedRenderFrameState.Builder builder) {
+            if (context.zoneIndex() == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+                builder.enablePerLineForegroundScroll();
+            }
+        }
+    };
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
     private boolean forcedAizForestFrontPriority;
     private S3kSlotMachinePanelAnimator slotMachinePanelAnimator;
@@ -186,7 +204,6 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         // Render water skim splash sprites (at water level, following player)
         HCZWaterSkimHandler.render(camera);
-        aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
         var levelManager = GameServices.levelOrNull();
         if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
@@ -246,7 +263,27 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
                 && coordinator.activeSlotRuntime() != null) {
             coordinator.activeSlotRuntime().ensureForegroundGlassPriority();
         }
-        aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
+    }
+
+    @Override
+    public void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
+        if (zoneIndex != Sonic3kZoneIds.ZONE_AIZ) {
+            return;
+        }
+        registry.register(aizTransitionRenderFeature);
+        if (actIndex == 1) {
+            registry.register(aizBattleshipRenderFeature);
+        }
+    }
+
+    @Override
+    public void registerAdvancedRenderModes(AdvancedRenderModeController controller, int zoneIndex, int actIndex) {
+        if (zoneIndex == Sonic3kZoneIds.ZONE_AIZ) {
+            controller.register(aizTransitionRenderFeature);
+        }
+        if (zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+            controller.register(slotMachineForegroundScrollMode);
+        }
     }
 
     @Override
@@ -256,16 +293,6 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         baseIndex = HCZWaterSkimHandler.ensurePatternsCached(graphicsManager, baseIndex);
         return baseIndex;
-    }
-
-    @Override
-    public boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
-        return aizTransitionRenderFeature.shouldEnableForegroundHeatHaze(zoneIndex, actIndex, cameraX);
-    }
-
-    @Override
-    public boolean shouldEnablePerLineForegroundScroll(int zoneIndex, int actIndex, int cameraX) {
-        return zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE;
     }
 
     @Override
