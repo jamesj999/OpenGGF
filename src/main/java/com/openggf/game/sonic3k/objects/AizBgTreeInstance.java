@@ -58,14 +58,14 @@ public class AizBgTreeInstance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity player) {
         if (isDestroyed()) return;
 
-        // Delete when auto-scroll ends (small boss has exited, camera unlocked)
-        // or camera has passed the boss area
-        Sonic3kAIZEvents events = getAizEvents();
-        boolean autoScrollActive = (events != null && events.isBattleshipAutoScrollActive());
-        if (!autoScrollActive || services().camera().getX() >= DELETE_CAMERA_X) {
+        // ROM: Obj_AIZ2BGTreeMove — delete only when camera passes the boss area.
+        // Trees persist after auto-scroll ends; Events_fg_1 (battleshipSmoothScrollX)
+        // continues to accumulate camera deltas, so trees scroll off naturally.
+        if (services().camera().getX() >= DELETE_CAMERA_X) {
             setDestroyed(true);
             return;
         }
+        Sonic3kAIZEvents events = getAizEvents();
         int currentSmooth = (events != null) ? events.getBattleshipSmoothScrollX() : 0;
         int scrollDelta = currentSmooth - spawnSmoothScrollX;
 
