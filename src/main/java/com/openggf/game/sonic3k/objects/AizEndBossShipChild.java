@@ -68,7 +68,7 @@ public class AizEndBossShipChild extends AbstractBossChild {
 
     @Override
     public void update(int frameCounter, PlayableEntity player) {
-        if (!beginUpdate(frameCounter)) {
+        if (!shouldUpdate(frameCounter)) {
             return;
         }
 
