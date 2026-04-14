@@ -860,7 +860,15 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     static S3kDataSelectAssetSource createDefaultAssets() {
-        return new LoaderBackedAssets();
+        return new LoaderBackedAssets(S3kDataSelectPresentation::resolvePrimaryRom);
+    }
+
+    static S3kDataSelectAssetSource createDonorAssets() {
+        return new LoaderBackedAssets(() -> GameServices.rom().getSecondaryRom("s3k"));
+    }
+
+    private static Rom resolvePrimaryRom() throws IOException {
+        return GameServices.rom() != null ? GameServices.rom().getRom() : null;
     }
 
     static void playMusicSafely(int musicId) {
@@ -881,9 +889,19 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         }
     }
 
+    @FunctionalInterface
+    interface RomSource {
+        Rom resolve() throws IOException;
+    }
+
     private static final class LoaderBackedAssets implements S3kDataSelectAssetSource {
+        private final RomSource romSource;
         private S3kDataSelectDataLoader loader;
         private boolean loaded;
+
+        LoaderBackedAssets(RomSource romSource) {
+            this.romSource = romSource;
+        }
 
         @Override
         public void loadData() throws IOException {
@@ -1013,7 +1031,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         private S3kDataSelectDataLoader requireLoader() {
             Rom rom;
             try {
-                rom = GameServices.rom() != null ? GameServices.rom().getRom() : null;
+                rom = romSource.resolve();
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to access S3K ROM", e);
             }
