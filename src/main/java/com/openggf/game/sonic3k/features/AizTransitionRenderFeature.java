@@ -10,10 +10,10 @@ import com.openggf.game.render.AdvancedRenderModeContext;
 import com.openggf.game.render.SpecialRenderEffect;
 import com.openggf.game.render.SpecialRenderEffectContext;
 import com.openggf.game.render.SpecialRenderEffectStage;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternRenderCommand;
@@ -51,9 +51,9 @@ public final class AizTransitionRenderFeature implements SpecialRenderEffect, Ad
         if (zoneIndex != Sonic3kZoneIds.ZONE_AIZ) {
             return false;
         }
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            return events.isPostFireHazeActive();
+        AizZoneRuntimeState aizState = getAizState();
+        if (aizState != null) {
+            return aizState.isPostFireHazeActive();
         }
         return actIndex > 0;
     }
@@ -89,8 +89,8 @@ public final class AizTransitionRenderFeature implements SpecialRenderEffect, Ad
             return;
         }
 
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events == null) {
+        AizZoneRuntimeState aizState = getAizState();
+        if (aizState == null) {
             return;
         }
 
@@ -100,7 +100,7 @@ public final class AizTransitionRenderFeature implements SpecialRenderEffect, Ad
             return;
         }
 
-        FireCurtainRenderState renderState = events.getFireCurtainRenderState(screenHeight);
+        FireCurtainRenderState renderState = aizState.getFireCurtainRenderState(screenHeight);
         if (!renderState.active() || renderState.coverHeightPx() <= 0) {
             return;
         }
@@ -118,14 +118,9 @@ public final class AizTransitionRenderFeature implements SpecialRenderEffect, Ad
         fireCurtainRenderer.render(camera, renderState, screenWidth, screenHeight);
     }
 
-    private Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager lem = resolveLevelEventManager();
-        return lem != null ? lem.getAizEvents() : null;
-    }
-
-    private Sonic3kLevelEventManager resolveLevelEventManager() {
+    private AizZoneRuntimeState getAizState() {
         return GameServices.hasRuntime()
-                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                ? S3kRuntimeStates.currentAiz(GameServices.zoneRuntimeRegistry()).orElse(null)
                 : null;
     }
 }

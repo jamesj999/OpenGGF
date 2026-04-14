@@ -8,8 +8,17 @@ package com.openggf.game.sonic3k;
  * target the same color index within a single frame.
  */
 public final class S3kPaletteOwners {
+    public static final String AIZ_RESIZE_MUTATION = "s3k.aiz.resizeMutation";
+    public static final String AIZ_FIRE_TRANSITION = "s3k.aiz.fireTransition";
+    public static final String AIZ_BOSS_SMALL = "s3k.aiz.bossSmall";
+    public static final String AIZ_MINIBOSS = "s3k.aiz.miniboss";
+    public static final String AIZ_MINIBOSS_CUTSCENE = "s3k.aiz.minibossCutscene";
+    public static final String AIZ_END_BOSS = "s3k.aiz.endBoss";
+    public static final String ZONE_EVENT_PALETTE_LOAD = "s3k.zoneEvents.paletteLoad";
     public static final String HCZ_WATER_CYCLE = "s3k.hcz.waterCycle";
     public static final String HCZ_CAVE_LIGHTING = "s3k.hcz.caveLighting";
+    public static final String HCZ_MINIBOSS = "s3k.hcz.miniboss";
+    public static final String HCZ_END_BOSS = "s3k.hcz.endBoss";
     public static final String HPZ_ZONE_CYCLE = "s3k.hpz.zoneCycle";
     public static final String HPZ_MASTER_EMERALD = "s3k.hpz.masterEmerald";
     public static final String HPZ_PALETTE_CONTROL = "s3k.hpz.paletteControl";

@@ -3,10 +3,10 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kZoneEvents;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -480,15 +480,9 @@ public class CutsceneKnucklesHcz2Instance extends AbstractObjectInstance {
     // =========================================================================
 
     private boolean isPlayerKnuckles() {
-        try {
-            var provider = services().levelEventProvider();
-            if (provider instanceof Sonic3kLevelEventManager s3k) {
-                return s3k.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return false;
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration()) == PlayerCharacter.KNUCKLES;
     }
 
     /**

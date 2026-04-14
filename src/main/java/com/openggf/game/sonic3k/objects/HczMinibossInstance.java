@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -1171,26 +1173,30 @@ public class HczMinibossInstance extends AbstractBossInstance {
             return;
         }
 
-        Palette palette = level.getPalette(1);
         int[] colors = ((state.invulnerabilityTimer & 1) != 0) ? FLASH_DARK : FLASH_BRIGHT;
-        for (int i = 0; i < FLASH_INDICES.length; i++) {
-            byte[] bytes = {
-                    (byte) ((colors[i] >> 8) & 0xFF),
-                    (byte) (colors[i] & 0xFF)
-            };
-            palette.getColor(FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
-        }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.HCZ_MINIBOSS,
+                S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                1,
+                FLASH_INDICES,
+                colors);
         customFlashDirty = true;
-        var graphics = services().graphicsManager();
-        if (graphics.isGlInitialized()) {
-            graphics.cachePaletteTexture(palette, 1);
-        }
     }
 
     private void loadBossPalette() {
         try {
             byte[] line = services().rom().readBytes(Sonic3kConstants.PAL_HCZ_MINIBOSS_ADDR, 32);
-            services().updatePalette(1, line);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.HCZ_MINIBOSS,
+                    S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                    1,
+                    line);
         } catch (Exception e) {
             LOG.fine(() -> "HczMinibossInstance.loadBossPalette: " + e.getMessage());
         }

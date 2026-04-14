@@ -3,9 +3,9 @@ package com.openggf.game.sonic3k.specialstage;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 
@@ -1029,8 +1029,9 @@ public class Sonic3kSpecialStageManager {
 
     private PlayerCharacter resolvePlayerCharacter() {
         try {
-            return ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider())
-                    .getPlayerCharacter();
+            return S3kRuntimeStates.resolvePlayerCharacter(
+                    GameServices.zoneRuntimeRegistry(),
+                    GameServices.configuration());
         } catch (Exception e) {
             LOGGER.fine("Falling back to Sonic & Tails player character: " + e.getMessage());
             return PlayerCharacter.SONIC_AND_TAILS;

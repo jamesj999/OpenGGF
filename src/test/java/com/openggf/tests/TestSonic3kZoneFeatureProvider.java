@@ -2,11 +2,13 @@ package com.openggf.tests;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kZoneFeatureProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.graphics.RenderPriority;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,11 +103,13 @@ public class TestSonic3kZoneFeatureProvider {
     }
 
     private static final class TestZoneFeatureProvider extends Sonic3kZoneFeatureProvider {
-        private Sonic3kAIZEvents aizEvents;
+        private AizZoneRuntimeState aizState;
         private int featureActId = 1;
 
         void setAizEvents(Sonic3kAIZEvents aizEvents) {
-            this.aizEvents = aizEvents;
+            this.aizState = aizEvents != null
+                    ? new AizZoneRuntimeState(1, PlayerCharacter.SONIC_AND_TAILS, aizEvents)
+                    : null;
         }
 
         void setFeatureActId(int featureActId) {
@@ -113,8 +117,8 @@ public class TestSonic3kZoneFeatureProvider {
         }
 
         @Override
-        protected Sonic3kAIZEvents getAizEvents() {
-            return aizEvents;
+        protected AizZoneRuntimeState getAizState() {
+            return aizState;
         }
 
         @Override

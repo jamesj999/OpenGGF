@@ -2,10 +2,10 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -542,12 +542,9 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      * (Player_mode 3 = KNUCKLES in the engine's PlayerCharacter enum).
      */
     private boolean isKnuckles() {
-        try {
-            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
-            return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
-        } catch (Exception e) {
-            return false;
-        }
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration()) == PlayerCharacter.KNUCKLES;
     }
 
     /**

@@ -2,11 +2,12 @@ package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.compose.DeformationPlan;
@@ -130,15 +131,15 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         composer.setShakeOffsetY(0);
 
         short fgScroll = negWord(cameraX);
-        Sonic3kAIZEvents aizEvents = resolveAizEvents();
-        if (aizEvents != null) {
-            composer.setShakeOffsetY(aizEvents.getScreenShakeOffsetY());
+        AizZoneRuntimeState aizState = resolveAizState();
+        if (aizState != null) {
+            composer.setShakeOffsetY(aizState.getScreenShakeOffsetY());
         }
-        FireCurtainRenderState curtainState = aizEvents != null
-                ? aizEvents.getFireCurtainRenderState(VISIBLE_LINES)
+        FireCurtainRenderState curtainState = aizState != null
+                ? aizState.getFireCurtainRenderState(VISIBLE_LINES)
                 : FireCurtainRenderState.inactive();
-        boolean fireTransition = aizEvents != null && aizEvents.isFireTransitionScrollActive();
-        int bgSourceX = fireTransition ? aizEvents.getFireTransitionBgX() : cameraX;
+        boolean fireTransition = aizState != null && aizState.isFireTransitionScrollActive();
+        int bgSourceX = fireTransition ? aizState.getFireTransitionBgX() : cameraX;
 
         // ROM mode gate: AIZ1 intro uses IntroDeform only before the $1400 transition.
         boolean introMode = false;
@@ -162,7 +163,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 // ROM fire-transition path uses PlainDeformation, not AIZ1_Deform:
                 // FG scroll stays tied to the camera, BG scroll is flat and driven by
                 // Camera_X_pos_BG_copy while the column VScroll wave adds the wobble.
-                composer.setVscrollFactorBG(wordOf(aizEvents.getFireTransitionBgY()));
+                composer.setVscrollFactorBG(wordOf(aizState.getFireTransitionBgY()));
                 writePlainDeformation(fgScroll, negWord(bgSourceX));
             } else if (actId > 0) {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
@@ -171,14 +172,14 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 composer.setVscrollFactorBG((short) (asrWord(cameraY, 1) + shakeY));
                 // ROM: AIZ2BGE_Normal applies a one-time BG Y offset when the
                 // battleship sequence approaches. Add it to the BG vertical scroll.
-                if (aizEvents != null && aizEvents.getBattleshipBgYOffset() != 0) {
-                    composer.setVscrollFactorBG((short) (composer.getVscrollFactorBG() + aizEvents.getBattleshipBgYOffset()));
+                if (aizState != null && aizState.getBattleshipBgYOffset() != 0) {
+                    composer.setVscrollFactorBG((short) (composer.getVscrollFactorBG() + aizState.getBattleshipBgYOffset()));
                 }
                 // During battleship auto-scroll, use the smooth (non-wrapping) X for
                 // BG parallax to avoid visible background jumps on camera wrap-back.
                 int bgDeformX = cameraX;
-                if (aizEvents != null && aizEvents.isBattleshipAutoScrollActive()) {
-                    bgDeformX = aizEvents.getBattleshipSmoothScrollX();
+                if (aizState != null && aizState.isBattleshipAutoScrollActive()) {
+                    bgDeformX = aizState.getBattleshipSmoothScrollX();
                 }
                 computeAiz2Deform(fgScroll, bgDeformX);
             } else {
@@ -196,8 +197,8 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         // Fine post-burn haze (AIZ2 style) is a subtle per-line FG deformation.
         // Keep it separate from AIZTrans_WavyFlame, which is a temporary BG transition effect.
         boolean fineHeatHazeActive = !fireTransition
-                && ((aizEvents != null && aizEvents.isPostFireHazeActive())
-                || (aizEvents == null && actId > 0)
+                && ((aizState != null && aizState.isPostFireHazeActive())
+                || (aizState == null && actId > 0)
                 || cameraX >= 0x2E00);
         if (fineHeatHazeActive) {
             int waterScreenY = resolveWaterScreenY(actId, cameraY);
@@ -481,14 +482,13 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         return VISIBLE_LINES; // no water → all heat haze
     }
 
-    private Sonic3kAIZEvents resolveAizEvents() {
+    private AizZoneRuntimeState resolveAizState() {
         try {
-            Sonic3kLevelEventManager lem = GameServices.hasRuntime()
-                    ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+            return GameServices.hasRuntime()
+                    ? S3kRuntimeStates.currentAiz(GameServices.zoneRuntimeRegistry()).orElse(null)
                     : null;
-            return lem != null ? lem.getAizEvents() : null;
         } catch (Exception e) {
-            LOG.fine(() -> "SwScrlAiz.resolveAizEvents: " + e.getMessage());
+            LOG.fine(() -> "SwScrlAiz.resolveAizState: " + e.getMessage());
             return null;
         }
     }

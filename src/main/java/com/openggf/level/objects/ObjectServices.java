@@ -21,7 +21,10 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
+import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
@@ -71,6 +74,18 @@ public interface ObjectServices {
     /** Returns the runtime-owned ROM-accurate pseudo-random number generator. */
     default GameRng rng() {
         return GameServices.rng();
+    }
+
+    default ZoneRuntimeRegistry zoneRuntimeRegistry() {
+        return GameServices.zoneRuntimeRegistry();
+    }
+
+    default ZoneRuntimeState zoneRuntimeState() {
+        return GameServices.zoneRuntimeState();
+    }
+
+    default PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
+        return GameServices.paletteOwnershipRegistryOrNull();
     }
 
     // Context-specific managers

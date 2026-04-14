@@ -1,14 +1,28 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.palette.PaletteSurface;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
+import com.openggf.level.Level;
+import com.openggf.level.Map;
+import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.SolidTile;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.level.rings.RingSpawn;
+import com.openggf.level.rings.RingSpriteSheet;
+import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.TestablePlayableSprite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,8 +41,8 @@ class TestAizEndBossInstance {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.destroyCurrent();
-        runtime = RuntimeManager.createGameplay();
+        TestEnvironment.resetAll();
+        runtime = RuntimeManager.getCurrent();
         camera = runtime.getCamera();
         camera.resetState();
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
@@ -41,18 +56,29 @@ class TestAizEndBossInstance {
     }
 
     @Test
-    void initLocksCameraAndLoadsPaletteIntoEngineIndexOne() throws Exception {
+    void initLocksCameraAndLoadsPaletteIntoOwnershipRegistryLineOne() throws Exception {
         camera.setX((short) 0x48A0);
+
+        byte[] paletteLine = new byte[32];
+        paletteLine[0] = 0x0E;
+        paletteLine[1] = (byte) 0xEE;
+        paletteLine[2] = 0x08;
+        paletteLine[3] = (byte) 0x88;
 
         RecordingServices services = new RecordingServices();
         services.withCamera(camera);
         services.withGameState(new GameStateManager());
-        services.withRom(new FixedReadRom(new byte[32]));
+        services.withRom(new FixedReadRom(paletteLine));
+        services.registry.beginFrame();
 
         AizEndBossInstance boss = buildBoss(services);
         boss.update(0, null);
+        services.registry.resolveInto(services.level.palettes(), null, null, null);
 
-        assertEquals(1, services.lastPaletteIndex);
+        assertEquals(S3kPaletteOwners.AIZ_END_BOSS, services.registry.ownerAt(PaletteSurface.NORMAL, 1, 0));
+        assertEquals(S3kPaletteOwners.AIZ_END_BOSS, services.registry.ownerAt(PaletteSurface.NORMAL, 1, 1));
+        assertColorWord(services.level.getPalette(1), 0, 0x0EEE);
+        assertColorWord(services.level.getPalette(1), 1, 0x0888);
         assertEquals(0x4880, camera.getMinX() & 0xFFFF);
         assertEquals(0x4880, camera.getMaxX() & 0xFFFF);
     }
@@ -174,6 +200,9 @@ class TestAizEndBossInstance {
     }
 
     private static AizEndBossInstance buildBoss(ObjectServices services) throws Exception {
+        if (services instanceof TestObjectServices testServices && testServices.configuration() == null) {
+            testServices.withConfiguration(SonicConfigurationService.getInstance());
+        }
         ThreadLocal<ObjectServices> context = constructionContext();
         context.set(services);
         try {
@@ -205,12 +234,32 @@ class TestAizEndBossInstance {
         return field.getBoolean(target);
     }
 
+    private static void assertColorWord(Palette palette, int colorIndex, int segaWord) {
+        byte highByte = (byte) ((segaWord >> 8) & 0xFF);
+        byte lowByte = (byte) (segaWord & 0xFF);
+        int r3 = (lowByte >> 1) & 0x07;
+        int g3 = (lowByte >> 5) & 0x07;
+        int b3 = (highByte >> 1) & 0x07;
+        int expectedR = (r3 * 255 + 3) / 7;
+        int expectedG = (g3 * 255 + 3) / 7;
+        int expectedB = (b3 * 255 + 3) / 7;
+        assertEquals(expectedR, palette.getColor(colorIndex).r & 0xFF);
+        assertEquals(expectedG, palette.getColor(colorIndex).g & 0xFF);
+        assertEquals(expectedB, palette.getColor(colorIndex).b & 0xFF);
+    }
+
     private static final class RecordingServices extends TestObjectServices {
-        int lastPaletteIndex = -1;
+        private final StubLevel level = new StubLevel();
+        private final PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
 
         @Override
-        public void updatePalette(int paletteIndex, byte[] paletteData) {
-            lastPaletteIndex = paletteIndex;
+        public Level currentLevel() {
+            return level;
+        }
+
+        @Override
+        public PaletteOwnershipRegistry paletteOwnershipRegistryOrNull() {
+            return registry;
         }
     }
 
@@ -225,6 +274,35 @@ class TestAizEndBossInstance {
         public byte[] readBytes(long offset, int count) {
             return bytes;
         }
+    }
+
+    private static final class StubLevel implements Level {
+        private final Palette[] palettes = new Palette[] {
+                new Palette(), new Palette(), new Palette(), new Palette()
+        };
+
+        Palette[] palettes() {
+            return palettes;
+        }
+
+        @Override public int getPaletteCount() { return palettes.length; }
+        @Override public Palette getPalette(int index) { return palettes[index]; }
+        @Override public int getPatternCount() { return 0; }
+        @Override public Pattern getPattern(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getChunkCount() { return 0; }
+        @Override public Chunk getChunk(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getBlockCount() { return 0; }
+        @Override public Block getBlock(int index) { throw new UnsupportedOperationException(); }
+        @Override public SolidTile getSolidTile(int index) { throw new UnsupportedOperationException(); }
+        @Override public Map getMap() { return null; }
+        @Override public List<ObjectSpawn> getObjects() { return List.of(); }
+        @Override public List<RingSpawn> getRings() { return List.of(); }
+        @Override public RingSpriteSheet getRingSpriteSheet() { return null; }
+        @Override public int getMinX() { return 0; }
+        @Override public int getMaxX() { return 0; }
+        @Override public int getMinY() { return 0; }
+        @Override public int getMaxY() { return 0; }
+        @Override public int getZoneIndex() { return 0; }
     }
 }
 

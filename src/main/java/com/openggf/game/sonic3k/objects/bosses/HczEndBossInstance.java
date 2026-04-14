@@ -2,18 +2,19 @@ package com.openggf.game.sonic3k.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
-import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.events.S3kHczEventWriteSupport;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 // HczEndBossEggCapsuleInstance is in the same package (bosses)
 import com.openggf.game.sonic3k.objects.S3kBossExplosionChild;
 import com.openggf.game.sonic3k.objects.S3kBossExplosionController;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
@@ -825,23 +826,21 @@ public class HczEndBossInstance extends AbstractBossInstance {
             return;
         }
 
-        Palette palette = level.getPalette(1);
         boolean useWhite = (state.invulnerabilityTimer & 1) == 0;
-
+        int[] colors = new int[FLASH_INDICES.length];
         for (int i = 0; i < FLASH_INDICES.length; i++) {
-            int color = useWhite ? FLASH_WHITE : FLASH_NORMAL[i];
-            byte[] bytes = {
-                    (byte) ((color >> 8) & 0xFF),
-                    (byte) (color & 0xFF)
-            };
-            palette.getColor(FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
+            colors[i] = useWhite ? FLASH_WHITE : FLASH_NORMAL[i];
         }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.HCZ_END_BOSS,
+                S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                1,
+                FLASH_INDICES,
+                colors);
         customFlashDirty = true;
-
-        var graphics = services().graphicsManager();
-        if (graphics.isGlInitialized()) {
-            graphics.cachePaletteTexture(palette, 1);
-        }
     }
 
     /**
@@ -851,7 +850,14 @@ public class HczEndBossInstance extends AbstractBossInstance {
     private void loadBossPalette() {
         try {
             byte[] line = services().rom().readBytes(Sonic3kConstants.PAL_HCZ_END_BOSS_ADDR, 32);
-            services().updatePalette(1, line);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.HCZ_END_BOSS,
+                    S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                    1,
+                    line);
         } catch (Exception e) {
             LOG.fine(() -> "HczEndBossInstance.loadBossPalette: " + e.getMessage());
         }
@@ -890,13 +896,7 @@ public class HczEndBossInstance extends AbstractBossInstance {
      */
     private void setBossFlag(boolean value) {
         try {
-            Object provider = services().levelEventProvider();
-            if (provider instanceof Sonic3kLevelEventManager lem) {
-                Sonic3kHCZEvents hczEvents = lem.getHczEvents();
-                if (hczEvents != null) {
-                    hczEvents.setBossFlag(value);
-                }
-            }
+            S3kHczEventWriteSupport.setBossFlag(services(), value);
         } catch (Exception e) {
             LOG.fine(() -> "HczEndBossInstance.setBossFlag: " + e.getMessage());
         }
@@ -911,11 +911,9 @@ public class HczEndBossInstance extends AbstractBossInstance {
      * Falls back to SONIC_AND_TAILS if unavailable.
      */
     PlayerCharacter getPlayerCharacter() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
-        } catch (Exception e) {
-            return PlayerCharacter.SONIC_AND_TAILS;
-        }
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration());
     }
 
     // =========================================================================
