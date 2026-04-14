@@ -1,5 +1,7 @@
 package com.openggf.graphics;
 
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpritePieceRenderer;
 import org.junit.jupiter.api.AfterEach;
@@ -18,12 +20,14 @@ public class TestGraphicsManagerSpriteSatReplay {
     @BeforeEach
     public void setUp() {
         GraphicsManager.destroyForReinit();
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         graphicsManager = GraphicsManager.getInstance();
         graphicsManager.initHeadless();
     }
 
     @AfterEach
     public void tearDown() {
+        RuntimeManager.destroyCurrent();
         GraphicsManager.destroyForReinit();
     }
 
@@ -77,9 +81,9 @@ public class TestGraphicsManagerSpriteSatReplay {
         assertTrue(graphicsManager.commands.get(0) instanceof PatternRenderCommand);
         assertTrue(graphicsManager.commands.get(1) instanceof PatternRenderCommand);
         assertTrue(graphicsManager.commands.get(2) instanceof PatternRenderCommand);
-        assertEquals(20, getIntField(graphicsManager.commands.get(0), "x"));
-        assertEquals(10, getIntField(graphicsManager.commands.get(1), "x"));
-        assertEquals(30, getIntField(graphicsManager.commands.get(2), "x"));
+        assertEquals(20f, getFloatField(graphicsManager.commands.get(0), "x"));
+        assertEquals(10f, getFloatField(graphicsManager.commands.get(1), "x"));
+        assertEquals(30f, getFloatField(graphicsManager.commands.get(2), "x"));
     }
 
     private static Pattern createSolidPattern(byte color) {
@@ -92,10 +96,10 @@ public class TestGraphicsManagerSpriteSatReplay {
         return pattern;
     }
 
-    private static int getIntField(Object target, String fieldName) throws Exception {
+    private static float getFloatField(Object target, String fieldName) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
-        return field.getInt(target);
+        return field.getFloat(target);
     }
 }
 

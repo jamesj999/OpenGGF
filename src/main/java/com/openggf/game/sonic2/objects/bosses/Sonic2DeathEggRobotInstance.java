@@ -9,6 +9,7 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectConstructionContext;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -17,6 +18,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * DEZ Death Egg Robot (Object 0xC7).
@@ -463,26 +465,26 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
     private void spawnChildren() {
         // Front parts: priority 4 (in front of body at priority 5)
-        shoulder = new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER);
-        frontLowerLeg = new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG);
-        frontForearm = new ForearmChild(this, "FrontForearm", 4, true);
-        upperArm = new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM);
-        frontThigh = new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH);
+        shoulder = createPermanentChild(() -> new ArticulatedChild(this, "Shoulder", 4, FRAME_SHOULDER));
+        frontLowerLeg = createPermanentChild(() -> new ArticulatedChild(this, "FrontLowerLeg", 4, FRAME_LOWER_LEG));
+        frontForearm = createPermanentChild(() -> new ForearmChild(this, "FrontForearm", 4, true));
+        upperArm = createPermanentChild(() -> new ArticulatedChild(this, "UpperArm", 4, FRAME_ARM));
+        frontThigh = createPermanentChild(() -> new ArticulatedChild(this, "FrontThigh", 4, FRAME_THIGH));
 
         // Head: priority 4 (same as front parts, ROM: subObjData inherited)
-        head = new HeadChild(this, 4);
+        head = createPermanentChild(() -> new HeadChild(this, 4));
 
         // Jet: priority 4 (same as front parts, ROM: subObjData inherited)
-        jet = new JetChild(this, 4);
+        jet = createPermanentChild(() -> new JetChild(this, 4));
         // Back parts: priority 6 (behind body at priority 5).
         // ROM: Within the same VDP priority, earlier sprites appear in front. The body
         // is spawned before its children, so it appears in front of the back parts.
         // In the Java engine's painter's algorithm, later = in front (opposite of VDP).
         // Bucket 6 renders before bucket 5 (render loop goes high to low), so back parts
         // at priority 6 render first (behind), and the body at priority 5 renders after (in front).
-        backLowerLeg = new ArticulatedChild(this, "BackLowerLeg", 6, FRAME_LOWER_LEG);
-        backForearm = new ForearmChild(this, "BackForearm", 6, false);
-        backThigh = new ArticulatedChild(this, "BackThigh", 6, FRAME_THIGH);
+        backLowerLeg = createPermanentChild(() -> new ArticulatedChild(this, "BackLowerLeg", 6, FRAME_LOWER_LEG));
+        backForearm = createPermanentChild(() -> new ForearmChild(this, "BackForearm", 6, false));
+        backThigh = createPermanentChild(() -> new ArticulatedChild(this, "BackThigh", 6, FRAME_THIGH));
 
         childComponents.add(shoulder);
         childComponents.add(frontForearm);
@@ -495,17 +497,17 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backForearm);
         childComponents.add(backThigh);
 
-        // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        var objectManager = services().objectManager();
-        if (objectManager != null) {
-            for (var child : childComponents) {
-                if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
-                    objectManager.addDynamicObject(bossChild);
-                }
-            }
-        }
-
         positionChildren();
+    }
+
+    private <T extends AbstractBossChild> T createPermanentChild(Supplier<T> factory) {
+        var svc = tryServices();
+        T child = svc != null ? ObjectConstructionContext.construct(svc, factory) : factory.get();
+        var objectManager = svc != null ? svc.objectManager() : null;
+        if (objectManager != null) {
+            objectManager.addDynamicObject(child);
+        }
+        return child;
     }
 
     @Override

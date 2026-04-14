@@ -1177,6 +1177,7 @@ public class Engine {
 		profiler.endSection("update");
 
 		profiler.beginSection("render");
+		graphicsManager.runPendingRenderThreadTasks();
 		draw();
 		graphicsManager.flush();
 		profiler.endSection("render");

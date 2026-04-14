@@ -62,6 +62,8 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
+import static java.security.MessageDigest.getInstance;
+
 /**
  * GameModule implementation for Sonic the Hedgehog 1 (Mega Drive/Genesis).
  */
@@ -336,7 +338,7 @@ public class Sonic1GameModule implements GameModule {
     private String romSha256() {
         try {
             Rom rom = GameServices.rom().getRom();
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            MessageDigest digest = getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(rom.readAllBytes()));
         } catch (Exception e) {
             throw new IllegalStateException("Unable to hash Sonic 1 ROM for data select image generation", e);
