@@ -96,7 +96,7 @@ class TestDonatedSaveSession {
         Map<String, Object> initialPayload = Map.of(
                 "zone", 3, "act", 0,
                 "mainCharacter", "sonic", "sidekicks", List.of(),
-                "lives", 5, "emeraldCount", 4, "clear", false,
+                "lives", 5, "chaosEmeralds", List.of(0, 1, 2, 3), "clear", false,
                 "progressCode", 4, "clearState", 0);
         manager.writeSlot("s1", 2, initialPayload);
 
@@ -105,7 +105,7 @@ class TestDonatedSaveSession {
         assertEquals(SaveSlotState.VALID, summary.state());
         assertEquals(3, summary.payload().get("zone"));
         assertEquals(5, summary.payload().get("lives"));
-        assertEquals(4, summary.payload().get("emeraldCount"));
+        assertEquals(List.of(0, 1, 2, 3), summary.payload().get("chaosEmeralds"));
     }
 
     @Test
@@ -116,7 +116,7 @@ class TestDonatedSaveSession {
         Map<String, Object> clearPayload = Map.of(
                 "zone", 10, "act", 0,
                 "mainCharacter", "sonic", "sidekicks", List.of("tails"),
-                "lives", 7, "emeraldCount", 7, "clear", true,
+                "lives", 7, "chaosEmeralds", List.of(0, 1, 2, 3, 4, 5, 6), "clear", true,
                 "progressCode", 11, "clearState", 1);
         manager.writeSlot("s2", 1, clearPayload);
 
@@ -124,7 +124,7 @@ class TestDonatedSaveSession {
         assertEquals(SaveSlotState.VALID, summary.state());
         assertEquals(true, summary.payload().get("clear"));
         assertEquals(1, summary.payload().get("clearState"));
-        assertEquals(7, summary.payload().get("emeraldCount"));
+        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6), summary.payload().get("chaosEmeralds"));
     }
 
     @Test
@@ -140,7 +140,8 @@ class TestDonatedSaveSession {
         assertEquals(0, payload.get("act"));
         assertEquals("knuckles", payload.get("mainCharacter"));
         assertEquals(3, payload.get("lives")); // default
-        assertEquals(0, payload.get("emeraldCount")); // default
+        assertEquals(List.of(), payload.get("chaosEmeralds")); // default
+        assertFalse(payload.containsKey("emeraldCount"));
         assertEquals(false, payload.get("clear"));
         assertEquals(3, payload.get("progressCode")); // zone + 1
     }
@@ -159,6 +160,8 @@ class TestDonatedSaveSession {
         assertEquals("sonic", payload.get("mainCharacter"));
         assertEquals(List.of("tails"), payload.get("sidekicks"));
         assertEquals(3, payload.get("lives")); // default
+        assertEquals(List.of(), payload.get("chaosEmeralds")); // default
+        assertFalse(payload.containsKey("emeraldCount"));
         assertEquals(5, payload.get("progressCode")); // zone + 1
     }
 }

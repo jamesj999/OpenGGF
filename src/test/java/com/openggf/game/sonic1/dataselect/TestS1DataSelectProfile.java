@@ -70,7 +70,7 @@ class TestS1DataSelectProfile {
                 "act", 0,
                 "mainCharacter", "sonic",
                 "sidekicks", List.of("tails"),
-                "emeraldCount", 6,
+                "chaosEmeralds", List.of(0, 1, 2, 3, 4, 5),
                 "clear", true
         ));
 
