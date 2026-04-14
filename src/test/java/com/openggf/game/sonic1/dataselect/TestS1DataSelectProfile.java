@@ -2,9 +2,15 @@ package com.openggf.game.sonic1.dataselect;
 
 import com.openggf.game.dataselect.DataSelectHostProfile;
 import com.openggf.game.dataselect.DataSelectDestination;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
+import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +19,16 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestS1DataSelectProfile {
+
+    @BeforeAll
+    static void configureEngineServices() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+    }
+
+    @AfterEach
+    void resetRuntime() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     void s1UsesEightSlots() {
@@ -67,9 +83,11 @@ class TestS1DataSelectProfile {
         Sonic1GameModule module = new Sonic1GameModule();
 
         DataSelectHostProfile hostProfile = module.getDataSelectHostProfile();
+        DataSelectPresentationProvider provider = module.getDataSelectPresentationProvider();
 
         assertNotNull(hostProfile);
         assertEquals("s1", hostProfile.gameCode());
-        assertNotNull(module.getDataSelectPresentationProvider());
+        assertInstanceOf(S3kDataSelectManager.class, provider.delegate(),
+                "S1 donated Data Select should use the S3K presentation manager");
     }
 }

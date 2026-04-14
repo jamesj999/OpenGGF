@@ -34,6 +34,30 @@ class TestStartupRouteResolver {
     }
 
     @Test
+    void s1OnePlayerRoutesToDataSelectWhenDonorResolvesToS3k() {
+        TitleActionRoute route = resolver.resolveTitleAction(
+                hostModule(GameId.S1),
+                new DataSelectPresentationResolution(true, GameId.S3K),
+                true,
+                false,
+                TitleScreenAction.ONE_PLAYER);
+
+        assertEquals(TitleActionRoute.DATA_SELECT, route);
+    }
+
+    @Test
+    void s2OnePlayerRoutesToDataSelectWhenDonorResolvesToS3k() {
+        TitleActionRoute route = resolver.resolveTitleAction(
+                hostModule(GameId.S2),
+                new DataSelectPresentationResolution(true, GameId.S3K),
+                true,
+                false,
+                TitleScreenAction.ONE_PLAYER);
+
+        assertEquals(TitleActionRoute.DATA_SELECT, route);
+    }
+
+    @Test
     void levelSelectOverridesDataSelect() {
         TitleActionRoute route = resolver.resolveTitleAction(
                 hostModule(GameId.S3K),
