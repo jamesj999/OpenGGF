@@ -167,6 +167,29 @@ public class GraphicsManager {
 		}
 	}
 
+	public void renderPatternWithIdScaled(int patternId, PatternDesc desc, float x, float y, float width, float height) {
+		if (headlessMode) {
+			return;
+		}
+
+		ensurePatternAtlas();
+		PatternAtlas.Entry entry = patternAtlas != null ? patternAtlas.getEntry(patternId) : null;
+
+		Integer paletteTextureId;
+		if (useUnderwaterPaletteForBackground && underwaterPaletteTextureId != null) {
+			paletteTextureId = underwaterPaletteTextureId;
+		} else {
+			paletteTextureId = combinedPaletteTextureId;
+		}
+
+		if (entry == null || paletteTextureId == null) {
+			return;
+		}
+
+		PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, width, height, this);
+		registerCommand(command);
+	}
+
 	/**
 	 * Initialize the GraphicsManager with shader loading.
 	 */
@@ -593,29 +616,6 @@ public class GraphicsManager {
 			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, this);
 			registerCommand(command);
 		}
-	}
-
-	public void renderPatternWithIdScaled(int patternId, PatternDesc desc, float x, float y, float width, float height) {
-		if (headlessMode) {
-			return;
-		}
-
-		ensurePatternAtlas();
-		PatternAtlas.Entry entry = patternAtlas != null ? patternAtlas.getEntry(patternId) : null;
-
-		Integer paletteTextureId;
-		if (useUnderwaterPaletteForBackground && underwaterPaletteTextureId != null) {
-			paletteTextureId = underwaterPaletteTextureId;
-		} else {
-			paletteTextureId = combinedPaletteTextureId;
-		}
-
-		if (entry == null || paletteTextureId == null) {
-			return;
-		}
-
-		PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, width, height, this);
-		registerCommand(command);
 	}
 
 	/**
