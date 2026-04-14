@@ -1,9 +1,13 @@
 package com.openggf.game.sonic3k.dataselect;
 
+import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
+import com.openggf.data.RomManager;
 import com.openggf.game.EngineServices;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.RomDetectionService;
 import com.openggf.game.dataselect.DataSelectAction;
 import com.openggf.game.dataselect.DataSelectActionType;
 import com.openggf.game.dataselect.DataSelectSessionController;
@@ -11,6 +15,11 @@ import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveSlotState;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic2.dataselect.S2DataSelectProfile;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.PerformanceProfiler;
+import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteMappingFrame;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +36,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_UP;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class TestS3kDataSelectManager {
 
@@ -233,6 +245,50 @@ class TestS3kDataSelectManager {
         DataSelectAction action = manager.consumePendingAction();
         assertEquals(DataSelectActionType.NO_SAVE_START, action.type());
         assertEquals(new SelectedTeam("sonic", List.of("knuckles")), action.team());
+    }
+
+    @Test
+    void donatedHostRoutesMenuMusicThroughS3kDonorAudio() {
+        AudioManager audio = mock(AudioManager.class);
+        RuntimeManager.configureEngineServices(new EngineServices(
+                config,
+                GraphicsManager.getInstance(),
+                audio,
+                RomManager.getInstance(),
+                PerformanceProfiler.getInstance(),
+                DebugOverlayManager.getInstance(),
+                PlaybackDebugManager.getInstance(),
+                RomDetectionService.getInstance(),
+                CrossGameFeatureProvider.getInstance()));
+
+        DataSelectSessionController controller = new DataSelectSessionController(new S2DataSelectProfile());
+
+        S3kDataSelectManager.resolveMusicPlayer(controller).accept(0x2A);
+
+        verify(audio).playDonorMusic("s3k", 0x2A);
+        verify(audio, never()).playMusic(0x2A);
+    }
+
+    @Test
+    void donatedHostRoutesMenuSfxThroughS3kDonorAudio() {
+        AudioManager audio = mock(AudioManager.class);
+        RuntimeManager.configureEngineServices(new EngineServices(
+                config,
+                GraphicsManager.getInstance(),
+                audio,
+                RomManager.getInstance(),
+                PerformanceProfiler.getInstance(),
+                DebugOverlayManager.getInstance(),
+                PlaybackDebugManager.getInstance(),
+                RomDetectionService.getInstance(),
+                CrossGameFeatureProvider.getInstance()));
+
+        DataSelectSessionController controller = new DataSelectSessionController(new S2DataSelectProfile());
+
+        S3kDataSelectManager.resolveMenuSfxPlayer(controller).accept(0x7C);
+
+        verify(audio).playDonorSfx("s3k", 0x7C);
+        verify(audio, never()).playSfx(0x7C);
     }
 
     @Test
