@@ -26,9 +26,9 @@ import java.util.logging.Logger;
  *   <li>Wait/retract delay</li>
  * </ol>
  *
- * <p>Extension positions vary by angle (ROM: byte_69B0E):
- * For angles 0/$C: dx=-$18/dy=8 stepping to dx=-$1C/dy=0
- * For angles 4/8: dx varies with vertical stepping
+ * <p>Extension positions vary by angle (ROM: byte_69B0E, sub_69AD8).
+ * ROM XORs angle with $C to select one of two tables:
+ * angles 0/$C share the diagonal table, angles 4/8 share the vertical table.
  */
 public class AizEndBossPropellerChild extends AbstractBossChild {
     private static final Logger LOG = Logger.getLogger(AizEndBossPropellerChild.class.getName());
@@ -47,7 +47,11 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
      * (anim_frame starts at 1 → 2 calls to sub_69AD8 before callback).
      * After firing and the $5F wait, 3 more entries are consumed for retraction.
      */
-    private static final int[][] POS_TABLE_ANGLE_0 = {
+    /**
+     * ROM: byte_69B0E — position table at offset 0 (angles 0 and $C).
+     * ROM sub_69AD8 XORs angle with $C: result 0 or $C → offset 0.
+     */
+    private static final int[][] POS_TABLE_DIAGONAL = {
             {-0x18,    8, 5},  // step 0
             {-0x18,    8, 5},  // step 1
             {-0x1C,    0, 4},  // step 2 (fully extended → fire here)
@@ -55,32 +59,19 @@ public class AizEndBossPropellerChild extends AbstractBossChild {
             {-0x18,    8, 5},  // step 4
             {-0x10, 0x10, 6},  // step 5 (retract end)
     };
-    private static final int[][] POS_TABLE_ANGLE_4 = {
+    /**
+     * ROM: byte_69B0E+$10 — position table at offset $10 (angles 4 and 8).
+     * ROM sub_69AD8 XORs angle with $C: result neither 0 nor $C → offset $10.
+     */
+    private static final int[][] POS_TABLE_VERTICAL = {
             {-0x18,    8, 5},
             {-0x10, 0x10, 6},
             {-0x18,    8, 5},
             {-0x1C,    0, 4},
-            {-0x18,    8, 5},
-            {-0x10, 0x10, 6},
     };
-    private static final int[][] POS_TABLE_ANGLE_8 = {
-            {-0x18,    8, 5},
-            {-0x18,    8, 5},
-            {-0x1C,    0, 4},
-            {-0x1C,    0, 4},
-            {-0x18,    8, 5},
-            {-0x10, 0x10, 6},
-    };
-    private static final int[][] POS_TABLE_ANGLE_C = {
-            {-0x1C,    0, 4},
-            {-0x1C,    0, 4},
-            {-0x18,    8, 5},
-            {-0x18,    8, 5},
-            {-0x1C,    0, 4},
-            {-0x10, 0x10, 6},
-    };
+    /** ROM: sub_69AD8 — angle→table mapping via XOR $C. Angles 0/$C share one table, 4/8 share another. */
     private static final int[][][] POS_TABLES = {
-            POS_TABLE_ANGLE_0, POS_TABLE_ANGLE_4, POS_TABLE_ANGLE_8, POS_TABLE_ANGLE_C
+            POS_TABLE_DIAGONAL, POS_TABLE_VERTICAL, POS_TABLE_VERTICAL, POS_TABLE_DIAGONAL
     };
 
     private final AizEndBossInstance boss;
