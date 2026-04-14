@@ -167,6 +167,13 @@ public class GraphicsManager {
 		}
 	}
 
+	private void clearPendingRenderThreadTasks() {
+		PendingRenderThreadTask<?> task;
+		while ((task = pendingRenderThreadTasks.poll()) != null) {
+			task.cancel();
+		}
+	}
+
 	public void renderPatternWithIdScaled(int patternId, PatternDesc desc, float x, float y, float width, float height) {
 		if (headlessMode) {
 			return;
@@ -1051,6 +1058,7 @@ public class GraphicsManager {
 	 * Cleanup method to delete textures and release resources.
 	 */
 	public void cleanup() {
+		clearPendingRenderThreadTasks();
 		if (headlessMode || !glInitialized) {
 			// In headless mode, just clear the tracking maps
 			if (patternAtlas != null) {
@@ -1134,6 +1142,7 @@ public class GraphicsManager {
 	 */
 	public void resetState() {
 		commands.clear();
+		clearPendingRenderThreadTasks();
 		releasePerLevelResources();
 		camera = null;
 		bootstrapCamera = null;
@@ -1602,6 +1611,10 @@ public class GraphicsManager {
 			} catch (Throwable t) {
 				future.completeExceptionally(t);
 			}
+		}
+
+		void cancel() {
+			future.cancel(false);
 		}
 	}
 }
