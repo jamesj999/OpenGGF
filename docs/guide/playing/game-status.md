@@ -141,6 +141,12 @@ sprites, spindash mechanics, and sound effects while you play a different base g
 | S2 sprites in S1 | Working |
 | S2 spindash in S1 | Working |
 | Super Sonic cross-delegation | Working |
+| S3K Data Select donated to S1/S2 | Working |
 | S3K sprites in S1/S2 | Experimental |
 
 Enable with `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SOURCE` in config.json.
+
+When S3K donates the Data Select frontend, the save screen stays visually S3K-native,
+but save semantics remain host-owned. Slot routing, progression, clear-restart rules,
+and emerald identity come from the host game. Donated host emerald colors are adapted
+into the S3K save-card palette contract instead of assuming raw palette-slot parity.

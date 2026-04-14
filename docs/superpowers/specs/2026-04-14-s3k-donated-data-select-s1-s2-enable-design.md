@@ -62,11 +62,13 @@ For occupied saves:
 
 - unselected slots show static
 - the selected slot shows the host-provided preview, exactly the way S3K swaps static for zone art
+- the emerald ring remains on the native S3K save-card layout, with host emerald identity and host-adapted colors
 
 Host preview rules:
 
 - `S2`: selected-slot preview uses the scaled S2 level-select art for the current or selected restart destination
 - `S1`: selected-slot preview is text-only for now, using the zone name
+- `S1` and `S2`: emerald colors are adapted into the S3K save-card palette contract rather than copied slot-for-slot from raw host palette lines
 
 ### Save And Session Ownership
 
