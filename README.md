@@ -103,6 +103,10 @@ sound driver.
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
 | Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone is substantially playable, Hydrocity now has early HCZ2 chase coverage, and S3K includes title screen, level select, Knuckles glide/climb, Blue Ball special stages (WIP), bonus-stage parity work, palette cycling, and expanding object/badnik coverage. |
 
+Recent engine work has also moved shared zone behavior onto runtime-owned frameworks: `ZoneRuntimeRegistry`, `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `ScrollEffectComposer`, `SpecialRenderEffectRegistry`, and `AdvancedRenderModeController`. Current retrofit work is focused on uplifting existing Sonic 1 and Sonic 2 logic onto these systems while continuing incremental Sonic 3&K bring-up.
+
+Current migration status is intentionally partial rather than universal. Sonic 2 already uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tile orchestration, mutation-driven arena changes, and staged water/overlay rendering. Sonic 3&K currently uses the same stack for AIZ and HCZ runtime-state integrations, AIZ mutation/render effects, HCZ/SOZ animated tile channels, and CNZ runtime-state-backed scroll behavior. Other S1/S2/S3K zones still mix new runtime-owned systems with older zone-local paths and should be treated as follow-up migration work rather than implied complete adoption.
+
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
 ### Where do I get ROMs?
@@ -193,6 +197,11 @@ further S3K parity work.
 - **Runtime and singleton closure:** the engine-service and singleton-compatibility cleanup
   continued across runtime, render, audio, title, special-stage, and editor paths, with JUnit 5
   annotation-based ROM fixtures now the preferred test path.
+- **Runtime-owned framework stack:** `GameRuntime` now hosts shared systems for typed zone state
+  (`ZoneRuntimeRegistry`), palette ownership (`PaletteOwnershipRegistry`), animated tile channels
+  (`AnimatedTileChannelGraph`), live level edits (`ZoneLayoutMutationPipeline`), deform/parallax
+  reuse (`ScrollEffectComposer`), staged special draw passes (`SpecialRenderEffectRegistry`), and
+  frame-level render-mode control (`AdvancedRenderModeController`).
 - **Configuration and debug UX:** `config.json` key bindings now accept human-readable names such
   as `"SPACE"` and `"F9"`, and the debug/editor overlay text stack now uses the shared pixel-font
   renderer with improved batching and overlap handling.
