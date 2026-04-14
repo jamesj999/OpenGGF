@@ -145,6 +145,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean pinballMode = false;
 
         /**
+         * When true, the entire roll speed routine (input, friction, deceleration)
+         * is skipped — only slope gravity modifies ground_vel. Matches ROM behaviour
+         * of spin_dash_flag bit 7 (value 0x81) which causes {@code Sonic_RollSpeed}
+         * to jump directly to velocity conversion (sonic3k.asm line 22936: bmi.w loc_115C6).
+         * <p>
+         * Set by AutoSpin objects when subtype bit 7 is active. Distinct from
+         * {@link #pinballMode} which only prevents uncurling at low speed.
+         */
+        protected boolean pinballSpeedLock = false;
+
+        /**
          * Whether the player is in a roll-tunnel section (S1 GHZ S-tubes).
          * Suppresses the S2-derived ground wall check which falsely detects
          * narrow tunnel walls. Set by Sonic1LoopManager each frame on tunnel tiles.
@@ -586,6 +597,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.rolling = false;
                 this.rollingJump = false;
                 this.pinballMode = false;
+                this.pinballSpeedLock = false;
                 this.tunnelMode = false;
                 this.spindash = false;
                 this.lookDelayCounter = 0;
@@ -680,6 +692,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public ShieldType getShieldType() {
                 return shieldType;
+        }
+
+        /**
+         * Removes the current shield (if any) without affecting other power-ups.
+         * Used by objects that strip shields (e.g., LBZ2 water tunnels).
+         */
+        public void removeShield() {
+                if (!shield) return;
+                shield = false;
+                shieldType = null;
+                if (shieldObject != null) {
+                        shieldObject.destroy();
+                        shieldObject = null;
+                }
         }
 
         public PowerUpObject getShieldObject() {
@@ -2296,6 +2322,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // This prevents getting stuck on LauncherSprings or in other locked states
                 controlLocked = false;
                 pinballMode = false;
+                pinballSpeedLock = false;
                 objectControlled = false;
                 onObject = false;           // Clear "standing on object" flag
                 stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
@@ -2538,6 +2565,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void setPinballMode(boolean pinballMode) {
                 this.pinballMode = pinballMode;
+        }
+
+        public boolean getPinballSpeedLock() {
+                return pinballSpeedLock;
+        }
+
+        public void setPinballSpeedLock(boolean pinballSpeedLock) {
+                this.pinballSpeedLock = pinballSpeedLock;
         }
 
         public boolean isTunnelMode() {
