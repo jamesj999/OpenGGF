@@ -1,10 +1,13 @@
 package com.openggf.game.sonic3k;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.palette.PaletteWrite;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
+import com.openggf.level.WaterSystem;
 
 public final class S3kPaletteWriteSupport {
     private S3kPaletteWriteSupport() {
@@ -17,11 +20,25 @@ public final class S3kPaletteWriteSupport {
                                  int priority,
                                  int paletteIndex,
                                  byte[] lineData) {
+        applyLine(registry, level, graphics, ownerId, priority, paletteIndex, lineData, false);
+    }
+
+    public static void applyLine(PaletteOwnershipRegistry registry,
+                                 Level level,
+                                 GraphicsManager graphics,
+                                 String ownerId,
+                                 int priority,
+                                 int paletteIndex,
+                                 byte[] lineData,
+                                 boolean resolveImmediately) {
         if (lineData == null) {
             return;
         }
         if (registry != null) {
             registry.submit(PaletteWrite.normal(ownerId, priority, paletteIndex, 0, lineData.clone()));
+            if (resolveImmediately) {
+                resolvePendingWritesNow(registry, level, graphics);
+            }
             return;
         }
         Palette palette = paletteOrNull(level, paletteIndex);
@@ -91,11 +108,37 @@ public final class S3kPaletteWriteSupport {
         cachePaletteTextureIfReady(graphics, palette, paletteIndex);
     }
 
+    public static void resolvePendingWritesNow(PaletteOwnershipRegistry registry,
+                                               Level level,
+                                               GraphicsManager graphics) {
+        if (registry == null || level == null) {
+            return;
+        }
+        registry.resolveInto(levelPalettes(level), resolveUnderwaterPalettes(level), graphics, level.getPalette(0));
+    }
+
     private static Palette paletteOrNull(Level level, int paletteIndex) {
         if (level == null || paletteIndex < 0 || paletteIndex >= level.getPaletteCount()) {
             return null;
         }
         return level.getPalette(paletteIndex);
+    }
+
+    private static Palette[] levelPalettes(Level level) {
+        Palette[] palettes = new Palette[level.getPaletteCount()];
+        for (int i = 0; i < palettes.length; i++) {
+            palettes[i] = level.getPalette(i);
+        }
+        return palettes;
+    }
+
+    private static Palette[] resolveUnderwaterPalettes(Level level) {
+        WaterSystem water = GameServices.waterOrNull();
+        LevelManager levelManager = GameServices.levelOrNull();
+        if (water == null || levelManager == null) {
+            return null;
+        }
+        return water.getUnderwaterPalette(level.getZoneIndex(), levelManager.getCurrentAct());
     }
 
     private static void cachePaletteTextureIfReady(GraphicsManager graphics, Palette palette, int paletteIndex) {

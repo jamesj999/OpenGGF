@@ -8,6 +8,8 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.palette.PaletteSurface;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
@@ -242,6 +244,35 @@ public class TestS3kHczPaletteCycling {
         assertEquals(initialR, pal2.getColor(3).r & 0xFF, "HCZ2 palette should not cycle (R)");
         assertEquals(initialG, pal2.getColor(3).g & 0xFF, "HCZ2 palette should not cycle (G)");
         assertEquals(initialB, pal2.getColor(3).b & 0xFF, "HCZ2 palette should not cycle (B)");
+    }
+
+    @Test
+    public void hcz2StillFlushesPendingPaletteOwnershipWritesWithoutCycles() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        HczStubLevel stubLevel = new HczStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom());
+        PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
+        byte[] line = new byte[32];
+        line[0] = 0x02;
+        line[1] = 0x22;
+        line[2] = 0x0C;
+        line[3] = (byte) 0xEE;
+
+        S3kPaletteWriteSupport.applyLine(
+                registry,
+                stubLevel,
+                null,
+                S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
+                S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                1,
+                line);
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, 1, registry, null);
+        cycler.update();
+
+        assertEquals(S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD, registry.ownerAt(PaletteSurface.NORMAL, 1, 0));
+        assertTrue((stubLevel.getPalette(1).getColor(0).r & 0xFF) > 0,
+                "Pending palette ownership writes should still resolve even when HCZ2 has no cycles");
     }
 
     /**

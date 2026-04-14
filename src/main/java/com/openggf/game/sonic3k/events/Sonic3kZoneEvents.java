@@ -175,7 +175,8 @@ public abstract class Sonic3kZoneEvents {
                     S3kPaletteOwners.ZONE_EVENT_PALETTE_LOAD,
                     S3kPaletteOwners.PRIORITY_ZONE_EVENT,
                     paletteLine,
-                    paletteData);
+                    paletteData,
+                    true);
         } catch (Exception e) {
             LOGGER.warning("Failed to load palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());
@@ -235,6 +236,10 @@ public abstract class Sonic3kZoneEvents {
                         startLine + i,
                         lineData);
             }
+            S3kPaletteWriteSupport.resolvePendingWritesNow(
+                    GameServices.paletteOwnershipRegistryOrNull(),
+                    levelManager.getCurrentLevel(),
+                    GameServices.graphics());
             LOGGER.info("Loaded palette #" + palPointersIndex + ": " + lineCount
                     + " lines from 0x" + Integer.toHexString(sourceAddr)
                     + " to line " + startLine);
