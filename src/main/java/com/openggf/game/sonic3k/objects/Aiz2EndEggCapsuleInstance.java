@@ -344,22 +344,19 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
      * ROM: ChildObjDat_86B9A — spawn animals that burst out of the capsule.
      * Each animal gets a staggered delay so they pop out in sequence.
      *
-     * <p>Uses {@code addDynamicObject()} rather than {@code spawnChild()} because
-     * {@link EggPrisonAnimalInstance}'s constructor calls {@code getRenderManager()}
-     * via static access (to obtain the animal renderer and zone-specific animal
-     * types). This static pattern is safe with {@code addDynamicObject()} but
-     * would conflict with the ThreadLocal context set by {@code spawnChild()}.
+     * <p>Uses {@code spawnChild()} so that the {@link #CONSTRUCTION_CONTEXT}
+     * ThreadLocal is set during construction — {@link EggPrisonAnimalInstance}'s
+     * constructor calls {@code getRenderManager()} which needs {@code tryServices()}
+     * to return the object services for renderer and zone animal type lookup.
      */
     private void spawnAnimals() {
-        var objectManager = services().objectManager();
-        if (objectManager == null) return;
         for (int i = 0; i < ANIMAL_COUNT; i++) {
             int animalX = currentX + (i % 2 == 0 ? -(8 + i * 4) : (8 + i * 4));
             int animalY = currentY - 8;
             int delay = i * 4;  // Staggered: 0, 4, 8, 12, ...
             ObjectSpawn spawn = new ObjectSpawn(animalX, animalY, 0x28, 0, 0, false, 0);
-            objectManager.addDynamicObject(new HighPriorityAnimal(
-                    spawn, delay, services().rng().nextBits(1)));
+            int artVariant = services().rng().nextBits(1);
+            spawnChild(() -> new HighPriorityAnimal(spawn, delay, artVariant));
         }
     }
 
