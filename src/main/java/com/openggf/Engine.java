@@ -491,10 +491,6 @@ public class Engine {
 	}
 
 	private void initializeGameplayRuntime(GameplayModeContext gameplayMode, boolean initializeGlobalGameplayServices) {
-		syncSelectedTeamConfig(configService,
-				gameplayMode != null && gameplayMode.getWorldSession() != null
-						? gameplayMode.getWorldSession().getSaveSessionContext()
-						: null);
 		GameModule module = gameplayMode.getWorldSession().getGameModule();
 		GameModuleRegistry.setCurrent(module);
 		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
@@ -539,17 +535,6 @@ public class Engine {
 		if (manager instanceof S1DataSelectImageWarmup warmup) {
 			warmup.ensureGenerationStarted();
 		}
-	}
-
-	static void syncSelectedTeamConfig(SonicConfigurationService config, com.openggf.game.save.SaveSessionContext saveSessionContext) {
-		if (config == null || saveSessionContext == null || saveSessionContext.selectedTeam() == null) {
-			return;
-		}
-		SelectedTeam team = saveSessionContext.selectedTeam();
-		if (team.mainCharacter() != null && !team.mainCharacter().isBlank()) {
-			config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, team.mainCharacter());
-		}
-		config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, String.join(",", team.sidekicks()));
 	}
 
 	private String resolveLaunchMainCharacter() {

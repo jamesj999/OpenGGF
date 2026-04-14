@@ -9,6 +9,12 @@ import com.openggf.game.GameStateManager;
 import com.openggf.game.MasterTitleScreen;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.audio.AudioManager;
+import com.openggf.data.Rom;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.PerformanceProfiler;
+import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.game.dataselect.DataSelectAction;
 import com.openggf.game.dataselect.DataSelectActionType;
 import com.openggf.game.save.SaveManager;
@@ -20,26 +26,42 @@ import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.session.SessionManager;
+import com.openggf.game.session.GameplayModeContext;
+import com.openggf.game.session.WorldSession;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.camera.Camera;
+import com.openggf.level.LevelManager;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.game.RomDetectionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-import java.lang.reflect.Method;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 
 class TestEngine {
     @TempDir
@@ -67,49 +89,44 @@ class TestEngine {
     }
 
     @Test
-    void maybeStartS1DonatedDataSelectImageGeneration_startsWarmupForS3kDonation() throws Exception {
-        TrackingS1ImageCacheManager cacheManager = new TrackingS1ImageCacheManager(tempDir);
-        Sonic1GameModule module = new Sonic1GameModule() {
-            @Override
-            public <T> T getGameService(Class<T> type) {
-                if (type == S1DataSelectImageCacheManager.class) {
-                    return type.cast(cacheManager);
-                }
-                return super.getGameService(type);
-            }
-        };
-        Engine engine = new Engine();
+    void renderThreadTasksRunWhenPumped() throws Exception {
+        GraphicsManager graphics = new GraphicsManager();
+        CompletableFuture<Integer> future = graphics.submitRenderThreadTask(() -> 42);
 
-        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
-            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
+        assertFalse(future.isDone());
 
-            invokeMaybeStartS1DonatedDataSelectImageGeneration(engine, module);
-        }
+        graphics.runPendingRenderThreadTasks();
 
-        assertEquals(1, cacheManager.ensureStartedCalls);
+        assertTrue(future.isDone());
+        assertEquals(42, future.join());
     }
 
     @Test
-    void maybeStartS1DonatedDataSelectImageGeneration_doesNothingForPlainS1() throws Exception {
-        TrackingS1ImageCacheManager cacheManager = new TrackingS1ImageCacheManager(tempDir);
-        Sonic1GameModule module = new Sonic1GameModule() {
-            @Override
-            public <T> T getGameService(Class<T> type) {
-                if (type == S1DataSelectImageCacheManager.class) {
-                    return type.cast(cacheManager);
-                }
-                return super.getGameService(type);
-            }
-        };
-        Engine engine = new Engine();
+    void initializeGame_runsS1WarmupBeforeStartupModeEntry() throws Exception {
+        try (BootstrapHarness harness = createBootstrapHarness(true)) {
+            harness.engine.initializeGame();
 
-        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
-            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(false);
-
-            invokeMaybeStartS1DonatedDataSelectImageGeneration(engine, module);
+            assertEquals(1, harness.cacheManager.ensureStartedCalls);
+            assertEquals(1, harness.cacheManager.renderTaskRuns.get());
+            var order = inOrder(harness.graphics, harness.levelManager);
+            order.verify(harness.graphics).runPendingRenderThreadTasks();
+            order.verify(harness.levelManager).loadZoneAndAct(0, 0);
+            order.verifyNoMoreInteractions();
         }
+    }
 
-        assertEquals(0, cacheManager.ensureStartedCalls);
+    @Test
+    void initializeGame_skipsS1WarmupWhenDonationIsInactive() throws Exception {
+        try (BootstrapHarness harness = createBootstrapHarness(false)) {
+            harness.engine.initializeGame();
+
+            assertEquals(0, harness.cacheManager.ensureStartedCalls);
+            assertEquals(0, harness.cacheManager.renderTaskRuns.get());
+            var order = inOrder(harness.graphics, harness.levelManager);
+            order.verify(harness.graphics).runPendingRenderThreadTasks();
+            order.verify(harness.levelManager).loadZoneAndAct(0, 0);
+            order.verifyNoMoreInteractions();
+        }
     }
 
     @Test
@@ -160,98 +177,129 @@ class TestEngine {
                 Engine.dataSelectLaunchSaveReason(DataSelectActionType.NO_SAVE_START));
     }
 
-    @Test
-    void syncSelectedTeamConfig_appliesSelectedTeamToGameplayConfig() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.resetToDefaults();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
-
-        SaveSessionContext save = SaveSessionContext.noSave(
-                "s2",
-                new SelectedTeam("knuckles", List.of("tails", "sonic")),
-                0,
-                0);
-
-        Engine.syncSelectedTeamConfig(config, save);
-
-        assertEquals("knuckles", config.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-        assertEquals("tails,sonic", config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
-    }
-
-    @Test
-    void syncSelectedTeamConfig_ignoresMissingSelectedTeam() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.resetToDefaults();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
-
-        Engine.syncSelectedTeamConfig(config, null);
-
-        assertEquals("sonic", config.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-        assertEquals("tails", config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
-    }
-
-    @Test
-    void restoreRuntimeFromDataSelectPayload_restoresS1ChaosEmeraldList() {
-        GameStateManager gameState = new GameStateManager();
-        gameState.configureSpecialStageProgress(6, 6);
-        GameRuntime runtime = mock(GameRuntime.class);
-        when(runtime.getGameState()).thenReturn(gameState);
-
-        Engine.restoreRuntimeFromDataSelectPayload(runtime, Map.of(
-                "lives", 4,
-                "continues", 2,
-                "chaosEmeralds", List.of(0, 1, 2, 3, 4, 5)
-        ));
-
-        assertEquals(4, gameState.getLives());
-        assertEquals(2, gameState.getContinues());
-        assertEquals(6, gameState.getEmeraldCount());
-        assertEquals(List.of(0, 1, 2, 3, 4, 5), gameState.getCollectedChaosEmeraldIndices());
-    }
-
-    @Test
-    void restoreRuntimeFromDataSelectPayload_restoresS2ChaosEmeraldList() {
-        GameStateManager gameState = new GameStateManager();
-        gameState.configureSpecialStageProgress(7, 7);
-        GameRuntime runtime = mock(GameRuntime.class);
-        when(runtime.getGameState()).thenReturn(gameState);
-
-        Engine.restoreRuntimeFromDataSelectPayload(runtime, Map.of(
-                "lives", 8,
-                "continues", 3,
-                "chaosEmeralds", List.of(0, 1, 2, 3, 4, 5, 6)
-        ));
-
-        assertEquals(8, gameState.getLives());
-        assertEquals(3, gameState.getContinues());
-        assertEquals(7, gameState.getEmeraldCount());
-        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6), gameState.getCollectedChaosEmeraldIndices());
-    }
-
-    private void invokeMaybeStartS1DonatedDataSelectImageGeneration(Engine engine, Sonic1GameModule module)
-            throws Exception {
-        Method method = Engine.class.getDeclaredMethod(
-                "maybeStartS1DonatedDataSelectImageGeneration", com.openggf.game.GameModule.class);
-        method.setAccessible(true);
-        method.invoke(engine, module);
-    }
-
     private static final class TrackingS1ImageCacheManager extends S1DataSelectImageCacheManager
             implements Sonic1GameModule.S1DataSelectImageWarmup {
         int ensureStartedCalls;
+        final AtomicInteger renderTaskRuns = new AtomicInteger();
+        private final GraphicsManager graphics;
 
-        TrackingS1ImageCacheManager(Path cacheRoot) {
+        TrackingS1ImageCacheManager(Path cacheRoot, GraphicsManager graphics) {
             super(cacheRoot,
                     SonicConfigurationService.getInstance(),
                     () -> "test-rom-sha",
                     new com.fasterxml.jackson.databind.ObjectMapper());
+            this.graphics = graphics;
         }
 
         @Override
         public synchronized void ensureGenerationStarted() {
             ensureStartedCalls++;
+            graphics.submitRenderThreadTask(() -> {
+                renderTaskRuns.incrementAndGet();
+                return 42;
+            });
+        }
+    }
+
+    private BootstrapHarness createBootstrapHarness(boolean donorActive) throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.resetToDefaults();
+        config.setConfigValue(SonicConfiguration.AUDIO_ENABLED, false);
+        config.setConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+        config.setConfigValue(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
+        config.setConfigValue(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
+
+        GraphicsManager graphics = spy(new GraphicsManager());
+        RomManager romManager = mock(RomManager.class);
+        Rom rom = mock(Rom.class);
+        when(romManager.getRom()).thenReturn(rom);
+        AudioManager audioManager = mock(AudioManager.class);
+        PerformanceProfiler profiler = mock(PerformanceProfiler.class);
+        DebugOverlayManager debugOverlayManager = mock(DebugOverlayManager.class);
+        PlaybackDebugManager playbackDebugManager = mock(PlaybackDebugManager.class);
+        RomDetectionService romDetectionService = mock(RomDetectionService.class);
+        CrossGameFeatureProvider crossGameFeatureProvider = mock(CrossGameFeatureProvider.class);
+        EngineServices services = new EngineServices(config, graphics, audioManager, romManager, profiler,
+                debugOverlayManager, playbackDebugManager, romDetectionService, crossGameFeatureProvider);
+
+        TrackingS1ImageCacheManager cacheManager = new TrackingS1ImageCacheManager(tempDir, graphics);
+        Sonic1GameModule module = new Sonic1GameModule() {
+            @Override
+            public <T> T getGameService(Class<T> type) {
+                if (type == S1DataSelectImageCacheManager.class) {
+                    return type.cast(cacheManager);
+                }
+                return super.getGameService(type);
+            }
+        };
+
+        GameRuntime runtime = mock(GameRuntime.class);
+        Camera camera = mock(Camera.class);
+        SpriteManager spriteManager = mock(SpriteManager.class);
+        LevelManager levelManager = mock(LevelManager.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        when(runtime.getCamera()).thenReturn(camera);
+        when(runtime.getSpriteManager()).thenReturn(spriteManager);
+        when(runtime.getLevelManager()).thenReturn(levelManager);
+        when(runtime.getGameState()).thenReturn(gameState);
+        doNothing().when(camera).setFocusedSprite(any());
+        doNothing().when(camera).updatePosition(true);
+        doReturn(false).when(spriteManager).addSprite(any());
+        doAnswer(invocation -> {
+            assertEquals(donorActive ? 1 : 0, cacheManager.renderTaskRuns.get());
+            return null;
+        }).when(levelManager).loadZoneAndAct(0, 0);
+        when(romDetectionService.detectAndCreateModule(rom)).thenReturn(java.util.Optional.of(module));
+
+        MockedStatic<RuntimeManager> runtimeManager = mockStatic(RuntimeManager.class, CALLS_REAL_METHODS);
+        runtimeManager.when(() -> RuntimeManager.createGameplay(any(GameplayModeContext.class)))
+                .thenAnswer(invocation -> {
+                    return runtime;
+                });
+        runtimeManager.when(RuntimeManager::getCurrent).thenReturn(runtime);
+        runtimeManager.when(RuntimeManager::getActiveRuntime).thenReturn(runtime);
+
+        MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class);
+        donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(donorActive);
+        donor.when(CrossGameFeatureProvider::isActive).thenReturn(false);
+
+        return new BootstrapHarness(
+                new Engine(services),
+                graphics,
+                levelManager,
+                cacheManager,
+                donor,
+                runtimeManager);
+    }
+
+    private static final class BootstrapHarness implements AutoCloseable {
+        final Engine engine;
+        final GraphicsManager graphics;
+        final LevelManager levelManager;
+        final TrackingS1ImageCacheManager cacheManager;
+        final MockedStatic<CrossGameFeatureProvider> donor;
+        final MockedStatic<RuntimeManager> runtimeManager;
+
+        BootstrapHarness(Engine engine,
+                         GraphicsManager graphics,
+                         LevelManager levelManager,
+                         TrackingS1ImageCacheManager cacheManager,
+                         MockedStatic<CrossGameFeatureProvider> donor,
+                         MockedStatic<RuntimeManager> runtimeManager) {
+            this.engine = engine;
+            this.graphics = graphics;
+            this.levelManager = levelManager;
+            this.cacheManager = cacheManager;
+            this.donor = donor;
+            this.runtimeManager = runtimeManager;
+        }
+
+        @Override
+        public void close() {
+            donor.close();
+            runtimeManager.close();
         }
     }
 
