@@ -22,6 +22,7 @@ import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.RespawnState;
+import com.openggf.game.GameId;
 import com.openggf.game.ResultsScreen;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.NoOpSpecialStageProvider;
@@ -2329,10 +2330,16 @@ public class GameLoop {
         DataSelectProvider dataSelectProvider = getDataSelectProviderLazy();
         boolean dataSelectEligible = dataSelectProvider != null
                 && !(dataSelectProvider instanceof NoOpDataSelectProvider);
-        // Task 1 keeps presentation routing local and explicit. Cross-game donated
-        // presentation wiring belongs to later tasks; until that seam exists, route
-        // against the active module only.
-        return new DataSelectPresentationResolution(dataSelectEligible, gameModule.getGameId());
+        // All modules that expose a DataSelectPresentationProvider use the
+        // S3K presentation manager as their delegate. Resolve the presentation
+        // game as S3K so the startup router recognises the donated screen for
+        // S1/S2 hosts.
+        GameId presentationId = gameModule.getGameId();
+        if (dataSelectEligible
+                && dataSelectProvider instanceof com.openggf.game.dataselect.DataSelectPresentationProvider) {
+            presentationId = GameId.S3K;
+        }
+        return new DataSelectPresentationResolution(dataSelectEligible, presentationId);
     }
 
     private void executeTitleActionRoute(TitleActionRoute route) {
