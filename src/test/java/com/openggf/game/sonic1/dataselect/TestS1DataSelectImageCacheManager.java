@@ -6,7 +6,9 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1ZoneRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
@@ -250,20 +252,28 @@ public class TestS1DataSelectImageCacheManager {
     @Test
     void captureFramebufferUsesResolvedRequest() throws Exception {
         Camera camera = org.mockito.Mockito.mock(Camera.class);
+        com.openggf.level.LevelManager levelManager = org.mockito.Mockito.mock(com.openggf.level.LevelManager.class);
         RgbaImage captured = new RgbaImage(1, 1, new int[] {0xFF112233});
 
         try (var cameraService = org.mockito.Mockito.mockStatic(GameServices.class);
-             var graphics = org.mockito.Mockito.mockStatic(GraphicsManager.class);
+             var runtimeManager = org.mockito.Mockito.mockStatic(RuntimeManager.class);
              var screenshot = org.mockito.Mockito.mockStatic(ScreenshotCapture.class)) {
             cameraService.when(GameServices::camera).thenReturn(camera);
+            cameraService.when(GameServices::level).thenReturn(levelManager);
             GraphicsManager graphicsManager = org.mockito.Mockito.mock(GraphicsManager.class);
-            graphics.when(GraphicsManager::getInstance).thenReturn(graphicsManager);
+            EngineServices engineServices = org.mockito.Mockito.mock(EngineServices.class);
+            runtimeManager.when(RuntimeManager::currentEngineServices).thenReturn(engineServices);
+            org.mockito.Mockito.when(engineServices.graphics()).thenReturn(graphicsManager);
             org.mockito.Mockito.when(graphicsManager.submitRenderThreadTask(org.mockito.ArgumentMatchers.any()))
                     .thenAnswer(invocation -> {
                         java.util.concurrent.Callable<RgbaImage> callable = invocation.getArgument(0);
                         return (CompletableFuture) java.util.concurrent.CompletableFuture.completedFuture(callable.call());
                     });
-            screenshot.when(() -> ScreenshotCapture.captureFramebuffer(320, 224)).thenReturn(captured);
+            org.mockito.Mockito.when(graphicsManager.getViewportX()).thenReturn(10);
+            org.mockito.Mockito.when(graphicsManager.getViewportY()).thenReturn(20);
+            org.mockito.Mockito.when(graphicsManager.getViewportWidth()).thenReturn(640);
+            org.mockito.Mockito.when(graphicsManager.getViewportHeight()).thenReturn(448);
+            screenshot.when(() -> ScreenshotCapture.captureFramebufferRegion(10, 20, 640, 448)).thenReturn(captured);
 
             S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
                     tempDir,
@@ -281,8 +291,12 @@ public class TestS1DataSelectImageCacheManager {
             RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point, 3);
 
             assertSame(captured, result);
+            org.mockito.Mockito.verify(levelManager).loadZoneAndAct(Sonic1ZoneConstants.ZONE_GHZ, 0);
             org.mockito.Mockito.verify(camera).setX((short) (0x180 - 152));
             org.mockito.Mockito.verify(camera).setY((short) (0x100 - 96));
+            org.mockito.Mockito.verify(levelManager).drawWithSpritePriority(null, false);
+            org.mockito.Mockito.verify(graphicsManager).flush();
+            screenshot.verify(() -> ScreenshotCapture.captureFramebufferRegion(10, 20, 640, 448));
             org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).updatePosition(true);
         }
     }

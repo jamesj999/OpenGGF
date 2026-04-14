@@ -6,13 +6,13 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RgbaImage;
 import com.openggf.graphics.ScreenshotCapture;
+import com.openggf.level.LevelManager;
 import com.openggf.version.AppVersion;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -144,12 +144,28 @@ public class S1DataSelectImageCacheManager {
 		int[] spawnPoint = new com.openggf.game.sonic1.Sonic1ZoneRegistry().getStartPosition(zoneId, 0);
 		int centreX = capturePoint != null ? capturePoint.centreX() : spawnPoint[0];
 		int centreY = capturePoint != null ? capturePoint.centreY() : spawnPoint[1];
-		return GraphicsManager.getInstance()
+		GraphicsManager graphics = RuntimeManager.currentEngineServices().graphics();
+		return graphics
 				.submitRenderThreadTask(() -> {
+					LevelManager levelManager = GameServices.level();
+					levelManager.loadZoneAndAct(zoneId, 0);
 					Camera camera = GameServices.camera();
 					camera.setX((short) (centreX - 152));
 					camera.setY((short) (centreY - 96));
-					return ScreenshotCapture.captureFramebuffer(320, 224);
+					levelManager.drawWithSpritePriority(null, false);
+					graphics.flush();
+					int viewportX = graphics.getViewportX();
+					int viewportY = graphics.getViewportY();
+					int viewportWidth = graphics.getViewportWidth();
+					int viewportHeight = graphics.getViewportHeight();
+					if (viewportWidth <= 0 || viewportHeight <= 0) {
+						return ScreenshotCapture.captureFramebuffer(320, 224);
+					}
+					return ScreenshotCapture.captureFramebufferRegion(
+							viewportX,
+							viewportY,
+							viewportWidth,
+							viewportHeight);
 				})
 				.join();
 	}
@@ -168,10 +184,9 @@ public class S1DataSelectImageCacheManager {
 
 	private boolean isDecodablePng(Path imagePath) {
 		try {
-			BufferedImage image = ImageIO.read(imagePath.toFile());
-			return image != null
-                    && image.getWidth() == S1DataSelectImageGenerator.PREVIEW_WIDTH
-                    && image.getHeight() == S1DataSelectImageGenerator.PREVIEW_HEIGHT;
+			RgbaImage image = ScreenshotCapture.loadPNG(imagePath);
+			return image.width() == S1DataSelectImageGenerator.PREVIEW_WIDTH
+					&& image.height() == S1DataSelectImageGenerator.PREVIEW_HEIGHT;
 		} catch (IOException e) {
 			return false;
 		}

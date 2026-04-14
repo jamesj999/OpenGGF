@@ -145,11 +145,14 @@ class TestEngine {
 
     @Test
     void sonic1GameModuleWarmupStartsGenerationThroughRealManager() throws Exception {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
-        Sonic1GameModule module = new Sonic1GameModule();
-
         GraphicsManager originalGraphicsManager = replaceGraphicsManagerSingleton(mock(GraphicsManager.class));
-        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
+        try {
+            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            SonicConfigurationService.getInstance().setConfigValue(
+                    SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, true);
+            Sonic1GameModule module = new Sonic1GameModule();
+
+            try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
             donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
 
             GraphicsManager graphics = GraphicsManager.getInstance();
@@ -166,6 +169,7 @@ class TestEngine {
             assertNotNull(inFlightField.get(manager));
             blocked.complete(new com.openggf.graphics.RgbaImage(320, 224, new int[320 * 224]));
             manager.awaitGenerationIfRunning();
+            }
         } finally {
             replaceGraphicsManagerSingleton(originalGraphicsManager);
         }
