@@ -15,6 +15,7 @@ public final class Sonic3kObjectIds {
     public static final int BREAKABLE_WALL = 0x0D;
     public static final int TWISTED_RAMP = 0x0E;
     public static final int COLLAPSING_BRIDGE = 0x0F;
+    public static final int AUTOMATIC_TUNNEL = 0x24;
     public static final int AUTO_SPIN = 0x26;
     public static final int CORK_FLOOR = 0x2A;
     public static final int AIZ_FLIPPING_BRIDGE = 0x2B;

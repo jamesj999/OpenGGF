@@ -254,13 +254,18 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
      * Sets ground_vel and spin_dash_flag, then forces roll state.
      * When noSpinLock is set, skips speed/flag writes but still forces roll.
      * From sonic3k.asm lines 42394-42472.
+     *
+     * <p>ROM: spin_dash_flag = 0x01 (pinball mode) or 0x81 (pinball + speed lock).
+     * The 0x81 value causes Sonic_RollSpeed to skip its entire body (input,
+     * friction, deceleration), preserving ground_vel. This is NOT a control lock
+     * — slope gravity still modifies speed normally.
      */
     private void enableSpin(AbstractPlayableSprite player, short groundVel) {
         if (!noSpinLock) {
             player.setGSpeed(groundVel);
             player.setPinballMode(true);
             if (lockControls) {
-                player.setControlLocked(true);
+                player.setPinballSpeedLock(true);
             }
         }
         forceRoll(player);
@@ -275,7 +280,7 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
         if (!noSpinLock) {
             player.setPinballMode(true);
             if (lockControls) {
-                player.setControlLocked(true);
+                player.setPinballSpeedLock(true);
             }
         }
 
@@ -297,13 +302,13 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
 
     /**
      * Disables spin. Unconditionally clears spin_dash_flag to 0.
-     * From sonic3k.asm: clr.b spin_dash_flag(a1)
+     * From sonic3k.asm: move.b #0,spin_dash_flag(a1)
      */
     private void disableSpin(AbstractPlayableSprite player) {
         if (noSpinLock) return;
 
         player.setPinballMode(false);
-        player.setControlLocked(false);
+        player.setPinballSpeedLock(false);
     }
 
     /**
