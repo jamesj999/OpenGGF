@@ -10,9 +10,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.Files;
+import java.awt.image.BufferedImage;
 import java.nio.file.Path;
+import javax.imageio.ImageIO;
+import java.nio.file.Files;
 import java.util.Map;
+import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,7 +60,6 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "sha-override",
-                null,
                 mapper);
 
         assertFalse(manager.cacheValid());
@@ -69,10 +71,23 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "sha-missing",
-                null,
                 mapper);
 
         assertFalse(manager.cacheValid());
+    }
+
+    @Test
+    void cacheValidWhenManifestMatchesAndAllZonePngsDecode() throws Exception {
+        Map<String, String> zones = writeFullZoneSet();
+        writeManifest("sha-valid", zones);
+
+        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                tempDir,
+                config,
+                () -> "sha-valid",
+                mapper);
+
+        assertTrue(manager.cacheValid());
     }
 
     @Test
@@ -83,7 +98,19 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "sha-version",
-                null,
+                mapper);
+
+        assertFalse(manager.cacheValid());
+    }
+
+    @Test
+    void cacheInvalidWhenGeneratorFormatVersionDoesNotMatch() throws Exception {
+        writeManifest("sha-format", writeFullZoneSet(), AppVersion.get(), 2);
+
+        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                tempDir,
+                config,
+                () -> "sha-format",
                 mapper);
 
         assertFalse(manager.cacheValid());
@@ -97,21 +124,49 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "different-sha",
-                null,
                 mapper);
 
         assertFalse(manager.cacheValid());
     }
 
     @Test
-    void cacheInvalidWhenAnyZonePngIsMissing() throws Exception {
-        writeManifest("sha-zone-missing", Map.of("ghz1", "missing-ghz1.png"));
+    void cacheInvalidWhenManifestZonesAreEmpty() throws Exception {
+        writeManifest("sha-empty", Map.of());
 
         S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
                 tempDir,
                 config,
-                () -> "sha-zone-missing",
-                null,
+                () -> "sha-empty",
+                mapper);
+
+        assertFalse(manager.cacheValid());
+    }
+
+    @Test
+    void cacheInvalidWhenManifestZonesArePartial() throws Exception {
+        Map<String, String> zones = new TreeMap<>();
+        zones.put("ghz1", writeZonePng("ghz1.png"));
+        writeManifest("sha-partial", zones);
+
+        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                tempDir,
+                config,
+                () -> "sha-partial",
+                mapper);
+
+        assertFalse(manager.cacheValid());
+    }
+
+    @Test
+    void cacheInvalidWhenZoneImageIsNotPng() throws Exception {
+        Map<String, String> zones = writeFullZoneSet();
+        Files.writeString(tempDir.resolve(zones.get("ghz1")), "not a png");
+        writeManifest("sha-corrupt", zones);
+
+        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                tempDir,
+                config,
+                () -> "sha-corrupt",
                 mapper);
 
         assertFalse(manager.cacheValid());
@@ -125,7 +180,6 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "sha-settle",
-                null,
                 mapper);
 
         assertEquals(8, manager.settleFrames());
@@ -139,20 +193,23 @@ public class TestS1DataSelectImageCacheManager {
                 tempDir,
                 config,
                 () -> "sha-settle-negative",
-                null,
                 mapper);
 
         assertEquals(0, manager.settleFrames());
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones) throws IOException {
-        writeManifest(romSha256, zones, AppVersion.get());
+        writeManifest(romSha256, zones, AppVersion.get(), 1);
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones, String engineVersion) throws IOException {
+        writeManifest(romSha256, zones, engineVersion, 1);
+    }
+
+    private void writeManifest(String romSha256, Map<String, String> zones, String engineVersion, int generatorFormatVersion) throws IOException {
         S1DataSelectImageManifest manifest = new S1DataSelectImageManifest(
                 engineVersion,
-                1,
+                generatorFormatVersion,
                 romSha256,
                 "2026-04-14T12:34:56Z",
                 8,
@@ -162,7 +219,32 @@ public class TestS1DataSelectImageCacheManager {
 
     private String writeZonePng(String fileName) throws IOException {
         Path file = tempDir.resolve(fileName);
-        Files.writeString(file, "png");
+        BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        ImageIO.write(image, "png", file.toFile());
         return file.getFileName().toString();
+    }
+
+    private Map<String, String> writeFullZoneSet() throws IOException {
+        Map<String, String> zones = new TreeMap<>();
+        zones.put("ghz1", writeZonePng("ghz1.png"));
+        zones.put("ghz2", writeZonePng("ghz2.png"));
+        zones.put("ghz3", writeZonePng("ghz3.png"));
+        zones.put("lz1", writeZonePng("lz1.png"));
+        zones.put("lz2", writeZonePng("lz2.png"));
+        zones.put("lz3", writeZonePng("lz3.png"));
+        zones.put("mz1", writeZonePng("mz1.png"));
+        zones.put("mz2", writeZonePng("mz2.png"));
+        zones.put("mz3", writeZonePng("mz3.png"));
+        zones.put("slz1", writeZonePng("slz1.png"));
+        zones.put("slz2", writeZonePng("slz2.png"));
+        zones.put("slz3", writeZonePng("slz3.png"));
+        zones.put("syz1", writeZonePng("syz1.png"));
+        zones.put("syz2", writeZonePng("syz2.png"));
+        zones.put("syz3", writeZonePng("syz3.png"));
+        zones.put("sbz1", writeZonePng("sbz1.png"));
+        zones.put("sbz2", writeZonePng("sbz2.png"));
+        zones.put("sbz3", writeZonePng("sbz3.png"));
+        zones.put("fz1", writeZonePng("fz1.png"));
+        return zones;
     }
 }
