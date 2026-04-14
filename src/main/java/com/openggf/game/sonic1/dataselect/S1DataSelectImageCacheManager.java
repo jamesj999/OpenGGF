@@ -1,9 +1,11 @@
 package com.openggf.game.sonic1.dataselect;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RgbaImage;
 import com.openggf.graphics.ScreenshotCapture;
@@ -50,7 +52,6 @@ public class S1DataSelectImageCacheManager {
 				this::captureFramebuffer,
 				romSha256Supplier,
 				settleFrames());
-		startGenerationIfEligible();
 	}
 
 	public synchronized void ensureGenerationStarted() {
@@ -140,8 +141,20 @@ public class S1DataSelectImageCacheManager {
 
 	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCapturePoint capturePoint,
 			int settleFrames) {
+		int[] spawnPoint = new com.openggf.game.sonic1.Sonic1ZoneRegistry().getStartPosition(zoneId, 0);
+		int centreX = capturePoint != null ? capturePoint.centreX() : spawnPoint[0];
+		int centreY = capturePoint != null ? capturePoint.centreY() : spawnPoint[1];
+		int framesToSettle = Math.max(0, settleFrames);
 		return GraphicsManager.getInstance()
-				.submitRenderThreadTask(() -> ScreenshotCapture.captureFramebuffer(320, 224))
+				.submitRenderThreadTask(() -> {
+					Camera camera = GameServices.camera();
+					camera.setX((short) (centreX - 152));
+					camera.setY((short) (centreY - 96));
+					for (int i = 0; i < framesToSettle; i++) {
+						camera.updatePosition(true);
+					}
+					return ScreenshotCapture.captureFramebuffer(320, 224);
+				})
 				.join();
 	}
 

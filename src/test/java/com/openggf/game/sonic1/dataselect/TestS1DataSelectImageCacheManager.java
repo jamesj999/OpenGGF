@@ -2,11 +2,16 @@ package com.openggf.game.sonic1.dataselect;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.Sonic1ZoneRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RgbaImage;
+import com.openggf.graphics.ScreenshotCapture;
 import com.openggf.version.AppVersion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -204,6 +210,69 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     @Test
+    void constructorDoesNotEagerlyStartGeneration() throws Exception {
+        java.util.concurrent.CompletableFuture<RgbaImage> blocked = new java.util.concurrent.CompletableFuture<>();
+        try (var donor = org.mockito.Mockito.mockStatic(CrossGameFeatureProvider.class);
+             var graphics = org.mockito.Mockito.mockStatic(GraphicsManager.class)) {
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
+            GraphicsManager graphicsManager = org.mockito.Mockito.mock(GraphicsManager.class);
+            graphics.when(GraphicsManager::getInstance).thenReturn(graphicsManager);
+            org.mockito.Mockito.when(graphicsManager.submitRenderThreadTask(org.mockito.ArgumentMatchers.any()))
+                    .thenReturn((CompletableFuture) blocked);
+
+            S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                    tempDir,
+                    config,
+                    () -> "constructor-sha",
+                    mapper);
+
+            assertNull(readInFlight(manager));
+            blocked.complete(new RgbaImage(1, 1, new int[] {0xFFFFFFFF}));
+            manager.awaitGenerationIfRunning();
+        }
+    }
+
+    @Test
+    void captureFramebufferUsesResolvedRequest() throws Exception {
+        Camera camera = org.mockito.Mockito.mock(Camera.class);
+        RgbaImage captured = new RgbaImage(1, 1, new int[] {0xFF112233});
+
+        try (var cameraService = org.mockito.Mockito.mockStatic(GameServices.class);
+             var graphics = org.mockito.Mockito.mockStatic(GraphicsManager.class);
+             var screenshot = org.mockito.Mockito.mockStatic(ScreenshotCapture.class)) {
+            cameraService.when(GameServices::camera).thenReturn(camera);
+            GraphicsManager graphicsManager = org.mockito.Mockito.mock(GraphicsManager.class);
+            graphics.when(GraphicsManager::getInstance).thenReturn(graphicsManager);
+            org.mockito.Mockito.when(graphicsManager.submitRenderThreadTask(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(invocation -> {
+                        java.util.concurrent.Callable<RgbaImage> callable = invocation.getArgument(0);
+                        return (CompletableFuture) java.util.concurrent.CompletableFuture.completedFuture(callable.call());
+                    });
+            screenshot.when(() -> ScreenshotCapture.captureFramebuffer(320, 224)).thenReturn(captured);
+
+            S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
+                    tempDir,
+                    config,
+                    () -> "capture-sha",
+                    mapper);
+            var method = S1DataSelectImageCacheManager.class.getDeclaredMethod(
+                    "captureFramebuffer",
+                    int.class,
+                    S1DataSelectImageGenerator.PreviewCapturePoint.class,
+                    int.class);
+            method.setAccessible(true);
+
+            S1DataSelectImageGenerator.PreviewCapturePoint point = new S1DataSelectImageGenerator.PreviewCapturePoint(0x180, 0x100);
+            RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point, 3);
+
+            assertSame(captured, result);
+            org.mockito.Mockito.verify(camera).setX((short) (0x180 - 152));
+            org.mockito.Mockito.verify(camera).setY((short) (0x100 - 96));
+            org.mockito.Mockito.verify(camera, org.mockito.Mockito.times(3)).updatePosition(true);
+        }
+    }
+
+    @Test
     void generateAllWritesSevenPngsAndManifestAfterSuccess() throws Exception {
         Path cacheRoot = tempDir.resolve("saves/image-cache/s1");
         FakeCaptureSource captureSource = FakeCaptureSource.solidColourImages(320, 224, 7);
@@ -261,6 +330,14 @@ public class TestS1DataSelectImageCacheManager {
 
         assertThrows(IOException.class, generator::generateAll);
         assertFalse(Files.exists(cacheRoot.resolve("manifest.json")));
+    }
+
+    private CompletableFuture<Void> readInFlight(S1DataSelectImageCacheManager manager) throws Exception {
+        var field = S1DataSelectImageCacheManager.class.getDeclaredField("inFlight");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        CompletableFuture<Void> future = (CompletableFuture<Void>) field.get(manager);
+        return future;
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones) throws IOException {
@@ -355,3 +432,6 @@ public class TestS1DataSelectImageCacheManager {
         }
     }
 }
+
+
+
