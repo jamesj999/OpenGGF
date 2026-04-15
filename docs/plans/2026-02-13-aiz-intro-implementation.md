@@ -33,9 +33,9 @@ Create the S3K equivalent of `Sonic2ZoneEvents` - a base class for per-zone even
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.events;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kZoneEvents {
 
@@ -166,10 +166,10 @@ Create the AIZ zone event handler and wire it into `Sonic3kLevelEventManager`.
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.events;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.co.jamesj999.sonic.camera.Camera;
 import uk.co.jamesj999.sonic.game.sonic3k.Sonic3kLoadBootstrap;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kAIZEvents {
 
@@ -317,8 +317,8 @@ The ROM logic (sonic3k.asm:177851-177880):
 ```java
 package uk.co.jamesj999.sonic.physics;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSwingMotion {
 
@@ -512,8 +512,8 @@ Each entry is 6 bytes (3 Mega Drive colors). The palette frame index advances by
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAizIntroPaletteCycler {
 
@@ -656,16 +656,16 @@ Focus on state machine transitions and player control, NOT rendering.
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAizPlaneIntroInstance {
 
     private AizPlaneIntroInstance intro;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
@@ -810,9 +810,9 @@ The 7 emerald objects that scatter from Sonic at the explosion and get collected
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAizEmeraldScatterInstance {
 
@@ -905,9 +905,9 @@ The Knuckles cutscene object with 7 routines.
 ```java
 package uk.co.jamesj999.sonic.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import uk.co.jamesj999.sonic.level.objects.ObjectSpawn;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestCutsceneKnucklesAiz1Instance {
 

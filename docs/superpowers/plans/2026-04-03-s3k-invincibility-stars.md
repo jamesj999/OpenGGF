@@ -103,11 +103,11 @@ git commit -m "feat(s3k): add ROM addresses for invincibility star art and mappi
 ```java
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /**
  * Unit tests for S3K invincibility star orbit and trailing logic.

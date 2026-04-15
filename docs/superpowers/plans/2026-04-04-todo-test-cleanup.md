@@ -1,4 +1,6 @@
-# Todo Test Cleanup Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** Each task is an independent test file fix. No production code changes. Tests follow the existing patterns: `RuntimeManager.createGameplay()` / `destroyCurrent()` for setup, `GameServices.camera()` for camera access, direct event handler construction for unit testing. Package-private classes are tested from within the same package (create test dirs as needed).
 
-**Tech Stack:** JUnit 4 (`@Test`, `@Before`, `@After`, `@Rule`), existing test infrastructure (`RuntimeManager`, `GameServices`, `StubObjectServices`).
+**Tech Stack:** Existing test infrastructure (`RuntimeManager`, `GameServices`, `StubObjectServices`) with historical JUnit 4 migration context in this document. Current and new tests must use JUnit 5 / Jupiter only.
 
 ---
 

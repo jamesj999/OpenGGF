@@ -6,7 +6,7 @@
 
 **Architecture:** Structural refactoring only — no behavioral changes. Tasks are mostly independent. Tests must pass identically before and after each task.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 ---
 
