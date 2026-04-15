@@ -94,7 +94,22 @@ class TestHostEmeraldPresentation {
 
         assertEquals(6, result.activeEmeraldCount());
         assertEquals(result.activeEmeraldCount(), result.layout().activeEmeraldCount());
-        assertEquals(7, result.layout().positions().size());
+        assertEquals(6, result.layout().positions().size());
+    }
+
+    @Test
+    void s1SixRingUsesSixBalancedPositions() {
+        HostEmeraldLayoutProfile layout = HostEmeraldLayoutProfile.s1SixRing();
+
+        assertEquals(6, layout.activeEmeraldCount());
+        assertEquals(6, layout.positions().size());
+        assertEquals(-layout.positions().get(2).x(), layout.positions().get(0).x());
+        assertEquals(layout.positions().get(2).y(), layout.positions().get(0).y());
+        assertEquals(-layout.positions().get(3).x(), layout.positions().get(5).x());
+        assertEquals(layout.positions().get(3).y(), layout.positions().get(5).y());
+        assertEquals(0, layout.positions().get(1).x());
+        assertEquals(0, layout.positions().get(4).x());
+        assertTrue(layout.positions().get(1).y() < layout.positions().get(4).y());
     }
 
     @Test

@@ -1121,6 +1121,11 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             return loader != null ? loader.getSaveScreenLayoutObjects() : S3kSaveScreenLayoutObjects.original();
         }
 
+        @Override
+        public HostEmeraldLayoutProfile getHostEmeraldLayoutProfile() {
+            return hostEmeraldLayoutProfile;
+        }
+
         /**
          * Loads host-owned preview data on top of the donated S3K frontend.
          *
