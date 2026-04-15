@@ -215,7 +215,7 @@ public class Sonic1TitleScreenDataLoader {
      * is required by GraphicsManager.renderPatternWithId().
      */
     public void cachePalettesToGpu(GraphicsManager gm) {
-        if (palettesCached || titlePaletteLines == null) {
+        if (titlePaletteLines == null) {
             return;
         }
         for (int line = 0; line < titlePaletteLines.length; line++) {

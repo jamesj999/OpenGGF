@@ -30,6 +30,7 @@ public class TestPostLoadAssemblyBehavior {
 
     @BeforeEach
     public void resetCamera() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }

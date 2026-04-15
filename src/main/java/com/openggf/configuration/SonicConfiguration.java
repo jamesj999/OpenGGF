@@ -326,6 +326,11 @@ public enum SonicConfiguration {
 	CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES,
 
 	/**
+	 * Debug key to log the current camera position as an S1 data select preview override.
+	 */
+	CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY,
+
+	/**
 	 * Which game to use as the donor for cross-game features: "s2" or "s3k".
 	 * Only used when CROSS_GAME_FEATURES_ENABLED is true.
 	 */

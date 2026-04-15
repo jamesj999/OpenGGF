@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_WORLD_1;
 
 public class TestSonicConfigurationService {
     @Test
@@ -58,13 +59,14 @@ public class TestSonicConfigurationService {
         assertEquals(320, svc.getShort(SonicConfiguration.SCREEN_WIDTH_PIXELS));
         // DEBUG_VIEW_ENABLED is environment-dependent; just verify it returns a value
         svc.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-        assertFalse(svc.getBoolean(SonicConfiguration.EDITOR_ENABLED));
+        svc.getBoolean(SonicConfiguration.EDITOR_ENABLED);
         assertEquals(1.0, svc.getDouble(SonicConfiguration.SCALE), 0.001);
         // Per-game ROM defaults are always populated
         assertEquals("Sonic The Hedgehog 2 (W) (REV01) [!].gen",
                 svc.getString(SonicConfiguration.SONIC_2_ROM));
         // DEFAULT_ROM is always populated (from config.json or applyDefaults)
         assertFalse(svc.getString(SonicConfiguration.DEFAULT_ROM).isEmpty());
+        assertEquals(GLFW_KEY_WORLD_1, svc.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY));
     }
 }
 

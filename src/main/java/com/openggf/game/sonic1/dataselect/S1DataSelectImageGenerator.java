@@ -23,6 +23,8 @@ public final class S1DataSelectImageGenerator {
     static final int PREVIEW_WIDTH = 80;
     static final int PREVIEW_HEIGHT = 56;
     private static final int CAMERA_TARGET_X_BIAS = 152;
+    private static final int CAMERA_TARGET_Y_BIAS = 96;
+    private static final Sonic1ZoneRegistry CAPTURE_ZONE_REGISTRY = new Sonic1ZoneRegistry();
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final List<ZoneCaptureSpec> ZONES = List.of(
@@ -34,13 +36,13 @@ public final class S1DataSelectImageGenerator {
             new ZoneCaptureSpec(Sonic1ZoneConstants.ZONE_SBZ, "sbz", "sbz.png"),
             new ZoneCaptureSpec(Sonic1ZoneConstants.ZONE_FZ, "fz", "fz.png")
     );
-    private static final Map<Integer, PreviewCapturePoint> CAPTURE_OVERRIDES = Map.of();
+    private static final Map<Integer, PreviewCapturePoint> CAPTURE_OVERRIDES = buildCaptureOverrides();
 
     private final Path cacheRoot;
     private final CaptureSource captureSource;
     private final Supplier<String> romSha256Supplier;
     private final int settleFrames;
-    private final Sonic1ZoneRegistry zoneRegistry = new Sonic1ZoneRegistry();
+    private final Sonic1ZoneRegistry zoneRegistry = CAPTURE_ZONE_REGISTRY;
 
     public S1DataSelectImageGenerator(Path cacheRoot,
                                       CaptureSource captureSource,
@@ -82,6 +84,10 @@ public final class S1DataSelectImageGenerator {
         }
         int[] spawn = zoneRegistry.getStartPosition(zoneId, 0);
         return new PreviewCaptureTarget(spawn[0], spawn[1]);
+    }
+
+    public static PreviewCapturePoint previewCapturePointFromCamera(int cameraLeftX, int cameraTopY) {
+        return new PreviewCapturePoint(cameraLeftX + CAMERA_TARGET_X_BIAS, cameraTopY + CAMERA_TARGET_Y_BIAS);
     }
 
     static List<Integer> supportedZoneIds() {
@@ -155,5 +161,18 @@ public final class S1DataSelectImageGenerator {
             int dot = fileName.indexOf('.');
             return dot == -1 ? fileName : fileName.substring(0, dot);
         }
+    }
+
+    private static Map<Integer, PreviewCapturePoint> buildCaptureOverrides() {
+        return Map.of(
+                Sonic1ZoneConstants.ZONE_GHZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_GHZ, 0x160, 0),
+                Sonic1ZoneConstants.ZONE_SLZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_SLZ, 0x180, 0),
+                Sonic1ZoneConstants.ZONE_FZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_FZ, 0x100, 0)
+        );
+    }
+
+    private static PreviewCapturePoint offsetFromSpawn(int zoneId, int dx, int dy) {
+        int[] spawn = CAPTURE_ZONE_REGISTRY.getStartPosition(zoneId, 0);
+        return new PreviewCapturePoint(spawn[0] + dx, spawn[1] + dy);
     }
 }

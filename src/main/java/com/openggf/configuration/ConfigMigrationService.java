@@ -37,7 +37,8 @@ public class ConfigMigrationService {
         SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY,
         SonicConfiguration.PAUSE_KEY,
         SonicConfiguration.FRAME_STEP_KEY,
-        SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY
+        SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY,
+        SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY
     );
 
     /**
