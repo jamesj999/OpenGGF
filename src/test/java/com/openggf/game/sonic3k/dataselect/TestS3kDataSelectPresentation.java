@@ -27,6 +27,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
 import com.openggf.control.InputHandler;
 import com.openggf.tests.RomTestUtils;
+import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
@@ -35,11 +36,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -509,6 +513,29 @@ class TestS3kDataSelectPresentation {
                 "donated S1 saves should advertise a host-owned selected zone preview image");
         assertEquals(0, renderer.lastObjectState.selectedSlotIcon().iconIndex());
         assertFalse(renderer.lastObjectState.selectedSlotIcon().finishCard());
+    }
+
+    @Test
+    void donorAssets_loadHostPreviewAssets_consumesEmeraldPresentationResult() throws Exception {
+        File s1RomFile = RomTestUtils.ensureSonic1RomAvailable();
+        File s3kRomFile = RomTestUtils.ensureSonic3kRomAvailable();
+        assumeTrue(s1RomFile != null && s1RomFile.exists(), "Sonic 1 ROM not available");
+        assumeTrue(s3kRomFile != null && s3kRomFile.exists(), "Sonic 3K ROM not available");
+
+        try (Rom hostRom = new Rom(); Rom s3kRom = new Rom()) {
+            assumeTrue(hostRom.open(s1RomFile.getPath()), "Failed to open Sonic 1 ROM");
+            assumeTrue(s3kRom.open(s3kRomFile.getPath()), "Failed to open Sonic 3K ROM");
+
+            TestEnvironment.configureRomFixture(hostRom);
+
+            HostEmeraldPresentation.Result expected = HostEmeraldPresentation.forHost("s1", hostRom);
+            S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s1");
+
+            assets.loadData();
+
+            assertArrayEquals(expected.paletteBytes(), assets.getEmeraldPaletteBytes());
+            assertEquals(expected.layout(), readPrivateField(assets, "hostEmeraldLayoutProfile"));
+        }
     }
 
     @Test
@@ -3331,6 +3358,27 @@ class TestS3kDataSelectPresentation {
         if (key == leftKey || key == rightKey) {
             settleHorizontalMove(presentation);
         }
+    }
+
+    private static S3kDataSelectAssetSource newLoaderBackedAssets(Rom frontendRom,
+                                                                  String hostGameCode) throws Exception {
+        Class<?> romSourceType = Class.forName(
+                "com.openggf.game.sonic3k.dataselect.S3kDataSelectPresentation$RomSource");
+        Class<?> loaderType = Class.forName(
+                "com.openggf.game.sonic3k.dataselect.S3kDataSelectPresentation$LoaderBackedAssets");
+        Object romSource = java.lang.reflect.Proxy.newProxyInstance(
+                romSourceType.getClassLoader(),
+                new Class<?>[]{romSourceType},
+                (proxy, method, args) -> frontendRom);
+        Constructor<?> constructor = loaderType.getDeclaredConstructor(romSourceType, String.class);
+        constructor.setAccessible(true);
+        return (S3kDataSelectAssetSource) constructor.newInstance(romSource, hostGameCode);
+    }
+
+    private static Object readPrivateField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
 }
