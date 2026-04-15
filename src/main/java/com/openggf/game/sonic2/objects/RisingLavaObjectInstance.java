@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -191,7 +190,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
         // Ripple shake is a global screen-space effect applied via Camera shake offsets,
         // so objects don't add it to their world positions.
-        int bgYOffset = GameServices.zoneRuntimeRegistry()
+        int bgYOffset = services().zoneRuntimeRegistry()
                 .currentAs(HtzRuntimeState.class)
                 .map(HtzRuntimeState::cameraBgYOffset)
                 .orElseThrow(() -> new IllegalStateException("HTZ runtime state not installed"));

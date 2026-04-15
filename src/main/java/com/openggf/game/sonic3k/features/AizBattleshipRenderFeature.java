@@ -77,7 +77,7 @@ public final class AizBattleshipRenderFeature implements SpecialRenderEffect {
 
     @Override
     public SpecialRenderEffectStage stage() {
-        return SpecialRenderEffectStage.AFTER_BACKGROUND;
+        return SpecialRenderEffectStage.AFTER_SPRITES;
     }
 
     @Override

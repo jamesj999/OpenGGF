@@ -602,7 +602,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
 
         S3kPaletteWriteSupport.applyColors(
-                GameServices.paletteOwnershipRegistryOrNull(),
+                paletteRegistryOrNull(),
                 level,
                 graphics(),
                 S3kPaletteOwners.AIZ_RESIZE_MUTATION,
@@ -1789,13 +1789,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             lineData[offset + 1] = (byte) (word & 0xFF);
         }
         S3kPaletteWriteSupport.applyLine(
-                GameServices.paletteOwnershipRegistryOrNull(),
+                paletteRegistryOrNullStatic(),
                 currentLevel,
-                GameServices.graphics(),
+                graphicsStatic(),
                 S3kPaletteOwners.AIZ_FIRE_TRANSITION,
                 S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
                 3,
-                lineData);
+                lineData,
+                true);
     }
 
     private static int toSegaColorWord(Palette.Color color) {

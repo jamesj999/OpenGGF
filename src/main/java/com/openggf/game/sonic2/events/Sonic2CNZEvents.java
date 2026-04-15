@@ -1,8 +1,8 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.mutation.MutationEffects;
+import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2CNZBossInstance;
@@ -210,7 +210,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         cnzRightWallX = RIGHT_OFFSET % LAYOUT_WIDTH; // 84
         cnzRightWallY = RIGHT_OFFSET / LAYOUT_WIDTH; // 12
 
-        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+        mutationPipeline().queue(context -> {
             try {
                 context.surface().setBlockInMap(0, cnzLeftWallX, cnzLeftWallY, WALL_BLOCK);
                 return context.surface().setBlockInMap(0, cnzRightWallX, cnzRightWallY, WALL_BLOCK);
@@ -243,7 +243,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         // ROM: Removes right wall (offset $C54, x=84) with block $DD after defeat
         final int EMPTY_BLOCK = 0xDD;
 
-        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+        mutationPipeline().queue(context -> {
             try {
                 return context.surface().setBlockInMap(0, cnzRightWallX, cnzRightWallY, EMPTY_BLOCK);
             } catch (IllegalArgumentException e) {
