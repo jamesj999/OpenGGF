@@ -51,10 +51,10 @@ final class HostEmeraldPaletteBuilder {
     /**
      * Builds emerald palette bytes for donated save-card rendering.
      *
-     * <p>The returned data is already normalized into the S3K save-card overlay format:
-     * two colors per emerald, packed for insertion starting at palette-line color 1.
-     * Unsupported hosts or extraction failures return an empty array so the renderer
-     * can fall back to the native S3K emerald palette.</p>
+     * <p>This entrypoint preserves the older direct host-colour donation path so tests can
+     * distinguish it from the newer retint-based presentation seam. Unsupported hosts or
+     * extraction failures return an empty array so the renderer can fall back to the native
+     * S3K emerald palette.</p>
      */
     static byte[] buildForHostGame(String hostGameCode, Rom hostRom) {
         if (hostRom == null || hostGameCode == null || hostGameCode.isBlank()) {
@@ -62,13 +62,52 @@ final class HostEmeraldPaletteBuilder {
         }
         try {
             return switch (hostGameCode) {
-                case "s1" -> composeRetintedPaletteBytes(extractS1HostTargets(hostRom), nativeRamp());
-                case "s2" -> composeRetintedPaletteBytes(extractS2HostTargets(hostRom), nativeRamp());
+                case "s1" -> buildLegacyS1Palette(hostRom);
+                case "s2" -> buildLegacyS2Palette(hostRom);
                 default -> new byte[0];
             };
         } catch (IOException | IllegalArgumentException e) {
             return new byte[0];
         }
+    }
+
+    private static byte[] buildLegacyS1Palette(Rom rom) throws IOException {
+        Sonic1ObjectArt art = new Sonic1ObjectArt(rom, RomByteReader.fromRom(rom));
+        Pattern[] patterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR);
+        byte[] paletteBytes = new Sonic1SpecialStageDataLoader(rom).getSSPalette();
+        if (patterns.length == 0 || paletteBytes.length == 0) {
+            return new byte[0];
+        }
+
+        List<int[]> shades = new ArrayList<>(6);
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 4, 1));
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 0, 0));
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 4, 2));
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 4, 3));
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 8, 1));
+        shades.add(extractLegacyPatternShades(patterns, paletteBytes, 12, 1));
+        return composeLegacyPaletteBytes(shades);
+    }
+
+    private static byte[] buildLegacyS2Palette(Rom rom) throws IOException {
+        byte[] raw = rom.readBytes(Sonic2SpecialStageConstants.PALETTE_EMERALD_OFFSET,
+                Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE);
+        if (raw.length < Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE) {
+            return new byte[0];
+        }
+
+        List<int[]> shades = new ArrayList<>(S3K_SAVE_CARD_EMERALD_COUNT);
+        for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
+            int byteOffset = emeraldIndex * 6;
+            int[] colours = new int[]{
+                    readGenesisWord(raw, byteOffset),
+                    readGenesisWord(raw, byteOffset + 2),
+                    readGenesisWord(raw, byteOffset + 4)
+            };
+            sortByBrightnessDescending(colours);
+            shades.add(selectLegacyTwoShades(colours));
+        }
+        return composeLegacyPaletteBytes(shades);
     }
 
     static List<GenesisColour> extractS1HostTargets(Rom rom) throws IOException {
@@ -164,6 +203,41 @@ final class HostEmeraldPaletteBuilder {
         return selectWeightedRepresentativeColor(colors);
     }
 
+    private static int[] extractLegacyPatternShades(Pattern[] patterns,
+                                                    byte[] paletteBytes,
+                                                    int tileIndex,
+                                                    int paletteLine) {
+        int[] usage = new int[16];
+        for (int tileOffset = 0; tileOffset < 4; tileOffset++) {
+            int patternIndex = tileIndex + tileOffset;
+            if (patternIndex < 0 || patternIndex >= patterns.length) {
+                continue;
+            }
+            Pattern pattern = patterns[patternIndex];
+            for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
+                for (int x = 0; x < Pattern.PATTERN_WIDTH; x++) {
+                    int colourIndex = pattern.getPixel(x, y) & 0x0F;
+                    if (colourIndex != 0) {
+                        usage[colourIndex]++;
+                    }
+                }
+            }
+        }
+
+        List<Integer> colours = new ArrayList<>();
+        for (int colourIndex = 1; colourIndex < usage.length; colourIndex++) {
+            if (usage[colourIndex] > 0) {
+                colours.add(readPaletteColor(paletteBytes, paletteLine, colourIndex));
+            }
+        }
+        if (colours.isEmpty()) {
+            return new int[]{0, 0};
+        }
+        int[] uniqueColours = colours.stream().distinct().mapToInt(Integer::intValue).toArray();
+        sortByBrightnessDescending(uniqueColours);
+        return selectLegacyTwoShades(uniqueColours);
+    }
+
     private static GenesisColour selectRepresentativeColor(List<GenesisColour> colors) {
         List<WeightedColor> weighted = colors.stream()
                 .map(color -> new WeightedColor(color, 1))
@@ -189,6 +263,50 @@ final class HostEmeraldPaletteBuilder {
         float hue = target.saturation() > 0.0f ? target.hue() : nativeShade.hue();
         float saturation = target.saturation();
         return GenesisColour.fromHsv(hue, saturation, nativeShade.value());
+    }
+
+    private static int[] selectLegacyTwoShades(int[] colours) {
+        if (colours.length == 0) {
+            return new int[]{0, 0};
+        }
+        int primary = colours[0];
+        int secondary = colours.length > 1 ? colours[1] : darken(primary);
+        return new int[]{primary, secondary};
+    }
+
+    private static byte[] composeLegacyPaletteBytes(List<int[]> shades) {
+        byte[] bytes = new byte[S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD * 2 + 2];
+        int writeOffset = 0;
+        for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
+            int[] emeraldShades = emeraldIndex < shades.size() ? shades.get(emeraldIndex) : new int[]{0, 0};
+            writeGenesisWord(bytes, writeOffset, emeraldShades[0]);
+            writeGenesisWord(bytes, writeOffset + 2, emeraldShades[1]);
+            writeOffset += 4;
+        }
+        return bytes;
+    }
+
+    private static int darken(int colour) {
+        int r = Math.max(0, ((colour >> 1) & 0x7) - 2);
+        int g = Math.max(0, ((colour >> 5) & 0x7) - 2);
+        int b = Math.max(0, ((colour >> 9) & 0x7) - 2);
+        return (b << 9) | (g << 5) | (r << 1);
+    }
+
+    private static void sortByBrightnessDescending(int[] colours) {
+        for (int i = 0; i < colours.length - 1; i++) {
+            for (int j = i + 1; j < colours.length; j++) {
+                if (brightness(colours[j]) > brightness(colours[i])) {
+                    int swap = colours[i];
+                    colours[i] = colours[j];
+                    colours[j] = swap;
+                }
+            }
+        }
+    }
+
+    private static int brightness(int colour) {
+        return ((colour >> 1) & 0x7) + ((colour >> 5) & 0x7) + ((colour >> 9) & 0x7);
     }
 
     private static int readPaletteColor(byte[] paletteBytes, int paletteLine, int colorIndex) {

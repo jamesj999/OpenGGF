@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -70,6 +71,19 @@ class TestHostEmeraldPresentation {
 
         assertEquals(0, result.paletteBytes().length);
         assertEquals(7, result.layout().positions().size());
+    }
+
+    @Test
+    void s1PresentationPaletteDiffersFromLegacyDirectBuilderEntryPoint() throws Exception {
+        Rom rom = TestEnvironment.currentRom();
+
+        HostEmeraldPresentation.Result result = HostEmeraldPresentation.forHost("s1", rom);
+        byte[] legacy = HostEmeraldPaletteBuilder.buildForHostGame("s1", rom);
+
+        assertEquals(6, result.activeEmeraldCount());
+        assertEquals(7 * 4 + 2, result.paletteBytes().length);
+        assertEquals(7 * 4 + 2, legacy.length);
+        assertFalse(java.util.Arrays.equals(result.paletteBytes(), legacy));
     }
 
     @Test
