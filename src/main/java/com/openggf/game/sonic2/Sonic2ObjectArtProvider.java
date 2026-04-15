@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 
@@ -54,6 +55,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private boolean livesNameUsesIconPalette;
 
     /**
      * Creates a new Sonic2ObjectArtProvider.
@@ -194,6 +196,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = artData.getHudTextPatterns();
         hudLivesPatterns = artData.getHudLivesPatterns();
         hudLivesNumbers = artData.getHudLivesNumbers();
+        livesNameUsesIconPalette = false;
 
         // Cross-game: override lives icon with donor character art (e.g., Knuckles from S3K)
         overrideLivesArtFromDonor();
@@ -337,26 +340,33 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         return hudLivesNumbers;
     }
 
+    @Override
+    public boolean usesIconPaletteForLivesName() {
+        return livesNameUsesIconPalette;
+    }
+
     /**
      * When cross-game features are active and the character is Knuckles,
      * loads the Knuckles life icon from the S3K donor ROM to replace the
      * S2 Sonic life icon.
      */
     private void overrideLivesArtFromDonor() {
-        if (!com.openggf.game.CrossGameFeatureProvider.isActive()) {
+        if (!com.openggf.game.CrossGameFeatureProvider.isS3kDonorActive()) {
             return;
         }
-        com.openggf.game.CrossGameFeatureProvider crossGame = GameServices.crossGameFeatures();
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(GameServices.configuration());
         if (!"knuckles".equalsIgnoreCase(mainChar)) {
             return;
         }
-        // Load Knuckles life icon from donor S3K ROM
-        String donorId = crossGame.getDonorGameId();
-        if (!"s3k".equals(donorId)) {
-            return;
+        Pattern[] knuxLife = loadS3kKnucklesLivesPatterns();
+        if (knuxLife != null && knuxLife.length > 0) {
+            hudLivesPatterns = knuxLife;
+            livesNameUsesIconPalette = true;
+            LOGGER.info("Overrode lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
         }
+    }
+
+    Pattern[] loadS3kKnucklesLivesPatterns() {
         try {
             com.openggf.data.Rom donorRom = GameServices.rom().getSecondaryRom("s3k");
             Pattern[] knuxLife = com.openggf.util.PatternDecompressor.nemesis(donorRom,
@@ -365,12 +375,12 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
                 // Remap pixel indices from S3K palette layout to S2-compatible layout.
                 // Both palettes have the same colors but at different indices.
                 remapPaletteIndices(knuxLife);
-                hudLivesPatterns = knuxLife;
-                LOGGER.info("Overrode lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
+                return knuxLife;
             }
         } catch (Exception e) {
             LOGGER.warning("Failed to load Knuckles life icon from donor: " + e.getMessage());
         }
+        return null;
     }
 
     /**

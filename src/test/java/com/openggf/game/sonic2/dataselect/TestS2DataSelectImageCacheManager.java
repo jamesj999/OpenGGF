@@ -97,10 +97,25 @@ class TestS2DataSelectImageCacheManager {
 
         generator.generateAll();
 
-        S2DataSelectImageGenerator.PreviewCaptureTarget point = captureSource.capturePoints().get(1);
-        int[] spawn = new Sonic2ZoneRegistry().getStartPosition(Sonic2ZoneConstants.ZONE_CPZ, 0);
+        S2DataSelectImageGenerator.PreviewCaptureTarget point = captureSource.capturePoints().get(6);
+        int[] spawn = new Sonic2ZoneRegistry().getStartPosition(Sonic2ZoneConstants.ZONE_OOZ, 0);
         assertEquals(spawn[0], point.cameraLeftX());
         assertEquals(spawn[1], point.centreY());
+    }
+
+    @Test
+    void captureTargetUsesConfiguredOverrideWhenPresent() {
+        Path cacheRoot = tempDir.resolve("saves/image-cache/s2");
+        S2DataSelectImageGenerator generator = new S2DataSelectImageGenerator(
+                cacheRoot,
+                FakeCaptureSource.solidColourImages(320, 224, 11),
+                () -> "romsha");
+
+        S2DataSelectImageGenerator.PreviewCaptureTarget point =
+                generator.resolveCaptureTarget(Sonic2ZoneConstants.ZONE_EHZ);
+
+        assertEquals(6150, point.cameraLeftX());
+        assertEquals(654, point.centreY());
     }
 
     @Test

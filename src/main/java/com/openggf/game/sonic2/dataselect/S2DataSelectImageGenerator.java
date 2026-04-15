@@ -45,7 +45,7 @@ public final class S2DataSelectImageGenerator {
             new ZoneCaptureSpec(Sonic2ZoneConstants.ZONE_WFZ, "wfz", "wfz.png"),
             new ZoneCaptureSpec(Sonic2ZoneConstants.ZONE_DEZ, "dez", "dez.png")
     );
-    private static final Map<Integer, PreviewCapturePoint> CAPTURE_OVERRIDES = Map.of();
+    private static final Map<Integer, PreviewCapturePoint> CAPTURE_OVERRIDES = buildCaptureOverrides();
 
     private final Path cacheRoot;
     private final CaptureSource captureSource;
@@ -172,5 +172,18 @@ public final class S2DataSelectImageGenerator {
             int dot = fileName.indexOf('.');
             return dot == -1 ? fileName : fileName.substring(0, dot);
         }
+    }
+
+    private static Map<Integer, PreviewCapturePoint> buildCaptureOverrides() {
+        return Map.of(
+                Sonic2ZoneConstants.ZONE_EHZ, new PreviewCapturePoint(6150, 654),
+                Sonic2ZoneConstants.ZONE_CPZ, new PreviewCapturePoint(955, 540),
+                Sonic2ZoneConstants.ZONE_ARZ, new PreviewCapturePoint(7499, 973),
+                Sonic2ZoneConstants.ZONE_CNZ, new PreviewCapturePoint(1766, 1678),
+                Sonic2ZoneConstants.ZONE_HTZ, new PreviewCapturePoint(355, 914),
+                Sonic2ZoneConstants.ZONE_MCZ, new PreviewCapturePoint(686, 1567),
+                Sonic2ZoneConstants.ZONE_MTZ, new PreviewCapturePoint(4932, 715),
+                Sonic2ZoneConstants.ZONE_WFZ, new PreviewCapturePoint(1501, 961)
+        );
     }
 }

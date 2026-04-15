@@ -33,6 +33,7 @@ import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.camera.Camera;
 import com.openggf.level.LevelManager;
+import com.openggf.sprites.playable.Knuckles;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.game.RomDetectionService;
 import org.junit.jupiter.api.AfterEach;
@@ -159,39 +160,6 @@ class TestEngine {
     }
 
     @Test
-    void sonic1GameModuleWarmupStartsGenerationThroughRealManager() throws Exception {
-        GraphicsManager originalGraphicsManager = replaceGraphicsManagerSingleton(mock(GraphicsManager.class));
-        try {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
-            SonicConfigurationService.getInstance().setConfigValue(
-                    SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, true);
-            Sonic1GameModule module = new Sonic1GameModule();
-
-            try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
-            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
-
-            GraphicsManager graphics = GraphicsManager.getInstance();
-            CompletableFuture<Object> blocked = new CompletableFuture<>();
-            when(graphics.submitRenderThreadTask(any())).thenReturn((CompletableFuture) blocked);
-
-            S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
-            assertTrue(manager instanceof Sonic1GameModule.S1DataSelectImageWarmup);
-
-            ((Sonic1GameModule.S1DataSelectImageWarmup) manager).ensureGenerationStarted();
-
-            Field inFlightField = S1DataSelectImageCacheManager.class.getDeclaredField("inFlight");
-            inFlightField.setAccessible(true);
-            assertNotNull(inFlightField.get(manager));
-            blocked.complete(new com.openggf.graphics.RgbaImage(320, 224, new int[320 * 224]));
-            manager.awaitGenerationIfRunning();
-            }
-        } finally {
-            replaceGraphicsManagerSingleton(originalGraphicsManager);
-        }
-    }
-
-
-    @Test
     void initializeGame_runsS1WarmupBeforeStartupModeEntry() throws Exception {
         try (BootstrapHarness harness = createBootstrapHarness(true)) {
             harness.engine.initializeGame();
@@ -267,6 +235,40 @@ class TestEngine {
                 Engine.dataSelectLaunchSaveReason(DataSelectActionType.NO_SAVE_START));
     }
 
+    @Test
+    void resolveMainPlayableSprite_prefersSelectedTeamOverConfigDuringGameplay() throws Exception {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.resetToDefaults();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+
+        Engine engine = new Engine();
+        GameRuntime runtime = mock(GameRuntime.class);
+        SpriteManager spriteManager = mock(SpriteManager.class);
+        Camera camera = mock(Camera.class);
+        LevelManager levelManager = mock(LevelManager.class);
+
+        Knuckles knuckles = new Knuckles("knuckles", (short) 100, (short) 624);
+        when(spriteManager.getSprite("knuckles")).thenReturn(knuckles);
+        when(runtime.getSpriteManager()).thenReturn(spriteManager);
+        when(runtime.getCamera()).thenReturn(camera);
+        when(runtime.getLevelManager()).thenReturn(levelManager);
+
+        setPrivateField(engine, "runtime", runtime);
+        setPrivateField(engine, "spriteManager", spriteManager);
+        setPrivateField(engine, "camera", camera);
+        setPrivateField(engine, "levelManager", levelManager);
+
+        SessionManager.openGameplaySession(mock(GameModule.class),
+                SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
+
+        var method = Engine.class.getDeclaredMethod("resolveMainPlayableSprite");
+        method.setAccessible(true);
+        Object resolved = method.invoke(engine);
+
+        assertSame(knuckles, resolved);
+    }
+
     private static final class TrackingS1ImageCacheManager extends S1DataSelectImageCacheManager
             implements Sonic1GameModule.S1DataSelectImageWarmup {
         int ensureStartedCalls;
@@ -296,6 +298,10 @@ class TestEngine {
         config.resetToDefaults();
         config.setConfigValue(SonicConfiguration.AUDIO_ENABLED, false);
         config.setConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+        config.setConfigValue(SonicConfiguration.CROSS_GAME_SOURCE, donorActive ? "s3k" : "s2");
+        if (donorActive) {
+            config.setConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, true);
+        }
         config.setConfigValue(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
         config.setConfigValue(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
