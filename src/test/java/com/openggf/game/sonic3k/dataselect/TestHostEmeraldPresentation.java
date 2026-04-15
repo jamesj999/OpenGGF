@@ -74,30 +74,30 @@ class TestHostEmeraldPresentation {
 
     @Test
     void composeRetintedPaletteBytes_preservesNativeBrightnessOrderingAndChangesHue() {
-        List<HostEmeraldPaletteBuilder.GenesisColor> nativeRamp = List.of(
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0000));
-        List<HostEmeraldPaletteBuilder.GenesisColor> hostTargets = List.of(
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x000E));
+        List<HostEmeraldPaletteBuilder.GenesisColour> nativeRamp = List.of(
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0000));
+        List<HostEmeraldPaletteBuilder.GenesisColour> hostTargets = List.of(
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x000E));
 
         byte[] paletteBytes = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(hostTargets, nativeRamp);
-        HostEmeraldPaletteBuilder.GenesisColor highlight =
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(readGenesisWord(paletteBytes, 0));
-        HostEmeraldPaletteBuilder.GenesisColor shadow =
-                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(readGenesisWord(paletteBytes, 2));
+        HostEmeraldPaletteBuilder.GenesisColour highlight =
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(readGenesisWord(paletteBytes, 0));
+        HostEmeraldPaletteBuilder.GenesisColour shadow =
+                HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(readGenesisWord(paletteBytes, 2));
 
         assertTrue(highlight.brightness() > shadow.brightness());
         assertNotEquals(nativeRamp.get(0).toGenesisWord(), highlight.toGenesisWord());

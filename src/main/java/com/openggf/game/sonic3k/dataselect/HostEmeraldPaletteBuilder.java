@@ -28,22 +28,22 @@ import java.util.List;
 final class HostEmeraldPaletteBuilder {
     private static final int S3K_SAVE_CARD_EMERALD_COUNT = 7;
     private static final int COLORS_PER_EMERALD = 2;
-    private static final List<GenesisColor> NATIVE_RAMP = List.of(
-            GenesisColor.fromGenesisWord(0x0EEE),
-            GenesisColor.fromGenesisWord(0x0AAA),
-            GenesisColor.fromGenesisWord(0x00E4),
-            GenesisColor.fromGenesisWord(0x0080),
-            GenesisColor.fromGenesisWord(0x00AE),
-            GenesisColor.fromGenesisWord(0x006E),
-            GenesisColor.fromGenesisWord(0x000E),
-            GenesisColor.fromGenesisWord(0x044E),
-            GenesisColor.fromGenesisWord(0x0EE4),
-            GenesisColor.fromGenesisWord(0x0E60),
-            GenesisColor.fromGenesisWord(0x0E00),
-            GenesisColor.fromGenesisWord(0x0C8E),
-            GenesisColor.fromGenesisWord(0x0E4E),
-            GenesisColor.fromGenesisWord(0x0C08),
-            GenesisColor.fromGenesisWord(0x0444));
+    private static final List<GenesisColour> NATIVE_RAMP = List.of(
+            GenesisColour.fromGenesisWord(0x0EEE),
+            GenesisColour.fromGenesisWord(0x0AAA),
+            GenesisColour.fromGenesisWord(0x00E4),
+            GenesisColour.fromGenesisWord(0x0080),
+            GenesisColour.fromGenesisWord(0x00AE),
+            GenesisColour.fromGenesisWord(0x006E),
+            GenesisColour.fromGenesisWord(0x000E),
+            GenesisColour.fromGenesisWord(0x044E),
+            GenesisColour.fromGenesisWord(0x0EE4),
+            GenesisColour.fromGenesisWord(0x0E60),
+            GenesisColour.fromGenesisWord(0x0E00),
+            GenesisColour.fromGenesisWord(0x0C8E),
+            GenesisColour.fromGenesisWord(0x0E4E),
+            GenesisColour.fromGenesisWord(0x0C08),
+            GenesisColour.fromGenesisWord(0x0444));
 
     private HostEmeraldPaletteBuilder() {
     }
@@ -71,7 +71,7 @@ final class HostEmeraldPaletteBuilder {
         }
     }
 
-    static List<GenesisColor> extractS1HostTargets(Rom rom) throws IOException {
+    static List<GenesisColour> extractS1HostTargets(Rom rom) throws IOException {
         Sonic1ObjectArt art = new Sonic1ObjectArt(rom, RomByteReader.fromRom(rom));
         Pattern[] patterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR);
         byte[] paletteBytes = new Sonic1SpecialStageDataLoader(rom).getSSPalette();
@@ -79,7 +79,7 @@ final class HostEmeraldPaletteBuilder {
             return List.of();
         }
 
-        List<GenesisColor> targets = new ArrayList<>(6);
+        List<GenesisColour> targets = new ArrayList<>(6);
         targets.add(extractPatternTarget(patterns, paletteBytes, 4, 1));
         targets.add(extractPatternTarget(patterns, paletteBytes, 0, 0));
         targets.add(extractPatternTarget(patterns, paletteBytes, 4, 2));
@@ -89,41 +89,41 @@ final class HostEmeraldPaletteBuilder {
         return List.copyOf(targets);
     }
 
-    static List<GenesisColor> extractS2HostTargets(Rom rom) throws IOException {
+    static List<GenesisColour> extractS2HostTargets(Rom rom) throws IOException {
         byte[] raw = rom.readBytes(Sonic2SpecialStageConstants.PALETTE_EMERALD_OFFSET,
                 Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE);
         if (raw.length < Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE) {
             return List.of();
         }
 
-        List<GenesisColor> targets = new ArrayList<>(S3K_SAVE_CARD_EMERALD_COUNT);
+        List<GenesisColour> targets = new ArrayList<>(S3K_SAVE_CARD_EMERALD_COUNT);
         for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
             int byteOffset = emeraldIndex * 6;
             targets.add(selectRepresentativeColor(List.of(
-                    GenesisColor.fromGenesisWord(readGenesisWord(raw, byteOffset)),
-                    GenesisColor.fromGenesisWord(readGenesisWord(raw, byteOffset + 2)),
-                    GenesisColor.fromGenesisWord(readGenesisWord(raw, byteOffset + 4)))));
+                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset)),
+                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset + 2)),
+                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset + 4)))));
         }
         return List.copyOf(targets);
     }
 
-    static List<GenesisColor> nativeRamp() {
+    static List<GenesisColour> nativeRamp() {
         return NATIVE_RAMP;
     }
 
-    static byte[] composeRetintedPaletteBytes(List<GenesisColor> hostTargets, List<GenesisColor> nativeRamp) {
+    static byte[] composeRetintedPaletteBytes(List<GenesisColour> hostTargets, List<GenesisColour> nativeRamp) {
         if (nativeRamp == null || nativeRamp.size() < (S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) {
             throw new IllegalArgumentException("nativeRamp must contain 15 colors");
         }
-        List<GenesisColor> targets = hostTargets != null ? hostTargets : List.of();
+        List<GenesisColour> targets = hostTargets != null ? hostTargets : List.of();
         byte[] bytes = new byte[S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD * 2 + 2];
         int writeOffset = 0;
         for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
-            GenesisColor target = emeraldIndex < targets.size()
+            GenesisColour target = emeraldIndex < targets.size()
                     ? targets.get(emeraldIndex)
                     : nativeRamp.get(emeraldIndex * 2);
-            GenesisColor highlight = retint(nativeRamp.get(emeraldIndex * 2), target);
-            GenesisColor shadow = retint(nativeRamp.get(emeraldIndex * 2 + 1), target);
+            GenesisColour highlight = retint(nativeRamp.get(emeraldIndex * 2), target);
+            GenesisColour shadow = retint(nativeRamp.get(emeraldIndex * 2 + 1), target);
             writeGenesisWord(bytes, writeOffset, highlight.toGenesisWord());
             writeGenesisWord(bytes, writeOffset + 2, shadow.toGenesisWord());
             writeOffset += 4;
@@ -132,10 +132,10 @@ final class HostEmeraldPaletteBuilder {
         return bytes;
     }
 
-    private static GenesisColor extractPatternTarget(Pattern[] patterns,
-                                                     byte[] paletteBytes,
-                                                     int tileIndex,
-                                                     int paletteLine) {
+    private static GenesisColour extractPatternTarget(Pattern[] patterns,
+                                                      byte[] paletteBytes,
+                                                      int tileIndex,
+                                                      int paletteLine) {
         int[] usage = new int[16];
         for (int tileOffset = 0; tileOffset < 4; tileOffset++) {
             int patternIndex = tileIndex + tileOffset;
@@ -157,23 +157,23 @@ final class HostEmeraldPaletteBuilder {
         for (int colorIndex = 1; colorIndex < usage.length; colorIndex++) {
             if (usage[colorIndex] > 0) {
                 colors.add(new WeightedColor(
-                        GenesisColor.fromGenesisWord(readPaletteColor(paletteBytes, paletteLine, colorIndex)),
+                        GenesisColour.fromGenesisWord(readPaletteColor(paletteBytes, paletteLine, colorIndex)),
                         usage[colorIndex]));
             }
         }
         return selectWeightedRepresentativeColor(colors);
     }
 
-    private static GenesisColor selectRepresentativeColor(List<GenesisColor> colors) {
+    private static GenesisColour selectRepresentativeColor(List<GenesisColour> colors) {
         List<WeightedColor> weighted = colors.stream()
                 .map(color -> new WeightedColor(color, 1))
                 .toList();
         return selectWeightedRepresentativeColor(weighted);
     }
 
-    private static GenesisColor selectWeightedRepresentativeColor(List<WeightedColor> colors) {
+    private static GenesisColour selectWeightedRepresentativeColor(List<WeightedColor> colors) {
         if (colors.isEmpty()) {
-            return GenesisColor.black();
+            return GenesisColour.black();
         }
         return colors.stream()
                 .max(Comparator.comparingInt(WeightedColor::score)
@@ -182,13 +182,13 @@ final class HostEmeraldPaletteBuilder {
                 .color();
     }
 
-    private static GenesisColor retint(GenesisColor nativeShade, GenesisColor target) {
+    private static GenesisColour retint(GenesisColour nativeShade, GenesisColour target) {
         if (target == null || target.value() <= 0.0f) {
             return nativeShade;
         }
         float hue = target.saturation() > 0.0f ? target.hue() : nativeShade.hue();
         float saturation = target.saturation();
-        return GenesisColor.fromHsv(hue, saturation, nativeShade.value());
+        return GenesisColour.fromHsv(hue, saturation, nativeShade.value());
     }
 
     private static int readPaletteColor(byte[] paletteBytes, int paletteLine, int colorIndex) {
@@ -208,38 +208,38 @@ final class HostEmeraldPaletteBuilder {
         bytes[offset + 1] = (byte) (color & 0xFF);
     }
 
-    private record WeightedColor(GenesisColor color, int usage) {
+    private record WeightedColor(GenesisColour color, int usage) {
         private int score() {
             return (color.chroma() * 100) + (usage * 10) + color.brightness();
         }
     }
 
-    static final class GenesisColor {
+    static final class GenesisColour {
         private final int r;
         private final int g;
         private final int b;
 
-        private GenesisColor(int r, int g, int b) {
+        private GenesisColour(int r, int g, int b) {
             this.r = clampChannel(r);
             this.g = clampChannel(g);
             this.b = clampChannel(b);
         }
 
-        static GenesisColor black() {
-            return new GenesisColor(0, 0, 0);
+        static GenesisColour black() {
+            return new GenesisColour(0, 0, 0);
         }
 
-        static GenesisColor fromGenesisWord(int word) {
-            return new GenesisColor((word >> 1) & 0x7, (word >> 5) & 0x7, (word >> 9) & 0x7);
+        static GenesisColour fromGenesisWord(int word) {
+            return new GenesisColour((word >> 1) & 0x7, (word >> 5) & 0x7, (word >> 9) & 0x7);
         }
 
-        static GenesisColor fromHsv(float hue, float saturation, float value) {
+        static GenesisColour fromHsv(float hue, float saturation, float value) {
             float h = normalizeHue(hue);
             float s = clampUnit(saturation);
             float v = clampUnit(value);
             if (s == 0.0f) {
                 int channel = Math.round(v * 7.0f);
-                return new GenesisColor(channel, channel, channel);
+                return new GenesisColour(channel, channel, channel);
             }
 
             float scaledHue = h * 6.0f;
@@ -259,8 +259,8 @@ final class HostEmeraldPaletteBuilder {
             };
         }
 
-        private static GenesisColor fromUnitRgb(float r, float g, float b) {
-            return new GenesisColor(Math.round(clampUnit(r) * 7.0f),
+        private static GenesisColour fromUnitRgb(float r, float g, float b) {
+            return new GenesisColour(Math.round(clampUnit(r) * 7.0f),
                     Math.round(clampUnit(g) * 7.0f),
                     Math.round(clampUnit(b) * 7.0f));
         }
