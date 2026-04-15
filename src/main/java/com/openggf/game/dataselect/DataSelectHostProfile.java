@@ -46,8 +46,9 @@ public interface DataSelectHostProfile {
      * Returns a host-specific preview for the given save slot payload,
      * or {@code null} if the native S3K zone card rendering should be used.
      *
-     * <p>S1 and S2 override this to provide zone abbreviation labels so the
-     * donated S3K data select screen shows host zone names instead of S3K zone numbers.
+     * <p>S1 and S2 override this to provide host-owned selected-card metadata such as
+     * numbered-zone labels while the donated S3K frontend continues to own the underlying
+     * save-screen layout and rendering.
      */
     default HostSlotPreview resolveSlotPreview(Map<String, Object> payload) {
         return null;

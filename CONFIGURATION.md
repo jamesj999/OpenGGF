@@ -48,6 +48,23 @@ Paths are relative to the working directory (where the JAR is launched).
 
 ---
 
+## Cross-Game Donation
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `CROSS_GAME_FEATURES_ENABLED` | bool | `false` | Enable cross-game feature donation. When `false`, each game uses only its own native frontend and gameplay assets. |
+| `CROSS_GAME_SOURCE` | string | `"s2"` | Donor game for cross-game features. Currently supports `"s2"` and `"s3k"`. |
+| `CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE` | bool | `false` | Force regeneration of the runtime Sonic 1 donated Data Select screenshot cache on the next eligible boot. |
+| `CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE` | bool | `false` | Force regeneration of the runtime Sonic 2 donated Data Select screenshot cache on the next eligible boot. |
+
+### Cross-Game Debug Key
+
+| Key | Default | Key Name | Description |
+|-----|---------|----------|-------------|
+| `CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY` | `39` | Apostrophe | While playing Sonic 1, log the current camera as a preview override point for donated Data Select screenshot tuning. |
+
+---
+
 ## Characters
 
 | Key | Type | Default | Description |

@@ -255,7 +255,6 @@ Persist at least:
 - `generatorFormatVersion`
 - `romSha256`
 - `generatedAt`
-- `settleFrames`
 - per-zone file mapping
 
 ### Config
@@ -263,10 +262,6 @@ Persist at least:
 Add a dedicated S2 override flag mirroring the S1 testing hook:
 
 - `CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE`
-
-Also reuse the same settle-frame concept for S2 with its own dedicated config key:
-
-- `CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES`
 
 ## Donated Preview Loading
 

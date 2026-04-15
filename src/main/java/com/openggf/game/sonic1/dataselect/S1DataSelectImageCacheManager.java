@@ -31,7 +31,7 @@ import java.util.function.Supplier;
  * S3K donation is active, and exposes decoded PNG previews back to the donated frontend.</p>
  */
 public class S1DataSelectImageCacheManager {
-	static final int GENERATOR_FORMAT_VERSION = 4;
+	static final int GENERATOR_FORMAT_VERSION = 5;
 	private static final String MANIFEST_FILE_NAME = "manifest.json";
 	private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
 			"ghz",
@@ -59,8 +59,7 @@ public class S1DataSelectImageCacheManager {
 		this.generator = new S1DataSelectImageGenerator(
 				cacheRoot,
 				this::captureFramebuffer,
-				romSha256Supplier,
-				settleFrames());
+				romSha256Supplier);
 	}
 
 	public synchronized void ensureGenerationStarted() {
@@ -121,10 +120,6 @@ public class S1DataSelectImageCacheManager {
 			}
 		}
 		return true;
-	}
-
-	public int settleFrames() {
-		return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
 	}
 
 	/**
@@ -190,8 +185,7 @@ public class S1DataSelectImageCacheManager {
 		return CrossGameFeatureProvider.isS3kDonorActive();
 	}
 
-	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget captureTarget,
-			int settleFrames) {
+	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget captureTarget) {
 		int[] spawnPoint = new com.openggf.game.sonic1.Sonic1ZoneRegistry().getStartPosition(zoneId, 0);
 		int cameraLeftX = captureTarget != null ? captureTarget.cameraLeftX() : spawnPoint[0];
 		int centreY = captureTarget != null ? captureTarget.centreY() : spawnPoint[1];

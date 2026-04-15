@@ -8,6 +8,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.game.dataselect.AbstractDataSelectProvider;
 import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.game.dataselect.DataSelectSessionController;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.game.sonic1.dataselect.S1DataSelectProfile;
 import com.openggf.game.sonic2.dataselect.S2DataSelectProfile;
 import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
@@ -550,6 +551,70 @@ class TestS3kDataSelectPresentation {
                         "runtime generated host previews should use palette line 2 so S2 purple can keep line 3");
                 assertTrue(assets.useScaledSelectedSlotIconFrame(selected));
                 assertEquals(70, assets.getSlotIconPatterns(0).length);
+            }
+        }
+    }
+
+    @Test
+    void donorAssets_emptyRuntimeS2PreviewCacheFallsBackToNativeS3kCard() throws Exception {
+        File s3kRomFile = RomTestUtils.ensureSonic3kRomAvailable();
+        assumeTrue(s3kRomFile != null && s3kRomFile.exists(), "Sonic 3K ROM not available");
+
+        try (Rom s3kRom = new Rom()) {
+            assumeTrue(s3kRom.open(s3kRomFile.getPath()), "Failed to open Sonic 3K ROM");
+
+            S2DataSelectImageCacheManager cacheManager = org.mockito.Mockito.mock(S2DataSelectImageCacheManager.class);
+            org.mockito.Mockito.when(cacheManager.loadCachedPreviews()).thenReturn(Map.of());
+
+            com.openggf.game.GameModule module = org.mockito.Mockito.mock(com.openggf.game.GameModule.class);
+            org.mockito.Mockito.when(module.getGameService(S2DataSelectImageCacheManager.class)).thenReturn(cacheManager);
+
+            try (var services = org.mockito.Mockito.mockStatic(GameServices.class)) {
+                services.when(GameServices::module).thenReturn(module);
+                services.when(GameServices::rom).thenReturn(null);
+
+                S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s2");
+                assets.loadData();
+
+                var selected = new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17);
+
+                assertFalse(assets.useScaledSelectedSlotIconFrame(selected));
+                assertNull(assets.getSelectedSlotIconFrame(selected));
+                assertNull(assets.getSelectedSlotIconPalette(selected));
+                assertTrue(assets.getSlotIconPatterns(0).length > 0,
+                        "empty runtime preview cache should fall back to the native S3K selected card art");
+            }
+        }
+    }
+
+    @Test
+    void donorAssets_emptyRuntimeS1PreviewCacheFallsBackToNativeS3kCard() throws Exception {
+        File s3kRomFile = RomTestUtils.ensureSonic3kRomAvailable();
+        assumeTrue(s3kRomFile != null && s3kRomFile.exists(), "Sonic 3K ROM not available");
+
+        try (Rom s3kRom = new Rom()) {
+            assumeTrue(s3kRom.open(s3kRomFile.getPath()), "Failed to open Sonic 3K ROM");
+
+            S1DataSelectImageCacheManager cacheManager = org.mockito.Mockito.mock(S1DataSelectImageCacheManager.class);
+            org.mockito.Mockito.when(cacheManager.loadCachedPreviews()).thenReturn(Map.of());
+
+            com.openggf.game.GameModule module = org.mockito.Mockito.mock(com.openggf.game.GameModule.class);
+            org.mockito.Mockito.when(module.getGameService(S1DataSelectImageCacheManager.class)).thenReturn(cacheManager);
+
+            try (var services = org.mockito.Mockito.mockStatic(GameServices.class)) {
+                services.when(GameServices::module).thenReturn(module);
+                services.when(GameServices::rom).thenReturn(null);
+
+                S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s1");
+                assets.loadData();
+
+                var selected = new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17);
+
+                assertFalse(assets.useScaledSelectedSlotIconFrame(selected));
+                assertNull(assets.getSelectedSlotIconFrame(selected));
+                assertNull(assets.getSelectedSlotIconPalette(selected));
+                assertTrue(assets.getSlotIconPatterns(0).length > 0,
+                        "empty runtime preview cache should fall back to the native S3K selected card art");
             }
         }
     }

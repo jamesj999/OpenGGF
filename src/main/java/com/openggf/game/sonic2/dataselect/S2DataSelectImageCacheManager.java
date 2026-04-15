@@ -31,7 +31,7 @@ import java.util.function.Supplier;
  * activated when S3K donation is the active cross-game frontend.</p>
  */
 public class S2DataSelectImageCacheManager {
-    static final int GENERATOR_FORMAT_VERSION = 1;
+    static final int GENERATOR_FORMAT_VERSION = 2;
     private static final String MANIFEST_FILE_NAME = "manifest.json";
     private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
             "ehz", "cpz", "arz", "cnz", "htz", "mcz", "ooz", "mtz", "scz", "wfz", "dez");
@@ -55,8 +55,7 @@ public class S2DataSelectImageCacheManager {
         this.generator = new S2DataSelectImageGenerator(
                 cacheRoot,
                 this::captureFramebuffer,
-                romSha256Supplier,
-                settleFrames());
+                romSha256Supplier);
     }
 
     public synchronized void ensureGenerationStarted() {
@@ -113,10 +112,6 @@ public class S2DataSelectImageCacheManager {
             }
         }
         return true;
-    }
-
-    public int settleFrames() {
-        return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
     }
 
     /**
@@ -183,8 +178,7 @@ public class S2DataSelectImageCacheManager {
     }
 
     private RgbaImage captureFramebuffer(int zoneId,
-                                         S2DataSelectImageGenerator.PreviewCaptureTarget captureTarget,
-                                         int settleFrames) {
+                                         S2DataSelectImageGenerator.PreviewCaptureTarget captureTarget) {
         int[] spawnPoint = new com.openggf.game.sonic2.Sonic2ZoneRegistry().getStartPosition(zoneId, 0);
         int cameraLeftX = captureTarget != null ? captureTarget.cameraLeftX() : spawnPoint[0];
         int centreY = captureTarget != null ? captureTarget.centreY() : spawnPoint[1];

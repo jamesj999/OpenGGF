@@ -51,7 +51,6 @@ public class TestS1DataSelectImageCacheManager {
                 S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION,
                 "0123456789abcdef",
                 "2026-04-14T12:34:56Z",
-                8,
                 Map.of("ghz", "ghz.png"));
 
         JsonNode json = mapper.valueToTree(manifest);
@@ -60,7 +59,7 @@ public class TestS1DataSelectImageCacheManager {
         assertEquals(S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION, json.path("generatorFormatVersion").asInt());
         assertEquals("0123456789abcdef", json.path("romSha256").asText());
         assertEquals("2026-04-14T12:34:56Z", json.path("generatedAt").asText());
-        assertEquals(8, json.path("settleFrames").asInt());
+        assertTrue(json.path("settleFrames").isMissingNode());
         assertEquals("ghz.png", json.path("zones").path("ghz").asText());
     }
 
@@ -202,32 +201,6 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     @Test
-    void settleFramesAcceptsConfiguredPositiveValue() {
-        config.setConfigValue(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
-
-        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
-                tempDir,
-                config,
-                () -> "sha-settle",
-                mapper);
-
-        assertEquals(8, manager.settleFrames());
-    }
-
-    @Test
-    void settleFramesClampsNegativeConfiguredValueToZero() {
-        config.setConfigValue(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, -4);
-
-        S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
-                tempDir,
-                config,
-                () -> "sha-settle-negative",
-                mapper);
-
-        assertEquals(0, manager.settleFrames());
-    }
-
-    @Test
     void constructorDoesNotEagerlyStartGeneration() throws Exception {
         java.util.concurrent.CompletableFuture<RgbaImage> blocked = new java.util.concurrent.CompletableFuture<>();
         try (var donor = org.mockito.Mockito.mockStatic(CrossGameFeatureProvider.class);
@@ -284,13 +257,12 @@ public class TestS1DataSelectImageCacheManager {
             var method = S1DataSelectImageCacheManager.class.getDeclaredMethod(
                     "captureFramebuffer",
                     int.class,
-                    S1DataSelectImageGenerator.PreviewCaptureTarget.class,
-                    int.class);
+                    S1DataSelectImageGenerator.PreviewCaptureTarget.class);
             method.setAccessible(true);
 
             S1DataSelectImageGenerator.PreviewCaptureTarget point =
                     new S1DataSelectImageGenerator.PreviewCaptureTarget(0x180, 0x100);
-            RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point, 3);
+            RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point);
 
             assertSame(captured, result);
             org.mockito.Mockito.verify(levelManager).loadZoneAndAct(
@@ -315,8 +287,7 @@ public class TestS1DataSelectImageCacheManager {
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
                 cacheRoot,
                 captureSource,
-                () -> "romsha",
-                0);
+                () -> "romsha");
 
         generator.generateAll();
 
@@ -342,8 +313,7 @@ public class TestS1DataSelectImageCacheManager {
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
                 cacheRoot,
                 captureSource,
-                () -> "romsha",
-                8);
+                () -> "romsha");
 
         generator.generateAll();
 
@@ -359,8 +329,7 @@ public class TestS1DataSelectImageCacheManager {
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
                 tempDir.resolve("saves/image-cache/s1"),
                 FakeCaptureSource.solidColourImages(320, 224, 7),
-                () -> "romsha",
-                8);
+                () -> "romsha");
 
         assertEquals(
                 new S1DataSelectImageGenerator.PreviewCaptureTarget(8232, 798),
@@ -380,8 +349,7 @@ public class TestS1DataSelectImageCacheManager {
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
                 cacheRoot,
                 captureSource,
-                () -> "romsha",
-                8);
+                () -> "romsha");
 
         assertThrows(IOException.class, generator::generateAll);
         assertFalse(Files.exists(cacheRoot.resolve("manifest.json")));
@@ -410,7 +378,6 @@ public class TestS1DataSelectImageCacheManager {
                 generatorFormatVersion,
                 romSha256,
                 "2026-04-14T12:34:56Z",
-                8,
                 zones);
         mapper.writerWithDefaultPrettyPrinter().writeValue(tempDir.resolve("manifest.json").toFile(), manifest);
     }
@@ -470,7 +437,7 @@ public class TestS1DataSelectImageCacheManager {
         }
 
         @Override
-        public RgbaImage capture(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget capturePoint, int settleFrames)
+        public RgbaImage capture(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget capturePoint)
                 throws IOException {
             capturedZones.add(zoneId);
             capturePoints.add(capturePoint);
