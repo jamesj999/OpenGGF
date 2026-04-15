@@ -1,4 +1,6 @@
-# Headless Test Level Grouping Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** JUnit 4 `@ClassRule` loads ROM + level once per test class. New `TestEnvironment.resetPerTest()` cheaply resets per-test state (sprite, camera, game state) without touching level data. Tests that previously lived in separate classes for the same zone+act merge into single classes.
 
-**Tech Stack:** JUnit 4.13.2 (`@ClassRule`, `@BeforeClass`/`@AfterClass`), existing `RequiresRomRule`/`TestEnvironment` infrastructure.
+**Tech Stack:** Historical JUnit 4 migration context only. Current and new tests must use JUnit 5 / Jupiter only, with the modern extension-based fixture path.
 
 **Design doc:** `docs/plans/2026-02-25-headless-test-level-grouping-design.md`
 

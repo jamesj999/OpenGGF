@@ -19,7 +19,7 @@ Phase 3 decomposes layers 1+2 into ordered `InitStep` lists declared per-game. L
 3. Replace `LevelManager.loadLevel()` body with profile step execution
 4. Validate all tests pass
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 **Design doc:** `docs/plans/2026-02-27-rom-driven-init-profiles-design.md` (Phases A-J for S2, A-L for S1, A-Q for S3K)
 
@@ -87,8 +87,8 @@ A mutable context that accumulates state as load steps execute. Each InitStep's 
 ```java
 package com.openggf.game;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLevelLoadContext {
 

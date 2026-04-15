@@ -51,8 +51,8 @@
 package com.openggf.util;
 
 import com.openggf.level.Pattern;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestPatternDecompressor {
 
@@ -328,13 +328,13 @@ git commit -m "refactor: migrate art loaders to PatternDecompressor utility"
 package com.openggf.util;
 
 import com.openggf.level.objects.SpriteMappingFrame;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestLazyMappingHolder {
 
@@ -670,8 +670,8 @@ git commit -m "refactor: migrate FBO creation to FboHelper utility"
 ```java
 package com.openggf.util;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestAnimationTimer {
 

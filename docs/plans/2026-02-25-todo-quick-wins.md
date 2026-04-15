@@ -6,7 +6,7 @@
 
 **Architecture:** Each TODO has an existing `@Ignore`d test in `TestTodo{N}_*.java`. Implementation follows TDD: remove `@Ignore`, implement the fix, verify test passes.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 ---
 

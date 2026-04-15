@@ -23,8 +23,8 @@
 ```java
 package com.openggf.game.sonic3k;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kPlcArtRegistry {
 

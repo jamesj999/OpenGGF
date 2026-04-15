@@ -29,6 +29,8 @@ A comprehensive user guide is available in [`docs/guide/`](docs/guide/index.md),
 - **Contributors:** [Dev setup](docs/guide/contributing/dev-setup.md), [architecture overview](docs/guide/contributing/architecture.md), [adding zones](docs/guide/contributing/adding-zones.md), [adding bosses](docs/guide/contributing/adding-bosses.md), [audio system](docs/guide/contributing/audio-system.md), [testing](docs/guide/contributing/testing.md), and [trace replay testing](docs/guide/contributing/trace-replay.md).
 - **Cross-referencers:** [68000 primer](docs/guide/cross-referencing/68000-primer.md), [mapping exercises](docs/guide/cross-referencing/mapping-exercises.md), [per-game notes](docs/guide/cross-referencing/per-game-notes.md), and [tooling](docs/guide/cross-referencing/tooling.md).
 
+Contributor tests are JUnit 5 / Jupiter only. JUnit 5 / Jupiter only is a legacy format and must not be used for new or updated tests.
+
 ## Configuration
 
 The engine reads runtime settings from `config.json`. Key bindings can be written either as GLFW
@@ -102,6 +104,8 @@ sound driver.
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
 | Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone is substantially playable, Hydrocity now has early HCZ2 chase coverage, and S3K includes title screen, level select, Knuckles glide/climb, Blue Ball special stages (WIP), bonus-stage parity work, palette cycling, and expanding object/badnik coverage. |
+
+Recent engine work has also moved shared zone behavior onto runtime-owned frameworks: `ZoneRuntimeRegistry`, `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `ScrollEffectComposer`, `SpecialRenderEffectRegistry`, and `AdvancedRenderModeController`. Current retrofit work is focused on uplifting existing Sonic 1 and Sonic 2 logic onto these systems while continuing incremental Sonic 3&K bring-up.
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -193,6 +197,11 @@ further S3K parity work.
 - **Runtime and singleton closure:** the engine-service and singleton-compatibility cleanup
   continued across runtime, render, audio, title, special-stage, and editor paths, with JUnit 5
   annotation-based ROM fixtures now the preferred test path.
+- **Runtime-owned framework stack:** `GameRuntime` now hosts shared systems for typed zone state
+  (`ZoneRuntimeRegistry`), palette ownership (`PaletteOwnershipRegistry`), animated tile channels
+  (`AnimatedTileChannelGraph`), live level edits (`ZoneLayoutMutationPipeline`), deform/parallax
+  reuse (`ScrollEffectComposer`), staged special draw passes (`SpecialRenderEffectRegistry`), and
+  frame-level render-mode control (`AdvancedRenderModeController`).
 - **Configuration and debug UX:** `config.json` key bindings now accept human-readable names such
   as `"SPACE"` and `"F9"`, and the debug/editor overlay text stack now uses the shared pixel-font
   renderer with improved batching and overlap handling.

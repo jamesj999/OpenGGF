@@ -6,7 +6,7 @@
 
 **Architecture:** The runtime-owned gameplay singleton migration is already done. The remaining loophole is the process-global engine-services locator. Complete it in dependency order: first isolate composition roots and shared infrastructure, then sweep game-specific packages by bounded cluster, then remove the bootstrap fallback and tighten guards to an explicit allowlist.
 
-**Tech Stack:** Java, Maven, JUnit 4/5, existing `EngineServices`, `RuntimeManager`, `GameServices`, `ObjectServices`, and module/provider architecture
+**Tech Stack:** Java, Maven, JUnit 5 / Jupiter only, existing `EngineServices`, `RuntimeManager`, `GameServices`, `ObjectServices`, and module/provider architecture
 
 ---
 

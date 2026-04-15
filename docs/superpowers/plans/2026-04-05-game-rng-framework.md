@@ -6,7 +6,7 @@
 
 **Architecture:** Introduce a `GameRng` class that implements the ROM's 32-bit multiply-by-41 + word-fold algorithm. A `Flavour` enum encodes the two known variants (S1/S2 use `0x2A6D365A` reseed with full-long zero check; S3K uses `0x2A6D365B` with low-word-only zero check). Each `GameRuntime` owns a single `GameRng` instance, selected by the active `GameModule` via a new `rngFlavour()` method. Object code reaches the RNG via `services().rng()`; non-object code uses `GameServices.rng()`. A scanner-based migration guard test enforces that gameplay code does not regress into raw `java.util.Random` usage.
 
-**Tech Stack:** Java 21, JUnit 4 (matches rest of `com.openggf.game` test suite), Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only (matches rest of `com.openggf.game` test suite), Maven
 
 **Spec references:**
 - S3K: `docs/skdisasm/sonic3k.asm:2992-3011`
@@ -767,8 +767,8 @@ EOF
 ```java
 package com.openggf.game;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Golden sequence + property tests for GameRng.
