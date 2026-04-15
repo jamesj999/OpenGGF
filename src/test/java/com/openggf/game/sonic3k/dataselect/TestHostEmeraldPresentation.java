@@ -87,6 +87,17 @@ class TestHostEmeraldPresentation {
     }
 
     @Test
+    void s1LayoutActiveCountMatchesPresentationResult() {
+        Rom rom = TestEnvironment.currentRom();
+
+        HostEmeraldPresentation.Result result = HostEmeraldPresentation.forHost("s1", rom);
+
+        assertEquals(6, result.activeEmeraldCount());
+        assertEquals(result.activeEmeraldCount(), result.layout().activeEmeraldCount());
+        assertEquals(7, result.layout().positions().size());
+    }
+
+    @Test
     void composeRetintedPaletteBytes_preservesNativeBrightnessOrderingAndChangesHue() {
         List<HostEmeraldPaletteBuilder.GenesisColour> nativeRamp = List.of(
                 HostEmeraldPaletteBuilder.GenesisColour.fromGenesisWord(0x0EEE),

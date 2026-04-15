@@ -28,7 +28,7 @@ public final class HostEmeraldPresentation {
                 HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
                         HostEmeraldPaletteBuilder.extractS1HostTargets(hostRom),
                         HostEmeraldPaletteBuilder.nativeRamp()),
-                HostEmeraldLayoutProfile.defaultSeven(),
+                HostEmeraldLayoutProfile.defaultSix(),
                 6,
                 true);
     }
