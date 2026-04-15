@@ -8,7 +8,7 @@
 
 **Architecture:** Extend `LevelLoadContext` with checkpoint snapshot fields and a `LevelData` reference. Add `LevelLoadMode.LEVEL_START` (fresh zone/act) and keep `FULL` as the low-level default. Add 5 new profile steps (`RestoreCheckpoint`, `PositionPlayer`, `FinalizeCamera`, `InitLevelEvents`, `ResetSidekick`) to each game's `levelLoadSteps()`. Extract the corresponding logic from `loadCurrentLevel()` into new LevelManager helper methods. `loadCurrentLevel()` shrinks to: populate context → call `loadLevel()` → request title card. Finally, update `HeadlessTestFixture.Builder.build()` to call the same LevelManager helpers (`finalizeCamera()`, `initLevelEvents()`) instead of reimplementing them, so headless tests exercise the same code paths as production.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 ---
 

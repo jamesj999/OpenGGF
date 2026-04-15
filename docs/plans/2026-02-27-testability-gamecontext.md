@@ -1,4 +1,6 @@
-# Testability: GameContext + HeadlessTestFixture Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** GameContext bundles 8 critical-path managers with factory methods (`production()` wraps singletons, `forTesting()` resets in correct order). SharedLevel caches loaded level data for reuse across tests. HeadlessTestFixture provides a builder API that wires everything together. All existing tests remain unchanged -- both patterns coexist.
 
-**Tech Stack:** Java 21, JUnit 4 (existing), no new dependencies
+**Tech Stack:** Java 21, with historical JUnit 4 migration context in this document. Current and new tests must use JUnit 5 / Jupiter only.
 
 ---
 

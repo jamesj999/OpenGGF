@@ -6,7 +6,7 @@
 
 **Architecture:** Two targeted fixes — correct zone ID constants in the event manager, and register Death Egg Robot children with ObjectManager for rendering.
 
-**Tech Stack:** Java 21, JUnit 4, Mockito
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Mockito
 
 ---
 
@@ -22,8 +22,8 @@ Create `src/test/java/com/openggf/game/sonic2/TestDEZEventDispatch.java`:
 ```java
 package com.openggf.game.sonic2;
 
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Verifies zone constants in Sonic2LevelEventManager match

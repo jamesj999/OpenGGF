@@ -6,7 +6,7 @@
 
 **Architecture:** New `WaterDataProvider` interface returned by `GameModule`. Each game implements its own provider. `WaterSystem` becomes game-agnostic, consuming provider data. Dynamic per-frame water behavior is encapsulated in `DynamicWaterHandler` implementations. S2/S1 water is migrated to providers for consistency.
 
-**Tech Stack:** Java 21, JUnit 4, ROM binary data, existing `WaterSystem`/`DrowningController`/`AbstractPlayableSprite` infrastructure.
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, ROM binary data, existing `WaterSystem`/`DrowningController`/`AbstractPlayableSprite` infrastructure.
 
 **Design doc:** `docs/plans/2026-02-28-s3k-water-system-design.md`
 
@@ -330,11 +330,11 @@ feat: add game-agnostic loadForLevelFromProvider and updateDynamic to WaterSyste
 package com.openggf.game;
 
 import com.openggf.level.WaterSystem;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestThresholdTableWaterHandler {
 
@@ -486,9 +486,9 @@ public static final int STARTING_WATER_HEIGHTS_ADDR = 0x...; // StartingWaterHei
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.PlayerCharacter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests S3K water zone detection and starting heights.
@@ -716,9 +716,9 @@ package com.openggf.game.sonic3k;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.WaterSystem;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic3kDynamicWaterHandlers {
 
@@ -949,9 +949,9 @@ Aiz2DynamicWaterHandler for AIZ2 state machine (drop/rise triggers).
 package com.openggf.game.sonic2;
 
 import com.openggf.game.PlayerCharacter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Regression test: S2 water detection matches original WaterSystem behavior.
@@ -1034,9 +1034,9 @@ feat: migrate S2 water to Sonic2WaterDataProvider
 package com.openggf.game.sonic1;
 
 import com.openggf.game.PlayerCharacter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSonic1WaterDataProvider {
 

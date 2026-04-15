@@ -1,4 +1,6 @@
-# S3K Slot Machine Bonus Stage Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** Keep Slots in a dedicated `com.openggf.game.sonic3k.bonusstage.slots` runtime owned by `Sonic3kBonusStageCoordinator`. `GameLoop` continues to own title-card, fade, load, and exit sequencing; the slot runtime owns stage bootstrap, main-player replacement, reel/option state, cage control, reward objects, and layout rendering.
 
-**Tech Stack:** Java 17, Maven, JUnit 4/5, existing `SpriteManager` / `LevelFrameStep` / `ObjectManager` runtime, S3K ROM/disassembly data, headless fixture tests.
+**Tech Stack:** Java 17, Maven, existing `SpriteManager` / `LevelFrameStep` / `ObjectManager` runtime, S3K ROM/disassembly data, and headless fixture tests. Current and new tests must use JUnit 5 / Jupiter only; any JUnit 4 references below are historical migration context.
 
 ---
 
