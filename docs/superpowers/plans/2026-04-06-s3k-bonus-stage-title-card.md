@@ -26,9 +26,9 @@ Create `src/test/java/com/openggf/game/sonic3k/titlecard/TestSonic3kBonusTitleCa
 package com.openggf.game.sonic3k.titlecard;
 
 import com.openggf.game.titlecard.TitleCardMappings;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verifies bonus title card mapping frames match Map - Title Card.asm lines 204-215.
@@ -213,10 +213,10 @@ Create `src/test/java/com/openggf/game/sonic3k/titlecard/TestSonic3kBonusTitleCa
 ```java
 package com.openggf.game.sonic3k.titlecard;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests bonus mode behavior in Sonic3kTitleCardManager.
@@ -226,7 +226,7 @@ public class TestSonic3kBonusTitleCard {
 
     private Sonic3kTitleCardManager manager;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         manager = Sonic3kTitleCardManager.getInstance();
         manager.reset();

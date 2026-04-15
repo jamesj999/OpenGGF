@@ -51,12 +51,15 @@
   "SIDEKICK_CHARACTER_CODE": "",
   "SONIC_1_ROM": "Sonic The Hedgehog (W) (REV01) [!].gen",
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
-  "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
+  "SONIC_3K_ROM": "Sonic and Knuckles & Sonic 3 (W) [!].gen",
   "DEFAULT_ROM": "s3k",
   "TITLE_SCREEN_ON_STARTUP": false,
   "LEVEL_SELECT_ON_STARTUP": true,
   "MASTER_TITLE_SCREEN_ON_STARTUP": false,
   "CROSS_GAME_FEATURES_ENABLED": false,
+  "CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE": false,
+  "CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES": 8,
   "CROSS_GAME_SOURCE": "s3k",
-  "S3K_SKIP_INTROS": false
+  "S3K_SKIP_INTROS": false,
+  "DATA_SELECT_EXTRA_PLAYER_COMBOS": ""
 }

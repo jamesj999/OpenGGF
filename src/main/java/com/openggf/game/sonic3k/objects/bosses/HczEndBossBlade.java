@@ -6,7 +6,6 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
-import com.openggf.level.objects.ObjectConstructionContext;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -587,12 +586,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private void spawnSplash() {
         try {
             final int splashX = currentX;
-            ObjectConstructionContext.setConstructionContext(services());
-            try {
-                boss.spawnDynamicChild(() -> new HczEndBossBladeSplash(boss, splashX));
-            } finally {
-                ObjectConstructionContext.clearConstructionContext();
-            }
+            spawnChild(() -> new HczEndBossBladeSplash(boss, splashX));
             LOG.fine(() -> "HCZ End Boss Blade: spawned water splash at x=" + splashX);
         } catch (Exception e) {
             LOG.fine(() -> "HczEndBossBlade.spawnSplash: " + e.getMessage());
@@ -612,13 +606,8 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         for (int i = 0; i < 5; i++) {
             final int slotIndex = i;
             try {
-                ObjectConstructionContext.setConstructionContext(services());
-                try {
-                    boss.spawnDynamicChild(() ->
-                            new HczEndBossBladeWaterChute(boss, chuteX, slotIndex));
-                } finally {
-                    ObjectConstructionContext.clearConstructionContext();
-                }
+                spawnChild(() ->
+                        new HczEndBossBladeWaterChute(boss, chuteX, slotIndex));
             } catch (Exception e) {
                 LOG.fine(() -> "HczEndBossBlade.spawnWaterChute[" + slotIndex + "]: "
                         + e.getMessage());

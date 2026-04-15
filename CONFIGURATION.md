@@ -48,12 +48,30 @@ Paths are relative to the working directory (where the JAR is launched).
 
 ---
 
+## Cross-Game Donation
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `CROSS_GAME_FEATURES_ENABLED` | bool | `false` | Enable cross-game feature donation. When `false`, each game uses only its own native frontend and gameplay assets. |
+| `CROSS_GAME_SOURCE` | string | `"s2"` | Donor game for cross-game features. Currently supports `"s2"` and `"s3k"`. |
+| `CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE` | bool | `false` | Force regeneration of the runtime Sonic 1 donated Data Select screenshot cache on the next eligible boot. |
+| `CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE` | bool | `false` | Force regeneration of the runtime Sonic 2 donated Data Select screenshot cache on the next eligible boot. |
+
+### Cross-Game Debug Key
+
+| Key | Default | Key Name | Description |
+|-----|---------|----------|-------------|
+| `CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY` | `39` | Apostrophe | While playing Sonic 1, log the current camera as a preview override point for donated Data Select screenshot tuning. |
+
+---
+
 ## Characters
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `MAIN_CHARACTER_CODE` | string | `"sonic"` | Identity of the player-controlled character. Currently only `"sonic"` is supported. |
 | `SIDEKICK_CHARACTER_CODE` | string | `""` | CPU-controlled sidekick spawned alongside the main character. Set to `"tails"` to enable Tails AI, `"sonic"` to clone the player, or `""` (empty) to disable. |
+| `DATA_SELECT_EXTRA_PLAYER_COMBOS` | string | `""` | Extra team combinations shown on the S3K Data Select screen. Format is `main,sidekick1,sidekick2;main2,sidekick1`. The first character in each group is the main character; remaining entries are sidekicks. Example: `"sonic,knuckles;sonic,tails,tails;knuckles,tails"`. This only affects Data Select team choices; normal gameplay and Level Select still use `MAIN_CHARACTER_CODE` and `SIDEKICK_CHARACTER_CODE`. |
 
 ---
 

@@ -408,6 +408,19 @@ public class CollisionSystem {
 
     public void resolveAirCollision(AbstractPlayableSprite sprite,
                                     Consumer<AbstractPlayableSprite> landingHandler) {
+        resolveAirCollision(sprite, landingHandler, false);
+    }
+
+    /**
+     * @param forceFloorCheck when true, floor collision in quadrants 0x40 and
+     *     0xC0 runs even when ySpeed &lt; 0.  ROM equivalent: the
+     *     {@code WindTunnel_flag} check at sonic3k.asm:24204/24299 bypasses
+     *     the {@code tst.w y_vel} early return so floor terrain always
+     *     constrains the player inside HCZ water tunnels.
+     */
+    public void resolveAirCollision(AbstractPlayableSprite sprite,
+                                    Consumer<AbstractPlayableSprite> landingHandler,
+                                    boolean forceFloorCheck) {
         int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
         switch (quadrant) {
             case 0x00 -> {
@@ -422,7 +435,7 @@ public class CollisionSystem {
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler);
+                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
             case 0x80 -> {
@@ -437,7 +450,7 @@ public class CollisionSystem {
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler);
+                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
             default -> {
@@ -477,11 +490,19 @@ public class CollisionSystem {
      * Air terrain landing WITHOUT the speed-dependent threshold check.
      * ROM: quadrants 0x40 and 0xC0 skip the threshold — they land whenever
      * d1 < 0 (floor detected above Sonic's foot sensors).
+     *
+     * @param forceFloorCheck when true, bypasses the {@code ySpeed < 0} early
+     *     return.  ROM: {@code WindTunnel_flag} at sonic3k.asm:24204/24299
+     *     gates this — when set, the floor check runs regardless of y velocity
+     *     direction, keeping the player constrained inside HCZ water tunnels.
      */
     private void doTerrainCollisionAirDirect(AbstractPlayableSprite sprite,
                                               SensorResult[] results,
-                                              Consumer<AbstractPlayableSprite> landingHandler) {
-        if (sprite.getYSpeed() < 0) {
+                                              Consumer<AbstractPlayableSprite> landingHandler,
+                                              boolean forceFloorCheck) {
+        // ROM: tst.b (WindTunnel_flag).w / bne.s loc_12148
+        //      tst.w y_vel(a0) / bmi.s locret_12170
+        if (!forceFloorCheck && sprite.getYSpeed() < 0) {
             return;
         }
 

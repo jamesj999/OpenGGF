@@ -22,6 +22,7 @@ import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
@@ -277,6 +278,9 @@ public interface ObjectServices {
      * big ring special stage (ROM: Save_Level_Data2 -> Saved2_* variables).
      */
     void saveBigRingReturn(BigRingReturnState state);
+
+    /** Requests a save at an exact gameplay write point. */
+    void requestSessionSave(SaveReason reason);
 
     // --- Game-specific providers ---
 

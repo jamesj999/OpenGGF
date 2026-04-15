@@ -30,6 +30,8 @@ import com.openggf.level.scroll.M68KMath;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,7 +59,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
     };
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
-    private boolean forcedAizForestFrontPriority;
+    private final Set<AbstractPlayableSprite> forcedAizForestFrontPrioritySprites = new HashSet<>();
     private S3kSlotMachinePanelAnimator slotMachinePanelAnimator;
 
     @Override
@@ -89,6 +91,13 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
         updateAizForestFrontPriority(player, zoneIndex);
+        var spriteManager = GameServices.spritesOrNull();
+        if (spriteManager == null) {
+            return;
+        }
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            updateAizForestFrontPriority(sidekick, zoneIndex);
+        }
     }
 
     /**
@@ -127,14 +136,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (forestFrontPhaseActive || bossArenaFrontPriority || postBossCutsceneActive) {
             player.setHighPriority(true);
             player.setPriorityBucket(RenderPriority.MIN);
-            forcedAizForestFrontPriority = true;
+            forcedAizForestFrontPrioritySprites.add(player);
             return;
         }
 
-        if (forcedAizForestFrontPriority && canReleaseAizForestFrontPriority(player)) {
+        if (forcedAizForestFrontPrioritySprites.contains(player)
+                && canReleaseAizForestFrontPriority(player)) {
             player.setHighPriority(false);
             player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
-            forcedAizForestFrontPriority = false;
+            forcedAizForestFrontPrioritySprites.remove(player);
         }
     }
 
@@ -160,7 +170,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         aizBattleshipRenderFeature.reset();
         aizTransitionRenderFeature.reset();
         waterSurfaceManager = null;
-        forcedAizForestFrontPriority = false;
+        forcedAizForestFrontPrioritySprites.clear();
         if (slotMachinePanelAnimator != null) {
             slotMachinePanelAnimator.cleanup();
             slotMachinePanelAnimator = null;

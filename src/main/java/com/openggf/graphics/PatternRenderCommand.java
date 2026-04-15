@@ -45,8 +45,10 @@ public class PatternRenderCommand implements GLCommandable {
     private boolean vFlip;
     private boolean piecePriority; // VDP per-tile priority from PatternDesc bit 15
     private boolean capturedGlobalHighPriority;
-    private int x;
-    private int y;
+    private float x;
+    private float y;
+    private float width;
+    private float height;
     private GraphicsManager graphicsManager;
 
     // Static state tracking for batch optimization
@@ -80,11 +82,16 @@ public class PatternRenderCommand implements GLCommandable {
 
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc,
             int x, int y, GraphicsManager graphicsManager) {
+        return obtain(entry, paletteTextureId, desc, (float) x, (float) y, 8f, 8f, graphicsManager);
+    }
+
+    public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc,
+            float x, float y, float width, float height, GraphicsManager graphicsManager) {
         PatternRenderCommand cmd = pool.pollFirst();
         if (cmd == null) {
             cmd = new PatternRenderCommand();
         }
-        cmd.init(entry, paletteTextureId, desc, x, y, graphicsManager);
+        cmd.init(entry, paletteTextureId, desc, x, y, width, height, graphicsManager);
         return cmd;
     }
 
@@ -103,10 +110,11 @@ public class PatternRenderCommand implements GLCommandable {
     @Deprecated
     public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y,
             GraphicsManager graphicsManager) {
-        init(entry, paletteTextureId, desc, x, y, graphicsManager);
+        init(entry, paletteTextureId, desc, x, y, 8f, 8f, graphicsManager);
     }
 
-    private void init(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y,
+    private void init(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, float x, float y,
+            float width, float height,
             GraphicsManager graphicsManager) {
         this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
         this.paletteTextureId = paletteTextureId;
@@ -121,10 +129,12 @@ public class PatternRenderCommand implements GLCommandable {
         this.piecePriority = desc.getPriority();
         this.capturedGlobalHighPriority = graphicsManager.getCurrentSpriteHighPriority();
         this.x = x;
+        this.width = width;
+        this.height = height;
         // Genesis Y refers to the TOP of the pattern, so we subtract the pattern height
-        // (8)
         // to get the OpenGL Y coordinate for the bottom of the quad
-        this.y = resolveDisplayHeight(graphicsManager) - y - 8;
+        // width/height are allowed to vary for scaled host preview rendering.
+        this.y = resolveDisplayHeight(graphicsManager) - y - height;
     }
 
     /**
@@ -270,9 +280,9 @@ public class PatternRenderCommand implements GLCommandable {
 
         // Bottom-left, bottom-right, top-right, top-left
         float x0 = screenX;
-        float x1 = screenX + 8;
+        float x1 = screenX + width;
         float y0 = screenY;
-        float y1 = screenY + 8;
+        float y1 = screenY + height;
 
         // Apply horizontal flip by swapping left/right
         if (hFlip) {

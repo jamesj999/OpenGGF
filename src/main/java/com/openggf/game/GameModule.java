@@ -4,6 +4,8 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
@@ -210,6 +212,36 @@ public interface GameModule {
      */
     default TitleScreenProvider getTitleScreenProvider() {
         return NoOpTitleScreenProvider.INSTANCE;
+    }
+
+    /**
+     * Returns the data select provider for this game.
+     * Provides the save file selection screen (S3K-style).
+     *
+     * @return the data select provider
+     */
+    default DataSelectProvider getDataSelectProvider() {
+        return getDataSelectPresentationProvider();
+    }
+
+    /** Returns the presentation provider used to render and update data select. */
+    default DataSelectPresentationProvider getDataSelectPresentationProvider() {
+        return new DataSelectPresentationProvider(ignored -> NoOpDataSelectProvider.INSTANCE, null);
+    }
+
+    /** Returns the host-owned data select profile for this game, if supported. */
+    default DataSelectHostProfile getDataSelectHostProfile() {
+        return null;
+    }
+
+    /**
+     * Returns the save snapshot provider for this game.
+     * Captures game-specific state into a map for save file serialization.
+     *
+     * @return the save snapshot provider
+     */
+    default com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return (reason, ctx) -> java.util.Map.of();
     }
 
     /**

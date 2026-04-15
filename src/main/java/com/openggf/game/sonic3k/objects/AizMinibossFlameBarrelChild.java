@@ -57,6 +57,9 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     private int mappingFrame = 3;
     private int cutsceneCounter;
     private int animIndex;
+    /** ROM: $39(a0) on the barrel — per-barrel counter for drop position cycling.
+     *  Incremented by 4 each time a shot enters the top-drop phase (sub_68EE4). */
+    private int positionCounter;
 
     public AizMinibossFlameBarrelChild(AbstractBossInstance parent, int barrelIndex, boolean cutsceneVariant) {
         super(parent, "AIZMinibossBarrel" + barrelIndex, 4, 0x90);
@@ -207,7 +210,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         objectManager.addDynamicObject(
                 new AizMinibossBarrelShotFlareChild(this));
         objectManager.addDynamicObject(
-                new AizMinibossBarrelShotChild(parent, barrelIndex << 1, currentX, currentY + 4, mode));
+                new AizMinibossBarrelShotChild(parent, this, currentX, currentY + 4, mode));
     }
 
     private void enterClosingAnimation() {
@@ -216,6 +219,21 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
         mappingFrame = CLOSE_FRAMES[0];
         timer = CLOSE_DURATIONS[0];
         state = State.CLOSING;
+    }
+
+    /** ROM: subtype(a1) — barrel subtype used by shots for position selection. */
+    int getBarrelSubtype() {
+        return barrelIndex * 2;
+    }
+
+    /** ROM: $39(a1) — per-barrel position counter read by shots. */
+    int getPositionCounter() {
+        return positionCounter;
+    }
+
+    /** ROM: addq.b #4,d1 / move.b d1,$39(a1) — shots update the barrel's counter. */
+    void setPositionCounter(int value) {
+        this.positionCounter = value & 0xFF;
     }
 
     private boolean isActivatedByParent() {

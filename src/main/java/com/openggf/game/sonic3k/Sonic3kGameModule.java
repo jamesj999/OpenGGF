@@ -35,13 +35,19 @@ import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
+import com.openggf.game.sonic3k.dataselect.S3kSaveSnapshotProvider;
 import com.openggf.game.sonic3k.titlescreen.Sonic3kTitleScreenManager;
+import com.openggf.game.DataSelectProvider;
 import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.levelselect.Sonic3kLevelSelectManager;
 import com.openggf.game.GameId;
 import com.openggf.game.GameRng;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.dataselect.DataSelectHostProfile;
+import com.openggf.game.dataselect.DataSelectPresentationProvider;
+import com.openggf.game.dataselect.DataSelectSessionController;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
@@ -67,6 +73,9 @@ public class Sonic3kGameModule implements GameModule {
     private final Sonic3kZoneRegistry zoneRegistry = new Sonic3kZoneRegistry();
     private final Sonic3kTitleScreenManager titleScreenProvider = new Sonic3kTitleScreenManager();
     private final Sonic3kLevelSelectManager levelSelectProvider = new Sonic3kLevelSelectManager();
+    private final com.openggf.game.sonic3k.dataselect.S3kDataSelectProfile dataSelectHostProfile =
+            new com.openggf.game.sonic3k.dataselect.S3kDataSelectProfile();
+    private DataSelectPresentationProvider dataSelectPresentationProvider;
     private final com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager specialStageManager =
             new com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager();
     private final Sonic3kSpecialStageProvider specialStageProvider =
@@ -179,6 +188,30 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
         return levelSelectProvider;
+    }
+
+    @Override
+    public DataSelectProvider getDataSelectProvider() {
+        return getDataSelectPresentationProvider();
+    }
+
+    @Override
+    public DataSelectPresentationProvider getDataSelectPresentationProvider() {
+        if (dataSelectPresentationProvider == null) {
+            dataSelectPresentationProvider = new DataSelectPresentationProvider(S3kDataSelectManager::new,
+                    new DataSelectSessionController(dataSelectHostProfile));
+        }
+        return dataSelectPresentationProvider;
+    }
+
+    @Override
+    public DataSelectHostProfile getDataSelectHostProfile() {
+        return dataSelectHostProfile;
+    }
+
+    @Override
+    public com.openggf.game.save.SaveSnapshotProvider getSaveSnapshotProvider() {
+        return new S3kSaveSnapshotProvider();
     }
 
     @Override

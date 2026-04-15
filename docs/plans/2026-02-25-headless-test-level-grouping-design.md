@@ -1,4 +1,6 @@
-# Headless Test Level Grouping Design
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 **Date:** 2026-02-25
 **Goal:** Reduce test suite execution time by eliminating redundant level loads across headless tests.

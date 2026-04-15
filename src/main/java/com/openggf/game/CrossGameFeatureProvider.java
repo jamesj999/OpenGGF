@@ -23,6 +23,7 @@ import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
@@ -104,7 +105,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         this.donorGameId = GameId.fromCode(donorGameCode);
 
         // Same-game guard: disable donation when donor == host
-        GameId hostId = GameServices.module().getGameId();
+        GameId hostId = resolveHostGameId();
         if (donorGameId == hostId) {
             LOGGER.info("Donor same as host (" + donorGameId.code() + "), donation disabled");
             active = false;
@@ -138,11 +139,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = configService().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        Palette charPalette = loadCharacterPalette(mainChar);
-        if (charPalette != null) {
-            donorRenderContext.setPalette(0, charPalette);
-        }
+        syncDonorRenderPalette(ActiveGameplayTeamResolver.resolveMainCharacterCode(configService()));
 
         initializeDonorAudio();
         loadInstaShieldArt();
@@ -158,8 +155,18 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return instance != null && instance.active;
     }
 
+    /**
+     * Returns true if the cross-game feature provider is active and the donor
+     * game is Sonic 3&amp;K. Used to gate features that require S3K donation
+     * specifically (e.g., donated data select presentation).
+     */
+    public static boolean isS3kDonorActive() {
+        return isActive() && instance.donorGameId == GameId.S3K;
+    }
+
     @Override
     public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
+        syncDonorRenderPalette(characterCode);
         if (donorCapabilities == null) {
             return null;
         }
@@ -285,6 +292,16 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return donorRenderContext;
     }
 
+    private void syncDonorRenderPalette(String characterCode) {
+        if (donorRenderContext == null) {
+            return;
+        }
+        Palette charPalette = loadCharacterPalette(characterCode);
+        if (charPalette != null) {
+            donorRenderContext.setPalette(0, charPalette);
+        }
+    }
+
     /**
      * Initializes donor audio: creates a donor SmpsLoader and DacData from
      * the donor ROM, then registers all donor sounds with AudioManager.
@@ -381,6 +398,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     public void close() {
+        donorGameId = null;
         donorReader = null;
         s2PlayerArt = null;
         s3kPlayerArt = null;
@@ -394,6 +412,13 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         instaShieldArtSet = null;
         donorCapabilities = null;
         active = false;
+    }
+
+    private GameId resolveHostGameId() {
+        if (GameServices.hasRuntime()) {
+            return GameServices.module().getGameId();
+        }
+        return RuntimeManager.resolveCurrentOrBootstrapGameModule().getGameId();
     }
 
     /**
