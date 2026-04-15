@@ -48,7 +48,7 @@ public class TestS1DataSelectImageCacheManager {
     void manifestContractSerializesExpectedFields() throws Exception {
         S1DataSelectImageManifest manifest = new S1DataSelectImageManifest(
                 AppVersion.get(),
-                1,
+                S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION,
                 "0123456789abcdef",
                 "2026-04-14T12:34:56Z",
                 8,
@@ -57,7 +57,7 @@ public class TestS1DataSelectImageCacheManager {
         JsonNode json = mapper.valueToTree(manifest);
 
         assertEquals(AppVersion.get(), json.path("engineVersion").asText());
-        assertEquals(1, json.path("generatorFormatVersion").asInt());
+        assertEquals(S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION, json.path("generatorFormatVersion").asInt());
         assertEquals("0123456789abcdef", json.path("romSha256").asText());
         assertEquals("2026-04-14T12:34:56Z", json.path("generatedAt").asText());
         assertEquals(8, json.path("settleFrames").asInt());
@@ -118,7 +118,8 @@ public class TestS1DataSelectImageCacheManager {
 
     @Test
     void cacheInvalidWhenGeneratorFormatVersionDoesNotMatch() throws Exception {
-        writeManifest("sha-format", writeZoneSet(), AppVersion.get(), 2);
+        writeManifest("sha-format", writeZoneSet(), AppVersion.get(),
+                S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION + 1);
 
         S1DataSelectImageCacheManager manager = new S1DataSelectImageCacheManager(
                 tempDir,
@@ -283,18 +284,21 @@ public class TestS1DataSelectImageCacheManager {
             var method = S1DataSelectImageCacheManager.class.getDeclaredMethod(
                     "captureFramebuffer",
                     int.class,
-                    S1DataSelectImageGenerator.PreviewCapturePoint.class,
+                    S1DataSelectImageGenerator.PreviewCaptureTarget.class,
                     int.class);
             method.setAccessible(true);
 
-            S1DataSelectImageGenerator.PreviewCapturePoint point = new S1DataSelectImageGenerator.PreviewCapturePoint(0x180, 0x100);
+            S1DataSelectImageGenerator.PreviewCaptureTarget point =
+                    new S1DataSelectImageGenerator.PreviewCaptureTarget(0x180, 0x100);
             RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point, 3);
 
             assertSame(captured, result);
             org.mockito.Mockito.verify(levelManager).loadZoneAndAct(Sonic1ZoneConstants.ZONE_GHZ, 0);
-            org.mockito.Mockito.verify(camera).setX((short) (0x180 - 152));
+            org.mockito.Mockito.verify(camera).setX((short) 0x180);
             org.mockito.Mockito.verify(camera).setY((short) (0x100 - 96));
-            org.mockito.Mockito.verify(levelManager).drawWithSpritePriority(null, false);
+            org.mockito.Mockito.verify(levelManager).drawWithRenderOptions(
+                    null,
+                    com.openggf.level.LevelManager.LevelRenderOptions.previewCapture());
             org.mockito.Mockito.verify(graphicsManager).flush();
             screenshot.verify(() -> ScreenshotCapture.captureFramebufferRegion(10, 20, 640, 448));
             org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).updatePosition(true);
@@ -329,7 +333,7 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     @Test
-    void captureTargetFallsBackToSpawnWhenOverrideMapIsEmpty() throws Exception {
+    void captureTargetFallsBackToSpawnLeftEdgeWhenOverrideMapIsEmpty() throws Exception {
         Path cacheRoot = tempDir.resolve("saves/image-cache/s1");
         FakeCaptureSource captureSource = FakeCaptureSource.solidColourImages(320, 224, 7);
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
@@ -341,9 +345,9 @@ public class TestS1DataSelectImageCacheManager {
         generator.generateAll();
 
         assertFalse(captureSource.capturePoints().isEmpty());
-        S1DataSelectImageGenerator.PreviewCapturePoint point = captureSource.capturePoints().getFirst();
+        S1DataSelectImageGenerator.PreviewCaptureTarget point = captureSource.capturePoints().getFirst();
         int[] spawn = new Sonic1ZoneRegistry().getStartPosition(Sonic1ZoneConstants.ZONE_GHZ, 0);
-        assertEquals(spawn[0], point.centreX());
+        assertEquals(spawn[0], point.cameraLeftX());
         assertEquals(spawn[1], point.centreY());
     }
 
@@ -370,11 +374,11 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones) throws IOException {
-        writeManifest(romSha256, zones, AppVersion.get(), 1);
+        writeManifest(romSha256, zones, AppVersion.get(), S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION);
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones, String engineVersion) throws IOException {
-        writeManifest(romSha256, zones, engineVersion, 1);
+        writeManifest(romSha256, zones, engineVersion, S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION);
     }
 
     private void writeManifest(String romSha256, Map<String, String> zones, String engineVersion,
@@ -416,7 +420,7 @@ public class TestS1DataSelectImageCacheManager {
         private final Map<Integer, RgbaImage> images;
         private final int failZone;
         private final List<Integer> capturedZones = new ArrayList<>();
-        private final List<S1DataSelectImageGenerator.PreviewCapturePoint> capturePoints = new ArrayList<>();
+        private final List<S1DataSelectImageGenerator.PreviewCaptureTarget> capturePoints = new ArrayList<>();
 
         private FakeCaptureSource(Map<Integer, RgbaImage> images, int failZone) {
             this.images = images;
@@ -439,12 +443,12 @@ public class TestS1DataSelectImageCacheManager {
             return capturedZones;
         }
 
-        List<S1DataSelectImageGenerator.PreviewCapturePoint> capturePoints() {
+        List<S1DataSelectImageGenerator.PreviewCaptureTarget> capturePoints() {
             return capturePoints;
         }
 
         @Override
-        public RgbaImage capture(int zoneId, S1DataSelectImageGenerator.PreviewCapturePoint capturePoint, int settleFrames)
+        public RgbaImage capture(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget capturePoint, int settleFrames)
                 throws IOException {
             capturedZones.add(zoneId);
             capturePoints.add(capturePoint);

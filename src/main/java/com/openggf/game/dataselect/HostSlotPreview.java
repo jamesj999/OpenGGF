@@ -24,6 +24,10 @@ public record HostSlotPreview(HostSlotPreviewType type, String zoneLabelText, In
         return new HostSlotPreview(HostSlotPreviewType.NUMBERED_ZONE, null, zoneDisplayNumber);
     }
 
+    public static HostSlotPreview image(String zoneLabelText) {
+        return new HostSlotPreview(HostSlotPreviewType.IMAGE, zoneLabelText, null);
+    }
+
     public enum HostSlotPreviewType {
         /** Render zone name as text only (no zone card image). */
         TEXT_ONLY,

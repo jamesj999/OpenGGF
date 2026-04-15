@@ -471,6 +471,47 @@ class TestS3kDataSelectPresentation {
     }
 
     @Test
+    void donatedS1Host_draw_buildsSelectedSlotIconFromHostZone() throws Exception {
+        SaveManager saveManager = new SaveManager(root);
+        saveManager.writeSlot("s1", 1, java.util.Map.of(
+                "zone", 0,
+                "act", 0,
+                "mainCharacter", "sonic",
+                "sidekicks", List.of(),
+                "lives", 5,
+                "chaosEmeralds", List.of(0, 1, 2),
+                "clear", false
+        ));
+
+        RecordingAssets assets = new RecordingAssets(0x2A);
+        RecordingRenderer renderer = new RecordingRenderer();
+        DataSelectSessionController controller = new DataSelectSessionController(new S1DataSelectProfile());
+
+        S3kDataSelectPresentation presentation = new S3kDataSelectPresentation(
+                controller,
+                saveManager,
+                RuntimeManager.currentEngineServices().configuration(),
+                assets,
+                renderer,
+                ignored -> {
+                });
+
+        presentation.initialize();
+
+        InputHandler input = new InputHandler();
+        int rightKey = RuntimeManager.currentEngineServices().configuration().getInt(SonicConfiguration.RIGHT);
+        input.handleKeyEvent(rightKey, GLFW_PRESS);
+        presentation.update(input);
+        settleHorizontalMove(presentation);
+        presentation.draw();
+
+        assertNotNull(renderer.lastObjectState.selectedSlotIcon(),
+                "donated S1 saves should advertise a host-owned selected zone preview image");
+        assertEquals(0, renderer.lastObjectState.selectedSlotIcon().iconIndex());
+        assertFalse(renderer.lastObjectState.selectedSlotIcon().finishCard());
+    }
+
+    @Test
     void donatedS2Host_draw_usesIndividualEmeraldFramesFromChaosList() throws Exception {
         SaveManager saveManager = new SaveManager(root);
         saveManager.writeSlot("s2", 1, java.util.Map.of(

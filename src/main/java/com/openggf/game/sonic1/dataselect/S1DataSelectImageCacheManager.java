@@ -16,13 +16,15 @@ import com.openggf.version.AppVersion;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class S1DataSelectImageCacheManager {
-	static final int GENERATOR_FORMAT_VERSION = 1;
+	static final int GENERATOR_FORMAT_VERSION = 2;
 	private static final String MANIFEST_FILE_NAME = "manifest.json";
 	private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
 			"ghz",
@@ -106,6 +108,33 @@ public class S1DataSelectImageCacheManager {
 		return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
 	}
 
+	public Map<Integer, RgbaImage> loadCachedPreviews() {
+		if (!cacheValid()) {
+			return Map.of();
+		}
+		S1DataSelectImageManifest manifest = readManifest();
+		if (manifest == null || manifest.zones() == null) {
+			return Map.of();
+		}
+		Map<Integer, RgbaImage> previews = new LinkedHashMap<>();
+		for (int zoneId : S1DataSelectImageGenerator.supportedZoneIds()) {
+			String zoneKey = S1DataSelectImageGenerator.zoneKeyForZoneId(zoneId);
+			if (zoneKey == null) {
+				return Map.of();
+			}
+			String relativePath = manifest.zones().get(zoneKey);
+			if (relativePath == null || relativePath.isBlank()) {
+				return Map.of();
+			}
+			try {
+				previews.put(zoneId, ScreenshotCapture.loadPNG(cacheRoot.resolve(relativePath)));
+			} catch (IOException e) {
+				return Map.of();
+			}
+		}
+		return Map.copyOf(previews);
+	}
+
 	private synchronized void startGenerationIfEligible() {
 		if (!isEligibleForDonatedS3k()) {
 			return;
@@ -139,20 +168,20 @@ public class S1DataSelectImageCacheManager {
 		return CrossGameFeatureProvider.isS3kDonorActive();
 	}
 
-	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCapturePoint capturePoint,
+	private RgbaImage captureFramebuffer(int zoneId, S1DataSelectImageGenerator.PreviewCaptureTarget captureTarget,
 			int settleFrames) {
 		int[] spawnPoint = new com.openggf.game.sonic1.Sonic1ZoneRegistry().getStartPosition(zoneId, 0);
-		int centreX = capturePoint != null ? capturePoint.centreX() : spawnPoint[0];
-		int centreY = capturePoint != null ? capturePoint.centreY() : spawnPoint[1];
+		int cameraLeftX = captureTarget != null ? captureTarget.cameraLeftX() : spawnPoint[0];
+		int centreY = captureTarget != null ? captureTarget.centreY() : spawnPoint[1];
 		GraphicsManager graphics = RuntimeManager.currentEngineServices().graphics();
 		return graphics
 				.submitRenderThreadTask(() -> {
 					LevelManager levelManager = GameServices.level();
 					levelManager.loadZoneAndAct(zoneId, 0);
 					Camera camera = GameServices.camera();
-					camera.setX((short) (centreX - 152));
-					camera.setY((short) (centreY - 96));
-					levelManager.drawWithSpritePriority(null, false);
+					camera.setX((short) Math.max(camera.getMinX(), cameraLeftX));
+					camera.setY((short) Math.max(camera.getMinY(), centreY - 96));
+					levelManager.drawWithRenderOptions(null, LevelManager.LevelRenderOptions.previewCapture());
 					graphics.flush();
 					int viewportX = graphics.getViewportX();
 					int viewportY = graphics.getViewportY();
