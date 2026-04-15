@@ -23,6 +23,7 @@ import com.openggf.game.sonic2.audio.Sonic2AudioProfile;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
@@ -138,11 +139,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = configService().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        Palette charPalette = loadCharacterPalette(mainChar);
-        if (charPalette != null) {
-            donorRenderContext.setPalette(0, charPalette);
-        }
+        syncDonorRenderPalette(ActiveGameplayTeamResolver.resolveMainCharacterCode(configService()));
 
         initializeDonorAudio();
         loadInstaShieldArt();
@@ -169,6 +166,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
     @Override
     public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
+        syncDonorRenderPalette(characterCode);
         if (donorCapabilities == null) {
             return null;
         }
@@ -292,6 +290,16 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
     public RenderContext getDonorRenderContext() {
         return donorRenderContext;
+    }
+
+    private void syncDonorRenderPalette(String characterCode) {
+        if (donorRenderContext == null) {
+            return;
+        }
+        Palette charPalette = loadCharacterPalette(characterCode);
+        if (charPalette != null) {
+            donorRenderContext.setPalette(0, charPalette);
+        }
     }
 
     /**

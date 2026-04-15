@@ -43,6 +43,7 @@ import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
@@ -532,7 +533,10 @@ public class Engine {
 	}
 
 	private boolean maybeGenerateDonatedDataSelectImagesBeforeStartupMode(GameModule module) {
-		if (module == null || !CrossGameFeatureProvider.isS3kDonorActive()) {
+		boolean crossGameEnabled = configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED);
+		String donorCode = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
+		boolean s3kConfiguredDonor = "s3k".equalsIgnoreCase(donorCode);
+		if (module == null || !crossGameEnabled || !s3kConfiguredDonor || !CrossGameFeatureProvider.isS3kDonorActive()) {
 			return false;
 		}
 		if (module.getGameId() == GameId.S1) {
@@ -834,10 +838,7 @@ public class Engine {
 
 	private AbstractPlayableSprite resolveMainPlayableSprite() {
 		ensureRuntimeBound();
-		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-		if (mainCode == null || mainCode.isBlank()) {
-			mainCode = "sonic";
-		}
+		String mainCode = ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
 		var sprite = spriteManager.getSprite(mainCode);
 		if (sprite instanceof AbstractPlayableSprite playable) {
 			return playable;

@@ -71,6 +71,23 @@ All notable changes to the OpenGGF project are documented in this file.
 - Wired `GameLoop.DataSelectActionHandler` and
   `Engine.launchGameplayFromDataSelect()` to consume data select actions and
   launch gameplay with the selected team and restored game state.
+- Added runtime-generated donated preview screenshots for S1 and S2 when S3K
+  is the donor. Preview PNGs are generated into the save-owned image cache,
+  validated against engine version plus ROM fingerprint, and then loaded back
+  through the donated S3K selected-slot preview seam instead of reusing ROM
+  level-select art.
+- Added per-game donated preview framing control, including explicit S1 and S2
+  camera override tables, hidden `PREVIEW_CAPTURE` load mode, and a gameplay
+  debug shortcut that logs the current camera as a preview capture override for
+  tuning screenshot positions.
+- Restricted donated data select routing to the real feature gate: S1/S2 only
+  enter donated S3K data select when `CROSS_GAME_FEATURES_ENABLED` is `true`
+  and `CROSS_GAME_SOURCE` is `s3k`. Title-screen exits now fade correctly both
+  into donated data select and directly into level load when donation is off.
+- Reworked donated emerald presentation in S3K data select for host games:
+  S1 now uses a symmetric six-emerald layout, S1/S2 use host-specific emerald
+  colour ordering on top of the native S3K presentation, and preview rendering
+  no longer corrupts emerald palettes when selected-slot screenshots are shown.
 
 ### Runtime-Owned Frameworks
 
@@ -89,6 +106,15 @@ All notable changes to the OpenGGF project are documented in this file.
 - Fixed S3K water restoration after stage returns, and restored power-up
   spawning plus slot-machine glass priority after runtime/bootstrap changes.
 - Skipped already-collected S3K special stages on entry.
+- Added `ActiveGameplayTeamResolver` so donated data select launches in S1/S2
+  use the team selected for the current gameplay session instead of stale
+  persistent config. This fixes mismatches between launched character, palette,
+  lives HUD, and gameplay-side main-character lookups.
+- Fixed cross-game Knuckles donation in S1/S2 so the selected team now carries
+  through runtime palette loading, HUD lives icon/name resolution, and
+  gameplay startup. S1 donated Knuckles now uses a dedicated lives-HUD palette
+  adaptation over the live S1 HUD line, while S2 keeps the correct donated HUD
+  icon/text contract.
 
 ## v0.5.20260411 (Released 2026-04-11)
 

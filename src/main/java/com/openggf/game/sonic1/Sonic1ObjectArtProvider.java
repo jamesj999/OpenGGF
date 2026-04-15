@@ -4,11 +4,13 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
 import com.openggf.level.objects.AnimalType;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -37,6 +39,18 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private static final int RESULTS_SCORE_DIGIT_PAIR_COUNT = 8;
     private static final int RESULTS_SCORE_DIGIT_TILE_COUNT = RESULTS_SCORE_DIGIT_PAIR_COUNT * 2;
     private static final int HUD_TEXT_E_PAIR_INDEX = 22;
+    /**
+     * Remaps S3K Knuckles life-icon tile indices onto the native merged S1 HUD palette.
+     *
+     * <p>The active S1 HUD line is not the raw Sonic character palette; it is the
+     * merged gameplay line after the zone palette overwrites the blue ramp.
+     * Donated Knuckles life-icon art therefore needs to target the live S1 HUD
+     * slots directly: red at 12-14, yellow at 15, skin at 10-11, white at 6,
+     * black at 1.
+     */
+    private static final int[] S3K_TO_S1_LIVES_PALETTE_REMAP = {
+            0, 6, 12, 13, 14, 15, 15, 14, 15, 15, 10, 11, 6, 7, 1, 1
+    };
     private static final AnimalType[] ENDING_ANIMAL_ORDER = {
             AnimalType.FLICKY,
             AnimalType.RABBIT,
@@ -99,6 +113,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_HUD_ADDR);
 
         hudLivesPatterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_LIFE_ICON_ADDR);
+        overrideLivesArtFromDonor();
 
         hudLivesNumbers = art.loadUncompressedPatterns(
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_ADDR,
@@ -7910,6 +7925,47 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         return hudLivesNumbers;
     }
 
+    private void overrideLivesArtFromDonor() {
+        if (!com.openggf.game.CrossGameFeatureProvider.isS3kDonorActive()) {
+            return;
+        }
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(GameServices.configuration());
+        if (!"knuckles".equalsIgnoreCase(mainChar)) {
+            return;
+        }
+        Pattern[] knuxLife = loadS3kKnucklesLivesPatterns();
+        if (knuxLife != null && knuxLife.length > 0) {
+            hudLivesPatterns = knuxLife;
+            LOGGER.info("Overrode S1 lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
+        }
+    }
+
+    Pattern[] loadS3kKnucklesLivesPatterns() {
+        try {
+            com.openggf.data.Rom donorRom = GameServices.rom().getSecondaryRom("s3k");
+            Pattern[] patterns = com.openggf.util.PatternDecompressor.nemesis(donorRom,
+                    com.openggf.game.sonic3k.constants.Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR);
+            if (patterns != null && patterns.length > 0) {
+                remapPaletteIndices(patterns);
+            }
+            return patterns;
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load Knuckles life icon from donor: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void remapPaletteIndices(Pattern[] tiles) {
+        for (Pattern tile : tiles) {
+            for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
+                for (int x = 0; x < Pattern.PATTERN_WIDTH; x++) {
+                    int oldIdx = tile.getPixel(x, y) & 0x0F;
+                    tile.setPixel(x, y, (byte) S3K_TO_S1_LIVES_PALETTE_REMAP[oldIdx]);
+                }
+            }
+        }
+    }
+
     @Override
     public PatternSpriteRenderer getRenderer(String key) {
         return renderers.get(key);
@@ -7965,6 +8021,39 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     @Override
     public int getHudFlashPaletteLine() {
         return 0; // Sonic 1: life icon and flash both use palette line 0 (Sonic's palette)
+    }
+
+    @Override
+    public Palette getHudLivesPaletteOverride() {
+        if (!com.openggf.game.CrossGameFeatureProvider.isS3kDonorActive()) {
+            return null;
+        }
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(GameServices.configuration());
+        if (!"knuckles".equalsIgnoreCase(mainChar)) {
+            return null;
+        }
+        if (GameServices.levelOrNull() == null || GameServices.levelOrNull().getCurrentLevel() == null) {
+            return null;
+        }
+        return buildS1KnucklesLivesHudPaletteOverride(GameServices.levelOrNull().getCurrentLevel().getPalette(0));
+    }
+
+    static Palette buildS1KnucklesLivesHudPaletteOverride(Palette basePalette) {
+        if (basePalette == null) {
+            return null;
+        }
+        Palette override = basePalette.deepCopy();
+        setColor(override, 12, 255, 73, 109);
+        setColor(override, 13, 219, 0, 36);
+        setColor(override, 14, 109, 0, 36);
+        return override;
+    }
+
+    private static void setColor(Palette palette, int index, int r, int g, int b) {
+        Palette.Color color = palette.getColor(index);
+        color.r = (byte) r;
+        color.g = (byte) g;
+        color.b = (byte) b;
     }
 
     // ========================================================================

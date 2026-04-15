@@ -31,7 +31,7 @@ import java.util.function.Supplier;
  * activated when S3K donation is the active cross-game frontend.</p>
  */
 public class S2DataSelectImageCacheManager {
-    static final int GENERATOR_FORMAT_VERSION = 2;
+    static final int GENERATOR_FORMAT_VERSION = 3;
     private static final String MANIFEST_FILE_NAME = "manifest.json";
     private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
             "ehz", "cpz", "arz", "cnz", "htz", "mcz", "ooz", "mtz", "scz", "wfz", "dez");

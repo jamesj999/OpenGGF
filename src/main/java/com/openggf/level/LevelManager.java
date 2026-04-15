@@ -19,6 +19,7 @@ import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.PerformanceProfiler;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.FadeManager;
@@ -784,10 +785,13 @@ public class LevelManager {
      * Injects a {@link DefaultPowerUpSpawner} backed by the current
      * {@link ObjectManager} into the main player and all sidekicks.
      */
+    private String resolveMainCharacterCode() {
+        return ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
+    }
+
     private void injectPowerUpSpawner() {
         DefaultPowerUpSpawner spawner = new DefaultPowerUpSpawner(objectManager);
-        Sprite player = spriteManager.getSprite(
-                configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (player instanceof AbstractPlayableSprite playable) {
             playable.setPowerUpSpawner(spawner);
         }
@@ -984,7 +988,7 @@ public class LevelManager {
      */
     public void updateObjectPositions() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1);
@@ -1029,7 +1033,7 @@ public class LevelManager {
      */
     public void updateObjectPositionsWithoutTouches() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
             // ROM parity: In ExecuteObjects, Sonic (slot 0) runs his full physics
@@ -1089,7 +1093,7 @@ public class LevelManager {
      */
     public void updateObjectPositionsPostPhysicsWithoutTouches() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1,
@@ -1131,7 +1135,7 @@ public class LevelManager {
      */
     public void updateZoneFeaturesPrePhysics() {
         if (zoneFeatureProvider != null && level != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             zoneFeatureProvider.updatePrePhysics(playable, camera.getX(), getFeatureZoneId());
         }
@@ -1152,7 +1156,7 @@ public class LevelManager {
         AbstractPlayableSprite playable = null;
         boolean needsPlayer = ringManager != null || zoneFeatureProvider != null || levelGamestate != null;
         if (needsPlayer) {
-            player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            player = spriteManager.getSprite(resolveMainCharacterCode());
             playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
         }
         if (ringManager != null) {
@@ -1204,7 +1208,7 @@ public class LevelManager {
      * Keeps water and zone features in sync while player physics/input are frozen.
      */
     public void updateEndingDemoScene() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
         if (ringManager != null) {
@@ -1278,7 +1282,7 @@ public class LevelManager {
         } else {
             return;
         }
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -1315,7 +1319,7 @@ public class LevelManager {
         // characters share the same ART_TILE base (e.g. Knuckles and Sonic
         // both use 0x0680 in S3K).
         List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-        String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCharName = resolveMainCharacterCode();
         List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
         for (AbstractPlayableSprite sidekick : sidekicks) {
             String name = spriteManager.getSidekickCharacterName(sidekick);
@@ -1474,7 +1478,7 @@ public class LevelManager {
     }
 
     private void resetPlayerState() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (player instanceof AbstractPlayableSprite playable) {
             playable.resetState();
         }
@@ -1690,8 +1694,8 @@ public class LevelManager {
                             graphicsManager.cachePatternTexture(hudLives[i], livesBaseIndex + i);
                         }
                         hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
-                        // Cross-game: S3K life icon uses palette 0 for all tiles
-                        hudRenderManager.setLivesNameUsesIconPalette(CrossGameFeatureProvider.isActive());
+                        hudRenderManager.setLivesNameUsesIconPalette(provider.usesIconPaletteForLivesName());
+                        hudRenderManager.setLivesPaletteOverride(provider.getHudLivesPaletteOverride());
 
                         int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
                         Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
@@ -3402,7 +3406,7 @@ public class LevelManager {
      * ROM: S1/S2 StartLocations / Obj79_LoadData, S3K Get_PlayerStart.
      */
     public void spawnPlayerAtStartPosition(LevelLoadContext ctx) {
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCode = resolveMainCharacterCode();
         Sprite player = spriteManager.getSprite(mainCode);
         if (player == null) {
             LOGGER.warning("SpawnPlayer: no sprite registered for code '" + mainCode
@@ -3472,7 +3476,7 @@ public class LevelManager {
      * ROM: S2 InitPlayers state clear, S3K object constructor defaults.
      */
     public void resetPlayerForLevelStart(LevelLoadContext ctx) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -3504,7 +3508,7 @@ public class LevelManager {
      * ROM: S1/S2 SetScreen/InitCameraValues, S3K Get_LevelSizeStart.
      */
     public void initCameraForLevel() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -3549,7 +3553,7 @@ public class LevelManager {
      * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
      */
     public void spawnSidekicks(int xOffset, int yOffset) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.setX((short) (player.getX() + xOffset));
             sidekick.setY((short) (player.getY() + yOffset));

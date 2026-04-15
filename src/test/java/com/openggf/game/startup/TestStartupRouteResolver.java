@@ -100,6 +100,18 @@ class TestStartupRouteResolver {
         assertEquals(TitleActionRoute.OTHER, route);
     }
 
+    @Test
+    void donatedDataSelectDoesNotRouteWhenCrossGameFeaturesAreDisabled() {
+        TitleActionRoute route = resolver.resolveTitleAction(
+                hostModule(GameId.S1),
+                new DataSelectPresentationResolution(false, GameId.S3K),
+                true,
+                false,
+                TitleScreenAction.ONE_PLAYER);
+
+        assertEquals(TitleActionRoute.LEVEL, route);
+    }
+
     private static GameModule hostModule(GameId gameId) {
         GameModule module = mock(GameModule.class);
         when(module.getGameId()).thenReturn(gameId);

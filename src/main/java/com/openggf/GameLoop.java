@@ -56,6 +56,7 @@ import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.data.RomManager;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.save.SessionSaveRequests;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.SessionManager;
 
 import java.io.IOException;
@@ -827,15 +828,16 @@ public class GameLoop {
         if (spriteManager == null) {
             return null;
         }
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null || mainCode.isBlank()) {
-            mainCode = "sonic";
-        }
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite playable) {
             return playable;
         }
         return null;
+    }
+
+    private String resolveMainCharacterCode() {
+        return ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
     }
 
     /**
@@ -928,8 +930,7 @@ public class GameLoop {
             int checkpointX = lastCheckpoint.x();
             int checkpointY = lastCheckpoint.y();
 
-            String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-            if (mainCode == null) mainCode = "sonic";
+            String mainCode = resolveMainCharacterCode();
             var sprite = spriteManager.getSprite(mainCode);
             if (sprite instanceof AbstractPlayableSprite player) {
                 // Teleport player to checkpoint position
@@ -1104,9 +1105,7 @@ public class GameLoop {
         }
 
         // Clear power-ups before entering special stage
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null)
-            mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite playable) {
             playable.clearPowerUps();
@@ -1218,8 +1217,7 @@ public class GameLoop {
         }
 
         // Capture state snapshot
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
 
         int playerX = 0, playerY = 0;
@@ -1529,8 +1527,7 @@ public class GameLoop {
         }
 
         // Restore player position and collision path
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite playable) {
             playable.setCentreX((short) savedState.playerX());
@@ -1676,10 +1673,7 @@ public class GameLoop {
     }
 
     AbstractPlayableSprite resolveMainPlayableSprite() {
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) {
-            mainCode = "sonic";
-        }
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;
     }
@@ -1881,9 +1875,7 @@ public class GameLoop {
 
         // Restore player to checkpoint state BEFORE title card starts
         // This prevents the player from falling/dying during the title card animation
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null)
-            mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite playable) {
             RespawnState checkpointState = levelManager.getCheckpointState();
@@ -1984,9 +1976,7 @@ public class GameLoop {
         currentGameMode = GameMode.TITLE_CARD;
 
         // Freeze the player during title card - full state reset
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null)
-            mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite playable) {
             // Freeze all movement
@@ -2214,16 +2204,16 @@ public class GameLoop {
             return;
         }
 
-        if (route == TitleActionRoute.DATA_SELECT && fadeManager.isActive()) {
+        if (shouldFadeTitleScreenExit(route) && fadeManager.isActive()) {
             return;
         }
 
         // Fade out title music
         audioManager.fadeOutMusic();
 
-        if (route == TitleActionRoute.DATA_SELECT) {
+        if (shouldFadeTitleScreenExit(route)) {
             fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
-            LOGGER.info("Title screen exit fading to DATA_SELECT");
+            LOGGER.info("Title screen exit fading to " + route);
             return;
         }
 
@@ -2323,11 +2313,11 @@ public class GameLoop {
             return;
         }
 
-        if (route == TitleActionRoute.DATA_SELECT && fadeManager.isActive()) {
+        if (shouldFadeTitleScreenExit(route) && fadeManager.isActive()) {
             return;
         }
 
-        if (route == TitleActionRoute.DATA_SELECT) {
+        if (shouldFadeTitleScreenExit(route)) {
             fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
             return;
         }
@@ -2361,6 +2351,9 @@ public class GameLoop {
         DataSelectProvider dataSelectProvider = getDataSelectProviderLazy();
         boolean dataSelectEligible = dataSelectProvider != null
                 && !(dataSelectProvider instanceof NoOpDataSelectProvider);
+        boolean crossGameEnabled = configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED);
+        boolean s3kConfiguredDonor = "s3k".equalsIgnoreCase(
+                configService.getString(SonicConfiguration.CROSS_GAME_SOURCE));
         // All modules that expose a DataSelectPresentationProvider use the
         // S3K presentation manager as their delegate. Resolve the presentation
         // game as S3K so the startup router recognises the donated screen for
@@ -2368,9 +2361,19 @@ public class GameLoop {
         GameId presentationId = gameModule.getGameId();
         if (dataSelectEligible
                 && dataSelectProvider instanceof com.openggf.game.dataselect.DataSelectPresentationProvider) {
-            presentationId = GameId.S3K;
+            boolean nativeS3kDataSelect = gameModule.getGameId() == GameId.S3K;
+            boolean donatedS3kDataSelect = crossGameEnabled && s3kConfiguredDonor;
+            if (nativeS3kDataSelect || donatedS3kDataSelect) {
+                presentationId = GameId.S3K;
+            } else {
+                dataSelectEligible = false;
+            }
         }
         return new DataSelectPresentationResolution(dataSelectEligible, presentationId);
+    }
+
+    private boolean shouldFadeTitleScreenExit(TitleActionRoute route) {
+        return route == TitleActionRoute.DATA_SELECT || route == TitleActionRoute.LEVEL;
     }
 
     private void executeTitleActionRoute(TitleActionRoute route) {
@@ -3091,8 +3094,7 @@ public class GameLoop {
         shouldAdvanceFrozenScene = shouldAdvanceFrozenScene || endingProvider.shouldAdvanceFrozenDemoScene();
 
         // Apply demo input to player
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
             if (!endingProvider.shouldRunDemoGameplay()) {
@@ -3211,8 +3213,7 @@ public class GameLoop {
 
         // Position the player at the demo start position (ROM uses center coordinates)
         DemoLamppostState lamppost = endingProvider.getDemoLamppostState();
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
             // ROM: EndingDemoLoad clears rings, time, score, lamppost (sonic.asm:4148-4152)
@@ -3293,8 +3294,7 @@ public class GameLoop {
         // Restore player keyboard input and clear HUD suppression
         spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
             player.setControlLocked(false);
@@ -3316,8 +3316,7 @@ public class GameLoop {
         // Clean up any remaining demo state
         spriteManager.setInputSuppressed(false);
         levelManager.setForceHudSuppressed(false);
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
+        String mainCode = resolveMainCharacterCode();
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
             player.setControlLocked(false);
