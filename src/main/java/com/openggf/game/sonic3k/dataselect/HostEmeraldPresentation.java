@@ -25,7 +25,9 @@ public final class HostEmeraldPresentation {
 
     private static Result buildS1(Rom hostRom) throws IOException {
         return new Result(
-                HostEmeraldPaletteBuilder.buildForHostGame("s1", hostRom),
+                HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                        HostEmeraldPaletteBuilder.extractS1HostTargets(hostRom),
+                        HostEmeraldPaletteBuilder.nativeRamp()),
                 HostEmeraldLayoutProfile.defaultSeven(),
                 6,
                 true);
@@ -33,7 +35,9 @@ public final class HostEmeraldPresentation {
 
     private static Result buildS2(Rom hostRom) throws IOException {
         return new Result(
-                HostEmeraldPaletteBuilder.buildForHostGame("s2", hostRom),
+                HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                        HostEmeraldPaletteBuilder.extractS2HostTargets(hostRom),
+                        HostEmeraldPaletteBuilder.nativeRamp()),
                 HostEmeraldLayoutProfile.defaultSeven(),
                 7,
                 true);
