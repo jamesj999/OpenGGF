@@ -32,9 +32,9 @@
 - `src/main/java/com/openggf/game/sonic2/dataselect/S2DataSelectProfile.java`
   Keep `ZONE n` preview text fallback and selected-slot preview index behavior aligned with the new runtime screenshot path.
 - `src/main/java/com/openggf/configuration/SonicConfiguration.java`
-  Add S2 screenshot-generation override and settle-frame config keys.
+  Add the S2 screenshot-generation override config key.
 - `src/main/java/com/openggf/configuration/SonicConfigurationService.java`
-  Register defaults for the new S2 screenshot-generation config keys.
+  Register defaults for the new S2 screenshot-generation config key.
 - `src/test/java/com/openggf/game/sonic3k/dataselect/TestS3kDataSelectPresentation.java`
   Main integration surface for donated Data Select behavior and renderer-facing asset wiring.
 - `src/test/java/com/openggf/game/sonic2/dataselect/TestS2DataSelectProfile.java`

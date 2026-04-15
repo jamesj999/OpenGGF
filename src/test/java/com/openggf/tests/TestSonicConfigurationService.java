@@ -68,7 +68,6 @@ public class TestSonicConfigurationService {
         assertFalse(svc.getString(SonicConfiguration.DEFAULT_ROM).isEmpty());
         assertEquals(GLFW_KEY_APOSTROPHE, svc.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY));
         assertFalse(svc.getBoolean(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE));
-        assertEquals(8, svc.getInt(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
     }
 }
 

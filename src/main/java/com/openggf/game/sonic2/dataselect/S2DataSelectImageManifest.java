@@ -7,6 +7,5 @@ public record S2DataSelectImageManifest(
         int generatorFormatVersion,
         String romSha256,
         String generatedAt,
-        int settleFrames,
         Map<String, String> zones) {
 }

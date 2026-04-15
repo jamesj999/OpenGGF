@@ -46,7 +46,6 @@ class TestS2DataSelectImageCacheManager {
                 S2DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION,
                 "0123456789abcdef",
                 "2026-04-15T12:34:56Z",
-                8,
                 Map.of("ehz", "ehz.png"));
 
         JsonNode json = mapper.valueToTree(manifest);
@@ -55,7 +54,7 @@ class TestS2DataSelectImageCacheManager {
         assertEquals(S2DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION, json.path("generatorFormatVersion").asInt());
         assertEquals("0123456789abcdef", json.path("romSha256").asText());
         assertEquals("2026-04-15T12:34:56Z", json.path("generatedAt").asText());
-        assertEquals(8, json.path("settleFrames").asInt());
+        assertTrue(json.path("settleFrames").isMissingNode());
         assertEquals("ehz.png", json.path("zones").path("ehz").asText());
     }
 
@@ -88,40 +87,13 @@ class TestS2DataSelectImageCacheManager {
     }
 
     @Test
-    void settleFramesAcceptConfiguredPositiveValue() {
-        config.setConfigValue(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
-
-        S2DataSelectImageCacheManager manager = new S2DataSelectImageCacheManager(
-                tempDir,
-                config,
-                () -> "sha-settle",
-                mapper);
-
-        assertEquals(8, manager.settleFrames());
-    }
-
-    @Test
-    void settleFramesClampNegativeConfiguredValueToZero() {
-        config.setConfigValue(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, -4);
-
-        S2DataSelectImageCacheManager manager = new S2DataSelectImageCacheManager(
-                tempDir,
-                config,
-                () -> "sha-settle-negative",
-                mapper);
-
-        assertEquals(0, manager.settleFrames());
-    }
-
-    @Test
     void captureTargetFallsBackToSpawnLeftEdgeForZonesWithoutOverrides() throws Exception {
         Path cacheRoot = tempDir.resolve("saves/image-cache/s2");
         FakeCaptureSource captureSource = FakeCaptureSource.solidColourImages(320, 224, 11);
         S2DataSelectImageGenerator generator = new S2DataSelectImageGenerator(
                 cacheRoot,
                 captureSource,
-                () -> "romsha",
-                8);
+                () -> "romsha");
 
         generator.generateAll();
 
@@ -138,8 +110,7 @@ class TestS2DataSelectImageCacheManager {
         S2DataSelectImageGenerator generator = new S2DataSelectImageGenerator(
                 cacheRoot,
                 captureSource,
-                () -> "romsha",
-                8);
+                () -> "romsha");
 
         assertThrows(IOException.class, generator::generateAll);
         assertFalse(Files.exists(cacheRoot.resolve("manifest.json")));
@@ -151,7 +122,6 @@ class TestS2DataSelectImageCacheManager {
                 S2DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION,
                 romSha256,
                 "2026-04-15T12:34:56Z",
-                8,
                 zones);
         mapper.writerWithDefaultPrettyPrinter().writeValue(tempDir.resolve("manifest.json").toFile(), manifest);
     }
@@ -209,7 +179,7 @@ class TestS2DataSelectImageCacheManager {
         }
 
         @Override
-        public RgbaImage capture(int zoneId, S2DataSelectImageGenerator.PreviewCaptureTarget capturePoint, int settleFrames)
+        public RgbaImage capture(int zoneId, S2DataSelectImageGenerator.PreviewCaptureTarget capturePoint)
                 throws IOException {
             capturePoints.add(capturePoint);
             if (zoneId == failZone) {

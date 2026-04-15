@@ -49,17 +49,14 @@ public final class S1DataSelectImageGenerator {
     private final Path cacheRoot;
     private final CaptureSource captureSource;
     private final Supplier<String> romSha256Supplier;
-    private final int settleFrames;
     private final Sonic1ZoneRegistry zoneRegistry = CAPTURE_ZONE_REGISTRY;
 
     public S1DataSelectImageGenerator(Path cacheRoot,
                                       CaptureSource captureSource,
-                                      Supplier<String> romSha256Supplier,
-                                      int settleFrames) {
+                                      Supplier<String> romSha256Supplier) {
         this.cacheRoot = Objects.requireNonNull(cacheRoot, "cacheRoot");
         this.captureSource = Objects.requireNonNull(captureSource, "captureSource");
         this.romSha256Supplier = Objects.requireNonNull(romSha256Supplier, "romSha256Supplier");
-        this.settleFrames = Math.max(0, settleFrames);
     }
 
     public void generateAll() throws IOException {
@@ -68,7 +65,7 @@ public final class S1DataSelectImageGenerator {
         Map<String, String> zoneFiles = new LinkedHashMap<>();
         for (ZoneCaptureSpec spec : ZONES) {
             PreviewCaptureTarget captureTarget = resolveCaptureTarget(spec.zoneId());
-            RgbaImage capture = captureSource.capture(spec.zoneId(), captureTarget, settleFrames);
+            RgbaImage capture = captureSource.capture(spec.zoneId(), captureTarget);
             RgbaImage preview = scaleToPreview(capture);
 
             Path tempPng = Files.createTempFile(cacheRoot, spec.fileStem() + "-", ".tmp");
@@ -124,7 +121,6 @@ public final class S1DataSelectImageGenerator {
                     S1DataSelectImageCacheManager.GENERATOR_FORMAT_VERSION,
                     romSha256Supplier.get(),
                     Instant.now().toString(),
-                    settleFrames,
                     zoneFiles);
             MAPPER.writerWithDefaultPrettyPrinter().writeValue(tempManifest.toFile(), manifest);
             moveAtomically(tempManifest, finalManifest);
@@ -163,7 +159,7 @@ public final class S1DataSelectImageGenerator {
      * graphics context while leaving file I/O and manifest orchestration outside the renderer.
      */
     public interface CaptureSource {
-        RgbaImage capture(int zoneId, PreviewCaptureTarget captureTarget, int settleFrames) throws IOException;
+        RgbaImage capture(int zoneId, PreviewCaptureTarget captureTarget) throws IOException;
     }
 
     /**
