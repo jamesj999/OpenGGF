@@ -1747,15 +1747,45 @@ public class LevelManager {
         drawWithSpritePriority(null, true);
     }
 
+    public record LevelRenderOptions(boolean includePlayerSprites,
+                                     boolean includeObjectSprites,
+                                     boolean includeRings,
+                                     boolean includeHud,
+                                     boolean includeDebugOverlays,
+                                     boolean includeObjectArtViewer,
+                                     boolean includeWaterSurface) {
+        public static LevelRenderOptions gameplay() {
+            return new LevelRenderOptions(true, true, true, true, true, true, true);
+        }
+
+        public static LevelRenderOptions tilesOnly() {
+            return new LevelRenderOptions(false, false, false, false, false, false, false);
+        }
+
+        public static LevelRenderOptions previewCapture() {
+            return new LevelRenderOptions(false, true, false, false, false, false, false);
+        }
+
+        public boolean hasGameplayPass() {
+            return includePlayerSprites || includeObjectSprites || includeRings;
+        }
+    }
+
     public void drawWithSpritePriority(SpriteManager spriteManager) {
         drawWithSpritePriority(spriteManager, true);
     }
 
     public void drawWithSpritePriority(SpriteManager spriteManager, boolean includeSpritePass) {
+        drawWithRenderOptions(spriteManager,
+                includeSpritePass ? LevelRenderOptions.gameplay() : LevelRenderOptions.tilesOnly());
+    }
+
+    public void drawWithRenderOptions(SpriteManager spriteManager, LevelRenderOptions renderOptions) {
         if (level == null) {
             LOGGER.warning("No level loaded to draw.");
             return;
         }
+        LevelRenderOptions options = renderOptions != null ? renderOptions : LevelRenderOptions.gameplay();
 
         // frameCounter is now incremented in update() — see comment there.
         if (animatedPatternManager != null) {
@@ -1851,8 +1881,16 @@ public class LevelManager {
         // Draw Foreground (Layer 0) high-priority pass to screen
         enqueueForegroundTilemapPass(camera, 1);
 
-        if (includeSpritePass) {
-            renderSpriteObjectPass(spriteManager, true);
+        if (options.hasGameplayPass()) {
+            if (options.includePlayerSprites()
+                    && options.includeObjectSprites()
+                    && options.includeRings()) {
+                renderSpriteObjectPass(spriteManager, options.includeWaterSurface());
+            } else {
+                renderSpriteObjectPassFiltered(spriteManager, options);
+            }
+        }
+        if (options.includeObjectArtViewer()) {
             overlayManager.getObjectArtViewer().draw(objectRenderManager, camera);
         }
 
@@ -1862,22 +1900,24 @@ public class LevelManager {
         // Rendered after sprites so the wall appears in front of everything except HUD.
         renderBgHighPriorityOverlay();
 
-        if (!includeSpritePass) {
+        if (!options.hasGameplayPass()) {
             // No sprite/object pass this frame; restore the default shader state for
             // any later screen-space rendering after the level tiles.
             graphicsManager.registerCommand(disableWaterShaderCommand);
         }
 
         profiler.beginSection("render.hud");
-        if (hudRenderManager != null && !isHudSuppressed()) {
+        if (options.includeHud() && hudRenderManager != null && !isHudSuppressed()) {
             AbstractPlayableSprite focusedPlayer = camera.getFocusedSprite();
             hudRenderManager.draw(levelGamestate, focusedPlayer);
         }
         profiler.endSection("render.hud");
 
         boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-        boolean overlayEnabled = debugViewEnabled && overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
-        if (debugRenderer != null) {
+        boolean overlayEnabled = options.includeDebugOverlays()
+                && debugViewEnabled
+                && overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
+        if (options.includeDebugOverlays() && debugRenderer != null) {
             debugRenderer.renderDebugOverlays(overlayEnabled, objectManager, ringManager,
                     spriteManager, gameModule, configService, frameCounter);
         }
@@ -2189,6 +2229,49 @@ public class LevelManager {
         }
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.
+        graphicsManager.registerCommand(disableWaterShaderCommand);
+    }
+
+    private void renderSpriteObjectPassFiltered(SpriteManager spriteManager, LevelRenderOptions options) {
+        profiler.beginSection("render.sprites");
+
+        if (spriteManager != null && options.includePlayerSprites()) {
+            spriteManager.invalidateRenderBuckets();
+        }
+        if (objectManager != null && options.includeObjectSprites()) {
+            objectManager.invalidateRenderBuckets();
+        }
+
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(false);
+        graphicsManager.beginPatternBatch();
+
+        if (ringManager != null && options.includeRings()) {
+            ringManager.draw(frameCounter);
+            graphicsManager.setCurrentSpriteHighPriority(true);
+            ringManager.drawLostRings(frameCounter);
+            graphicsManager.setCurrentSpriteHighPriority(false);
+        }
+
+        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+            if (spriteManager != null && options.includePlayerSprites()) {
+                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+            if (objectManager != null && options.includeObjectSprites()) {
+                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+        }
+
+        graphicsManager.flushPatternBatch();
+        graphicsManager.setUseSpritePriorityShader(false);
+        profiler.endSection("render.sprites");
+
+        if (options.includeWaterSurface()) {
+            graphicsManager.registerCommand(disableShimmerCommand);
+        }
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.render(camera, frameCounter);
+        }
         graphicsManager.registerCommand(disableWaterShaderCommand);
     }
 

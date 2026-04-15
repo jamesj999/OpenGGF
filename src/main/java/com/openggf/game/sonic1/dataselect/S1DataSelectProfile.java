@@ -62,7 +62,26 @@ public final class S1DataSelectProfile implements DataSelectGameProfile {
         }
         int zoneId = zone.intValue();
         String label = zoneId >= 0 && zoneId < ZONE_LABELS.length ? ZONE_LABELS[zoneId] : "ZONE";
-        return new HostSlotPreview(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, label);
+        return HostSlotPreview.image(label);
+    }
+
+    @Override
+    public int resolveSelectedSlotIconIndex(Map<String, Object> payload, DataSelectDestination clearDestination) {
+        if (clearDestination != null) {
+            return zoneToPreviewIndex(clearDestination.zone());
+        }
+        if (payload == null) {
+            return -1;
+        }
+        Object zoneObj = payload.get("zone");
+        if (!(zoneObj instanceof Number zone)) {
+            return -1;
+        }
+        return zoneToPreviewIndex(zone.intValue());
+    }
+
+    private static int zoneToPreviewIndex(int zoneId) {
+        return zoneId >= 0 && zoneId < ZONE_LABELS.length ? zoneId : -1;
     }
 
     private static List<SelectedTeam> parseTeams(String raw) {

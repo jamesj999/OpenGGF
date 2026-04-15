@@ -80,7 +80,7 @@ class TestS1DataSelectProfile {
     }
 
     @Test
-    void resolveSlotPreview_returnsTextOnlyWithZoneLabel() {
+    void resolveSlotPreview_returnsImagePreviewWithZoneLabel() {
         S1DataSelectProfile profile = new S1DataSelectProfile();
 
         HostSlotPreview ghzPreview = profile.resolveSlotPreview(Map.of("zone", 0));
@@ -88,10 +88,23 @@ class TestS1DataSelectProfile {
         HostSlotPreview fzPreview = profile.resolveSlotPreview(Map.of("zone", 6));
 
         assertNotNull(ghzPreview);
-        assertEquals(HostSlotPreview.HostSlotPreviewType.TEXT_ONLY, ghzPreview.type());
+        assertEquals(HostSlotPreview.HostSlotPreviewType.IMAGE, ghzPreview.type());
         assertEquals("GHZ", ghzPreview.zoneLabelText());
         assertEquals("MZ", mzPreview.zoneLabelText());
         assertEquals("FZ", fzPreview.zoneLabelText());
+    }
+
+    @Test
+    void resolveSelectedSlotIconIndex_usesZoneOrClearRestartDestination() {
+        S1DataSelectProfile profile = new S1DataSelectProfile();
+
+        int currentZoneIcon = profile.resolveSelectedSlotIconIndex(Map.of("zone", Sonic1ZoneConstants.ZONE_LZ), null);
+        int clearRestartIcon = profile.resolveSelectedSlotIconIndex(
+                Map.of("zone", Sonic1ZoneConstants.ZONE_GHZ),
+                new DataSelectDestination(Sonic1ZoneConstants.ZONE_SBZ, 0));
+
+        assertEquals(Sonic1ZoneConstants.ZONE_LZ, currentZoneIcon);
+        assertEquals(Sonic1ZoneConstants.ZONE_SBZ, clearRestartIcon);
     }
 
     @Test

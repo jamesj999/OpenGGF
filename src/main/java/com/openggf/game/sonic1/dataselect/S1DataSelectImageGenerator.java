@@ -22,6 +22,7 @@ import java.util.function.Supplier;
 public final class S1DataSelectImageGenerator {
     static final int PREVIEW_WIDTH = 80;
     static final int PREVIEW_HEIGHT = 56;
+    private static final int CAMERA_TARGET_X_BIAS = 152;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final List<ZoneCaptureSpec> ZONES = List.of(
@@ -56,8 +57,8 @@ public final class S1DataSelectImageGenerator {
 
         Map<String, String> zoneFiles = new LinkedHashMap<>();
         for (ZoneCaptureSpec spec : ZONES) {
-            PreviewCapturePoint capturePoint = resolveCapturePoint(spec.zoneId());
-            RgbaImage capture = captureSource.capture(spec.zoneId(), capturePoint, settleFrames);
+            PreviewCaptureTarget captureTarget = resolveCaptureTarget(spec.zoneId());
+            RgbaImage capture = captureSource.capture(spec.zoneId(), captureTarget, settleFrames);
             RgbaImage preview = scaleToPreview(capture);
 
             Path tempPng = Files.createTempFile(cacheRoot, spec.fileStem() + "-", ".tmp");
@@ -74,13 +75,26 @@ public final class S1DataSelectImageGenerator {
         writeManifest(zoneFiles);
     }
 
-    public PreviewCapturePoint resolveCapturePoint(int zoneId) {
+    public PreviewCaptureTarget resolveCaptureTarget(int zoneId) {
         PreviewCapturePoint override = CAPTURE_OVERRIDES.get(zoneId);
         if (override != null) {
-            return override;
+            return new PreviewCaptureTarget(override.centreX() - CAMERA_TARGET_X_BIAS, override.centreY());
         }
         int[] spawn = zoneRegistry.getStartPosition(zoneId, 0);
-        return new PreviewCapturePoint(spawn[0], spawn[1]);
+        return new PreviewCaptureTarget(spawn[0], spawn[1]);
+    }
+
+    static List<Integer> supportedZoneIds() {
+        return ZONES.stream().map(ZoneCaptureSpec::zoneId).toList();
+    }
+
+    static String zoneKeyForZoneId(int zoneId) {
+        for (ZoneCaptureSpec spec : ZONES) {
+            if (spec.zoneId() == zoneId) {
+                return spec.zoneKey();
+            }
+        }
+        return null;
     }
 
     private void writeManifest(Map<String, String> zoneFiles) throws IOException {
@@ -127,10 +141,13 @@ public final class S1DataSelectImageGenerator {
     }
 
     public interface CaptureSource {
-        RgbaImage capture(int zoneId, PreviewCapturePoint capturePoint, int settleFrames) throws IOException;
+        RgbaImage capture(int zoneId, PreviewCaptureTarget captureTarget, int settleFrames) throws IOException;
     }
 
     public record PreviewCapturePoint(int centreX, int centreY) {
+    }
+
+    public record PreviewCaptureTarget(int cameraLeftX, int centreY) {
     }
 
     private record ZoneCaptureSpec(int zoneId, String zoneKey, String fileName) {

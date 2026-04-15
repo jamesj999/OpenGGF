@@ -20,6 +20,8 @@ import com.openggf.game.save.SaveManager;
 import com.openggf.game.save.SaveSlotState;
 import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
+import com.openggf.game.sonic1.dataselect.S1SelectedSlotPreviewLoader;
 import com.openggf.game.sonic2.levelselect.LevelSelectDataLoader;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -927,6 +929,8 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         private S3kDataSelectDataLoader loader;
         private LevelSelectDataLoader s2PreviewLoader;
         private List<com.openggf.level.render.SpriteMappingFrame> s2SelectedIconFrames = List.of();
+        private Map<Integer, S1SelectedSlotPreviewLoader.LoadedPreview> s1SelectedIconPreviews = Map.of();
+        private boolean s1HostPreviewMode;
         private byte[] hostEmeraldPaletteBytes = new byte[0];
         private boolean loaded;
 
@@ -1010,32 +1014,52 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             if (s2PreviewLoader != null) {
                 return s2SlotIconPatterns(iconIndex);
             }
+            if (s1HostPreviewMode) {
+                S1SelectedSlotPreviewLoader.LoadedPreview preview = s1SelectedIconPreviews.get(iconIndex);
+                return preview != null ? preview.patterns() : new com.openggf.level.Pattern[0];
+            }
             return loader != null ? loader.getSlotIconPatterns(iconIndex) : new com.openggf.level.Pattern[0];
         }
 
         @Override
         public com.openggf.level.Palette getSelectedSlotIconPalette(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
-            if (s2PreviewLoader == null || selectedSlotIcon == null) {
+            if (selectedSlotIcon == null) {
                 return null;
             }
-            return s2PreviewLoader.getIconPalette(selectedSlotIcon.iconIndex());
+            if (s2PreviewLoader != null) {
+                return s2PreviewLoader.getIconPalette(selectedSlotIcon.iconIndex());
+            }
+            if (!s1HostPreviewMode) {
+                return null;
+            }
+            S1SelectedSlotPreviewLoader.LoadedPreview preview = s1SelectedIconPreviews.get(selectedSlotIcon.iconIndex());
+            return preview != null ? preview.palette() : null;
         }
 
         @Override
         public com.openggf.level.render.SpriteMappingFrame getSelectedSlotIconFrame(
                 S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
-            if (s2PreviewLoader == null || selectedSlotIcon == null) {
+            if (selectedSlotIcon == null) {
                 return null;
             }
             int iconIndex = selectedSlotIcon.iconIndex();
-            return iconIndex >= 0 && iconIndex < s2SelectedIconFrames.size()
-                    ? s2SelectedIconFrames.get(iconIndex)
-                    : null;
+            if (s2PreviewLoader != null) {
+                return iconIndex >= 0 && iconIndex < s2SelectedIconFrames.size()
+                        ? s2SelectedIconFrames.get(iconIndex)
+                        : null;
+            }
+            if (!s1HostPreviewMode) {
+                return null;
+            }
+            S1SelectedSlotPreviewLoader.LoadedPreview preview = s1SelectedIconPreviews.get(iconIndex);
+            return preview != null
+                    ? preview.frame()
+                    : new com.openggf.level.render.SpriteMappingFrame(List.of());
         }
 
         @Override
         public boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
-            return s2PreviewLoader != null && selectedSlotIcon != null;
+            return selectedSlotIcon != null && (s2PreviewLoader != null || s1HostPreviewMode);
         }
 
         @Override
@@ -1114,6 +1138,18 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 }
             }
             hostEmeraldPaletteBytes = HostEmeraldPaletteBuilder.buildForHostGame(hostGameCode, hostRom);
+            if ("s1".equals(hostGameCode)) {
+                s1HostPreviewMode = true;
+                S1DataSelectImageCacheManager cacheManager = GameServices.module()
+                        .getGameService(S1DataSelectImageCacheManager.class);
+                if (cacheManager == null) {
+                    return;
+                }
+                cacheManager.awaitGenerationIfRunning();
+                s1SelectedIconPreviews = new S1SelectedSlotPreviewLoader()
+                        .loadAll(cacheManager.loadCachedPreviews());
+                return;
+            }
             if (!"s2".equals(hostGameCode)) {
                 return;
             }
