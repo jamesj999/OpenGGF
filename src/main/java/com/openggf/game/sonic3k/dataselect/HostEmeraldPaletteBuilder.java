@@ -161,8 +161,10 @@ final class HostEmeraldPaletteBuilder {
             GenesisColour target = emeraldIndex < targets.size()
                     ? targets.get(emeraldIndex)
                     : nativeRamp.get(emeraldIndex * 2);
-            GenesisColour highlight = retint(nativeRamp.get(emeraldIndex * 2), target);
-            GenesisColour shadow = retint(nativeRamp.get(emeraldIndex * 2 + 1), target);
+            GenesisColour nativeHighlight = nativeRamp.get(emeraldIndex * 2);
+            GenesisColour nativeShadow = nativeRamp.get(emeraldIndex * 2 + 1);
+            GenesisColour highlight = retint(nativeHighlight, target);
+            GenesisColour shadow = retintWithShadeSeparation(nativeHighlight, nativeShadow, target, highlight);
             writeGenesisWord(bytes, writeOffset, highlight.toGenesisWord());
             writeGenesisWord(bytes, writeOffset + 2, shadow.toGenesisWord());
             writeOffset += 4;
@@ -263,6 +265,39 @@ final class HostEmeraldPaletteBuilder {
         float hue = target.saturation() > 0.0f ? target.hue() : nativeShade.hue();
         float saturation = target.saturation();
         return GenesisColour.fromHsv(hue, saturation, nativeShade.value());
+    }
+
+    private static GenesisColour retintWithShadeSeparation(GenesisColour nativeHighlight,
+                                                           GenesisColour nativeShadow,
+                                                           GenesisColour target,
+                                                           GenesisColour highlight) {
+        GenesisColour shadow = retint(nativeShadow, target);
+        if (highlight.toGenesisWord() != shadow.toGenesisWord()) {
+            return shadow;
+        }
+        if (target == null || target.value() <= 0.0f) {
+            return shadow;
+        }
+
+        float hue = target.saturation() > 0.0f ? target.hue() : nativeShadow.hue();
+        float saturation = target.saturation();
+        float nativeShadeDelta = Math.abs(nativeHighlight.value() - nativeShadow.value());
+        float minimumShadeDelta = Math.max(1.0f / 7.0f, nativeShadeDelta);
+        float shadowValue = Math.max(0.0f, highlight.value() - minimumShadeDelta);
+        GenesisColour separated = GenesisColour.fromHsv(hue, saturation, shadowValue);
+        if (separated.toGenesisWord() != highlight.toGenesisWord()) {
+            return separated;
+        }
+
+        float fallbackValue = highlight.value();
+        for (int step = 0; step < 7; step++) {
+            fallbackValue = Math.max(0.0f, fallbackValue - (1.0f / 7.0f));
+            separated = GenesisColour.fromHsv(hue, saturation, fallbackValue);
+            if (separated.toGenesisWord() != highlight.toGenesisWord()) {
+                return separated;
+            }
+        }
+        return shadow;
     }
 
     private static int[] selectLegacyTwoShades(int[] colours) {
