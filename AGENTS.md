@@ -9,6 +9,8 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 ## Current Status
 The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor. A data select and save system is now implemented: S3K has a ROM-accurate data select screen with 8 save slots and team selection, and S1/S2 can use this screen via cross-game donation while retaining their own save profiles.
 
+Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
+
 ### Rendering
 *   **Status:** ✅ Functional.
 *   **Level Data:** Patterns, chunks, and blocks load correctly from ROM via Kosinski decompression.
@@ -38,6 +40,8 @@ The project is in an **alpha** state. Core systems are functional with extensive
 *   Reference: `docs/SMPS-rips/SMPSPlay/` (SMPSPlay source), `docs/SMPS-rips/` (ripped audio data).
 
 ### Suggested Tasks
+Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 content onto the new runtime-owned frameworks where that removes bespoke code, while continuing incremental S3K bring-up on top of the same shared systems. When choosing new work, prefer reuse of `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `ScrollEffectComposer`, `SpecialRenderEffectRegistry`, and `AdvancedRenderModeController` over introducing new zone-local machinery.
+
 1.  **S3K object implementation** – Implement zone-specific objects, badniks, and bosses for S3K zones.
 2.  **S3K scroll handlers** – Add dedicated scroll handlers for remaining S3K zones beyond AIZ and MGZ.
 3.  **S2 remaining bosses** – Implement bosses for OOZ, WFZ, SCZ, DEZ (EHZ, CPZ, HTZ, ARZ, CNZ, MCZ done).
@@ -52,11 +56,12 @@ The project is in an **alpha** state. Core systems are functional with extensive
 
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
-*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4 + JUnit 5).
+*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 5 / Jupiter only).
 *   **Maven output for agents:** `.mvn/extensions.xml` installs Maven Silent Extension (MSE) and `.mvn/maven.config` enables `-Dmse=relaxed` by default for all repo-local Maven commands. Use `-Dmse=off` when full Maven logs are required for debugging.
 *   **Run:** `java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
 *   **Important packages** under `src/main/java/com/openggf`:
+    *   `game.zone` / `game.palette` / `game.animation` / `game.mutation` / `game.render` - runtime-owned shared framework layers for typed zone state, palette ownership, animated tile channels, layout mutation, staged special render effects, and advanced render modes
     *   `control` – input handling
     *   `camera` – camera logic
     *   `configuration` – game settings via `SonicConfiguration` and `SonicConfigurationService`
@@ -85,7 +90,7 @@ The project is in an **alpha** state. Core systems are functional with extensive
     *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning; implements `PlayableEntity`
     *   `timer` – utility timers for events
     *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
-*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration.
+*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration. New or updated tests must use JUnit 5 / Jupiter only; JUnit 5 / Jupiter only is explicitly barred.
 
 ## Coordinate Semantics
 
@@ -172,6 +177,21 @@ services().zoneFeatureProvider()  // ZoneFeatureProvider
 
 ### GameRuntime
 `GameRuntime` (`com.openggf.game`) is the explicit runtime object owning all mutable gameplay state. `RuntimeManager` manages its lifecycle. Enables safe editor mode enter/exit, level rebuilds, and undo/redo.
+
+### Runtime-Owned Framework Stack
+
+`GameRuntime` now hosts the shared registries/controllers used to normalize zone-specific logic across games:
+
+- `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
+- `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
+- `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom tile uploads
+- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing
+- `SpecialRenderEffectRegistry` - staged additional render passes layered into the normal scene
+- `AdvancedRenderModeController` - frame-level render-mode state such as per-line/per-cell scroll overrides
+
+Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer` and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
+
+When adding new gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
 
 ## Consolidated Subsystems
 

@@ -1,4 +1,6 @@
-# S1 Credits Demo Trace Tests Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** Fix the Python `s1_credits_trace_recorder.py` so it records valid trace data for all 8 credits demos. Create `AbstractCreditsDemoTraceReplayTest` — a new test base class that reuses the existing trace comparison/reporting infrastructure (`TraceBinder`, `DivergenceReport`, etc.) but replaces BK2 input with ROM-internal demo input via `DemoInputPlayer`. Per-demo test classes are thin subclasses specifying demo index. Once all 8 trace tests exist and pass (or have known baselines), delete the old `TestSonic1LzCreditsDemoReplay`.
 
-**Tech Stack:** Python 3 + stable-retro (recording), Java 21 + JUnit 4 (tests), existing `trace_core.py` + `com.openggf.tests.trace.*` infrastructure.
+**Tech Stack:** Python 3 + stable-retro (recording), Java 21 test infrastructure, existing `trace_core.py` + `com.openggf.tests.trace.*` infrastructure. Any new or updated tests should use JUnit 5 / Jupiter only; JUnit 4 references below are historical migration context.
 
 ---
 

@@ -428,6 +428,21 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean objectControlled = false;
         /**
+         * When true, airborne terrain collision is suppressed for this frame.
+         * Set by zone feature providers (e.g., HCZ vertical water tunnels) to
+         * prevent false collision contacts from stalling the player.  Cleared
+         * each frame by the zone handler that sets it.
+         */
+        protected boolean suppressAirCollision = false;
+        /**
+         * When true, the airborne floor check in quadrants 0x40/0xC0 runs even
+         * when ySpeed &lt; 0.  ROM equivalent: {@code WindTunnel_flag} gating
+         * at sonic3k.asm:24204/24299.  Set by zone feature providers (e.g.,
+         * HCZ horizontal water tunnels) so pipe walls constrain the player
+         * vertically even when the tunnel pushes upward.
+         */
+        protected boolean forceFloorCheck = false;
+        /**
          * When true, the sprite is not rendered. Used by the Giant Ring flash
          * to make Sonic invisible during the special stage entry sequence.
          * ROM: move.b #id_Null,(v_player+obAnim).w
@@ -1826,6 +1841,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (objectControlled) {
                         this.deferredObjectControlRelease = false;
                 }
+        }
+
+        public boolean isSuppressAirCollision() {
+                return suppressAirCollision;
+        }
+
+        public void setSuppressAirCollision(boolean suppress) {
+                this.suppressAirCollision = suppress;
+        }
+
+        public boolean isForceFloorCheck() {
+                return forceFloorCheck;
+        }
+
+        public void setForceFloorCheck(boolean force) {
+                this.forceFloorCheck = force;
         }
 
         /**

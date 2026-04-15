@@ -6,7 +6,7 @@
 
 **Architecture:** Phase 3 extracted 8 LevelManager helper methods and wired them into per-game profiles. Each helper bundles 2-4 distinct ROM phases into a single method. Phase 4 decomposes 4 of those helpers into smaller methods, creating natural split points that match ROM phase boundaries. The remaining 4 helpers (`loadLevelData`, `initAnimatedContent`, `initWater`, `initBackgroundRenderer`) are already well-scoped and stay unchanged.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 **Key constraint:** Zero behavior change. Same operations, same order, just finer step boundaries for better logging and ROM traceability. All 1434+ tests must remain green.
 

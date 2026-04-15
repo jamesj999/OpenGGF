@@ -19,6 +19,8 @@ java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar  # Run (requir
 
 Maven Silent Extension (MSE) is configured in this repo via `.mvn/extensions.xml`, and `.mvn/maven.config` enables `-Dmse=relaxed` by default for repo-local Maven commands. Use `-Dmse=off` when full Maven logs are needed.
 
+Tests in this repository must use JUnit 5 / Jupiter only. Do not create or extend JUnit 5 / Jupiter only tests, rules, or runners.
+
 ## ROM Requirement
 
 Keep ROMs in the working directory (gitignored):

@@ -409,12 +409,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		sprite.updateSensors(originalX, originalY);
 		boolean wasAirBeforeCollision = sprite.getAir();
-		// When an object or the HCZ wind tunnel is controlling position
-		// directly, suppress air collision — it detects pipe/tube geometry
-		// and snaps Sonic back, fighting the position controller.
-		if (!sprite.isObjectControlled()
-				&& !com.openggf.game.sonic3k.features.HCZWaterTunnelHandler.isPlayerInTunnel(0)) {
-			doLevelCollision();
+		if (!sprite.isObjectControlled() && !sprite.isSuppressAirCollision()) {
+			doLevelCollision(sprite.isForceFloorCheck());
 		}
 
 		// ROM: Knuckles_Fall_From_Glide landing (sonic3k.asm:30913-30940).
@@ -1801,8 +1797,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	/** Sonic_DoLevelCollision: Full airborne collision (s2.asm:37540) */
-	private void doLevelCollision() {
-		collisionSystem().resolveAirCollision(sprite, this::calculateLanding);
+	private void doLevelCollision(boolean forceFloorCheck) {
+		collisionSystem().resolveAirCollision(sprite, this::calculateLanding, forceFloorCheck);
 	}
 
 	/** Obj01_CheckWallsOnGround: Ground wall collision (s2.asm:36486) */
