@@ -19,6 +19,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+/**
+ * Generates Sonic 2 runtime-selected-slot preview PNGs for donated S3K Data Select.
+ *
+ * <p>The generator mirrors the Sonic 1 cache model but targets the 11 Sonic 2 restart
+ * destinations. Capture currently defaults to spawn-left-edge framing with a reserved override map
+ * for future tuning.</p>
+ */
 public final class S2DataSelectImageGenerator {
     static final int PREVIEW_WIDTH = 80;
     static final int PREVIEW_HEIGHT = 56;
@@ -144,13 +151,23 @@ public final class S2DataSelectImageGenerator {
         return new RgbaImage(PREVIEW_WIDTH, PREVIEW_HEIGHT, pixels);
     }
 
+    /**
+     * Render-thread capture contract used by the cache manager to keep OpenGL work on the active
+     * graphics context while leaving file I/O and manifest orchestration outside the renderer.
+     */
     public interface CaptureSource {
         RgbaImage capture(int zoneId, PreviewCaptureTarget captureTarget, int settleFrames) throws IOException;
     }
 
+    /**
+     * Code-owned override point for a zone preview, expressed as camera-left X plus centre Y.
+     */
     public record PreviewCapturePoint(int cameraLeftX, int centreY) {
     }
 
+    /**
+     * Concrete render target passed to the capture path, expressed as camera-left X plus centre Y.
+     */
     public record PreviewCaptureTarget(int cameraLeftX, int centreY) {
     }
 

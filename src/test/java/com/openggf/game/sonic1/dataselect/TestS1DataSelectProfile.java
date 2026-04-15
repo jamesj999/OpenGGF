@@ -80,7 +80,7 @@ class TestS1DataSelectProfile {
     }
 
     @Test
-    void resolveSlotPreview_returnsImagePreviewWithZoneLabel() {
+    void resolveSlotPreview_returnsImagePreviewWithNumberedZoneLabel() {
         S1DataSelectProfile profile = new S1DataSelectProfile();
 
         HostSlotPreview ghzPreview = profile.resolveSlotPreview(Map.of("zone", 0));
@@ -88,10 +88,10 @@ class TestS1DataSelectProfile {
         HostSlotPreview fzPreview = profile.resolveSlotPreview(Map.of("zone", 6));
 
         assertNotNull(ghzPreview);
-        assertEquals(HostSlotPreview.HostSlotPreviewType.IMAGE, ghzPreview.type());
-        assertEquals("GHZ", ghzPreview.zoneLabelText());
-        assertEquals("MZ", mzPreview.zoneLabelText());
-        assertEquals("FZ", fzPreview.zoneLabelText());
+        assertEquals(HostSlotPreview.HostSlotPreviewType.NUMBERED_ZONE, ghzPreview.type());
+        assertEquals(1, ghzPreview.zoneDisplayNumber());
+        assertEquals(2, mzPreview.zoneDisplayNumber());
+        assertEquals(7, fzPreview.zoneDisplayNumber());
     }
 
     @Test

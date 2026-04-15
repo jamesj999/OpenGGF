@@ -23,6 +23,13 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+/**
+ * Owns the runtime-generated Sonic 2 selected-slot preview cache used by donated S3K Data Select.
+ *
+ * <p>This mirrors the Sonic 1 cache model: previews are generated from the user's ROM on demand,
+ * persisted under the save area, invalidated by engine version and ROM fingerprint, and only
+ * activated when S3K donation is the active cross-game frontend.</p>
+ */
 public class S2DataSelectImageCacheManager {
     static final int GENERATOR_FORMAT_VERSION = 1;
     private static final String MANIFEST_FILE_NAME = "manifest.json";
@@ -56,6 +63,9 @@ public class S2DataSelectImageCacheManager {
         startGenerationIfEligible();
     }
 
+    /**
+     * Blocks until an in-flight generation job completes, if one is currently running.
+     */
     public void awaitGenerationIfRunning() {
         CompletableFuture<Void> future = inFlight;
         if (future != null) {
@@ -63,6 +73,15 @@ public class S2DataSelectImageCacheManager {
         }
     }
 
+    public boolean isGenerationRunning() {
+        CompletableFuture<Void> future = inFlight;
+        return future != null && !future.isDone();
+    }
+
+    /**
+     * Returns {@code true} when the on-disk cache matches the current engine build, ROM fingerprint,
+     * expected zone set, and PNG decode contract.
+     */
     public boolean cacheValid() {
         if (config.getBoolean(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE)) {
             return false;
@@ -100,6 +119,9 @@ public class S2DataSelectImageCacheManager {
         return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
     }
 
+    /**
+     * Returns decoded preview images keyed by host zone ID when the cache is valid.
+     */
     public Map<Integer, RgbaImage> loadCachedPreviews() {
         if (!cacheValid()) {
             return Map.of();

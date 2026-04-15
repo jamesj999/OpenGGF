@@ -27,6 +27,8 @@ import com.openggf.game.sonic2.dataselect.S2SelectedSlotPreviewLoader;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -41,6 +43,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     private static final int ENTRY_FADE_DURATION = 21;
     private static final int[] DELETE_MAIN_FRAMES = {0xD, 0xE, 0xD, 0xE, 0xD, 0xE, 0xD, 0xE, 0xD, 0xE, 0xD, 0xD, 0xD, 0xD};
+    private static final int[] S1_HOST_EMERALD_FRAMES = {0x13, 0x11, 0x12, 0x10, 0x15, 0x14};
+    private static final int[] S2_HOST_EMERALD_FRAMES = {0x13, 0x16, 0x15, 0x12, 0x11, 0x10, 0x14};
 
     private final DataSelectHostProfile hostProfile;
     private final SaveManager saveManager;
@@ -757,9 +761,22 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         }
         List<Integer> superEmeralds = S3kSaveProgressions.superEmeraldsForPayload(payload);
         List<Integer> frames = new ArrayList<>(chaosEmeralds.size());
+        String hostGameCode = hostProfile.gameCode();
         for (int emeraldIndex : chaosEmeralds) {
             boolean upgraded = superEmeralds.contains(emeraldIndex);
-            frames.add((upgraded ? 0x1C : 0x10) + emeraldIndex);
+            if (upgraded) {
+                frames.add(0x1C + emeraldIndex);
+                continue;
+            }
+            if ("s1".equals(hostGameCode) && emeraldIndex >= 0 && emeraldIndex < S1_HOST_EMERALD_FRAMES.length) {
+                frames.add(S1_HOST_EMERALD_FRAMES[emeraldIndex]);
+                continue;
+            }
+            if ("s2".equals(hostGameCode) && emeraldIndex >= 0 && emeraldIndex < S2_HOST_EMERALD_FRAMES.length) {
+                frames.add(S2_HOST_EMERALD_FRAMES[emeraldIndex]);
+                continue;
+            }
+            frames.add(0x10 + emeraldIndex);
         }
         return List.copyOf(frames);
     }
@@ -928,7 +945,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         private boolean s1HostPreviewMode;
         private boolean s2HostPreviewMode;
         private byte[] hostEmeraldPaletteBytes = new byte[0];
+        private byte[] customEmeraldPaletteBytes = new byte[0];
         private HostEmeraldLayoutProfile hostEmeraldLayoutProfile = HostEmeraldLayoutProfile.defaultSeven();
+        private List<SpriteMappingFrame> saveScreenMappings = List.of();
         private boolean loaded;
 
         LoaderBackedAssets(RomSource romSource) {
@@ -947,6 +966,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             }
             loader = requireLoader();
             loader.loadData();
+            saveScreenMappings = loader.getSaveScreenMappings();
             loadHostPreviewAssets();
             loaded = true;
         }
@@ -1112,6 +1132,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
 
         @Override
         public List<com.openggf.level.render.SpriteMappingFrame> getSaveScreenMappings() {
+            if (!saveScreenMappings.isEmpty()) {
+                return saveScreenMappings;
+            }
             return loader != null ? loader.getSaveScreenMappings() : List.of();
         }
 
@@ -1123,6 +1146,11 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         @Override
         public HostEmeraldLayoutProfile getHostEmeraldLayoutProfile() {
             return hostEmeraldLayoutProfile;
+        }
+
+        @Override
+        public byte[] getCustomEmeraldPaletteBytes() {
+            return customEmeraldPaletteBytes;
         }
 
         /**
@@ -1143,9 +1171,14 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 }
             }
             HostEmeraldPresentation.Result emeraldPresentation =
-                    HostEmeraldPresentation.forHost(hostGameCode, hostRom);
+                    HostEmeraldPresentation.forHost(hostGameCode, hostRom,
+                            loader != null ? loader.getEmeraldPaletteBytes() : null);
             hostEmeraldPaletteBytes = emeraldPresentation.paletteBytes();
+            customEmeraldPaletteBytes = emeraldPresentation.customPurplePaletteBytes();
             hostEmeraldLayoutProfile = emeraldPresentation.layout();
+            if ("s2".equals(hostGameCode) && customEmeraldPaletteBytes.length > 0) {
+                saveScreenMappings = buildS2PurpleEmeraldMappings(saveScreenMappings);
+            }
             if ("s1".equals(hostGameCode)) {
                 s1HostPreviewMode = true;
                 S1DataSelectImageCacheManager cacheManager = GameServices.module()
@@ -1170,6 +1203,32 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             cacheManager.awaitGenerationIfRunning();
             s2SelectedIconPreviews = new S2SelectedSlotPreviewLoader()
                     .loadAll(cacheManager.loadCachedPreviews());
+        }
+
+        private List<SpriteMappingFrame> buildS2PurpleEmeraldMappings(List<SpriteMappingFrame> baseMappings) {
+            if (baseMappings == null || baseMappings.size() <= 0x16) {
+                return baseMappings != null ? baseMappings : List.of();
+            }
+            List<SpriteMappingFrame> mappings = new ArrayList<>(baseMappings);
+            SpriteMappingFrame purpleFrame = mappings.get(0x16);
+            if (purpleFrame == null) {
+                return List.copyOf(mappings);
+            }
+            List<SpriteMappingPiece> reboundPieces = new ArrayList<>(purpleFrame.pieces().size());
+            for (SpriteMappingPiece piece : purpleFrame.pieces()) {
+                reboundPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(),
+                        piece.yOffset(),
+                        piece.widthTiles(),
+                        piece.heightTiles(),
+                        piece.tileIndex(),
+                        piece.hFlip(),
+                        piece.vFlip(),
+                        3,
+                        piece.priority()));
+            }
+            mappings.set(0x16, new SpriteMappingFrame(reboundPieces));
+            return List.copyOf(mappings);
         }
 
         private S3kDataSelectDataLoader requireLoader() {

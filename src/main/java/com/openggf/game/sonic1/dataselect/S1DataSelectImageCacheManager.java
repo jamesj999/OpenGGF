@@ -23,8 +23,15 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+/**
+ * Owns the runtime-generated Sonic 1 selected-slot preview cache used by donated S3K Data Select.
+ *
+ * <p>The cache is save-owned rather than asset-owned because the images are generated from the
+ * user's ROM at runtime. This manager validates the on-disk manifest, starts generation only when
+ * S3K donation is active, and exposes decoded PNG previews back to the donated frontend.</p>
+ */
 public class S1DataSelectImageCacheManager {
-	static final int GENERATOR_FORMAT_VERSION = 3;
+	static final int GENERATOR_FORMAT_VERSION = 4;
 	private static final String MANIFEST_FILE_NAME = "manifest.json";
 	private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
 			"ghz",
@@ -60,6 +67,9 @@ public class S1DataSelectImageCacheManager {
 		startGenerationIfEligible();
 	}
 
+	/**
+	 * Blocks until an in-flight generation job completes, if one is currently running.
+	 */
 	public void awaitGenerationIfRunning() {
 		CompletableFuture<Void> future = inFlight;
 		if (future != null) {
@@ -67,6 +77,15 @@ public class S1DataSelectImageCacheManager {
 		}
 	}
 
+	public boolean isGenerationRunning() {
+		CompletableFuture<Void> future = inFlight;
+		return future != null && !future.isDone();
+	}
+
+	/**
+	 * Returns {@code true} when the on-disk cache matches the current engine build, ROM fingerprint,
+	 * expected zone set, and PNG decode contract.
+	 */
 	public boolean cacheValid() {
 		if (config.getBoolean(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE)) {
 			return false;
@@ -108,6 +127,9 @@ public class S1DataSelectImageCacheManager {
 		return Math.max(0, config.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
 	}
 
+	/**
+	 * Returns decoded preview images keyed by host zone ID when the cache is valid.
+	 */
 	public Map<Integer, RgbaImage> loadCachedPreviews() {
 		if (!cacheValid()) {
 			return Map.of();

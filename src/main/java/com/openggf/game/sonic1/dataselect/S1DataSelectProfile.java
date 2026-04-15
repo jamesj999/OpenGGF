@@ -49,8 +49,6 @@ public final class S1DataSelectProfile implements DataSelectGameProfile {
         return DataSelectPayloadValidators.validateCommonPayload(payload, 6, 6);
     }
 
-    private static final String[] ZONE_LABELS = {"GHZ", "MZ", "SYZ", "LZ", "SLZ", "SBZ", "FZ"};
-
     @Override
     public HostSlotPreview resolveSlotPreview(Map<String, Object> payload) {
         if (payload == null) {
@@ -61,8 +59,7 @@ public final class S1DataSelectProfile implements DataSelectGameProfile {
             return null;
         }
         int zoneId = zone.intValue();
-        String label = zoneId >= 0 && zoneId < ZONE_LABELS.length ? ZONE_LABELS[zoneId] : "ZONE";
-        return HostSlotPreview.image(label);
+        return HostSlotPreview.numberedZone(zoneId + 1);
     }
 
     @Override
@@ -81,7 +78,7 @@ public final class S1DataSelectProfile implements DataSelectGameProfile {
     }
 
     private static int zoneToPreviewIndex(int zoneId) {
-        return zoneId >= 0 && zoneId < ZONE_LABELS.length ? zoneId : -1;
+        return zoneId >= 0 && zoneId < 7 ? zoneId : -1;
     }
 
     private static List<SelectedTeam> parseTeams(String raw) {

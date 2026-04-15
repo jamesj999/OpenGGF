@@ -28,6 +28,14 @@ import java.util.List;
 final class HostEmeraldPaletteBuilder {
     private static final int S3K_SAVE_CARD_EMERALD_COUNT = 7;
     private static final int COLORS_PER_EMERALD = 2;
+    private static final int PAIR_GREY = 0;
+    private static final int PAIR_GREEN = 1;
+    private static final int PAIR_YELLOW_ORANGE = 2;
+    private static final int PAIR_RED = 3;
+    private static final int PAIR_PALE_BLUE = 4;
+    private static final int PAIR_BLUE = 5;
+    private static final int PAIR_PINK = 6;
+    private static final float DERIVED_PURPLE_HUE = 0.80f;
     private static final List<GenesisColour> NATIVE_RAMP = List.of(
             GenesisColour.fromGenesisWord(0x0EEE),
             GenesisColour.fromGenesisWord(0x0AAA),
@@ -71,6 +79,49 @@ final class HostEmeraldPaletteBuilder {
         }
     }
 
+    static List<EmeraldPalettePair> extractS1MappedPairs(List<GenesisColour> nativeRamp) {
+        List<GenesisColour> ramp = validNativeRampOrFallback(nativeRamp);
+        return List.of(
+                nativePair(PAIR_RED, ramp),
+                nativePair(PAIR_BLUE, ramp),
+                nativePair(PAIR_YELLOW_ORANGE, ramp),
+                nativePair(PAIR_GREY, ramp),
+                nativePair(PAIR_PALE_BLUE, ramp),
+                nativePair(PAIR_GREEN, ramp),
+                nativePair(PAIR_PINK, ramp));
+    }
+
+    static List<EmeraldPalettePair> extractS2MappedPairs(List<GenesisColour> nativeRamp) {
+        List<GenesisColour> ramp = validNativeRampOrFallback(nativeRamp);
+        return List.of(
+                nativePair(PAIR_YELLOW_ORANGE, ramp),
+                nativePair(PAIR_BLUE, ramp),
+                derivePurpleFromPink(ramp),
+                nativePair(PAIR_GREEN, ramp),
+                nativePair(PAIR_GREY, ramp),
+                nativePair(PAIR_PINK, ramp),
+                nativePair(PAIR_RED, ramp));
+    }
+
+    static byte[] composeMappedPaletteBytes(List<EmeraldPalettePair> mappedPairs, List<GenesisColour> nativeRamp) {
+        if (nativeRamp == null || nativeRamp.size() < (S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) {
+            throw new IllegalArgumentException("nativeRamp must contain 15 colors");
+        }
+        List<EmeraldPalettePair> pairList = mappedPairs != null ? mappedPairs : List.of();
+        byte[] bytes = new byte[S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD * 2 + 2];
+        int writeOffset = 0;
+        for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
+            EmeraldPalettePair pair = emeraldIndex < pairList.size()
+                    ? pairList.get(emeraldIndex)
+                    : nativePair(emeraldIndex, nativeRamp);
+            writeGenesisWord(bytes, writeOffset, pair.highlight().toGenesisWord());
+            writeGenesisWord(bytes, writeOffset + 2, pair.shadow().toGenesisWord());
+            writeOffset += 4;
+        }
+        writeGenesisWord(bytes, writeOffset, nativeRamp.get(nativeRamp.size() - 1).toGenesisWord());
+        return bytes;
+    }
+
     private static byte[] buildLegacyS1Palette(Rom rom) throws IOException {
         Sonic1ObjectArt art = new Sonic1ObjectArt(rom, RomByteReader.fromRom(rom));
         Pattern[] patterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR);
@@ -110,99 +161,44 @@ final class HostEmeraldPaletteBuilder {
         return composeLegacyPaletteBytes(shades);
     }
 
-    static List<GenesisColour> extractS1HostTargets(Rom rom) throws IOException {
-        Sonic1ObjectArt art = new Sonic1ObjectArt(rom, RomByteReader.fromRom(rom));
-        Pattern[] patterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR);
-        byte[] paletteBytes = new Sonic1SpecialStageDataLoader(rom).getSSPalette();
-        if (patterns.length == 0 || paletteBytes.length == 0) {
-            return List.of();
-        }
-
-        List<GenesisColour> targets = new ArrayList<>(6);
-        targets.add(extractPatternTarget(patterns, paletteBytes, 4, 1));
-        targets.add(extractPatternTarget(patterns, paletteBytes, 0, 0));
-        targets.add(extractPatternTarget(patterns, paletteBytes, 4, 2));
-        targets.add(extractPatternTarget(patterns, paletteBytes, 4, 3));
-        targets.add(extractPatternTarget(patterns, paletteBytes, 8, 1));
-        targets.add(extractPatternTarget(patterns, paletteBytes, 12, 1));
-        return List.copyOf(targets);
-    }
-
-    static List<GenesisColour> extractS2HostTargets(Rom rom) throws IOException {
-        byte[] raw = rom.readBytes(Sonic2SpecialStageConstants.PALETTE_EMERALD_OFFSET,
-                Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE);
-        if (raw.length < Sonic2SpecialStageConstants.PALETTE_EMERALD_SIZE) {
-            return List.of();
-        }
-
-        List<GenesisColour> targets = new ArrayList<>(S3K_SAVE_CARD_EMERALD_COUNT);
-        for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
-            int byteOffset = emeraldIndex * 6;
-            targets.add(selectRepresentativeColor(List.of(
-                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset)),
-                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset + 2)),
-                    GenesisColour.fromGenesisWord(readGenesisWord(raw, byteOffset + 4)))));
-        }
-        return List.copyOf(targets);
-    }
-
     static List<GenesisColour> nativeRamp() {
         return NATIVE_RAMP;
     }
 
-    static byte[] composeRetintedPaletteBytes(List<GenesisColour> hostTargets, List<GenesisColour> nativeRamp) {
-        if (nativeRamp == null || nativeRamp.size() < (S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) {
-            throw new IllegalArgumentException("nativeRamp must contain 15 colors");
+    static List<GenesisColour> nativeRampFromS3kPaletteBytes(byte[] s3kEmeraldPaletteBytes) {
+        if (s3kEmeraldPaletteBytes == null
+                || s3kEmeraldPaletteBytes.length < ((S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) * 2) {
+            return NATIVE_RAMP;
         }
-        List<GenesisColour> targets = hostTargets != null ? hostTargets : List.of();
-        byte[] bytes = new byte[S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD * 2 + 2];
-        int writeOffset = 0;
-        for (int emeraldIndex = 0; emeraldIndex < S3K_SAVE_CARD_EMERALD_COUNT; emeraldIndex++) {
-            GenesisColour target = emeraldIndex < targets.size()
-                    ? targets.get(emeraldIndex)
-                    : nativeRamp.get(emeraldIndex * 2);
-            GenesisColour nativeHighlight = nativeRamp.get(emeraldIndex * 2);
-            GenesisColour nativeShadow = nativeRamp.get(emeraldIndex * 2 + 1);
-            GenesisColour highlight = retint(nativeHighlight, target);
-            GenesisColour shadow = retintWithShadeSeparation(nativeHighlight, nativeShadow, target, highlight);
-            writeGenesisWord(bytes, writeOffset, highlight.toGenesisWord());
-            writeGenesisWord(bytes, writeOffset + 2, shadow.toGenesisWord());
-            writeOffset += 4;
+        List<GenesisColour> colours = new ArrayList<>(((S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1));
+        for (int offset = 0; offset + 1 < ((S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) * 2; offset += 2) {
+            colours.add(GenesisColour.fromGenesisWord(readGenesisWord(s3kEmeraldPaletteBytes, offset)));
         }
-        writeGenesisWord(bytes, writeOffset, nativeRamp.get(nativeRamp.size() - 1).toGenesisWord());
+        return List.copyOf(colours);
+    }
+
+    static byte[] composeNativePaletteBytes(List<GenesisColour> nativeRamp) {
+        List<GenesisColour> ramp = validNativeRampOrFallback(nativeRamp);
+        byte[] bytes = new byte[ramp.size() * 2];
+        for (int i = 0; i < ramp.size(); i++) {
+            writeGenesisWord(bytes, i * 2, ramp.get(i).toGenesisWord());
+        }
         return bytes;
     }
 
-    private static GenesisColour extractPatternTarget(Pattern[] patterns,
-                                                      byte[] paletteBytes,
-                                                      int tileIndex,
-                                                      int paletteLine) {
-        int[] usage = new int[16];
-        for (int tileOffset = 0; tileOffset < 4; tileOffset++) {
-            int patternIndex = tileIndex + tileOffset;
-            if (patternIndex < 0 || patternIndex >= patterns.length) {
-                continue;
-            }
-            Pattern pattern = patterns[patternIndex];
-            for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
-                for (int x = 0; x < Pattern.PATTERN_WIDTH; x++) {
-                    int colorIndex = pattern.getPixel(x, y) & 0x0F;
-                    if (colorIndex != 0) {
-                        usage[colorIndex]++;
-                    }
-                }
-            }
-        }
+    static byte[] composeS2PurplePaletteBytes(List<GenesisColour> nativeRamp) {
+        List<GenesisColour> ramp = new ArrayList<>(validNativeRampOrFallback(nativeRamp));
+        // Repurpose the native pale-blue frame's private colours into S2 purple.
+        ramp.set(8, shiftHue(ramp.get(12), DERIVED_PURPLE_HUE));
+        ramp.set(9, shiftHue(ramp.get(13), DERIVED_PURPLE_HUE));
+        return composeNativePaletteBytes(ramp);
+    }
 
-        List<WeightedColor> colors = new ArrayList<>();
-        for (int colorIndex = 1; colorIndex < usage.length; colorIndex++) {
-            if (usage[colorIndex] > 0) {
-                colors.add(new WeightedColor(
-                        GenesisColour.fromGenesisWord(readPaletteColor(paletteBytes, paletteLine, colorIndex)),
-                        usage[colorIndex]));
-            }
+    private static List<GenesisColour> validNativeRampOrFallback(List<GenesisColour> nativeRamp) {
+        if (nativeRamp != null && nativeRamp.size() >= (S3K_SAVE_CARD_EMERALD_COUNT * COLORS_PER_EMERALD) + 1) {
+            return nativeRamp;
         }
-        return selectWeightedRepresentativeColor(colors);
+        return NATIVE_RAMP;
     }
 
     private static int[] extractLegacyPatternShades(Pattern[] patterns,
@@ -240,64 +236,27 @@ final class HostEmeraldPaletteBuilder {
         return selectLegacyTwoShades(uniqueColours);
     }
 
-    private static GenesisColour selectRepresentativeColor(List<GenesisColour> colors) {
-        List<WeightedColor> weighted = colors.stream()
-                .map(color -> new WeightedColor(color, 1))
-                .toList();
-        return selectWeightedRepresentativeColor(weighted);
+
+    private static EmeraldPalettePair nativePair(int pairIndex) {
+        return nativePair(pairIndex, NATIVE_RAMP);
     }
 
-    private static GenesisColour selectWeightedRepresentativeColor(List<WeightedColor> colors) {
-        if (colors.isEmpty()) {
-            return GenesisColour.black();
-        }
-        return colors.stream()
-                .max(Comparator.comparingInt(WeightedColor::score)
-                        .thenComparingInt(weighted -> weighted.color().brightness()))
-                .orElseThrow()
-                .color();
+    private static EmeraldPalettePair nativePair(int pairIndex, List<GenesisColour> nativeRamp) {
+        int clampedIndex = Math.max(0, Math.min(S3K_SAVE_CARD_EMERALD_COUNT - 1, pairIndex));
+        return new EmeraldPalettePair(
+                nativeRamp.get(clampedIndex * 2),
+                nativeRamp.get(clampedIndex * 2 + 1));
     }
 
-    private static GenesisColour retint(GenesisColour nativeShade, GenesisColour target) {
-        if (target == null || target.value() <= 0.0f) {
-            return nativeShade;
-        }
-        float hue = target.saturation() > 0.0f ? target.hue() : nativeShade.hue();
-        float saturation = target.saturation();
-        return GenesisColour.fromHsv(hue, saturation, nativeShade.value());
+    private static EmeraldPalettePair derivePurpleFromPink(List<GenesisColour> nativeRamp) {
+        EmeraldPalettePair pink = nativePair(PAIR_PINK, nativeRamp);
+        return new EmeraldPalettePair(
+                shiftHue(pink.highlight(), DERIVED_PURPLE_HUE),
+                shiftHue(pink.shadow(), DERIVED_PURPLE_HUE));
     }
 
-    private static GenesisColour retintWithShadeSeparation(GenesisColour nativeHighlight,
-                                                           GenesisColour nativeShadow,
-                                                           GenesisColour target,
-                                                           GenesisColour highlight) {
-        GenesisColour shadow = retint(nativeShadow, target);
-        if (highlight.toGenesisWord() != shadow.toGenesisWord()) {
-            return shadow;
-        }
-        if (target == null || target.value() <= 0.0f) {
-            return shadow;
-        }
-
-        float hue = target.saturation() > 0.0f ? target.hue() : nativeShadow.hue();
-        float saturation = target.saturation();
-        float nativeShadeDelta = Math.abs(nativeHighlight.value() - nativeShadow.value());
-        float minimumShadeDelta = Math.max(1.0f / 7.0f, nativeShadeDelta);
-        float shadowValue = Math.max(0.0f, highlight.value() - minimumShadeDelta);
-        GenesisColour separated = GenesisColour.fromHsv(hue, saturation, shadowValue);
-        if (separated.toGenesisWord() != highlight.toGenesisWord()) {
-            return separated;
-        }
-
-        float fallbackValue = highlight.value();
-        for (int step = 0; step < 7; step++) {
-            fallbackValue = Math.max(0.0f, fallbackValue - (1.0f / 7.0f));
-            separated = GenesisColour.fromHsv(hue, saturation, fallbackValue);
-            if (separated.toGenesisWord() != highlight.toGenesisWord()) {
-                return separated;
-            }
-        }
-        return shadow;
+    private static GenesisColour shiftHue(GenesisColour base, float targetHue) {
+        return GenesisColour.fromHsv(targetHue, base.saturation(), base.value());
     }
 
     private static int[] selectLegacyTwoShades(int[] colours) {
@@ -361,9 +320,10 @@ final class HostEmeraldPaletteBuilder {
         bytes[offset + 1] = (byte) (color & 0xFF);
     }
 
-    private record WeightedColor(GenesisColour color, int usage) {
-        private int score() {
-            return (color.chroma() * 100) + (usage * 10) + color.brightness();
+    record EmeraldPalettePair(GenesisColour highlight, GenesisColour shadow) {
+        EmeraldPalettePair {
+            highlight = highlight != null ? highlight : GenesisColour.black();
+            shadow = shadow != null ? shadow : GenesisColour.black();
         }
     }
 

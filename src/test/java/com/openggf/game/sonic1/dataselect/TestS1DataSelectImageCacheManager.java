@@ -362,10 +362,15 @@ public class TestS1DataSelectImageCacheManager {
                 () -> "romsha",
                 8);
 
-        S1DataSelectImageGenerator.PreviewCaptureTarget point =
-                generator.resolveCaptureTarget(Sonic1ZoneConstants.ZONE_GHZ);
-
-        assertNotEquals(new Sonic1ZoneRegistry().getStartPosition(Sonic1ZoneConstants.ZONE_GHZ, 0)[0], point.cameraLeftX());
+        assertEquals(
+                new S1DataSelectImageGenerator.PreviewCaptureTarget(8232, 798),
+                generator.resolveCaptureTarget(Sonic1ZoneConstants.ZONE_GHZ));
+        assertEquals(
+                new S1DataSelectImageGenerator.PreviewCaptureTarget(1157, 1086),
+                generator.resolveCaptureTarget(Sonic1ZoneConstants.ZONE_SBZ));
+        assertEquals(
+                new S1DataSelectImageGenerator.PreviewCaptureTarget(9312, 1392),
+                generator.resolveCaptureTarget(Sonic1ZoneConstants.ZONE_FZ));
     }
 
     @Test

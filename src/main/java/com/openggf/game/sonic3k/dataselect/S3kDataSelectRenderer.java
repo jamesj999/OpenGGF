@@ -74,6 +74,9 @@ interface S3kDataSelectAssetSource {
     default HostEmeraldLayoutProfile getHostEmeraldLayoutProfile() {
         return HostEmeraldLayoutProfile.defaultSeven();
     }
+    default byte[] getCustomEmeraldPaletteBytes() {
+        return new byte[0];
+    }
 }
 
 public class S3kDataSelectRenderer {
@@ -126,7 +129,6 @@ public class S3kDataSelectRenderer {
         }
 
         ensureCached(graphics, assets);
-        cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
         int cameraX = objectState.selectorState().cameraX();
         boolean batchingEnabled = graphics.isBatchingEnabled();
         boolean instancedBatchingEnabled = graphics.isInstancedBatchingEnabled();
@@ -144,7 +146,10 @@ public class S3kDataSelectRenderer {
             drawLayer(graphics, () -> renderCardsPlaneLayer(graphics, assets, objectState, cameraX, true));
             drawLayer(graphics, () -> renderStaticPlaneTextOverlays(graphics, cameraX, true));
             drawLayer(graphics, () -> renderCardsSpriteEmeraldLayer(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX));
+            drawLayer(graphics, () -> {
+                cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
+                renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX);
+            });
             drawLayer(graphics, () -> renderCardsSpriteOverlayLayer(graphics, assets, objectState, cameraX));
             drawLayer(graphics, () -> renderDelete(graphics, assets, objectState, cameraX));
             drawLayer(graphics, () -> renderSelector(graphics, assets, objectState, cameraX));
@@ -200,6 +205,7 @@ public class S3kDataSelectRenderer {
         graphics.beginPatternBatch();
         layerRenderer.run();
         graphics.flushPatternBatch();
+        graphics.flush();
     }
 
     private void cacheSelectedSlotIcon(GraphicsManager graphics,
@@ -208,6 +214,7 @@ public class S3kDataSelectRenderer {
         if (selectedSlotIcon == null) {
             return;
         }
+        int paletteLine = selectedSlotIconPaletteLine(assets, selectedSlotIcon);
         Pattern[] patterns = assets.getSlotIconPatterns(selectedSlotIcon.iconIndex());
         if (patterns.length == 0) {
             return;
@@ -219,13 +226,22 @@ public class S3kDataSelectRenderer {
                 patternBase);
         Palette selectedPalette = assets.getSelectedSlotIconPalette(selectedSlotIcon);
         if (selectedPalette != null) {
-            graphics.cachePaletteTexture(selectedPalette.deepCopy(), 3);
+            graphics.cachePaletteTexture(selectedPalette.deepCopy(), paletteLine);
             return;
         }
         byte[] paletteBytes = selectedSlotIcon.finishCard()
                 ? paletteAt(assets.getFinishCardPalettes(), selectedSlotIcon.paletteIndex())
                 : selectedIconZonePaletteBytes(assets, selectedSlotIcon.paletteIndex());
-        cachePalette(graphics, paletteBytes, 3);
+        cachePalette(graphics, paletteBytes, paletteLine);
+    }
+
+    private int selectedSlotIconPaletteLine(S3kDataSelectAssetSource assets,
+                                            S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+        SpriteMappingFrame customFrame = assets.getSelectedSlotIconFrame(selectedSlotIcon);
+        if (customFrame != null && !customFrame.pieces().isEmpty()) {
+            return customFrame.pieces().getFirst().paletteIndex();
+        }
+        return 3;
     }
 
     private byte[] selectedIconZonePaletteBytes(S3kDataSelectAssetSource assets, int paletteIndex) {
@@ -291,6 +307,10 @@ public class S3kDataSelectRenderer {
                                                S3kDataSelectAssetSource assets,
                                                S3kSaveScreenObjectState objectState,
                                                int cameraX) {
+        cacheCharacterAndEmeraldPalettes(graphics,
+                assets.getCharacterPaletteBytes(),
+                assets.getEmeraldPaletteBytes());
+        cachePalette(graphics, assets.getCustomEmeraldPaletteBytes(), 3, 1);
         S3kSaveScreenLayoutObjects layoutObjects = objectState.layoutObjects();
         HostEmeraldLayoutProfile layout = assets.getHostEmeraldLayoutProfile();
         List<S3kSaveScreenObjectState.SlotVisualState> slotStates = objectState.visualState().slotStates();

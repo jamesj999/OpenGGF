@@ -4,6 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_APOSTROPHE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F8;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_WORLD_1;
+
 /**
  * Service to detect and migrate AWT key codes to GLFW key codes in config files.
  * This handles backwards compatibility when users upgrade from the JOGL build
@@ -85,6 +89,28 @@ public class ConfigMigrationService {
         }
 
         LOGGER.info("[ConfigMigration] Migrated " + migrated + " key bindings to GLFW codes");
+    }
+
+    /**
+     * Migrates the S1 preview-coordinate log key off deprecated defaults.
+     * Only rewrites the binding when it still matches an old generated default,
+     * leaving any user-customized binding untouched.
+     *
+     * @param config The config map to migrate (modified in place)
+     * @return true if the key binding was updated
+     */
+    public boolean migrateDeprecatedS1PreviewCoordLogKey(Map<String, Object> config) {
+        Integer keyCode = getIntValue(config, SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY.name());
+        if (keyCode == null) {
+            return false;
+        }
+        if (keyCode != GLFW_KEY_WORLD_1 && keyCode != GLFW_KEY_F8) {
+            return false;
+        }
+        config.put(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY.name(), GLFW_KEY_APOSTROPHE);
+        LOGGER.info("[ConfigMigration] Migrated CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY: "
+                + keyCode + " -> " + GLFW_KEY_APOSTROPHE);
+        return true;
     }
 
     private Integer getIntValue(Map<String, Object> config, String key) {
