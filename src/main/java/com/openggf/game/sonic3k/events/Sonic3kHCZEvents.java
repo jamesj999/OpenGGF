@@ -488,7 +488,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         // on the old terrain. After the level reloads as Act 2, releasing them lets them
         // fall through the gap in Act 2's terrain.
         S3kTransitionWriteSupport.requestHczPostTransitionCutscene(
-                GameServices.module().getLevelEventProvider());
+                module().getLevelEventProvider());
 
         LevelManager lm = levelManager();
         lm.requestSeamlessTransition(

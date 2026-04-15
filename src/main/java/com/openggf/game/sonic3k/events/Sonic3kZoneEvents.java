@@ -5,6 +5,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.S3kPaletteOwners;
 import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
@@ -20,6 +21,7 @@ import com.openggf.level.Palette;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
 
 import java.io.IOException;
 import java.util.List;
@@ -86,12 +88,28 @@ public abstract class Sonic3kZoneEvents {
         return GameServices.graphics();
     }
 
+    protected GameModule module() {
+        return GameServices.module();
+    }
+
+    protected PaletteOwnershipRegistry paletteRegistryOrNull() {
+        return GameServices.paletteOwnershipRegistryOrNull();
+    }
+
     protected com.openggf.level.ParallaxManager parallaxOrNull() {
         return GameServices.parallaxOrNull();
     }
 
     protected boolean hasRuntime() {
         return GameServices.hasRuntime();
+    }
+
+    protected static GraphicsManager graphicsStatic() {
+        return GameServices.graphics();
+    }
+
+    protected static PaletteOwnershipRegistry paletteRegistryOrNullStatic() {
+        return GameServices.paletteOwnershipRegistryOrNull();
     }
 
     protected void cachePaletteTextureIfReady(Palette palette, int paletteLine) {

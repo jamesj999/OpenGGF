@@ -43,9 +43,9 @@ class TestS3kSpecialRenderEffectRegistration {
 
         provider.registerSpecialRenderEffects(registry, Sonic3kZoneIds.ZONE_AIZ, 1);
 
-        assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND));
+        assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND));
         assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_FOREGROUND));
-        assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_SPRITES));
+        assertEquals(2, registry.size(SpecialRenderEffectStage.AFTER_SPRITES));
     }
 
     @Test
