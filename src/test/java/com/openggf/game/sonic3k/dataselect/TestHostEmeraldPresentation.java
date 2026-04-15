@@ -8,8 +8,11 @@ import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -17,18 +20,22 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class TestHostEmeraldPresentation {
 
     @Test
-    void s1HostEmeraldsRetintNativeRampInsteadOfCopyingRawSlots() {
+    void s1HostEmeraldsRetintNativeRampInsteadOfCopyingRawSlots() throws Exception {
         Rom rom = TestEnvironment.currentRom();
 
         HostEmeraldPresentation.Result result = HostEmeraldPresentation.forHost("s1", rom);
+        byte[] expected = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                HostEmeraldPaletteBuilder.extractS1HostTargets(rom),
+                HostEmeraldPaletteBuilder.nativeRamp());
 
         assertEquals(6, result.activeEmeraldCount());
         assertEquals(7 * 4 + 2, result.paletteBytes().length);
         assertTrue(result.usesRetintedRamp());
+        assertArrayEquals(expected, result.paletteBytes());
     }
 
     @Test
-    void s2HostEmeraldsRetintNativeRampInsteadOfCopyingRawSlots() {
+    void s2HostEmeraldsRetintNativeRampInsteadOfCopyingRawSlots() throws Exception {
         File romFile = RomTestUtils.ensureSonic2RomAvailable();
         assumeTrue(romFile != null && romFile.exists(), "Sonic 2 ROM not available");
 
@@ -36,10 +43,14 @@ class TestHostEmeraldPresentation {
             assumeTrue(rom.open(romFile.getPath()), "Failed to open Sonic 2 ROM");
 
             HostEmeraldPresentation.Result result = HostEmeraldPresentation.forHost("s2", rom);
+            byte[] expected = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                    HostEmeraldPaletteBuilder.extractS2HostTargets(rom),
+                    HostEmeraldPaletteBuilder.nativeRamp());
 
             assertEquals(7, result.activeEmeraldCount());
             assertEquals(7 * 4 + 2, result.paletteBytes().length);
             assertTrue(result.usesRetintedRamp());
+            assertArrayEquals(expected, result.paletteBytes());
         }
     }
 
@@ -59,5 +70,42 @@ class TestHostEmeraldPresentation {
 
         assertEquals(0, result.paletteBytes().length);
         assertEquals(7, result.layout().positions().size());
+    }
+
+    @Test
+    void composeRetintedPaletteBytes_preservesNativeBrightnessOrderingAndChangesHue() {
+        List<HostEmeraldPaletteBuilder.GenesisColor> nativeRamp = List.of(
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0EEE),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0444),
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x0000));
+        List<HostEmeraldPaletteBuilder.GenesisColor> hostTargets = List.of(
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(0x000E));
+
+        byte[] paletteBytes = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(hostTargets, nativeRamp);
+        HostEmeraldPaletteBuilder.GenesisColor highlight =
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(readGenesisWord(paletteBytes, 0));
+        HostEmeraldPaletteBuilder.GenesisColor shadow =
+                HostEmeraldPaletteBuilder.GenesisColor.fromGenesisWord(readGenesisWord(paletteBytes, 2));
+
+        assertTrue(highlight.brightness() > shadow.brightness());
+        assertNotEquals(nativeRamp.get(0).toGenesisWord(), highlight.toGenesisWord());
+        assertEquals(nativeRamp.get(nativeRamp.size() - 1).toGenesisWord(),
+                readGenesisWord(paletteBytes, paletteBytes.length - 2));
+    }
+
+    private static int readGenesisWord(byte[] bytes, int offset) {
+        return ((bytes[offset] & 0xFF) << 8) | (bytes[offset + 1] & 0xFF);
     }
 }
