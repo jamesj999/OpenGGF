@@ -50,6 +50,7 @@ docs/screenshots/
 
 # Savestates
 *.gs2
+saves/
 dist/
 
 # Reference docs (keep locally, never commit)

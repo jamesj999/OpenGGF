@@ -38,7 +38,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
 
     private static Sonic1LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = GameServices.configuration();
+    private final SonicConfigurationService configService;
     private final Sonic1LevelSelectDataLoader dataLoader = new Sonic1LevelSelectDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -57,6 +57,11 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
     private static final int FADE_DURATION = 16;
 
     public Sonic1LevelSelectManager() {
+        this(null);
+    }
+
+    Sonic1LevelSelectManager(SonicConfigurationService configService) {
+        this.configService = configService;
     }
 
     public static synchronized Sonic1LevelSelectManager getInstance() {
@@ -64,6 +69,10 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
             instance = new Sonic1LevelSelectManager();
         }
         return instance;
+    }
+
+    private SonicConfigurationService configuration() {
+        return configService != null ? configService : GameServices.configuration();
     }
 
     @Override
@@ -138,11 +147,12 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
     }
 
     private void updateActive(InputHandler input) {
-        int upKey = configService.getInt(SonicConfiguration.UP);
-        int downKey = configService.getInt(SonicConfiguration.DOWN);
-        int leftKey = configService.getInt(SonicConfiguration.LEFT);
-        int rightKey = configService.getInt(SonicConfiguration.RIGHT);
-        int jumpKey = configService.getInt(SonicConfiguration.JUMP);
+        SonicConfigurationService config = configuration();
+        int upKey = config.getInt(SonicConfiguration.UP);
+        int downKey = config.getInt(SonicConfiguration.DOWN);
+        int leftKey = config.getInt(SonicConfiguration.LEFT);
+        int rightKey = config.getInt(SonicConfiguration.RIGHT);
+        int jumpKey = config.getInt(SonicConfiguration.JUMP);
 
         // Handle up/down navigation
         if (input.isKeyDown(upKey)) {

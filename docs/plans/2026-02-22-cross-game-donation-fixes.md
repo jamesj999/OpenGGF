@@ -6,7 +6,7 @@
 
 **Architecture:** Underwater fix derives synthetic donor water palettes from the base game's color shift ratio. Audio fix threads the donor's `SmpsSequencerConfig` through registration and playback so each SFX plays with its correct driver semantics.
 
-**Tech Stack:** Java 21, JUnit 4, OpenGL (palette textures), SMPS audio driver
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, OpenGL (palette textures), SMPS audio driver
 
 ---
 

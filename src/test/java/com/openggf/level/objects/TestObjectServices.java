@@ -17,6 +17,7 @@ import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -424,6 +425,10 @@ public class TestObjectServices implements ObjectServices {
         if (levelManager != null) {
             levelManager.saveBigRingReturn(state);
         }
+    }
+
+    @Override
+    public void requestSessionSave(SaveReason reason) {
     }
 }
 

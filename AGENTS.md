@@ -7,11 +7,9 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 3.  Provide modern tooling such as a level editor and an open framework for modding and customisation.
 
 ## Current Status
-The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor.
+The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor. A data select and save system is now implemented: S3K has a ROM-accurate data select screen with 8 save slots and team selection, and S1/S2 can use this screen via cross-game donation while retaining their own save profiles.
 
-Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits — infrastructure ready, no zone consumers yet), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
-
-Current migration status is partial. Sonic 2 routes HTZ/CNZ runtime state, palette ownership, and animated tiles through the runtime-owned stack, plus CNZ staged render effects (slot overlay). Sonic 3&K uses the same shared systems for AIZ and HCZ runtime-state adapters, AIZ staged render effects and advanced render modes (fire-transition/battleship overlays), HCZ/SOZ animated tiles, and CNZ runtime-state-backed scroll behavior. Do not assume all implemented zones are fully migrated; audit the existing zone before extending it.
+Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
 
 ### Rendering
 *   **Status:** ✅ Functional.
@@ -47,7 +45,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
 1.  **S3K object implementation** – Implement zone-specific objects, badniks, and bosses for S3K zones.
 2.  **S3K scroll handlers** – Add dedicated scroll handlers for remaining S3K zones beyond AIZ and MGZ.
 3.  **S2 remaining bosses** – Implement bosses for OOZ, WFZ, SCZ, DEZ (EHZ, CPZ, HTZ, ARZ, CNZ, MCZ done).
-4.  **Level select / save system** – Implement S3K save file system and level select menus.
+4.  **Data select parity** – The S3K data select and save system is implemented with cross-game donation to S1/S2. Remaining work: native selector mapping art, save-slot visual states, and emerald display parity.
 5.  **Special Stage polish** – S2 special stage is functional; S1 special stage rendering is in progress.
 
 ## Agent Directives
@@ -58,7 +56,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
 
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
-*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4 + JUnit 5).
+*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 5 / Jupiter only).
 *   **Maven output for agents:** `.mvn/extensions.xml` installs Maven Silent Extension (MSE) and `.mvn/maven.config` enables `-Dmse=relaxed` by default for all repo-local Maven commands. Use `-Dmse=off` when full Maven logs are required for debugging.
 *   **Run:** `java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
@@ -71,6 +69,8 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `data` – ROM loading (`Rom`, `RomManager`, `RomByteReader`), game interface, art providers
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag
     *   `game` – core game-agnostic interfaces, providers, `GameServices` façade, `GameRuntime`, `RuntimeManager`, `PlayableEntity`, `DamageCause`, `AbstractZoneRegistry`
+    *   `game.dataselect` – shared data select framework: `DataSelectProvider`, `DataSelectSessionController`, `DataSelectHostProfile`, `DataSelectAction`
+    *   `game.save` – save system: `SaveManager` (JSON + SHA256), `SaveSessionContext`, `SaveSlotSummary`, `SelectedTeam`
     *   `game.sonic1` – Sonic 1 game module, zone registry, level events, objects, badniks, bosses, scroll handlers, audio, title screen, special stage
     *   `game.sonic2` – Sonic 2-specific implementations
     *   `game.sonic2.objects` – object factories and instance classes
@@ -78,6 +78,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `game.sonic2.constants` – ROM offsets, object IDs, audio constants
     *   `game.sonic3k` – Sonic 3&K game module, level loading, and bootstrap logic
     *   `game.sonic3k.constants` – Sonic 3&K ROM offsets and table metadata
+    *   `game.sonic3k.dataselect` – S3K data select: `S3kDataSelectManager`, `S3kDataSelectPresentation`, `S3kDataSelectRenderer`, `S3kDataSelectDataLoader`, save payloads
     *   `graphics` – GL wrappers and render managers
     *   `level` – level structures (patterns, blocks, chunks, collision), `MutableLevel`, `AbstractLevel`, `LevelTilemapManager`, `LevelTransitionCoordinator`, `LevelDebugRenderer`
     *   `level.objects` – unified `ObjectManager` with placement, collision, touch response; `ObjectServices` interface and `DefaultObjectServices`; shared base classes (`AbstractBadnikInstance`, `AbstractSpikeObjectInstance`, `AbstractMonitorObjectInstance`, `AbstractProjectileInstance`, etc.); utility helpers (`SubpixelMotion`, `PatrolMovementHelper`, `PlatformBobHelper`, `DestructionEffects`, etc.)
@@ -89,7 +90,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning; implements `PlayableEntity`
     *   `timer` – utility timers for events
     *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
-*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration.
+*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration. New or updated tests must use JUnit 5 / Jupiter only; JUnit 5 / Jupiter only is explicitly barred.
 
 ## Coordinate Semantics
 
@@ -184,13 +185,13 @@ services().zoneFeatureProvider()  // ZoneFeatureProvider
 - `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
 - `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom tile uploads
-- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing (infrastructure ready, no zone consumers yet)
+- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing
 - `SpecialRenderEffectRegistry` - staged additional render passes layered into the normal scene
 - `AdvancedRenderModeController` - frame-level render-mode state such as per-line/per-cell scroll overrides
 
 Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer` and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
 
-When adding new gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state. `ZoneLayoutMutationPipeline` in particular is ready to adopt — boss arena layout edits and act-transition tile swaps are natural first consumers.
+When adding new gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
 
 ## Consolidated Subsystems
 

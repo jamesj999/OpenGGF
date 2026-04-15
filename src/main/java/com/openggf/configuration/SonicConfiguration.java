@@ -260,6 +260,13 @@ public enum SonicConfiguration {
 	SIDEKICK_CHARACTER_CODE,
 
 	/**
+	 * Semicolon-separated list of extra player combinations for the data select screen.
+	 * Each combo is a comma-separated list: main character first, then sidekicks.
+	 * Example: "sonic,knuckles;knuckles,tails"
+	 */
+	DATA_SELECT_EXTRA_PLAYER_COMBOS,
+
+	/**
 	 * Filename for the Sonic 1 ROM.
 	 */
 	SONIC_1_ROM,
@@ -307,6 +314,21 @@ public enum SonicConfiguration {
 	 * When false (default), the base game runs unmodified.
 	 */
 	CROSS_GAME_FEATURES_ENABLED,
+
+	/**
+	 * Whether to force regeneration of the Sonic 1 data select image cache.
+	 */
+	CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE,
+
+	/**
+	 * Whether to force regeneration of the Sonic 2 data select image cache.
+	 */
+	CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE,
+
+	/**
+	 * Debug key to log the current camera position as an S1 data select preview override.
+	 */
+	CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY,
 
 	/**
 	 * Which game to use as the donor for cross-game features: "s2" or "s3k".

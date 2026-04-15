@@ -1,8 +1,11 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelState;
 import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
+import com.openggf.level.Palette;
 import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
@@ -69,9 +72,12 @@ public class HudRenderManager {
     // Icon/flash palette and HUD text palette — configurable per game
     private PatternDesc iconPatternDesc = new PatternDesc(0x8000); // default: Priority 1, Pal 0
     private PatternDesc hudPatternDesc = new PatternDesc(0xA000);  // default: Priority 1, Pal 1
+    private int iconPaletteLine;
+    private int hudTextPaletteLine = 1;
     /** When true, lives name tiles use iconPatternDesc (pal 0) instead of hudPatternDesc (pal 1).
      *  Set when donor life icon art is active — S3K art uses palette 0 for all tiles. */
     private boolean livesNameUsesIconPalette;
+    private Palette livesPaletteOverride;
 
     private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
     private boolean bonusStageHudLayout;
@@ -90,6 +96,8 @@ public class HudRenderManager {
      * @param flashPalLine palette line for icon and flash state (red)
      */
     public void setHudPalettes(int textPalLine, int flashPalLine) {
+        this.hudTextPaletteLine = textPalLine;
+        this.iconPaletteLine = flashPalLine;
         this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
         this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
     }
@@ -98,6 +106,10 @@ public class HudRenderManager {
      *  Used when donor life icon art (S3K) replaces host art — S3K tiles use palette 0 for all. */
     public void setLivesNameUsesIconPalette(boolean value) {
         this.livesNameUsesIconPalette = value;
+    }
+
+    public void setLivesPaletteOverride(Palette palette) {
+        this.livesPaletteOverride = palette != null ? palette.deepCopy() : null;
     }
 
     public void setHudFlashMode(HudFlashMode mode) {
@@ -353,6 +365,9 @@ public class HudRenderManager {
     }
 
     private void drawLives(int lives) {
+        int namePaletteLine = livesNameUsesIconPalette ? iconPaletteLine : hudTextPaletteLine;
+        boolean paletteOverridden = applyLivesPaletteOverride(iconPaletteLine, namePaletteLine);
+
         int camX = camera.getXWithShake();
         int camY = camera.getYWithShake();
 
@@ -417,6 +432,47 @@ public class HudRenderManager {
                 int digit = livesDigits[i];
                 renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, numDrawX + camX + (i * 8), line2Y + camY);
             }
+        }
+
+        if (paletteOverridden) {
+            graphicsManager.flushPatternBatch();
+            graphicsManager.flush();
+            restoreHudPaletteLines(iconPaletteLine, namePaletteLine);
+        }
+    }
+
+    private boolean applyLivesPaletteOverride(int iconLine, int nameLine) {
+        if (livesPaletteOverride == null) {
+            return false;
+        }
+        graphicsManager.cachePaletteTexture(livesPaletteOverride.deepCopy(), iconLine);
+        if (nameLine != iconLine) {
+            graphicsManager.cachePaletteTexture(livesPaletteOverride.deepCopy(), nameLine);
+        }
+        return true;
+    }
+
+    private void restoreHudPaletteLines(int iconLine, int nameLine) {
+        Level level = null;
+        if (GameServices.levelOrNull() != null) {
+            level = GameServices.levelOrNull().getCurrentLevel();
+        }
+        if (level == null) {
+            return;
+        }
+        restorePaletteLine(level, iconLine);
+        if (nameLine != iconLine) {
+            restorePaletteLine(level, nameLine);
+        }
+    }
+
+    private void restorePaletteLine(Level level, int line) {
+        if (line < 0 || line >= level.getPaletteCount()) {
+            return;
+        }
+        Palette palette = level.getPalette(line);
+        if (palette != null) {
+            graphicsManager.cachePaletteTexture(palette.deepCopy(), line);
         }
     }
 

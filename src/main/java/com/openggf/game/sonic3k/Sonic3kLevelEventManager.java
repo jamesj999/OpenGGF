@@ -22,6 +22,7 @@ import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.game.sonic3k.objects.CutsceneKnucklesHcz2Instance;
 import com.openggf.game.sonic3k.objects.HCZConveyorBeltObjectInstance;
+import com.openggf.camera.Camera;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
@@ -195,6 +196,28 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
         if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents.update(currentAct, frameCounter);
+        }
+        syncSidekickBoundsToCamera();
+    }
+
+    /**
+     * Keep CPU sidekick level bounds aligned with S3K's dynamic camera bounds.
+     * Unlike S2, S3K currently has no zone-specific sidekick bound overrides, so
+     * mirroring the live camera bounds each frame prevents stale respawn/death
+     * limits after resize scripts move the arena.
+     */
+    private void syncSidekickBoundsToCamera() {
+        Camera camera = GameServices.cameraOrNull();
+        if (camera == null) {
+            return;
+        }
+        int minX = camera.getMinX();
+        int maxX = camera.getMaxX();
+        int maxY = Math.max(camera.getMaxY(), camera.getMaxYTarget());
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
+            if (sidekick.getCpuController() != null) {
+                sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
+            }
         }
     }
 

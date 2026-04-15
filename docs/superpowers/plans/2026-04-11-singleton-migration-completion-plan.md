@@ -8,7 +8,7 @@
 
 **Architecture:** production code should access process/runtime services through explicit constructor wiring, `GameServices`, or injected `ObjectServices` depending on layer. Shared object instances in `com.openggf.level.objects` must not reach out to static facades during gameplay logic. Guard tests should scan the actual remaining risk surface instead of narrow allowlists.
 
-**Tech Stack:** Java 21, Maven, JUnit 4/JUnit 5, OpenGGF `EngineServices` / `GameServices` / `ObjectServices` architecture.
+**Tech Stack:** Java 21, Maven, JUnit 5 / Jupiter only, OpenGGF `EngineServices` / `GameServices` / `ObjectServices` architecture.
 
 ---
 

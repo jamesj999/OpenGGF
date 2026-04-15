@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.events;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.save.SaveReason;
+import com.openggf.game.save.SessionSaveRequests;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -491,6 +493,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
                 module().getLevelEventProvider());
 
         LevelManager lm = levelManager();
+        SessionSaveRequests.requestCurrentSessionSave(SaveReason.PROGRESSION_SAVE);
         lm.requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(
                                 SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)

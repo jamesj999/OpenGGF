@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -372,6 +373,9 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void triggerFadeToBlack() {
         LOGGER.info("S1 Results screen complete, starting fade to black");
+
+        // Persist progression before the level transition
+        services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
 
         var fadeManager = services().fadeManager();
         fadeManager.startFadeToBlack(() -> {

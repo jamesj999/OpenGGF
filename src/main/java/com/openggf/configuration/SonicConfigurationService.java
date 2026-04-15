@@ -62,11 +62,18 @@ public class SonicConfigurationService {
 			}
 		}
 
-		// Migrate AWT key codes to GLFW if detected (for users upgrading from JOGL build)
+		// Migrate deprecated key encodings/defaults before applying defaults.
 		ConfigMigrationService migrationService = new ConfigMigrationService();
+		boolean configChanged = false;
 		if (migrationService.detectAwtKeyCodes(config)) {
 			migrationService.migrateConfig(config);
-			saveConfig(); // Persist migrated config
+			configChanged = true;
+		}
+		if (migrationService.migrateDeprecatedS1PreviewCoordLogKey(config)) {
+			configChanged = true;
+		}
+		if (configChanged) {
+			saveConfig();
 		}
 
 		applyDefaults();
@@ -275,6 +282,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
 		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+		putDefault(SonicConfiguration.DATA_SELECT_EXTRA_PLAYER_COMBOS, "");
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_3K_ROM, "Sonic and Knuckles & Sonic 3 (W) [!].gen");
@@ -292,6 +300,9 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
 		putDefault(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP, true);
 		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_APOSTROPHE);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 

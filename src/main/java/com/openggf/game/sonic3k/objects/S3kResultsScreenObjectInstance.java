@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.data.Rom;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.save.SaveReason;
 import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -414,6 +415,10 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
         if (!result.anyRemaining()) {
             playTallyEndSound();
+            int zone = services().romZoneId();
+            if ((act != 0) || (zone == 0x0A)) {
+                services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
+            }
             state = STATE_WAIT;
             stateTimer = 0;
         }
@@ -541,11 +546,35 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             if (!skipTitleCard && !hasSeamlessTransition) {
                 services().titleCardProvider().initializeInLevel(zone, 1);
             }
+
+            // ROM: Timer and ring count reset on act transition. For zones with
+            // seamless transitions (HCZ), the level reload in executeActTransition
+            // creates a fresh LevelGamestate. For non-seamless S3K act transitions
+            // (where acts share level data), the results screen must reset the
+            // gamestate directly since no level reload occurs.
+            if (!hasSeamlessTransition) {
+                resetLevelGamestateForActTransition();
+            }
         }
 
         setDestroyed(true);
         LOG.fine(() -> String.format("S3K results exit: zone=%X act=%d isAct2OrSpecial=%b",
                 zone, act, isAct2OrSpecial));
+    }
+
+    /**
+     * Resets the LevelGamestate (timer + rings) for a non-seamless act transition.
+     * ROM: Timer and ring count reset to zero when entering a new act.
+     * Score carries over.
+     */
+    private void resetLevelGamestateForActTransition() {
+        var levelManager = services().levelManager();
+        if (levelManager != null) {
+            var gameModule = services().gameModule();
+            if (gameModule != null) {
+                levelManager.resetLevelGamestate(gameModule.createLevelState());
+            }
+        }
     }
 
     // ---- Persistence ----

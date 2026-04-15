@@ -6,7 +6,7 @@
 
 **Architecture:** Create `LevelManager.executeActTransition()` that calls `loadLevelData()` directly (layout+collision only), bypassing the profile system. Remove `LevelLoadMode.SEAMLESS_RELOAD`, the `loadZoneAndActSeamless()` method, and all seamless gating from `Sonic3kLevelInitProfile`. Simplify `applySeamlessTransition()` to route RELOAD types through the new method.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 ---
 

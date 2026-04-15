@@ -1,8 +1,13 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.save.SaveReason;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.objects.ObjectSpawn;
@@ -10,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.tests.TestablePlayableSprite;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -19,11 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestAiz2BossEndSequenceObjects {
+    @BeforeEach
+    void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+    }
 
     @AfterEach
     void tearDown() {
         Aiz2BossEndSequenceState.reset();
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
     }
 
     @Test
@@ -142,6 +154,7 @@ class TestAiz2BossEndSequenceObjects {
 
         assertEquals(Sonic3kZoneIds.ZONE_HCZ, services.requestedZone);
         assertEquals(0, services.requestedAct);
+        assertEquals(SaveReason.PROGRESSION_SAVE, services.lastSaveReason);
     }
 
     private static void setField(Object target, String fieldName, int value) throws Exception {
@@ -165,11 +178,17 @@ class TestAiz2BossEndSequenceObjects {
     private static final class RecordingServices extends TestObjectServices {
         int requestedZone = -1;
         int requestedAct = -1;
+        SaveReason lastSaveReason;
 
         @Override
         public void requestZoneAndAct(int zone, int act) {
             requestedZone = zone;
             requestedAct = act;
+        }
+
+        @Override
+        public void requestSessionSave(SaveReason reason) {
+            lastSaveReason = reason;
         }
     }
 }

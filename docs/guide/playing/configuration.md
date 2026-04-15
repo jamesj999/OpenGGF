@@ -92,6 +92,14 @@ sprites and spindash:
 
 Both the base game ROM and the donor game ROM must be present.
 
+When the donor is `s3k`, Sonic 1 and Sonic 2 can also use the donated S3K Data Select
+save screen. The frontend comes from S3K, but slot validation, progression, restart
+rules, and save writes still belong to the host game.
+
+On that donated save screen, zone previews and emerald progress are host-owned metadata.
+Emeralds keep the S3K save-card layout, but their colors are adapted from the host
+game's emerald palette rather than reusing raw host palette slots directly.
+
 ## How do I change controls?
 
 Key bindings accept either GLFW key codes (integers) or human-readable names. The following

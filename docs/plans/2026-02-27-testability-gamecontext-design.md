@@ -1,5 +1,7 @@
 # Testability Improvement: GameContext + HeadlessTestFixture
 
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 **Date:** 2026-02-27
 **Status:** Design
 **Focus:** Incremental testability improvement via GameContext holder and test fixture builder

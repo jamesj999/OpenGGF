@@ -17,6 +17,7 @@ import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -73,6 +74,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public ParallaxManager parallaxManager() { return null; }
     @Override public void advanceToNextLevel() {}
     @Override public void requestCreditsTransition() {}
+    @Override public void requestSessionSave(SaveReason reason) {}
     @Override public void requestSpecialStageEntry() {}
     @Override public void invalidateForegroundTilemap() {}
     @Override public boolean areAllRingsCollected() { return false; }

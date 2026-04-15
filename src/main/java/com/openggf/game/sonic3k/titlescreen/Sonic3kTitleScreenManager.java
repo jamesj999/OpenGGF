@@ -439,11 +439,8 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
         segaSoundPlayed = false;
         spritesInitialized = false;
 
-        // Cancel any stale FadeManager overlay. The GameLoop's exitTitleScreen()
-        // uses fadeManager.startFadeToBlack() with a callback to doExitTitleScreen(),
-        // which calls this reset(). After the callback, FadeManager.completeFade()
-        // would persist the black overlay indefinitely (holdDuration = MAX_VALUE).
-        // Cancelling here clears the overlay so the level can render.
+        // Defensive cleanup in case some earlier flow left a generic FadeManager
+        // overlay active before the title screen was reset.
         GameServices.fade().cancel();
 
         LOGGER.info("S3K title screen reset to inactive");
@@ -462,6 +459,11 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     @Override
     public boolean isActive() {
         return state != State.INACTIVE;
+    }
+
+    @Override
+    public TitleScreenAction consumeExitAction() {
+        return menuSelection == 0 ? TitleScreenAction.ONE_PLAYER : TitleScreenAction.TWO_PLAYER;
     }
 
     @Override
@@ -679,13 +681,18 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             GameServices.audio().playSfx(Sonic3kSfx.SWITCH.id);
         }
 
-        // Start pressed - begin exit fade
+        // Start pressed - 1 PLAYER hands off through GameLoop routing, while the
+        // competition path keeps the provider-owned fade sequence.
         if (input.isKeyPressed(jumpKey)) {
+            if (menuSelection == 0) {
+                state = State.EXITING;
+                LOGGER.info("S3K title screen handing off to GameLoop for 1 PLAYER");
+                return;
+            }
             phase = Phase.FADE_OUT;
             phaseTimer = 0;
             // State stays ACTIVE during our fade — we only set EXITING once
-            // the visual fade is complete, so the GameLoop's exitTitleScreen()
-            // finds the screen already black and can transition immediately.
+            // the visual fade is complete, so GameLoop can hand off immediately.
             GameServices.audio().fadeOutMusic();
             LOGGER.info("S3K title screen starting exit fade (menu selection: " + menuSelection + ")");
             return;

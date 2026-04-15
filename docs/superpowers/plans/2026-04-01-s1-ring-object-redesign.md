@@ -44,11 +44,11 @@ import com.openggf.level.Pattern;
 import com.openggf.level.rings.RingFrame;
 import com.openggf.level.rings.RingFramePiece;
 import com.openggf.level.rings.RingSpriteSheet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestRingSparkleDelay {
 
@@ -362,10 +362,10 @@ package com.openggf.tests;
 
 import com.openggf.game.sonic1.objects.Sonic1RingInstance;
 import com.openggf.level.objects.TouchResponseProvider;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1RingInstance {
 

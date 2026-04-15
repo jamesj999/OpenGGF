@@ -215,14 +215,22 @@ public class Sonic1TitleScreenDataLoader {
      * is required by GraphicsManager.renderPatternWithId().
      */
     public void cachePalettesToGpu(GraphicsManager gm) {
-        if (palettesCached || titlePaletteLines == null) {
+        if (titlePaletteLines == null) {
             return;
         }
+        boolean uploadedAny = false;
         for (int line = 0; line < titlePaletteLines.length; line++) {
-            gm.cachePaletteTexture(titlePaletteLines[line], line);
+            Palette palette = titlePaletteLines[line];
+            if (palette == null) {
+                continue;
+            }
+            gm.cachePaletteTexture(palette, line);
+            uploadedAny = true;
         }
-        palettesCached = true;
-        LOGGER.info("Cached S1 title palettes to GPU (4 lines)");
+        if (uploadedAny && !palettesCached) {
+            palettesCached = true;
+            LOGGER.info("Cached S1 title palettes to GPU (4 lines)");
+        }
     }
 
     /**

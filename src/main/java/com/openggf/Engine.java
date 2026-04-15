@@ -40,17 +40,29 @@ import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
+import com.openggf.game.save.SaveManager;
+import com.openggf.game.save.SaveSlotSummary;
+import com.openggf.game.save.SelectedTeam;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic2.Sonic2GameModule.S2DataSelectImageWarmup;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
+import com.openggf.game.sonic1.Sonic1GameModule.S1DataSelectImageWarmup;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.data.Rom;
 import com.openggf.physics.Direction;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.Callbacks.*;
@@ -182,6 +194,7 @@ public class Engine {
 		this.gameLoop.setEditorStateSyncHandler(this::syncEditorState);
 		this.gameLoop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
 		this.gameLoop.setMasterTitleExitHandler(this::exitMasterTitleScreen);
+		this.gameLoop.setDataSelectActionHandler(this::launchGameplayFromDataSelect);
 		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.projectionWidth = realWidth;
@@ -401,6 +414,10 @@ public class Engine {
 		}
 		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
 		initializeGameplayRuntime(gameplayMode, true);
+		boolean warmupPumpedRenderTasks = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
+		if (!warmupPumpedRenderTasks) {
+			graphicsManager.runPendingRenderThreadTasks();
+		}
 		enterConfiguredStartupMode();
 	}
 
@@ -515,8 +532,68 @@ public class Engine {
 		}
 	}
 
+	private boolean maybeGenerateDonatedDataSelectImagesBeforeStartupMode(GameModule module) {
+		boolean crossGameEnabled = configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED);
+		String donorCode = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
+		boolean s3kConfiguredDonor = "s3k".equalsIgnoreCase(donorCode);
+		if (module == null || !crossGameEnabled || !s3kConfiguredDonor || !CrossGameFeatureProvider.isS3kDonorActive()) {
+			return false;
+		}
+		if (module.getGameId() == GameId.S1) {
+			S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
+			if (manager instanceof S1DataSelectImageWarmup warmup) {
+				warmup.ensureGenerationStarted();
+				pumpRenderThreadTasksUntilSettled(manager::isGenerationRunning);
+				return true;
+			}
+			return false;
+		}
+		if (module.getGameId() == GameId.S2) {
+			S2DataSelectImageCacheManager manager = module.getGameService(S2DataSelectImageCacheManager.class);
+			if (manager instanceof S2DataSelectImageWarmup warmup) {
+				warmup.ensureGenerationStarted();
+				pumpRenderThreadTasksUntilSettled(manager::isGenerationRunning);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void pumpRenderThreadTasksUntilSettled(java.util.function.BooleanSupplier generationRunning) {
+		if (generationRunning == null) {
+			return;
+		}
+		while (generationRunning.getAsBoolean()) {
+			graphicsManager.runPendingRenderThreadTasks();
+			Thread.onSpinWait();
+		}
+		graphicsManager.runPendingRenderThreadTasks();
+	}
+
+	private String resolveLaunchMainCharacter() {
+		var worldSession = SessionManager.getCurrentWorldSession();
+		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
+				&& worldSession != null
+				&& worldSession.getSaveSessionContext() != null
+				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
+			return worldSession.getSaveSessionContext().selectedTeam().mainCharacter();
+		}
+		return configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+	}
+
+	private List<String> resolveLaunchSidekicks() {
+		var worldSession = SessionManager.getCurrentWorldSession();
+		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
+				&& worldSession != null
+				&& worldSession.getSaveSessionContext() != null
+				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
+			return worldSession.getSaveSessionContext().selectedTeam().sidekicks();
+		}
+		return parseSidekickConfig(configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
+	}
+
 	private AbstractPlayableSprite createMainPlayableSprite() {
-		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+		String mainCode = resolveLaunchMainCharacter();
 		if ("tails".equalsIgnoreCase(mainCode)) {
 			return new Tails(mainCode, (short) 100, (short) 624);
 		}
@@ -527,8 +604,7 @@ public class Engine {
 	}
 
 	private void addConfiguredSidekicks(GameModule module, AbstractPlayableSprite mainSprite) {
-		List<String> sidekickNames = parseSidekickConfig(
-				configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
+		List<String> sidekickNames = resolveLaunchSidekicks();
 		boolean sidekickAllowed = module.supportsSidekick() || CrossGameFeatureProvider.isActive();
 		if (!sidekickAllowed) {
 			return;
@@ -592,6 +668,132 @@ public class Engine {
 		}
 	}
 
+	private void launchGameplayFromDataSelect(com.openggf.game.dataselect.DataSelectAction action) {
+		GameModule module = SessionManager.requireCurrentGameModule();
+		SaveManager saveManager = new SaveManager(Path.of("saves"));
+		Map<String, Object> loadedPayload = loadDataSelectPayload(module, action, saveManager);
+		com.openggf.game.save.SaveSessionContext saveContext = createDataSelectSaveContext(module, action, saveManager);
+
+		GameplayModeContext gameplay = SessionManager.openGameplaySession(module, saveContext);
+		RuntimeManager.destroyCurrent();
+		initializeGameplayRuntime(gameplay, false);
+		loadLevelFromDataSelect(action.zone(), action.act());
+		restoreRuntimeFromDataSelectPayload(runtime, loadedPayload);
+		gameLoop.setGameMode(GameMode.LEVEL);
+
+		dataSelectLaunchSaveReason(action.type())
+				.ifPresent(gameLoop::requestSaveForCurrentSession);
+	}
+
+	static Optional<com.openggf.game.save.SaveReason> dataSelectLaunchSaveReason(
+			com.openggf.game.dataselect.DataSelectActionType actionType) {
+		return switch (actionType) {
+			case NEW_SLOT_START -> Optional.of(com.openggf.game.save.SaveReason.NEW_SLOT_START);
+			case LOAD_SLOT -> Optional.of(com.openggf.game.save.SaveReason.EXISTING_SLOT_LOAD);
+			case CLEAR_RESTART -> Optional.of(com.openggf.game.save.SaveReason.CLEAR_RESTART_COMMIT);
+			case NONE, NO_SAVE_START, DELETE_SLOT -> Optional.empty();
+		};
+	}
+
+	private void loadLevelFromDataSelect(int zone, int act) {
+		try {
+			levelManager.loadZoneAndAct(zone, act);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to load zone " + zone + " act " + act + " from data select", e);
+		}
+	}
+
+	static com.openggf.game.save.SaveSessionContext createDataSelectSaveContext(
+			GameModule module,
+			com.openggf.game.dataselect.DataSelectAction action,
+			SaveManager saveManager) {
+		String gameCode = switch (module.getGameId()) {
+			case S1 -> "s1";
+			case S2 -> "s2";
+			case S3K -> "s3k";
+		};
+		Map<String, Object> payload = loadDataSelectPayload(module, action, saveManager);
+		SelectedTeam team = payload == null ? action.team() : teamFromPayload(payload, action.team());
+		com.openggf.game.save.SaveSessionContext context =
+				action.slot() > 0
+						? com.openggf.game.save.SaveSessionContext.forSlot(
+								gameCode, action.slot(), team, action.zone(), action.act())
+						: com.openggf.game.save.SaveSessionContext.noSave(
+								gameCode, team, action.zone(), action.act());
+		if (payload != null && Boolean.TRUE.equals(payload.get("clear"))) {
+			context.markClear();
+		}
+		return context;
+	}
+
+	private static Map<String, Object> loadDataSelectPayload(
+			GameModule module,
+			com.openggf.game.dataselect.DataSelectAction action,
+			SaveManager saveManager) {
+		if (action.slot() <= 0) {
+			return null;
+		}
+		return switch (action.type()) {
+			case LOAD_SLOT, CLEAR_RESTART -> {
+				try {
+					String gameCode = switch (module.getGameId()) {
+						case S1 -> "s1";
+						case S2 -> "s2";
+						case S3K -> "s3k";
+					};
+					SaveSlotSummary summary = saveManager.readSlotSummary(gameCode, action.slot());
+					yield summary.state() == com.openggf.game.save.SaveSlotState.EMPTY ? null : summary.payload();
+				} catch (IOException e) {
+					throw new RuntimeException("Failed to read save slot " + action.slot() + " for data select launch", e);
+				}
+			}
+			case NONE, NO_SAVE_START, NEW_SLOT_START, DELETE_SLOT -> null;
+		};
+	}
+
+	static void restoreRuntimeFromDataSelectPayload(com.openggf.game.GameRuntime runtime, Map<String, Object> payload) {
+		if (runtime == null || payload == null) {
+			return;
+		}
+		int lives = readInt(payload, "lives", runtime.getGameState().getLives());
+		int continues = readInt(payload, "continues", runtime.getGameState().getContinues());
+		runtime.getGameState().restoreSaveProgress(
+				lives,
+				continues,
+				readIntList(payload.get("chaosEmeralds")),
+				readIntList(payload.get("superEmeralds")));
+	}
+
+	private static SelectedTeam teamFromPayload(Map<String, Object> payload, SelectedTeam fallback) {
+		Object mainRaw = payload.get("mainCharacter");
+		if (!(mainRaw instanceof String main)) {
+			return fallback;
+		}
+		Object sidekicksRaw = payload.get("sidekicks");
+		List<String> sidekicks = sidekicksRaw instanceof List<?>
+				? ((List<?>) sidekicksRaw).stream().map(String::valueOf).toList()
+				: List.of();
+		return new SelectedTeam(main, sidekicks);
+	}
+
+	private static int readInt(Map<String, Object> payload, String key, int fallback) {
+		Object value = payload.get(key);
+		return value instanceof Number number ? number.intValue() : fallback;
+	}
+
+	private static List<Integer> readIntList(Object raw) {
+		if (!(raw instanceof List<?> list)) {
+			return List.of();
+		}
+		List<Integer> values = new ArrayList<>();
+		for (Object value : list) {
+			if (value instanceof Number number) {
+				values.add(number.intValue());
+			}
+		}
+		return List.copyOf(values);
+	}
+
 	public void toggleEditorPlaytestMode() {
 		if (getCurrentGameMode() == GameMode.EDITOR) {
 			resumePlaytestFromEditor();
@@ -636,10 +838,7 @@ public class Engine {
 
 	private AbstractPlayableSprite resolveMainPlayableSprite() {
 		ensureRuntimeBound();
-		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-		if (mainCode == null || mainCode.isBlank()) {
-			mainCode = "sonic";
-		}
+		String mainCode = ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
 		var sprite = spriteManager.getSprite(mainCode);
 		if (sprite instanceof AbstractPlayableSprite playable) {
 			return playable;
@@ -958,6 +1157,14 @@ public class Engine {
 			if (levelSelect != null) {
 				levelSelect.setClearColor();
 			}
+		} else if (getCurrentGameMode() == GameMode.DATA_SELECT) {
+			// Data select backdrop
+			DataSelectProvider dataSelect = gameLoop.getDataSelectProvider();
+			if (dataSelect != null) {
+				dataSelect.setClearColor();
+			} else {
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			}
 		} else if (getCurrentGameMode() == GameMode.CREDITS_TEXT
 				|| getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
 			// Ending: delegate to EndingProvider for phase-dependent background color
@@ -1000,6 +1207,7 @@ public class Engine {
 		profiler.endSection("update");
 
 		profiler.beginSection("render");
+		graphicsManager.runPendingRenderThreadTasks();
 		draw();
 		graphicsManager.flush();
 		profiler.endSection("render");
@@ -1154,6 +1362,14 @@ public class Engine {
 			LevelSelectProvider levelSelect = gameLoop.getLevelSelectProvider();
 			if (levelSelect != null) {
 				levelSelect.draw();
+			}
+		} else if (getCurrentGameMode() == GameMode.DATA_SELECT) {
+			// Render data select screen
+			camera.setX((short) 0);
+			camera.setY((short) 0);
+			DataSelectProvider dataSelect = gameLoop.getDataSelectProvider();
+			if (dataSelect != null) {
+				dataSelect.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.ENDING_CUTSCENE) {
 			// Ending cutscene: render DEZ background during sky phases, then cutscene sprites

@@ -27,8 +27,7 @@ public class TestAppVersion {
 
     @Test
     public void testMavenBuildDoesNotUseDevFallback() {
-        assertNotEquals("dev", AppVersion.get(),
-                "Maven test runs should resolve the filtered project version");
+        assertNotEquals("dev", AppVersion.get(), "Maven test runs should resolve the filtered project version");
     }
 
     @Test
