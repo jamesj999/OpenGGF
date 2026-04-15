@@ -145,7 +145,52 @@ class TestHostEmeraldPresentation {
                 readGenesisWord(paletteBytes, paletteBytes.length - 2));
     }
 
+    @Test
+    void composeRetintedPaletteBytes_realS1TargetsKeepShadeSeparationForColourfulEmeralds() throws Exception {
+        Rom rom = TestEnvironment.currentRom();
+
+        List<HostEmeraldPaletteBuilder.GenesisColour> targets =
+                HostEmeraldPaletteBuilder.extractS1HostTargets(rom);
+        byte[] paletteBytes = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                targets,
+                HostEmeraldPaletteBuilder.nativeRamp());
+
+        assertShadeSeparationForColourfulEmeralds(targets, paletteBytes);
+    }
+
+    @Test
+    void composeRetintedPaletteBytes_realS2TargetsKeepShadeSeparationForColourfulEmeralds() throws Exception {
+        File romFile = RomTestUtils.ensureSonic2RomAvailable();
+        assumeTrue(romFile != null && romFile.exists(), "Sonic 2 ROM not available");
+
+        try (Rom rom = new Rom()) {
+            assumeTrue(rom.open(romFile.getPath()), "Failed to open Sonic 2 ROM");
+
+            List<HostEmeraldPaletteBuilder.GenesisColour> targets =
+                    HostEmeraldPaletteBuilder.extractS2HostTargets(rom);
+            byte[] paletteBytes = HostEmeraldPaletteBuilder.composeRetintedPaletteBytes(
+                    targets,
+                    HostEmeraldPaletteBuilder.nativeRamp());
+
+            assertShadeSeparationForColourfulEmeralds(targets, paletteBytes);
+        }
+    }
+
     private static int readGenesisWord(byte[] bytes, int offset) {
         return ((bytes[offset] & 0xFF) << 8) | (bytes[offset + 1] & 0xFF);
+    }
+
+    private static void assertShadeSeparationForColourfulEmeralds(List<HostEmeraldPaletteBuilder.GenesisColour> targets,
+                                                                  byte[] paletteBytes) {
+        for (int emeraldIndex = 0; emeraldIndex < targets.size(); emeraldIndex++) {
+            HostEmeraldPaletteBuilder.GenesisColour target = targets.get(emeraldIndex);
+            if (target.saturation() < 0.6f || target.value() < 0.4f) {
+                continue;
+            }
+            int highlight = readGenesisWord(paletteBytes, emeraldIndex * 4);
+            int shadow = readGenesisWord(paletteBytes, emeraldIndex * 4 + 2);
+            assertNotEquals(highlight, shadow,
+                    "colourful emerald " + emeraldIndex + " should keep distinct highlight/shadow shades");
+        }
     }
 }
