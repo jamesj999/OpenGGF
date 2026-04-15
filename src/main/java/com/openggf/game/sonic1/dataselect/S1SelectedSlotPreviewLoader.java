@@ -12,14 +12,24 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Converts cached Sonic 1 preview PNGs into the pattern, palette, and mapping-frame contract used
+ * by the donated S3K selected-slot renderer.
+ *
+ * <p>The generated preview frame intentionally renders on palette line 2 so it can coexist with the
+ * dedicated S2 purple-emerald path on line 3.</p>
+ */
 public final class S1SelectedSlotPreviewLoader {
     private static final int TILE_COLUMNS = S1DataSelectImageGenerator.PREVIEW_WIDTH / Pattern.PATTERN_WIDTH;
     private static final int TILE_ROWS = S1DataSelectImageGenerator.PREVIEW_HEIGHT / Pattern.PATTERN_HEIGHT;
     private static final int MAX_VISIBLE_COLORS = 15;
     private static final int SELECTED_ICON_TILE_OFFSET = 0x31B;
-    private static final int PALETTE_INDEX = 3;
+    private static final int PALETTE_INDEX = 2;
     private static final SpriteMappingFrame FRAME = buildFrame();
 
+    /**
+     * Converts a whole preview map keyed by host zone ID.
+     */
     public Map<Integer, LoadedPreview> loadAll(Map<Integer, RgbaImage> previews) {
         if (previews == null || previews.isEmpty()) {
             return Map.of();
@@ -31,6 +41,9 @@ public final class S1SelectedSlotPreviewLoader {
         return Map.copyOf(loaded);
     }
 
+    /**
+     * Quantizes a single 80x56 RGBA preview into 4bpp tile patterns plus an attached palette.
+     */
     public LoadedPreview load(RgbaImage image) {
         if (image == null
                 || image.width() != S1DataSelectImageGenerator.PREVIEW_WIDTH
@@ -56,6 +69,9 @@ public final class S1SelectedSlotPreviewLoader {
         return new LoadedPreview(patterns, quantized.palette(), FRAME);
     }
 
+    /**
+     * Returns the shared mapping frame used by all runtime-generated host previews.
+     */
     public static SpriteMappingFrame frame() {
         return FRAME;
     }
@@ -171,6 +187,9 @@ public final class S1SelectedSlotPreviewLoader {
         return new SpriteMappingFrame(List.copyOf(pieces));
     }
 
+    /**
+     * Pattern/palette/frame bundle consumed by the donated S3K selected-slot renderer.
+     */
     public record LoadedPreview(Pattern[] patterns, Palette palette, SpriteMappingFrame frame) {
     }
 

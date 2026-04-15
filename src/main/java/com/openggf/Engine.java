@@ -413,8 +413,10 @@ public class Engine {
 		}
 		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
 		initializeGameplayRuntime(gameplayMode, true);
-		maybeStartS1DonatedDataSelectImageGeneration(module);
-		graphicsManager.runPendingRenderThreadTasks();
+		boolean warmupPumpedRenderTasks = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
+		if (!warmupPumpedRenderTasks) {
+			graphicsManager.runPendingRenderThreadTasks();
+		}
 		enterConfiguredStartupMode();
 	}
 
@@ -529,23 +531,39 @@ public class Engine {
 		}
 	}
 
-	private void maybeStartS1DonatedDataSelectImageGeneration(GameModule module) {
+	private boolean maybeGenerateDonatedDataSelectImagesBeforeStartupMode(GameModule module) {
 		if (module == null || !CrossGameFeatureProvider.isS3kDonorActive()) {
-			return;
+			return false;
 		}
 		if (module.getGameId() == GameId.S1) {
 			S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
 			if (manager instanceof S1DataSelectImageWarmup warmup) {
 				warmup.ensureGenerationStarted();
+				pumpRenderThreadTasksUntilSettled(manager::isGenerationRunning);
+				return true;
 			}
-			return;
+			return false;
 		}
 		if (module.getGameId() == GameId.S2) {
 			S2DataSelectImageCacheManager manager = module.getGameService(S2DataSelectImageCacheManager.class);
 			if (manager instanceof S2DataSelectImageWarmup warmup) {
 				warmup.ensureGenerationStarted();
+				pumpRenderThreadTasksUntilSettled(manager::isGenerationRunning);
+				return true;
 			}
 		}
+		return false;
+	}
+
+	private void pumpRenderThreadTasksUntilSettled(java.util.function.BooleanSupplier generationRunning) {
+		if (generationRunning == null) {
+			return;
+		}
+		while (generationRunning.getAsBoolean()) {
+			graphicsManager.runPendingRenderThreadTasks();
+			Thread.onSpinWait();
+		}
+		graphicsManager.runPendingRenderThreadTasks();
 	}
 
 	private String resolveLaunchMainCharacter() {

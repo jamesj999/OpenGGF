@@ -19,6 +19,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+/**
+ * Generates Sonic 1 runtime-selected-slot preview PNGs for donated S3K Data Select.
+ *
+ * <p>The generator captures one preview per supported restart destination, scales each capture into
+ * the S3K selected-card dimensions, and writes a manifest only after all images succeed. Capture
+ * defaults to spawn-derived framing with a small code-owned override table for zones that need a
+ * better composition.</p>
+ */
 public final class S1DataSelectImageGenerator {
     static final int PREVIEW_WIDTH = 80;
     static final int PREVIEW_HEIGHT = 56;
@@ -86,6 +94,10 @@ public final class S1DataSelectImageGenerator {
         return new PreviewCaptureTarget(spawn[0], spawn[1]);
     }
 
+    /**
+     * Converts the current gameplay camera position into an override point that can be pasted back
+     * into {@link #buildCaptureOverrides()}.
+     */
     public static PreviewCapturePoint previewCapturePointFromCamera(int cameraLeftX, int cameraTopY) {
         return new PreviewCapturePoint(cameraLeftX + CAMERA_TARGET_X_BIAS, cameraTopY + CAMERA_TARGET_Y_BIAS);
     }
@@ -146,13 +158,23 @@ public final class S1DataSelectImageGenerator {
         return new RgbaImage(PREVIEW_WIDTH, PREVIEW_HEIGHT, pixels);
     }
 
+    /**
+     * Render-thread capture contract used by the cache manager to keep OpenGL work on the active
+     * graphics context while leaving file I/O and manifest orchestration outside the renderer.
+     */
     public interface CaptureSource {
         RgbaImage capture(int zoneId, PreviewCaptureTarget captureTarget, int settleFrames) throws IOException;
     }
 
+    /**
+     * Code-owned override point whose coordinates represent the desired screen centre.
+     */
     public record PreviewCapturePoint(int centreX, int centreY) {
     }
 
+    /**
+     * Concrete render target passed to the capture path, expressed as camera-left X plus centre Y.
+     */
     public record PreviewCaptureTarget(int cameraLeftX, int centreY) {
     }
 
@@ -165,9 +187,10 @@ public final class S1DataSelectImageGenerator {
 
     private static Map<Integer, PreviewCapturePoint> buildCaptureOverrides() {
         return Map.of(
-                Sonic1ZoneConstants.ZONE_GHZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_GHZ, 0x160, 0),
+                Sonic1ZoneConstants.ZONE_GHZ, new PreviewCapturePoint(8384, 798),
                 Sonic1ZoneConstants.ZONE_SLZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_SLZ, 0x180, 0),
-                Sonic1ZoneConstants.ZONE_FZ, offsetFromSpawn(Sonic1ZoneConstants.ZONE_FZ, 0x100, 0)
+                Sonic1ZoneConstants.ZONE_SBZ, new PreviewCapturePoint(1309, 1086),
+                Sonic1ZoneConstants.ZONE_FZ, new PreviewCapturePoint(9464, 1392)
         );
     }
 

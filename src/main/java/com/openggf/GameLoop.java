@@ -27,7 +27,11 @@ import com.openggf.game.ResultsScreen;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
+import com.openggf.game.sonic1.Sonic1GameModule;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.game.sonic1.dataselect.S1DataSelectImageGenerator;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -575,7 +579,7 @@ public class GameLoop {
             if (titleScreen != null) {
                 titleScreen.update(inputHandler);
 
-                if (titleScreen.isExiting()) {
+                if (titleScreen.isExiting() && !fadeManager.isActive()) {
                     exitTitleScreen();
                 }
             }
@@ -2186,12 +2190,12 @@ public class GameLoop {
     }
 
     /**
-     * Exits the title screen and hands off directly to the resolved destination.
+     * Exits the title screen and hands off to the resolved destination.
      *
      * <p>The destination flow owns the visual transition: Sonic 1 level select
      * reuses the frozen title backdrop, Sonic 2 level start goes straight into
-     * the pre-level/title-card pipeline, and S3K data select performs its own
-     * entry fade.
+     * the pre-level/title-card pipeline, and donated data select uses a
+     * fade-to-black / fade-from-black handoff.
      */
     private void exitTitleScreen() {
         TitleScreenProvider titleScreen = getTitleScreenProviderLazy();
@@ -2210,8 +2214,18 @@ public class GameLoop {
             return;
         }
 
+        if (route == TitleActionRoute.DATA_SELECT && fadeManager.isActive()) {
+            return;
+        }
+
         // Fade out title music
         audioManager.fadeOutMusic();
+
+        if (route == TitleActionRoute.DATA_SELECT) {
+            fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
+            LOGGER.info("Title screen exit fading to DATA_SELECT");
+            return;
+        }
 
         doExitTitleScreen(route);
         LOGGER.info("Title screen exit routed directly to " + route);
@@ -2309,6 +2323,15 @@ public class GameLoop {
             return;
         }
 
+        if (route == TitleActionRoute.DATA_SELECT && fadeManager.isActive()) {
+            return;
+        }
+
+        if (route == TitleActionRoute.DATA_SELECT) {
+            fadeManager.startFadeToBlack(() -> doExitTitleScreen(route));
+            return;
+        }
+
         doExitTitleScreen(route);
     }
 
@@ -2376,6 +2399,7 @@ public class GameLoop {
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
+        fadeManager.startFadeFromBlack(null);
     }
 
     /**

@@ -473,7 +473,7 @@ class TestS3kDataSelectPresentation {
         presentation.initialize();
         presentation.draw();
 
-        assertEquals(List.of(0x10, 0x12, 0x15),
+        assertEquals(List.of(0x13, 0x12, 0x14),
                 renderer.lastObjectState.visualState().slotStates().get(0).emeraldMappingFrames());
     }
 
@@ -546,6 +546,8 @@ class TestS3kDataSelectPresentation {
                 assertNotNull(frame);
                 assertEquals(70, frame.pieces().size(),
                         "runtime S2 preview should use the 80x56 PNG-backed tile grid instead of the 12-tile ROM icon");
+                assertTrue(frame.pieces().stream().allMatch(piece -> piece.paletteIndex() == 2),
+                        "runtime generated host previews should use palette line 2 so S2 purple can keep line 3");
                 assertTrue(assets.useScaledSelectedSlotIconFrame(selected));
                 assertEquals(70, assets.getSlotIconPatterns(0).length);
             }
@@ -565,7 +567,12 @@ class TestS3kDataSelectPresentation {
 
             TestEnvironment.configureRomFixture(hostRom);
 
-            HostEmeraldPresentation.Result expected = HostEmeraldPresentation.forHost("s1", hostRom);
+            S3kDataSelectDataLoader loader = new S3kDataSelectDataLoader(RomByteReader.fromRom(s3kRom));
+            loader.loadData();
+            HostEmeraldPresentation.Result expected = HostEmeraldPresentation.forHost(
+                    "s1",
+                    hostRom,
+                    loader.getEmeraldPaletteBytes());
             S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s1");
 
             assets.loadData();
@@ -576,7 +583,52 @@ class TestS3kDataSelectPresentation {
     }
 
     @Test
-    void donatedRenderer_usesHostLayoutForEmeraldOrbit() {
+    void donorAssets_loadHostPreviewAssets_rebindsS2PurpleEmeraldToPaletteLineThree() throws Exception {
+        File s2RomFile = RomTestUtils.ensureSonic2RomAvailable();
+        File s3kRomFile = RomTestUtils.ensureSonic3kRomAvailable();
+        assumeTrue(s2RomFile != null && s2RomFile.exists(), "Sonic 2 ROM not available");
+        assumeTrue(s3kRomFile != null && s3kRomFile.exists(), "Sonic 3K ROM not available");
+
+        try (Rom hostRom = new Rom(); Rom s3kRom = new Rom()) {
+            assumeTrue(hostRom.open(s2RomFile.getPath()), "Failed to open Sonic 2 ROM");
+            assumeTrue(s3kRom.open(s3kRomFile.getPath()), "Failed to open Sonic 3K ROM");
+
+            TestEnvironment.configureRomFixture(hostRom);
+
+            S3kDataSelectDataLoader loader = new S3kDataSelectDataLoader(RomByteReader.fromRom(s3kRom));
+            loader.loadData();
+
+            S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s2");
+            assets.loadData();
+
+            HostEmeraldPresentation.Result expected = HostEmeraldPresentation.forHost(
+                    "s2",
+                    hostRom,
+                    loader.getEmeraldPaletteBytes());
+            SpriteMappingFrame originalPurple = loader.getSaveScreenMappings().get(0x16);
+            SpriteMappingFrame reboundPurple = assets.getSaveScreenMappings().get(0x16);
+
+            assertArrayEquals(expected.paletteBytes(), assets.getEmeraldPaletteBytes());
+            assertEquals(originalPurple.pieces().size(), reboundPurple.pieces().size());
+            for (int i = 0; i < originalPurple.pieces().size(); i++) {
+                SpriteMappingPiece originalPiece = originalPurple.pieces().get(i);
+                SpriteMappingPiece reboundPiece = reboundPurple.pieces().get(i);
+                assertEquals(originalPiece.xOffset(), reboundPiece.xOffset());
+                assertEquals(originalPiece.yOffset(), reboundPiece.yOffset());
+                assertEquals(originalPiece.widthTiles(), reboundPiece.widthTiles());
+                assertEquals(originalPiece.heightTiles(), reboundPiece.heightTiles());
+                assertEquals(originalPiece.tileIndex(), reboundPiece.tileIndex());
+                assertEquals(originalPiece.hFlip(), reboundPiece.hFlip());
+                assertEquals(originalPiece.vFlip(), reboundPiece.vFlip());
+                assertEquals(originalPiece.priority(), reboundPiece.priority());
+                assertEquals(3, reboundPiece.paletteIndex(),
+                        "Dedicated S2 purple emerald should render on palette line 3");
+            }
+        }
+    }
+
+    @Test
+    void donatedRenderer_placesS1EmeraldsInReferenceAlignedHexagon() {
         RecordingGraphics graphics = new RecordingGraphics();
         S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
         EmeraldOrbitAssets assets = new EmeraldOrbitAssets(HostEmeraldLayoutProfile.s1SixRing());
@@ -588,7 +640,7 @@ class TestS3kDataSelectPresentation {
                         new S3kSaveScreenSelectorState(ignored -> {}),
                         visualState(assets.getSaveScreenLayoutObjects(), 4, 0xF, 0xD, 8,
                                 slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1,
-                                        0x10, 0x11, 0x12, 0x13, 0x14, 0x15),
+                                        0x13, 0x11, 0x12, 0x10, 0x15, 0x14),
                                 slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
                                 slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
                                 slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
@@ -597,19 +649,116 @@ class TestS3kDataSelectPresentation {
                                 slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
                                 slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1))));
 
-        long matchedPositions = assets.layout.positions().stream()
-                .filter(offset -> graphics.containsRenderPosition(
-                        assets.slotWorldX + offset.x() - 128,
-                        assets.slotWorldY + offset.y() - 128))
-                .count();
-        assertEquals(6, matchedPositions);
-        for (int i = 0; i < assets.layout.positions().size(); i++) {
-            HostEmeraldLayoutProfile.Point offset = assets.layout.positions().get(i);
+        for (HostEmeraldLayoutProfile.Point offset : assets.referenceAlignedS1HexagonPositions()) {
             assertTrue(graphics.containsRenderPosition(
                             assets.slotWorldX + offset.x() - 128,
                             assets.slotWorldY + offset.y() - 128),
-                    "expected emerald render at host layout position " + i);
+                    "expected emerald render at reference-aligned S1 orbit position");
         }
+    }
+
+    @Test
+    void render_selectedHostPreviewDoesNotClobberDedicatedS2PurpleEmeraldPalette() {
+        RecordingGraphics graphics = new RecordingGraphics();
+        S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
+        S2PurpleEmeraldWithSelectedPreviewAssets assets = new S2PurpleEmeraldWithSelectedPreviewAssets();
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        assets.getSaveScreenLayoutObjects(),
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(assets.getSaveScreenLayoutObjects(), 4, 0xF, 0xD, 8,
+                                slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1, 0x16),
+                                slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(4, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(5, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1)),
+                        new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17)));
+
+        Palette palette = graphics.cachedPalette(3);
+        assertNotNull(palette);
+        assertTrue((palette.getColor(9).r & 0xFF) > 0
+                        || (palette.getColor(9).g & 0xFF) > 0
+                        || (palette.getColor(9).b & 0xFF) > 0,
+                "line 3 should end the frame with the dedicated S2 purple emerald palette, not the selected preview palette");
+    }
+
+    @Test
+    void render_hostSelectedPreviewDoesNotLeaveEmeraldPaletteLineTwoDirtyForNextFrame() {
+        RecordingGraphics graphics = new RecordingGraphics();
+        S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
+        S2PurpleEmeraldWithSelectedPreviewAssets assets = new S2PurpleEmeraldWithSelectedPreviewAssets();
+        S3kSaveScreenLayoutObjects layout = assets.getSaveScreenLayoutObjects();
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        layout,
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(layout, 4, 0xF, 0xD, 8,
+                                slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1, 0x16),
+                                slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(4, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(5, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1)),
+                        new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17)));
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        layout,
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(layout, 4, 0xF, 0xD, 8,
+                                slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1, 0x16),
+                                slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(4, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(5, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1))));
+
+        Palette palette = graphics.cachedPalette(2);
+        assertNotNull(palette);
+        assertTrue((palette.getColor(1).r & 0xFF) > 0
+                        || (palette.getColor(1).g & 0xFF) > 0
+                        || (palette.getColor(1).b & 0xFF) > 0,
+                "line 2 emerald palette should be rebuilt on the next frame after a host preview used line 2");
+    }
+
+    @Test
+    void render_flushesEachLayerSoLaterPaletteUploadsCannotRewriteEarlierLayers() {
+        RecordingGraphics graphics = new RecordingGraphics();
+        S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
+        S2PurpleEmeraldWithSelectedPreviewAssets assets = new S2PurpleEmeraldWithSelectedPreviewAssets();
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        assets.getSaveScreenLayoutObjects(),
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(assets.getSaveScreenLayoutObjects(), 4, 0xF, 0xD, 8,
+                                slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1, 0x16),
+                                slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(4, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(5, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1)),
+                        new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17)));
+
+        assertTrue(graphics.flushCalls() > 0,
+                "renderer should flush each layer immediately so later palette uploads cannot rewrite earlier queued draws");
+        assertEquals(graphics.flushBatchCalls(), graphics.flushCalls(),
+                "every layer batch flush should execute immediately");
     }
 
     @Test
@@ -641,7 +790,7 @@ class TestS3kDataSelectPresentation {
         presentation.initialize();
         presentation.draw();
 
-        assertEquals(List.of(0x11, 0x14, 0x16),
+        assertEquals(List.of(0x16, 0x11, 0x14),
                 renderer.lastObjectState.visualState().slotStates().get(0).emeraldMappingFrames());
     }
 
@@ -2064,8 +2213,8 @@ class TestS3kDataSelectPresentation {
         assertEquals(0x50000 + Sonic3kConstants.ARTTILE_SAVE_MISC + 0x326, lastTile.patternId());
         assertEquals(164f, lastTile.x(), 0.01f);
         assertEquals(16f + ((56f / 3f) * 2f), lastTile.y(), 0.02f);
-        assertNotNull(graphics.cachedPalette(3),
-                "host-selected previews should also cache their host palette into line 3");
+        assertNotNull(graphics.cachedPalette(2),
+                "host-selected previews should cache their host palette into line 2 to avoid the S2 purple emerald on line 3");
     }
 
     @Test
@@ -2397,12 +2546,23 @@ class TestS3kDataSelectPresentation {
         private final int slotWorldX = 0x180;
         private final int slotWorldY = 0x120;
         private final List<SpriteMappingFrame> mappings;
+        private static final List<HostEmeraldLayoutProfile.Point> REFERENCE_ALIGNED_S1_HEXAGON_POSITIONS = List.of(
+                new HostEmeraldLayoutProfile.Point(-4, -50),
+                new HostEmeraldLayoutProfile.Point(-26, -38),
+                new HostEmeraldLayoutProfile.Point(18, -38),
+                new HostEmeraldLayoutProfile.Point(-26, -12),
+                new HostEmeraldLayoutProfile.Point(18, -12),
+                new HostEmeraldLayoutProfile.Point(-4, 0));
 
         private EmeraldOrbitAssets(HostEmeraldLayoutProfile layout) {
             super(0x2A);
             this.layout = layout;
             this.mappings = buildMappings();
             loadData();
+        }
+
+        private List<HostEmeraldLayoutProfile.Point> referenceAlignedS1HexagonPositions() {
+            return REFERENCE_ALIGNED_S1_HEXAGON_POSITIONS;
         }
 
         @Override
@@ -2445,8 +2605,24 @@ class TestS3kDataSelectPresentation {
         private List<SpriteMappingFrame> buildMappings() {
             List<SpriteMappingFrame> frames = new ArrayList<>();
             for (int i = 0; i < 0x20; i++) {
+                int x = 0;
+                int y = 0;
+                if (i >= 0x10 && i <= 0x16) {
+                    HostEmeraldLayoutProfile.Point point = switch (i) {
+                        case 0x10 -> new HostEmeraldLayoutProfile.Point(-4, -50);
+                        case 0x11 -> new HostEmeraldLayoutProfile.Point(-24, -40);
+                        case 0x12 -> new HostEmeraldLayoutProfile.Point(16, -40);
+                        case 0x13 -> new HostEmeraldLayoutProfile.Point(-29, -18);
+                        case 0x14 -> new HostEmeraldLayoutProfile.Point(21, -18);
+                        case 0x15 -> new HostEmeraldLayoutProfile.Point(-15, -1);
+                        case 0x16 -> new HostEmeraldLayoutProfile.Point(7, -1);
+                        default -> new HostEmeraldLayoutProfile.Point(0, 0);
+                    };
+                    x = point.x();
+                    y = point.y();
+                }
                 frames.add(new SpriteMappingFrame(List.of(
-                        new SpriteMappingPiece(0, 0, 1, 1, i, false, false, 0, false))));
+                        new SpriteMappingPiece(x, y, 1, 1, i, false, false, 0, false))));
             }
             return List.copyOf(frames);
         }
@@ -2616,6 +2792,7 @@ class TestS3kDataSelectPresentation {
         private int renderPatternCalls;
         private int beginBatchCalls;
         private int flushBatchCalls;
+        private int flushCalls;
         private final List<RenderPosition> renderPositions = new ArrayList<>();
         private final List<RenderCall> renderCalls = new ArrayList<>();
         private final List<ScaledRenderCall> scaledRenderCalls = new ArrayList<>();
@@ -2659,6 +2836,11 @@ class TestS3kDataSelectPresentation {
         @Override
         public void flushPatternBatch() {
             flushBatchCalls++;
+        }
+
+        @Override
+        public void flush() {
+            flushCalls++;
         }
 
         int rectiCommands() {
@@ -2732,6 +2914,10 @@ class TestS3kDataSelectPresentation {
 
         int flushBatchCalls() {
             return flushBatchCalls;
+        }
+
+        int flushCalls() {
+            return flushCalls;
         }
 
         private record ScaledRenderCall(int patternId, PatternDesc desc, float x, float y, float width, float height) {
@@ -2879,10 +3065,108 @@ class TestS3kDataSelectPresentation {
         }
     }
 
+    private static final class S2PurpleEmeraldWithSelectedPreviewAssets extends RecordingAssets {
+        private final Pattern[] slotIconPatterns = new Pattern[12];
+        private final List<SpriteMappingFrame> mappings;
+        private final SpriteMappingFrame customFrame = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-40, -120, 4, 3, 0x31B, false, false, 2, false)));
+
+        private S2PurpleEmeraldWithSelectedPreviewAssets() {
+            super(0x2A);
+            for (int i = 0; i < slotIconPatterns.length; i++) {
+                slotIconPatterns[i] = new Pattern();
+            }
+            List<SpriteMappingFrame> frames = new ArrayList<>();
+            for (int i = 0; i <= 0x17; i++) {
+                frames.add(new SpriteMappingFrame(List.of()));
+            }
+            frames.set(0x16, new SpriteMappingFrame(List.of(
+                    new SpriteMappingPiece(-40, -56, 1, 1, 0x10, false, false, 3, false))));
+            mappings = List.copyOf(frames);
+            loadData();
+        }
+
+        @Override
+        public Pattern[] getMenuBackgroundPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getMiscPatterns() {
+            Pattern[] patterns = new Pattern[2];
+            patterns[0] = new Pattern();
+            patterns[1] = new Pattern();
+            return patterns;
+        }
+
+        @Override
+        public Pattern[] getExtraPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getTextPatterns() {
+            return new Pattern[0];
+        }
+
+        @Override
+        public Pattern[] getSlotIconPatterns(int iconIndex) {
+            return slotIconPatterns;
+        }
+
+        @Override
+        public byte[] getCustomEmeraldPaletteBytes() {
+            byte[] bytes = new byte[30];
+            bytes[16] = 0x0E;
+            bytes[17] = (byte) 0xEE;
+            return bytes;
+        }
+
+        @Override
+        public byte[] getCharacterPaletteBytes() {
+            byte[] bytes = new byte[64];
+            bytes[32] = 0x0E;
+            bytes[33] = 0x00;
+            return bytes;
+        }
+
+        @Override
+        public byte[] getEmeraldPaletteBytes() {
+            byte[] bytes = new byte[30];
+            bytes[0] = 0x00;
+            bytes[1] = 0x0E;
+            return bytes;
+        }
+
+        @Override
+        public Palette getSelectedSlotIconPalette(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            Palette palette = new Palette();
+            palette.getColor(1).r = 0;
+            palette.getColor(1).g = 0;
+            palette.getColor(1).b = 0;
+            return palette;
+        }
+
+        @Override
+        public SpriteMappingFrame getSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return customFrame;
+        }
+
+        @Override
+        public boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
+            return true;
+        }
+
+        @Override
+        public List<SpriteMappingFrame> getSaveScreenMappings() {
+            return mappings;
+        }
+    }
+
     private static final class HostSelectedSlotIconAssets extends RecordingAssets {
         private final Pattern[] slotIconPatterns = new Pattern[12];
         private final SpriteMappingFrame customFrame = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-40, -120, 4, 3, 0x31B, false, false, 3, false)));
+                new SpriteMappingPiece(-40, -120, 4, 3, 0x31B, false, false, 2, false)));
 
         private HostSelectedSlotIconAssets() {
             super(0x2A);
