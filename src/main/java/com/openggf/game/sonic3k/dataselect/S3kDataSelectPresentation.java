@@ -932,6 +932,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         private Map<Integer, S1SelectedSlotPreviewLoader.LoadedPreview> s1SelectedIconPreviews = Map.of();
         private boolean s1HostPreviewMode;
         private byte[] hostEmeraldPaletteBytes = new byte[0];
+        private HostEmeraldLayoutProfile hostEmeraldLayoutProfile = HostEmeraldLayoutProfile.defaultSeven();
         private boolean loaded;
 
         LoaderBackedAssets(RomSource romSource) {
@@ -1137,7 +1138,10 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                     hostRom = null;
                 }
             }
-            hostEmeraldPaletteBytes = HostEmeraldPaletteBuilder.buildForHostGame(hostGameCode, hostRom);
+            HostEmeraldPresentation.Result emeraldPresentation =
+                    HostEmeraldPresentation.forHost(hostGameCode, hostRom);
+            hostEmeraldPaletteBytes = emeraldPresentation.paletteBytes();
+            hostEmeraldLayoutProfile = emeraldPresentation.layout();
             if ("s1".equals(hostGameCode)) {
                 s1HostPreviewMode = true;
                 S1DataSelectImageCacheManager cacheManager = GameServices.module()
