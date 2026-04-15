@@ -228,9 +228,12 @@ public class LWJGLAudioBackend implements AudioBackend {
                 }
                 sfxBlocked = true;
             }
-            // Only push state if current music is NOT an override (e.g., not already playing 1up jingle).
+            // Push current state unless re-triggering the same override (e.g.
+            // collecting invincibility while already invincible).  When a
+            // *different* override starts (e.g. 1-up during invincibility), the
+            // active override must be saved so it resumes when the new one ends.
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
-            if (!currentIsOverride) {
+            if (!currentIsOverride || currentMusicId != musicId) {
                 pushCurrentState();
             }
 
@@ -314,8 +317,9 @@ public class LWJGLAudioBackend implements AudioBackend {
                 }
                 sfxBlocked = true;
             }
+            // Push current state unless re-triggering the same override.
             boolean currentIsOverride = audioProfile != null && audioProfile.isMusicOverride(currentMusicId);
-            if (!currentIsOverride) {
+            if (!currentIsOverride || currentMusicId != musicId) {
                 pushCurrentState();
             }
             alSourceStop(musicSource);
