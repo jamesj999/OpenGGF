@@ -822,6 +822,11 @@ public class LevelManager {
      * Phase H: Reset game-specific object state for the new level.
      */
     public void initGameplayState() {
+        // Clear end-of-level flags left over from the previous act's results screen.
+        // Without this, stale endOfLevelFlag=true persists across full zone transitions
+        // (e.g. AIZ2 results → HCZ1 load), causing the next zone's act transition to
+        // fire immediately when the BG event handler first checks the flag.
+        GameServices.gameState().resetForLevel();
         gameModule.onLevelLoad();
     }
 
@@ -1247,6 +1252,16 @@ public class LevelManager {
 
     public LevelState getLevelGamestate() {
         return levelGamestate;
+    }
+
+    /**
+     * Replaces the current level gamestate with a fresh instance.
+     * Used by non-seamless S3K act transitions where acts share level data
+     * and no level reload occurs. The results screen calls this to reset
+     * timer and rings for the new act.
+     */
+    public void resetLevelGamestate(LevelState newState) {
+        this.levelGamestate = newState;
     }
 
     private void initPlayerSpriteArt() {
