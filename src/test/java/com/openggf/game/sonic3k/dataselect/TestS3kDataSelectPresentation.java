@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.dataselect;
 
 import com.openggf.game.DataSelectProvider;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.game.dataselect.AbstractDataSelectProvider;
@@ -9,6 +10,7 @@ import com.openggf.game.dataselect.DataSelectPresentationProvider;
 import com.openggf.game.dataselect.DataSelectSessionController;
 import com.openggf.game.sonic1.dataselect.S1DataSelectProfile;
 import com.openggf.game.sonic2.dataselect.S2DataSelectProfile;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.save.SaveManager;
@@ -42,6 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -513,6 +516,40 @@ class TestS3kDataSelectPresentation {
                 "donated S1 saves should advertise a host-owned selected zone preview image");
         assertEquals(0, renderer.lastObjectState.selectedSlotIcon().iconIndex());
         assertFalse(renderer.lastObjectState.selectedSlotIcon().finishCard());
+    }
+
+    @Test
+    void donorAssets_loadHostPreviewAssets_usesRuntimeS2PreviewCache() throws Exception {
+        File s3kRomFile = RomTestUtils.ensureSonic3kRomAvailable();
+        assumeTrue(s3kRomFile != null && s3kRomFile.exists(), "Sonic 3K ROM not available");
+
+        try (Rom s3kRom = new Rom()) {
+            assumeTrue(s3kRom.open(s3kRomFile.getPath()), "Failed to open Sonic 3K ROM");
+
+            S2DataSelectImageCacheManager cacheManager = org.mockito.Mockito.mock(S2DataSelectImageCacheManager.class);
+            org.mockito.Mockito.when(cacheManager.loadCachedPreviews())
+                    .thenReturn(Map.of(0, solidPreviewImage(0xFF3366CC)));
+
+            com.openggf.game.GameModule module = org.mockito.Mockito.mock(com.openggf.game.GameModule.class);
+            org.mockito.Mockito.when(module.getGameService(S2DataSelectImageCacheManager.class)).thenReturn(cacheManager);
+
+            try (var services = org.mockito.Mockito.mockStatic(GameServices.class)) {
+                services.when(GameServices::module).thenReturn(module);
+                services.when(GameServices::rom).thenReturn(null);
+
+                S3kDataSelectAssetSource assets = newLoaderBackedAssets(s3kRom, "s2");
+                assets.loadData();
+
+                var selected = new S3kSaveScreenObjectState.SelectedSlotIcon(0, 0x110, 0x108, 0, false, 0, 0x17);
+                SpriteMappingFrame frame = assets.getSelectedSlotIconFrame(selected);
+
+                assertNotNull(frame);
+                assertEquals(70, frame.pieces().size(),
+                        "runtime S2 preview should use the 80x56 PNG-backed tile grid instead of the 12-tile ROM icon");
+                assertTrue(assets.useScaledSelectedSlotIconFrame(selected));
+                assertEquals(70, assets.getSlotIconPatterns(0).length);
+            }
+        }
     }
 
     @Test
@@ -3428,6 +3465,16 @@ class TestS3kDataSelectPresentation {
 
     private static int saveExtraPatternId(int tileOffset) {
         return 0x50000 + Sonic3kConstants.ARTTILE_SAVE_EXTRA + tileOffset;
+    }
+
+    private static RgbaImage solidPreviewImage(int argb) {
+        RgbaImage image = new RgbaImage(80, 56, new int[80 * 56]);
+        for (int y = 0; y < image.height(); y++) {
+            for (int x = 0; x < image.width(); x++) {
+                image.setArgb(x, y, argb);
+            }
+        }
+        return image;
     }
 
     private static int lastRenderXForPattern(RecordingGraphics graphics, int patternId) {

@@ -22,7 +22,8 @@ import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.game.sonic1.dataselect.S1SelectedSlotPreviewLoader;
-import com.openggf.game.sonic2.levelselect.LevelSelectDataLoader;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
+import com.openggf.game.sonic2.dataselect.S2SelectedSlotPreviewLoader;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -919,18 +920,13 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     private static final class LoaderBackedAssets implements S3kDataSelectAssetSource {
-        private static final int S2_ICON_TILE_COUNT = 12;
-        private static final int S2_SELECTED_ICON_TILE_BASE = 0x31B;
-        private static final int S2_SELECTED_ICON_X_OFFSET = -40;
-        private static final int S2_SELECTED_ICON_Y_OFFSET = -120;
-
         private final RomSource romSource;
         private final String hostGameCode;
         private S3kDataSelectDataLoader loader;
-        private LevelSelectDataLoader s2PreviewLoader;
-        private List<com.openggf.level.render.SpriteMappingFrame> s2SelectedIconFrames = List.of();
         private Map<Integer, S1SelectedSlotPreviewLoader.LoadedPreview> s1SelectedIconPreviews = Map.of();
+        private Map<Integer, S1SelectedSlotPreviewLoader.LoadedPreview> s2SelectedIconPreviews = Map.of();
         private boolean s1HostPreviewMode;
+        private boolean s2HostPreviewMode;
         private byte[] hostEmeraldPaletteBytes = new byte[0];
         private HostEmeraldLayoutProfile hostEmeraldLayoutProfile = HostEmeraldLayoutProfile.defaultSeven();
         private boolean loaded;
@@ -1012,8 +1008,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
 
         @Override
         public com.openggf.level.Pattern[] getSlotIconPatterns(int iconIndex) {
-            if (s2PreviewLoader != null) {
-                return s2SlotIconPatterns(iconIndex);
+            if (s2HostPreviewMode) {
+                S1SelectedSlotPreviewLoader.LoadedPreview preview = s2SelectedIconPreviews.get(iconIndex);
+                return preview != null ? preview.patterns() : new com.openggf.level.Pattern[0];
             }
             if (s1HostPreviewMode) {
                 S1SelectedSlotPreviewLoader.LoadedPreview preview = s1SelectedIconPreviews.get(iconIndex);
@@ -1027,8 +1024,9 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             if (selectedSlotIcon == null) {
                 return null;
             }
-            if (s2PreviewLoader != null) {
-                return s2PreviewLoader.getIconPalette(selectedSlotIcon.iconIndex());
+            if (s2HostPreviewMode) {
+                S1SelectedSlotPreviewLoader.LoadedPreview preview = s2SelectedIconPreviews.get(selectedSlotIcon.iconIndex());
+                return preview != null ? preview.palette() : null;
             }
             if (!s1HostPreviewMode) {
                 return null;
@@ -1044,10 +1042,11 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 return null;
             }
             int iconIndex = selectedSlotIcon.iconIndex();
-            if (s2PreviewLoader != null) {
-                return iconIndex >= 0 && iconIndex < s2SelectedIconFrames.size()
-                        ? s2SelectedIconFrames.get(iconIndex)
-                        : null;
+            if (s2HostPreviewMode) {
+                S1SelectedSlotPreviewLoader.LoadedPreview preview = s2SelectedIconPreviews.get(iconIndex);
+                return preview != null
+                        ? preview.frame()
+                        : new com.openggf.level.render.SpriteMappingFrame(List.of());
             }
             if (!s1HostPreviewMode) {
                 return null;
@@ -1060,7 +1059,7 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
 
         @Override
         public boolean useScaledSelectedSlotIconFrame(S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
-            return selectedSlotIcon != null && (s2PreviewLoader != null || s1HostPreviewMode);
+            return selectedSlotIcon != null && (s2HostPreviewMode || s1HostPreviewMode);
         }
 
         @Override
@@ -1162,70 +1161,15 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
             if (!"s2".equals(hostGameCode)) {
                 return;
             }
-            LevelSelectDataLoader previewLoader = new LevelSelectDataLoader();
-            if (!previewLoader.loadData()) {
+            s2HostPreviewMode = true;
+            S2DataSelectImageCacheManager cacheManager = GameServices.module()
+                    .getGameService(S2DataSelectImageCacheManager.class);
+            if (cacheManager == null) {
                 return;
             }
-            s2PreviewLoader = previewLoader;
-            s2SelectedIconFrames = buildS2SelectedIconFrames(previewLoader);
-        }
-
-        private com.openggf.level.Pattern[] s2SlotIconPatterns(int iconIndex) {
-            com.openggf.level.Pattern[] allPatterns = s2PreviewLoader.getLevelSelectPicsPatterns();
-            int start = iconIndex * S2_ICON_TILE_COUNT;
-            if (allPatterns == null || start < 0 || start + S2_ICON_TILE_COUNT > allPatterns.length) {
-                return new com.openggf.level.Pattern[0];
-            }
-            return java.util.Arrays.copyOfRange(allPatterns, start, start + S2_ICON_TILE_COUNT);
-        }
-
-        private List<com.openggf.level.render.SpriteMappingFrame> buildS2SelectedIconFrames(LevelSelectDataLoader previewLoader) {
-            List<com.openggf.level.render.SpriteMappingFrame> frames = new ArrayList<>(15);
-            for (int iconIndex = 0; iconIndex < 15; iconIndex++) {
-                frames.add(buildS2SelectedIconFrame(previewLoader, iconIndex));
-            }
-            return List.copyOf(frames);
-        }
-
-        private com.openggf.level.render.SpriteMappingFrame buildS2SelectedIconFrame(LevelSelectDataLoader previewLoader,
-                                                                                     int iconIndex) {
-            int[] iconMappings = previewLoader.getIconMappings();
-            int iconMapWidth = previewLoader.getIconMappingsWidth();
-            int patternBase = previewLoader.getLevelSelectPicsOffset() + (iconIndex * S2_ICON_TILE_COUNT);
-            if (iconMappings == null || iconMapWidth <= 0) {
-                return null;
-            }
-            List<com.openggf.level.render.SpriteMappingPiece> pieces = new ArrayList<>(S2_ICON_TILE_COUNT);
-            int iconRowStart = iconIndex * 3;
-            for (int row = 0; row < 3; row++) {
-                int baseIndex = (iconRowStart + row) * iconMapWidth;
-                for (int col = 0; col < 4; col++) {
-                    int idx = baseIndex + col;
-                    if (idx < 0 || idx >= iconMappings.length) {
-                        continue;
-                    }
-                    int word = iconMappings[idx];
-                    if (word == 0) {
-                        continue;
-                    }
-                    int originalTile = word & 0x7FF;
-                    int tileOffset = originalTile - patternBase;
-                    if (tileOffset < 0 || tileOffset >= S2_ICON_TILE_COUNT) {
-                        continue;
-                    }
-                    pieces.add(new com.openggf.level.render.SpriteMappingPiece(
-                            S2_SELECTED_ICON_X_OFFSET + (col * 8),
-                            S2_SELECTED_ICON_Y_OFFSET + (row * 8),
-                            1,
-                            1,
-                            S2_SELECTED_ICON_TILE_BASE + tileOffset,
-                            (word & 0x0800) != 0,
-                            (word & 0x1000) != 0,
-                            3,
-                            (word & 0x8000) != 0));
-                }
-            }
-            return pieces.isEmpty() ? null : new com.openggf.level.render.SpriteMappingFrame(List.copyOf(pieces));
+            cacheManager.awaitGenerationIfRunning();
+            s2SelectedIconPreviews = new S2SelectedSlotPreviewLoader()
+                    .loadAll(cacheManager.loadCachedPreviews());
         }
 
         private S3kDataSelectDataLoader requireLoader() {

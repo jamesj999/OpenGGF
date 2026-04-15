@@ -5,7 +5,6 @@ import com.openggf.game.dataselect.DataSelectGameProfile;
 import com.openggf.game.dataselect.HostSlotPreview;
 import com.openggf.game.save.SaveSlotSummary;
 import com.openggf.game.save.SelectedTeam;
-import com.openggf.game.sonic2.levelselect.LevelSelectConstants;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 
 import java.util.ArrayList;
@@ -14,20 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class S2DataSelectProfile implements DataSelectGameProfile {
-    private static final int[] ZONE_ICON_TABLE = {
-            LevelSelectConstants.ICON_TABLE[0],
-            LevelSelectConstants.ICON_TABLE[2],
-            LevelSelectConstants.ICON_TABLE[4],
-            LevelSelectConstants.ICON_TABLE[6],
-            LevelSelectConstants.ICON_TABLE[8],
-            LevelSelectConstants.ICON_TABLE[10],
-            LevelSelectConstants.ICON_TABLE[12],
-            LevelSelectConstants.ICON_TABLE[14],
-            LevelSelectConstants.ICON_TABLE[17],
-            LevelSelectConstants.ICON_TABLE[18],
-            LevelSelectConstants.ICON_TABLE[19]
-    };
-
     private static final List<DataSelectDestination> CLEAR_RESTARTS = List.of(
             new DataSelectDestination(Sonic2ZoneConstants.ZONE_EHZ, 0),
             new DataSelectDestination(Sonic2ZoneConstants.ZONE_CPZ, 0),
@@ -113,6 +98,6 @@ public final class S2DataSelectProfile implements DataSelectGameProfile {
     }
 
     private static int zoneToIconIndex(int zoneId) {
-        return zoneId >= 0 && zoneId < ZONE_ICON_TABLE.length ? ZONE_ICON_TABLE[zoneId] : -1;
+        return zoneId >= 0 && zoneId < CLEAR_RESTARTS.size() ? zoneId : -1;
     }
 }

@@ -46,6 +46,8 @@ import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic2.Sonic2GameModule.S2DataSelectImageWarmup;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
 import com.openggf.game.sonic1.Sonic1GameModule.S1DataSelectImageWarmup;
 import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
 import com.openggf.data.Rom;
@@ -528,12 +530,21 @@ public class Engine {
 	}
 
 	private void maybeStartS1DonatedDataSelectImageGeneration(GameModule module) {
-		if (module == null || module.getGameId() != GameId.S1 || !CrossGameFeatureProvider.isS3kDonorActive()) {
+		if (module == null || !CrossGameFeatureProvider.isS3kDonorActive()) {
 			return;
 		}
-		S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
-		if (manager instanceof S1DataSelectImageWarmup warmup) {
-			warmup.ensureGenerationStarted();
+		if (module.getGameId() == GameId.S1) {
+			S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
+			if (manager instanceof S1DataSelectImageWarmup warmup) {
+				warmup.ensureGenerationStarted();
+			}
+			return;
+		}
+		if (module.getGameId() == GameId.S2) {
+			S2DataSelectImageCacheManager manager = module.getGameService(S2DataSelectImageCacheManager.class);
+			if (manager instanceof S2DataSelectImageWarmup warmup) {
+				warmup.ensureGenerationStarted();
+			}
 		}
 	}
 
