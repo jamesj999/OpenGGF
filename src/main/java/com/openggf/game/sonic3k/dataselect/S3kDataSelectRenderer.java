@@ -71,6 +71,9 @@ interface S3kDataSelectAssetSource {
     byte[] getS3ZoneCard8PaletteBytes();
     List<SpriteMappingFrame> getSaveScreenMappings();
     S3kSaveScreenLayoutObjects getSaveScreenLayoutObjects();
+    default HostEmeraldLayoutProfile getHostEmeraldLayoutProfile() {
+        return HostEmeraldLayoutProfile.defaultSeven();
+    }
 }
 
 public class S3kDataSelectRenderer {
@@ -289,14 +292,20 @@ public class S3kDataSelectRenderer {
                                                S3kSaveScreenObjectState objectState,
                                                int cameraX) {
         S3kSaveScreenLayoutObjects layoutObjects = objectState.layoutObjects();
+        HostEmeraldLayoutProfile layout = assets.getHostEmeraldLayoutProfile();
         List<S3kSaveScreenObjectState.SlotVisualState> slotStates = objectState.visualState().slotStates();
         for (int slotIndex = 0; slotIndex < slotStates.size(); slotIndex++) {
             S3kSaveScreenObjectState.SlotVisualState slotState = slotStates.get(slotIndex);
             S3kSaveScreenLayoutObjects.SaveSlotObject slotObject = layoutObjects.slots().get(slotIndex);
             int slotWorldX = slotObject.worldX() - cameraX;
             int slotWorldY = slotObject.worldY();
-            for (int emeraldFrame : slotState.emeraldMappingFrames()) {
-                renderObjectFrame(graphics, assets, emeraldFrame, slotWorldX, slotWorldY,
+            int emeraldCount = Math.min(slotState.emeraldMappingFrames().size(),
+                    Math.min(layout.activeEmeraldCount(), layout.positions().size()));
+            for (int emeraldIndex = 0; emeraldIndex < emeraldCount; emeraldIndex++) {
+                HostEmeraldLayoutProfile.Point offset = layout.positions().get(emeraldIndex);
+                int emeraldFrame = slotState.emeraldMappingFrames().get(emeraldIndex);
+                renderObjectFrame(graphics, assets, emeraldFrame,
+                        slotWorldX + offset.x(), slotWorldY + offset.y(),
                         SAVE_SCREEN_OBJECT_BASE_DESC);
             }
         }

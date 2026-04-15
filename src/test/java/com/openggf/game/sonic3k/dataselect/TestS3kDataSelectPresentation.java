@@ -539,6 +539,43 @@ class TestS3kDataSelectPresentation {
     }
 
     @Test
+    void donatedRenderer_usesHostLayoutForEmeraldOrbit() {
+        RecordingGraphics graphics = new RecordingGraphics();
+        S3kDataSelectRenderer renderer = new S3kDataSelectRenderer();
+        EmeraldOrbitAssets assets = new EmeraldOrbitAssets(HostEmeraldLayoutProfile.s1SixRing());
+
+        renderer.draw(graphics,
+                assets,
+                new S3kSaveScreenObjectState(
+                        assets.getSaveScreenLayoutObjects(),
+                        new S3kSaveScreenSelectorState(ignored -> {}),
+                        visualState(assets.getSaveScreenLayoutObjects(), 4, 0xF, 0xD, 8,
+                                slotState(0, S3kSaveScreenObjectState.SlotVisualKind.OCCUPIED, 4, -1,
+                                        0x10, 0x11, 0x12, 0x13, 0x14, 0x15),
+                                slotState(1, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(2, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(3, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(4, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(5, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(6, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1),
+                                slotState(7, S3kSaveScreenObjectState.SlotVisualKind.EMPTY, 4, -1))));
+
+        long matchedPositions = assets.layout.positions().stream()
+                .filter(offset -> graphics.containsRenderPosition(
+                        assets.slotWorldX + offset.x() - 128,
+                        assets.slotWorldY + offset.y() - 128))
+                .count();
+        assertEquals(6, matchedPositions);
+        for (int i = 0; i < assets.layout.positions().size(); i++) {
+            HostEmeraldLayoutProfile.Point offset = assets.layout.positions().get(i);
+            assertTrue(graphics.containsRenderPosition(
+                            assets.slotWorldX + offset.x() - 128,
+                            assets.slotWorldY + offset.y() - 128),
+                    "expected emerald render at host layout position " + i);
+        }
+    }
+
+    @Test
     void donatedS2Host_draw_usesIndividualEmeraldFramesFromChaosList() throws Exception {
         SaveManager saveManager = new SaveManager(root);
         saveManager.writeSlot("s2", 1, java.util.Map.of(
@@ -2315,6 +2352,66 @@ class TestS3kDataSelectPresentation {
                             new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3A0, 0x1A0, 0, 5),
                             new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3C0, 0x1A0, 0, 6),
                             new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3E0, 0x1A0, 0, 7)));
+        }
+    }
+
+    private static final class EmeraldOrbitAssets extends RecordingAssets {
+        private final HostEmeraldLayoutProfile layout;
+        private final int slotWorldX = 0x180;
+        private final int slotWorldY = 0x120;
+        private final List<SpriteMappingFrame> mappings;
+
+        private EmeraldOrbitAssets(HostEmeraldLayoutProfile layout) {
+            super(0x2A);
+            this.layout = layout;
+            this.mappings = buildMappings();
+            loadData();
+        }
+
+        @Override
+        public Pattern[] getMiscPatterns() {
+            Pattern[] patterns = new Pattern[0x50];
+            for (int i = 0; i < patterns.length; i++) {
+                patterns[i] = new Pattern();
+            }
+            return patterns;
+        }
+
+        @Override
+        public List<SpriteMappingFrame> getSaveScreenMappings() {
+            return mappings;
+        }
+
+        @Override
+        public S3kSaveScreenLayoutObjects getSaveScreenLayoutObjects() {
+            return new S3kSaveScreenLayoutObjects(
+                    new S3kSaveScreenLayoutObjects.SceneObject(0x120, 0x14C, 3),
+                    new S3kSaveScreenLayoutObjects.SceneObject(0x120, 0x0E2, 1),
+                    new S3kSaveScreenLayoutObjects.SceneObject(0x500, 0x1A0, 1),
+                    new S3kSaveScreenLayoutObjects.SceneObject(0x260, 0x1A0, 0),
+                    List.of(
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(slotWorldX, slotWorldY, 0, 0),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x320, 0x1A0, 0, 1),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x340, 0x1A0, 0, 2),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x360, 0x1A0, 0, 3),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x380, 0x1A0, 0, 4),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3A0, 0x1A0, 0, 5),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3C0, 0x1A0, 0, 6),
+                            new S3kSaveScreenLayoutObjects.SaveSlotObject(0x3E0, 0x1A0, 0, 7)));
+        }
+
+        @Override
+        public HostEmeraldLayoutProfile getHostEmeraldLayoutProfile() {
+            return layout;
+        }
+
+        private List<SpriteMappingFrame> buildMappings() {
+            List<SpriteMappingFrame> frames = new ArrayList<>();
+            for (int i = 0; i < 0x20; i++) {
+                frames.add(new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(0, 0, 1, 1, i, false, false, 0, false))));
+            }
+            return List.copyOf(frames);
         }
     }
 
