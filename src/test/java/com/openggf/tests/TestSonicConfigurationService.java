@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_WORLD_1;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_APOSTROPHE;
 
 public class TestSonicConfigurationService {
     @Test
@@ -66,7 +66,9 @@ public class TestSonicConfigurationService {
                 svc.getString(SonicConfiguration.SONIC_2_ROM));
         // DEFAULT_ROM is always populated (from config.json or applyDefaults)
         assertFalse(svc.getString(SonicConfiguration.DEFAULT_ROM).isEmpty());
-        assertEquals(GLFW_KEY_WORLD_1, svc.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY));
+        assertEquals(GLFW_KEY_APOSTROPHE, svc.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY));
+        assertFalse(svc.getBoolean(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE));
+        assertEquals(8, svc.getInt(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES));
     }
 }
 

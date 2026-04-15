@@ -23,6 +23,8 @@ import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.sonic2.dataselect.S2DataSelectImageCacheManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.session.SessionManager;
@@ -140,6 +142,19 @@ class TestEngine {
 
         assertNotNull(manager);
         assertTrue(manager instanceof Sonic1GameModule.S1DataSelectImageWarmup);
+        assertSame(manager, secondLookup);
+    }
+
+    @Test
+    void sonic2GameModule_exposesWarmupCapableImageCacheManager() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        Sonic2GameModule module = new Sonic2GameModule();
+
+        S2DataSelectImageCacheManager manager = module.getGameService(S2DataSelectImageCacheManager.class);
+        S2DataSelectImageCacheManager secondLookup = module.getGameService(S2DataSelectImageCacheManager.class);
+
+        assertNotNull(manager);
+        assertTrue(manager instanceof Sonic2GameModule.S2DataSelectImageWarmup);
         assertSame(manager, secondLookup);
     }
 

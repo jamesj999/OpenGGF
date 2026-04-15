@@ -108,7 +108,7 @@ class TestS2DataSelectProfile {
         int wfzIcon = profile.resolveSelectedSlotIconIndex(Map.of("zone", 0),
                 new DataSelectDestination(Sonic2ZoneConstants.ZONE_WFZ, 0));
 
-        assertEquals(10, wfzIcon);
+        assertEquals(Sonic2ZoneConstants.ZONE_WFZ, wfzIcon);
     }
 
     @Test

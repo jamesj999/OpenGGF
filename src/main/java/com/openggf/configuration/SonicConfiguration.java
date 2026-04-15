@@ -326,6 +326,16 @@ public enum SonicConfiguration {
 	CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES,
 
 	/**
+	 * Whether to force regeneration of the Sonic 2 data select image cache.
+	 */
+	CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE,
+
+	/**
+	 * Number of frames to wait before settling the Sonic 2 data select image generator.
+	 */
+	CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES,
+
+	/**
 	 * Debug key to log the current camera position as an S1 data select preview override.
 	 */
 	CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY,

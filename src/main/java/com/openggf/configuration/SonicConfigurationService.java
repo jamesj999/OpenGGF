@@ -62,11 +62,18 @@ public class SonicConfigurationService {
 			}
 		}
 
-		// Migrate AWT key codes to GLFW if detected (for users upgrading from JOGL build)
+		// Migrate deprecated key encodings/defaults before applying defaults.
 		ConfigMigrationService migrationService = new ConfigMigrationService();
+		boolean configChanged = false;
 		if (migrationService.detectAwtKeyCodes(config)) {
 			migrationService.migrateConfig(config);
-			saveConfig(); // Persist migrated config
+			configChanged = true;
+		}
+		if (migrationService.migrateDeprecatedS1PreviewCoordLogKey(config)) {
+			configChanged = true;
+		}
+		if (configChanged) {
+			saveConfig();
 		}
 
 		applyDefaults();
@@ -295,7 +302,9 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
-		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_WORLD_1);
+		putDefault(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
+		putDefault(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_APOSTROPHE);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 
