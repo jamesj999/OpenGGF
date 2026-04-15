@@ -160,12 +160,15 @@ When adding or refactoring gameplay systems, prefer plugging into these runtime-
 | `audio` | SMPS driver, YM2612/PSG chip emulation, `AbstractAudioProfile`, `AbstractSmpsLoader` |
 | `data` | ROM loading/reading (`Rom`, `RomManager`, `RomByteReader`), `Game`/`GameFactory`, art provider interfaces |
 | `game` | Core game-agnostic interfaces, providers, `GameServices`, `GameRuntime`, `PlayableEntity`, `DamageCause` |
+| `game.dataselect` | Shared data select framework: `DataSelectProvider`, `DataSelectSessionController`, `DataSelectHostProfile`, `DataSelectAction` |
+| `game.save` | Save system: `SaveManager` (JSON + SHA256), `SaveSessionContext`, `SaveSlotSummary`, `SelectedTeam` |
 | `game.zone` / `game.palette` / `game.animation` / `game.mutation` / `game.render` | Runtime-owned shared frameworks for typed zone state, palette ownership, animated tiles, layout mutation, staged special render effects, and advanced render modes |
 | `game.sonic2` | Sonic 2-specific implementations |
 | `game.sonic2.objects` | Object factories, instance classes, badnik AI |
 | `game.sonic2.constants` | ROM offsets, object IDs, audio constants |
 | `game.sonic1` | Sonic 1 game module, level loading, loop/switch managers, zone features |
 | `game.sonic3k` | Sonic 3&K game module, level loading, bootstrap |
+| `game.sonic3k.dataselect` | S3K data select: `S3kDataSelectManager`, `S3kDataSelectPresentation`, `S3kDataSelectRenderer`, `S3kDataSelectDataLoader`, save payloads |
 | `graphics` | OpenGL rendering, shaders, pattern atlas, tilemap GPU renderer, FBO management |
 | `tools` | Compression utilities (Kosinski, Nemesis, Saxman), `ObjectDiscoveryTool`, disassembly tools |
 
@@ -191,7 +194,7 @@ When adding or refactoring gameplay systems, prefer plugging into these runtime-
 - **Block** = 128x128 pixel area (composed of Chunks)
 
 ### Configuration
-`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM`, `DEFAULT_ROM`, `S3K_SKIP_INTROS`.
+`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM`, `DEFAULT_ROM`, `S3K_SKIP_INTROS`, `DATA_SELECT_EXTRA_PLAYER_COMBOS`, `CROSS_GAME_FEATURES_ENABLED`, `CROSS_GAME_SOURCE`.
 
 ## Level Resource Overlay System
 
@@ -210,7 +213,7 @@ To add overlay support for other zones: add ROM offsets to `Sonic2Constants`, cr
 
 Game-specific behavior is isolated behind the `GameModule` interface. `GameModuleRegistry` holds the current module, `RomDetectionService` auto-detects ROM type.
 
-Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `GameAudioProfile`, `TouchResponseTable`, `PlaneSwitcherConfig`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider` (returns game-specific `AbstractLevelEventManager` subclass), `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `TitleScreenProvider`, `LevelSelectProvider`, `DebugModeProvider`, `DebugOverlayProvider`, `ZoneArtProvider`, `ObjectArtProvider`, `RespawnState`, `LevelState`, `SuperStateController`.
+Key providers returned by `GameModule`: `ZoneRegistry`, `ObjectRegistry`, `GameAudioProfile`, `TouchResponseTable`, `PlaneSwitcherConfig`, `ScrollHandlerProvider`, `ZoneFeatureProvider`, `RomOffsetProvider`, `LevelEventProvider` (returns game-specific `AbstractLevelEventManager` subclass), `PhysicsProvider`, `SpecialStageProvider`, `BonusStageProvider`, `TitleCardProvider`, `TitleScreenProvider`, `LevelSelectProvider`, `DebugModeProvider`, `DebugOverlayProvider`, `ZoneArtProvider`, `ObjectArtProvider`, `RespawnState`, `LevelState`, `SuperStateController`, `DataSelectProvider`, `DataSelectPresentationProvider`, `DataSelectHostProfile`.
 
 Each game has its own module (`Sonic1GameModule`, `Sonic2GameModule`, `Sonic3kGameModule`) and `RomDetector`.
 
@@ -221,7 +224,7 @@ Level events (boss arena setup, dynamic boundaries, zone transitions) are manage
 - **`AbstractLevelEventManager`** (`game/`) - Shared state machine mechanics: dual routine counters (`eventRoutineFg` and `eventRoutineBg`; S1/S2 only use Fg, S3K uses both), zone/act tracking, `initLevel()`/`update()` lifecycle, boss spawn coordination.
 - **`Sonic1LevelEventManager`** (`game/sonic1/events/`) - S1 zone event handlers. Per-zone handler classes.
 - **`Sonic2LevelEventManager`** (`game/sonic2/`) - S2 zone event handlers (HTZ earthquake, boss arenas, EHZ/CPZ/ARZ/CNZ events).
-- **`Sonic3kLevelEventManager`** (`game/sonic3k/`) - S3K zone event handlers (zone handlers pending implementation).
+- **`Sonic3kLevelEventManager`** (`game/sonic3k/`) - S3K zone event handlers. Per-zone handler classes: `Sonic3kAIZEvents`, `Sonic3kHCZEvents` (further zones pending).
 - **`PlayerCharacter`** enum (`game/`) - Character identity enum (`SONIC_AND_TAILS`, `SONIC_ALONE`, `TAILS_ALONE`, `KNUCKLES`) matching ROM's `Player_mode` variable for character-specific branching in event logic.
 
 Each `GameModule` returns its game-specific subclass via `LevelEventProvider`. Call sites use `AbstractLevelEventManager` for polymorphic access.
@@ -417,6 +420,40 @@ The Mega Drive VDP uses 11-bit pattern indices (0x000–0x7FF, 2048 tiles). The 
 - `GraphicsManager.renderPatternWithId(patternId, desc, x, y)` — explicit pattern ID for atlas lookup, used when IDs exceed 0x7FF
 
 When adding new pattern categories, choose a base that doesn't overlap existing ranges. See **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)** for the full range table.
+
+## Data Select & Save System
+
+The engine now supports a full data select (save/load) screen with cross-game donation:
+
+### Architecture
+
+- **`DataSelectProvider`** (`game.dataselect`) — Lifecycle interface with states: `INACTIVE`, `FADE_IN`, `ACTIVE`, `EXITING`.
+- **`DataSelectSessionController`** — Presentation-independent state machine for menu navigation, slot selection, team cycling, and delete mode. Drives any presentation layer.
+- **`DataSelectHostProfile`** — Game-specific interface defining team configurations, slot counts, zone labels, and clear/restart destination logic. Implemented per game (`S3kDataSelectProfile`, `S1DataSelectProfile`, `S2DataSelectProfile`).
+- **`DataSelectAction`** (record) — Immutable result: `DataSelectActionType` + slot + zone/act + team.
+- **`SimpleDataSelectManager`** — Text-based fallback for S1/S2. S3K uses `S3kDataSelectManager` with ROM-accurate rendering.
+- **`StartupRouteResolver`** — Routes title screen `ONE_PLAYER` action to data select when S3K presentation is available (via `TitleActionRoute.DATA_SELECT`).
+
+### Save System
+
+- **`SaveManager`** (`game.save`) — JSON file persistence with SHA256 integrity hash and corrupt quarantine.
+- **`SaveSessionContext`** — Holds active session state (game code, slot, team, zone, act) for level launch.
+- **`SelectedTeam`** (record) — Immutable main character + sidekick list.
+- **`SaveSlotSummary`** / **`SaveSlotState`** — Slot metadata and state (`EMPTY`, `VALID`, `HASH_WARNING`, `CORRUPT`).
+
+### Cross-Game Donation
+
+S1 and S2 can use the S3K data select presentation when cross-game donation resolves to S3K. Each game retains its own `DataSelectHostProfile` (save ownership, zone labels, team configs) while the S3K presentation manager renders the screen. The `DataSelectPresentationProvider` wraps the delegation.
+
+### Flow
+
+```
+Title Screen → ONE_PLAYER → StartupRouteResolver → TitleActionRoute.DATA_SELECT
+  → DataSelectSessionController (state machine)
+  → S3kDataSelectManager (rendering) / SimpleDataSelectManager (fallback)
+  → DataSelectAction consumed by GameLoop.DataSelectActionHandler
+  → Engine.launchGameplayFromDataSelect() → level load + restore game state
+```
 
 ## Intentional Divergences
 

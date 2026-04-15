@@ -1606,6 +1606,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     @Override
+    public boolean usesIconPaletteForLivesName() {
+        return true;
+    }
+
+    @Override
     public List<String> getRendererKeys() {
         return new ArrayList<>(rendererKeys);
     }

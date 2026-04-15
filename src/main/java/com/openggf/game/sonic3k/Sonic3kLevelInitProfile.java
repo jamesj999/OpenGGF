@@ -40,7 +40,9 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
             steps.add(initLevelEventsStep());
             steps.add(spawnSidekickStep());
             steps.add(initZonePlayerStateStep());
-            steps.add(requestTitleCardStep(ctx));
+            if (!isPreviewCapture(ctx)) {
+                steps.add(requestTitleCardStep(ctx));
+            }
         }
         return List.copyOf(steps);
     }

@@ -22,6 +22,8 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.save.SaveReason;
+import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -437,6 +439,11 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void saveBigRingReturn(BigRingReturnState state) {
         lm().saveBigRingReturn(state);
+    }
+
+    @Override
+    public void requestSessionSave(SaveReason reason) {
+        SessionSaveRequests.requestCurrentSessionSave(reason);
     }
 
     // ── Game-specific providers ─────────────────────────────────────────

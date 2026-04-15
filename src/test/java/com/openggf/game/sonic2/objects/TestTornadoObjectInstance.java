@@ -3,8 +3,10 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.EngineServices;
+import com.openggf.game.save.SaveReason;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -147,13 +149,47 @@ public class TestTornadoObjectInstance {
         assertFalse(levelManager.isLevelInactiveForTransition());
     }
 
+    @Test
+    public void sczToWfzTransitionRequestsProgressionSave() throws Exception {
+        TrackingServices services = new TrackingServices();
+        TornadoObjectInstance tornado = createTornado(100, 0x100, 0x50, services);
+        TestPlayableSprite main = new TestPlayableSprite("main", (short) 0x35F0, (short) 100);
+        GameServices.camera().setX((short) 0x35E0);
+
+        invokePrivate(tornado, "updateSczMain",
+                new Class<?>[]{AbstractPlayableSprite.class}, main);
+
+        assertEquals(Sonic2ZoneConstants.ZONE_WFZ, services.requestedZone);
+        assertEquals(0, services.requestedAct);
+        assertTrue(services.requestedDeactivateLevelNow);
+        assertEquals(SaveReason.PROGRESSION_SAVE, services.lastSaveReason);
+    }
+
+    @Test
+    public void wfzToDezTransitionRequestsProgressionSave() throws Exception {
+        TrackingServices services = new TrackingServices();
+        TornadoObjectInstance tornado = createTornado(100, 0x100, 0x52, services);
+        setField(tornado, "scriptTimer", 0x9C0);
+
+        invokePrivate(tornado, "wfzDockOnDez", new Class<?>[0]);
+
+        assertEquals(Sonic2ZoneConstants.ZONE_DEZ, services.requestedZone);
+        assertEquals(0, services.requestedAct);
+        assertTrue(services.requestedDeactivateLevelNow);
+        assertEquals(SaveReason.PROGRESSION_SAVE, services.lastSaveReason);
+    }
+
     private static TornadoObjectInstance createTornado(int x, int y, int subtype) {
-        ObjectSpawn spawn = new ObjectSpawn(x, y, Sonic2ObjectIds.TORNADO, subtype, 0, false, 0);
-        TornadoObjectInstance t = new TornadoObjectInstance(spawn);
-        t.setServices(new TestObjectServices()
+        return createTornado(x, y, subtype, new TestObjectServices()
                 .withCamera(GameServices.camera())
                 .withParallaxManager(GameServices.parallax())
                 .withSpriteManager(GameServices.sprites()));
+    }
+
+    private static TornadoObjectInstance createTornado(int x, int y, int subtype, TestObjectServices services) {
+        ObjectSpawn spawn = new ObjectSpawn(x, y, Sonic2ObjectIds.TORNADO, subtype, 0, false, 0);
+        TornadoObjectInstance t = new TornadoObjectInstance(spawn);
+        t.setServices(services);
         return t;
     }
 
@@ -204,6 +240,31 @@ public class TestTornadoObjectInstance {
         @Override
         public void draw() {
             // No-op for unit tests.
+        }
+    }
+
+    private static final class TrackingServices extends TestObjectServices {
+        private int requestedZone = -1;
+        private int requestedAct = -1;
+        private boolean requestedDeactivateLevelNow;
+        private SaveReason lastSaveReason;
+
+        private TrackingServices() {
+            withCamera(GameServices.camera());
+            withParallaxManager(GameServices.parallax());
+            withSpriteManager(GameServices.sprites());
+        }
+
+        @Override
+        public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
+            requestedZone = zone;
+            requestedAct = act;
+            requestedDeactivateLevelNow = deactivateLevelNow;
+        }
+
+        @Override
+        public void requestSessionSave(SaveReason reason) {
+            lastSaveReason = reason;
         }
     }
 }

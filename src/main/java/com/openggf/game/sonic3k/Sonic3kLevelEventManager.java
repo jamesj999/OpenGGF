@@ -188,7 +188,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
      * limits after resize scripts move the arena.
      */
     private void syncSidekickBoundsToCamera() {
-        Camera camera = GameServices.camera();
+        Camera camera = GameServices.cameraOrNull();
         if (camera == null) {
             return;
         }

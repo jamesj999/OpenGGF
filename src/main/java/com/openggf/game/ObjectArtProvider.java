@@ -2,6 +2,7 @@ package com.openggf.game;
 
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -141,6 +142,24 @@ public interface ObjectArtProvider {
      */
     default HudRenderManager.HudFlashMode getHudFlashMode() {
         return HudRenderManager.HudFlashMode.PALETTE_SWAP;
+    }
+
+    /**
+     * Returns whether the lives-name tiles should render with the icon palette.
+     * Native S2 life names use the HUD text palette, while S3K-style life icon art
+     * keeps icon and name tiles on the same palette line.
+     */
+    default boolean usesIconPaletteForLivesName() {
+        return false;
+    }
+
+    /**
+     * Optional palette override used only while drawing the lives HUD.
+     * This is for cases where donated life-icon art needs a different palette
+     * contract than the rest of the shared in-level palette line.
+     */
+    default Palette getHudLivesPaletteOverride() {
+        return null;
     }
 
     /**

@@ -201,7 +201,6 @@ public final class GameServices {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getPaletteOwnershipRegistry() : null;
     }
-
     //â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {

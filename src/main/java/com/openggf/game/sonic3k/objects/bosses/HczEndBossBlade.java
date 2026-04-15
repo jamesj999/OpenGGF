@@ -586,7 +586,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
     private void spawnSplash() {
         try {
             final int splashX = currentX;
-            boss.spawnDynamicChild(() -> new HczEndBossBladeSplash(boss, splashX));
+            spawnChild(() -> new HczEndBossBladeSplash(boss, splashX));
             LOG.fine(() -> "HCZ End Boss Blade: spawned water splash at x=" + splashX);
         } catch (Exception e) {
             LOG.fine(() -> "HczEndBossBlade.spawnSplash: " + e.getMessage());
@@ -606,7 +606,7 @@ public class HczEndBossBlade extends AbstractBossChild implements TouchResponseP
         for (int i = 0; i < 5; i++) {
             final int slotIndex = i;
             try {
-                boss.spawnDynamicChild(() ->
+                spawnChild(() ->
                         new HczEndBossBladeWaterChute(boss, chuteX, slotIndex));
             } catch (Exception e) {
                 LOG.fine(() -> "HczEndBossBlade.spawnWaterChute[" + slotIndex + "]: "

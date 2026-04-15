@@ -4,6 +4,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.*;
 import com.openggf.level.resources.LevelResourcePlan;
@@ -153,8 +154,7 @@ public class Sonic2Level extends AbstractLevel {
         // Only indices 2-5 differ (Knuckles' reds vs Sonic's blues);
         // indices 0-1 and 6-15 are identical to S2's Pal_SonicTails.
         if (com.openggf.game.CrossGameFeatureProvider.isActive()) {
-            String mainChar = GameServices.configuration()
-                    .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+            String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(GameServices.configuration());
             Palette hostPal = GameServices.crossGameFeatures()
                     .loadHostCompatiblePalette(mainChar);
             if (hostPal != null) {

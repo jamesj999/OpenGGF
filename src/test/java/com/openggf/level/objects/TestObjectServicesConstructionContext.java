@@ -52,6 +52,7 @@ class TestObjectServicesConstructionContext {
         @Override public com.openggf.level.ParallaxManager parallaxManager() { return null; }
         @Override public void advanceToNextLevel() {}
         @Override public void requestCreditsTransition() {}
+        @Override public void requestSessionSave(com.openggf.game.save.SaveReason reason) {}
         @Override public void requestSpecialStageEntry() {}
         @Override public void invalidateForegroundTilemap() {}
         @Override public boolean areAllRingsCollected() { return false; }

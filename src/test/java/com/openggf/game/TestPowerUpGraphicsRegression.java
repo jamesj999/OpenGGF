@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
@@ -26,6 +27,7 @@ class TestPowerUpGraphicsRegression {
         GraphicsManager.getInstance().resetState();
         RomManager.getInstance().close();
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         GameModuleRegistry.reset();
         SonicConfigurationService.getInstance().resetToDefaults();
     }
@@ -61,8 +63,9 @@ class TestPowerUpGraphicsRegression {
 
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
-        RuntimeManager.createGameplay();
+        SessionManager.clear();
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        RuntimeManager.createGameplay();
 
         Rom primaryRom = openRom("Sonic The Hedgehog 2 (W) (REV01) [!].gen",
                 "Sonic The Hedgehog 2 (W) (REV00) [!].gen");

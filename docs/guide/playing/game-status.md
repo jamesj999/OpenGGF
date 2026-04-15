@@ -89,7 +89,7 @@ expectations honestly -- what works well, what is incomplete, and what you might
   and AIZ-to-HCZ transition.
 - HCZ water rush, conveyor, fan, block, door, water skim, miniboss, HCZ1-to-HCZ2 transition,
   and the HCZ2 moving-wall chase sequence work.
-- Title screen and level select screen.
+- Title screen, level select screen, and data select screen with 8 save slots and team selection.
 - Knuckles as a playable character, including glide/climb support.
 - Blue Ball special stages and active bonus-stage work across Gumball, Glowing Sphere/Pachinko,
   and Slots.
@@ -104,7 +104,7 @@ expectations honestly -- what works well, what is incomplete, and what you might
 - Many S3K objects, badniks, and bosses are not yet implemented.
 - Bonus stages are still in active parity work rather than final polish.
 - S3K's more complex PLC/art loading system still has partial parity.
-- No save/load system.
+- Data select visual parity is still in progress (native selector art, emerald display).
 
 ### Notable quirks
 
@@ -141,6 +141,12 @@ sprites, spindash mechanics, and sound effects while you play a different base g
 | S2 sprites in S1 | Working |
 | S2 spindash in S1 | Working |
 | Super Sonic cross-delegation | Working |
+| S3K Data Select donated to S1/S2 | Working |
 | S3K sprites in S1/S2 | Experimental |
 
 Enable with `CROSS_GAME_FEATURES_ENABLED` and `CROSS_GAME_SOURCE` in config.json.
+
+When S3K donates the Data Select frontend, the save screen stays visually S3K-native,
+but save semantics remain host-owned. Slot routing, progression, clear-restart rules,
+and emerald identity come from the host game. Donated host emerald colors are adapted
+into the S3K save-card palette contract instead of assuming raw palette-slot parity.

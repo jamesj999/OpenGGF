@@ -4,6 +4,8 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.save.SaveReason;
+import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
@@ -1637,6 +1639,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 fireTransitionMutationRequested,
                 false);
         persistTransitionCheckpoint();
+        SessionSaveRequests.requestCurrentSessionSave(SaveReason.PROGRESSION_SAVE);
         LevelManager levelManager = levelManager();
         levelManager().requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
