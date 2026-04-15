@@ -12,9 +12,12 @@ import com.openggf.level.*;
 import com.openggf.level.rings.RingSpawn;
 import com.openggf.graphics.GraphicsManager;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpriteSheet;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -68,20 +71,6 @@ public class TestLevelManager {
     }
 
     @Test
-    public void initializeZoneFeatureProviderRegistersSpecialRenderEffects() throws Exception {
-        LevelManager levelManager = GameServices.level();
-        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
-        registry.clear();
-
-        Method initProvider = LevelManager.class.getDeclaredMethod(
-                "initializeZoneFeatureProvider", ZoneFeatureProvider.class);
-        initProvider.setAccessible(true);
-        initProvider.invoke(levelManager, new RegisteringZoneFeatureProvider());
-
-        assertFalse(registry.isEmpty(), "Zone feature init should register special render effects");
-    }
-
-    @Test
     public void dispatchSpecialRenderEffectsInvokesRegisteredStageEffects() throws Exception {
         GameRuntime runtime = com.openggf.game.RuntimeManager.getCurrent();
         LevelManager levelManager = runtime.getLevelManager();
@@ -112,50 +101,68 @@ public class TestLevelManager {
         assertEquals(77, frameCounter.get(), "Stage dispatch should preserve frame counter");
     }
 
-    @Test
-    public void reinitializeZoneFeaturesClearsExistingRenderRegistriesBeforeReregisteringProvider() throws Exception {
-        LevelManager levelManager = GameServices.level();
-        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
-        registry.clear();
-        GameServices.advancedRenderModeController().clear();
+    @Nested
+    @RequiresRom(SonicGame.SONIC_2)
+    class RomBackedZoneFeatureTests {
+        @Test
+        public void initializeZoneFeatureProviderRegistersSpecialRenderEffects() throws Exception {
+            LevelManager levelManager = GameServices.level();
+            SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
+            registry.clear();
 
-        registry.register(new SpecialRenderEffect() {
-            @Override
-            public SpecialRenderEffectStage stage() {
-                return SpecialRenderEffectStage.AFTER_BACKGROUND;
-            }
+            Method initProvider = LevelManager.class.getDeclaredMethod(
+                    "initializeZoneFeatureProvider", ZoneFeatureProvider.class);
+            initProvider.setAccessible(true);
+            initProvider.invoke(levelManager, new RegisteringZoneFeatureProvider());
 
-            @Override
-            public void render(SpecialRenderEffectContext context) {
-                // no-op
-            }
-        });
-        GameServices.advancedRenderModeController().register(new com.openggf.game.render.AdvancedRenderMode() {
-            @Override
-            public String id() {
-                return "preexisting-test-mode";
-            }
+            assertFalse(registry.isEmpty(), "Zone feature init should register special render effects");
+        }
 
-            @Override
-            public void contribute(
-                    com.openggf.game.render.AdvancedRenderModeContext context,
-                    com.openggf.game.render.AdvancedRenderFrameState.Builder builder) {
-                builder.enableForegroundHeatHaze();
-            }
-        });
+        @Test
+        public void reinitializeZoneFeaturesClearsExistingRenderRegistriesBeforeReregisteringProvider() throws Exception {
+            LevelManager levelManager = GameServices.level();
+            SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
+            registry.clear();
+            GameServices.advancedRenderModeController().clear();
 
-        Field providerField = LevelManager.class.getDeclaredField("zoneFeatureProvider");
-        providerField.setAccessible(true);
-        providerField.set(levelManager, new RegisteringZoneFeatureProvider());
+            registry.register(new SpecialRenderEffect() {
+                @Override
+                public SpecialRenderEffectStage stage() {
+                    return SpecialRenderEffectStage.AFTER_BACKGROUND;
+                }
 
-        Method reinitialize = LevelManager.class.getDeclaredMethod("reinitializeZoneFeaturesForActTransition");
-        reinitialize.setAccessible(true);
-        reinitialize.invoke(levelManager);
+                @Override
+                public void render(SpecialRenderEffectContext context) {
+                    // no-op
+                }
+            });
+            GameServices.advancedRenderModeController().register(new com.openggf.game.render.AdvancedRenderMode() {
+                @Override
+                public String id() {
+                    return "preexisting-test-mode";
+                }
 
-        assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND),
-                "Existing effects should be cleared before zone features re-register current ones");
-        assertEquals(1, GameServices.advancedRenderModeController().size(),
-                "Existing advanced render modes should be cleared before zone features re-register current ones");
+                @Override
+                public void contribute(
+                        com.openggf.game.render.AdvancedRenderModeContext context,
+                        com.openggf.game.render.AdvancedRenderFrameState.Builder builder) {
+                    builder.enableForegroundHeatHaze();
+                }
+            });
+
+            Field providerField = LevelManager.class.getDeclaredField("zoneFeatureProvider");
+            providerField.setAccessible(true);
+            providerField.set(levelManager, new RegisteringZoneFeatureProvider());
+
+            Method reinitialize = LevelManager.class.getDeclaredMethod("reinitializeZoneFeaturesForActTransition");
+            reinitialize.setAccessible(true);
+            reinitialize.invoke(levelManager);
+
+            assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND),
+                    "Existing effects should be cleared before zone features re-register current ones");
+            assertEquals(1, GameServices.advancedRenderModeController().size(),
+                    "Existing advanced render modes should be cleared before zone features re-register current ones");
+        }
     }
 
     private static class MockLevel implements Level {
