@@ -52,11 +52,10 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int DESCEND_TIME = 0xAF;
     private static final int SWING_PREP_TIME = 20;
     private static final int FLAME_PREP_TIME = 30;
-    private static final int BREATH_SWING_TIME = 0x80;
+    private static final int BREATH_CYCLE_COUNT = 8;       // ROM: move.b #8,$39(a0)
     private static final int VERTICAL_DRIFT_TIME = 0x5F;
     private static final int HOLD_TIME = 0x10;
-    private static final int HORIZONTAL_TIME = 0x60;
-    private static final int HORIZONTAL_RECOVERY_TIME = 0x30;
+    private static final int HORIZONTAL_CYCLE_COUNT = 4;    // ROM: move.b #4,$39(a0)
     private static final int INVULN_TIME = 0x20;
 
     private static final int FLAG_PARENT_BITS = 0x38;
@@ -82,6 +81,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private int waitTimer = -1;
     private Runnable waitCallback;
+    /** Callback for when the current horizontal swing count expires. */
+    private Runnable horizontalCallback;
     private boolean defeatRenderComplete;
 
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
@@ -97,6 +98,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.hitCount = HIT_COUNT;
         waitTimer = -1;
         waitCallback = null;
+        horizontalCallback = null;
         defeatRenderComplete = false;
         defeatExplosionController = null;
     }
@@ -160,6 +162,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.yVel = 0;
         waitTimer = -1;
         waitCallback = null;
+        horizontalCallback = null;
 
         // Clear invulnerability immediately to stop palette flash
         state.invulnerable = false;
@@ -192,11 +195,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();
             case ROUTINE_WAIT -> updateWaitOnly();
-            case ROUTINE_DESCEND -> updateMoveAndWait(false);
-            case ROUTINE_SWING -> updateMoveAndWait(true);
-            case ROUTINE_BREATH -> updateMoveAndWait(true);
+            case ROUTINE_DESCEND -> updateMoveAndWait();
+            case ROUTINE_SWING -> updateSwingAndWait();
+            case ROUTINE_BREATH -> updateBreathSwingCount();
             case ROUTINE_HOLD -> updateWaitOnly();
-            case ROUTINE_HORIZONTAL_SWING -> updateMoveAndWait(true);
+            case ROUTINE_HORIZONTAL_SWING -> updateHorizontalSwingCount();
             case ROUTINE_DEFEATED -> updateDefeated(frameCounter);
             default -> {
             }
@@ -291,13 +294,37 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void onFlamePrepComplete() {
+        // ROM: loc_68AFE — enter BREATH routine ($A) with Swing_UpAndDown_Count
         state.routine = ROUTINE_BREATH;
-        setCustomFlag(FLAG_PARENT_COUNTER, 8);
+        swingMotion.setCycleCounter(BREATH_CYCLE_COUNT);
         services().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
         spawnBreathFlames();
-        setWait(BREATH_SWING_TIME, this::onBreathCycleComplete);
+        // No frame timer — phase progresses via swing half-cycle counting
+        waitTimer = -1;
+        waitCallback = null;
     }
 
+    /**
+     * ROM: loc_68B1C — Swing_UpAndDown_Count, beq continue, tst d1 / bmi transition.
+     * Counts half-cycles of the Y oscillation. When the count expires (at a peak)
+     * AND y_vel < 0 (top of swing), transitions to the vertical drift phase.
+     * Once the counter goes negative, updateAndCount returns EXPIRED on every
+     * subsequent peak too, so no flag is needed.
+     */
+    private void updateBreathSwingCount() {
+        var result = swingMotion.updateAndCount(state);
+        if (result == AizMinibossSwingMotion.CountResult.EXPIRED && state.yVel < 0) {
+            onBreathCycleComplete();
+            return;
+        }
+        state.applyVelocity();
+    }
+
+    /**
+     * ROM: loc_68B34 — after breath swing count expires at top of oscillation.
+     * Toggles vertical direction: first pass moves up → horizontal arc,
+     * second pass moves down → restart attack cycle.
+     */
     private void onBreathCycleComplete() {
         // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
         PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
@@ -305,19 +332,23 @@ public class AizMinibossInstance extends AbstractBossInstance {
             setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
         }
 
+        // ROM: loc_68B34 — routine=6, wait=$5F, toggle bit 2 of $38
         state.routine = ROUTINE_DESCEND;
         int bits = getCustomFlag(FLAG_PARENT_BITS) ^ PARENT_BIT_ALT_VERTICAL;
         setCustomFlag(FLAG_PARENT_BITS, bits);
 
         if ((bits & PARENT_BIT_ALT_VERTICAL) != 0) {
+            // First pass: move up, then horizontal arc
             state.yVel = -DESCEND_VEL;
             setWait(VERTICAL_DRIFT_TIME, this::onVerticalArcPrep);
         } else {
+            // Second pass: move down, restart attack cycle at loc_68ACC
             state.yVel = DESCEND_VEL;
             setWait(VERTICAL_DRIFT_TIME, this::onDescendComplete);
         }
     }
 
+    /** ROM: loc_68B74 → loc_68B7C — hold at top, then start horizontal swing. */
     private void onVerticalArcPrep() {
         state.routine = ROUTINE_HOLD;
         state.xVel = 0;
@@ -325,25 +356,62 @@ public class AizMinibossInstance extends AbstractBossInstance {
         setWait(HOLD_TIME, this::onHorizontalArcStart);
     }
 
+    /**
+     * ROM: loc_68B92 — enter HORIZONTAL_SWING routine ($E) with Swing_UpAndDown_Count.
+     * Counter = 4, x_vel toggles direction via bit 3 of $38, Swing_Setup1 resets Y oscillation.
+     */
     private void onHorizontalArcStart() {
         state.routine = ROUTINE_HORIZONTAL_SWING;
-        setCustomFlag(FLAG_PARENT_COUNTER, 4);
+        swingMotion.setCycleCounter(HORIZONTAL_CYCLE_COUNT);
 
+        // ROM: bchg #3,$38(a0); bne.s skip_neg; neg.w d0
         int bits = getCustomFlag(FLAG_PARENT_BITS) ^ PARENT_BIT_ALT_HORIZONTAL;
         setCustomFlag(FLAG_PARENT_BITS, bits);
 
+        // ROM: d0=$100, if bit was 0 (now 1) → neg → x_vel=-$100 (left)
+        //      if bit was 1 (now 0) → no neg → x_vel=$100 (right)
         int xVel = ((bits & PARENT_BIT_ALT_HORIZONTAL) != 0) ? -DESCEND_VEL : DESCEND_VEL;
         state.xVel = xVel;
         swingMotion.setup1(state);
-        setWait(HORIZONTAL_TIME, this::onHorizontalArcPivot);
+        // No frame timer — phase progresses via swing half-cycle counting
+        waitTimer = -1;
+        waitCallback = null;
+        horizontalCallback = this::onHorizontalArcPivot;
     }
 
+    /**
+     * ROM: loc_68BBC — Swing_UpAndDown_Count, bne call-callback, else MoveSprite2+Draw.
+     * When the half-cycle counter expires, calls the current callback (pivot or complete).
+     */
+    private void updateHorizontalSwingCount() {
+        var result = swingMotion.updateAndCount(state);
+        if (result == AizMinibossSwingMotion.CountResult.EXPIRED) {
+            if (horizontalCallback != null) {
+                Runnable cb = horizontalCallback;
+                horizontalCallback = null;
+                cb.run();
+            }
+            return;
+        }
+        state.applyVelocity();
+    }
+
+    /**
+     * ROM: loc_68BDC — first horizontal count expired.
+     * Reset counter for second pass, flip render flags (facing direction),
+     * apply one frame of movement, then continue horizontal swing.
+     */
     private void onHorizontalArcPivot() {
+        swingMotion.setCycleCounter(HORIZONTAL_CYCLE_COUNT);
         state.renderFlags ^= 1;
-        setCustomFlag(FLAG_PARENT_COUNTER, 4);
-        setWait(HORIZONTAL_RECOVERY_TIME, this::onHorizontalArcComplete);
+        state.applyVelocity(); // ROM: jmp (MoveSprite2).l
+        horizontalCallback = this::onHorizontalArcComplete;
     }
 
+    /**
+     * ROM: loc_68BF6 → loc_68B7C — second horizontal count expired.
+     * Hold briefly, then return to the breath/vertical cycle via loc_68B34.
+     */
     private void onHorizontalArcComplete() {
         state.routine = ROUTINE_HOLD;
         state.xVel = 0;
@@ -355,10 +423,18 @@ public class AizMinibossInstance extends AbstractBossInstance {
         tickWait();
     }
 
-    private void updateMoveAndWait(boolean applySwing) {
-        if (applySwing) {
-            swingMotion.update(state);
-        }
+    /**
+     * ROM: loc_685FC — Swing_UpAndDown + MoveWaitTouch.
+     * Used for ROUTINE_SWING (routine 8): plain swing oscillation with frame timer.
+     */
+    private void updateSwingAndWait() {
+        swingMotion.update(state);
+        state.applyVelocity();
+        tickWait();
+    }
+
+    /** ROM: loc_68ABA — MoveSprite2 + Obj_Wait (no swing). */
+    private void updateMoveAndWait() {
         state.applyVelocity();
         tickWait();
     }
