@@ -51,11 +51,25 @@ public final class ScreenshotCapture {
      * @return An image containing the captured framebuffer contents
      */
     public static RgbaImage captureFramebuffer(int width, int height) {
+        return captureFramebufferRegion(0, 0, width, height);
+    }
+
+    /**
+     * Capture a specific region of the current OpenGL framebuffer as an RGBA image.
+     * Reads from the back buffer and flips the Y-axis (OpenGL origin is bottom-left).
+     *
+     * @param x      Left edge of the capture area in framebuffer pixels
+     * @param y      Bottom edge of the capture area in framebuffer pixels
+     * @param width  Width of the capture area in pixels
+     * @param height Height of the capture area in pixels
+     * @return An image containing the captured framebuffer region
+     */
+    public static RgbaImage captureFramebufferRegion(int startX, int startY, int width, int height) {
         ByteBuffer buffer = MemoryUtil.memAlloc(width * height * 4);
 
         try {
             glReadBuffer(GL_BACK);
-            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+            glReadPixels(startX, startY, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
             RgbaImage image = new RgbaImage(width, height, new int[width * height]);
 

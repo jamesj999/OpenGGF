@@ -1,6 +1,7 @@
 package com.openggf.game.session;
 
 import com.openggf.game.GameModule;
+import com.openggf.game.save.SaveSessionContext;
 
 import java.util.Objects;
 
@@ -13,9 +14,14 @@ public final class SessionManager {
     }
 
     public static synchronized GameplayModeContext openGameplaySession(GameModule module) {
+        return openGameplaySession(module, null);
+    }
+
+    public static synchronized GameplayModeContext openGameplaySession(GameModule module,
+                                                                       SaveSessionContext saveSessionContext) {
         Objects.requireNonNull(module, "module");
         destroyCurrentMode();
-        currentWorldSession = new WorldSession(module);
+        currentWorldSession = new WorldSession(module, saveSessionContext);
         currentGameplayMode = new GameplayModeContext(currentWorldSession);
         return currentGameplayMode;
     }

@@ -51,7 +51,9 @@ public class Sonic1LevelInitProfile extends AbstractLevelInitProfile {
             steps.add(resetPlayerStateStep(ctx));
             steps.add(initCameraStep());
             steps.add(initLevelEventsStep());
-            steps.add(requestTitleCardStep(ctx));
+            if (!isPreviewCapture(ctx)) {
+                steps.add(requestTitleCardStep(ctx));
+            }
         }
         return List.copyOf(steps);
     }

@@ -1,7 +1,16 @@
 OpenGGF `0.6.prerelease` is currently focused on making the in-engine editor usable without
 destabilising gameplay, while continuing the runtime cleanup and parity work needed for a stronger
-Sonic 3 & Knuckles baseline.
+Sonic 3 & Knuckles baseline. This snapshot also introduces the data select and save system.
 
+- **Data select and save system:** a full S3K data select screen with ROM-accurate rendering,
+  8 save slots, team selection (Sonic+Tails, Sonic, Tails, Knuckles), and JSON-based save
+  persistence with SHA256 integrity verification. S1 and S2 can use the S3K data select via
+  cross-game donation, with each game retaining its own save profiles and zone progression.
+  `StartupRouteResolver` routes the title screen `ONE_PLAYER` action to data select when S3K
+  presentation is available.
+- **Runtime-owned frameworks:** `PaletteOwnershipRegistry` for multi-writer palette arbitration,
+  `ZoneRuntimeRegistry` for typed per-zone state, and related registries normalizing zone-specific
+  behavior across games.
 - **Experimental editor overlay and playtest loop:** `EDITOR_ENABLED` now gates an in-engine editor
   overlay that can be entered from gameplay with `Shift+Tab`. The current snapshot includes world
   cursor navigation, focused block/chunk previews, derive edits, and safer resume/restart handling.
@@ -24,6 +33,6 @@ See `CHANGELOG.md` for the running list of unreleased changes.
 Scan metadata:
 
 - Base release/tag: `v0.5.20260411`
-- Last code commit scanned for these notes: `20e8d8b43` (`Fix S3K water restore after stage returns`)
+- Last code commit scanned for these notes: `89eca97ce` (`Add donated data select routing tests`)
 - Notes-publishing commit: `a6e0c3992` (`docs: refresh v0.6 prerelease release notes`)
-- Recommended next comparison range: `20e8d8b43..HEAD`
+- Recommended next comparison range: `89eca97ce..HEAD`

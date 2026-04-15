@@ -20,6 +20,9 @@ public enum GameMode {
     /** Title Screen (shown on game startup before gameplay) */
     TITLE_SCREEN,
 
+    /** Data Select Screen (S3K save file selection) */
+    DATA_SELECT,
+
     /** Level Select Screen (debug menu for selecting zone/act) */
     LEVEL_SELECT,
 

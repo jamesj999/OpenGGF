@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.save.SaveReason;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -311,6 +312,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (cameraX >= SCZ_CAMERA_FINISH_X) {
             if (playerX >= SCZ_PLAYER_FINISH_X) {
                 if (!sczTransitionRequested) {
+                    services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
                     services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
                     sczTransitionRequested = true;
                 }
@@ -568,6 +570,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private void wfzDockOnDez() {
         if (scriptTimer >= WFZ_START_DEZ_AT) {
             if (!dezTransitionRequested) {
+                services().requestSessionSave(SaveReason.PROGRESSION_SAVE);
                 services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
                 dezTransitionRequested = true;
             }

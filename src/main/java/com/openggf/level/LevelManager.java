@@ -19,6 +19,7 @@ import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.PerformanceProfiler;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.FadeManager;
@@ -784,10 +785,13 @@ public class LevelManager {
      * Injects a {@link DefaultPowerUpSpawner} backed by the current
      * {@link ObjectManager} into the main player and all sidekicks.
      */
+    private String resolveMainCharacterCode() {
+        return ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
+    }
+
     private void injectPowerUpSpawner() {
         DefaultPowerUpSpawner spawner = new DefaultPowerUpSpawner(objectManager);
-        Sprite player = spriteManager.getSprite(
-                configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (player instanceof AbstractPlayableSprite playable) {
             playable.setPowerUpSpawner(spawner);
         }
@@ -984,7 +988,7 @@ public class LevelManager {
      */
     public void updateObjectPositions() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1);
@@ -1029,7 +1033,7 @@ public class LevelManager {
      */
     public void updateObjectPositionsWithoutTouches() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
             // ROM parity: In ExecuteObjects, Sonic (slot 0) runs his full physics
@@ -1089,7 +1093,7 @@ public class LevelManager {
      */
     public void updateObjectPositionsPostPhysicsWithoutTouches() {
         if (objectManager != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1,
@@ -1131,7 +1135,7 @@ public class LevelManager {
      */
     public void updateZoneFeaturesPrePhysics() {
         if (zoneFeatureProvider != null && level != null) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             zoneFeatureProvider.updatePrePhysics(playable, camera.getX(), getFeatureZoneId());
         }
@@ -1152,7 +1156,7 @@ public class LevelManager {
         AbstractPlayableSprite playable = null;
         boolean needsPlayer = ringManager != null || zoneFeatureProvider != null || levelGamestate != null;
         if (needsPlayer) {
-            player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            player = spriteManager.getSprite(resolveMainCharacterCode());
             playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
         }
         if (ringManager != null) {
@@ -1204,7 +1208,7 @@ public class LevelManager {
      * Keeps water and zone features in sync while player physics/input are frozen.
      */
     public void updateEndingDemoScene() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
         if (ringManager != null) {
@@ -1278,7 +1282,7 @@ public class LevelManager {
         } else {
             return;
         }
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -1315,7 +1319,7 @@ public class LevelManager {
         // characters share the same ART_TILE base (e.g. Knuckles and Sonic
         // both use 0x0680 in S3K).
         List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-        String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCharName = resolveMainCharacterCode();
         List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
         for (AbstractPlayableSprite sidekick : sidekicks) {
             String name = spriteManager.getSidekickCharacterName(sidekick);
@@ -1474,7 +1478,7 @@ public class LevelManager {
     }
 
     private void resetPlayerState() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (player instanceof AbstractPlayableSprite playable) {
             playable.resetState();
         }
@@ -1690,8 +1694,8 @@ public class LevelManager {
                             graphicsManager.cachePatternTexture(hudLives[i], livesBaseIndex + i);
                         }
                         hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
-                        // Cross-game: S3K life icon uses palette 0 for all tiles
-                        hudRenderManager.setLivesNameUsesIconPalette(CrossGameFeatureProvider.isActive());
+                        hudRenderManager.setLivesNameUsesIconPalette(provider.usesIconPaletteForLivesName());
+                        hudRenderManager.setLivesPaletteOverride(provider.getHudLivesPaletteOverride());
 
                         int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
                         Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
@@ -1762,15 +1766,45 @@ public class LevelManager {
         drawWithSpritePriority(null, true);
     }
 
+    public record LevelRenderOptions(boolean includePlayerSprites,
+                                     boolean includeObjectSprites,
+                                     boolean includeRings,
+                                     boolean includeHud,
+                                     boolean includeDebugOverlays,
+                                     boolean includeObjectArtViewer,
+                                     boolean includeWaterSurface) {
+        public static LevelRenderOptions gameplay() {
+            return new LevelRenderOptions(true, true, true, true, true, true, true);
+        }
+
+        public static LevelRenderOptions tilesOnly() {
+            return new LevelRenderOptions(false, false, false, false, false, false, false);
+        }
+
+        public static LevelRenderOptions previewCapture() {
+            return new LevelRenderOptions(false, true, false, false, false, false, false);
+        }
+
+        public boolean hasGameplayPass() {
+            return includePlayerSprites || includeObjectSprites || includeRings;
+        }
+    }
+
     public void drawWithSpritePriority(SpriteManager spriteManager) {
         drawWithSpritePriority(spriteManager, true);
     }
 
     public void drawWithSpritePriority(SpriteManager spriteManager, boolean includeSpritePass) {
+        drawWithRenderOptions(spriteManager,
+                includeSpritePass ? LevelRenderOptions.gameplay() : LevelRenderOptions.tilesOnly());
+    }
+
+    public void drawWithRenderOptions(SpriteManager spriteManager, LevelRenderOptions renderOptions) {
         if (level == null) {
             LOGGER.warning("No level loaded to draw.");
             return;
         }
+        LevelRenderOptions options = renderOptions != null ? renderOptions : LevelRenderOptions.gameplay();
 
         // frameCounter is now incremented in update() — see comment there.
         if (animatedPatternManager != null) {
@@ -1866,8 +1900,16 @@ public class LevelManager {
         // Draw Foreground (Layer 0) high-priority pass to screen
         enqueueForegroundTilemapPass(camera, 1);
 
-        if (includeSpritePass) {
-            renderSpriteObjectPass(spriteManager, true);
+        if (options.hasGameplayPass()) {
+            if (options.includePlayerSprites()
+                    && options.includeObjectSprites()
+                    && options.includeRings()) {
+                renderSpriteObjectPass(spriteManager, options.includeWaterSurface());
+            } else {
+                renderSpriteObjectPassFiltered(spriteManager, options);
+            }
+        }
+        if (options.includeObjectArtViewer()) {
             overlayManager.getObjectArtViewer().draw(objectRenderManager, camera);
         }
 
@@ -1877,22 +1919,24 @@ public class LevelManager {
         // Rendered after sprites so the wall appears in front of everything except HUD.
         renderBgHighPriorityOverlay();
 
-        if (!includeSpritePass) {
+        if (!options.hasGameplayPass()) {
             // No sprite/object pass this frame; restore the default shader state for
             // any later screen-space rendering after the level tiles.
             graphicsManager.registerCommand(disableWaterShaderCommand);
         }
 
         profiler.beginSection("render.hud");
-        if (hudRenderManager != null && !isHudSuppressed()) {
+        if (options.includeHud() && hudRenderManager != null && !isHudSuppressed()) {
             AbstractPlayableSprite focusedPlayer = camera.getFocusedSprite();
             hudRenderManager.draw(levelGamestate, focusedPlayer);
         }
         profiler.endSection("render.hud");
 
         boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-        boolean overlayEnabled = debugViewEnabled && overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
-        if (debugRenderer != null) {
+        boolean overlayEnabled = options.includeDebugOverlays()
+                && debugViewEnabled
+                && overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
+        if (options.includeDebugOverlays() && debugRenderer != null) {
             debugRenderer.renderDebugOverlays(overlayEnabled, objectManager, ringManager,
                     spriteManager, gameModule, configService, frameCounter);
         }
@@ -2204,6 +2248,49 @@ public class LevelManager {
         }
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.
+        graphicsManager.registerCommand(disableWaterShaderCommand);
+    }
+
+    private void renderSpriteObjectPassFiltered(SpriteManager spriteManager, LevelRenderOptions options) {
+        profiler.beginSection("render.sprites");
+
+        if (spriteManager != null && options.includePlayerSprites()) {
+            spriteManager.invalidateRenderBuckets();
+        }
+        if (objectManager != null && options.includeObjectSprites()) {
+            objectManager.invalidateRenderBuckets();
+        }
+
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(false);
+        graphicsManager.beginPatternBatch();
+
+        if (ringManager != null && options.includeRings()) {
+            ringManager.draw(frameCounter);
+            graphicsManager.setCurrentSpriteHighPriority(true);
+            ringManager.drawLostRings(frameCounter);
+            graphicsManager.setCurrentSpriteHighPriority(false);
+        }
+
+        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+            if (spriteManager != null && options.includePlayerSprites()) {
+                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+            if (objectManager != null && options.includeObjectSprites()) {
+                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+        }
+
+        graphicsManager.flushPatternBatch();
+        graphicsManager.setUseSpritePriorityShader(false);
+        profiler.endSection("render.sprites");
+
+        if (options.includeWaterSurface()) {
+            graphicsManager.registerCommand(disableShimmerCommand);
+        }
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.render(camera, frameCounter);
+        }
         graphicsManager.registerCommand(disableWaterShaderCommand);
     }
 
@@ -3319,7 +3406,7 @@ public class LevelManager {
      * ROM: S1/S2 StartLocations / Obj79_LoadData, S3K Get_PlayerStart.
      */
     public void spawnPlayerAtStartPosition(LevelLoadContext ctx) {
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCode = resolveMainCharacterCode();
         Sprite player = spriteManager.getSprite(mainCode);
         if (player == null) {
             LOGGER.warning("SpawnPlayer: no sprite registered for code '" + mainCode
@@ -3389,7 +3476,7 @@ public class LevelManager {
      * ROM: S2 InitPlayers state clear, S3K object constructor defaults.
      */
     public void resetPlayerForLevelStart(LevelLoadContext ctx) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -3421,7 +3508,7 @@ public class LevelManager {
      * ROM: S1/S2 SetScreen/InitCameraValues, S3K Get_LevelSizeStart.
      */
     public void initCameraForLevel() {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
@@ -3466,7 +3553,7 @@ public class LevelManager {
      * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
      */
     public void spawnSidekicks(int xOffset, int yOffset) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
         for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.setX((short) (player.getX() + xOffset));
             sidekick.setY((short) (player.getY() + yOffset));
@@ -3536,6 +3623,10 @@ public class LevelManager {
         loadCurrentLevel(false);
     }
 
+    public void loadCurrentLevel(LevelLoadMode loadMode, boolean showTitleCard) {
+        loadCurrentLevel(showTitleCard, loadMode);
+    }
+
     /**
      * Loads the current level with optional title card.
      *
@@ -3543,6 +3634,10 @@ public class LevelManager {
      *                      respawns
      */
     private void loadCurrentLevel(boolean showTitleCard) {
+        loadCurrentLevel(showTitleCard, LevelLoadMode.FULL);
+    }
+
+    private void loadCurrentLevel(boolean showTitleCard, LevelLoadMode loadMode) {
         try {
             transitions.setSpecialStageReturnLevelReloadRequested(false);
             transitions.setLevelInactiveForTransition(false);
@@ -3562,7 +3657,7 @@ public class LevelManager {
             ctx.setIncludePostLoadAssembly(true);
             ctx.snapshotCheckpoint(checkpointState);
 
-            loadLevel(levelData.getLevelIndex(), LevelLoadMode.FULL, ctx);
+            loadLevel(levelData.getLevelIndex(), loadMode, ctx);
 
             frameCounter = 0;
 
@@ -3631,6 +3726,10 @@ public class LevelManager {
     }
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
+        loadZoneAndAct(zone, act, LevelLoadMode.FULL);
+    }
+
+    public void loadZoneAndAct(int zone, int act, LevelLoadMode loadMode) throws IOException {
         currentAct = act;
         apparentAct = act;
         currentZone = zone;
@@ -3638,7 +3737,7 @@ public class LevelManager {
         if (checkpointState != null) {
             checkpointState.clear();
         }
-        loadCurrentLevel();
+        loadCurrentLevel(loadMode != LevelLoadMode.PREVIEW_CAPTURE, loadMode);
     }
 
     /**

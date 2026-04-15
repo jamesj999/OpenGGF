@@ -1354,6 +1354,67 @@ public class Sonic3kConstants {
     // AfterBoss_AIZ2 loads first 32 bytes into palette line 1 via PalLoad_Line1
     public static final int PAL_AIZ_FIRE_ADDR = 0x0A8BDC;
 
+    // ===== Data Select / Save Screen =====
+    // Addresses verified against the combined lock-on ROM using the save-menu assets from
+    // sonic3k.asm and LockOn Data.asm. This task only models the original assets and layout.
+    public static final int MAP_ENI_SAVE_SCREEN_LAYOUT_ADDR = 0x3A2020;
+    public static final int MAP_UNC_SAVE_SCREEN_NEW_ADDR = 0x3A20DE;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_1_ADDR = 0x3A217A;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_2_ADDR = 0x3A2206;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_3_ADDR = 0x3A2292;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_4_ADDR = 0x3A231E;
+    public static final int ART_KOS_SAVE_SCREEN_MISC_ADDR = 0x3A23AA;
+    public static final int ART_KOS_SAVE_SCREEN_EXTRA_ADDR = 0x15A774;
+    public static final int ART_KOS_SAVE_SCREEN_SK_ZONE_ADDR = 0x15CD62;
+    public static final int ART_KOS_SAVE_SCREEN_PORTRAIT_ADDR = 0x15EDB2;
+    public static final int ART_KOS_SAVE_SCREEN_S3_ZONE_ADDR = 0x20C7E0;
+
+    public static final int MAP_ENI_S3_MENU_BG_ADDR = 0x39D2A2;
+    public static final int ART_KOS_S3_MENU_BG_ADDR = 0x39D4A4;
+    public static final int ARTTILE_S3_MENU_BG = 0x0001;
+    public static final int ARTTILE_SAVE_MISC = 0x029F;
+    public static final int ARTTILE_SAVE_EXTRA = 0x0454;
+    public static final int ARTTILE_SAVE_TEXT = 0x0562;
+    public static final int ENIGMA_BASE_S3_MENU_BG = ARTTILE_S3_MENU_BG;
+    public static final int ENIGMA_BASE_SAVE_SCREEN_LAYOUT = ARTTILE_SAVE_MISC | 0x8000;
+    public static final int PAL_SAVE_MENU_BG_ADDR = 0x39D262;
+    public static final int PAL_SAVE_CHARS_ADDR = 0x00CA78;
+    public static final int PAL_SAVE_EMERALDS_ADDR = 0x00CA9A;
+    public static final int PAL_SAVE_FINISH_CARD_1_ADDR = 0x00CAB8;
+    public static final int PAL_SAVE_FINISH_CARD_2_ADDR = 0x00CAD8;
+    public static final int PAL_SAVE_FINISH_CARD_3_ADDR = 0x00CAF8;
+    public static final int PAL_SAVE_ZONE_CARD_BASE_ADDR = 0x00CB18;
+    public static final int PAL_SAVE_S3_ZONE_CARD_8_ADDR = 0x20BCB6;
+
+    public static final int MAP_SAVE_SCREEN_GENERAL_ADDR = 0x00CE0E;
+    public static final int MAP_SAVE_SCREEN_GENERAL_FRAME_COUNT = 36;
+    public static final int MAP_DATA_SELECT_PLAYER_LIVES_CONTINUES_ADDR = 0x00DA8A;
+    public static final int OBJ_DAT_SAVE_SCREEN_ADDR = 0x00D13E;
+    public static final int OBJ_DAT_SAVE_SCREEN_ENTRY_SIZE = 10;
+    public static final int OBJ_DAT_SAVE_SCREEN_OBJECT_COUNT = 12;
+    public static final int OBJ_DAT_SAVE_SCREEN_SLOT_COUNT = 8;
+
+    // NEW.bin is followed by a 16-byte pointer table before Static 1 begins.
+    public static final int MAP_UNC_SAVE_SCREEN_NEW_SIZE = 0x8C;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_1_SIZE =
+            MAP_UNC_SAVE_SCREEN_STATIC_2_ADDR - MAP_UNC_SAVE_SCREEN_STATIC_1_ADDR;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_2_SIZE =
+            MAP_UNC_SAVE_SCREEN_STATIC_3_ADDR - MAP_UNC_SAVE_SCREEN_STATIC_2_ADDR;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_3_SIZE =
+            MAP_UNC_SAVE_SCREEN_STATIC_4_ADDR - MAP_UNC_SAVE_SCREEN_STATIC_3_ADDR;
+    public static final int MAP_UNC_SAVE_SCREEN_STATIC_4_SIZE =
+            ART_KOS_SAVE_SCREEN_MISC_ADDR - MAP_UNC_SAVE_SCREEN_STATIC_4_ADDR;
+
+    public static final int PAL_SAVE_MENU_BG_SIZE = 0x20;
+    public static final int PAL_SAVE_CHARS_SIZE = PAL_SAVE_EMERALDS_ADDR - PAL_SAVE_CHARS_ADDR;
+    public static final int PAL_SAVE_EMERALDS_SIZE = PAL_SAVE_FINISH_CARD_1_ADDR - PAL_SAVE_EMERALDS_ADDR;
+    public static final int PAL_SAVE_FINISH_CARD_SIZE = 0x20;
+    public static final int PAL_SAVE_FINISH_CARD_COUNT = 3;
+    public static final int PAL_SAVE_ZONE_CARD_SIZE = 0x20;
+    public static final int PAL_SAVE_ZONE_CARD_COUNT = 15;
+    public static final int PAL_SAVE_S3_ZONE_CARD_8_SIZE = 0x20;
+    public static final int SAVE_SCREEN_STATIC_LAYOUT_COUNT = 4;
+
     // ===== Level Select Screen =====
     // Art (Nemesis compressed, reuses S2 menu infrastructure at S3K ROM offsets)
     public static final int ART_NEM_S22P_OPTIONS_ADDR = 0xCA5E0;   // Font art (Nemesis)
