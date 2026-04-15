@@ -6,7 +6,7 @@
 
 **Architecture:** Structural refactoring only — no behavioral changes. Each phase depends only on prior phases; items within a phase are independent. Tests must pass identically before and after each task.
 
-**Tech Stack:** Java 21, JUnit 4, Maven
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, Maven
 
 **Spec:** `docs/superpowers/specs/2026-03-21-phase4-common-refactoring-design.md`
 
