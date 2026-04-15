@@ -295,6 +295,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_SETTLE_FRAMES, 8);
+		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_WORLD_1);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 

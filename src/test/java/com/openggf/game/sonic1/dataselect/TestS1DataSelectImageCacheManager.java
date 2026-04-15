@@ -293,7 +293,10 @@ public class TestS1DataSelectImageCacheManager {
             RgbaImage result = (RgbaImage) method.invoke(manager, Sonic1ZoneConstants.ZONE_GHZ, point, 3);
 
             assertSame(captured, result);
-            org.mockito.Mockito.verify(levelManager).loadZoneAndAct(Sonic1ZoneConstants.ZONE_GHZ, 0);
+            org.mockito.Mockito.verify(levelManager).loadZoneAndAct(
+                    Sonic1ZoneConstants.ZONE_GHZ,
+                    0,
+                    com.openggf.game.LevelLoadMode.PREVIEW_CAPTURE);
             org.mockito.Mockito.verify(camera).setX((short) 0x180);
             org.mockito.Mockito.verify(camera).setY((short) (0x100 - 96));
             org.mockito.Mockito.verify(levelManager).drawWithRenderOptions(
@@ -333,7 +336,7 @@ public class TestS1DataSelectImageCacheManager {
     }
 
     @Test
-    void captureTargetFallsBackToSpawnLeftEdgeWhenOverrideMapIsEmpty() throws Exception {
+    void captureTargetFallsBackToSpawnLeftEdgeForZonesWithoutOverrides() throws Exception {
         Path cacheRoot = tempDir.resolve("saves/image-cache/s1");
         FakeCaptureSource captureSource = FakeCaptureSource.solidColourImages(320, 224, 7);
         S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
@@ -345,10 +348,24 @@ public class TestS1DataSelectImageCacheManager {
         generator.generateAll();
 
         assertFalse(captureSource.capturePoints().isEmpty());
-        S1DataSelectImageGenerator.PreviewCaptureTarget point = captureSource.capturePoints().getFirst();
-        int[] spawn = new Sonic1ZoneRegistry().getStartPosition(Sonic1ZoneConstants.ZONE_GHZ, 0);
+        S1DataSelectImageGenerator.PreviewCaptureTarget point = captureSource.capturePoints().get(1);
+        int[] spawn = new Sonic1ZoneRegistry().getStartPosition(Sonic1ZoneConstants.ZONE_MZ, 0);
         assertEquals(spawn[0], point.cameraLeftX());
         assertEquals(spawn[1], point.centreY());
+    }
+
+    @Test
+    void captureTargetUsesHardcodedOverrideWhenZoneHasOne() {
+        S1DataSelectImageGenerator generator = new S1DataSelectImageGenerator(
+                tempDir.resolve("saves/image-cache/s1"),
+                FakeCaptureSource.solidColourImages(320, 224, 7),
+                () -> "romsha",
+                8);
+
+        S1DataSelectImageGenerator.PreviewCaptureTarget point =
+                generator.resolveCaptureTarget(Sonic1ZoneConstants.ZONE_GHZ);
+
+        assertNotEquals(new Sonic1ZoneRegistry().getStartPosition(Sonic1ZoneConstants.ZONE_GHZ, 0)[0], point.cameraLeftX());
     }
 
     @Test

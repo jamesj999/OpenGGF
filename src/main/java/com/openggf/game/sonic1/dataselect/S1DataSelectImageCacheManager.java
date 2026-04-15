@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class S1DataSelectImageCacheManager {
-	static final int GENERATOR_FORMAT_VERSION = 2;
+	static final int GENERATOR_FORMAT_VERSION = 3;
 	private static final String MANIFEST_FILE_NAME = "manifest.json";
 	private static final Set<String> EXPECTED_ZONE_KEYS = Set.of(
 			"ghz",
@@ -177,7 +177,7 @@ public class S1DataSelectImageCacheManager {
 		return graphics
 				.submitRenderThreadTask(() -> {
 					LevelManager levelManager = GameServices.level();
-					levelManager.loadZoneAndAct(zoneId, 0);
+					levelManager.loadZoneAndAct(zoneId, 0, com.openggf.game.LevelLoadMode.PREVIEW_CAPTURE);
 					Camera camera = GameServices.camera();
 					camera.setX((short) Math.max(camera.getMinX(), cameraLeftX));
 					camera.setY((short) Math.max(camera.getMinY(), centreY - 96));

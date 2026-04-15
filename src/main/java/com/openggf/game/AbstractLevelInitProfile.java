@@ -60,6 +60,10 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         return List.of();
     }
 
+    protected boolean isPreviewCapture(LevelLoadContext ctx) {
+        return ctx != null && ctx.getLoadMode() == LevelLoadMode.PREVIEW_CAPTURE;
+    }
+
     // ── IOException helper ───────────────────────────────────────────────
 
     /** Runnable that may throw {@link IOException}. */
@@ -143,9 +147,11 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         steps.add(ioStep("InitGameModule",
                 "Create Game instance, fade out, clear PLC",
                 () -> GameServices.level().initGameModule(ctx.getLevelIndex())));
-        steps.add(ioStep("InitAudio",
-                "Play level music from zone playlist",
-                () -> GameServices.level().initAudio(ctx.getLevelIndex())));
+        if (!isPreviewCapture(ctx)) {
+            steps.add(ioStep("InitAudio",
+                    "Play level music from zone playlist",
+                    () -> GameServices.level().initAudio(ctx.getLevelIndex())));
+        }
         steps.add(ioStep("LoadLevelData",
                 "Load level geometry, tiles, collision indices",
                 () -> ctx.setLevel(GameServices.level().loadLevelData(ctx.getLevelIndex()))));
@@ -247,15 +253,17 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
      * Subclasses can call this and filter/modify as needed.
      */
     protected List<InitStep> postLoadAssemblySteps(LevelLoadContext ctx) {
-        return List.of(
-            restoreCheckpointStep(ctx),
-            spawnPlayerStep(ctx),
-            resetPlayerStateStep(ctx),
-            initCameraStep(),
-            initLevelEventsStep(),
-            spawnSidekickStep(),
-            requestTitleCardStep(ctx)
-        );
+        List<InitStep> steps = new ArrayList<>(7);
+        steps.add(restoreCheckpointStep(ctx));
+        steps.add(spawnPlayerStep(ctx));
+        steps.add(resetPlayerStateStep(ctx));
+        steps.add(initCameraStep());
+        steps.add(initLevelEventsStep());
+        steps.add(spawnSidekickStep());
+        if (!isPreviewCapture(ctx)) {
+            steps.add(requestTitleCardStep(ctx));
+        }
+        return List.copyOf(steps);
     }
 
     @Override

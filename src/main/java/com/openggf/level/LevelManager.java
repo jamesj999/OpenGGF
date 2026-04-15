@@ -3604,6 +3604,10 @@ public class LevelManager {
         loadCurrentLevel(false);
     }
 
+    public void loadCurrentLevel(LevelLoadMode loadMode, boolean showTitleCard) {
+        loadCurrentLevel(showTitleCard, loadMode);
+    }
+
     /**
      * Loads the current level with optional title card.
      *
@@ -3611,6 +3615,10 @@ public class LevelManager {
      *                      respawns
      */
     private void loadCurrentLevel(boolean showTitleCard) {
+        loadCurrentLevel(showTitleCard, LevelLoadMode.FULL);
+    }
+
+    private void loadCurrentLevel(boolean showTitleCard, LevelLoadMode loadMode) {
         try {
             transitions.setSpecialStageReturnLevelReloadRequested(false);
             transitions.setLevelInactiveForTransition(false);
@@ -3630,7 +3638,7 @@ public class LevelManager {
             ctx.setIncludePostLoadAssembly(true);
             ctx.snapshotCheckpoint(checkpointState);
 
-            loadLevel(levelData.getLevelIndex(), LevelLoadMode.FULL, ctx);
+            loadLevel(levelData.getLevelIndex(), loadMode, ctx);
 
             frameCounter = 0;
 
@@ -3699,6 +3707,10 @@ public class LevelManager {
     }
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
+        loadZoneAndAct(zone, act, LevelLoadMode.FULL);
+    }
+
+    public void loadZoneAndAct(int zone, int act, LevelLoadMode loadMode) throws IOException {
         currentAct = act;
         apparentAct = act;
         currentZone = zone;
@@ -3706,7 +3718,7 @@ public class LevelManager {
         if (checkpointState != null) {
             checkpointState.clear();
         }
-        loadCurrentLevel();
+        loadCurrentLevel(loadMode != LevelLoadMode.PREVIEW_CAPTURE, loadMode);
     }
 
     /**

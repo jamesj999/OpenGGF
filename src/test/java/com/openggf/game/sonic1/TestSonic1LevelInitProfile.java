@@ -1,6 +1,9 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.InitStep;
+import com.openggf.game.EngineServices;
+import com.openggf.game.LevelLoadContext;
+import com.openggf.game.LevelLoadMode;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
 import com.openggf.game.sonic1.events.Sonic1LevelEventManager;
@@ -19,6 +22,7 @@ public class TestSonic1LevelInitProfile {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
@@ -108,6 +112,24 @@ public class TestSonic1LevelInitProfile {
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitCamera")), "Should include InitCamera");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitLevelEvents")), "Should include InitLevelEvents");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("RequestTitleCard")), "Should include RequestTitleCard");
+    }
+
+    @Test
+    public void previewCaptureLoadOmitsAudioAndTitleCardSteps() {
+        LevelLoadContext ctx = new LevelLoadContext();
+        ctx.setIncludePostLoadAssembly(true);
+        ctx.setLoadMode(LevelLoadMode.PREVIEW_CAPTURE);
+
+        List<InitStep> steps = profile.levelLoadSteps(ctx);
+
+        assertFalse(steps.stream().anyMatch(s -> s.name().equals("InitAudio")),
+                "Preview capture should not include InitAudio");
+        assertFalse(steps.stream().anyMatch(s -> s.name().equals("RequestTitleCard")),
+                "Preview capture should not include RequestTitleCard");
+        assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitGameModule")),
+                "Preview capture should still include core level loading");
+        assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitLevelEvents")),
+                "Preview capture should still include level events");
     }
 }
 

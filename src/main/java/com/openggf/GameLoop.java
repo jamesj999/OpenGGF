@@ -27,6 +27,7 @@ import com.openggf.game.ResultsScreen;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
+import com.openggf.game.sonic1.dataselect.S1DataSelectImageGenerator;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -729,6 +730,11 @@ public class GameLoop {
             if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
                 enterLevelSelect();
             }
+
+            if (isUnmodifiedDebugKeyPressed(
+                    configService.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY))) {
+                logCurrentPreviewCaptureOverride();
+            }
         } else if (currentGameMode == GameMode.BONUS_STAGE) {
             // Continue updating title card overlay during bonus stage
             // (EXIT phase: elements slide off screen after exitTitleCard transitioned here)
@@ -950,6 +956,21 @@ public class GameLoop {
         } else {
             LOGGER.info("DEBUG: No checkpoints found in this level");
         }
+    }
+
+    private void logCurrentPreviewCaptureOverride() {
+        if (camera == null || levelManager == null) {
+            return;
+        }
+        S1DataSelectImageGenerator.PreviewCapturePoint point =
+                S1DataSelectImageGenerator.previewCapturePointFromCamera(camera.getX(), camera.getY());
+        LOGGER.info("DEBUG: Preview capture override for zone "
+                + levelManager.getRomZoneId()
+                + " -> new PreviewCapturePoint("
+                + point.centreX()
+                + ", "
+                + point.centreY()
+                + ")");
     }
 
     /**
