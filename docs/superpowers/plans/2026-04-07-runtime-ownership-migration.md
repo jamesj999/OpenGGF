@@ -6,7 +6,7 @@
 
 **Architecture:** Introduce `EngineContext`, `WorldSession`, and `ModeContext` as first-class ownership layers, then re-scope the current `GameRuntime` responsibilities into a gameplay-mode projection over a persistent world. Keep bootstrap-only globals for pre-session startup, but route gameplay-time access through session-owned services and contexts, with a stub `EditorModeContext` establishing the future editor boundary.
 
-**Tech Stack:** Java 17, Maven, JUnit 4 + JUnit 5, LWJGL engine runtime, existing source-scan architecture guard tests
+**Tech Stack:** Java 17, Maven, JUnit 5 / Jupiter only, LWJGL engine runtime, existing source-scan architecture guard tests
 
 ---
 

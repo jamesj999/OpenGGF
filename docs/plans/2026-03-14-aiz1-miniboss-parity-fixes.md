@@ -8,7 +8,7 @@
 
 **Note on explosion art:** S3K's `Obj_BossExplosion2` uses `ArtTile_BossExplosion2` which is the same `ArtNem_BossExplosion` Nemesis-compressed data as S2. The existing `getBossExplosionRenderer()` returns the correct art for S3K explosions.
 
-**Tech Stack:** Java 21, JUnit 4, no new dependencies.
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, no new dependencies.
 
 **ROM References:**
 - `Obj_BossExplosionSpecial` (sonic3k.asm:176812) — explosion controller
@@ -42,8 +42,8 @@ The controller is a plain Java object (not an ObjectInstance) owned by the cutsc
 ```java
 package com.openggf.game.sonic3k.objects;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestS3kBossExplosionController {
 

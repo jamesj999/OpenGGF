@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestAizMinibossBarrelShotChild {
 
     private DummyBoss parent;
+    private AizMinibossFlameBarrelChild barrel;
     private Camera camera;
 
     @BeforeEach
@@ -33,12 +34,14 @@ public class TestAizMinibossBarrelShotChild {
         camera.setX((short) 0);
         camera.setY((short) 0);
         parent = new DummyBoss();
+        barrel = new AizMinibossFlameBarrelChild(parent, 0, false);
+        barrel.setServices(new TestObjectServices().withCamera(camera));
     }
 
     @Test
     public void simpleModeNeverBecomesHazardousAndSelfDeletes() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
-                parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
+                parent, barrel, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
         shot.setServices(new TestObjectServices().withCamera(camera));
 
         for (int i = 0; i < 250 && !shot.isDestroyed(); i++) {
@@ -52,7 +55,7 @@ public class TestAizMinibossBarrelShotChild {
     @Test
     public void advancedNonCollidingModeNeverSetsCollisionFlags() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
-                parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
+                parent, barrel, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
         shot.setServices(new TestObjectServices().withCamera(camera));
 
         for (int i = 0; i < 220 && !shot.isDestroyed(); i++) {
@@ -64,7 +67,7 @@ public class TestAizMinibossBarrelShotChild {
     @Test
     public void advancedCollidingModeEventuallyEntersHazardPhase() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
-                parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
+                parent, barrel, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
         shot.setServices(new TestObjectServices().withCamera(camera));
 
         boolean sawCollision = false;

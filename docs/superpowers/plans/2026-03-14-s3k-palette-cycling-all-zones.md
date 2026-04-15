@@ -1,4 +1,6 @@
-# S3K Per-Zone Palette Cycling Implementation Plan
+
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
+
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +8,7 @@
 
 **Architecture:** Each zone gets a `PaletteCycle` inner class in `Sonic3kPaletteCycler.java`, following the existing AIZ pattern. ROM data table addresses are found via `RomOffsetFinder`, added to `Sonic3kConstants.java`, loaded via `safeSlice()`, and cycled per-frame using counter/step/limit logic matching the disassembly. Each zone also gets a headless test proving its palette colors change over time.
 
-**Tech Stack:** Java 21, JUnit 4, Maven, S3K ROM (`Sonic and Knuckles & Sonic 3 (W) [!].gen`)
+**Tech Stack:** Java 21, Maven, and S3K ROM (`Sonic and Knuckles & Sonic 3 (W) [!].gen`). Any new or updated tests should use JUnit 5 / Jupiter only; the JUnit 4 references below are legacy migration context.
 
 ---
 

@@ -6,7 +6,7 @@
 
 **Architecture:** When cross-game features are active, `CrossGameFeatureProvider` creates the donor game's own `SuperStateController` (S2 or S3K) and pre-loads ROM data from the donor ROM. Game modules delegate to the provider instead of creating their own controllers.
 
-**Tech Stack:** Java 21, JUnit 4, existing SuperStateController framework
+**Tech Stack:** Java 21, JUnit 5 / Jupiter only, existing SuperStateController framework
 
 ---
 
@@ -269,9 +269,9 @@ package com.openggf.game;
 import com.openggf.game.sonic2.Sonic2SuperStateController;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.sprites.playable.SuperStateController;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Verifies that cross-game Super Sonic delegation produces the correct

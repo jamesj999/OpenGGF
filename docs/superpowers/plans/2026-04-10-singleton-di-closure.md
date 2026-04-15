@@ -6,7 +6,7 @@
 
 **Architecture:** Add an explicit `EngineServices` root for process-level services, keep runtime-owned gameplay state inside `GameRuntime`, pass dependencies through constructors, and tighten guard tests before each migration bucket. The only temporary compatibility bridge allowed during migration is `EngineServices.fromLegacySingletonsForBootstrap()`; the end state is no production singleton access outside that bridge, and preferably none at all.
 
-**Tech Stack:** Java 21, Maven, JUnit 4/JUnit 5, existing OpenGGF service/provider architecture.
+**Tech Stack:** Java 21, Maven, JUnit 5 / Jupiter only, existing OpenGGF service/provider architecture.
 
 ---
 

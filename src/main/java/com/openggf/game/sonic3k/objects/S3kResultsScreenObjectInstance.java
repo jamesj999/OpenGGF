@@ -548,11 +548,35 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             if (!skipTitleCard && !hasSeamlessTransition) {
                 services().titleCardProvider().initializeInLevel(zone, 1);
             }
+
+            // ROM: Timer and ring count reset on act transition. For zones with
+            // seamless transitions (HCZ), the level reload in executeActTransition
+            // creates a fresh LevelGamestate. For non-seamless S3K act transitions
+            // (where acts share level data), the results screen must reset the
+            // gamestate directly since no level reload occurs.
+            if (!hasSeamlessTransition) {
+                resetLevelGamestateForActTransition();
+            }
         }
 
         setDestroyed(true);
         LOG.fine(() -> String.format("S3K results exit: zone=%X act=%d isAct2OrSpecial=%b",
                 zone, act, isAct2OrSpecial));
+    }
+
+    /**
+     * Resets the LevelGamestate (timer + rings) for a non-seamless act transition.
+     * ROM: Timer and ring count reset to zero when entering a new act.
+     * Score carries over.
+     */
+    private void resetLevelGamestateForActTransition() {
+        var levelManager = services().levelManager();
+        if (levelManager != null) {
+            var gameModule = services().gameModule();
+            if (gameModule != null) {
+                levelManager.resetLevelGamestate(gameModule.createLevelState());
+            }
+        }
     }
 
     // ---- Persistence ----
