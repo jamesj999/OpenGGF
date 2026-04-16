@@ -35,7 +35,9 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
+    private short[] chunkScratch = new short[0];
     private ReadMode readMode = ReadMode.SAMPLE_ACCURATE;
+    private int hybridChunkCountForTesting;
 
     // --- Continuous SFX state (Z80: zContinuousSFX, zContinuousSFXFlag, zContSFXLoopCnt) ---
     // S3K continuous SFX (0xBC+) loop via the 0xFC coord flag (cfLoopContinuousSFX).
@@ -136,6 +138,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     public void setReadModeForTesting(ReadMode readMode) {
         this.readMode = readMode;
+    }
+
+    public int getHybridChunkCountForTesting() {
+        return hybridChunkCountForTesting;
     }
 
     public void addSequencer(SmpsSequencer seq, boolean isSfx) {
@@ -297,7 +303,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     @Override
     public int read(short[] buffer) {
         if (readMode == ReadMode.HYBRID) {
-            return readSampleAccurate(buffer);
+            return readHybrid(buffer);
         }
         return readSampleAccurate(buffer);
     }
@@ -327,6 +333,87 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             }
         }
         return buffer.length;
+    }
+
+    private int readHybrid(short[] buffer) {
+        int frames = buffer.length / 2;
+        hybridChunkCountForTesting = 0;
+
+        synchronized (sequencersLock) {
+            int frameIndex = 0;
+            while (frameIndex < frames) {
+                if (requiresSampleAccurateFallback()) {
+                    renderSingleSample(buffer, frameIndex++);
+                    continue;
+                }
+
+                int safeChunk = computeSafeChunkSamples(frames - frameIndex);
+                if (safeChunk < MIN_BATCH_SAMPLES) {
+                    renderSingleSample(buffer, frameIndex++);
+                    continue;
+                }
+
+                advanceSequencersBatch(safeChunk);
+                removeCompletedSequencers();
+                renderChunk(buffer, frameIndex, safeChunk);
+                hybridChunkCountForTesting++;
+                frameIndex += safeChunk;
+            }
+        }
+        return buffer.length;
+    }
+
+    private boolean requiresSampleAccurateFallback() {
+        for (int i = 0; i < sequencers.size(); i++) {
+            if (sequencers.get(i).requiresSampleAccurateFallback()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // The tempo cap is nextTempoFrame - 1 because sample-accurate mode advances one
+    // sample before rendering it; the boundary sample must stay on that path so the
+    // pre-boundary samples do not render with post-tick state.
+    private int computeSafeChunkSamples(int maxFrames) {
+        int safe = maxFrames;
+        for (int i = 0; i < sequencers.size(); i++) {
+            SmpsSequencer seq = sequencers.get(i);
+            int preTempoSafe = Math.max(0, seq.getSamplesUntilNextTempoFrame() - 1);
+            safe = Math.min(safe, preTempoSafe);
+            safe = Math.min(safe, seq.getSamplesUntilNextObservableEvent());
+        }
+        return safe;
+    }
+
+    private void advanceSequencersBatch(int frames) {
+        int size = sequencers.size();
+        for (int i = 0; i < size; i++) {
+            SmpsSequencer seq = sequencers.get(i);
+            seq.advanceBatch(frames);
+            if (seq.isComplete()) {
+                pendingRemovals.add(seq);
+            }
+        }
+    }
+
+    private void renderSingleSample(short[] buffer, int frameIndex) {
+        advanceSequencersBatch(1);
+        removeCompletedSequencers();
+
+        super.render(scratchFrameBuf);
+        buffer[frameIndex * 2] = scratchFrameBuf[0];
+        buffer[frameIndex * 2 + 1] = scratchFrameBuf[1];
+    }
+
+    private void renderChunk(short[] target, int frameOffset, int frames) {
+        int sampleCount = frames * 2;
+        if (chunkScratch.length != sampleCount) {
+            chunkScratch = new short[sampleCount];
+        }
+
+        super.render(chunkScratch);
+        System.arraycopy(chunkScratch, 0, target, frameOffset * 2, sampleCount);
     }
 
     private void removeCompletedSequencers() {
