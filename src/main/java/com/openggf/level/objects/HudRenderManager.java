@@ -10,6 +10,8 @@ import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 
+import java.util.function.Supplier;
+
 public class HudRenderManager {
 
     private static final java.util.logging.Logger LOGGER =
@@ -78,6 +80,7 @@ public class HudRenderManager {
      *  Set when donor life icon art is active — S3K art uses palette 0 for all tiles. */
     private boolean livesNameUsesIconPalette;
     private Palette livesPaletteOverride;
+    private Supplier<Palette> livesPaletteOverrideSupplier;
 
     private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
     private boolean bonusStageHudLayout;
@@ -110,6 +113,10 @@ public class HudRenderManager {
 
     public void setLivesPaletteOverride(Palette palette) {
         this.livesPaletteOverride = palette != null ? palette.deepCopy() : null;
+    }
+
+    public void setLivesPaletteOverrideSupplier(Supplier<Palette> supplier) {
+        this.livesPaletteOverrideSupplier = supplier;
     }
 
     public void setHudFlashMode(HudFlashMode mode) {
@@ -442,14 +449,25 @@ public class HudRenderManager {
     }
 
     private boolean applyLivesPaletteOverride(int iconLine, int nameLine) {
-        if (livesPaletteOverride == null) {
+        Palette paletteOverride = resolveLivesPaletteOverride();
+        if (paletteOverride == null) {
             return false;
         }
-        graphicsManager.cachePaletteTexture(livesPaletteOverride.deepCopy(), iconLine);
+        graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), iconLine);
         if (nameLine != iconLine) {
-            graphicsManager.cachePaletteTexture(livesPaletteOverride.deepCopy(), nameLine);
+            graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), nameLine);
         }
         return true;
+    }
+
+    private Palette resolveLivesPaletteOverride() {
+        if (livesPaletteOverrideSupplier != null) {
+            Palette supplied = livesPaletteOverrideSupplier.get();
+            if (supplied != null) {
+                return supplied;
+            }
+        }
+        return livesPaletteOverride;
     }
 
     private void restoreHudPaletteLines(int iconLine, int nameLine) {
@@ -596,4 +614,3 @@ public class HudRenderManager {
         }
     }
 }
-

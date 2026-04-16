@@ -1764,7 +1764,7 @@ public class LevelManager {
                         }
                         hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
                         hudRenderManager.setLivesNameUsesIconPalette(provider.usesIconPaletteForLivesName());
-                        hudRenderManager.setLivesPaletteOverride(provider.getHudLivesPaletteOverride());
+                        hudRenderManager.setLivesPaletteOverrideSupplier(provider::getHudLivesPaletteOverride);
 
                         int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
                         Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
