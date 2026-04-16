@@ -1284,8 +1284,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     /**
      * Loads the CNZ traversal object sheets directly from ROM.
      *
-     * <p>Task 1 claims the art-sheet registrations for the visible traversal
-     * objects so the new object slots can resolve immediately. Vacuum Tube and
+     * <p>The visible traversal objects in this slice are ROM-backed through the
+     * lock-on offsets published in {@link Sonic3kConstants}. Vacuum Tube and
      * Spiral Tube remain controller-only stubs in this slice and intentionally
      * have no dedicated sheet yet.
      */
