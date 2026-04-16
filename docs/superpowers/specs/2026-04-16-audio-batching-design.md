@@ -14,9 +14,11 @@ The current SMPS render path advances sequencers and renders the synthesizer one
 - each sample advances every active `SmpsSequencer`
 - each sample then renders the shared synthesizer through `VirtualSynthesizer.render(...)` using a 2-sample scratch buffer
 
-That structure is accurate but expensive. It creates a large amount of call overhead, repeated loop overhead, and poor batching opportunities for the JVM and especially for GraalVM native-image.
+`VirtualSynthesizer.render(...)` already accepts arbitrary-length stereo buffers, so the main bottleneck is not the synth API shape. The bottleneck is the per-sample sequencer advance loop in `SmpsDriver.read(...)`, which prevents the existing batch-capable synth path from being used effectively.
 
-The codebase already contains `SmpsSequencer.advanceBatch(...)` and `SmpsSequencer.getSamplesUntilNextTempoFrame()`, which suggests batching was explored previously but not carried through safely enough to replace the single-sample path.
+At the default 44.1 kHz output rate and 60 Hz NTSC tempo base, one tempo frame is 735 samples. That is a large enough steady-state window to justify a more careful batching design.
+
+The codebase already contains `SmpsSequencer.advanceBatch(...)` and `SmpsSequencer.getSamplesUntilNextTempoFrame()`, but those helpers are currently tempo-only scaffolding, not evidence of a previously completed batching design.
 
 ## Constraints
 
@@ -35,6 +37,8 @@ Current engine output is not assumed to be perfect hardware parity already. A sm
 - timing remains correct
 - no latency is added
 - the new behavior is plausibly closer to hardware or at least not observably worse
+
+For the batching experiment itself, batch mode and fallback mode should be bit-identical for the same active sequencer state. Any PCM difference between those two paths is treated as a batching bug unless proven otherwise.
 
 ### 4. Correctness Fallback Must Remain Available
 
@@ -66,6 +70,8 @@ This is preferred over:
 
 The driver loops until the requested output buffer is filled.
 
+The existing `sequencersLock` remains held for the full `read()` call, matching current behavior. That lock scope is load-bearing because sequencer advancement, completion removal, lock release, and synth writes all currently occur under one consistent snapshot of active driver state.
+
 ### 2. Safe Chunk Planning
 
 Before rendering the next region, the driver computes a safe chunk size across all active sequencers.
@@ -78,6 +84,14 @@ The chunk size is the minimum of:
 
 If the resulting chunk is above a minimum batching threshold, the driver uses batch mode. Otherwise it uses the existing single-sample path.
 
+The initial threshold is a fixed implementation constant, `MIN_BATCH_SAMPLES = 32`. This value is intentionally conservative:
+
+- it is far smaller than a full 735-sample tempo frame
+- it avoids spending planning overhead on tiny windows
+- it is small enough that most steady-state stretches can still batch
+
+The value may be tuned later by measurement, but the first implementation should ship with an explicit constant rather than an implicit heuristic.
+
 ### 3. Observable Event Boundary API
 
 `SmpsSequencer` needs a new query that answers, conservatively, how many samples remain until the next event that would change observable synth output or track state.
@@ -86,13 +100,18 @@ The API should be intentionally conservative. Returning too small a value only r
 
 Examples of boundaries that must stop a batch:
 
+- fade processing step or fade completion
 - note start
 - note end
+- fill-based note-off
+- note-duration expiry
 - PSG envelope step
 - FM volume envelope step
 - modulation step
 - track command execution that writes synth state
 - DAC start/stop or DAC rate-affecting change
+- SFX `maxTicks` self-completion
+- speed-multiplier-driven extra tempo processing
 - sequencer completion
 
 The boundary query must not try to predict cross-call gameplay events. It only reasons about the already-active sequencer state inside the current `read()` call.
@@ -107,13 +126,24 @@ When a chunk is safe:
 
 The driver then recomputes the next chunk. It does not assume the next chunk has the same size, because active sequencers may have changed.
 
+Sequencer completion during a projected chunk is itself a hard boundary. A batch may end at the exact sample where completion becomes true, but it may not cross beyond it. After the completion-boundary chunk is rendered:
+
+- the completed sequencer is removed
+- `releaseLocks(...)` is run immediately
+- any `stopNote(...)`-driven chip silencing implied by completion has already happened inside the sequencer step that reached the boundary
+- the completed sequencer must not contribute to the next rendered sample
+
+This keeps chip state transitions and channel ownership changes aligned with the same sample boundary in both batched and fallback execution.
+
 ### 5. Fallback Mode
 
 The current single-sample algorithm remains available and is used when:
 
 - the computed safe chunk is too small
 - a boundary query cannot prove safety
-- a sequencer enters a state that the batch planner does not model yet
+- a sequencer is in an active fade state
+- a sequencer has `speedMultiplier > 1` and the batch planner has not yet proven that extra in-frame ticks are modeled safely
+- a sequencer enters any other state that the batch planner does not model yet
 - a regression or debug flag disables batching
 
 This fallback path is part of the design, not a temporary crutch.
@@ -163,10 +193,14 @@ If a new sequencer feature cannot be modeled safely yet, the correct result is r
 Add focused tests for `SmpsSequencer` boundary reporting around:
 
 - tempo boundaries
+- fade processing step and fade completion
 - note duration expiry
+- fill-based note-off
 - PSG envelope transitions
 - FM volume envelope transitions
 - modulation updates
+- SFX `maxTicks` self-completion
+- `speedMultiplier > 1` extra in-frame ticks
 - track completion
 
 These tests verify that batch windows stop before the first sample where observable behavior would change.
@@ -178,12 +212,7 @@ Extend audio regression coverage so the same SMPS inputs are rendered through:
 - existing fallback path
 - hybrid batching path
 
-Compare output for:
-
-- identity where possible
-- otherwise tightly localized and bounded differences only
-
-Large or widespread waveform drift is a failure.
+Compare output for exact identity. Because the synth path is deterministic and already accepts arbitrary-length buffers, any batch-vs-fallback PCM mismatch is a failure for this experiment.
 
 ### 3. Action-Coupled Audio Checks
 
@@ -218,7 +247,7 @@ The batching path is acceptable only if all of the following are true:
 
 - no additional latency is introduced
 - no gameplay-audio sync regression is observed
-- no broad waveform drift appears in regression output
+- batched output is bit-identical to fallback output in regression coverage
 - GraalVM native builds show a meaningful CPU improvement in the audio section
 
 If those conditions are not met, the implementation should be abandoned and the single-sample path should remain the default.
