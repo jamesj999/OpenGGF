@@ -59,6 +59,19 @@ public final class CnzZoneRuntimeState implements S3kZoneRuntimeState {
         return events.getPublishedBgCameraX();
     }
 
+    /**
+     * Publishes the ROM-equivalent CNZ deform outputs without exposing the
+     * backing event object to callers.
+     *
+     * <p>The scroll handler uses this to mirror the values that CNZ later
+     * stores in {@code Events_bg+$10} and {@code Camera_X_pos_BG_copy}. The
+     * adapter keeps the publication boundary narrow: callers can write the
+     * deform outputs, but they still cannot reach the raw event instance.
+     */
+    public void publishDeformOutputs(int deformPhaseBgX, int bgCameraX) {
+        events.setPublishedDeformInputs(deformPhaseBgX, bgCameraX);
+    }
+
     public int bossScrollOffsetY() {
         return events.getBossScrollOffsetY();
     }

@@ -45,6 +45,7 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
 
         vscrollFactorBG = cnzBgY(cameraY, shakeY);
         applyDeformation(horizScrollBuf, fgScroll, cnzBgX(cameraX));
+        publishNormalDeformOutputs(cameraX);
     }
 
     private boolean shouldUseBossScroll() {
@@ -83,6 +84,43 @@ public class SwScrlCnz extends AbstractZoneScrollHandler {
 
     private short cnzBgX(int cameraX) {
         return negWord((short) (asrWord(cameraX, 1) - asrWord(cameraX, 4)));
+    }
+
+    /**
+     * Publishes the CNZ normal-deform outputs that later tile animation reads.
+     *
+     * <p>ROM-side CNZ derives the phase source from {@code Events_bg+$10} and
+     * the BG X copy from {@code Camera_X_pos_BG_copy}. The current engine keeps
+     * the same values in the zone runtime state so animated tiles can consume
+     * them without reopening the event object boundary.
+     */
+    private void publishNormalDeformOutputs(int cameraX) {
+        CnzZoneRuntimeState state = cnzRuntimeState();
+        if (state == null) {
+            return;
+        }
+
+        state.publishDeformOutputs(cnzPhaseSource(cameraX), cnzPublishedBgCameraX(cameraX));
+    }
+
+    /**
+     * ROM-equivalent CNZ phase source used by AnimateTiles_CNZ.
+     *
+     * <p>This is the 5/16 camera-X fraction the disassembly reads from
+     * {@code Events_bg+$10} when deriving the animated tile phase.
+     */
+    private int cnzPhaseSource(int cameraX) {
+        return asrWord(cameraX, 2) + asrWord(cameraX, 4);
+    }
+
+    /**
+     * ROM-equivalent published BG camera X copy.
+     *
+     * <p>CNZ keeps this as the 7/16 camera-X fraction that later animation
+     * logic treats as {@code Camera_X_pos_BG_copy}.
+     */
+    private int cnzPublishedBgCameraX(int cameraX) {
+        return asrWord(cameraX, 1) - asrWord(cameraX, 4);
     }
 
     private void applyDeformation(int[] horizScrollBuf, short fgScroll, short bgScroll) {
