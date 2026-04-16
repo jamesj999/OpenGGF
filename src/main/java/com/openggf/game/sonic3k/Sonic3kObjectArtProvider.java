@@ -153,6 +153,13 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             loadHczMinibossArtFromPlc();
             loadHczEndBossArt();
             loadHczGeyserCutsceneArt();
+        } else if (zoneIndex == 0x03) {
+            // Task 6 scope: register the CNZ teleporter and boss art paths now,
+            // but keep the actual object behavior for Tasks 7 and 8.
+            loadCnzTeleporterArt();
+            loadSharedBossExplosionArt();
+            loadCnzMinibossArtFromPlc();
+            loadCnzEndBossArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -1165,6 +1172,103 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             }
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ end boss art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Registers the dedicated CNZ teleporter beam art used by
+     * {@code Obj_CNZTeleporter} and shared {@code Obj_TeleporterBeam} in CNZ.
+     *
+     * <p>The ROM queues {@code ArtKosM_CNZTeleport} directly instead of using a
+     * PLC entry, so this stays a dedicated load path rather than being folded
+     * into the shared standalone-PLC registry.
+     */
+    private void loadCnzTeleporterArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+            registerSheet(Sonic3kObjectArtKeys.CNZ_TELEPORTER, art.loadCnzTeleporterSheet(rom));
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ teleporter art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads CNZ miniboss art via PLC 0x5C, matching the
+     * {@code PLC_5C_5D -> ArtTile_CNZMiniboss / ArtNem_CNZMiniboss} path.
+     *
+     * <p>Entry 0 is the dedicated miniboss body art and entry 1 is the shared
+     * boss explosion art. Task 6 only registers renderer infrastructure; the
+     * actual miniboss object implementation remains deferred to Task 7.
+     */
+    private void loadCnzMinibossArtFromPlc() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_CNZ_MINIBOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+            if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
+                LOG.warning("CNZ miniboss PLC produced no art");
+                return;
+            }
+
+            registerSheet(Sonic3kObjectArtKeys.CNZ_MINIBOSS,
+                    buildSheetFromPatterns(decompressed.get(0), reader,
+                            Sonic3kConstants.MAP_CNZ_MINIBOSS_ADDR, 1));
+
+            if (decompressed.size() >= 2 && decompressed.get(1).length > 0
+                    && sheets.get(ObjectArtKeys.BOSS_EXPLOSION) == null) {
+                registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
+                        buildSheetFromPatterns(decompressed.get(1), reader,
+                                Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
+            }
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ miniboss art from PLC: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads CNZ end-boss art via PLC 0x6E, matching the ROM's setup path.
+     *
+     * <p>PLC_6E loads the CNZ end-boss body, shared Robotnik ship art, shared
+     * boss explosion art, and the shared egg capsule art. Task 6 only registers
+     * those renderers so Task 8 can attach real behavior later without needing
+     * more infrastructure churn.
+     */
+    private void loadCnzEndBossArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_CNZ_END_BOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+            if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
+                LOG.warning("CNZ end boss PLC produced no art");
+                return;
+            }
+
+            registerSheet(Sonic3kObjectArtKeys.CNZ_END_BOSS,
+                    buildSheetFromPatterns(decompressed.get(0), reader,
+                            Sonic3kConstants.MAP_CNZ_END_BOSS_ADDR, 1));
+
+            if (decompressed.size() >= 2 && decompressed.get(1).length > 0
+                    && sheets.get(Sonic3kObjectArtKeys.ROBOTNIK_SHIP) == null) {
+                registerSheet(Sonic3kObjectArtKeys.ROBOTNIK_SHIP,
+                        buildSheetFromPatterns(decompressed.get(1), reader,
+                                Sonic3kConstants.MAP_ROBOTNIK_SHIP_ADDR, 0));
+            }
+
+            if (decompressed.size() >= 3 && decompressed.get(2).length > 0
+                    && sheets.get(ObjectArtKeys.BOSS_EXPLOSION) == null) {
+                registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
+                        buildSheetFromPatterns(decompressed.get(2), reader,
+                                Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
+            }
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ end boss art: " + e.getMessage());
         }
     }
 
