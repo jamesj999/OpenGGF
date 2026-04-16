@@ -5,6 +5,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
@@ -63,6 +64,10 @@ public abstract class Sonic2ZoneEvents {
 
     protected SpriteManager spriteManager() {
         return GameServices.sprites();
+    }
+
+    protected ZoneLayoutMutationPipeline mutationPipeline() {
+        return GameServices.zoneLayoutMutationPipeline();
     }
 
     protected Rom rom() throws IOException {

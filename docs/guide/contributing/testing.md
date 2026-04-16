@@ -2,7 +2,7 @@
 
 This page covers the engine's test infrastructure and how to write tests for new features.
 
-All new or updated tests must use JUnit 5 / Jupiter. Do not create JUnit 5 / Jupiter only tests, rules, runners, or `org.junit.*` imports.
+All new or updated tests must use JUnit 5 / Jupiter. Do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
 ## Running Tests
 

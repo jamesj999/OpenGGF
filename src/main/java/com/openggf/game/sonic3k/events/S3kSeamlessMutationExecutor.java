@@ -2,6 +2,10 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
+import com.openggf.game.mutation.LayoutMutationContext;
+import com.openggf.game.mutation.LayoutMutationIntent;
+import com.openggf.game.mutation.LevelMutationSurface;
+import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
@@ -77,17 +81,20 @@ public final class S3kSeamlessMutationExecutor {
             // Queue_Kos(AIZ2_16x16_Secondary @ +$AB8),
             // Queue_Kos_Module(AIZ2_8x8_Primary @ tile 0),
             // Queue_Kos_Module(AIZ2_8x8_Secondary @ tile $1FC).
-            sonic3kLevel.applyBlockOverlay(overlay.primaryBlocks128x128(), 0, false);
-            sonic3kLevel.applyChunkOverlay(overlay.primaryBlocks16x16(), 0, false);
-            sonic3kLevel.applyChunkOverlay(
-                    overlay.secondaryBlocks16x16(),
-                    AIZ_SECONDARY_BLOCKS_DEST_OFFSET_BYTES,
-                    false);
-            sonic3kLevel.applyPatternOverlay(overlay.primaryTiles8x8(), 0, false);
-            sonic3kLevel.applyPatternOverlay(
-                    overlay.secondaryTiles8x8(),
-                    AIZ_SECONDARY_ART_DEST_TILE * Pattern.PATTERN_SIZE_IN_ROM,
-                    false);
+            applyImmediateMutation(levelManager, context -> {
+                sonic3kLevel.applyBlockOverlay(overlay.primaryBlocks128x128(), 0, false);
+                sonic3kLevel.applyChunkOverlay(overlay.primaryBlocks16x16(), 0, false);
+                sonic3kLevel.applyChunkOverlay(
+                        overlay.secondaryBlocks16x16(),
+                        AIZ_SECONDARY_BLOCKS_DEST_OFFSET_BYTES,
+                        false);
+                sonic3kLevel.applyPatternOverlay(overlay.primaryTiles8x8(), 0, false);
+                sonic3kLevel.applyPatternOverlay(
+                        overlay.secondaryTiles8x8(),
+                        AIZ_SECONDARY_ART_DEST_TILE * Pattern.PATTERN_SIZE_IN_ROM,
+                        false);
+                return MutationEffects.redrawAllTilemaps();
+            });
 
             // Fire transition stage requests only the fire palette and spikes/springs PLC.
             Sonic3kZoneEvents.loadPaletteFromPalPointers(PAL_POINTER_AIZ_FIRE_INDEX);
@@ -108,8 +115,6 @@ public final class S3kSeamlessMutationExecutor {
                         AIZ_SECONDARY_ART_DEST_TILE, secondaryTileCount));
             }
             Sonic3kPlcLoader.refreshAffectedRenderers(overlayRanges, levelManager);
-
-            levelManager.invalidateAllTilemaps();
             LOG.info("Applied AIZ1 fire transition overlays (128x128/16x16/8x8) and fire palette");
         } catch (Exception e) {
             LOG.warning("Failed to apply AIZ1 fire transition mutation: " + e.getMessage());
@@ -122,14 +127,32 @@ public final class S3kSeamlessMutationExecutor {
             return;
         }
 
-        AizAct2LayoutAdjuster.apply(level.getMap());
+        applyImmediateMutation(levelManager, context -> {
+            AizAct2LayoutAdjuster.apply(level.getMap());
+            return MutationEffects.redrawAllTilemaps();
+        });
         // Load the full fire palette (PalPointers #$0B) first, then overlay fire line 4.
         // Without PalPointers the act 2 reload keeps the normal AIZ2 palette, leaving
         // palette line 3 with green vegetation colors instead of fire colors.
         Sonic3kZoneEvents.loadPaletteFromPalPointers(PAL_POINTER_AIZ_FIRE_INDEX);
         Sonic3kAIZEvents.applyFireTransitionPaletteLine4(levelManager);
-        levelManager.invalidateAllTilemaps();
         LOG.info("Applied AIZ1 post-reload act 2 layout adjustment and fire palette");
+    }
+
+    private static void applyImmediateMutation(LevelManager levelManager, LayoutMutationIntent intent) {
+        Level level = levelManager != null ? levelManager.getCurrentLevel() : null;
+        if (level == null) {
+            return;
+        }
+
+        LayoutMutationContext context = new LayoutMutationContext(
+                LevelMutationSurface.forLevel(level),
+                levelManager::applyMutationEffects);
+        if (GameServices.hasRuntime()) {
+            GameServices.zoneLayoutMutationPipeline().applyImmediately(intent, context);
+            return;
+        }
+        levelManager.applyMutationEffects(intent.apply(context));
     }
 
     private static synchronized AizFireOverlayData loadAizFireOverlayData(Rom rom) throws IOException {

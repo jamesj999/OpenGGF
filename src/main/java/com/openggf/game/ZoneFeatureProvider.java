@@ -3,6 +3,8 @@ package com.openggf.game;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -125,32 +127,27 @@ public interface ZoneFeatureProvider {
     }
 
     /**
-     * Whether the foreground renderer should apply per-line heat haze deformation.
-     * This is used for zone-specific post-processing effects such as AIZ fire haze.
+     * Registers staged special render effects for the current zone/act.
+     * Default implementation does nothing.
      *
+     * @param registry registry to register effects with
      * @param zoneIndex current feature zone id
      * @param actIndex current feature act id
-     * @param cameraX current camera X position
-     * @return true when per-line foreground haze should be enabled
      */
-    default boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
-        return false;
+    default void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
+        // Default implementation does nothing
     }
 
     /**
-     * Whether the foreground tilemap renderer should sample the per-line foreground
-     * h-scroll buffer instead of using a flat camera X origin.
+     * Registers advanced render-mode contributors for the current zone/act.
+     * Default implementation does nothing.
      *
-     * <p>This is used by stages whose Plane A positioning is not camera-locked,
-     * such as the S3K Slots bonus stage.
-     *
+     * @param controller controller to register modes with
      * @param zoneIndex current feature zone id
      * @param actIndex current feature act id
-     * @param cameraX current camera X position
-     * @return true when per-line foreground scroll should be enabled
      */
-    default boolean shouldEnablePerLineForegroundScroll(int zoneIndex, int actIndex, int cameraX) {
-        return false;
+    default void registerAdvancedRenderModes(AdvancedRenderModeController controller, int zoneIndex, int actIndex) {
+        // Default implementation does nothing
     }
 
     /**

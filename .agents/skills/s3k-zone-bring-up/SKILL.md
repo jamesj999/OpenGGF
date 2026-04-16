@@ -32,6 +32,17 @@ CNZ --validate-only
 | **s3k-palette-cycling** | `.agents/skills/s3k-palette-cycling/SKILL.md` | Implement AnPal handlers with counter/step/limit cycling and validation |
 | **s3k-zone-validate** | `.agents/skills/s3k-zone-validate/SKILL.md` | Visual comparison via stable-retro + image recognition for validation |
 
+## Framework-First Rule
+
+When feature agents implement the zone, prefer the runtime-owned stack over bespoke zone-local state:
+
+- Shared event/object/scroll state belongs in a typed `ZoneRuntimeRegistry` adapter.
+- Timer-driven palette work and event-driven palette mutations should route through `PaletteOwnershipRegistry`.
+- AniPLC and script-driven art uploads should use `AnimatedTileChannelGraph` and `S3kAnimatedTileChannels` where possible.
+- Tile/block/chunk edits should use `ZoneLayoutMutationPipeline` (directly or via `S3kSeamlessMutationExecutor`).
+- Extra overlays and frame render flags should go through `SpecialRenderEffectRegistry` / `AdvancedRenderModeController`.
+- New scanline-fill math should reuse `ScrollEffectComposer`, `DeformationPlan`, `ScatterFillPlan`, and `WaterlineBlendComposer`.
+
 ## Zone Priority Order
 
 Zones listed in recommended bring-up order. AIZ is already implemented and serves as the reference.

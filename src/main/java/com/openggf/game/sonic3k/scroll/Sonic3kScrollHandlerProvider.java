@@ -19,6 +19,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private boolean loaded = false;
 
     private SwScrlAiz aizHandler;
+    private SwScrlCnz cnzHandler;
     private SwScrlHcz hczHandler;
     private SwScrlMgz mgzHandler;
     private SwScrlGumball gumballHandler;
@@ -32,6 +33,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             return;
         }
         aizHandler = new SwScrlAiz();
+        cnzHandler = new SwScrlCnz();
         byte[] hczWaterlineData = null;
         try {
             hczWaterlineData = rom.readBytes(
@@ -59,6 +61,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
 
         return switch (zoneIndex) {
             case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
+            case Sonic3kZoneConstants.ZONE_CNZ -> cnzHandler;
             case Sonic3kZoneConstants.ZONE_HCZ -> hczHandler;
             case Sonic3kZoneConstants.ZONE_MGZ -> mgzHandler;
             case Sonic3kZoneIds.ZONE_GUMBALL -> gumballHandler;

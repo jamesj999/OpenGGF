@@ -5,7 +5,9 @@ description: Use when implementing S3K animated tile triggers for a zone -- AniP
 
 # Implement S3K Animated Tile Triggers
 
-Implement zone-specific animated tile triggers for Sonic 3 & Knuckles in `Sonic3kPatternAnimator`. This skill covers finding AniPLC script addresses in the ROM/disassembly, adding constants, wiring the zone case into both `resolveAniPlcAddr()` and `update()`, and handling gating conditions (boss active, intro state, camera position).
+Implement zone-specific animated tile triggers for Sonic 3 & Knuckles in `Sonic3kPatternAnimator`. This skill covers finding AniPLC script addresses in the ROM/disassembly, adding constants, wiring the runtime-owned animated-tile channel graph, and handling gating conditions (boss active, intro state, camera position).
+
+**Preferred implementation path:** register `AnimatedTileChannel` definitions in `S3kAnimatedTileChannels` and let `Sonic3kPatternAnimator.installGraphChannels()` publish them through `AnimatedTileChannelGraph`. Only fall back to direct `update()` / custom DMA code when the ROM behavior cannot be expressed cleanly as graph channels.
 
 ## Inputs
 
@@ -27,13 +29,13 @@ Sonic3kLevelAnimationManager (implements AnimatedPatternManager + AnimatedPalett
     v  delegates to
 Sonic3kPatternAnimator.update()
     |
-    v  zone switch on zoneIndex
-Zone-specific trigger method (e.g., updateAiz1(), updateHcz1(), or inline)
+    v  installs/evaluates
+AnimatedTileChannelGraph
     |
-    v  calls when conditions are met
-runAllScripts()  or  individual script.tick()
+    v  runs channels from
+S3kAnimatedTileChannels
     |
-    v  per script
+    v  per script or custom apply strategy
 AniPlcScriptState.tick(level, graphicsManager)
     |
     v  copies pattern art into level Pattern[] and updates GPU textures
@@ -43,7 +45,7 @@ The ROM `Animate_Tiles` routine uses a dual offset table (`Offs_AniFunc` for the
 - `resolveAniPlcAddr(zoneIndex, actIndex)` -- returns the AniPLC data address (or -1)
 - `update()` zone switch -- runs the trigger logic
 
-Both must be updated when adding a new zone.
+`resolveAniPlcAddr()` still controls script parsing, but the preferred implementation path is to add graph channels in `S3kAnimatedTileChannels` and let `installGraphChannels()` publish them. Touch the direct `update()` switch only for legacy/custom DMA fallbacks that the graph cannot yet express.
 
 ## AniPLC Script Format
 
@@ -92,8 +94,10 @@ zoneanimdecl  -1, ArtUnc_AniAIZ1_0, $2E6,  9, $C
 
 | Class | File | Purpose |
 |-------|------|---------|
-| `Sonic3kPatternAnimator` | `game/sonic3k/Sonic3kPatternAnimator.java` | Zone switch, gating logic, runs scripts |
+| `Sonic3kPatternAnimator` | `game/sonic3k/Sonic3kPatternAnimator.java` | Owns channel installation, fallback custom DMA logic, and graph updates |
 | `Sonic3kLevelAnimationManager` | `game/sonic3k/Sonic3kLevelAnimationManager.java` | Delegates `update()` to pattern animator + palette cycler |
+| `S3kAnimatedTileChannels` | `game/sonic3k/S3kAnimatedTileChannels.java` | Runtime-owned channel definitions and gating helpers |
+| `AnimatedTileChannelGraph` | `game/animation/AnimatedTileChannelGraph.java` | Runtime-owned coordinator that caches per-channel phase |
 | `AniPlcParser` | `level/animation/AniPlcParser.java` | Parses AniPLC binary scripts from ROM |
 | `AniPlcScriptState` | `level/animation/AniPlcScriptState.java` | Per-script runtime state, `tick()` applies frames |
 | `Sonic3kConstants` | `game/sonic3k/constants/Sonic3kConstants.java` | ROM address constants for AniPLC data |

@@ -8,7 +8,11 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.render.AdvancedRenderFrameState;
+import com.openggf.game.render.AdvancedRenderMode;
+import com.openggf.game.render.AdvancedRenderModeContext;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
@@ -16,6 +20,8 @@ import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotMachinePanelAnimator;
 import com.openggf.game.sonic3k.features.HCZWaterSkimHandler;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -39,6 +45,19 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     private final AizBattleshipRenderFeature aizBattleshipRenderFeature = new AizBattleshipRenderFeature();
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
+    private final AdvancedRenderMode slotMachineForegroundScrollMode = new AdvancedRenderMode() {
+        @Override
+        public String id() {
+            return "s3k-slot-machine-foreground-scroll";
+        }
+
+        @Override
+        public void contribute(AdvancedRenderModeContext context, AdvancedRenderFrameState.Builder builder) {
+            if (context.zoneIndex() == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+                builder.enablePerLineForegroundScroll();
+            }
+        }
+    };
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
     private final Set<AbstractPlayableSprite> forcedAizForestFrontPrioritySprites = new HashSet<>();
     private S3kSlotMachinePanelAnimator slotMachinePanelAnimator;
@@ -103,9 +122,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             return;
         }
 
-        Sonic3kAIZEvents aizEvents = getAizEvents();
-        boolean forestFrontPhaseActive = aizEvents != null && aizEvents.isBattleshipForestFrontPhaseActive();
-        boolean bossArenaFrontPriority = aizEvents != null && aizEvents.isBossFlag();
+        AizZoneRuntimeState aizState = getAizState();
+        boolean forestFrontPhaseActive = aizState != null && aizState.isBattleshipForestFrontPhaseActive();
+        boolean bossArenaFrontPriority = aizState != null && aizState.isBossFlagActive();
 
         // ROM: During the post-boss cutscene (egg capsule, results, walk-right,
         // bridge collapse) the player's art_tile high-priority bit stays set.
@@ -196,10 +215,6 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         // Render water skim splash sprites (at water level, following player)
         HCZWaterSkimHandler.render(camera);
-        // Ship overlay renders after sprites so the high-priority ship strip tiles
-        // correctly cover low-priority bomb sprites (VDP: high-pri plane > low-pri sprite).
-        aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
-        aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
         var levelManager = GameServices.levelOrNull();
         if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
@@ -262,22 +277,33 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     @Override
+    public void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
+        if (zoneIndex != Sonic3kZoneIds.ZONE_AIZ) {
+            return;
+        }
+        registry.register(aizTransitionRenderFeature);
+        if (actIndex == 1) {
+            registry.register(aizBattleshipRenderFeature);
+        }
+    }
+
+    @Override
+    public void registerAdvancedRenderModes(AdvancedRenderModeController controller, int zoneIndex, int actIndex) {
+        if (zoneIndex == Sonic3kZoneIds.ZONE_AIZ) {
+            controller.register(aizTransitionRenderFeature);
+        }
+        if (zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+            controller.register(slotMachineForegroundScrollMode);
+        }
+    }
+
+    @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
         if (waterSurfaceManager != null) {
             baseIndex = waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
         }
         baseIndex = HCZWaterSkimHandler.ensurePatternsCached(graphicsManager, baseIndex);
         return baseIndex;
-    }
-
-    @Override
-    public boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
-        return aizTransitionRenderFeature.shouldEnableForegroundHeatHaze(zoneIndex, actIndex, cameraX);
-    }
-
-    @Override
-    public boolean shouldEnablePerLineForegroundScroll(int zoneIndex, int actIndex, int cameraX) {
-        return zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE;
     }
 
     @Override
@@ -358,20 +384,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         return zoneIndex == Sonic3kZoneIds.ZONE_GUMBALL;
     }
 
-    protected Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager levelEventManager = resolveLevelEventManager();
-        return levelEventManager != null ? levelEventManager.getAizEvents() : null;
+    protected AizZoneRuntimeState getAizState() {
+        return GameServices.hasRuntime()
+                ? S3kRuntimeStates.currentAiz(GameServices.zoneRuntimeRegistry()).orElse(null)
+                : null;
     }
 
     protected int getFeatureActId() {
         var levelManager = GameServices.levelOrNull();
         return levelManager != null ? levelManager.getFeatureActId() : 0;
-    }
-
-    private Sonic3kLevelEventManager resolveLevelEventManager() {
-        return GameServices.hasRuntime()
-                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
-                : null;
     }
 
 }

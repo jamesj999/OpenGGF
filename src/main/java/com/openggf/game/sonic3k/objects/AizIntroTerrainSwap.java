@@ -1,6 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
+import com.openggf.game.mutation.LayoutMutationContext;
+import com.openggf.game.mutation.LevelMutationSurface;
+import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
@@ -122,8 +126,16 @@ public final class AizIntroTerrainSwap {
             }
         }
 
-        sonic3kLevel.applyChunkOverlay(overlay.mainLevelBlocks16x16(), overlay.chunkOverlayOffsetBytes());
-        sonic3kLevel.applyPatternOverlay(overlay.mainLevelTiles8x8(), overlay.patternOverlayOffsetBytes());
+        OverlayData overlayData = overlay;
+        applyImmediateMutation(levelManager, level, context -> {
+            sonic3kLevel.applyChunkOverlay(
+                    overlayData.mainLevelBlocks16x16(),
+                    overlayData.chunkOverlayOffsetBytes());
+            sonic3kLevel.applyPatternOverlay(
+                    overlayData.mainLevelTiles8x8(),
+                    overlayData.patternOverlayOffsetBytes());
+            return MutationEffects.NONE;
+        });
 
         // Apply PLC 0x0B (zone art) Nemesis overlays. During the intro, Load_PLC_2
         // clears the PLC queue before PLC 0x0B is decompressed, so zone object art
@@ -157,6 +169,20 @@ public final class AizIntroTerrainSwap {
             LOG.warning("Failed to apply PLC 0x0B zone art overlays: " + e.getMessage());
             return List.of();
         }
+    }
+
+    private static void applyImmediateMutation(
+            LevelManager levelManager,
+            Level level,
+            com.openggf.game.mutation.LayoutMutationIntent intent) {
+        LayoutMutationContext context = new LayoutMutationContext(
+                LevelMutationSurface.forLevel(level),
+                levelManager::applyMutationEffects);
+        if (GameServices.hasRuntime()) {
+            GameServices.zoneLayoutMutationPipeline().applyImmediately(intent, context);
+            return;
+        }
+        levelManager.applyMutationEffects(intent.apply(context));
     }
 
     private static OverlayData loadOverlayData(ObjectServices services) throws IOException {

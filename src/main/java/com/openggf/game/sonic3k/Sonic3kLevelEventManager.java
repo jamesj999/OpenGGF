@@ -7,9 +7,14 @@ import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.events.AizObjectEventBridge;
+import com.openggf.game.sonic3k.events.HczObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.events.S3kTransitionEventBridge;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.HczZoneRuntimeState;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
@@ -41,12 +46,14 @@ import java.util.logging.Logger;
  * Phase 1 implements bootstrap selection for AIZ1 intro-skip parity.
  * Zone event handlers will be added incrementally per zone.
  */
-public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
+public class Sonic3kLevelEventManager extends AbstractLevelEventManager
+        implements AizObjectEventBridge, HczObjectEventBridge, S3kTransitionEventBridge {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static final int PACHINKO_TOP_EXIT_Y = -0x20;
 
     private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
     private Sonic3kAIZEvents aizEvents;
+    private Sonic3kCNZEvents cnzEvents;
     private Sonic3kHCZEvents hczEvents;
 
     // Tracks whether the intro-fall forced animation is active on each player.
@@ -128,6 +135,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         } else {
             aizEvents = null;
         }
+        if (zone == Sonic3kZoneIds.ZONE_CNZ) {
+            cnzEvents = new Sonic3kCNZEvents();
+            cnzEvents.init(act);
+        } else {
+            cnzEvents = null;
+        }
         if (zone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents = new Sonic3kHCZEvents();
             hczEvents.init(act);
@@ -144,14 +157,17 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private void installZoneRuntimeState(int zone, int act) {
         GameRuntime runtime = RuntimeManager.getActiveRuntime();
         if (runtime == null) {
-            LOG.warning("No active runtime during zone state registration for zone " + zone);
+            LOG.fine("Skipping S3K zone runtime registration because no active runtime is installed");
             return;
         }
         ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+        PlayerCharacter playerCharacter = getPlayerCharacter();
         if (zone == Sonic3kZoneIds.ZONE_AIZ && aizEvents != null) {
-            registry.install(new AizZoneRuntimeState(act, aizEvents));
+            registry.install(new AizZoneRuntimeState(act, playerCharacter, aizEvents));
+        } else if (zone == Sonic3kZoneIds.ZONE_CNZ && cnzEvents != null) {
+            registry.install(new CnzZoneRuntimeState(act, playerCharacter, cnzEvents));
         } else if (zone == Sonic3kZoneIds.ZONE_HCZ && hczEvents != null) {
-            registry.install(new HczZoneRuntimeState(act, hczEvents));
+            registry.install(new HczZoneRuntimeState(act, playerCharacter, hczEvents));
         } else {
             registry.clear();
         }
@@ -174,6 +190,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         // Boss_flag gates FG events during boss fights.
         if (aizEvents != null && currentZone == Sonic3kZoneIds.ZONE_AIZ) {
             aizEvents.update(currentAct, frameCounter);
+        }
+        if (cnzEvents != null && currentZone == Sonic3kZoneIds.ZONE_CNZ) {
+            cnzEvents.update(currentAct, frameCounter);
         }
         if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents.update(currentAct, frameCounter);
@@ -332,9 +351,66 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         return aizEvents;
     }
 
+    @Override
+    public void setBossFlag(boolean value) {
+        if (aizEvents != null) {
+            aizEvents.setBossFlag(value);
+        }
+    }
+
+    @Override
+    public void setEventsFg5(boolean value) {
+        if (aizEvents != null) {
+            aizEvents.setEventsFg5(value);
+        }
+    }
+
+    @Override
+    public void triggerScreenShake(int frames) {
+        if (aizEvents != null) {
+            aizEvents.triggerScreenShake(frames);
+        }
+    }
+
+    @Override
+    public void onBattleshipComplete() {
+        if (aizEvents != null) {
+            aizEvents.onBattleshipComplete();
+        }
+    }
+
+    @Override
+    public void onBossSmallComplete() {
+        if (aizEvents != null) {
+            aizEvents.onBossSmallComplete();
+        }
+    }
+
+    @Override
+    public boolean isFireTransitionActive() {
+        return aizEvents != null && aizEvents.isFireTransitionActive();
+    }
+
+    @Override
+    public boolean isAct2TransitionRequested() {
+        return aizEvents != null && aizEvents.isAct2TransitionRequested();
+    }
+
+    /** Returns the CNZ zone events handler, or null if not in CNZ. */
+    public Sonic3kCNZEvents getCnzEvents() {
+        return cnzEvents;
+    }
+
     /** Returns the HCZ zone events handler, or null if not in HCZ. */
     public Sonic3kHCZEvents getHczEvents() {
         return hczEvents;
+    }
+
+    @Override
+    public void setHczBossFlag(boolean value) {
+        if (hczEvents != null) {
+            hczEvents.setBossFlag(value);
+        }
     }
 
     /**
@@ -350,10 +426,23 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
      * to trigger the background event act transition.
      */
     public void setEventsFg5ForActTransition() {
+        if (cnzEvents != null) {
+            cnzEvents.setEventsFg5(true);
+        }
         if (hczEvents != null) {
             hczEvents.setEventsFg5(true);
         }
         // Other zones' event handlers will be added here as implemented.
+    }
+
+    @Override
+    public void signalActTransition() {
+        setEventsFg5ForActTransition();
+    }
+
+    @Override
+    public void requestHczPostTransitionCutscene() {
+        setHczPendingPostTransitionCutscene(true);
     }
 
 
@@ -364,6 +453,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     public int getDynamicResizeRoutine() {
         if (aizEvents != null) {
             return aizEvents.getDynamicResizeRoutine();
+        }
+        if (cnzEvents != null) {
+            return cnzEvents.getDynamicResizeRoutine();
         }
         if (hczEvents != null) {
             return hczEvents.getDynamicResizeRoutine();
@@ -378,6 +470,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     public void setDynamicResizeRoutine(int routine) {
         if (aizEvents != null) {
             aizEvents.setDynamicResizeRoutine(routine);
+        }
+        if (cnzEvents != null) {
+            cnzEvents.setDynamicResizeRoutine(routine);
         }
         if (hczEvents != null) {
             hczEvents.setDynamicResizeRoutine(routine);

@@ -14,8 +14,13 @@ com.openggf/
   game/                      -- Game module system
     GameModule.java          -- Interface each game implements
     GameModuleRegistry.java  -- Maps game identifiers ("s1","s2","s3k") to modules
-    GameServices.java        -- Global services: ROM access, graphics, configuration
-    GameRuntime.java         -- Mutable gameplay state container (in progress)
+    GameServices.java        -- Global facade over engine and runtime-owned services
+    GameRuntime.java         -- Mutable gameplay state container and runtime-owned framework host
+    zone/                    -- Typed zone runtime state adapters
+    palette/                 -- Shared palette ownership/composition
+    animation/               -- Shared animated tile channel graph
+    mutation/                -- Deterministic level-layout mutation pipeline
+    render/                  -- Staged special render effects + advanced render modes
 
     sonic1/                  -- Sonic 1 module
       Sonic1GameModule.java  -- S1 provider wiring
@@ -104,11 +109,13 @@ zones have water -- it just asks the provider.
 The engine uses a two-tier service architecture:
 
 **GameServices** is the global tier. It provides access to things that exist once for the
-entire application:
+entire application, plus accessors into runtime-owned shared frameworks:
 - ROM data access
 - Graphics pipeline
 - Audio system
 - Configuration
+- Runtime-owned systems such as zone runtime state, palette ownership, animated tile channels,
+  layout mutation, and special render controllers
 
 **ObjectServices** is the contextual tier. It provides access to things that are specific
 to the current gameplay context:
@@ -125,14 +132,40 @@ The separation exists because the planned level editor will have multiple simult
 level contexts. GameServices stays shared; ObjectServices will be backed by a specific
 runtime context.
 
-## GameRuntime (In Progress)
+## GameRuntime and Runtime-Owned Systems
 
-The target architecture moves all mutable gameplay state into an explicit `GameRuntime`
-object. Currently, some state lives in static singletons (e.g., `LevelManager.getInstance()`).
-The migration is ongoing. As a contributor, be aware that:
+`GameRuntime` is the explicit owner for mutable gameplay state and the shared registries/controllers
+that normalize zone behavior across games. Some legacy singleton-backed paths still exist, but the
+preferred direction is to route new behavior through the runtime-owned systems rather than adding
+fresh manager-local state.
+
+The current framework stack includes:
+
+- `ZoneRuntimeRegistry` - typed per-zone runtime state adapters over raw event/state bytes
+- `PaletteOwnershipRegistry` - palette-write arbitration, precedence, and underwater mirroring
+- `AnimatedTileChannelGraph` - shared animated tile channels for script-driven and custom uploads
+- `ZoneLayoutMutationPipeline` - deterministic queued/immediate live layout edits and redraw sequencing
+- `SpecialRenderEffectRegistry` - staged additional render passes layered into the normal scene
+- `AdvancedRenderModeController` - frame-level render-mode state such as per-line/per-cell scroll overrides
+
+Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer`
+and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
+
+## Current Migration Status
+
+The runtime-owned framework stack is the preferred architecture, but migration is still partial:
+
+- Sonic 2 uses it for HTZ/CNZ typed runtime state, palette ownership, animated tile orchestration, CNZ staged render effects (slot overlay), and CNZ layout edits queued through `ZoneLayoutMutationPipeline`.
+- Sonic 3&K uses it for AIZ/HCZ/CNZ typed runtime state, AIZ staged render effects and advanced render modes (fire-transition and battleship overlays), HCZ/SOZ animated tiles, CNZ runtime-state-backed scroll behavior, and seamless terrain-swap writes routed through the mutation pipeline.
+- Shared scroll/deform composition helpers are already live in the AIZ, HCZ, and MGZ handlers; prefer extending those helpers before copying bespoke scanline-fill logic into another zone.
+- Other implemented zones still mix runtime-owned systems with older zone-local machinery. Before extending a zone, inspect whether it already has a typed runtime-state adapter, palette ownership integration, channel-graph usage, mutation-pipeline writes, scroll-composer usage, or render-registry wiring.
+
+As a contributor, be aware that:
 
 - New code should prefer receiving dependencies through method parameters or
   `ObjectServices` rather than calling static `getInstance()` methods.
+- New zone behavior should prefer the runtime-owned framework stack over bespoke zone-local
+  registries, buffers, or render-mode booleans.
 - Existing `getInstance()` patterns still work but represent the old style.
 
 ## Level Initialization: LevelInitProfile

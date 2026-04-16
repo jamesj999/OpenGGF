@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
@@ -25,8 +24,8 @@ class TestCrossGameFeatureProviderRefactor {
 
     @AfterEach
     void cleanup() {
-        CrossGameFeatureProvider.getInstance().resetState();
         RuntimeManager.destroyCurrent();
+        CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
