@@ -714,6 +714,11 @@ public class Sonic3kConstants {
     // Verified against S&K ROM bytes immediately following AniPLC_HCZ1 at 0x02882C.
     public static final int ANIPLC_HCZ2_ADDR = 0x02882C;
 
+    // AniPLC_CNZ: 7 scripts (both acts share the same script table)
+    // Verified by S&K ROM search for the first inline record:
+    // 00 06 03 2A F8 00 56 40 10 09 ...
+    public static final int ANIPLC_CNZ_ADDR = 0x028882;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A
@@ -745,6 +750,11 @@ public class Sonic3kConstants {
     public static final int ART_UNC_HCZ2_3_SIZE = 0x1000;
     public static final int ART_UNC_HCZ2_4_ADDR = 0x2AA3A0;
     public static final int ART_UNC_HCZ2_4_SIZE = 0x3000;
+
+    // CNZ direct-DMA source art used by AnimateTiles_CNZ for the background
+    // strip uploads into VRAM tile $308+.
+    public static final int ART_UNC_ANI_CNZ_6_ADDR = 0x2B5B80;
+    public static final int ART_UNC_ANI_CNZ_6_SIZE = 0x2000;
 
     // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
     // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings
