@@ -7,6 +7,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.render.AdvancedRenderFrameState;
 import com.openggf.game.render.AdvancedRenderMode;
@@ -353,8 +354,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (configService.getBoolean(SonicConfiguration.S3K_SKIP_INTROS)) {
             return false;
         }
-        String mainCharacter = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
+        String mainCharacter = ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
+        return "sonic".equalsIgnoreCase(mainCharacter);
     }
 
     @Override

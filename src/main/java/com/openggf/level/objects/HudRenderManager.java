@@ -467,7 +467,52 @@ public class HudRenderManager {
                 return supplied;
             }
         }
-        return livesPaletteOverride;
+        if (livesPaletteOverride != null) {
+            return livesPaletteOverride;
+        }
+        // Direct fallback: when lives name renders on the icon palette (S3K),
+        // copy the HUD text fill/shadow colors from the text palette line so
+        // the character name text appears yellow instead of the character's
+        // native colour at index 5.
+        if (livesNameUsesIconPalette) {
+            return buildDirectPaletteOverride();
+        }
+        return null;
+    }
+
+    /**
+     * Builds the lives palette override directly from the current level palettes.
+     * Copies HUD text fill (index 5) and shadow (index 14) from the text palette
+     * line into the icon palette line so the character name text is yellow.
+     */
+    private Palette buildDirectPaletteOverride() {
+        Level level = null;
+        if (GameServices.levelOrNull() != null) {
+            level = GameServices.levelOrNull().getCurrentLevel();
+        }
+        if (level == null) {
+            return null;
+        }
+        if (iconPaletteLine >= level.getPaletteCount()
+                || hudTextPaletteLine >= level.getPaletteCount()) {
+            return null;
+        }
+        Palette iconPalette = level.getPalette(iconPaletteLine);
+        Palette textPalette = level.getPalette(hudTextPaletteLine);
+        if (iconPalette == null || textPalette == null) {
+            return null;
+        }
+        Palette override = iconPalette.deepCopy();
+        copyColorDirect(override, 5, textPalette.getColor(5));
+        copyColorDirect(override, 14, textPalette.getColor(14));
+        return override;
+    }
+
+    private static void copyColorDirect(Palette target, int index, Palette.Color source) {
+        Palette.Color c = target.getColor(index);
+        c.r = source.r;
+        c.g = source.g;
+        c.b = source.b;
     }
 
     private void restoreHudPaletteLines(int iconLine, int nameLine) {
