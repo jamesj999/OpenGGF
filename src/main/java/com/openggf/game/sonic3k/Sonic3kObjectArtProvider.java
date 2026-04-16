@@ -4,6 +4,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -225,8 +226,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      * ROM: PLC_01 (Sonic), PLC_05 (Knuckles), PLC_07 (Tails).
      */
     private int resolveLifeIconAddr() {
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(
+                GameServices.configuration());
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR;
         } else if ("tails".equalsIgnoreCase(mainChar)) {
