@@ -71,10 +71,19 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
             }
         } else if (standing) {
             moveSprite2();
-            if (motion.yVel < Y_VELOCITY_MAX) {
-                motion.yVel += Y_ACCEL_STANDING;
+            if (displayFrame == 2) {
+                motion.yVel = 0;
+                displayFrame = 2;
+            } else {
+                if (motion.yVel < Y_VELOCITY_MAX) {
+                    motion.yVel += Y_ACCEL_STANDING;
+                }
+                if (snapToFloorIfNeeded()) {
+                    displayFrame = 2;
+                } else {
+                    displayFrame = 1;
+                }
             }
-            displayFrame = 1;
         } else {
             motion.yVel = -motion.yVel - 0x80;
             armed = false;

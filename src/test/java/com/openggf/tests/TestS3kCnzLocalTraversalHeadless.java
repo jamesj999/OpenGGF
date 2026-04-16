@@ -73,6 +73,30 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
+    void poppedBalloonDoesNotLaunchAgainOnLaterFrame() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzBalloonInstance balloon = spawnBalloon(0x19C0, 0x05B0, 0x00);
+        fixture.sprite().setCentreX((short) 0x19B8);
+        fixture.sprite().setCentreY((short) 0x05A8);
+
+        balloon.update(0, fixture.sprite());
+        assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
+
+        fixture.sprite().setCentreX((short) 0x19B8);
+        fixture.sprite().setCentreY((short) 0x05A8);
+        fixture.sprite().setYSpeed((short) 0x120);
+        balloon.update(1, fixture.sprite());
+
+        assertEquals((short) 0x120, fixture.sprite().getYSpeed(),
+                "Popped balloons should stop responding to later touches");
+        assertEquals(3, invokeIntHook(balloon, "getRenderFrameForTest"),
+                "Popped balloons should keep the popped visual frame");
+    }
+
+    @Test
     void risingPlatformCompressesWhileStandingThenSpringsBackToFloor() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -84,22 +108,31 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setAir(false);
         fixture.sprite().setRolling(false);
 
-        int startY = platform.getSpawn().y();
-        for (int frame = 0; frame < 20; frame++) {
+        for (int frame = 0; frame < 60; frame++) {
             platform.onSolidContact(fixture.sprite(), new SolidContact(true, false, false, true, false), frame);
             platform.update(frame, fixture.sprite());
         }
 
         assertTrue(invokeBooleanHook(platform, "isArmedForTest"),
                 "Standing on the platform should arm the rising state machine");
-        assertTrue(platform.getSpawn().y() > startY,
-                "Standing contact should compress the platform downward");
-        assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
-                "Compression should build downward velocity");
-        assertEquals(1, invokeIntHook(platform, "getRenderFrameForTest"),
-                "Armed state should render the active frame");
+        int settledY = platform.getSpawn().y();
+        assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
+                "Floor contact should zero the platform velocity while still carried");
+        assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
+                "Floor contact while carried should switch the platform to the settled frame");
 
-        platform.update(20, fixture.sprite());
+        for (int frame = 60; frame < 70; frame++) {
+            platform.onSolidContact(fixture.sprite(), new SolidContact(true, false, false, true, false), frame);
+            platform.update(frame, fixture.sprite());
+            assertEquals(settledY, platform.getSpawn().y(),
+                    "Continued standing should not let the platform tunnel through the floor");
+            assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
+                    "Settled platform should remain at rest while carried");
+            assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
+                    "Settled platform should keep the resting frame while carried");
+        }
+
+        platform.update(60, fixture.sprite());
         int releaseY = platform.getSpawn().y();
         assertFalse(invokeBooleanHook(platform, "isArmedForTest"),
                 "Stepping off should clear the armed flag");
@@ -108,9 +141,9 @@ class TestS3kCnzLocalTraversalHeadless {
         assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
                 "Release should switch the platform to the settling frame");
 
-        for (int frame = 21; frame < 120; frame++) {
+        for (int frame = 61; frame < 120; frame++) {
             platform.update(frame, fixture.sprite());
-            if (platform.getSpawn().y() == startY && invokeIntHook(platform, "getYSpeedForTest") == 0) {
+            if (platform.getSpawn().y() == settledY && invokeIntHook(platform, "getYSpeedForTest") == 0) {
                 break;
             }
         }
