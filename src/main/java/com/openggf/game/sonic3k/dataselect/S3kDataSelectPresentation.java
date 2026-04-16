@@ -66,6 +66,12 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     private int displayedSelectedRow;
     private int fadeTimer;
 
+    // Cached computation results — avoid per-frame allocations
+    private S3kCustomTeamPortraitComposer cachedPortraitComposer;
+    private final java.util.Map<SelectedTeam, SpriteMappingFrame> cachedPortraitFrames = new java.util.HashMap<>();
+    private List<List<Integer>> cachedEmeraldFrames;
+    private List<SaveSlotSummary> cachedEmeraldSummaries;
+
     private enum DeleteRobotnikState {
         HOME,
         FOLLOWING,
@@ -328,6 +334,10 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     protected void reloadSlotSummaries() {
+        // Invalidate cached per-slot data since summaries are changing
+        cachedEmeraldFrames = null;
+        cachedEmeraldSummaries = null;
+        cachedPortraitFrames.clear();
         List<SaveSlotSummary> summaries = new ArrayList<>();
         for (int slot = 1; slot <= hostProfile.slotCount(); slot++) {
             try {
@@ -709,8 +719,24 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 headerStyleIndex,
                 lives,
                 continuesCount,
-                resolveEmeraldMappingFrames(summary),
+                getCachedEmeraldFrames(slotIndex, summary),
                 preview);
+    }
+
+    private List<Integer> getCachedEmeraldFrames(int slotIndex, SaveSlotSummary summary) {
+        List<SaveSlotSummary> currentSummaries = sessionController.slotSummaries();
+        if (cachedEmeraldFrames == null || cachedEmeraldSummaries != currentSummaries) {
+            cachedEmeraldSummaries = currentSummaries;
+            cachedEmeraldFrames = new ArrayList<>(Collections.nCopies(hostProfile.slotCount(), null));
+        }
+        List<Integer> cached = slotIndex < cachedEmeraldFrames.size() ? cachedEmeraldFrames.get(slotIndex) : null;
+        if (cached == null) {
+            cached = resolveEmeraldMappingFrames(summary);
+            if (slotIndex < cachedEmeraldFrames.size()) {
+                cachedEmeraldFrames.set(slotIndex, cached);
+            }
+        }
+        return cached;
     }
 
     private HostSlotPreview resolveHostSlotPreview(SaveSlotSummary summary,
@@ -840,14 +866,17 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     private S3kCustomTeamPortraitComposer portraitComposer() {
-        return new S3kCustomTeamPortraitComposer(assets.getSaveScreenMappings());
+        if (cachedPortraitComposer == null) {
+            cachedPortraitComposer = new S3kCustomTeamPortraitComposer(assets.getSaveScreenMappings());
+        }
+        return cachedPortraitComposer;
     }
 
-    private com.openggf.level.render.SpriteMappingFrame resolveCustomPortraitFrame(SelectedTeam team) {
+    private SpriteMappingFrame resolveCustomPortraitFrame(SelectedTeam team) {
         if (!isCustomPortraitTeam(team)) {
             return null;
         }
-        return portraitComposer().compose(team);
+        return cachedPortraitFrames.computeIfAbsent(team, t -> portraitComposer().compose(t));
     }
 
     private int headerStyleIndexFor(SelectedTeam team) {

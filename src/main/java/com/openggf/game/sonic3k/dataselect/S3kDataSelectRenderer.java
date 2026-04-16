@@ -112,6 +112,17 @@ public class S3kDataSelectRenderer {
 
     private boolean cached;
 
+    // Cached static text arrays — avoid per-frame allocations
+    private int[] cachedBlankLabelWords;
+    private int[] cachedClearLabelWords;
+    private int[] cachedBlankStatWords;
+    private int[] cachedNoTextWords;
+    private int[] cachedSaveTextWords;
+    private int[] cachedDeleteTextWords;
+    private final int[][] cachedHeaderWords = new int[4][];
+    private final java.util.Map<Integer, int[]> cachedZoneLabelWords = new java.util.HashMap<>();
+    private final java.util.Map<Integer, int[]> cachedDigitWords = new java.util.HashMap<>();
+
     public void draw(S3kDataSelectAssetSource assets,
                      S3kSaveScreenObjectState objectState) {
         draw(GameServices.graphics(), assets, objectState);
@@ -171,6 +182,15 @@ public class S3kDataSelectRenderer {
 
     public void reset() {
         cached = false;
+        cachedBlankLabelWords = null;
+        cachedClearLabelWords = null;
+        cachedBlankStatWords = null;
+        cachedNoTextWords = null;
+        cachedSaveTextWords = null;
+        cachedDeleteTextWords = null;
+        Arrays.fill(cachedHeaderWords, null);
+        cachedZoneLabelWords.clear();
+        cachedDigitWords.clear();
     }
 
     private void ensureCached(GraphicsManager graphics, S3kDataSelectAssetSource assets) {
@@ -638,9 +658,12 @@ public class S3kDataSelectRenderer {
     }
 
     private void renderStaticPlaneTextOverlays(GraphicsManager graphics, int cameraX, boolean highPriority) {
-        renderPlaneOverlayTilemap(graphics, textWords("NO"), 2, 1, NO_SAVE_TEXT_OFFSET, cameraX, highPriority);
-        renderPlaneOverlayTilemap(graphics, textWords("SAVE"), 4, 1, SAVE_TEXT_OFFSET, cameraX, highPriority);
-        renderPlaneOverlayTilemap(graphics, textWords("DELETE"), 6, 1, DELETE_TEXT_OFFSET, cameraX, highPriority);
+        if (cachedNoTextWords == null) cachedNoTextWords = textWords("NO");
+        if (cachedSaveTextWords == null) cachedSaveTextWords = textWords("SAVE");
+        if (cachedDeleteTextWords == null) cachedDeleteTextWords = textWords("DELETE");
+        renderPlaneOverlayTilemap(graphics, cachedNoTextWords, 2, 1, NO_SAVE_TEXT_OFFSET, cameraX, highPriority);
+        renderPlaneOverlayTilemap(graphics, cachedSaveTextWords, 4, 1, SAVE_TEXT_OFFSET, cameraX, highPriority);
+        renderPlaneOverlayTilemap(graphics, cachedDeleteTextWords, 6, 1, DELETE_TEXT_OFFSET, cameraX, highPriority);
     }
 
     private void renderPlaneABase(GraphicsManager graphics, int[] words, int cameraX, boolean highPriority) {
@@ -650,25 +673,33 @@ public class S3kDataSelectRenderer {
     }
 
     private int[] blankLabelWords() {
-        return new int[]{blankPriorityWord(), blankPriorityWord(), blankPriorityWord(),
-                blankPriorityWord(), blankPriorityWord()};
+        if (cachedBlankLabelWords == null) {
+            cachedBlankLabelWords = new int[]{blankPriorityWord(), blankPriorityWord(), blankPriorityWord(),
+                    blankPriorityWord(), blankPriorityWord()};
+        }
+        return cachedBlankLabelWords;
     }
 
     private int[] clearLabelWords() {
-        return textWords("CLEAR");
+        if (cachedClearLabelWords == null) {
+            cachedClearLabelWords = textWords("CLEAR");
+        }
+        return cachedClearLabelWords;
     }
 
     private int[] zoneLabelWords(int zoneDisplayNumber) {
-        int tens = Math.max(0, Math.min(99, zoneDisplayNumber)) / 10;
-        int ones = Math.max(0, Math.min(99, zoneDisplayNumber)) % 10;
-        return new int[]{
-                saveTextWord('Z'),
-                saveTextWord('O'),
-                saveTextWord('N'),
-                saveTextWord('E'),
-                tens == 0 ? highPriorityWord() : saveTextDigitWord(tens),
-                saveTextDigitWord(ones)
-        };
+        return cachedZoneLabelWords.computeIfAbsent(zoneDisplayNumber, num -> {
+            int tens = Math.max(0, Math.min(99, num)) / 10;
+            int ones = Math.max(0, Math.min(99, num)) % 10;
+            return new int[]{
+                    saveTextWord('Z'),
+                    saveTextWord('O'),
+                    saveTextWord('N'),
+                    saveTextWord('E'),
+                    tens == 0 ? highPriorityWord() : saveTextDigitWord(tens),
+                    saveTextDigitWord(ones)
+            };
+        });
     }
 
     /**
@@ -688,6 +719,14 @@ public class S3kDataSelectRenderer {
     }
 
     private int[] livesContinueHeaderWords(int headerStyleIndex) {
+        int idx = Math.max(0, Math.min(3, headerStyleIndex));
+        if (cachedHeaderWords[idx] == null) {
+            cachedHeaderWords[idx] = buildHeaderWords(headerStyleIndex);
+        }
+        return cachedHeaderWords[idx];
+    }
+
+    private int[] buildHeaderWords(int headerStyleIndex) {
         return switch (headerStyleIndex) {
             case 1 -> new int[]{
                     saveExtraWord(0x6E), saveExtraWord(0x70), saveExtraWord(0x5A),
@@ -715,27 +754,32 @@ public class S3kDataSelectRenderer {
     }
 
     private int[] blankStatWords() {
-        return new int[]{
-                blankPriorityWord(), blankPriorityWord(),
-                blankPriorityWord(), blankPriorityWord(),
-                blankPriorityWord(), blankPriorityWord(),
-                blankPriorityWord(), blankPriorityWord(),
-                blankPriorityWord(), blankPriorityWord()
-        };
+        if (cachedBlankStatWords == null) {
+            cachedBlankStatWords = new int[]{
+                    blankPriorityWord(), blankPriorityWord(),
+                    blankPriorityWord(), blankPriorityWord(),
+                    blankPriorityWord(), blankPriorityWord(),
+                    blankPriorityWord(), blankPriorityWord(),
+                    blankPriorityWord(), blankPriorityWord()
+            };
+        }
+        return cachedBlankStatWords;
     }
 
     private int[] lifeContinueDigitsWords(int value) {
-        int clamped = Math.max(0, Math.min(99, value));
-        int tens = clamped / 10;
-        int ones = clamped % 10;
-        int tensLeft = tens == 0 ? blankPriorityWord() : saveExtraWord(0x46 + (tens * 2));
-        int tensRight = tens == 0 ? blankPriorityWord() : saveExtraWord(0x47 + (tens * 2));
-        return new int[]{
-                tensLeft,
-                saveExtraWord(0x46 + (ones * 2)),
-                tensRight,
-                saveExtraWord(0x47 + (ones * 2))
-        };
+        return cachedDigitWords.computeIfAbsent(value, v -> {
+            int clamped = Math.max(0, Math.min(99, v));
+            int tens = clamped / 10;
+            int ones = clamped % 10;
+            int tensLeft = tens == 0 ? blankPriorityWord() : saveExtraWord(0x46 + (tens * 2));
+            int tensRight = tens == 0 ? blankPriorityWord() : saveExtraWord(0x47 + (tens * 2));
+            return new int[]{
+                    tensLeft,
+                    saveExtraWord(0x46 + (ones * 2)),
+                    tensRight,
+                    saveExtraWord(0x47 + (ones * 2))
+            };
+        });
     }
 
     private int saveTextWord(char c) {
