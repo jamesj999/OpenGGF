@@ -168,6 +168,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String MGZ_BUBBLES_BADNIK = "mgz_bubbles_badnik";
     public static final String MGZ_MINIBOSS = "mgz_miniboss";
     public static final String MGZ_MINIBOSS_DEBRIS = "mgz_miniboss_debris";
+    /** Tunnelbot shares art with MGZ Miniboss (same ObjDat_Tunnelbot → Map_MGZMiniboss). */
+    public static final String MGZ_TUNNELBOT = MGZ_MINIBOSS;
+    public static final String MGZ_TUNNELBOT_DEBRIS = MGZ_MINIBOSS_DEBRIS;
 
     // CNZ badniks
     public static final String CNZ_SPARKLE = "cnz_sparkle";
