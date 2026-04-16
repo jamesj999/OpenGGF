@@ -6,6 +6,10 @@ import java.util.List;
 
 /**
  * Declarative frame-local deformation bands.
+ *
+ * <p>A plan describes how a sequence of background scroll values should be expanded across the
+ * visible scanlines for one frame. Callers can build plans from constant bands, per-line tables,
+ * or by concatenating smaller plans before writing them through {@link ScrollEffectComposer}.
  */
 public final class DeformationPlan {
 
@@ -15,14 +19,17 @@ public final class DeformationPlan {
         this.bands = bands;
     }
 
+    /** Creates a plan whose entire band uses one background scroll value. */
     public static DeformationPlan constantBand(int lineCount, short bgScroll) {
         return new DeformationPlan(List.of(new ConstantBand(lineCount, bgScroll)));
     }
 
+    /** Creates a plan that writes one explicit background scroll value per scanline. */
     public static DeformationPlan perLineBand(short[] bgScrollValues) {
         return new DeformationPlan(List.of(new PerLineBand(Arrays.copyOf(bgScrollValues, bgScrollValues.length))));
     }
 
+    /** Concatenates multiple plans in order to build a larger deform sequence. */
     public static DeformationPlan sequence(DeformationPlan... plans) {
         List<Band> merged = new ArrayList<>();
         for (DeformationPlan plan : plans) {
@@ -31,6 +38,7 @@ public final class DeformationPlan {
         return new DeformationPlan(List.copyOf(merged));
     }
 
+    /** Applies the plan using the identity scroll transform. */
     public int apply(ScrollEffectComposer composer, ScrollComposeContext context, int deformationSkipLines, short fgScroll) {
         return apply(composer, context, deformationSkipLines, fgScroll, ScrollValueTransform.identity());
     }

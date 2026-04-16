@@ -30,6 +30,13 @@ public final class WaterlineBlendComposer {
         this.lookupStride = lookupStride;
     }
 
+    /**
+     * Applies the midpoint lookup and the surrounding flat fills to the supplied table.
+     *
+     * <p>{@code equilibriumDelta} controls whether the lookup expands upward or downward from the
+     * midpoint, matching the ROM's waterline blend behavior when the split shifts relative to the
+     * camera.
+     */
     public void apply(ScrollValueTable table,
                       short equilibriumDelta,
                       short aboveWaterValue,

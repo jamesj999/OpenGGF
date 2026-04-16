@@ -29,7 +29,7 @@ A comprehensive user guide is available in [`docs/guide/`](docs/guide/index.md),
 - **Contributors:** [Dev setup](docs/guide/contributing/dev-setup.md), [architecture overview](docs/guide/contributing/architecture.md), [adding zones](docs/guide/contributing/adding-zones.md), [adding bosses](docs/guide/contributing/adding-bosses.md), [audio system](docs/guide/contributing/audio-system.md), [testing](docs/guide/contributing/testing.md), and [trace replay testing](docs/guide/contributing/trace-replay.md).
 - **Cross-referencers:** [68000 primer](docs/guide/cross-referencing/68000-primer.md), [mapping exercises](docs/guide/cross-referencing/mapping-exercises.md), [per-game notes](docs/guide/cross-referencing/per-game-notes.md), and [tooling](docs/guide/cross-referencing/tooling.md).
 
-Contributor tests are JUnit 5 / Jupiter only. JUnit 5 / Jupiter only is a legacy format and must not be used for new or updated tests.
+Contributor tests are JUnit 5 / Jupiter only. Do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
 ## Configuration
 
@@ -107,9 +107,7 @@ sound driver.
 
 Recent engine work has also moved shared zone behavior onto runtime-owned frameworks: `ZoneRuntimeRegistry`, `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `ScrollEffectComposer`, `SpecialRenderEffectRegistry`, and `AdvancedRenderModeController`. Current retrofit work is focused on uplifting existing Sonic 1 and Sonic 2 logic onto these systems while continuing incremental Sonic 3&K bring-up.
 
-Recent engine work has also moved shared zone behavior onto runtime-owned frameworks: `ZoneRuntimeRegistry`, `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `ScrollEffectComposer`, `SpecialRenderEffectRegistry`, and `AdvancedRenderModeController`. Current retrofit work is focused on uplifting existing Sonic 1 and Sonic 2 logic onto these systems while continuing incremental Sonic 3&K bring-up.
-
-Current migration status is intentionally partial rather than universal. Sonic 2 uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tile orchestration, and CNZ staged overlay rendering. Sonic 3&K uses the same stack for AIZ and HCZ runtime-state adapters, AIZ staged render effects and advanced render modes, HCZ/SOZ animated tile channels, and CNZ runtime-state-backed scroll behavior. `ZoneLayoutMutationPipeline` is wired into `GameRuntime` but awaits its first zone-level consumer. Other S1/S2/S3K zones still mix new runtime-owned systems with older zone-local paths and should be treated as follow-up migration work rather than implied complete adoption.
+Current migration status is intentionally partial rather than universal. Sonic 2 already uses the runtime-owned stack for HTZ/CNZ runtime state, palette ownership, animated tile orchestration, CNZ staged overlay rendering, and CNZ layout mutations via `ZoneLayoutMutationPipeline`. Sonic 3&K uses the same stack for AIZ/HCZ/CNZ runtime-state adapters, AIZ staged render effects and advanced render modes, HCZ/SOZ animated tile channels, CNZ runtime-state-backed scroll behavior, and seamless terrain-swap/mutation paths routed through the mutation pipeline. The shared scroll-composition helpers are live in AIZ, HCZ, and MGZ. Other S1/S2/S3K zones still mix these frameworks with older zone-local paths and should be treated as follow-up migration work rather than implied complete adoption.
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
