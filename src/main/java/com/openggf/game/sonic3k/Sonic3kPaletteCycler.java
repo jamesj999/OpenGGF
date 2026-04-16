@@ -699,13 +699,15 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     // Channel 1 - Bumpers/teacups (gated by Palette_cycle_counter1, period 3):
     //   AnPal_PalCNZ_1 → Normal_palette_line_4+$12 → palette[3] colors 9-11
     //   counter0 step +6, wrap at 0x60 (16 frames)
-    //   Note: water table (AnPal_PalCNZ_2) is used for Water_palette_line_4 in ROM;
-    //   we use Normal table only. TODO: sync to underwater palette when implemented.
+    //   ROM also has AnPal_PalCNZ_2 for the underwater plane; this slice keeps
+    //   the normal table as the source of truth and mirrors the same write into
+    //   the underwater surface via the ownership registry.
     //
     // Channel 2 - Background (runs every frame, NOT gated by channel 1 timer):
     //   AnPal_PalCNZ_3 → Normal_palette_line_3+$12 → palette[2] colors 9-11
     //   counter2 (Palette_cycle_counters+$02) step +6, wrap at 0xB4 (30 frames)
-    //   Note: water table (AnPal_PalCNZ_4) omitted. TODO: sync to underwater palette.
+    //   ROM also has AnPal_PalCNZ_4 for water; we mirror the normal patch into
+    //   the underwater palette plane instead of introducing CNZ-local water code.
     //
     // Channel 3 - Tertiary (gated by Palette_cycle_counters+$08, period 2):
     //   AnPal_PalCNZ_5 → Normal_palette_line_3+$0E → palette[2] colors 7-8
@@ -726,9 +728,6 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         // Channel 3 counter (Palette_cycle_counters+$04): step +4, wrap 0x40
         private int counter4;
 
-        private boolean dirty2;
-        private boolean dirty3;
-
         CnzCycle(byte[] bumperData, byte[] bgData, byte[] tertiaryData) {
             this.bumperData = bumperData;
             this.bgData = bgData;
@@ -737,64 +736,65 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
         @Override
         void tick(Level level, PaletteOwnershipRegistry registry) {
-            GraphicsManager gm = GameServices.graphics();
             // Channel 1 (bumpers) — gated by timer1
             if (timer1 > 0) {
                 timer1--;
             } else {
                 timer1 = 3;
-                Palette pal3 = level.getPalette(3);
                 int d0 = counter0;
                 counter0 += 6;
                 if (counter0 >= 0x60) {
                     counter0 = 0;
                 }
-                pal3.getColor(9).fromSegaFormat(bumperData, d0);
-                pal3.getColor(10).fromSegaFormat(bumperData, d0 + 2);
-                pal3.getColor(11).fromSegaFormat(bumperData, d0 + 4);
-                dirty3 = true;
+                submitMirroredPatch(registry, 3, 9, bumperData, d0, 6);
             }
 
             // Channel 2 (background) — always runs every frame
-            {
-                Palette pal2 = level.getPalette(2);
-                int d0 = counter2;
-                counter2 += 6;
-                if (counter2 >= 0xB4) {
-                    counter2 = 0;
-                }
-                pal2.getColor(9).fromSegaFormat(bgData, d0);
-                pal2.getColor(10).fromSegaFormat(bgData, d0 + 2);
-                pal2.getColor(11).fromSegaFormat(bgData, d0 + 4);
-                dirty2 = true;
+            int d0 = counter2;
+            counter2 += 6;
+            if (counter2 >= 0xB4) {
+                counter2 = 0;
             }
+            submitMirroredPatch(registry, 2, 9, bgData, d0, 6);
 
             // Channel 3 (tertiary) — gated by timer3
             if (timer3 > 0) {
                 timer3--;
             } else {
                 timer3 = 2;
-                Palette pal2 = level.getPalette(2);
-                int d0 = counter4;
+                int d1 = counter4;
                 counter4 += 4;
                 if (counter4 >= 0x40) {
                     counter4 = 0;
                 }
-                pal2.getColor(7).fromSegaFormat(tertiaryData, d0);
-                pal2.getColor(8).fromSegaFormat(tertiaryData, d0 + 2);
-                dirty2 = true;
+                submitMirroredPatch(registry, 2, 7, tertiaryData, d1, 4);
             }
+        }
 
-            if (gm.isGlInitialized()) {
-                if (dirty2) {
-                    gm.cachePaletteTexture(level.getPalette(2), 2);
-                    dirty2 = false;
-                }
-                if (dirty3) {
-                    gm.cachePaletteTexture(level.getPalette(3), 3);
-                    dirty3 = false;
-                }
-            }
+        /**
+         * Submits a CNZ palette patch to the ownership registry and mirrors it
+         * into the underwater surface.
+         *
+         * <p>CNZ's ROM uses paired normal/water palette tables. This engine
+         * slice keeps the normal table behavior from the existing cycle data
+         * and mirrors the same patch into the underwater plane so the shared
+         * palette registry can keep the two views synchronized without adding
+         * CNZ-local water-table code.
+         */
+        private void submitMirroredPatch(PaletteOwnershipRegistry registry,
+                                         int paletteIndex,
+                                         int startColor,
+                                         byte[] source,
+                                         int sourceOffset,
+                                         int byteCount) {
+            byte[] segaData = new byte[byteCount];
+            System.arraycopy(source, sourceOffset, segaData, 0, byteCount);
+            registry.submit(com.openggf.game.palette.PaletteWrite.normal(
+                    S3kPaletteOwners.CNZ_ANPAL_CYCLE,
+                    S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
+                    paletteIndex,
+                    startColor,
+                    segaData).mirrorToUnderwater());
         }
     }
 
