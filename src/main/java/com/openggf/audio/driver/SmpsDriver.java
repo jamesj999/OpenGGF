@@ -36,7 +36,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
     private short[] chunkScratch = new short[0];
-    private ReadMode readMode = ReadMode.SAMPLE_ACCURATE;
+    private ReadMode readMode = ReadMode.HYBRID;
     private int hybridChunkCountForTesting;
 
     // --- Continuous SFX state (Z80: zContinuousSFX, zContinuousSFXFlag, zContSFXLoopCnt) ---
@@ -381,7 +381,8 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             SmpsSequencer seq = sequencers.get(i);
             int preTempoSafe = Math.max(0, seq.getSamplesUntilNextTempoFrame() - 1);
             safe = Math.min(safe, preTempoSafe);
-            safe = Math.min(safe, seq.getSamplesUntilNextObservableEvent());
+            int preEventSafe = Math.max(0, seq.getSamplesUntilNextObservableEvent() - 1);
+            safe = Math.min(safe, preEventSafe);
         }
         return safe;
     }
@@ -408,12 +409,15 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     private void renderChunk(short[] target, int frameOffset, int frames) {
         int sampleCount = frames * 2;
-        if (chunkScratch.length != sampleCount) {
+        if (chunkScratch.length < sampleCount) {
             chunkScratch = new short[sampleCount];
         }
 
-        super.render(chunkScratch);
-        System.arraycopy(chunkScratch, 0, target, frameOffset * 2, sampleCount);
+        short[] renderScratch = (chunkScratch.length == sampleCount)
+                ? chunkScratch
+                : new short[sampleCount];
+        super.render(renderScratch);
+        System.arraycopy(renderScratch, 0, target, frameOffset * 2, sampleCount);
     }
 
     private void removeCompletedSequencers() {
