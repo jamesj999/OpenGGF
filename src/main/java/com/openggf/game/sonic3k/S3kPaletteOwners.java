@@ -19,6 +19,15 @@ public final class S3kPaletteOwners {
     public static final String HCZ_CAVE_LIGHTING = "s3k.hcz.caveLighting";
     public static final String HCZ_MINIBOSS = "s3k.hcz.miniboss";
     public static final String HCZ_END_BOSS = "s3k.hcz.endBoss";
+    /**
+     * CNZ AnPal palette ownership for the bumper, background, and tertiary
+     * animation tables.
+     *
+     * <p>CNZ's ROM keeps separate normal and water palette tables, but this
+     * engine slice routes the normal-table writes through the registry and
+     * mirrors them into the underwater surface so both planes stay aligned.
+     */
+    public static final String CNZ_ANPAL_CYCLE = "s3k.cnz.anpalCycle";
     public static final String HPZ_ZONE_CYCLE = "s3k.hpz.zoneCycle";
     public static final String HPZ_MASTER_EMERALD = "s3k.hpz.masterEmerald";
     public static final String HPZ_PALETTE_CONTROL = "s3k.hpz.paletteControl";
