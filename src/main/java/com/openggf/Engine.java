@@ -570,6 +570,16 @@ public class Engine {
 			Thread.onSpinWait();
 		}
 		graphicsManager.runPendingRenderThreadTasks();
+
+		// Preview capture loads levels which stomp the GPU palette with
+		// zone-specific data.  Reset all 4 palette lines to blank so the
+		// title screen / data select that follows starts from a clean state.
+		if (graphicsManager.isGlInitialized()) {
+			com.openggf.level.Palette blank = new com.openggf.level.Palette();
+			for (int line = 0; line < 4; line++) {
+				graphicsManager.cachePaletteTexture(blank, line);
+			}
+		}
 	}
 
 	private String resolveLaunchMainCharacter() {
