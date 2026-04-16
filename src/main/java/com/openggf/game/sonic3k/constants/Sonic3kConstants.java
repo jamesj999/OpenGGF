@@ -218,6 +218,9 @@ public class Sonic3kConstants {
     public static final int MAP_MGZ_TRIGGER_PLATFORM_ADDR = 0x2339B2; // Map_MGZTriggerPlatform (2 frames)
     // Map_MGZSwingingSpikeBall_ has a 4-word frame-offset table immediately before Frame_23357A.
     public static final int MAP_MGZ_SWINGING_SPIKE_BALL_ADDR = 0x233572; // Map_MGZSwingingSpikeBall (4 frames)
+    // Map_MGZDashTrigger_ has a 5-word frame-offset table immediately before Frame_224B92.
+    // LockOn data (assembled into S3 half — no S&K-side copy exists).
+    public static final int MAP_MGZ_DASH_TRIGGER_ADDR = 0x224B88; // Map_MGZDashTrigger (5 frames)
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
 
     // ===== HCZ Block mappings (Obj_HCZBlock, ID 0x40) =====
