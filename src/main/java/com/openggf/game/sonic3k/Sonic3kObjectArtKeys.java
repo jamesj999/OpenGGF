@@ -161,6 +161,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String HCZ_JAWZ = "hcz_jawz";
 
     // MGZ badniks
+    public static final String MGZ_SWINGING_PLATFORM = "mgz_swinging_platform";
     public static final String MGZ_SWINGING_SPIKE_BALL = "mgz_swinging_spike_ball";
     public static final String MGZ_SPIKER = "mgz_spiker";
     public static final String MGZ_MANTIS = "mgz_mantis";
