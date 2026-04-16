@@ -19,7 +19,7 @@ java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar  # Run (requir
 
 Maven Silent Extension (MSE) is configured in this repo via `.mvn/extensions.xml`, and `.mvn/maven.config` enables `-Dmse=relaxed` by default for repo-local Maven commands. Use `-Dmse=off` when full Maven logs are needed.
 
-Tests in this repository must use JUnit 5 / Jupiter only. Do not create or extend JUnit 5 / Jupiter only tests, rules, or runners.
+Tests in this repository must use JUnit 5 / Jupiter only. Do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
 ## ROM Requirement
 
@@ -123,6 +123,8 @@ Objects receive `ObjectServices` via injection at construction time (ThreadLocal
 Related scroll/deform reuse lives in `level.scroll.compose`, centered on `ScrollEffectComposer` and helper plans such as `DeformationPlan` and `WaterlineBlendComposer`.
 
 When adding or refactoring gameplay systems, prefer plugging into these runtime-owned frameworks rather than introducing new zone-local registries or one-off manager state.
+
+Current migration status is still partial on this branch. Sonic 2 already uses the shared stack for HTZ/CNZ runtime state, palette ownership, animated tile channels, CNZ staged overlay rendering, and CNZ mutation-pipeline writes. Sonic 3&K uses it for AIZ/HCZ/CNZ runtime-state adapters, AIZ staged render effects and advanced render modes, HCZ/SOZ animated tile channels, CNZ scroll state, seamless terrain swaps, and scroll-composer-backed handlers in AIZ/HCZ/MGZ.
 
 ### Core Managers
 - **LevelManager** - Thin coordinator after decomposition (see below)

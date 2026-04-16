@@ -11,6 +11,8 @@ The project is in an **alpha** state. Core systems are functional with extensive
 
 Recent architecture work also moved a growing share of zone-specific behavior onto runtime-owned shared frameworks hosted by `GameRuntime`: `ZoneRuntimeRegistry` (typed zone state), `PaletteOwnershipRegistry` (multi-writer palette composition), `AnimatedTileChannelGraph` (shared animated tile orchestration), `ZoneLayoutMutationPipeline` (deterministic live layout edits), `ScrollEffectComposer` (shared deform/parallax composition), `SpecialRenderEffectRegistry` (staged extra draw passes), and `AdvancedRenderModeController` (frame-level render-mode overrides such as per-line/per-cell scroll state). These systems are now the preferred reuse path when uplifting existing S1/S2 content or bringing up new S3K zones.
 
+Current migration status is still partial. On this branch Sonic 2 already uses the shared stack for HTZ/CNZ runtime state, palette ownership, animated tile channels, CNZ staged overlay rendering, and CNZ mutation-pipeline writes; Sonic 3&K uses it for AIZ/HCZ/CNZ runtime-state adapters, AIZ staged render effects and advanced render modes, HCZ/SOZ animated tile channels, CNZ scroll state, seamless terrain swaps, and scroll-composer-backed handlers in AIZ/HCZ/MGZ.
+
 ### Rendering
 *   **Status:** ✅ Functional.
 *   **Level Data:** Patterns, chunks, and blocks load correctly from ROM via Kosinski decompression.
@@ -90,7 +92,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning; implements `PlayableEntity`
     *   `timer` – utility timers for events
     *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
-*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration. New or updated tests must use JUnit 5 / Jupiter only; JUnit 5 / Jupiter only is explicitly barred.
+*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration. New or updated tests must use JUnit 5 / Jupiter only; do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
 ## Coordinate Semantics
 

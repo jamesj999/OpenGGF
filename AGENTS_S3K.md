@@ -11,8 +11,9 @@ The ROM's `AnimatePalettes` routine runs **every frame** and dispatches to per-z
 that cycle palette colors through ROM data tables. This is the `AnPal_*` system in the
 disassembly (`sonic3k.asm:3105-3282`, `s3.asm:3245-3414`).
 
-**Implementation:** `Sonic3kPaletteCycler` (called via `Sonic3kLevelAnimationManager` →
-`LevelManager.update()` each frame).
+**Implementation:** `Sonic3kPaletteCycler` (called via `Sonic3kLevelAnimationManager` ->
+`LevelManager.update()` each frame), with writes composed through the runtime-owned
+`PaletteOwnershipRegistry` via `S3kPaletteWriteSupport` before the frame is committed.
 
 ### Palette Animation vs. Palette Mutation
 
@@ -24,7 +25,8 @@ These are two distinct systems that both modify palette colors at runtime:
 | **Palette Mutation** (_Resize) | Camera-position threshold | AIZ1 hollow tree color 15 darkening at X≥$2B00 | `Sonic3kAIZEvents.updateStage2PaletteColor()` |
 
 Palette mutations are one-shot writes in `_Resize` routines (event handlers), not cycling.
-They should stay in `Sonic3kAIZEvents` (or the zone's event handler), not in the cycler.
+They should stay in `Sonic3kAIZEvents` (or the zone's event handler), typically routed through
+the event helper methods backed by `PaletteOwnershipRegistry`, not in the cycler.
 
 ### The Counter/Step/Limit Pattern
 

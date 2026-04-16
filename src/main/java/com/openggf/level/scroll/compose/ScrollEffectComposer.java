@@ -6,6 +6,11 @@ import java.util.Arrays;
 
 /**
  * Frame-local writer for packed scroll output and optional VScroll overlays.
+ *
+ * <p>Zone scroll handlers populate this composer with horizontal scroll words, vertical scroll
+ * factors, optional per-line/per-column overrides, and shake offsets. The handler can then expose
+ * the composed output back through the existing scroll-handler interface without reimplementing
+ * the same buffer-management logic in each zone.
  */
 public final class ScrollEffectComposer {
 
@@ -28,6 +33,7 @@ public final class ScrollEffectComposer {
         this(VISIBLE_LINES);
     }
 
+    /** Creates a composer sized for a specific visible-line count. */
     public ScrollEffectComposer(int visibleLines) {
         if (visibleLines < 0) {
             throw new IllegalArgumentException("visibleLines must be non-negative");
@@ -36,6 +42,7 @@ public final class ScrollEffectComposer {
         reset();
     }
 
+    /** Clears all composed state so the instance can be reused for the next frame. */
     public void reset() {
         Arrays.fill(packedScrollWords, 0);
         minScrollOffset = Integer.MAX_VALUE;

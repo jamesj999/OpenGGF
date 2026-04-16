@@ -9,10 +9,18 @@ import com.openggf.level.Pattern;
 import java.util.Arrays;
 import java.util.Objects;
 
+/**
+ * {@link LevelMutationSurface} implementation for immutable-style {@link Level} instances.
+ *
+ * <p>This adapter writes directly into the live level structures and returns explicit
+ * {@link MutationEffects} describing which redraws or pattern uploads the caller must perform
+ * because the target level is not tracking dirty regions for us.
+ */
 public final class DirectLevelMutationSurface implements LevelMutationSurface {
 
     private final Level level;
 
+    /** Creates a direct-write mutation surface for the supplied level snapshot. */
     public DirectLevelMutationSurface(Level level) {
         this.level = Objects.requireNonNull(level, "level");
     }

@@ -4,6 +4,9 @@ import java.util.Arrays;
 
 /**
  * Mutable short table used for frame-local scroll value generation.
+ *
+ * <p>This is a small convenience wrapper around a {@code short[]} that keeps scroll-composition
+ * helpers explicit about ownership and copying when they build intermediate deform tables.
  */
 public final class ScrollValueTable {
 
@@ -20,10 +23,12 @@ public final class ScrollValueTable {
         this.values = values;
     }
 
+    /** Allocates a zero-initialized table of the requested size. */
     public static ScrollValueTable ofLength(int size) {
         return new ScrollValueTable(size);
     }
 
+    /** Creates a table by copying the supplied values. */
     public static ScrollValueTable from(short... values) {
         return new ScrollValueTable(Arrays.copyOf(values, values.length));
     }
