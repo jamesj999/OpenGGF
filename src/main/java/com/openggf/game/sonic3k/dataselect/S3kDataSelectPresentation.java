@@ -66,6 +66,12 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     private int displayedSelectedRow;
     private int fadeTimer;
 
+    // Cached computation results — avoid per-frame allocations
+    private S3kCustomTeamPortraitComposer cachedPortraitComposer;
+    private final java.util.Map<SelectedTeam, SpriteMappingFrame> cachedPortraitFrames = new java.util.HashMap<>();
+    private List<List<Integer>> cachedEmeraldFrames;
+    private List<SaveSlotSummary> cachedEmeraldSummaries;
+
     private enum DeleteRobotnikState {
         HOME,
         FOLLOWING,
@@ -328,6 +334,12 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     protected void reloadSlotSummaries() {
+        // Invalidate cached per-slot data since summaries are changing
+        cachedObjectState = null;
+        cachedAnimBits = -1;
+        cachedEmeraldFrames = null;
+        cachedEmeraldSummaries = null;
+        cachedPortraitFrames.clear();
         List<SaveSlotSummary> summaries = new ArrayList<>();
         for (int slot = 1; slot <= hostProfile.slotCount(); slot++) {
             try {
@@ -341,21 +353,58 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
         sessionController.loadSlotSummaries(summaries);
     }
 
+    // Cached object state — only rebuilt when animation-relevant inputs change
+    private S3kSaveScreenObjectState cachedObjectState;
+    private int cachedAnimBits = -1;
+    private int cachedSelectedRow = -1;
+    private int cachedDeleteWorldX = Integer.MIN_VALUE;
+    private DeleteRobotnikState cachedDeleteState;
+    private int cachedDeleteAnimFrame = -1;
+    private int cachedDeleteSignFrame = -1;
+    private int cachedClearRestartIndex = -1;
+
     private S3kSaveScreenObjectState buildObjectState() {
         selectorState.setVisible(isSelectorVisible());
-        return new S3kSaveScreenObjectState(
+
+        // Compute a key from all inputs that affect the object state
+        int animBits = (frameCounter >> 2) & 0x7; // captures blink (bit 4) + header anim (bits 2-3)
+        int clearIdx = sessionController.currentClearRestartIndex();
+
+        if (cachedObjectState != null
+                && animBits == cachedAnimBits
+                && displayedSelectedRow == cachedSelectedRow
+                && deleteWorldX == cachedDeleteWorldX
+                && deleteRobotnikState == cachedDeleteState
+                && deleteMainAnimFrameIndex == cachedDeleteAnimFrame
+                && deleteSignFrame == cachedDeleteSignFrame
+                && clearIdx == cachedClearRestartIndex) {
+            // Update selector state in-place (position animates smoothly)
+            return cachedObjectState;
+        }
+
+        cachedAnimBits = animBits;
+        cachedSelectedRow = displayedSelectedRow;
+        cachedDeleteWorldX = deleteWorldX;
+        cachedDeleteState = deleteRobotnikState;
+        cachedDeleteAnimFrame = deleteMainAnimFrameIndex;
+        cachedDeleteSignFrame = deleteSignFrame;
+        cachedClearRestartIndex = clearIdx;
+
+        cachedObjectState = new S3kSaveScreenObjectState(
                 assets.getSaveScreenLayoutObjects(),
                 selectorState,
                 buildVisualState(),
                 buildSelectedSlotIcon(),
                 deleteWorldX);
+        return cachedObjectState;
     }
 
     private S3kSaveScreenObjectState.VisualState buildVisualState() {
-        List<S3kSaveScreenObjectState.SlotVisualState> slotStates = new ArrayList<>();
         List<SaveSlotSummary> summaries = sessionController.slotSummaries();
         int selectedRow = displayedSelectedRow;
-        for (int slotIndex = 0; slotIndex < hostProfile.slotCount(); slotIndex++) {
+        int slotCount = hostProfile.slotCount();
+        List<S3kSaveScreenObjectState.SlotVisualState> slotStates = new ArrayList<>(slotCount);
+        for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
             SaveSlotSummary summary = slotIndex < summaries.size() ? summaries.get(slotIndex) : null;
             boolean selected = selectedRow == slotIndex + 1;
             slotStates.add(buildSlotVisualState(slotIndex, summary, selected));
@@ -709,8 +758,24 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
                 headerStyleIndex,
                 lives,
                 continuesCount,
-                resolveEmeraldMappingFrames(summary),
+                getCachedEmeraldFrames(slotIndex, summary),
                 preview);
+    }
+
+    private List<Integer> getCachedEmeraldFrames(int slotIndex, SaveSlotSummary summary) {
+        List<SaveSlotSummary> currentSummaries = sessionController.slotSummaries();
+        if (cachedEmeraldFrames == null || cachedEmeraldSummaries != currentSummaries) {
+            cachedEmeraldSummaries = currentSummaries;
+            cachedEmeraldFrames = new ArrayList<>(Collections.nCopies(hostProfile.slotCount(), null));
+        }
+        List<Integer> cached = slotIndex < cachedEmeraldFrames.size() ? cachedEmeraldFrames.get(slotIndex) : null;
+        if (cached == null) {
+            cached = resolveEmeraldMappingFrames(summary);
+            if (slotIndex < cachedEmeraldFrames.size()) {
+                cachedEmeraldFrames.set(slotIndex, cached);
+            }
+        }
+        return cached;
     }
 
     private HostSlotPreview resolveHostSlotPreview(SaveSlotSummary summary,
@@ -840,14 +905,17 @@ public class S3kDataSelectPresentation extends AbstractDataSelectProvider {
     }
 
     private S3kCustomTeamPortraitComposer portraitComposer() {
-        return new S3kCustomTeamPortraitComposer(assets.getSaveScreenMappings());
+        if (cachedPortraitComposer == null) {
+            cachedPortraitComposer = new S3kCustomTeamPortraitComposer(assets.getSaveScreenMappings());
+        }
+        return cachedPortraitComposer;
     }
 
-    private com.openggf.level.render.SpriteMappingFrame resolveCustomPortraitFrame(SelectedTeam team) {
+    private SpriteMappingFrame resolveCustomPortraitFrame(SelectedTeam team) {
         if (!isCustomPortraitTeam(team)) {
             return null;
         }
-        return portraitComposer().compose(team);
+        return cachedPortraitFrames.computeIfAbsent(team, t -> portraitComposer().compose(t));
     }
 
     private int headerStyleIndexFor(SelectedTeam team) {

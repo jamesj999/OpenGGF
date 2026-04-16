@@ -293,8 +293,10 @@ public class Engine {
 		// Setup window focus callback
 		glfwSetWindowFocusCallback(window, (windowHandle, focused) -> {
 			if (focused) {
+				paused = false;
 				gameLoop.resume();
 			} else {
+				paused = true;
 				gameLoop.pause();
 			}
 		});
@@ -568,6 +570,20 @@ public class Engine {
 			Thread.onSpinWait();
 		}
 		graphicsManager.runPendingRenderThreadTasks();
+
+		// Preview capture loads a full level per zone, stomping GPU palette
+		// state and leaving the LevelManager holding the last captured zone's
+		// level data, animated palette manager, object manager, etc.
+		// Reset both GPU and LevelManager state so the title screen starts clean.
+		if (graphicsManager.isGlInitialized()) {
+			com.openggf.level.Palette blank = new com.openggf.level.Palette();
+			for (int line = 0; line < 4; line++) {
+				graphicsManager.cachePaletteTexture(blank, line);
+			}
+		}
+		if (levelManager != null) {
+			levelManager.resetState();
+		}
 	}
 
 	private String resolveLaunchMainCharacter() {
@@ -1095,6 +1111,20 @@ public class Engine {
 			// Note: inputHandler.update() is called at the end of GameLoop.step()
 			// to properly handle isKeyPressed() edge detection. Do NOT call update()
 			// here or isKeyPressed() will always return false.
+
+			if (paused) {
+				// When unfocused/minimized, sleep longer — no need for frame-precise
+				// timing. Just poll events ~30 times/sec to stay responsive to focus.
+				try {
+					Thread.sleep(33);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+				// Reset accumulator so we don't process a burst of frames on resume
+				accumulator = 0;
+				previousTime = System.nanoTime();
+				continue;
+			}
 
 			// Hybrid sleep: sleep most of the wait time, then spin-wait for precision
 			long remainingTime = frameTimeNanos - accumulator;
