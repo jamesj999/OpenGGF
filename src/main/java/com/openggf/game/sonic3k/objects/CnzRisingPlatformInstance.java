@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -10,8 +11,10 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 
 import java.util.List;
 
@@ -20,51 +23,76 @@ import java.util.List;
  *
  * <p>The verified CNZ disassembly uses {@code Map_CNZRisingPlatform} and the
  * {@code Anim - Rising Platform.asm} table from the lock-on ROM data set. The
- * object itself owns a two-phase motion state machine: it sits idle until the
- * player stands on it, then rises to a subtype-defined travel height and stops.
- *
- * <p>The subtype split here is intentionally documented in Java rather than
- * pushed into a CNZ-global manager so the platform remains traceable to the
- * ROM routine while still being testable in isolation.
+ * object is not subtype-driven: it idles on the floor, arms when stood on,
+ * compresses downward while carrying the player, then springs back and
+ * settles when released.
  */
 public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     private static final int HALF_WIDTH = 0x18;
     private static final int HALF_HEIGHT = 0x10;
-    private static final int RISE_STEP_PIXELS = 1;
+    private static final int FLOOR_Y_RADIUS = 6;
+    private static final int Y_ACCEL_STANDING = 0x18;
+    private static final int Y_ACCEL_SETTLING = 8;
+    private static final int Y_VELOCITY_MAX = 0x200;
     private static final int PRIORITY_BUCKET = 5;
 
-    private final int originY;
-    private final int subtypeTravelPixels;
-    private final boolean autoStart;
-
-    private boolean triggered;
-    private int ySpeedForTest;
+    private final SubpixelMotion.State motion;
+    private boolean armed;
+    private boolean standingThisFrame;
+    private int displayFrame;
 
     public CnzRisingPlatformInstance(ObjectSpawn spawn) {
         super(spawn, "CNZRisingPlatform");
-        this.originY = spawn.y();
-        this.subtypeTravelPixels = decodeTravelPixels(spawn.subtype());
-        this.autoStart = (spawn.subtype() & 0x80) != 0;
+        this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
+        this.displayFrame = 0;
+        updateDynamicSpawn(spawn.x(), spawn.y());
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (!triggered) {
-            triggered = autoStart || isPlayerStandingOnTop(playerEntity);
-            if (!triggered) {
-                ySpeedForTest = 0;
-                updateDynamicSpawn(getX(), getY());
-                return;
+        boolean standing = standingThisFrame;
+        standingThisFrame = false;
+
+        if (!armed) {
+            if (standing) {
+                armed = true;
+                displayFrame = 1;
             }
-            ySpeedForTest = 0;
-            updateDynamicSpawn(getX(), getY());
+
+            if (motion.yVel != 0) {
+                moveSprite2();
+                motion.yVel += Y_ACCEL_SETTLING;
+                if (motion.yVel >= 0) {
+                    motion.yVel = 0;
+                    displayFrame = 2;
+                }
+            }
+        } else if (standing) {
+            moveSprite2();
+            if (motion.yVel < Y_VELOCITY_MAX) {
+                motion.yVel += Y_ACCEL_STANDING;
+            }
+            displayFrame = 1;
+        } else {
+            motion.yVel = -motion.yVel - 0x80;
+            armed = false;
+            displayFrame = 2;
+            try {
+                services().playSfx(Sonic3kSfx.BALLOON_PLATFORM.id);
+            } catch (Exception ignored) {
+                // Headless tests can omit the audio backend; the motion state still updates.
+            }
+            updateDynamicSpawn(motion.x, motion.y);
             return;
         }
 
-        updateMovingPlatform();
-        updateDynamicSpawn(getX(), getY());
+        if (!standing && motion.yVel != 0) {
+            snapToFloorIfNeeded();
+        }
+
+        updateDynamicSpawn(motion.x, motion.y);
     }
 
     @Override
@@ -80,8 +108,7 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         }
 
         boolean hFlip = (spawn.renderFlags() & 0x01) != 0;
-        int frame = triggered ? (getY() <= originY - subtypeTravelPixels ? 2 : 1) : 0;
-        renderer.drawFrameIndex(frame, getX(), getY(), hFlip, false);
+        renderer.drawFrameIndex(displayFrame, getX(), getY(), hFlip, false);
     }
 
     @Override
@@ -97,52 +124,35 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         if (contact.standing()) {
-            triggered = true;
+            standingThisFrame = true;
         }
     }
 
-    boolean wasTriggeredForTest() {
-        return triggered;
+    boolean isArmedForTest() {
+        return armed;
     }
 
-    int getSubtypeTravelForTest() {
-        return subtypeTravelPixels;
+    int getRenderFrameForTest() {
+        return displayFrame;
     }
 
     int getYSpeedForTest() {
-        return ySpeedForTest;
+        return motion.yVel;
     }
 
-    private void updateMovingPlatform() {
-        int targetY = originY - subtypeTravelPixels;
-        int currentY = getY();
-        if (currentY > targetY) {
-            int nextY = Math.max(targetY, currentY - RISE_STEP_PIXELS);
-            ySpeedForTest = nextY - currentY;
-            updateDynamicSpawn(getX(), nextY);
-        } else {
-            ySpeedForTest = 0;
-            updateDynamicSpawn(getX(), targetY);
+    private void moveSprite2() {
+        SubpixelMotion.moveSprite2(motion);
+    }
+
+    private boolean snapToFloorIfNeeded() {
+        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(motion.x, motion.y, FLOOR_Y_RADIUS);
+        if (floor.foundSurface() && floor.distance() < 0) {
+            motion.y += floor.distance();
+            motion.ySub = 0;
+            motion.yVel = 0;
+            displayFrame = 2;
+            return true;
         }
-    }
-
-    private boolean isPlayerStandingOnTop(PlayableEntity playerEntity) {
-        if (playerEntity == null) {
-            return false;
-        }
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        int dx = Math.abs(player.getCentreX() - getX());
-        int dy = Math.abs(player.getCentreY() - getY());
-        return dx <= HALF_WIDTH + 8 && dy <= HALF_HEIGHT + 16;
-    }
-
-    private static int decodeTravelPixels(int subtype) {
-        int travelIndex = (subtype >> 4) & 0x03;
-        return switch (travelIndex) {
-            case 0 -> 0x20;
-            case 1 -> 0x30;
-            case 2 -> 0x40;
-            default -> 0x50;
-        };
+        return false;
     }
 }
