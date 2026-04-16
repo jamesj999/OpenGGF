@@ -56,6 +56,36 @@ class TestS3kCnzAct1EventFlow {
     }
 
     @Test
+    void productionPostBossChainAdvancesToReloadGateAndManagerSeesTransitionRequest() {
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        manager.initLevel(Sonic3kZoneIds.ZONE_CNZ, 0);
+
+        Sonic3kCNZEvents events = manager.getCnzEvents();
+        events.forceBossBackgroundMode(Sonic3kCNZEvents.BossBackgroundMode.ACT1_POST_BOSS);
+        events.forceBackgroundRoutine(Sonic3kCNZEvents.BG_AFTER_BOSS);
+
+        events.setEventsFg5(true);
+        events.update(0, 0);
+        assertEquals(Sonic3kCNZEvents.BG_FG_REFRESH, events.getBackgroundRoutine());
+        assertFalse(manager.isAct2TransitionRequested());
+
+        events.update(0, 1);
+        assertEquals(Sonic3kCNZEvents.BG_FG_REFRESH_2, events.getBackgroundRoutine());
+        assertFalse(manager.isAct2TransitionRequested());
+
+        events.update(0, 2);
+        assertEquals(Sonic3kCNZEvents.BG_DO_TRANSITION, events.getBackgroundRoutine());
+
+        events.setEventsFg5(true);
+        events.update(0, 3);
+
+        assertTrue(events.isAct2TransitionRequested());
+        assertTrue(manager.isAct2TransitionRequested());
+        assertEquals(0x0301, events.getPendingZoneActWord());
+    }
+
+    @Test
     void act2KnucklesEntryStartsTeleporterRoute_notModeOnly() {
         Sonic3kCNZEvents events = initCnzEvents(1);
 

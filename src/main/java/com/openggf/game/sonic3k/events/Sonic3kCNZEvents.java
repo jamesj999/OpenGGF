@@ -166,12 +166,8 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     private void updateAct1Bg() {
         switch (bgRoutine) {
             case BG_AFTER_BOSS -> handleAfterBossStage();
-            case BG_FG_REFRESH -> {
-                // The later slice will widen this into the full refresh path.
-            }
-            case BG_FG_REFRESH_2 -> {
-                // The later slice will widen this into the signpost phase.
-            }
+            case BG_FG_REFRESH -> advanceRefreshStageToSecondPass();
+            case BG_FG_REFRESH_2 -> advanceRefreshStageToTransitionGate();
             case BG_DO_TRANSITION -> handleSeamlessReloadStage();
             default -> handleAct1Entry();
         }
@@ -215,6 +211,29 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         }
         eventsFg5 = false;
         bgRoutine = BG_FG_REFRESH;
+    }
+
+    /**
+     * ROM: CNZ1BGE_FGRefresh.
+     *
+     * <p>The real game copies arena data back into the foreground before the
+     * signpost phase. This bring-up keeps the same sequencing contract by
+     * advancing to the second refresh pass on the next update while leaving
+     * the actual layout mutation to later slices.
+     */
+    private void advanceRefreshStageToSecondPass() {
+        bgRoutine = BG_FG_REFRESH_2;
+    }
+
+    /**
+     * ROM: CNZ1BGE_FGRefresh2.
+     *
+     * <p>The real game finishes the foreground handoff here. For the current
+     * scope we only need the stage to become reachable and to progress to the
+     * reload gate without an external test forcing BG_DO_TRANSITION.
+     */
+    private void advanceRefreshStageToTransitionGate() {
+        bgRoutine = BG_DO_TRANSITION;
     }
 
     /**
