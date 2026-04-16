@@ -76,12 +76,12 @@ public class VirtualSynthesizer implements Synthesizer {
         Arrays.fill(scratchLeftPsg, 0, frames, 0);
         Arrays.fill(scratchRightPsg, 0, frames, 0);
 
-        ym.renderStereo(scratchLeft, scratchRight);
+        ym.renderStereo(scratchLeft, scratchRight, frames);
 
         // GPGX-style: FM output is clipped to ±8191 internally.
         // No output gain applied here - volume issues are in the EG/feedback implementation.
 
-        psg.renderStereo(scratchLeftPsg, scratchRightPsg);
+        psg.renderStereo(scratchLeftPsg, scratchRightPsg, frames);
 
         // Mix PSG into FM output. GPGX PSG produces unipolar 0..4200 that the
         // BlipDeltaBuffer DC-blocks to ±2100 — close to PsgChip's ±4096 >> 1.
