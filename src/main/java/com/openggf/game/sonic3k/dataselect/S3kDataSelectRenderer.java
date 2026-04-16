@@ -141,10 +141,10 @@ public class S3kDataSelectRenderer {
 
         ensureCached(graphics, assets);
         int cameraX = objectState.selectorState().cameraX();
-        boolean batchingEnabled = graphics.isBatchingEnabled();
-        boolean instancedBatchingEnabled = graphics.isInstancedBatchingEnabled();
-        graphics.setBatchingEnabled(false);
-        graphics.setInstancedBatchingEnabled(false);
+        boolean prevBatchingEnabled = graphics.isBatchingEnabled();
+        boolean prevInstancedBatchingEnabled = graphics.isInstancedBatchingEnabled();
+        graphics.setBatchingEnabled(true);
+        graphics.setInstancedBatchingEnabled(true);
         try {
             graphics.beginPatternBatch();
             renderScreenTilemap(graphics, assets.getMenuBackgroundLayoutWords(),
@@ -204,8 +204,8 @@ public class S3kDataSelectRenderer {
             renderSelector(graphics, assets, objectState, cameraX);
             flushLayer(graphics);
         } finally {
-            graphics.setBatchingEnabled(batchingEnabled);
-            graphics.setInstancedBatchingEnabled(instancedBatchingEnabled);
+            graphics.setBatchingEnabled(prevBatchingEnabled);
+            graphics.setInstancedBatchingEnabled(prevInstancedBatchingEnabled);
         }
     }
 
