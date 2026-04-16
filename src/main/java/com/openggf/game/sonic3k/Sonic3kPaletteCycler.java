@@ -780,6 +780,10 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
          * and mirrors the same patch into the underwater plane so the shared
          * palette registry can keep the two views synchronized without adding
          * CNZ-local water-table code.
+         *
+         * <p>The write uses {@link S3kPaletteOwners#PRIORITY_ZONE_EVENT} so it
+         * sits above baseline zone cycling and below object-driven overrides,
+         * matching the Task 5 ownership contract for CNZ.
          */
         private void submitMirroredPatch(PaletteOwnershipRegistry registry,
                                          int paletteIndex,
@@ -790,8 +794,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             byte[] segaData = new byte[byteCount];
             System.arraycopy(source, sourceOffset, segaData, 0, byteCount);
             registry.submit(com.openggf.game.palette.PaletteWrite.normal(
-                    S3kPaletteOwners.CNZ_ANPAL_CYCLE,
-                    S3kPaletteOwners.PRIORITY_ZONE_CYCLE,
+                    S3kPaletteOwners.CNZ_ANPAL,
+                    S3kPaletteOwners.PRIORITY_ZONE_EVENT,
                     paletteIndex,
                     startColor,
                     segaData).mirrorToUnderwater());
