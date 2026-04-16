@@ -406,6 +406,12 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     }
 
     public void setBossFlag(boolean bossFlag) {
+        /**
+         * Task 8 boundary note:
+         * CNZ's end-boss implementation currently owns only the startup gate and
+         * defeat handoff, so this flag is the explicit shared seam between the
+         * bounded boss wrapper and the wider CNZ event script.
+         */
         this.bossFlag = bossFlag;
     }
 
@@ -419,6 +425,12 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         knucklesTeleporterRouteActive = true;
         bossBackgroundMode = BossBackgroundMode.ACT2_KNUCKLES_TELEPORTER;
         fgRoutine = FG_ACT2_KNUCKLES_ROUTE;
+        /**
+         * ROM: the late Knuckles route clamps the camera to the teleporter lane
+         * while {@code Obj_CNZTeleporter} owns the cutscene-specific player and
+         * palette state. Publishing the route transition here keeps the object
+         * dependency explicit instead of burying it in object-local booleans.
+         */
         publishKnucklesTeleporterClamp();
     }
 
@@ -440,6 +452,12 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     }
 
     public void markTeleporterBeamSpawned() {
+        /**
+         * Once the shared beam exists, the teleporter-specific palette override
+         * is no longer the active owner. Task 8 uses this explicit event seam
+         * so tests can observe the parent -> beam handoff without depending on
+         * hidden object state.
+         */
         teleporterBeamSpawned = true;
     }
 

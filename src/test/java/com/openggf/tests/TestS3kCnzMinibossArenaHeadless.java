@@ -116,21 +116,19 @@ class TestS3kCnzMinibossArenaHeadless {
     }
 
     /**
-     * Task 7 owns the Act 1 boss slot only. The registry should stop returning
-     * placeholders for {@code Obj_CNZMiniboss}, but it must keep
-     * {@code Obj_CNZEndBoss} placeholder-backed so Task 8 remains bounded.
+     * Task 7 permanently owns the Act 1 boss slot. Later CNZ slices may promote
+     * the end-boss slot, but the miniboss registry contract should remain stable:
+     * {@code Obj_CNZMiniboss} must resolve to the real Act 1 boss implementation
+     * rather than falling back to a placeholder.
      */
     @Test
-    void registryPromotesCnzMinibossButLeavesEndBossForTask8() {
+    void registryKeepsCnzMinibossPromotedAfterLaterCnzSlices() {
         Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
 
         ObjectInstance miniboss = registry.create(
                 new ObjectSpawn(0x3240, 0x02B8, Sonic3kObjectIds.CNZ_MINIBOSS, 0, 0, false, 0));
-        ObjectInstance endBoss = registry.create(
-                new ObjectSpawn(0x4A40, 0x0A38, Sonic3kObjectIds.CNZ_END_BOSS, 0, 0, false, 0));
 
         assertInstanceOf(CnzMinibossInstance.class, miniboss);
-        assertInstanceOf(PlaceholderObjectInstance.class, endBoss);
         assertNotEquals(PlaceholderObjectInstance.class, miniboss.getClass(),
                 "Task 7 should replace the miniboss placeholder-backed slot with the real Act 1 boss object");
     }

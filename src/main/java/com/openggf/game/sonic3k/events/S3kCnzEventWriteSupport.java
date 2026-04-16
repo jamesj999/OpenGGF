@@ -87,10 +87,26 @@ public final class S3kCnzEventWriteSupport {
     public static void beginKnucklesTeleporterRoute(ObjectServices services) {
         CnzObjectEventBridge bridge = bridgeOrNull(services);
         if (bridge != null) {
+            /**
+             * ROM anchors: {@code CNZ2_ScreenEvent} and {@code Obj_CNZTeleporter}.
+             *
+             * <p>The teleporter route is Knuckles-only and owns a dedicated late
+             * Act 2 camera clamp. Keeping the route activation on the explicit CNZ
+             * bridge means the object code does not need hidden knowledge of the
+             * concrete level-event manager implementation.
+             */
             bridge.beginKnucklesTeleporterRoute();
         }
     }
 
+    /**
+     * Explicit teleporter-parent -> CNZ-event seam for the shared beam handoff.
+     *
+     * <p>ROM: {@code Obj_CNZTeleporterMain} spawns the shared
+     * {@code Obj_TeleporterBeam} and then watches that child for the later
+     * player-capture / hide thresholds. Publishing the spawn through CNZ event
+     * state keeps the cutscene dependency visible to tests and later route code.
+     */
     public static void markTeleporterBeamSpawned(ObjectServices services) {
         CnzObjectEventBridge bridge = bridgeOrNull(services);
         if (bridge != null) {
