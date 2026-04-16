@@ -10,8 +10,8 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
-import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.zone.NoOpZoneRuntimeState;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
@@ -99,25 +99,12 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     @Override
     public PlayerCharacter getPlayerCharacter() {
         if (resolvedPlayerCharacter == null) {
-            resolvedPlayerCharacter = resolvePlayerCharacterFromConfig();
+            SonicConfigurationService config = GameServices.configuration();
+            resolvedPlayerCharacter = config != null
+                    ? ActiveGameplayTeamResolver.resolvePlayerCharacter(config)
+                    : PlayerCharacter.SONIC_AND_TAILS;
         }
         return resolvedPlayerCharacter;
-    }
-
-    private static PlayerCharacter resolvePlayerCharacterFromConfig() {
-        SonicConfigurationService config = GameServices.configuration();
-        if (config == null) {
-            return PlayerCharacter.SONIC_AND_TAILS;
-        }
-        String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("tails".equalsIgnoreCase(mainCode)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-        String sidekickCode = config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekickCode == null || sidekickCode.isEmpty()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
     }
 
     @Override
