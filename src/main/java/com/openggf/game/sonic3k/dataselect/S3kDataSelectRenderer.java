@@ -187,10 +187,17 @@ public class S3kDataSelectRenderer {
             renderCardsSpriteEmeraldLayer(graphics, assets, objectState, cameraX);
             flushLayer(graphics);
 
+            // Selected slot icon uses custom palette uploads per-icon — disable
+            // batching for this layer so each tile's PatternRenderCommand picks up
+            // the correct palette state individually.
+            graphics.setBatchingEnabled(false);
+            graphics.setInstancedBatchingEnabled(false);
             graphics.beginPatternBatch();
             cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
             renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX);
             flushLayer(graphics);
+            graphics.setBatchingEnabled(true);
+            graphics.setInstancedBatchingEnabled(true);
 
             graphics.beginPatternBatch();
             renderCardsSpriteOverlayLayer(graphics, assets, objectState, cameraX);
