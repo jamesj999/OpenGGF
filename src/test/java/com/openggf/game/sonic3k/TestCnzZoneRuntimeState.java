@@ -32,4 +32,15 @@ class TestCnzZoneRuntimeState {
         assertTrue(state.isWallGrabSuppressed());
         assertEquals(0x0A58, state.waterTargetY());
     }
+
+    @Test
+    void runtimeStateDoesNotNeedRawEventBackdoorToExposeBossMode() {
+        Sonic3kCNZEvents events = new Sonic3kCNZEvents();
+        events.init(0);
+        events.beginKnucklesTeleporterRoute();
+
+        CnzZoneRuntimeState state = new CnzZoneRuntimeState(0, PlayerCharacter.KNUCKLES, events);
+
+        assertEquals(Sonic3kCNZEvents.BossBackgroundMode.ACT2_KNUCKLES_TELEPORTER, state.bossBackgroundMode());
+    }
 }

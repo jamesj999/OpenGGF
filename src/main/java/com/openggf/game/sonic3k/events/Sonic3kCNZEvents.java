@@ -129,9 +129,9 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     private boolean teleporterBeamSpawned;
 
     /**
-     * Last queued arena chunk coordinates. This is a narrow Slice 0 scaffold for
-     * the miniboss arena destruction bridge; later slices will replace the
-     * single-slot storage with the real queued write pipeline.
+     * Last pending arena chunk coordinates. Slice 0 intentionally exposes a
+     * single pending destruction request rather than a FIFO queue because the
+     * follow-on slices have not yet established the batching requirements.
      */
     private int arenaChunkWorldX;
     private int arenaChunkWorldY;
@@ -251,6 +251,14 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     }
 
     /**
+     * Restores the CNZ-local background routine used by
+     * {@code CNZ1_BackgroundEvent} / {@code CNZ2_BackgroundEvent}.
+     */
+    public void setBackgroundRoutine(int routine) {
+        this.bgRoutine = routine;
+    }
+
+    /**
      * Test and bootstrap hook for restoring the CNZ foreground routine without
      * touching {@link com.openggf.game.AbstractLevelEventManager} internals.
      */
@@ -349,7 +357,7 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         return teleporterBeamSpawned;
     }
 
-    public void queueArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
+    public void setPendingArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
         arenaChunkWorldX = chunkWorldX;
         arenaChunkWorldY = chunkWorldY;
         arenaChunkDestructionQueued = true;

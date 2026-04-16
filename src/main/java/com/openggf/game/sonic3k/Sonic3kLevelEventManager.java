@@ -409,9 +409,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     @Override
-    public void queueArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
+    public void setPendingArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
         if (cnzEvents != null) {
-            cnzEvents.queueArenaChunkDestruction(chunkWorldX, chunkWorldY);
+            cnzEvents.setPendingArenaChunkDestruction(chunkWorldX, chunkWorldY);
         }
     }
 
@@ -551,6 +551,19 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     /**
+     * S3K zone handlers maintain their own BG routine counters independently of
+     * the base class fields. CNZ now persists a local background routine for
+     * save/restore parity, so callers must read from the active zone handler.
+     */
+    @Override
+    public int getEventRoutineBg() {
+        if (cnzEvents != null) {
+            return cnzEvents.getBackgroundRoutine();
+        }
+        return super.getEventRoutineBg();
+    }
+
+    /**
      * Restores the event routine state after a bonus/special stage return.
      * Propagates to the active zone handler so its internal state machine
      * resumes from the saved position instead of replaying from 0.
@@ -559,6 +572,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     public void restoreEventRoutineState(int routineFg, int routineBg) {
         super.restoreEventRoutineState(routineFg, routineBg);
         setDynamicResizeRoutine(routineFg);
+        if (cnzEvents != null) {
+            cnzEvents.setBackgroundRoutine(routineBg);
+        }
     }
 
     /**

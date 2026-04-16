@@ -14,10 +14,16 @@ public final class S3kCnzEventWriteSupport {
     private S3kCnzEventWriteSupport() {
     }
 
-    public static void queueArenaChunkDestruction(ObjectServices services, int chunkWorldX, int chunkWorldY) {
+    /**
+     * Publishes one pending arena-destruction request. Later CNZ slices can
+     * widen this to a real queue if object sequencing needs more than one slot.
+     */
+    public static void setPendingArenaChunkDestruction(ObjectServices services,
+                                                       int chunkWorldX,
+                                                       int chunkWorldY) {
         CnzObjectEventBridge bridge = bridgeOrNull(services);
         if (bridge != null) {
-            bridge.queueArenaChunkDestruction(chunkWorldX, chunkWorldY);
+            bridge.setPendingArenaChunkDestruction(chunkWorldX, chunkWorldY);
         }
     }
 
