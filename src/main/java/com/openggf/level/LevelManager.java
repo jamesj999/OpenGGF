@@ -119,6 +119,15 @@ public class LevelManager {
         return RuntimeManager.resolveCurrentOrBootstrapGameModule();
     }
 
+    /** S1 uses UNIFIED collision (single path); S2/S3K use DUAL_PATH. */
+    private boolean isUnifiedCollisionModel() {
+        PhysicsProvider pp = activeGameModule().getPhysicsProvider();
+        return pp != null
+                && pp.getFeatureSet() != null
+                && pp.getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.UNIFIED;
+    }
+
     /** Returns the tilemap lifecycle delegate. */
     public LevelTilemapManager getTilemapManager() {
         return tilemapManager;
@@ -3641,6 +3650,20 @@ public class LevelManager {
             camera.setMaxX((short) currentLevel.getMaxX());
             camera.setMinY((short) currentLevel.getMinY());
             camera.setMaxY((short) currentLevel.getMaxY());
+            // Vertical wrapping: enabled when minY < 0. The wrap range differs per game:
+            // S1 (UNIFIED): 0x800 (DeformLayers.asm LZ3/SBZ2 loop sections)
+            // S3K (DUAL_PATH): level height in pixels (e.g. 0x1000 for MGZ1's 32-row map).
+            //   The S3K block lookup masks the row index (Layout_row_index_mask=$7C),
+            //   so Y coordinates wrap at the map height — rows above the level (negative Y)
+            //   map to the bottom rows of the layout.
+            if (currentLevel.getMinY() < 0) {
+                int wrapRange = isUnifiedCollisionModel()
+                        ? Camera.VERTICAL_WRAP_RANGE  // S1: 0x800
+                        : cachedFgHeightPx;            // S3K: level height
+                camera.setVerticalWrapEnabled(true, wrapRange);
+            } else {
+                camera.setVerticalWrapEnabled(false);
+            }
             verticalWrapEnabled = camera.isVerticalWrapEnabled();
             camera.updatePosition(true);
         }
@@ -3998,6 +4021,14 @@ public class LevelManager {
         cam.setMaxX((short) currentLevel.getMaxX());
         cam.setMinY((short) currentLevel.getMinY());
         cam.setMaxY((short) currentLevel.getMaxY());
+        if (currentLevel.getMinY() < 0) {
+            int wrapRange = isUnifiedCollisionModel()
+                    ? Camera.VERTICAL_WRAP_RANGE
+                    : cachedFgHeightPx;
+            cam.setVerticalWrapEnabled(true, wrapRange);
+        } else {
+            cam.setVerticalWrapEnabled(false);
+        }
         verticalWrapEnabled = cam.isVerticalWrapEnabled();
     }
 
