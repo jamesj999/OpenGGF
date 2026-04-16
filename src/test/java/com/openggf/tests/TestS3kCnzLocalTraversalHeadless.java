@@ -7,6 +7,7 @@ import com.openggf.game.sonic3k.objects.CnzBalloonInstance;
 import com.openggf.game.sonic3k.objects.CnzRisingPlatformInstance;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidContact;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
@@ -28,47 +29,98 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
-    void balloonLaunchesPlayerUsingCentreCoordinatesAndRomBounceSpeed() {
+    void balloonSubtypeZeroLaunchesWithoutSnappingPlayerX() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
 
         CnzBalloonInstance balloon = spawnBalloon(0x19C0, 0x05B0, 0x00);
-        fixture.sprite().setCentreX((short) 0x19C0);
+        fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
-        fixture.sprite().setYSpeed((short) 0x0200);
 
         balloon.update(0, fixture.sprite());
 
         assertTrue(fixture.sprite().getAir(), "CNZ balloon contact should launch the player into the air");
-        assertTrue(fixture.sprite().getYSpeed() < 0, "Balloon should reverse Y motion into an upward launch");
-        assertEquals(0x19C0, fixture.sprite().getCentreX(),
-                "ROM x_pos writes must use centre coordinates");
+        assertEquals((short) -0x700, fixture.sprite().getYSpeed(),
+                "Subtype 0x00 should use the standard launch speed");
+        assertEquals(0x19B8, fixture.sprite().getCentreX(),
+                "Subtype 0x00 must not snap the player to the balloon centre");
+        assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"),
+                "Balloon should switch into its popped render state after launch");
+        assertEquals(3, invokeIntHook(balloon, "getRenderFrameForTest"),
+                "Subtype 0x00 should render the popped frame after launch");
     }
 
     @Test
-    void risingPlatformStartsOnContactMovesToSubtypeLimitAndStops() {
+    void balloonSubtype80SnapsPlayerAndUsesLowerLaunchSpeed() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzBalloonInstance balloon = spawnBalloon(0x19C0, 0x05B0, 0x80);
+        fixture.sprite().setCentreX((short) 0x19B8);
+        fixture.sprite().setCentreY((short) 0x05A8);
+
+        balloon.update(0, fixture.sprite());
+
+        assertEquals(0x19C0, fixture.sprite().getCentreX(),
+                "Negative subtype balloons should snap the player to the balloon centre");
+        assertTrue(Math.abs(fixture.sprite().getCentreY() - 0x05B0) <= 3,
+                "Negative subtype balloons should also center the player vertically");
+        assertEquals((short) -0x380, fixture.sprite().getYSpeed(),
+                "Negative subtype balloons use the lower upward launch speed");
+        assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
+    }
+
+    @Test
+    void risingPlatformCompressesWhileStandingThenSpringsBackToFloor() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
 
         CnzRisingPlatformInstance platform = spawnRisingPlatform(0x1D80, 0x06A0, 0x20);
         fixture.sprite().setCentreX((short) 0x1D80);
-        fixture.sprite().setCentreY((short) 0x0690);
+        fixture.sprite().setCentreY((short) 0x068C);
         fixture.sprite().setAir(false);
         fixture.sprite().setRolling(false);
 
-        for (int frame = 0; frame < 96; frame++) {
+        int startY = platform.getSpawn().y();
+        for (int frame = 0; frame < 20; frame++) {
+            platform.onSolidContact(fixture.sprite(), new SolidContact(true, false, false, true, false), frame);
             platform.update(frame, fixture.sprite());
         }
 
-        int travelPixels = invokeIntHook(platform, "getSubtypeTravelForTest");
-        assertTrue(invokeBooleanHook(platform, "wasTriggeredForTest"),
+        assertTrue(invokeBooleanHook(platform, "isArmedForTest"),
                 "Standing on the platform should arm the rising state machine");
-        assertEquals(0x06A0 - travelPixels, platform.getSpawn().y(),
-                "The platform should stop at the subtype-defined travel limit");
+        assertTrue(platform.getSpawn().y() > startY,
+                "Standing contact should compress the platform downward");
+        assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
+                "Compression should build downward velocity");
+        assertEquals(1, invokeIntHook(platform, "getRenderFrameForTest"),
+                "Armed state should render the active frame");
+
+        platform.update(20, fixture.sprite());
+        int releaseY = platform.getSpawn().y();
+        assertFalse(invokeBooleanHook(platform, "isArmedForTest"),
+                "Stepping off should clear the armed flag");
+        assertTrue(invokeIntHook(platform, "getYSpeedForTest") < 0,
+                "Stepping off should reverse the platform velocity upward");
+        assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
+                "Release should switch the platform to the settling frame");
+
+        for (int frame = 21; frame < 120; frame++) {
+            platform.update(frame, fixture.sprite());
+            if (platform.getSpawn().y() == startY && invokeIntHook(platform, "getYSpeedForTest") == 0) {
+                break;
+            }
+        }
+
+        assertTrue(platform.getSpawn().y() < releaseY,
+                "The platform should settle upward onto its floor position");
         assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
-                "Once the platform reaches its limit, its motion should stop");
+                "Settled platforms should come to rest");
+        assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
+                "Settled platforms should keep the resting frame");
         assertFalse(fixture.sprite().getAir(),
                 "The test player should remain grounded while the platform is carrying them");
     }

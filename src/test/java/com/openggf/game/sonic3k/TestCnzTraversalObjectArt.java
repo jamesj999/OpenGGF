@@ -9,6 +9,7 @@ import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
@@ -26,10 +27,10 @@ public class TestCnzTraversalObjectArt {
         ObjectSpriteSheet risingPlatform = provider.getSheet("cnz_rising_platform");
 
         assertNotNull(balloon);
-        assertTrue(balloon.getFrameCount() > 0);
+        assertEquals(25, balloon.getFrameCount());
         assertNotNull(provider.getSheet("cnz_cannon"));
         assertNotNull(risingPlatform);
-        assertTrue(risingPlatform.getFrameCount() > 0);
+        assertEquals(3, risingPlatform.getFrameCount());
         assertNotNull(provider.getSheet("cnz_trap_door"));
         assertNotNull(provider.getSheet("cnz_hover_fan"));
         assertNotNull(provider.getSheet("cnz_cylinder"));

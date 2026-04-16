@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -39,6 +40,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     private final int subtype;
     private final int baseY;
     private int angle;
+    private boolean popped;
     private int lastLaunchFrame = Integer.MIN_VALUE;
 
     public CnzBalloonInstance(ObjectSpawn spawn) {
@@ -96,7 +98,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         if (color >= FRAME_BY_COLOR.length) {
             color = FRAME_BY_COLOR.length - 1;
         }
-        return FRAME_BY_COLOR[color];
+        return FRAME_BY_COLOR[color] + (popped ? 3 : 0);
     }
 
     private void launchPlayer(PlayableEntity playerEntity, int frameCounter) {
@@ -106,22 +108,41 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         lastLaunchFrame = frameCounter;
 
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        player.setCentreX((short) getX());
-        player.setCentreY((short) getY());
+        if ((subtype & 0x80) != 0) {
+            player.setYSpeed((short) -0x380);
+        } else {
+            player.setYSpeed((short) -ROM_BOUNCE_Y_SPEED);
+        }
         player.setAir(true);
+        player.setRollingJump(false);
         player.setJumping(false);
-        player.setRolling(false);
-        player.setObjectControlled(false);
         player.setControlLocked(false);
-        player.setXSpeed((short) 0);
-        player.setGSpeed((short) 0);
-        player.setYSpeed((short) -ROM_BOUNCE_Y_SPEED);
+        player.setObjectControlled(false);
+        if ((subtype & 0x80) != 0) {
+            player.setCentreX((short) getX());
+            player.setCentreY((short) getY());
+        }
+        popped = true;
+
+        try {
+            services().playSfx(Sonic3kSfx.BALLOON.id);
+        } catch (Exception ignored) {
+            // Headless tests can omit the audio backend; launch state is still valid.
+        }
     }
 
     private boolean isTouchingPlayer(PlayableEntity player) {
         int dx = Math.abs(player.getCentreX() - getX());
         int dy = Math.abs(player.getCentreY() - getY());
         return dx <= WIDTH_HALF && dy <= HEIGHT_HALF;
+    }
+
+    int getRenderFrameForTest() {
+        return getFrameIndex();
+    }
+
+    boolean isPoppedForTest() {
+        return popped;
     }
 
     private static int bobOffset(int angle) {
