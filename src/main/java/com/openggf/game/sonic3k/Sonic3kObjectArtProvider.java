@@ -1297,12 +1297,12 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             Level level = GameServices.level().getCurrentLevel();
             Sonic3kObjectArt art = new Sonic3kObjectArt(level, reader);
 
-            registerSheet(Sonic3kObjectArtKeys.CNZ_BALLOON, art.buildCnzBalloonSheet());
-            registerSheet(Sonic3kObjectArtKeys.CNZ_CANNON, art.buildCnzCannonSheet());
-            registerSheet(Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, art.buildCnzRisingPlatformSheet());
-            registerSheet(Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, art.buildCnzTrapDoorSheet());
-            registerSheet(Sonic3kObjectArtKeys.CNZ_HOVER_FAN, art.buildCnzHoverFanSheet());
-            registerSheet(Sonic3kObjectArtKeys.CNZ_CYLINDER, art.buildCnzCylinderSheet());
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_BALLOON, art.buildCnzBalloonSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_CANNON, art.buildCnzCannonSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, art.buildCnzRisingPlatformSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, art.buildCnzTrapDoorSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_HOVER_FAN, art.buildCnzHoverFanSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_CYLINDER, art.buildCnzCylinderSheet(), art);
         } catch (IOException e) {
             LOG.warning("Failed to load CNZ traversal art: " + e.getMessage());
         }
