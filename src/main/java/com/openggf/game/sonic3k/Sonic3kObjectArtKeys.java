@@ -174,6 +174,14 @@ public final class Sonic3kObjectArtKeys {
     public static final String CNZ_CLAMER_SHOT = "cnz_clamer_shot";
     public static final String CNZ_BALLOON = "cnz_balloon";
 
+    // CNZ route/boss infrastructure:
+    // - Obj_CNZTeleporter queues ArtKosM_CNZTeleport and then hands off to shared Obj_TeleporterBeam.
+    // - Obj_CNZMiniboss uses Map_CNZMiniboss after PLC_5C/5D loads its art.
+    // - Obj_CNZEndBoss uses Map_CNZEndBoss after PLC_6E loads body/ship/explosion/capsule art.
+    public static final String CNZ_TELEPORTER = "cnz_teleporter";
+    public static final String CNZ_MINIBOSS = "cnz_miniboss";
+    public static final String CNZ_END_BOSS = "cnz_end_boss";
+
     // Button (zone-specific variants)
     public static final String BUTTON = "button";            // Default (gray) - AIZ, MGZ, ICZ, LBZ, etc.
     public static final String HCZ_BUTTON = "hcz_button";

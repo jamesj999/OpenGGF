@@ -1,5 +1,13 @@
 package com.openggf.game.sonic3k.constants;
 
+/**
+ * Named Sonic 3 & Knuckles object IDs used by the engine's S3K object registry.
+ *
+ * <p>The S3KL/SKL pointer tables remap some high IDs by zone set. New constants
+ * added for the CNZ bring-up intentionally follow the S3KL naming from
+ * {@code Object pointers - SK Set 1.asm}, while registry code remains zone-set
+ * aware so the same numeric slot can still resolve to DEZ names on the SKL side.
+ */
 public final class Sonic3kObjectIds {
     public static final int MONITOR = 0x01;
     public static final int PATH_SWAP = 0x02;
@@ -48,6 +56,10 @@ public final class Sonic3kObjectIds {
     public static final int SS_ENTRY_RING = 0x85;
     public static final int GUMBALL_MACHINE = 0x86;
     public static final int GUMBALL_TRIANGLE_BUMPER = 0x87;
+    // S3KL object table: Obj_CNZWaterLevelCorkFloor.
+    public static final int CNZ_WATER_LEVEL_CORK_FLOOR = 0x88;
+    // S3KL object table: Obj_CNZWaterLevelButton.
+    public static final int CNZ_WATER_LEVEL_BUTTON = 0x89;
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
@@ -80,6 +92,10 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_WATER_DROP = 0x6E;
     public static final int HCZ_MINIBOSS = 0x99;
     public static final int HCZ_END_BOSS = 0x9A;
+    // S3KL object table: Obj_CNZMiniboss. SKL reuses $A6 for DEZMiniboss.
+    public static final int CNZ_MINIBOSS = 0xA6;
+    // S3KL object table: Obj_CNZEndBoss. SKL reuses $A7 for DEZEndBoss.
+    public static final int CNZ_END_BOSS = 0xA7;
 
     private Sonic3kObjectIds() {
     }

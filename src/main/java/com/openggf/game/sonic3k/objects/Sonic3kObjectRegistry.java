@@ -274,6 +274,21 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new GumballMachineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.GUMBALL_TRIANGLE_BUMPER,
                 (spawn, registry) -> new GumballTriangleBumperObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.CNZ_WATER_LEVEL_CORK_FLOOR,
+                (spawn, registry) -> {
+                    // Task 6 claims the CNZ water-helper IDs explicitly without
+                    // inventing Task 7 behavior. The placeholder stays zone-set
+                    // aware so S3KL CNZ naming remains correct.
+                    return new PlaceholderObjectInstance(spawn,
+                            getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
+                });
+        factories.put(Sonic3kObjectIds.CNZ_WATER_LEVEL_BUTTON,
+                (spawn, registry) -> {
+                    // Same Task 6 placeholder strategy as CNZ_WATER_LEVEL_CORK_FLOOR:
+                    // infrastructure-only registration now, real object behavior later.
+                    return new PlaceholderObjectInstance(spawn,
+                            getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
+                });
         factories.put(Sonic3kObjectIds.PACHINKO_TRIANGLE_BUMPER,
                 (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
                         ? new PachinkoTriangleBumperObjectInstance(spawn)
@@ -419,6 +434,22 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new HczEndBossInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_MINIBOSS,
+                (spawn, registry) -> {
+                    // Task 6 stops at registration infrastructure. This explicit
+                    // placeholder reserves the S3KL CNZ slot while leaving the
+                    // actual miniboss implementation to Task 7.
+                    return new PlaceholderObjectInstance(spawn,
+                            getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
+                });
+        factories.put(Sonic3kObjectIds.CNZ_END_BOSS,
+                (spawn, registry) -> {
+                    // Explicit placeholder-backed entry for the CNZ end-boss slot.
+                    // Task 8 will replace this with real behavior once the route
+                    // and control handoff are implemented.
+                    return new PlaceholderObjectInstance(spawn,
+                            getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
                 });
         factories.put(Sonic3kObjectIds.CUTSCENE_KNUCKLES,
                 (spawn, registry) -> {

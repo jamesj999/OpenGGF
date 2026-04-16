@@ -1267,6 +1267,41 @@ public class Sonic3kConstants {
     // HCZ Geyser Cutscene Art (ArtTile_HCZCutsceneGeyser, from sonic3k.constants.asm)
     public static final int ARTTILE_HCZ_CUTSCENE_GEYSER = 0x036B;
 
+    // ===== CNZ Teleporter / Miniboss / End Boss (Task 6 infrastructure only) =====
+    // The CNZ teleporter route is split across Obj_CNZTeleporter and the shared
+    // Obj_TeleporterBeam routines in sonic3k.asm. Unlike the future Tasks 7/8
+    // behavior work, Task 6 only needs the art/mapping/PLC metadata so the
+    // renderer registrations exist before any route scripting is implemented.
+
+    // ArtKosM_CNZTeleport - dedicated Kosinski Moduled art queued by Obj_CNZTeleporter.
+    // Verified with RomOffsetFinder against the S&K-side label:
+    //   ArtKosM_CNZTeleport -> 0x159CAE, 512-byte decompressed payload.
+    public static final int ART_KOSM_CNZ_TELEPORT_ADDR = 0x159CAE;
+
+    // Map_SSZHPZTeleporter - shared mapping table used by both Obj_CNZTeleporterMain
+    // and Obj_TeleporterBeam for the CNZ teleporter route. The include file exposes
+    // 11 dc.w entries before the first frame label word_46B52, so the table starts
+    // 22 bytes earlier at 0x046B3C.
+    public static final int MAP_SSZ_HPZ_TELEPORTER_ADDR = 0x046B3C;
+
+    // PLC 0x5C/0x5D (shared across both CNZ acts) loads the CNZ miniboss body art
+    // plus shared boss-explosion art. The object code references Map_CNZMiniboss
+    // with ArtTile_CNZMiniboss after this PLC has populated VRAM.
+    public static final int PLC_CNZ_MINIBOSS = 0x5C;
+
+    // Map_CNZMiniboss - CNZ miniboss mappings. The include file has 22 dc.w entries
+    // before Frame_362F00, so the table base is 44 bytes earlier at 0x362ED4.
+    public static final int MAP_CNZ_MINIBOSS_ADDR = 0x362ED4;
+
+    // PLC 0x6E loads ArtNem_CNZEndBoss, ArtNem_RobotnikShip, ArtNem_BossExplosion,
+    // and ArtNem_EggCapsule for Obj_CNZEndBoss. Task 6 only needs the body sheet and
+    // shared support art registrations; the control handoff stays deferred to Task 8.
+    public static final int PLC_CNZ_END_BOSS = 0x6E;
+
+    // Map_CNZEndBoss - CNZ end-boss mappings. The include file has 13 dc.w entries
+    // before Frame_3609C4, so the table base is 26 bytes earlier at 0x3609AA.
+    public static final int MAP_CNZ_END_BOSS_ADDR = 0x3609AA;
+
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)
     public static final int ART_KOSM_AIZ_END_BOSS_ADDR = 0x365260;

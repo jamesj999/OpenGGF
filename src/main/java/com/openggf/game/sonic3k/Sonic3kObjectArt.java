@@ -784,6 +784,34 @@ public class Sonic3kObjectArt {
     }
 
     /**
+     * Loads the dedicated CNZ teleporter beam sheet used by {@code Obj_CNZTeleporter}
+     * and the shared {@code Obj_TeleporterBeam} route in CNZ.
+     *
+     * <p>ROM behavior:
+     * {@code Obj_CNZTeleporter} queues {@code ArtKosM_CNZTeleport} directly rather
+     * than relying on a zone PLC, then both the teleporter and beam objects render
+     * through {@code Map_SSZHPZTeleporter}. Task 6 only needs the renderer
+     * registration; the palette write and control-lock behavior stay in Task 8.
+     */
+    public ObjectSpriteSheet loadCnzTeleporterSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_CNZ_TELEPORT_ADDR);
+            if (patterns == null || patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_SSZ_HPZ_TELEPORTER_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading CNZ teleporter art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Loads a standalone art sheet from a registry entry.
      * Dispatches based on the entry's compression type and DPLC presence.
      */
