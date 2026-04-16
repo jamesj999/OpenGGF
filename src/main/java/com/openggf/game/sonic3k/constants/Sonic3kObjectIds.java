@@ -43,6 +43,7 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
     public static final int MGZ_SWINGING_PLATFORM = 0x53;
+    public static final int MGZ_TRIGGER_PLATFORM = 0x57;
     public static final int MGZ_SWINGING_SPIKE_BALL = 0x58;
     public static final int HCZ_SNAKE_BLOCKS = 0x67;
     public static final int TENSION_BRIDGE = 0x6C;

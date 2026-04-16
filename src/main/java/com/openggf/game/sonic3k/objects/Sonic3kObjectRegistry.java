@@ -133,6 +133,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new MGZSwingingPlatformObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.MGZ_TRIGGER_PLATFORM,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MGZTriggerPlatformObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.MGZ_SWINGING_SPIKE_BALL,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
