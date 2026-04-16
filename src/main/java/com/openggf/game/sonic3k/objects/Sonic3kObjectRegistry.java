@@ -13,6 +13,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
+import com.openggf.game.sonic3k.objects.bosses.CnzEndBossInstance;
 import com.openggf.game.sonic3k.objects.bosses.HczEndBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.PlaceholderObjectInstance;
@@ -428,11 +429,11 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new CnzMinibossInstance(spawn));
         factories.put(Sonic3kObjectIds.CNZ_END_BOSS,
                 (spawn, registry) -> {
-                    // Explicit placeholder-backed entry for the CNZ end-boss slot.
-                    // Task 8 will replace this with real behavior once the route
-                    // and control handoff are implemented.
-                    return new PlaceholderObjectInstance(spawn,
-                            getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzEndBossInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.CUTSCENE_KNUCKLES,
                 (spawn, registry) -> {
