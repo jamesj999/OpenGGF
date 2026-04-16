@@ -18,6 +18,16 @@ public final class S3kCnzEventWriteSupport {
      * Publishes one pending arena-destruction request. Later CNZ slices can
      * widen this to a real queue if object sequencing needs more than one slot.
      */
+    public static void queueArenaChunkDestruction(ObjectServices services,
+                                                  int chunkWorldX,
+                                                  int chunkWorldY) {
+        setPendingArenaChunkDestruction(services, chunkWorldX, chunkWorldY);
+    }
+
+    /**
+     * Backwards-compatible helper kept while the CNZ bring-up plan still uses
+     * both "queue" and "pending" wording for the same ROM seam.
+     */
     public static void setPendingArenaChunkDestruction(ObjectServices services,
                                                        int chunkWorldX,
                                                        int chunkWorldY) {

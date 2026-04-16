@@ -112,6 +112,17 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     private int arenaChunkWorldX;
     private int arenaChunkWorldY;
     private boolean arenaChunkDestructionQueued;
+    /**
+     * Accumulated destroyed arena height in pixels.
+     *
+     * <p>ROM: {@code Obj_CNZMinibossTop} only ever reports impacts snapped to the
+     * arena block grid before {@code CNZMiniboss_BlockExplosion} removes the
+     * touched chunk. Task 7 keeps a single scalar here instead of replaying the
+     * full live-layout mutation, because the current tests only need to prove
+     * that each top hit contributes one 0x20-pixel row toward the lowering
+     * sequence consumed by the base object.
+     */
+    private int destroyedArenaRows;
 
     /** Current boss background scroll mode. */
     private BossBackgroundMode bossBackgroundMode = BossBackgroundMode.NORMAL;
@@ -151,6 +162,7 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         arenaChunkWorldX = 0;
         arenaChunkWorldY = 0;
         arenaChunkDestructionQueued = false;
+        destroyedArenaRows = 0;
         bossBackgroundMode = BossBackgroundMode.NORMAL;
     }
 
@@ -367,6 +379,18 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
     public void setWaterTargetY(int waterTargetY) {
         this.waterTargetY = waterTargetY;
+        /**
+         * ROM anchors:
+         * {@code Obj_CNZWaterLevelCorkFloor} writes {@code Target_water_level}
+         * directly to {@code $0958}, and {@code Obj_CNZWaterLevelButton} writes
+         * {@code $0A58} once the arming flag has been set. The engine mirrors
+         * those writes into both the CNZ event state and the shared water system
+         * so tests and later runtime consumers observe the same explicit source
+         * of truth.
+         */
+        waterSystem().setWaterLevelTarget(levelManager().getRomZoneId(),
+                levelManager().getCurrentAct(),
+                waterTargetY);
     }
 
     public boolean isWaterButtonArmed() {
@@ -451,6 +475,14 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         arenaChunkWorldX = chunkWorldX;
         arenaChunkWorldY = chunkWorldY;
         arenaChunkDestructionQueued = true;
+        /**
+         * ROM: {@code Obj_CNZMinibossTop} snaps the impact coordinates to the
+         * 0x20-pixel block grid before calling {@code CNZMiniboss_BlockExplosion}.
+         * Task 7 uses that same block height as the destroyed-row accumulator so
+         * the miniboss base can react to a ROM-sized arena step without the full
+         * mutation pipeline from later slices.
+         */
+        destroyedArenaRows += 0x20;
     }
 
     public boolean isArenaChunkDestructionQueued() {
@@ -463,6 +495,35 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
     public int getArenaChunkWorldY() {
         return arenaChunkWorldY;
+    }
+
+    /**
+     * Alias used by the Task 7 headless tests.
+     *
+     * <p>The plan originally named these accessors after the queue contract
+     * rather than the world-coordinate storage field. Keeping both names avoids
+     * forcing later CNZ slices to rewrite their state vocabulary.
+     */
+    public int getPendingArenaChunkX() {
+        return arenaChunkWorldX;
+    }
+
+    /**
+     * Alias used by the Task 7 headless tests.
+     */
+    public int getPendingArenaChunkY() {
+        return arenaChunkWorldY;
+    }
+
+    /**
+     * Returns the accumulated destroyed arena height in pixels.
+     *
+     * <p>Each queued top-piece impact contributes exactly one 0x20-pixel row,
+     * matching the block-sized destruction seam exported from
+     * {@code Obj_CNZMinibossTop}.
+     */
+    public int getDestroyedArenaRows() {
+        return destroyedArenaRows;
     }
 
     public void setEventsFg5(boolean flag) {
