@@ -213,6 +213,9 @@ public class Sonic3kConstants {
 
     // Map_MGZSwingingPlatform has a 3-word frame-offset table immediately before Frame_23331E.
     public static final int MAP_MGZ_SWINGING_PLATFORM_ADDR = 0x233318; // Map_MGZSwingingPlatform (3 frames)
+    // Map_MGZTriggerPlatform_ has a 2-word frame-offset table immediately before Frame_2339B6.
+    // Base = first frame payload ($2339B6) - 4 bytes of offsets = $2339B2.
+    public static final int MAP_MGZ_TRIGGER_PLATFORM_ADDR = 0x2339B2; // Map_MGZTriggerPlatform (2 frames)
     // Map_MGZSwingingSpikeBall_ has a 4-word frame-offset table immediately before Frame_23357A.
     public static final int MAP_MGZ_SWINGING_SPIKE_BALL_ADDR = 0x233572; // Map_MGZSwingingSpikeBall (4 frames)
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1

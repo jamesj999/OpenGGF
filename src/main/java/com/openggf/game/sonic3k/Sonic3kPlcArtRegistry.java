@@ -927,6 +927,15 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Trigger Platform: make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_TRIGGER_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_TRIGGER_PLATFORM_ADDR,
+                1,
+                2,
+                null
+        ));
+
         // Swinging Spike Ball: make_art_tile(ArtTile_MGZMisc1, 1, 0)
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.MGZ_SWINGING_SPIKE_BALL,
