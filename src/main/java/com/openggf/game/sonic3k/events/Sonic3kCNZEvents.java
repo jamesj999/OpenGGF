@@ -41,8 +41,101 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     // State
     // =========================================================================
 
+    /**
+     * CNZ-local foreground routine mirror.
+     *
+     * <p>CNZ will eventually split FG and BG state the same way the ROM keeps
+     * separate {@code Events_routine_fg} / {@code Events_routine_bg} counters.
+     * This must stay local to the CNZ handler rather than reaching into
+     * {@link com.openggf.game.AbstractLevelEventManager}'s protected counters.
+     */
+    private int fgRoutine;
+
+    /**
+     * CNZ-local background routine mirror.
+     *
+     * <p>The later boss and teleporter slices use this to model
+     * {@code CNZ1_BackgroundEvent} / {@code CNZ2_BackgroundEvent} phases
+     * directly on the zone event object.
+     */
+    private int bgRoutine;
+
     /** ROM: Events_fg_5 — set by results screen / signpost to trigger BG act transition. */
     private boolean eventsFg5;
+
+    /**
+     * Published deform phase source corresponding to the ROM value later read by
+     * {@code AnimateTiles_CNZ} via {@code Events_bg+$10}.
+     */
+    private int deformPhaseBgX;
+
+    /**
+     * Published CNZ background camera X corresponding to
+     * {@code Camera_X_pos_BG_copy}. Scroll/parallax code publishes this so tile
+     * animation and other systems consume the same stabilized BG X input.
+     */
+    private int publishedBgCameraX;
+
+    /**
+     * Boss scroll offset Y published by the CNZ miniboss scroll-control object.
+     * This is the ROM-shaped event value used by {@code CNZ1_BossLevelScroll}
+     * and {@code CNZ1_BossLevelScroll2}.
+     */
+    private int bossScrollOffsetY;
+
+    /**
+     * Boss scroll velocity Y accumulator written by the scroll-control object.
+     * Stored as a raw fixed-point integer so later slices can preserve the ROM's
+     * acceleration math exactly.
+     */
+    private int bossScrollVelocityY;
+
+    /**
+     * Suppresses wall-grab interactions during CNZ object/event sequences that
+     * would otherwise let the player cling to geometry the ROM temporarily
+     * treats as non-grabbable.
+     */
+    private boolean wallGrabSuppressed;
+
+    /**
+     * Latest requested target water level in world Y coordinates.
+     *
+     * <p>CNZ helper objects write the same target values the ROM stores in its
+     * event workspace, such as the Slice 0 canary target {@code $0A58}.
+     */
+    private int waterTargetY;
+
+    /**
+     * Object-event bridge flag used by the Act 1 water button helper before it
+     * commits the final target-Y write.
+     */
+    private boolean waterButtonArmed;
+
+    /**
+     * Boss flag mirror for CNZ objects. Later slices use this to gate event
+     * progression during miniboss and end-boss ownership windows.
+     */
+    private boolean bossFlag;
+
+    /**
+     * Tracks whether the Knuckles-only Act 2 teleporter route has been entered.
+     */
+    private boolean knucklesTeleporterRouteActive;
+
+    /**
+     * Tracks whether the teleporter beam child has been spawned after the route
+     * finishes loading its art and settles the player.
+     */
+    private boolean teleporterBeamSpawned;
+
+    /**
+     * Last queued arena chunk coordinates. This is a narrow Slice 0 scaffold for
+     * the miniboss arena destruction bridge; later slices will replace the
+     * single-slot storage with the real queued write pipeline.
+     */
+    private int arenaChunkWorldX;
+    private int arenaChunkWorldY;
+    private boolean arenaChunkDestructionQueued;
 
     /** Current boss background scroll mode, derived from BG event state. */
     private BossBackgroundMode bossBackgroundMode = BossBackgroundMode.NORMAL;
@@ -70,7 +163,22 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     @Override
     public void init(int act) {
         super.init(act);
+        fgRoutine = 0;
+        bgRoutine = 0;
         eventsFg5 = false;
+        deformPhaseBgX = 0;
+        publishedBgCameraX = 0;
+        bossScrollOffsetY = 0;
+        bossScrollVelocityY = 0;
+        wallGrabSuppressed = false;
+        waterTargetY = 0;
+        waterButtonArmed = false;
+        bossFlag = false;
+        knucklesTeleporterRouteActive = false;
+        teleporterBeamSpawned = false;
+        arenaChunkWorldX = 0;
+        arenaChunkWorldY = 0;
+        arenaChunkDestructionQueued = false;
         bossBackgroundMode = BossBackgroundMode.NORMAL;
     }
 
@@ -128,6 +236,137 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         return bossBackgroundMode;
     }
 
+    /**
+     * CNZ-local foreground routine mirroring the ROM FG routine counter.
+     */
+    public int getForegroundRoutine() {
+        return fgRoutine;
+    }
+
+    /**
+     * CNZ-local background routine mirroring the ROM BG routine counter.
+     */
+    public int getBackgroundRoutine() {
+        return bgRoutine;
+    }
+
+    /**
+     * Test and bootstrap hook for restoring the CNZ foreground routine without
+     * touching {@link com.openggf.game.AbstractLevelEventManager} internals.
+     */
+    public void forceForegroundRoutine(int routine) {
+        this.fgRoutine = routine;
+    }
+
+    /**
+     * Test and bootstrap hook for restoring the CNZ background routine.
+     */
+    public void forceBackgroundRoutine(int routine) {
+        this.bgRoutine = routine;
+    }
+
+    /**
+     * Publishes the ROM-equivalent deform inputs consumed by later CNZ systems:
+     * the phase source derived from {@code Events_bg+$10} and the stabilized
+     * background camera X copy.
+     */
+    public void setPublishedDeformInputs(int phaseSourceX, int bgCameraX) {
+        this.deformPhaseBgX = phaseSourceX;
+        this.publishedBgCameraX = bgCameraX;
+    }
+
+    public int getDeformPhaseBgX() {
+        return deformPhaseBgX;
+    }
+
+    public int getPublishedBgCameraX() {
+        return publishedBgCameraX;
+    }
+
+    /**
+     * Stores the CNZ boss-scroll Y offset and velocity exactly as the miniboss
+     * scroll-control object would publish them into the ROM event workspace.
+     */
+    public void setBossScrollState(int offsetY, int velocityY) {
+        this.bossScrollOffsetY = offsetY;
+        this.bossScrollVelocityY = velocityY;
+    }
+
+    public int getBossScrollOffsetY() {
+        return bossScrollOffsetY;
+    }
+
+    public int getBossScrollVelocityY() {
+        return bossScrollVelocityY;
+    }
+
+    public boolean isWallGrabSuppressed() {
+        return wallGrabSuppressed;
+    }
+
+    public void setWallGrabSuppressed(boolean wallGrabSuppressed) {
+        this.wallGrabSuppressed = wallGrabSuppressed;
+    }
+
+    public int getWaterTargetY() {
+        return waterTargetY;
+    }
+
+    public void setWaterTargetY(int waterTargetY) {
+        this.waterTargetY = waterTargetY;
+    }
+
+    public boolean isWaterButtonArmed() {
+        return waterButtonArmed;
+    }
+
+    public void setWaterButtonArmed(boolean waterButtonArmed) {
+        this.waterButtonArmed = waterButtonArmed;
+    }
+
+    public boolean isBossFlag() {
+        return bossFlag;
+    }
+
+    public void setBossFlag(boolean bossFlag) {
+        this.bossFlag = bossFlag;
+    }
+
+    public void beginKnucklesTeleporterRoute() {
+        knucklesTeleporterRouteActive = true;
+        bossBackgroundMode = BossBackgroundMode.ACT2_KNUCKLES_TELEPORTER;
+    }
+
+    public boolean isKnucklesTeleporterRouteActive() {
+        return knucklesTeleporterRouteActive;
+    }
+
+    public void markTeleporterBeamSpawned() {
+        teleporterBeamSpawned = true;
+    }
+
+    public boolean isTeleporterBeamSpawned() {
+        return teleporterBeamSpawned;
+    }
+
+    public void queueArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
+        arenaChunkWorldX = chunkWorldX;
+        arenaChunkWorldY = chunkWorldY;
+        arenaChunkDestructionQueued = true;
+    }
+
+    public boolean isArenaChunkDestructionQueued() {
+        return arenaChunkDestructionQueued;
+    }
+
+    public int getArenaChunkWorldX() {
+        return arenaChunkWorldX;
+    }
+
+    public int getArenaChunkWorldY() {
+        return arenaChunkWorldY;
+    }
+
     /** Set the Events_fg_5 flag (called by results screen / signpost). */
     public void setEventsFg5(boolean flag) {
         this.eventsFg5 = flag;
@@ -138,5 +377,15 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
     public boolean isEventsFg5() {
         return eventsFg5;
+    }
+
+    @Override
+    public int getDynamicResizeRoutine() {
+        return fgRoutine;
+    }
+
+    @Override
+    public void setDynamicResizeRoutine(int routine) {
+        this.fgRoutine = routine;
     }
 }
