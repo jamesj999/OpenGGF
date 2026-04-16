@@ -19,6 +19,30 @@ This spec covers only these CNZ traversal objects:
 - `Obj_CNZVacuumTube`
 - `Obj_CNZSpiralTube`
 
+Pinned object IDs for this phase:
+
+| Object | ID |
+|--------|----|
+| `Obj_CNZBalloon` | `0x41` |
+| `Obj_CNZCannon` | `0x42` |
+| `Obj_CNZRisingPlatform` | `0x43` |
+| `Obj_CNZTrapDoor` | `0x44` |
+| `Obj_CNZHoverFan` | `0x46` |
+| `Obj_CNZCylinder` | `0x47` |
+| `Obj_CNZVacuumTube` | `0x48` |
+| `Obj_CNZSpiralTube` | `0x4C` |
+
+Deferred adjacent CNZ-facing slots for clarity:
+
+| Deferred object/slot | ID |
+|----------------------|----|
+| `Obj_CNZLightBulb` | `0x45` |
+| `Obj_CNZGiantWheel` | `0x49` |
+| `Obj_Bumper` / shared bumper slot used in this range | `0x4A` |
+| `Obj_CNZTriangleBumpers` | `0x4B` |
+| `Obj_CNZBarberPoleSprite` | `0x4D` |
+| `Obj_CNZWireCage` | `0x4E` |
+
 This is the first document in a split CNZ object follow-up. Later specs will
 cover:
 
@@ -139,11 +163,31 @@ Explicitly deferred to later specs:
 
 - `LightBulb`
 - `GiantWheel`
+- `Bumper`
 - `TriangleBumpers`
 - `BarberPoleSprite`
 - `WireCage`
 - other decorative or lower-priority CNZ gimmicks outside the traversal set
 - CNZ badniks and deeper boss parity
+
+## Subtype Complexity Overview
+
+The implementation plan must verify exact subtype semantics from the disassembly
+before coding each object, but the current scope estimate should assume:
+
+| Object | Expected subtype complexity | Planning note |
+|--------|-----------------------------|---------------|
+| `Balloon` | low | likely variant/animation or bounce-selection behavior rather than path-heavy dispatch |
+| `Cannon` | medium | likely direction, launch arc, or power selection |
+| `RisingPlatform` | medium | likely travel-distance or trigger-mode selection |
+| `TrapDoor` | medium | likely open timing or orientation selection |
+| `HoverFan` | medium | likely force window, orientation, or activation variant |
+| `Cylinder` | medium-high | temporary player control with variant-specific movement rules |
+| `VacuumTube` | high | likely path or route selection with substantial path-data volume |
+| `SpiralTube` | high | likely path or route selection with substantial path-data volume |
+
+`VacuumTube` and `SpiralTube` must be treated as potentially path-heavy objects
+until the disassembly confirms otherwise.
 
 ## Architecture
 
@@ -174,6 +218,22 @@ Workers must reuse existing framework surfaces where appropriate:
 
 These traversal objects must not publish new CNZ event/runtime state unless
 the ROM actually couples them to another subsystem.
+
+### Reuse Candidates
+
+The implementation plan must treat the following existing classes as the
+primary reuse candidates before introducing new traversal/path machinery:
+
+- `WaypointPathFollower` for generic waypoint stepping, dominant-axis speed
+  handling, and index progression
+- `AutomaticTunnelObjectInstance` for subtype-driven capture/path-follow/release
+  structure and large path-table handling
+- `HCZTwistingLoopObjectInstance` for spiral/tube-style player routing,
+  control-lock, and forced rolling/animation/radius parity
+
+These are reuse candidates, not mandatory base classes. If a traversal object
+does not match one of these patterns closely enough, the implementation plan
+must say why and define the object-local alternative explicitly.
 
 ### Coordinate Rule
 
@@ -251,6 +311,22 @@ Expected outcomes:
 - explicit documentation if the engine uses a faithful approximation instead of
   a direct ROM path structure
 
+Preconditions:
+
+- verify whether `VacuumTube` and `SpiralTube` path data lives on the S&K side
+  or the Sonic 3 side of the lock-on ROM
+- verify whether the path format matches the engine's existing
+  `AutomaticTunnelObjectInstance` waypoint-table style or uses a different
+  structure
+- verify whether both objects share one path-data format/table family or use
+  separate data sources
+
+Scope risk:
+
+If the CNZ tube objects use AutomaticTunnel-scale path volume or a distinct
+format, Slice 3 should be treated as the highest-risk slice in the follow-on
+plan and costed accordingly.
+
 ## Per-Object Implementation Contract
 
 Each object in this spec is a full vertical port.
@@ -264,6 +340,8 @@ Required per object:
 - ROM-backed art, mappings, animation, and DPLC integration where applicable
 - headless tests for deterministic gameplay seams
 - targeted visual validation for motion-heavy or path-heavy objects
+- forced player animation, rolling state, and collision-radius changes during
+  object-controlled traversal where the ROM applies them
 
 Per object, the implementation plan must explicitly document:
 
@@ -286,6 +364,8 @@ Required:
 - every non-obvious state machine, subtype split, control-lock window,
   launch/routing rule, or art-loading decision must have Javadoc or a concise
   code comment tied to ROM behavior
+- every forced player animation or radius change during traversal control must
+  be documented where it is applied
 - when the Java structure differs from the ROM, the code must justify the
   adaptation locally
 - tests should include short ROM notes wherever they are locking a specific
@@ -306,10 +386,12 @@ Examples of required assertions by object family:
 - `RisingPlatform`: motion trigger, travel bounds, rider behavior
 - `TrapDoor`: open/close state progression, collision changes, rider handling
 - `HoverFan`: force application window, push direction/strength, gating
-- `Cannon`: player capture, launch state, release vector, control restoration
-- `Cylinder`: player routing onto and off the cylinder path, control ownership
+- `Cannon`: player capture, forced animation/radii, launch state, release
+  vector, control restoration
+- `Cylinder`: player routing onto and off the cylinder path, forced
+  animation/radii, and control ownership
 - `VacuumTube` / `SpiralTube`: route entry conditions, path progression, exit
-  position, control unlock
+  position, forced animation/radii, and control unlock
 
 Each slice also needs registry canaries proving the covered objects no longer
 resolve to `PlaceholderObjectInstance`.
@@ -322,6 +404,7 @@ Required visual targets:
 
 - `Cannon`
 - `Cylinder`
+- `HoverFan`
 - `VacuumTube`
 - `SpiralTube`
 
@@ -330,7 +413,6 @@ Optional but encouraged when useful:
 - `Balloon`
 - `RisingPlatform`
 - `TrapDoor`
-- `HoverFan`
 
 Visual validation must compare ROM/disassembly-backed reference beats against
 engine output, and must explicitly label the zone as **Carnival Night Zone**
