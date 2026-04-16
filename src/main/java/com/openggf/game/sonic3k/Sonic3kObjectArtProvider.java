@@ -160,6 +160,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             loadSharedBossExplosionArt();
             loadCnzMinibossArtFromPlc();
             loadCnzEndBossArt();
+            loadCnzTraversalArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -983,6 +984,14 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet();
             case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet();
             case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet();
+            case "buildCnzBalloonSheet" -> art.buildCnzBalloonSheet();
+            case "buildCnzCannonSheet" -> art.buildCnzCannonSheet();
+            case "buildCnzRisingPlatformSheet" -> art.buildCnzRisingPlatformSheet();
+            case "buildCnzTrapDoorSheet" -> art.buildCnzTrapDoorSheet();
+            case "buildCnzHoverFanSheet" -> art.buildCnzHoverFanSheet();
+            case "buildCnzCylinderSheet" -> art.buildCnzCylinderSheet();
+            case "buildCnzVacuumTubeSheet" -> art.buildCnzVacuumTubeSheet();
+            case "buildCnzSpiralTubeSheet" -> art.buildCnzSpiralTubeSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;
@@ -1269,6 +1278,33 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             }
         } catch (IOException e) {
             LOG.warning("Failed to load CNZ end boss art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads the CNZ traversal object sheets directly from ROM.
+     *
+     * <p>Task 1 claims the art-sheet registrations for the visible traversal
+     * objects so the new object slots can resolve immediately. Vacuum Tube and
+     * Spiral Tube remain controller-only stubs in this slice and intentionally
+     * have no dedicated sheet yet.
+     */
+    private void loadCnzTraversalArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Level level = GameServices.level().getCurrentLevel();
+            Sonic3kObjectArt art = new Sonic3kObjectArt(level, reader);
+
+            registerSheet(Sonic3kObjectArtKeys.CNZ_BALLOON, art.buildCnzBalloonSheet());
+            registerSheet(Sonic3kObjectArtKeys.CNZ_CANNON, art.buildCnzCannonSheet());
+            registerSheet(Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, art.buildCnzRisingPlatformSheet());
+            registerSheet(Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, art.buildCnzTrapDoorSheet());
+            registerSheet(Sonic3kObjectArtKeys.CNZ_HOVER_FAN, art.buildCnzHoverFanSheet());
+            registerSheet(Sonic3kObjectArtKeys.CNZ_CYLINDER, art.buildCnzCylinderSheet());
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ traversal art: " + e.getMessage());
         }
     }
 

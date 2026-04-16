@@ -1120,7 +1120,23 @@ public class Sonic3kConstants {
     public static final int MAP_CLAMER_ADDR = 0x361ABC;
     public static final int ART_KOSM_CLAMER_SHOT_ADDR = 0x370058;
     public static final int ART_KOSM_CNZ_BALLOON_ADDR = 0x37060E;
-    public static final int MAP_CNZ_BALLOON_ADDR = 0x230502;
+    // CNZ traversal object sheets live in the LockOn S3 half of the combined ROM.
+    // Keep these addresses paired with the S3K disassembly labels; do not shift
+    // them to raw Sonic 3 source offsets.
+    public static final int MAP_CNZ_BALLOON_ADDR = 0x230502; // Map_CNZBalloon (25 frames)
+    public static final int MAP_CNZ_CANNON_ADDR = 0x230A32; // Map_CNZCannon (10 frames)
+    public static final int MAP_CNZ_RISING_PLATFORM_ADDR = 0x230CDC; // Map_CNZRisingPlatform (3 frames)
+    public static final int MAP_CNZ_TRAP_DOOR_ADDR = 0x230DCC; // Map_CNZTrapDoor (3 frames)
+    public static final int MAP_CNZ_HOVER_FAN_ADDR = 0x231010; // Map_CNZHoverFan (8 frames)
+    public static final int MAP_CNZ_CYLINDER_ADDR = 0x2317B0; // Map_CNZCylinder (4 frames)
+
+    // ArtTile_CNZMisc-derived VRAM tile bases used by the CNZ traversal objects.
+    public static final int ARTTILE_CNZ_BALLOON = ARTTILE_CNZ_MISC;
+    public static final int ARTTILE_CNZ_CANNON = ARTTILE_CNZ_MISC + 0x23;
+    public static final int ARTTILE_CNZ_RISING_PLATFORM = ARTTILE_CNZ_MISC + 0x6D;
+    public static final int ARTTILE_CNZ_TRAP_DOOR = ARTTILE_CNZ_MISC + 0x9F;
+    public static final int ARTTILE_CNZ_HOVER_FAN = ARTTILE_CNZ_MISC + 0x97;
+    public static final int ARTTILE_CNZ_CYLINDER = ARTTILE_CNZ_MISC + 0x3D;
 
     // ===== FBZ Badnik Art =====
     public static final int ART_KOSM_FBZ_BLASTER_ADDR = 0x0DC6C2;
