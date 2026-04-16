@@ -878,8 +878,8 @@ public final class Sonic3kPlcArtRegistry {
                     Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR,
                     CompressionType.KOSINSKI_MODULED,
                     0,
-                    Sonic3kConstants.MAP_MGZ_MINIBOSS_ADDR,
-                    1,
+                    Sonic3kConstants.MAP_MGZ_ENDBOSS_DEBRIS_ADDR,
+                    2, // ROM: make_art_tile(ArtTile_MGZMiniBossDebris,2,0) — palette line 2
                     -1
             ));
         } else {

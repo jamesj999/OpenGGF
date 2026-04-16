@@ -1108,6 +1108,7 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_MGZ_MINIBOSS_ADDR = 0x36B02C;
     public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
+    public static final int MAP_MGZ_ENDBOSS_DEBRIS_ADDR = 0x3637D6;
 
     // ===== CNZ Badnik Art =====
     public static final int ART_KOSM_SPARKLE_ADDR = 0x3700CA;
