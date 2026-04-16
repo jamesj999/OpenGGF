@@ -918,6 +918,15 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Swinging Spike Ball: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SWINGING_SPIKE_BALL,
+                Sonic3kConstants.MAP_MGZ_SWINGING_SPIKE_BALL_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
         // Button: ArtTile_GrayButton, palette 0
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.BUTTON,
