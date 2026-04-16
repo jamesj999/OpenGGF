@@ -56,13 +56,16 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         updateDynamicSpawn(spawn.x(), bobbedY);
         angle = (angle + 1) & 0xFF;
 
-        if (playerEntity != null && isTouchingPlayer(playerEntity)) {
+        if (!popped && playerEntity != null && isTouchingPlayer(playerEntity)) {
             launchPlayer(playerEntity, frameCounter);
         }
     }
 
     @Override
     public int getCollisionFlags() {
+        if (popped) {
+            return 0;
+        }
         return COLLISION_FLAGS;
     }
 
@@ -73,11 +76,14 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
 
     @Override
     public boolean requiresContinuousTouchCallbacks() {
-        return true;
+        return !popped;
     }
 
     @Override
     public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
+        if (popped) {
+            return;
+        }
         launchPlayer(player, frameCounter);
     }
 
@@ -102,7 +108,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     }
 
     private void launchPlayer(PlayableEntity playerEntity, int frameCounter) {
-        if (playerEntity == null || lastLaunchFrame == frameCounter) {
+        if (popped || playerEntity == null || lastLaunchFrame == frameCounter) {
             return;
         }
         lastLaunchFrame = frameCounter;
