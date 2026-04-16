@@ -1,11 +1,21 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
+import com.openggf.level.render.PatternSpriteRenderer;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class TestCnzTraversalRegistry {
 
@@ -46,5 +56,44 @@ public class TestCnzTraversalRegistry {
                 "Expected " + expectedClassName + " but found "
                         + (instance != null ? instance.getClass().getName() : "null"));
         assertEquals(expected, instance.getClass());
+    }
+
+    @Test
+    public void visibleTraversalObjectsUseTheirRegisteredRendererInsteadOfRenderingNothing() {
+        assertVisibleObjectRendersFrameZero(new CnzBalloonInstance(new ObjectSpawn(0x1200, 0x0580,
+                        0x41, 3, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_BALLOON, 15, 0x1200, 0x0580);
+        assertVisibleObjectRendersFrameZero(new CnzCannonInstance(new ObjectSpawn(0x1600, 0x0680,
+                        0x42, 0, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_CANNON, 9, 0x1600, 0x0680);
+        assertVisibleObjectRendersFrameZero(new CnzRisingPlatformInstance(new ObjectSpawn(0x1800, 0x05A0,
+                        0x43, 0, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, 0, 0x1800, 0x05A0);
+        assertVisibleObjectRendersFrameZero(new CnzTrapDoorInstance(new ObjectSpawn(0x1A00, 0x05C0,
+                        0x44, 0, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, 0, 0x1A00, 0x05C0);
+        assertVisibleObjectRendersFrameZero(new CnzHoverFanInstance(new ObjectSpawn(0x1C00, 0x05E0,
+                        0x46, 0x90, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_HOVER_FAN, 1, 0x1C00, 0x05E0);
+        assertVisibleObjectRendersFrameZero(new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
+                        0x47, 0, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_CYLINDER, 0, 0x1E00, 0x0600);
+    }
+
+    private static void assertVisibleObjectRendersFrameZero(ObjectInstance instance,
+            String artKey, int frame, int x, int y) {
+        LevelManager levelManager = mock(LevelManager.class);
+        ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
+        PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
+        when(levelManager.getObjectRenderManager()).thenReturn(renderManager);
+        when(renderManager.getRenderer(artKey)).thenReturn(renderer);
+        when(renderer.isReady()).thenReturn(true);
+
+        ((com.openggf.level.objects.AbstractObjectInstance) instance).setServices(
+                new TestObjectServices().withLevelManager(levelManager));
+        instance.appendRenderCommands(new ArrayList<>());
+
+        verify(renderManager).getRenderer(artKey);
+        verify(renderer).drawFrameIndex(frame, x, y, false, false);
     }
 }
