@@ -79,6 +79,14 @@ public class AniPlcScriptState {
         return destTileIndex + Math.max(tilesPerFrame, 1);
     }
 
+    public int destinationTileIndex() {
+        return destTileIndex;
+    }
+
+    public int tilesPerFrame() {
+        return tilesPerFrame;
+    }
+
     public void prime(Level level, GraphicsManager graphicsManager) {
         if (frameTileIds.length == 0 || artPatterns.length == 0) {
             return;

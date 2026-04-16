@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.level.Chunk;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.Level;
@@ -90,7 +91,7 @@ public class TestS2Htz1Headless {
         }
 
         // Verify earthquake activated
-        assertTrue(lem.getCameraBgYOffset() > 0 || lem.getEventRoutine() >= 2, "Earthquake should have triggered (camera in zone)");
+        assertTrue(htzState().cameraBgYOffset() > 0 || lem.getEventRoutine() >= 2, "Earthquake should have triggered (camera in zone)");
 
         int baseY = sprite.getY();
         int maxY = baseY;
@@ -535,7 +536,7 @@ public class TestS2Htz1Headless {
         System.out.println("  Sonic: (" + sprite.getX() + ", " + sprite.getY() + ")");
         System.out.println("  HTZ shake active: " + GameServices.gameState().isHtzScreenShakeActive());
         System.out.println("  Screen shake active: " + GameServices.gameState().isScreenShakeActive());
-        System.out.println("  cameraBgYOffset: " + levelEventManager.getCameraBgYOffset());
+        System.out.println("  cameraBgYOffset: " + htzState().cameraBgYOffset());
 
         if (!enteredZone) {
             // Try forcing the shake manually to test the offset logic
@@ -554,7 +555,7 @@ public class TestS2Htz1Headless {
         for (int frame = 0; frame < 60; frame++) {
             fixture.stepFrame(false, false, false, false, false);
 
-            int cameraBgYOffset = levelEventManager.getCameraBgYOffset();
+            int cameraBgYOffset = htzState().cameraBgYOffset();
             int shakeOffsetY = parallaxManager.getShakeOffsetY();
             boolean screenShakeActive = GameServices.gameState().isScreenShakeActive();
             int combinedOffset = cameraBgYOffset + shakeOffsetY;
@@ -632,8 +633,7 @@ public class TestS2Htz1Headless {
                     // Log earthquake state
                     boolean htzShake = GameServices.gameState().isHtzScreenShakeActive();
                     boolean screenShake = GameServices.gameState().isScreenShakeActive();
-                    int bgYOffset = ((Sonic2LevelEventManager) GameServices.module()
-                            .getLevelEventProvider()).getCameraBgYOffset();
+                    int bgYOffset = htzState().cameraBgYOffset();
                     int shakeY = GameServices.parallax().getShakeOffsetY();
 
                     System.out.println("HTZ shake active: " + htzShake);
@@ -776,6 +776,12 @@ public class TestS2Htz1Headless {
                 }
             }
         }
+    }
+
+    private static HtzRuntimeState htzState() {
+        return GameServices.zoneRuntimeRegistry()
+                .currentAs(HtzRuntimeState.class)
+                .orElseThrow(() -> new AssertionError("Expected HTZ runtime state to be installed"));
     }
 }
 

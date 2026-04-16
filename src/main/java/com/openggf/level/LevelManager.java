@@ -19,6 +19,15 @@ import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.PerformanceProfiler;
+import com.openggf.game.mutation.LayoutMutationContext;
+import com.openggf.game.mutation.LevelMutationSurface;
+import com.openggf.game.mutation.MutationEffects;
+import com.openggf.game.render.AdvancedRenderFrameState;
+import com.openggf.game.render.AdvancedRenderModeContext;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectContext;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
+import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
@@ -135,6 +144,7 @@ public class LevelManager {
     private ObjectManager objectManager;
     private RingManager ringManager;
     private ZoneFeatureProvider zoneFeatureProvider;
+    private AdvancedRenderFrameState currentAdvancedRenderFrameState = AdvancedRenderFrameState.disabled();
     private TouchResponseTable touchResponseTable;
     private ObjectRenderManager objectRenderManager;
     private HudRenderManager hudRenderManager;
@@ -325,7 +335,7 @@ public class LevelManager {
             return;
         }
         applyForegroundScrollFeatures(tilemapRenderer);
-        short[] fgPerColumnVScrollLow = parallaxManager.getVScrollPerColumnFGForShader();
+        short[] fgPerColumnVScrollLow = resolveForegroundPerColumnVScroll();
         if (fgPerColumnVScrollLow != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollLow);
         }
@@ -368,7 +378,7 @@ public class LevelManager {
             return;
         }
         applyForegroundScrollFeatures(tilemapRenderer);
-        short[] fgPerColumnVScrollHigh = parallaxManager.getVScrollPerColumnFGForShader();
+        short[] fgPerColumnVScrollHigh = resolveForegroundPerColumnVScroll();
         if (fgPerColumnVScrollHigh != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollHigh);
         }
@@ -416,7 +426,7 @@ public class LevelManager {
         glBlendFunc(GL_ONE, GL_ONE);
 
         applyForegroundScrollFeatures(tilemapRenderer);
-        short[] fgPerColumnVScrollFbo = parallaxManager.getVScrollPerColumnFGForShader();
+        short[] fgPerColumnVScrollFbo = resolveForegroundPerColumnVScroll();
         if (fgPerColumnVScrollFbo != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollFbo);
         }
@@ -507,14 +517,38 @@ public class LevelManager {
     });
 
     private void applyForegroundScrollFeatures(TilemapGpuRenderer tilemapRenderer) {
-        if (zoneFeatureProvider != null
-                && zoneFeatureProvider.shouldEnableForegroundHeatHaze(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
+        if (currentAdvancedRenderFrameState.enableForegroundHeatHaze()
+                || currentAdvancedRenderFrameState.enablePerLineForegroundScroll()) {
             tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
         }
-        if (zoneFeatureProvider != null
-                && zoneFeatureProvider.shouldEnablePerLineForegroundScroll(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
-            tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
+    }
+
+    private short[] resolveForegroundPerColumnVScroll() {
+        short[] override = currentAdvancedRenderFrameState.foregroundPerColumnVScrollOverride();
+        return override != null ? override : parallaxManager.getVScrollPerColumnFGForShader();
+    }
+
+    private void resolveAdvancedRenderFrameState(int frameCounter) {
+        AdvancedRenderModeController controller = GameServices.advancedRenderModeControllerOrNull();
+        if (controller == null || controller.isEmpty() || camera == null) {
+            currentAdvancedRenderFrameState = AdvancedRenderFrameState.disabled();
+            return;
         }
+        currentAdvancedRenderFrameState = controller.resolve(new AdvancedRenderModeContext(
+                camera,
+                frameCounter,
+                this,
+                getFeatureZoneId(),
+                getFeatureActId(),
+                camera.getX()));
+    }
+
+    private void dispatchSpecialRenderEffects(SpecialRenderEffectStage stage, int frameCounter) {
+        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistryOrNull();
+        if (registry == null || registry.isEmpty() || camera == null || graphicsManager == null) {
+            return;
+        }
+        registry.dispatch(stage, new SpecialRenderEffectContext(camera, frameCounter, this, graphicsManager));
     }
 
     @Deprecated(forRemoval = true)
@@ -716,7 +750,7 @@ public class LevelManager {
 
         java.util.BitSet dirtyPatterns = ml.consumeDirtyPatterns();
         if (!dirtyPatterns.isEmpty()) {
-            graphicsManager.reuploadDirtyPatterns(dirtyPatterns, ml);
+            reuploadDirtyPatterns(dirtyPatterns);
         }
 
         java.util.BitSet dirtyBlocks = ml.consumeDirtyBlocks();
@@ -734,12 +768,12 @@ public class LevelManager {
             // to keep MutableLevel state in sync with the frame pipeline.
         }
 
-        if (ml.consumeObjectsDirty() && objectManager != null) {
-            objectManager.resyncSpawnList(ml.getObjects());
+        if (ml.consumeObjectsDirty()) {
+            resyncObjectSpawnListFromLevel();
         }
 
-        if (ml.consumeRingsDirty() && ringManager != null) {
-            ringManager.resyncSpawnList(ml.getRings());
+        if (ml.consumeRingsDirty()) {
+            resyncRingSpawnListFromLevel();
         }
     }
 
@@ -849,6 +883,14 @@ public class LevelManager {
      */
     public void initZoneFeatures() throws IOException {
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        SpecialRenderEffectRegistry specialRenderEffectRegistry = GameServices.specialRenderEffectRegistryOrNull();
+        AdvancedRenderModeController advancedRenderModeController = GameServices.advancedRenderModeControllerOrNull();
+        if (specialRenderEffectRegistry != null) {
+            specialRenderEffectRegistry.clear();
+        }
+        if (advancedRenderModeController != null) {
+            advancedRenderModeController.clear();
+        }
         initializeZoneFeatureProvider(zoneFeatureProvider);
     }
 
@@ -856,16 +898,34 @@ public class LevelManager {
         if (zoneFeatureProvider == null) {
             zoneFeatureProvider = gameModule.getZoneFeatureProvider();
         }
+        SpecialRenderEffectRegistry specialRenderEffectRegistry = GameServices.specialRenderEffectRegistryOrNull();
+        AdvancedRenderModeController advancedRenderModeController = GameServices.advancedRenderModeControllerOrNull();
+        if (specialRenderEffectRegistry != null) {
+            specialRenderEffectRegistry.clear();
+        }
+        if (advancedRenderModeController != null) {
+            advancedRenderModeController.clear();
+        }
         initializeZoneFeatureProvider(zoneFeatureProvider);
     }
 
     private void initializeZoneFeatureProvider(ZoneFeatureProvider zoneFeatureProvider) throws IOException {
         Rom rom = GameServices.rom().getRom();
+        SpecialRenderEffectRegistry specialRenderEffectRegistry = GameServices.specialRenderEffectRegistryOrNull();
+        AdvancedRenderModeController advancedRenderModeController = GameServices.advancedRenderModeControllerOrNull();
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
             // Cache zone feature patterns (water surface, etc.)
             int waterPatternBase = 0x30000; // High offset to avoid collision
             zoneFeatureProvider.ensurePatternsCached(graphicsManager, waterPatternBase);
+            if (specialRenderEffectRegistry != null) {
+                zoneFeatureProvider.registerSpecialRenderEffects(
+                        specialRenderEffectRegistry, getFeatureZoneId(), getFeatureActId());
+            }
+            if (advancedRenderModeController != null) {
+                zoneFeatureProvider.registerAdvancedRenderModes(
+                        advancedRenderModeController, getFeatureZoneId(), getFeatureActId());
+            }
         }
     }
 
@@ -1821,6 +1881,7 @@ public class LevelManager {
         }
 
         parallaxManager.update(currentZone, currentAct, camera, frameCounter, bgScrollY, level);
+        resolveAdvancedRenderFrameState(frameCounter);
 
         // Propagate shake offsets from parallax manager to camera.
         // This allows sprite rendering (via GraphicsManager.flush()) to shake
@@ -1846,6 +1907,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.renderAfterBackground(camera, frameCounter);
         }
+        dispatchSpecialRenderEffects(SpecialRenderEffectStage.AFTER_BACKGROUND, frameCounter);
 
         // Draw Foreground (Layer 0) low-priority pass
         profiler.beginSection("render.fg");
@@ -1885,6 +1947,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.renderAfterForeground(camera);
         }
+        dispatchSpecialRenderEffects(SpecialRenderEffectStage.AFTER_FOREGROUND, frameCounter);
 
         // Draw Foreground (Layer 0) high-priority pass to tile priority FBO
         // This captures high-priority tile pixels for the sprite priority shader
@@ -2246,6 +2309,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.render(camera, frameCounter);
         }
+        dispatchSpecialRenderEffects(SpecialRenderEffectStage.AFTER_SPRITES, frameCounter);
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.
         graphicsManager.registerCommand(disableWaterShaderCommand);
@@ -3084,6 +3148,61 @@ public class LevelManager {
     public void invalidateForegroundTilemap() {
         if (tilemapManager != null) {
             tilemapManager.invalidateForegroundTilemap();
+        }
+    }
+
+    public void reuploadDirtyPatterns(java.util.BitSet dirtyPatterns) {
+        if (dirtyPatterns == null || dirtyPatterns.isEmpty() || level == null) {
+            return;
+        }
+        graphicsManager.reuploadDirtyPatterns(dirtyPatterns, level);
+    }
+
+    public void resyncObjectSpawnListFromLevel() {
+        if (objectManager == null || level == null) {
+            return;
+        }
+        objectManager.resyncSpawnList(level.getObjects());
+    }
+
+    public void resyncRingSpawnListFromLevel() {
+        if (ringManager == null || level == null) {
+            return;
+        }
+        ringManager.resyncSpawnList(level.getRings());
+    }
+
+    public void flushQueuedLayoutMutations() {
+        Level currentLevel = getCurrentLevel();
+        if (currentLevel == null || !GameServices.hasRuntime()) {
+            return;
+        }
+
+        LevelMutationSurface surface = LevelMutationSurface.forLevel(currentLevel);
+        LayoutMutationContext context = new LayoutMutationContext(surface, this::applyMutationEffects);
+        GameServices.zoneLayoutMutationPipeline().flush(context);
+    }
+
+    public void applyMutationEffects(MutationEffects effects) {
+        if (effects == null || effects.isEmpty()) {
+            return;
+        }
+        if (effects.hasDirtyPatterns()) {
+            reuploadDirtyPatterns(effects.dirtyPatterns());
+        }
+        if (effects.dirtyRegionProcessingRequired()) {
+            processDirtyRegions();
+        }
+        if (effects.allTilemapsRedrawRequired()) {
+            invalidateAllTilemaps();
+        } else if (effects.foregroundRedrawRequired()) {
+            invalidateForegroundTilemap();
+        }
+        if (effects.objectResyncRequired()) {
+            resyncObjectSpawnListFromLevel();
+        }
+        if (effects.ringResyncRequired()) {
+            resyncRingSpawnListFromLevel();
         }
     }
 
@@ -4117,6 +4236,7 @@ public class LevelManager {
         objectManager = null;
         ringManager = null;
         zoneFeatureProvider = null;
+        currentAdvancedRenderFrameState = AdvancedRenderFrameState.disabled();
         objectRenderManager = null;
         hudRenderManager = null;
         animatedPatternManager = null;

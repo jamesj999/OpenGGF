@@ -31,25 +31,24 @@ This spec is produced by the **s3k-zone-analysis** skill (`.agents/skills/s3k-zo
 
 ## Architecture Overview
 
-The parallax system has three layers:
+The modern parallax path has four layers:
 
 ```
-ParallaxManager (singleton, game-agnostic)
-    |
-    v
 ScrollHandlerProvider (per-game, from GameModule)
     |
-    v
+    v chooses
 SwScrl{Zone} extends AbstractZoneScrollHandler
     |
-    v  fills 224-entry int[] horizScrollBuf with packed (FG<<16 | BG) values
+    v composes frame output through
+ScrollEffectComposer + DeformationPlan (+ ScatterFillPlan / WaterlineBlendComposer when needed)
     |
-    v  sets vscrollFactorBG (BG vertical scroll)
-    |
-    v  optionally sets perLineVScrollBG / perColumnVScrollBG
+    v exposes packed HScroll/VScroll state to
+LevelManager + ParallaxManager for the frame
 ```
 
 The GPU shader reads the 224-entry HScroll buffer (one value per visible scanline) and applies per-line horizontal scroll offsets to the background tilemap. This is how the Mega Drive's VDP HScroll works: each scanline can have an independent scroll position, creating the parallax effect.
+
+Prefer `ScrollEffectComposer` and the helpers in `level.scroll.compose` over hand-rolled scanline buffer loops. Keep scroll handlers frame-local and read any shared mode/state through `GameServices` plus typed runtime-state adapters rather than adding new singleton dependencies or direct event-handler references.
 
 ## Implementation Process
 
@@ -490,9 +489,13 @@ Many S3K zones change their background during gameplay. This is handled by the z
 
 #### 5.2 Coordinating Scroll Handler with Event Handler
 
-The scroll handler and event handler communicate through shared state. There are two patterns:
+The scroll handler and event handler communicate through shared state. The preferred pattern is a typed runtime-state adapter in `ZoneRuntimeRegistry`; only fall back to direct references when the shared framework cannot express the dependency cleanly.
 
-**Pattern A: Direct method calls (preferred)**
+**Pattern A: Typed runtime state (preferred)**
+
+The event handler writes mode flags or thresholds into a zone-specific runtime-state adapter, and the scroll handler reads that adapter through `GameServices.zoneRuntimeRegistry()` or an object-service equivalent.
+
+**Pattern B: Direct method calls**
 
 The event handler holds a reference to the scroll handler and calls methods on it:
 
@@ -512,7 +515,7 @@ public class Sonic3k{Zone}Events extends Sonic3kZoneEvents {
 }
 ```
 
-**Pattern B: Phase/flag fields on the scroll handler**
+**Pattern C: Phase/flag fields on the scroll handler**
 
 The scroll handler tracks phases internally, and the event handler sets them:
 

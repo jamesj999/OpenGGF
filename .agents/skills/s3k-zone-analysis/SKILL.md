@@ -7,6 +7,8 @@ description: Use when starting work on a new S3K zone to catalogue its features 
 
 Analyse the Sonic 3&K disassembly to produce a structured feature catalogue for a given zone. This skill reads the zone's event routines (`Dynamic_Resize`), parallax handlers (`Deform`), animated tile scripts (`AniPLC`), palette cycling (`AnPal`), and notable objects, then outputs a specification that other implementation skills consume.
 
+For every extracted feature, also note which runtime-owned framework should host the implementation on the Java side: `ZoneRuntimeRegistry`, `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`, `ZoneLayoutMutationPipeline`, `SpecialRenderEffectRegistry`, `AdvancedRenderModeController`, and the `level.scroll.compose` helpers centered on `ScrollEffectComposer`.
+
 The output is a **zone analysis spec** -- a structured document listing every feature, its disassembly location, confidence level, and implementation notes. This is the prerequisite step before implementing any zone feature.
 
 ## Inputs
@@ -458,6 +460,15 @@ Produce the zone analysis spec using the template below. Save it to `docs/s3k-zo
 ### Dependencies
 - {Feature X requires Feature Y to be implemented first}
 - {Feature Z requires PLC ID $XX to be registered}
+
+## Framework Routing
+
+- **Runtime state:** {which event/object/scroll state should live in a typed `ZoneRuntimeRegistry` adapter}
+- **Palette ownership:** {which palette mutations/cycles should route through `PaletteOwnershipRegistry` / `S3kPaletteWriteSupport`}
+- **Animated tiles:** {which scripts map cleanly to `AnimatedTileChannelGraph` channels vs. requiring custom DMA helpers}
+- **Layout mutations:** {which tile/block/chunk swaps should use `ZoneLayoutMutationPipeline` / `S3kSeamlessMutationExecutor`}
+- **Render registries:** {which overlays should be staged via `SpecialRenderEffectRegistry` or `AdvancedRenderModeController`}
+- **Scroll composition:** {which parallax bands/waterline behaviour should reuse `ScrollEffectComposer`, `DeformationPlan`, `ScatterFillPlan`, or `WaterlineBlendComposer`}
 
 ### Known Risks
 - {Any areas of LOW confidence that need deeper investigation}

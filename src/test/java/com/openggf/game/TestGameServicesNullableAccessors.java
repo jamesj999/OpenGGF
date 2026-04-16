@@ -28,6 +28,9 @@ class TestGameServicesNullableAccessors {
         assertNull(GameServices.terrainCollisionOrNull());
         assertNull(GameServices.waterOrNull());
         assertNull(GameServices.bonusStageOrNull());
+        assertNull(GameServices.animatedTileChannelGraphOrNull());
+        assertNull(GameServices.specialRenderEffectRegistryOrNull());
+        assertNull(GameServices.advancedRenderModeControllerOrNull());
     }
 
     @Test
@@ -47,6 +50,9 @@ class TestGameServicesNullableAccessors {
         assertSame(runtime.getTerrainCollisionManager(), GameServices.terrainCollisionOrNull());
         assertSame(runtime.getWaterSystem(), GameServices.waterOrNull());
         assertSame(runtime.getActiveBonusStageProvider(), GameServices.bonusStageOrNull());
+        assertSame(runtime.getAnimatedTileChannelGraph(), GameServices.animatedTileChannelGraphOrNull());
+        assertSame(runtime.getSpecialRenderEffectRegistry(), GameServices.specialRenderEffectRegistryOrNull());
+        assertSame(runtime.getAdvancedRenderModeController(), GameServices.advancedRenderModeControllerOrNull());
     }
 
     @Test
@@ -64,6 +70,9 @@ class TestGameServicesNullableAccessors {
         assertThrows(IllegalStateException.class, GameServices::terrainCollision);
         assertThrows(IllegalStateException.class, GameServices::water);
         assertThrows(IllegalStateException.class, GameServices::bonusStage);
+        assertThrows(IllegalStateException.class, GameServices::animatedTileChannelGraph);
+        assertThrows(IllegalStateException.class, GameServices::specialRenderEffectRegistry);
+        assertThrows(IllegalStateException.class, GameServices::advancedRenderModeController);
     }
 }
 

@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2.scroll;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
 
@@ -53,8 +53,10 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         this.bgCamera = bgCamera;
     }
 
-    private Sonic2LevelEventManager levelEvents() {
-        return (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
+    private HtzRuntimeState htzRuntimeState() {
+        return GameServices.zoneRuntimeRegistry()
+                .currentAs(HtzRuntimeState.class)
+                .orElseThrow(() -> new IllegalStateException("HTZ runtime state not installed"));
     }
 
     /**
@@ -328,9 +330,9 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
      * address BG map rows 0-1 containing lava/cave tile data (256px); VDP wraps vertically.
      */
     private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
-        Sonic2LevelEventManager levelEvents = levelEvents();
-        int bgYOffset = levelEvents.getCameraBgYOffset();
-        int bgXOffset = levelEvents.getHtzBgXOffset();
+        HtzRuntimeState htzState = htzRuntimeState();
+        int bgYOffset = htzState.cameraBgYOffset();
+        int bgXOffset = htzState.cameraBgXOffset();
 
         // Camera_BG positions used by HTZ_Screen_Shake.
         int bgXPos = cameraX - bgXOffset;

@@ -1,12 +1,13 @@
 # S3K-Donated Data Select Accurate Presentation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
 
 **Goal:** Replace the placeholder Data Select frontend with a ROM-accurate S3K-donated presentation, while keeping save/session semantics host-owned and routing Data Select only through the `1 PLAYER` title path.
 
 **Architecture:** Split Data Select into explicit startup routing, a donated presentation provider, and a host-game metadata profile. Native S3K and S1/S2 with S3K donation share the same ROM-backed S3K screen, while slot metadata, validation, and clear-restart rules remain owned by the active base game.
 
-**Tech Stack:** Java 21, Maven, JUnit 5/JUnit 4, LWJGL/OpenGL fixed-function wrapper code, ROM-backed asset loaders, existing `GameServices`/`RuntimeManager` service architecture.
+**Tech Stack:** Java 21, Maven, LWJGL/OpenGL fixed-function wrapper code, ROM-backed asset loaders, existing `GameServices`/`RuntimeManager` service architecture. Current and new tests must use JUnit 5 / Jupiter only; any JUnit 4 references below are historical migration context.
 
 ---
 

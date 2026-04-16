@@ -485,14 +485,12 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     private void requestHcz2Transition() {
         transitionRequested = true;
 
-        // Tell the event manager that the next HCZ Act 2 init should release the player.
+        // Tell the transition bridge that the next HCZ Act 2 init should release the player.
         // The player is still in the victory pose (objectControlled) so they don't land
         // on the old terrain. After the level reloads as Act 2, releasing them lets them
         // fall through the gap in Act 2's terrain.
-        Sonic3kLevelEventManager levelEventManager = levelEventManagerOrNull();
-        if (levelEventManager != null) {
-            levelEventManager.setHczPendingPostTransitionCutscene(true);
-        }
+        S3kTransitionWriteSupport.requestHczPostTransitionCutscene(
+                module().getLevelEventProvider());
 
         LevelManager lm = levelManager();
         SessionSaveRequests.requestCurrentSessionSave(SaveReason.PROGRESSION_SAVE);

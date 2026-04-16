@@ -2,12 +2,14 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
@@ -223,25 +225,22 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
-        Palette pal = level.getPalette(1);
         // ROM: bit 0 of $20(a0) determines which color set
         boolean useDark = (state.invulnerabilityTimer & 1) != 0;
         int[] colors = useDark ? CUSTOM_FLASH_DARK : CUSTOM_FLASH_BRIGHT;
-        for (int i = 0; i < CUSTOM_FLASH_INDICES.length; i++) {
-            byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
-            pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
-        }
-        var gm = services().graphicsManager();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(pal, 1);
-        }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.AIZ_MINIBOSS,
+                S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                1,
+                CUSTOM_FLASH_INDICES,
+                colors);
     }
 
     private void updateInit() {
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(true);
-        }
+        S3kAizEventWriteSupport.setBossFlag(services(), true);
         services().gameState().setCurrentBossId(0x91);
         loadBossPalette();
         state.routine = ROUTINE_WAIT_TRIGGER;
@@ -249,7 +248,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void updateWaitTrigger() {
         var camera = services().camera();
-        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
+        PlayerCharacter character = currentPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {
             return;
@@ -327,7 +326,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
      */
     private void onBreathCycleComplete() {
         // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
-        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
+        PlayerCharacter character = currentPlayerCharacter();
         if (character == PlayerCharacter.KNUCKLES) {
             setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
         }
@@ -481,7 +480,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
                         try {
                             byte[] palData = services().rom().readBytes(
                                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-                            services().updatePalette(1, palData);
+                            S3kPaletteWriteSupport.applyLine(
+                                    services().paletteOwnershipRegistryOrNull(),
+                                    services().currentLevel(),
+                                    services().graphicsManager(),
+                                    S3kPaletteOwners.AIZ_MINIBOSS,
+                                    S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                                    1,
+                                    palData);
                         } catch (Exception e) {
                             LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
                         }
@@ -562,14 +568,23 @@ public class AizMinibossInstance extends AbstractBossInstance {
         try {
             byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            services().updatePalette(1, line);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.AIZ_MINIBOSS,
+                    S3kPaletteOwners.PRIORITY_OBJECT_OVERRIDE,
+                    1,
+                    line);
         } catch (Exception e) {
             LOG.fine(() -> "AizMinibossInstance.loadBossPalette: " + e.getMessage());
         }
     }
 
-    private Sonic3kAIZEvents getAizEvents() {
-        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
+    private PlayerCharacter currentPlayerCharacter() {
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration());
     }
 
     @Override

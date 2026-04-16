@@ -22,8 +22,8 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.ShieldType;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLevelTriggerManager;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -441,12 +441,9 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
     // Uses inherited getRenderManager() from AbstractObjectInstance
 
     private boolean isKnuckles() {
-        try {
-            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
-            return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
-        } catch (Exception e) {
-            return false;
-        }
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration()) == PlayerCharacter.KNUCKLES;
     }
 
     /**

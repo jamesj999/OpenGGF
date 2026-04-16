@@ -1,12 +1,13 @@
 # S3K Data Select Native Parity Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Historical note: this document may mention legacy JUnit 4 migration details. New and updated tests in this repository must use JUnit 5 / Jupiter only; do not create new JUnit 4 tests, rules, or runners.
 
 **Goal:** Replace the remaining placeholder native S3K Data Select behavior with a disassembly-backed selector, layout, rendering, and movement-SFX implementation that is credible enough to become the later donor presentation.
 
 **Architecture:** Keep the existing save/session backend and host-profile logic, but replace the current synthetic S3K frontend with an authored save-screen scene driven by original object responsibilities from `Obj_SaveScreen_*`. Rendering should use real S3K save-menu assets and mapped objects, not `RECTI` overlays or text-first composition. Cross-game donation work remains paused until this plan is complete.
 
-**Tech Stack:** Java 21, Maven, JUnit 5/JUnit 4, LWJGL/OpenGL fixed-function rendering, existing `GameServices` and `GraphicsManager`, S3K disassembly under `docs/skdisasm/`.
+**Tech Stack:** Java 21, Maven, LWJGL/OpenGL fixed-function rendering, existing `GameServices` and `GraphicsManager`, S3K disassembly under `docs/skdisasm/`. Current and new tests must use JUnit 5 / Jupiter only; any JUnit 4 references below are historical migration context.
 
 ---
 

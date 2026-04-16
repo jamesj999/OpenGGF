@@ -8,6 +8,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -75,6 +78,30 @@ public class TestHeadlessTestFixture {
         assertTrue(finalX > initialX, "Sprite should have moved right after 10 frames. "
                 + "Initial=" + initialX + ", Final=" + finalX);
         assertEquals(10, fixture.frameCount(), "Frame counter should be 10");
+    }
+
+    @Test
+    public void testZoneAndActBuildRegistersPlayerBeforeLoad() {
+        Logger logger = Logger.getLogger("com.openggf.level.LevelManager");
+        LogCaptureHandler handler = new LogCaptureHandler();
+        boolean useParentHandlers = logger.getUseParentHandlers();
+        Level previousLevel = logger.getLevel();
+        logger.addHandler(handler);
+        logger.setUseParentHandlers(false);
+        logger.setLevel(Level.ALL);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withZoneAndAct(0, 0)
+                    .build();
+
+            assertNotNull(fixture.sprite(), "Fixture should still create a sprite for zone/act loads");
+            assertEquals(0, handler.countAtOrAbove(Level.WARNING),
+                    "Fixture build should not warn that no player sprite was registered before load");
+        } finally {
+            logger.removeHandler(handler);
+            logger.setUseParentHandlers(useParentHandlers);
+            logger.setLevel(previousLevel);
+        }
     }
 
     @Test

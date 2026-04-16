@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.runtime.S3kZoneRuntimeState;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -329,11 +329,10 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         // ROM line 52685-52701: saves position, rings, solid bits, camera,
         // Dynamic_resize_routine, and Mean_water_level for the return.
         var camera = services().camera();
-        int resizeRoutine = 0;
-        var eventProvider = services().levelEventProvider();
-        if (eventProvider instanceof Sonic3kLevelEventManager s3kEvents) {
-            resizeRoutine = s3kEvents.getDynamicResizeRoutine();
-        }
+        var zoneRuntimeState = services().zoneRuntimeState();
+        int resizeRoutine = zoneRuntimeState instanceof S3kZoneRuntimeState s3kState
+                ? s3kState.getDynamicResizeRoutine()
+                : 0;
         int meanWaterLevel = 0;
         var waterSystem = services().waterSystem();
         int featureZone = services().currentZone();

@@ -49,6 +49,26 @@ class TestPaletteOwnershipRegistry {
     }
 
     @Test
+    void underwaterWriteTargetsUnderwaterSurfaceOnly() {
+        PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
+        Palette[] normal = blankPalettes();
+        Palette[] underwater = blankPalettes();
+
+        registry.beginFrame();
+        registry.submit(PaletteWrite.underwater("boss.water", 200, 1, 0, new byte[] {
+                0x00, 0x6A, 0x00, 0x60
+        }));
+
+        registry.resolveInto(normal, underwater, null, null);
+
+        assertEquals("none", registry.ownerAt(PaletteSurface.NORMAL, 1, 0));
+        assertEquals("boss.water", registry.ownerAt(PaletteSurface.UNDERWATER, 1, 0));
+        assertColorWord(normal[1], 0, 0x0000);
+        assertColorWord(underwater[1], 0, 0x006A);
+        assertColorWord(underwater[1], 1, 0x0060);
+    }
+
+    @Test
     void beginFrameClearsPreviousClaims() {
         PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
         Palette[] normal = blankPalettes();

@@ -1,11 +1,20 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.game.sonic2.events.*;
+import com.openggf.game.sonic2.runtime.CnzRuntimeState;
+import com.openggf.game.sonic2.runtime.CnzRuntimeStateView;
+import com.openggf.game.sonic2.runtime.HtzRuntimeState;
+import com.openggf.game.sonic2.runtime.HtzRuntimeStateView;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.RuntimeManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.zone.NoOpZoneRuntimeState;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
+import com.openggf.game.zone.ZoneRuntimeState;
 
 import java.util.logging.Logger;
 
@@ -117,6 +126,31 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         if (handler != null) {
             handler.init(act);
         }
+        GameRuntime runtime = RuntimeManager.getActiveRuntime();
+        if (runtime == null) {
+            return;
+        }
+        ZoneRuntimeRegistry registry = runtime.getZoneRuntimeRegistry();
+        if (zone == ZONE_HTZ) {
+            installOwnedRuntimeState(registry, new HtzRuntimeStateView(zone, act, htzEvents));
+        } else if (registry.currentAs(HtzRuntimeState.class).isPresent()) {
+            registry.clear();
+        }
+        if (zone == ZONE_CNZ) {
+            installOwnedRuntimeState(registry, new CnzRuntimeStateView(zone, act, cnzEvents));
+        } else if (registry.currentAs(CnzRuntimeState.class).isPresent()) {
+            registry.clear();
+        }
+    }
+
+    private static void installOwnedRuntimeState(ZoneRuntimeRegistry registry, ZoneRuntimeState state) {
+        if (registry.current() == NoOpZoneRuntimeState.INSTANCE || isOwnedSonic2RuntimeState(registry.current())) {
+            registry.install(state);
+        }
+    }
+
+    private static boolean isOwnedSonic2RuntimeState(ZoneRuntimeState state) {
+        return state instanceof HtzRuntimeState || state instanceof CnzRuntimeState;
     }
 
     @Override
@@ -172,34 +206,4 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         }
     }
 
-    // =========================================================================
-    // Public API - HTZ earthquake delegation
-    // =========================================================================
-
-    /**
-     * Gets the current Camera_BG_Y_offset for HTZ rising lava.
-     * Used by RisingLavaObjectInstance to calculate Y position.
-     *
-     * @return current BG Y offset (0 when not in earthquake, 224-320 during earthquake)
-     */
-    public int getCameraBgYOffset() {
-        return htzEvents.getCameraBgYOffset();
-    }
-
-    /**
-     * Gets the current Camera_BG_X_offset used by HTZ earthquake BG scrolling.
-     * Top route / Act 1 use 0; Act 2 bottom route uses -$680.
-     */
-    public int getHtzBgXOffset() {
-        return htzEvents.getHtzBgXOffset();
-    }
-
-    /**
-     * Returns the relative BG vertical shift for HTZ earthquake.
-     * 0 = normal/risen position, positive = BG scrolled up (more lava visible).
-     * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
-     */
-    public int getHtzBgVerticalShift() {
-        return htzEvents.getHtzBgVerticalShift();
-    }
 }

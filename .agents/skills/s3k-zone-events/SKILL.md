@@ -92,7 +92,16 @@ These are inherited through Sonic3kLevelEventManager and available when the zone
 | `startTimer(frames)` | Timer countdown | Start countdown, check `isTimerExpired()` |
 | `transitionToZone(zone, act)` | Level restart | Trigger zone/act transition |
 
-**Note:** The zone event handler accesses these through the Sonic3kLevelEventManager instance, not directly. For camera boundaries, use the `camera` field directly (available from `Sonic3kZoneEvents`). For player control and audio, use the manager's methods or access singletons as needed.
+**Note:** The zone event handler accesses these through the Sonic3kLevelEventManager instance or the `Sonic3kZoneEvents` helper methods. For camera boundaries, use the zone-events camera helper; for audio, ROM, level, palette, and runtime-state access, use the `GameServices`-backed helpers already exposed by `Sonic3kZoneEvents`. Do not add new singleton lookups.
+
+### Framework-First Routing
+
+When porting a `_Resize` routine, route the behavior into the shared runtime frameworks whenever the state is consumed outside the event handler itself:
+
+- **Shared event state** -> add or extend a typed adapter in `ZoneRuntimeRegistry` when scroll handlers, objects, or render features also need the value.
+- **Palette mutations** -> use the palette helper methods backed by `PaletteOwnershipRegistry` / `S3kPaletteWriteSupport`, not direct palette buffer edits.
+- **Tile/block/chunk swaps** -> use `S3kSeamlessMutationExecutor` or `ZoneLayoutMutationPipeline`, not ad-hoc `Level` mutations sprinkled through the handler.
+- **Extra draw passes / render flags** -> expose them via `SpecialRenderEffectRegistry` or `AdvancedRenderModeController` through the zone feature provider, not handler-local booleans.
 
 ## Implementation Process
 
@@ -358,15 +367,9 @@ S3K zones frequently branch on `Player_mode` to give Knuckles different paths:
 **Java equivalent:**
 
 ```java
-// In Sonic3kLevelEventManager:
-public PlayerCharacter getPlayerCharacter() {
-    // Returns SONIC_AND_TAILS, SONIC_ALONE, TAILS_ALONE, or KNUCKLES
-}
-
 // In zone events class:
 private void updateAct1(int frameCounter) {
-    Sonic3kLevelEventManager manager = Sonic3kLevelEventManager.getInstance();
-    PlayerCharacter character = manager.getPlayerCharacter();
+    PlayerCharacter character = playerCharacter();
 
     if (character == PlayerCharacter.KNUCKLES) {
         updateAct1Knuckles(frameCounter);
@@ -573,7 +576,7 @@ public void init(int act) {
 
 ### 6. Accessing Camera Before Init
 
-The `camera` field is refreshed in `Sonic3kZoneEvents.init()` via `Camera.getInstance()`. Never cache camera position in the constructor -- it may not be valid yet.
+The camera/helper accessors are rebound in `Sonic3kZoneEvents.init()` through the `GameServices`-backed helper methods. Never cache camera position in the constructor -- it may not be valid yet.
 
 ### 7. Using Wrong Music Constants
 

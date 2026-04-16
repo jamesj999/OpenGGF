@@ -2,10 +2,10 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -403,11 +403,9 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     }
 
     private PlayerCharacter getPlayerCharacter() {
-        try {
-            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
-        } catch (Exception e) {
-            return PlayerCharacter.SONIC_AND_TAILS;
-        }
+        return S3kRuntimeStates.resolvePlayerCharacter(
+                services().zoneRuntimeRegistry(),
+                services().configuration());
     }
 
     // ===== Rendering =====

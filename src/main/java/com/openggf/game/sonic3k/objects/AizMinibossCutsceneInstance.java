@@ -1,14 +1,14 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.S3kAizEventWriteSupport;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
 
 import com.openggf.level.objects.ObjectRenderManager;
@@ -156,28 +156,25 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
-        Palette pal = level.getPalette(1);
         // ROM: bit 0 of $20(a0) determines which color set
         boolean useDark = (state.invulnerabilityTimer & 1) != 0;
         int[] colors = useDark ? CUSTOM_FLASH_DARK : CUSTOM_FLASH_BRIGHT;
-        for (int i = 0; i < CUSTOM_FLASH_INDICES.length; i++) {
-            byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
-            pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
-        }
-        var gm = services().graphicsManager();
-        if (gm.isGlInitialized()) {
-            gm.cachePaletteTexture(pal, 1);
-        }
+        S3kPaletteWriteSupport.applyColors(
+                services().paletteOwnershipRegistryOrNull(),
+                level,
+                services().graphicsManager(),
+                S3kPaletteOwners.AIZ_MINIBOSS_CUTSCENE,
+                S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                1,
+                CUSTOM_FLASH_INDICES,
+                colors);
     }
 
     private void updateInit() {
         var camera = services().camera();
         savedCameraMaxX = camera.getMaxX();
 
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(true);
-        }
+        S3kAizEventWriteSupport.setBossFlag(services(), true);
 
         java.util.logging.Logger.getLogger("AIZMinibossCutscene")
                 .info("Cutscene INIT -> WAIT_TRIGGER at x=" + state.x + " y=" + state.y);
@@ -264,14 +261,13 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         int exitFrames = isAiz1() ? EXIT_TIME_AIZ1 : EXIT_TIME_OTHER;
         setWait(exitFrames, this::onExitComplete);
 
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setEventsFg5(true);
+        if (services().levelEventProvider() instanceof com.openggf.game.sonic3k.events.AizObjectEventBridge) {
+            S3kAizEventWriteSupport.setEventsFg5(services(), true);
             java.util.logging.Logger.getLogger("AIZMinibossCutscene")
                     .info("PRE_EXIT complete: setEventsFg5(true), exitFrames=" + exitFrames);
         } else {
             java.util.logging.Logger.getLogger("AIZMinibossCutscene")
-                    .warning("PRE_EXIT complete but getAizEvents() returned null! Fire transition NOT triggered.");
+                    .warning("PRE_EXIT complete but no AIZ event bridge was available; fire transition not triggered.");
         }
     }
 
@@ -293,12 +289,9 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void onExitComplete() {
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(false);
-        }
-        boolean transitionInProgress = events != null
-                && (events.isFireTransitionActive() || events.isAct2TransitionRequested());
+        S3kAizEventWriteSupport.setBossFlag(services(), false);
+        boolean transitionInProgress = S3kAizEventWriteSupport.isFireTransitionActive(services())
+                || S3kAizEventWriteSupport.isAct2TransitionRequested(services());
 
         // During the unwinnable AIZ1 cutscene transition, BG events own camera/music flow.
         // Only restore defaults when no transition handoff is active.
@@ -359,7 +352,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         try {
             byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            services().updatePalette(1, line);
+            S3kPaletteWriteSupport.applyLine(
+                    services().paletteOwnershipRegistryOrNull(),
+                    services().currentLevel(),
+                    services().graphicsManager(),
+                    S3kPaletteOwners.AIZ_MINIBOSS_CUTSCENE,
+                    S3kPaletteOwners.PRIORITY_CUTSCENE_OVERRIDE,
+                    1,
+                    line);
         } catch (Exception e) {
             LOG.fine(() -> "AizMinibossCutsceneInstance.loadBossPalette: " + e.getMessage());
         }
@@ -367,10 +367,6 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     private boolean isAiz1() {
         return services().romZoneId() == 0 && services().currentAct() == 0;
-    }
-
-    private Sonic3kAIZEvents getAizEvents() {
-        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
     }
 
     @Override

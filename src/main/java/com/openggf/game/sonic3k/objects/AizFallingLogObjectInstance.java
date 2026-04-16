@@ -2,8 +2,8 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -94,11 +94,9 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
             return false;
         }
         try {
-            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
-            if (lem != null) {
-                if (services().romZoneId() == Sonic3kZoneIds.ZONE_AIZ) {
-                    return lem.getEventRoutineFg() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;
-                }
+            if (services().romZoneId() == Sonic3kZoneIds.ZONE_AIZ) {
+                var state = S3kRuntimeStates.currentAiz(services().zoneRuntimeRegistry()).orElse(null);
+                return state != null && state.getDynamicResizeRoutine() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;
             }
         } catch (Exception e) {
             LOG.fine(() -> "AizFallingLogObjectInstance.shouldDeleteForIntro: " + e.getMessage());

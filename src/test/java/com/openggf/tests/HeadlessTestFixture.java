@@ -169,15 +169,14 @@ public final class HeadlessTestFixture {
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             }
 
-            // 4. Shared-level tests rebuild the runtime before each method via
-            // @RequiresRom. When the level has to be reloaded into that fresh
-            // runtime, register the sprite first so loadZoneAndAct() executes
-            // the normal spawn-time initialization path.
+            // 4. Register the player before any load path that needs it.
+            // Fresh zone/act loads and shared-level reloads both expect the
+            // main sprite to exist before LevelManager.spawnPlayerAtStartPosition().
             boolean needsSharedLevelReload = sharedLevel != null
                     && GameServices.level().getCurrentLevel() == null;
 
             Sonic sprite = null;
-            if (needsSharedLevelReload) {
+            if (sharedLevel == null || needsSharedLevelReload) {
                 sprite = new Sonic(charCode, startX, startY);
                 GameServices.sprites().addSprite(sprite);
             }
@@ -208,7 +207,8 @@ public final class HeadlessTestFixture {
                 }
             }
 
-            // 6. Create/register the sprite if the reload path did not already do it.
+            // 6. Create/register the sprite if the shared-level reuse path did not
+            // already do it.
             if (sprite == null) {
                 sprite = new Sonic(charCode, startX, startY);
                 GameServices.sprites().addSprite(sprite);

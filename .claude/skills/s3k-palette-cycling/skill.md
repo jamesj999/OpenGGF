@@ -35,12 +35,12 @@ loadXxxCycles(reader, list)  -- reads ROM data via safeSlice(), builds PaletteCy
     v
 List<PaletteCycle>  -- stored in Sonic3kPaletteCycler.cycles
     |
-    |  called every frame from update() -> cycle.tick(level, graphicsManager)
+    |  called every frame from update() -> cycle.tick(level, paletteRegistry)
     v
-PaletteCycle.tick(level, gm)  -- counter/step/limit logic, writes colors, marks dirty flags
+PaletteCycle.tick(level, paletteRegistry)  -- counter/step/limit logic, submits ownership writes
     |
     v
-gm.cachePaletteTexture(palette, lineIndex)  -- uploads modified palette to GPU
+PaletteOwnershipRegistry resolves writes and commits the frame's composed palette output
 ```
 
 **Key classes:**
@@ -49,10 +49,12 @@ gm.cachePaletteTexture(palette, lineIndex)  -- uploads modified palette to GPU
 |-------|------|------|
 | `Sonic3kLevelAnimationManager` | `game/sonic3k/Sonic3kLevelAnimationManager.java` | Owns the `Sonic3kPaletteCycler`, delegates `update()` |
 | `Sonic3kPaletteCycler` | `game/sonic3k/Sonic3kPaletteCycler.java` | Zone dispatch (`loadCycles` switch), ROM data loading, hosts all `PaletteCycle` inner classes |
+| `PaletteOwnershipRegistry` | `game/palette/PaletteOwnershipRegistry.java` | Runtime-owned palette composition and underwater mirroring |
+| `S3kPaletteWriteSupport` | `game/sonic3k/S3kPaletteWriteSupport.java` | Helpers for submitting contiguous/color writes into the registry |
 | `PaletteCycle` | Inner abstract class in `Sonic3kPaletteCycler` | Base for all zone cycles; single method: `abstract void tick(Level level, GraphicsManager gm)` |
 | `Sonic3kConstants` | `game/sonic3k/constants/Sonic3kConstants.java` | ROM addresses and sizes: `ANPAL_{ZONE}_{N}_ADDR`, `ANPAL_{ZONE}_{N}_SIZE` |
 | `Palette` | `level/Palette.java` | 16-color palette line; `getColor(index).fromSegaFormat(byte[], offset)` writes a Mega Drive color word |
-| `GraphicsManager` | `graphics/GraphicsManager.java` | `cachePaletteTexture(palette, lineIndex)` uploads palette to GPU; guarded by `isGlInitialized()` |
+| `GraphicsManager` | `graphics/GraphicsManager.java` | Used when the registry commits composed palettes to GPU textures |
 
 ## The Counter/Step/Limit Pattern
 

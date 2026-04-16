@@ -1,6 +1,10 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.animation.AnimatedTileChannelGraph;
+import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
+import com.openggf.game.render.AdvancedRenderModeController;
+import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
@@ -51,6 +55,10 @@ public final class GameRuntime {
     private final GameRng rng;
     private final ZoneRuntimeRegistry zoneRuntimeRegistry;
     private final PaletteOwnershipRegistry paletteOwnershipRegistry;
+    private final AnimatedTileChannelGraph animatedTileChannelGraph;
+    private final SpecialRenderEffectRegistry specialRenderEffectRegistry;
+    private final AdvancedRenderModeController advancedRenderModeController;
+    private final ZoneLayoutMutationPipeline zoneLayoutMutationPipeline;
 
     private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
@@ -68,7 +76,11 @@ public final class GameRuntime {
                 CollisionSystem collisionSystem, SpriteManager spriteManager,
                 LevelManager levelManager, GameRng rng,
                 ZoneRuntimeRegistry zoneRuntimeRegistry,
-                PaletteOwnershipRegistry paletteOwnershipRegistry) {
+                PaletteOwnershipRegistry paletteOwnershipRegistry,
+                AnimatedTileChannelGraph animatedTileChannelGraph,
+                SpecialRenderEffectRegistry specialRenderEffectRegistry,
+                AdvancedRenderModeController advancedRenderModeController,
+                ZoneLayoutMutationPipeline zoneLayoutMutationPipeline) {
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
         this.worldSession = worldSession;
         this.gameplayMode = gameplayMode;
@@ -85,6 +97,10 @@ public final class GameRuntime {
         this.rng = rng;
         this.zoneRuntimeRegistry = Objects.requireNonNull(zoneRuntimeRegistry, "zoneRuntimeRegistry");
         this.paletteOwnershipRegistry = Objects.requireNonNull(paletteOwnershipRegistry, "paletteOwnershipRegistry");
+        this.animatedTileChannelGraph = Objects.requireNonNull(animatedTileChannelGraph, "animatedTileChannelGraph");
+        this.specialRenderEffectRegistry = Objects.requireNonNull(specialRenderEffectRegistry, "specialRenderEffectRegistry");
+        this.advancedRenderModeController = Objects.requireNonNull(advancedRenderModeController, "advancedRenderModeController");
+        this.zoneLayoutMutationPipeline = Objects.requireNonNull(zoneLayoutMutationPipeline, "zoneLayoutMutationPipeline");
     }
 
     // ── Getters ──────────────────────────────────────────────────────────
@@ -105,6 +121,10 @@ public final class GameRuntime {
     public GameRng getRng() { return rng; }
     public ZoneRuntimeRegistry getZoneRuntimeRegistry() { return zoneRuntimeRegistry; }
     public PaletteOwnershipRegistry getPaletteOwnershipRegistry() { return paletteOwnershipRegistry; }
+    public AnimatedTileChannelGraph getAnimatedTileChannelGraph() { return animatedTileChannelGraph; }
+    public SpecialRenderEffectRegistry getSpecialRenderEffectRegistry() { return specialRenderEffectRegistry; }
+    public AdvancedRenderModeController getAdvancedRenderModeController() { return advancedRenderModeController; }
+    public ZoneLayoutMutationPipeline getZoneLayoutMutationPipeline() { return zoneLayoutMutationPipeline; }
 
     public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
 
@@ -117,6 +137,13 @@ public final class GameRuntime {
      */
     public void updateGameplayModeContext(GameplayModeContext gameplayMode) {
         this.gameplayMode = Objects.requireNonNull(gameplayMode, "gameplayMode");
+    }
+
+    /**
+     * Clears per-frame transient state that must not survive parking, resume, or teardown.
+     */
+    public void clearTransientFrameState() {
+        zoneLayoutMutationPipeline.clear();
     }
 
     // ── Convenience: LevelManager-owned sub-managers ─────────────────────
@@ -134,6 +161,10 @@ public final class GameRuntime {
      * Called by {@link RuntimeManager#destroyCurrent()}.
      */
     public void destroy() {
+        clearTransientFrameState();
+        animatedTileChannelGraph.clear();
+        specialRenderEffectRegistry.clear();
+        advancedRenderModeController.clear();
         paletteOwnershipRegistry.beginFrame();
         zoneRuntimeRegistry.clear();
         levelManager.resetState();

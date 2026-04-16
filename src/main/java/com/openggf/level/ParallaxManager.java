@@ -278,8 +278,18 @@ public class ParallaxManager {
      * screen shake flag for visual shake effects.
      */
     public void setHtzScreenShake(boolean active) {
+        boolean oldHtzActive = GameServices.gameState().isHtzScreenShakeActive();
+        boolean oldScreenShakeActive = GameServices.gameState().isScreenShakeActive();
+
         GameServices.gameState().setHtzScreenShakeActive(active);
         GameServices.gameState().setScreenShakeActive(active);
+
+        if (oldHtzActive != active || oldScreenShakeActive != active) {
+            LevelManager levelManager = GameServices.levelOrNull();
+            if (levelManager != null) {
+                levelManager.invalidateAllTilemaps();
+            }
+        }
     }
 
     public void update(int zoneId, int actId, Camera cam, int frameCounter, int bgScrollY) {

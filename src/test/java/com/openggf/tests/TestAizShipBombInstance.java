@@ -24,6 +24,7 @@ public class TestAizShipBombInstance {
 
     @Test
     public void testAttachedBombTracksBattleshipTranslationUntilRelease() {
+        TestEnvironment.resetAll();
         Camera camera = new Camera();
         camera.setX((short) 0x4380);
         camera.setY((short) 0x0180);
@@ -65,6 +66,7 @@ public class TestAizShipBombInstance {
 
     @Test
     public void testBattleshipBombScriptMatchesRomUnderflowCadence() {
+        TestEnvironment.resetAll();
         Camera camera = new Camera();
         camera.setX((short) 0x4380);
         camera.setY((short) 0x0180);
