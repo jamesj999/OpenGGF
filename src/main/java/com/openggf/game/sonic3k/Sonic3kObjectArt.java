@@ -1667,6 +1667,9 @@ public class Sonic3kObjectArt {
      * <p>ROM anchor: {@code Obj_CNZBalloon}.
      * <p>Mapping table: {@code Map_CNZBalloon} (25 frames).
      * <p>Art tile: {@code ArtTile_CNZMisc} (palette 0).
+     * <p>The mapping address is the final S3K lock-on offset published in
+     * {@link Sonic3kConstants}; it is not the raw Sonic 3-side disassembly
+     * address.
      */
     public ObjectSpriteSheet buildCnzBalloonSheet() {
         return buildLevelArtSheetFromRom(
@@ -1695,6 +1698,9 @@ public class Sonic3kObjectArt {
      * <p>ROM anchor: {@code Obj_CNZRisingPlatform}.
      * <p>Mapping table: {@code Map_CNZRisingPlatform} (3 frames).
      * <p>Art tile: {@code ArtTile_CNZMisc+$6D} (palette 2).
+     * <p>The mapping address is the final S3K lock-on offset published in
+     * {@link Sonic3kConstants}; the table is shared by both the idle and rising
+     * animation states.
      */
     public ObjectSpriteSheet buildCnzRisingPlatformSheet() {
         return buildLevelArtSheetFromRom(
