@@ -1,6 +1,7 @@
 package com.openggf.debug;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.GameModule;
 
 import com.openggf.camera.Camera;
@@ -1019,7 +1020,7 @@ public class DebugRenderer {
         }
 
         private String getMainCharacterCode() {
-                return configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+                return ActiveGameplayTeamResolver.resolveMainCharacterCode(configService);
         }
 
         private String formatTouchCategory(TouchCategory category) {
