@@ -714,6 +714,10 @@ public class Sonic3kConstants {
     // Verified against S&K ROM bytes immediately following AniPLC_HCZ1 at 0x02882C.
     public static final int ANIPLC_HCZ2_ADDR = 0x02882C;
 
+    // AniPLC_MGZ: 2 scripts (shared MGZ background tiles for both acts)
+    // Verified against S&K ROM bytes at 0x028862 and skdisasm AniPLC_MGZ.
+    public static final int ANIPLC_MGZ_ADDR = 0x028862;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A

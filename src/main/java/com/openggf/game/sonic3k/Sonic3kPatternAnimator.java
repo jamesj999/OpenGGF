@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.animation.ChannelContext;
@@ -399,7 +400,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             runAllScripts();
             return;
         }
-        if (zoneIndex == 1 || (zoneIndex == 0x08 && actIndex == 0)) {
+        if (!graph.channels().isEmpty()) {
             graph.update(new ChannelContext(
                     graph, null, level, GameServices.zoneRuntimeState(), zoneIndex, actIndex, frameCounter++));
             return;
@@ -470,8 +471,23 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         return false;
     }
 
+    private boolean isGenericBossActive() {
+        try {
+            if (GameServices.module().getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
+                return manager.isBossActive();
+            }
+        } catch (Exception e) {
+            LOG.fine(() -> "Sonic3kPatternAnimator.isGenericBossActive: " + e.getMessage());
+        }
+        return false;
+    }
+
     boolean shouldRunScriptChannels() {
         return !scripts.isEmpty();
+    }
+
+    boolean shouldRunMgzScriptChannels() {
+        return !scripts.isEmpty() && !isGenericBossActive();
     }
 
     boolean shouldRunHcz1CustomChannels() {
@@ -1088,6 +1104,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             case 1 -> actIndex == 0
                     ? Sonic3kConstants.ANIPLC_HCZ1_ADDR
                     : Sonic3kConstants.ANIPLC_HCZ2_ADDR;
+            case 2 -> Sonic3kConstants.ANIPLC_MGZ_ADDR;
             case 0x08 -> ANIPLC_LRZ1_ADDR;
             case 0x14 -> Sonic3kConstants.ANIPLC_PACHINKO_ADDR;
             default -> -1;
@@ -1095,6 +1112,10 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     }
 
     private void installGraphChannels() {
+        if (zoneIndex == 2) {
+            graph.install(S3kAnimatedTileChannels.buildMgzChannels(this, scripts));
+            return;
+        }
         if (zoneIndex == 1) {
             graph.install(S3kAnimatedTileChannels.buildHczChannels(this, scripts, actIndex));
             return;
