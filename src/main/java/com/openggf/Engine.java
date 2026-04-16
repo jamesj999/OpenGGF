@@ -203,11 +203,6 @@ public class Engine {
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
 
-		// Some desktop-only debug helpers are still not native-safe.
-		if (isNativeImage()) {
-			debugViewEnabled = false;
-		}
-
 		// Set up game mode change listener to update projection width
 		gameLoop.setGameModeChangeListener((oldMode, newMode) -> {
 			// Keep projection at 320 for both modes
@@ -382,7 +377,7 @@ public class Engine {
 		}
 
 		// Eagerly initialize debug renderer resources before the main loop starts.
-		if (debugViewEnabled && !isNativeImage()) {
+		if (debugViewEnabled) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().eagerInit();
 			// Force GL sync and unbind all state
@@ -1256,7 +1251,7 @@ public class Engine {
 
 		boolean playbackHud = playbackDebugManager.isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
-				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE && !isNativeImage());
+				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE);
 
 		if (needsOverlay) {
 			prepareOverlayState();
@@ -1270,7 +1265,7 @@ public class Engine {
 			} else {
 				ssProvider.renderLagCompensationOverlay(windowWidth, windowHeight);
 			}
-		} else if ((debugViewEnabled || playbackHud) && !isNativeImage()) {
+		} else if (debugViewEnabled || playbackHud) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().renderDebugInfo();
 
