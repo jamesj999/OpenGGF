@@ -400,7 +400,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     @Override
     public boolean isAct2TransitionRequested() {
-        return aizEvents != null && aizEvents.isAct2TransitionRequested();
+        if (aizEvents != null) {
+            return aizEvents.isAct2TransitionRequested();
+        }
+        return cnzEvents != null && cnzEvents.isAct2TransitionRequested();
     }
 
     /** Returns the CNZ zone events handler, or null if not in CNZ. */
