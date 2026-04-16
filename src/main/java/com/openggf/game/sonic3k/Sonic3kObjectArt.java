@@ -1660,4 +1660,104 @@ public class Sonic3kObjectArt {
         ));
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f0), 0, 4);
     }
+
+    /**
+     * Builds the CNZ Balloon sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZBalloon}.
+     * <p>Mapping table: {@code Map_CNZBalloon} (25 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc} (palette 0).
+     */
+    public ObjectSpriteSheet buildCnzBalloonSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_BALLOON_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_BALLOON,
+                0);
+    }
+
+    /**
+     * Builds the CNZ Cannon sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZCannon}.
+     * <p>Mapping table: {@code Map_CNZCannon} (10 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$23} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzCannonSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_CANNON_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_CANNON,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Rising Platform sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZRisingPlatform}.
+     * <p>Mapping table: {@code Map_CNZRisingPlatform} (3 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$6D} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzRisingPlatformSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_RISING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_RISING_PLATFORM,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Trap Door sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZTrapDoor}.
+     * <p>Mapping table: {@code Map_CNZTrapDoor} (3 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$9F} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzTrapDoorSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_TRAP_DOOR_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_TRAP_DOOR,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Hover Fan sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZHoverFan}.
+     * <p>Mapping table: {@code Map_CNZHoverFan} (8 frames, repeated idle frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$97} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzHoverFanSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_HOVER_FAN_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_HOVER_FAN,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Cylinder sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZCylinder}.
+     * <p>Mapping table: {@code Map_CNZCylinder} (4 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$3D} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzCylinderSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_CYLINDER_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_CYLINDER,
+                2);
+    }
+
+    /**
+     * CNZ Vacuum Tube is controller-only in this task slice.
+     * The ROM object exists, but no dedicated traversal sprite sheet is claimed here.
+     */
+    public ObjectSpriteSheet buildCnzVacuumTubeSheet() {
+        return null;
+    }
+
+    /**
+     * CNZ Spiral Tube is controller-only in this task slice.
+     * The ROM object exists, but no dedicated traversal sprite sheet is claimed here.
+     */
+    public ObjectSpriteSheet buildCnzSpiralTubeSheet() {
+        return null;
+    }
 }

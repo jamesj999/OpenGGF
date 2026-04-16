@@ -227,6 +227,70 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZBlockObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.CNZ_BALLOON,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzBalloonInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_CANNON,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzCannonInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_RISING_PLATFORM,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzRisingPlatformInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_TRAP_DOOR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzTrapDoorInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_HOVER_FAN,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzHoverFanInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_CYLINDER,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzCylinderInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_VACUUM_TUBE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzVacuumTubeInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CNZ_SPIRAL_TUBE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CnzSpiralTubeInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.HCZ_SPINNING_COLUMN,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();

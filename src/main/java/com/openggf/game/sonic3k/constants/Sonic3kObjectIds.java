@@ -49,6 +49,22 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_CONVEYOR_BELT = 0x3E;
     public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
+    // S3KL object table: Obj_CNZBalloon.
+    public static final int CNZ_BALLOON = 0x41;
+    // S3KL object table: Obj_CNZCannon.
+    public static final int CNZ_CANNON = 0x42;
+    // S3KL object table: Obj_CNZRisingPlatform.
+    public static final int CNZ_RISING_PLATFORM = 0x43;
+    // S3KL object table: Obj_CNZTrapDoor.
+    public static final int CNZ_TRAP_DOOR = 0x44;
+    // S3KL object table: Obj_CNZHoverFan.
+    public static final int CNZ_HOVER_FAN = 0x46;
+    // S3KL object table: Obj_CNZCylinder.
+    public static final int CNZ_CYLINDER = 0x47;
+    // S3KL object table: Obj_CNZVacuumTube. Controller-only scaffold for Task 1.
+    public static final int CNZ_VACUUM_TUBE = 0x48;
+    // S3KL object table: Obj_CNZSpiralTube. Controller-only scaffold for Task 1.
+    public static final int CNZ_SPIRAL_TUBE = 0x4C;
     public static final int HCZ_SNAKE_BLOCKS = 0x67;
     public static final int TENSION_BRIDGE = 0x6C;
     public static final int INVISIBLE_HURT_BLOCK_H = 0x6A;
