@@ -13,6 +13,13 @@ import java.util.Map;
 import java.util.Set;
 
 public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
+    public enum ReadMode {
+        SAMPLE_ACCURATE,
+        HYBRID
+    }
+
+    private static final int MIN_BATCH_SAMPLES = 32;
+
     private final Object sequencersLock = new Object();
     private final List<SmpsSequencer> sequencers = new ArrayList<>();
     private final Set<SmpsSequencer> sfxSequencers = new HashSet<>();
@@ -28,6 +35,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
+    private ReadMode readMode = ReadMode.SAMPLE_ACCURATE;
 
     // --- Continuous SFX state (Z80: zContinuousSFX, zContinuousSFXFlag, zContSFXLoopCnt) ---
     // S3K continuous SFX (0xBC+) loop via the 0xFC coord flag (cfLoopContinuousSFX).
@@ -124,6 +132,10 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 seq.setRegion(region);
             }
         }
+    }
+
+    public void setReadModeForTesting(ReadMode readMode) {
+        this.readMode = readMode;
     }
 
     public void addSequencer(SmpsSequencer seq, boolean isSfx) {
@@ -284,6 +296,13 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
 
     @Override
     public int read(short[] buffer) {
+        if (readMode == ReadMode.HYBRID) {
+            return readSampleAccurate(buffer);
+        }
+        return readSampleAccurate(buffer);
+    }
+
+    private int readSampleAccurate(short[] buffer) {
         int frames = buffer.length / 2;
 
         // Per-sample processing is required because sequencer state changes (note events,
@@ -300,15 +319,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                     }
                 }
 
-                if (!pendingRemovals.isEmpty()) {
-                    for (int j = 0; j < pendingRemovals.size(); j++) {
-                        SmpsSequencer seq = pendingRemovals.get(j);
-                        sequencers.remove(seq);
-                        releaseLocks(seq);
-                        sfxSequencers.remove(seq);
-                    }
-                    pendingRemovals.clear();
-                }
+                removeCompletedSequencers();
 
                 super.render(scratchFrameBuf);
                 buffer[i * 2] = scratchFrameBuf[0];
@@ -316,6 +327,18 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             }
         }
         return buffer.length;
+    }
+
+    private void removeCompletedSequencers() {
+        if (!pendingRemovals.isEmpty()) {
+            for (int j = 0; j < pendingRemovals.size(); j++) {
+                SmpsSequencer seq = pendingRemovals.get(j);
+                sequencers.remove(seq);
+                releaseLocks(seq);
+                sfxSequencers.remove(seq);
+            }
+            pendingRemovals.clear();
+        }
     }
 
     @Override
