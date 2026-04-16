@@ -411,8 +411,16 @@ public class Engine {
 		}
 		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
 		initializeGameplayRuntime(gameplayMode, true);
-		boolean warmupPumpedRenderTasks = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
-		if (!warmupPumpedRenderTasks) {
+		boolean generationRan = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
+		if (generationRan) {
+			// Preview capture loaded 11 full levels into the LevelManager,
+			// corrupting the pattern atlas, DPLC banks, sprite art, palettes,
+			// and other GPU/manager state.  Destroy and rebuild the runtime
+			// so the title screen starts from a completely clean slate.
+			RuntimeManager.destroyCurrent();
+			gameplayMode = SessionManager.openGameplaySession(module);
+			initializeGameplayRuntime(gameplayMode, false);
+		} else {
 			graphicsManager.runPendingRenderThreadTasks();
 		}
 		enterConfiguredStartupMode();
@@ -565,20 +573,6 @@ public class Engine {
 			Thread.onSpinWait();
 		}
 		graphicsManager.runPendingRenderThreadTasks();
-
-		// Preview capture loads a full level per zone, stomping GPU palette
-		// state and leaving the LevelManager holding the last captured zone's
-		// level data, animated palette manager, object manager, etc.
-		// Reset both GPU and LevelManager state so the title screen starts clean.
-		if (graphicsManager.isGlInitialized()) {
-			com.openggf.level.Palette blank = new com.openggf.level.Palette();
-			for (int line = 0; line < 4; line++) {
-				graphicsManager.cachePaletteTexture(blank, line);
-			}
-		}
-		if (levelManager != null) {
-			levelManager.resetState();
-		}
 	}
 
 	private String resolveLaunchMainCharacter() {
