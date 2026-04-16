@@ -187,17 +187,10 @@ public class S3kDataSelectRenderer {
             renderCardsSpriteEmeraldLayer(graphics, assets, objectState, cameraX);
             flushLayer(graphics);
 
-            // Selected slot icon uses custom palette uploads per-icon — disable
-            // batching for this layer so each tile's PatternRenderCommand picks up
-            // the correct palette state individually.
-            graphics.setBatchingEnabled(false);
-            graphics.setInstancedBatchingEnabled(false);
             graphics.beginPatternBatch();
             cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
             renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX);
             flushLayer(graphics);
-            graphics.setBatchingEnabled(true);
-            graphics.setInstancedBatchingEnabled(true);
 
             graphics.beginPatternBatch();
             renderCardsSpriteOverlayLayer(graphics, assets, objectState, cameraX);
@@ -233,6 +226,8 @@ public class S3kDataSelectRenderer {
         cachedCharLine2 = null;
         lastCachedIconIndex = -1;
         lastCachedIconPaletteIndex = -1;
+        cachedIconPalette = null;
+        cachedIconPaletteLine = -1;
         cachedBlankLabelWords = null;
         cachedClearLabelWords = null;
         cachedBlankStatWords = null;
@@ -280,43 +275,58 @@ public class S3kDataSelectRenderer {
     private int lastCachedIconIndex = -1;
     private int lastCachedIconPaletteIndex = -1;
     private boolean lastCachedIconFinishCard;
+    private Palette cachedIconPalette;
+    private int cachedIconPaletteLine = -1;
 
     private void cacheSelectedSlotIcon(GraphicsManager graphics,
                                        S3kDataSelectAssetSource assets,
                                        S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
         if (selectedSlotIcon == null) {
             lastCachedIconIndex = -1;
+            lastCachedIconPaletteIndex = -1;
+            cachedIconPalette = null;
             return;
         }
-        // Skip re-caching if icon hasn't changed
-        if (selectedSlotIcon.iconIndex() == lastCachedIconIndex
-                && selectedSlotIcon.paletteIndex() == lastCachedIconPaletteIndex
-                && selectedSlotIcon.finishCard() == lastCachedIconFinishCard) {
-            return;
-        }
-        lastCachedIconIndex = selectedSlotIcon.iconIndex();
-        lastCachedIconPaletteIndex = selectedSlotIcon.paletteIndex();
-        lastCachedIconFinishCard = selectedSlotIcon.finishCard();
 
-        int paletteLine = selectedSlotIconPaletteLine(assets, selectedSlotIcon);
-        Pattern[] patterns = assets.getSlotIconPatterns(selectedSlotIcon.iconIndex());
-        if (patterns.length == 0) {
-            return;
+        boolean iconChanged = selectedSlotIcon.iconIndex() != lastCachedIconIndex
+                || selectedSlotIcon.finishCard() != lastCachedIconFinishCard;
+        boolean paletteChanged = iconChanged
+                || selectedSlotIcon.paletteIndex() != lastCachedIconPaletteIndex;
+
+        // Re-upload patterns only when the icon changes (expensive GPU upload)
+        if (iconChanged) {
+            lastCachedIconIndex = selectedSlotIcon.iconIndex();
+            lastCachedIconFinishCard = selectedSlotIcon.finishCard();
+            Pattern[] patterns = assets.getSlotIconPatterns(selectedSlotIcon.iconIndex());
+            if (patterns.length == 0) {
+                return;
+            }
+            int patternBase = DATA_SELECT_PATTERN_BASE + Sonic3kConstants.ARTTILE_SAVE_MISC
+                    + (selectedSlotIcon.finishCard() ? 0x27D : 0x31B);
+            cachePatterns(graphics,
+                    java.util.Arrays.copyOf(patterns, Math.min(patterns.length, SELECTED_ICON_DMA_TILE_COUNT)),
+                    patternBase);
         }
-        int patternBase = DATA_SELECT_PATTERN_BASE + Sonic3kConstants.ARTTILE_SAVE_MISC
-                + (selectedSlotIcon.finishCard() ? 0x27D : 0x31B);
-        cachePatterns(graphics,
-                java.util.Arrays.copyOf(patterns, Math.min(patterns.length, SELECTED_ICON_DMA_TILE_COUNT)),
-                patternBase);
-        Palette selectedPalette = assets.getSelectedSlotIconPalette(selectedSlotIcon);
-        if (selectedPalette != null) {
-            graphics.cachePaletteTexture(selectedPalette.deepCopy(), paletteLine);
-            return;
+
+        // Rebuild palette object only when palette source changes; re-upload to
+        // GPU every frame (cheap glTexSubImage2D) because the emerald layer
+        // overwrites this palette line each frame.
+        cachedIconPaletteLine = selectedSlotIconPaletteLine(assets, selectedSlotIcon);
+        if (paletteChanged) {
+            lastCachedIconPaletteIndex = selectedSlotIcon.paletteIndex();
+            Palette selectedPalette = assets.getSelectedSlotIconPalette(selectedSlotIcon);
+            if (selectedPalette != null) {
+                cachedIconPalette = selectedPalette.deepCopy();
+            } else {
+                byte[] paletteBytes = selectedSlotIcon.finishCard()
+                        ? paletteAt(assets.getFinishCardPalettes(), selectedSlotIcon.paletteIndex())
+                        : selectedIconZonePaletteBytes(assets, selectedSlotIcon.paletteIndex());
+                cachedIconPalette = paletteFromBytes(paletteBytes, 0);
+            }
         }
-        byte[] paletteBytes = selectedSlotIcon.finishCard()
-                ? paletteAt(assets.getFinishCardPalettes(), selectedSlotIcon.paletteIndex())
-                : selectedIconZonePaletteBytes(assets, selectedSlotIcon.paletteIndex());
-        cachePalette(graphics, paletteBytes, paletteLine);
+        if (cachedIconPalette != null) {
+            graphics.cachePaletteTexture(cachedIconPalette, cachedIconPaletteLine);
+        }
     }
 
     private int selectedSlotIconPaletteLine(S3kDataSelectAssetSource assets,
