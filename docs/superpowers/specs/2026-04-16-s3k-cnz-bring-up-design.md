@@ -66,6 +66,9 @@ Important CNZ anchors include:
 - `AnimateTiles_CNZ`
 - `AniPLC_CNZ`
 - `AnPal_CNZ`
+- `PLC_EggCapsule`
+- `ArtKosM_CNZTeleport`
+- `ShakeScreen_Setup` where CNZ invokes it
 - CNZ miniboss, scroll-control, teleporter, beam, capsule, and water-helper object routines
 
 ## Architecture
@@ -82,6 +85,8 @@ The implementation should prefer:
 - `ZoneLayoutMutationPipeline` or `S3kSeamlessMutationExecutor` for deterministic live layout changes
 - `SpecialRenderEffectRegistry` and `AdvancedRenderModeController` only if CNZ exposes render-stage behavior that requires them
 - `ScrollEffectComposer` and related helpers where they can express `CNZ1_Deform` accurately without obscuring the ROM math
+
+`ScrollEffectComposer` migration is optional. If direct scroll math in `SwScrlCnz` is easier to keep ROM-traceable and better documented, direct math is acceptable. Composer adoption is in scope only when it improves clarity without hiding CNZ-specific deform semantics.
 
 ### Runtime Ownership
 
@@ -100,15 +105,51 @@ It should expose, directly or via narrow typed accessors:
 
 The runtime adapter exists to make shared state explicit. It must not become a vague bag of booleans.
 
+The runtime adapter should be expanded incrementally, with each field justified by an immediate consumer:
+
+| Runtime surface | Consuming slice(s) |
+|-----------------|--------------------|
+| FG/BG event routine state | 1, 2, 3 |
+| Boss/background scroll mode | 1 |
+| `Events_bg+$08/$0C`-style boss scroll inputs | 1, 2 |
+| `Events_bg+$10` deform-derived animated-tile input | 0, 4 |
+| `Camera_X_pos_BG_copy` equivalent published input | 0, 4 |
+| `Events_fg_5` transition state | 2 |
+| Act 2 route state | 3 |
+| teleporter/capsule progress | 3 |
+| wall-grab suppression state | 1 |
+| water-target state / arm flags | 5 |
+
+### Deform Output Publication
+
+CNZ has one critical shared-state edge that the spec must treat as first-class:
+
+- `CNZ1_Deform` computes a distinct deform-derived BG X value equivalent to `Events_bg+$10`
+- `AnimateTiles_CNZ` then derives its DMA phase from `(Events_bg+$10 - Camera_X_pos_BG_copy) & $3F`
+
+This output must not remain trapped inside `SwScrlCnz`.
+
+The implementation must publish the deform-derived animated-tile inputs through explicit runtime state or another equally traceable shared surface. That publication step is a precondition for parity-correct `AnimateTiles_CNZ`.
+
 ### Subsystem Ownership
 
 Ownership should remain narrow:
 
 - `Sonic3kCNZEvents` owns ROM event translation and zone-level orchestration.
 - `SwScrlCnz` owns deform math and boss-scroll path selection.
-- `Sonic3kPatternAnimator` owns `AnimateTiles_CNZ`, AniPLC registration, and any direct DMA path that belongs to animated tiles.
+- `Sonic3kPatternAnimator` owns `AnimateTiles_CNZ`, AniPLC registration, and any direct DMA path that belongs to animated tiles. This is currently greenfield CNZ work and should be treated as such in planning.
 - `Sonic3kPaletteCycler` owns `AnPal_CNZ`, including underwater mirroring.
 - CNZ-specific object classes own gameplay execution, but cross-system side effects must be published through explicit runtime/event bridges rather than hidden inside local object state.
+
+### Water System Integration
+
+The existing `WaterSystem` should remain the authoritative owner of current and target water levels for S3K CNZ.
+
+CNZ-specific logic should integrate by:
+
+- publishing object-driven CNZ water triggers through explicit zone/runtime state where cross-system consumers need them
+- applying target-level writes through the existing water infrastructure rather than creating a CNZ-local water controller
+- introducing CNZ-specific adaptation only if the current `WaterSystem` contract cannot reproduce the object-gated target changes and timing documented in the ROM
 
 ## Design Constraints
 
@@ -144,6 +185,29 @@ Comments should justify behavior, not restate obvious code.
 
 The work is framework-first in structure, but the implementation slices are defined by ROM gameplay behavior.
 
+### Slice 0: Shared Runtime Scaffolding And Deform Output Publication
+
+Primary sources:
+
+- `CNZ1_Deform`
+- `AnimateTiles_CNZ`
+- current CNZ runtime adapter and scroll handler behavior
+
+Deliverables:
+
+- expansion of `CnzZoneRuntimeState` from the current minimal surface to the fields needed by later slices
+- explicit publication of the deform-derived inputs equivalent to `Events_bg+$10` and `Camera_X_pos_BG_copy`
+- traceable ownership of those values so `Sonic3kPatternAnimator` does not re-derive them from unrelated approximations
+- documentation that ties the published values to the ROM formulas they support
+
+Preconditions:
+
+- none
+
+Constraint:
+
+This slice exists specifically because `AnimateTiles_CNZ` depends on deform outputs that the current branch does not publish. Later slices may not treat that dependency as implicit.
+
 ### Slice 1: Act 1 Arena And Miniboss Path
 
 Primary sources:
@@ -162,6 +226,11 @@ Deliverables:
 - Knuckles wall-grab suppression during the arena path
 - boss/background scroll mode routing that reflects the ROM stages
 - explicit object-to-event signaling for arena destruction
+- publication of any boss-scroll inputs needed by downstream slices instead of keeping them local to one handler
+
+Preconditions:
+
+- Slice 0 shared runtime scaffolding
 
 Constraint:
 
@@ -182,6 +251,12 @@ Deliverables:
 - second refresh and signpost phase
 - seamless Act 1 -> Act 2 transition
 - PLC, palette, water, and world-offset behavior associated with the transition
+- any CNZ-specific screen-shake routing that is part of the post-boss or transition path
+
+Preconditions:
+
+- Slice 1 Act 1 arena/miniboss path
+- Slice 5 object signaling needed for `Events_fg_5` handoff
 
 Constraint:
 
@@ -205,6 +280,10 @@ Deliverables:
 - camera clamp behavior
 - any Act 2 refresh or shake stages required for parity
 
+Preconditions:
+
+- Slice 2 seamless Act 1 -> Act 2 handoff
+
 Constraint:
 
 The Knuckles route is a cutscene/object sequence, not a background-mode flag.
@@ -224,6 +303,12 @@ Deliverables:
 - correct ownership split between the standard AniPLC scripts and the direct DMA path at tile `$308+`
 - `AnimateTiles_CNZ` phase calculation derived from the real deform/scroll state
 - parity-correct palette cycling for normal and underwater targets
+- PLC verification for any CNZ path that depends on art being present before route/cutscene logic or validation screenshots are considered trustworthy
+
+Preconditions:
+
+- Slice 0 deform-output publication
+- Slice 1 boss/background scroll routing
 
 Constraint:
 
@@ -241,6 +326,10 @@ Deliverables:
 - object-driven water-target changes
 - publication of object-owned side effects into explicit shared runtime/event state where other systems depend on them
 - correct object/event links that feed scroll, transition, or validation-relevant behavior
+
+Preconditions:
+
+- Slice 0 shared runtime scaffolding
 
 Constraint:
 
@@ -262,6 +351,13 @@ Required dependency modeling:
 
 The implementation may translate these through typed runtime accessors and helper methods, but it must not erase the dependency graph.
 
+High-level slice dependencies:
+
+- Slice 0 unblocks Slice 1 and Slice 4
+- Slice 5 feeds Slice 1 and Slice 2 where the ROM uses object-owned writes
+- Slice 1 unblocks Slice 2 and provides state required by Slice 4
+- Slice 2 unblocks Slice 3
+
 ## Testing Strategy
 
 ### Automated Verification
@@ -278,6 +374,8 @@ The implementation plan should include focused automated coverage for:
 - object-to-event bridge points for arena destruction and water-target changes
 
 Tests should be surgical. They should validate behavior with ROM-facing names and comments rather than introducing opaque engine-only expectations.
+
+Trace replay is not a required gate for the first CNZ bring-up spec because the currently documented replay workflows are Sonic 1-focused. If the existing headless or trace infrastructure can be extended to cover S3K CNZ sequences without building a parallel validation stack, that is a preferred enhancement for high-risk flows such as miniboss entry, seamless transition position/camera state, or teleporter-route motion.
 
 ### Regression Focus
 
@@ -306,6 +404,8 @@ Required visual checklist:
 7. `AnimateTiles_CNZ` pachinko/background DMA behavior tied to deform phase
 8. `AnPal_CNZ` parity in both normal and underwater palette targets
 9. CNZ object-driven water target changes
+10. any CNZ-specific shake behavior triggered in the verified boss or transition beats
+11. PLC-backed art presence for teleporter/capsule and any validated route-specific scene before declaring a visual parity pass
 
 The validation artifact should identify:
 
@@ -319,13 +419,14 @@ The validation artifact should identify:
 The implementation plan should proceed in a framework-first order that still respects ROM dependencies:
 
 1. expand `CnzZoneRuntimeState` and shared state surfaces first
-2. fix `Sonic3kCNZEvents` to represent the real Act 1 and Act 2 orchestration
-3. update `SwScrlCnz` to consume accurate CNZ event/runtime state
-4. restore correct `AnimateTiles_CNZ` phase derivation and AniPLC/DMA ownership
-5. complete `AnPal_CNZ` including underwater mirroring
-6. complete object-driven pieces that publish critical zone behavior
-7. add automated verification
-8. perform ROM/disassembly-backed visual validation
+2. publish deform-derived animated-tile inputs equivalent to `Events_bg+$10` and `Camera_X_pos_BG_copy`
+3. complete object-driven pieces that publish critical zone behavior
+4. fix `Sonic3kCNZEvents` to represent the real Act 1 and Act 2 orchestration
+5. update `SwScrlCnz` to consume accurate CNZ event/runtime state
+6. restore correct `AnimateTiles_CNZ` phase derivation and AniPLC/DMA ownership
+7. complete `AnPal_CNZ` including underwater mirroring
+8. add automated verification
+9. perform ROM/disassembly-backed visual validation
 
 This is still a full-zone bring-up, but the order should ensure that later systems consume stable CNZ runtime truth instead of local placeholders.
 
@@ -345,4 +446,3 @@ S3K CNZ bring-up is complete only when all of the following are true:
 - every non-trivial CNZ change is traceable in Javadoc/comments back to ROM behavior or a documented engine adaptation
 - automated checks cover the critical state and dependency surfaces
 - the visual validation checklist passes against ROM/disassembly evidence
-
