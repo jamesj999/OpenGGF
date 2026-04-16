@@ -66,20 +66,33 @@ class TestS3kCnzTeleporterRouteHeadless {
      * handoff belongs only to the later {@code Obj_CNZEndBoss} defeat path.
      */
     @Test
-    void knucklesTeleporterRouteLocksControlClampsCameraAndSpawnsBeamWithoutCapsule() {
+    void knucklesTeleporterRequiresPublishedRouteBeforeLockingControl() {
         SonicConfigurationService.getInstance()
                 .setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "knuckles");
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 1)
                 .build();
 
-        Sonic3kCNZEvents events = getCnzEvents();
-        events.beginKnucklesTeleporterRoute();
-
         CnzTeleporterInstance teleporter = new CnzTeleporterInstance(
                 new ObjectSpawn(0x4A40, 0x0A38, 0, 0, 0, false, 0));
         teleporter.setServices(new DefaultObjectServices(RuntimeManager.getCurrent()));
         GameServices.level().getObjectManager().addDynamicObject(teleporter);
+
+        fixture.sprite().setCentreX((short) 0x4A50);
+        fixture.sprite().setCentreY((short) 0x0A30);
+        fixture.sprite().setAir(true);
+        fixture.sprite().setJumping(true);
+        fixture.sprite().setXSpeed((short) 0x180);
+        fixture.sprite().setGSpeed((short) 0x200);
+
+        fixture.stepIdleFrames(1);
+        assertFalse(fixture.sprite().isControlLocked(),
+                "Obj_CNZTeleporter should stay dormant until the CNZ route seam is published externally");
+        assertFalse(getCnzEvents().isTeleporterBeamSpawned(),
+                "The shared beam handoff must remain inactive before the route is published");
+
+        Sonic3kCNZEvents events = getCnzEvents();
+        events.beginKnucklesTeleporterRoute();
 
         fixture.sprite().setCentreX((short) 0x4A50);
         fixture.sprite().setCentreY((short) 0x0A30);
@@ -112,6 +125,34 @@ class TestS3kCnzTeleporterRouteHeadless {
                 "The CNZ event bridge should record the explicit beam-handoff seam");
         assertFalse(isObjectPresent(CnzEggCapsuleInstance.class),
                 "The teleporter route must not spawn the capsule; that belongs to Obj_CNZEndBoss");
+    }
+
+    /**
+     * ROM anchors:
+     * Task 8 only claims the defeat handoff from {@code Obj_CNZEndBoss}. When
+     * the boss sequence is finished, it must clear {@code Boss_flag}, widen the
+     * boss camera clamp, spawn the egg capsule, and restore level music/control.
+     *
+     * <p>This test intentionally does not claim attack-state parity, hit timing,
+     * or the full cutscene choreography.
+     */
+    @Test
+    void cnzEndBossSlotStaysPassiveUntilExternalBossStateExists() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 1)
+                .build();
+
+        CnzEndBossInstance boss = spawnCnzEndBossForTest();
+        fixture.stepIdleFrames(1);
+
+        assertFalse(getCnzEvents().isBossFlag(),
+                "The promoted CNZ end-boss slot must not claim Boss_flag on its own");
+        assertEquals(0, GameServices.gameState().getCurrentBossId(),
+                "Task 8 keeps boss-mode ownership on the external CNZ event seam until later attack work exists");
+        assertFalse(isObjectPresent(CnzEggCapsuleInstance.class),
+                "Without an external boss-mode seam and defeat signal, the bounded wrapper must stay inert");
+
+        boss.setDestroyed(true);
     }
 
     /**

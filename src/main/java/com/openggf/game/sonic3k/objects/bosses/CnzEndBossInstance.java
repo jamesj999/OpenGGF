@@ -1,9 +1,11 @@
 package com.openggf.game.sonic3k.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.S3kCnzEventWriteSupport;
 import com.openggf.game.sonic3k.objects.CnzEggCapsuleInstance;
 import com.openggf.graphics.GLCommand;
@@ -23,7 +25,8 @@ import java.util.List;
  * <p>This implementation explicitly does <strong>not</strong> claim full attack
  * parity. Task 8 only owns two seams from the verified ROM notes:
  * <ul>
- *   <li>startup gate / initial setup for the CNZ boss slot</li>
+ *   <li>bounded startup presence for the CNZ boss slot without claiming the
+ *   wider attack-state choreography</li>
  *   <li>defeat handoff: clear {@code Boss_flag}, widen the camera max,
  *   spawn the capsule, and restore player control/music</li>
  * </ul>
@@ -45,7 +48,6 @@ public final class CnzEndBossInstance extends AbstractObjectInstance {
     private final int centreX;
     private final int centreY;
 
-    private boolean startupApplied;
     private boolean defeatRequestedForTest;
     private boolean defeatHandoffComplete;
 
@@ -85,25 +87,30 @@ public final class CnzEndBossInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity player) {
-        if (!startupApplied) {
-            applyStartupGate();
-        }
         if (defeatRequestedForTest && !defeatHandoffComplete) {
             applyDefeatHandoff();
         }
     }
 
     /**
-     * Bounded startup gate for the CNZ end-boss slot.
+     * Returns whether the wider CNZ script has already declared this boss slot
+     * active through shared state.
      *
-     * <p>Task 8 only establishes the explicit ownership flags that later attack
-     * states would rely on: set the CNZ boss flag and Current_Boss_ID so camera
-     * and music systems know the boss slot is live.
+     * <p>Task 8 intentionally does not let the promoted production slot claim
+     * boss mode on its own. The real startup gate belongs to the later attack
+     * choreography and CNZ event flow; this bounded wrapper only participates in
+     * defeat cleanup once that wider state already exists.
      */
-    private void applyStartupGate() {
-        startupApplied = true;
-        S3kCnzEventWriteSupport.setBossFlag(services(), true);
-        services().gameState().setCurrentBossId(Sonic3kObjectIds.CNZ_END_BOSS);
+    private boolean isBossModeAlreadyOwnedExternally() {
+        if (services().gameState().getCurrentBossId() == Sonic3kObjectIds.CNZ_END_BOSS) {
+            return true;
+        }
+        Object provider = services().levelEventProvider();
+        if (provider instanceof Sonic3kLevelEventManager manager) {
+            Sonic3kCNZEvents events = manager.getCnzEvents();
+            return events != null && events.isBossFlag();
+        }
+        return false;
     }
 
     /**
@@ -118,6 +125,9 @@ public final class CnzEndBossInstance extends AbstractObjectInstance {
      * </ol>
      */
     private void applyDefeatHandoff() {
+        if (!isBossModeAlreadyOwnedExternally()) {
+            return;
+        }
         defeatHandoffComplete = true;
 
         S3kCnzEventWriteSupport.setBossFlag(services(), false);

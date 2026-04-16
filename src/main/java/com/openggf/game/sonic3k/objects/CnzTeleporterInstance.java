@@ -114,17 +114,20 @@ public final class CnzTeleporterInstance extends AbstractObjectInstance {
             return;
         }
 
+        boolean routeAlreadyActive = isKnucklesRouteAlreadyActive();
+        if (!routeAlreadyActive) {
+            return;
+        }
+
         /**
-         * The CNZ route dependency stays explicit through CNZ event state even
-         * though this object also applies the live camera clamp directly. The
-         * bridge call is idempotent; repeating it each frame is harmless and
-         * keeps the route-object -> event relationship visible in code review.
+         * The teleporter route must already have been published through CNZ
+         * event state. Once that explicit seam is active, the object mirrors the
+         * late-route camera clamp locally so the cutscene stays locked to the
+         * teleporter lane while the player/beam choreography runs.
          */
-        com.openggf.game.sonic3k.events.S3kCnzEventWriteSupport.beginKnucklesTeleporterRoute(services());
         services().camera().setMinX((short) ROUTE_CAMERA_MIN_X);
         services().camera().setMaxX((short) ROUTE_CAMERA_MAX_X);
 
-        boolean routeAlreadyActive = isKnucklesRouteAlreadyActive();
         if (!armed && (player.getCentreX() >= ARM_X_THRESHOLD || routeAlreadyActive)) {
             armTeleporter(player, routeAlreadyActive);
         }
