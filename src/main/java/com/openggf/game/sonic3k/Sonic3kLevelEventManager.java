@@ -5,6 +5,7 @@ import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.AizObjectEventBridge;
@@ -92,21 +93,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
-        // Resolve from config — matches ROM's Player_mode variable
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("knuckles".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.KNUCKLES;
-        } else if ("tails".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-        // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
-        String sidekick = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekick == null || sidekick.isBlank()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
+        return ActiveGameplayTeamResolver.resolvePlayerCharacter(GameServices.configuration());
     }
 
     @Override
