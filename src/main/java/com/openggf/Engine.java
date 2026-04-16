@@ -413,10 +413,12 @@ public class Engine {
 		initializeGameplayRuntime(gameplayMode, true);
 		boolean generationRan = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
 		if (generationRan) {
-			// Preview capture loaded 11 full levels into the LevelManager,
-			// corrupting the pattern atlas, DPLC banks, sprite art, palettes,
-			// and other GPU/manager state.  Destroy and rebuild the runtime
-			// so the title screen starts from a completely clean slate.
+			// Preview capture loaded full levels into the LevelManager and
+			// GraphicsManager, corrupting the pattern atlas, palette textures,
+			// DPLC banks, sprite art, and other GPU/manager state.
+			// Reset GPU state (pattern atlas + palette textures) and rebuild
+			// the gameplay runtime so everything starts from a clean slate.
+			graphicsManager.resetPatternAndPaletteState();
 			RuntimeManager.destroyCurrent();
 			gameplayMode = SessionManager.openGameplaySession(module);
 			initializeGameplayRuntime(gameplayMode, false);
