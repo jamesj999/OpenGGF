@@ -146,24 +146,63 @@ public class S3kDataSelectRenderer {
         graphics.setBatchingEnabled(false);
         graphics.setInstancedBatchingEnabled(false);
         try {
-            drawLayer(graphics, () -> renderScreenTilemap(graphics, assets.getMenuBackgroundLayoutWords(),
-                    SCREEN_TILE_WIDTH, SCREEN_TILE_HEIGHT));
-            drawLayer(graphics, () -> renderPlaneABase(graphics, assets.getPlaneALayoutWords(), cameraX, false));
-            drawLayer(graphics, () -> renderCardsPlaneLayer(graphics, assets, objectState, cameraX, false));
-            drawLayer(graphics, () -> renderStaticPlaneTextOverlays(graphics, cameraX, false));
-            drawLayer(graphics, () -> renderTitle(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> renderCardsSpriteBaseLayer(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> renderPlaneABase(graphics, assets.getPlaneALayoutWords(), cameraX, true));
-            drawLayer(graphics, () -> renderCardsPlaneLayer(graphics, assets, objectState, cameraX, true));
-            drawLayer(graphics, () -> renderStaticPlaneTextOverlays(graphics, cameraX, true));
-            drawLayer(graphics, () -> renderCardsSpriteEmeraldLayer(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> {
-                cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
-                renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX);
-            });
-            drawLayer(graphics, () -> renderCardsSpriteOverlayLayer(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> renderDelete(graphics, assets, objectState, cameraX));
-            drawLayer(graphics, () -> renderSelector(graphics, assets, objectState, cameraX));
+            graphics.beginPatternBatch();
+            renderScreenTilemap(graphics, assets.getMenuBackgroundLayoutWords(),
+                    SCREEN_TILE_WIDTH, SCREEN_TILE_HEIGHT);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderPlaneABase(graphics, assets.getPlaneALayoutWords(), cameraX, false);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderCardsPlaneLayer(graphics, assets, objectState, cameraX, false);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderStaticPlaneTextOverlays(graphics, cameraX, false);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderTitle(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderCardsSpriteBaseLayer(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderPlaneABase(graphics, assets.getPlaneALayoutWords(), cameraX, true);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderCardsPlaneLayer(graphics, assets, objectState, cameraX, true);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderStaticPlaneTextOverlays(graphics, cameraX, true);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderCardsSpriteEmeraldLayer(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            cacheSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon());
+            renderSelectedSlotIcon(graphics, assets, objectState.selectedSlotIcon(), cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderCardsSpriteOverlayLayer(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderDelete(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
+
+            graphics.beginPatternBatch();
+            renderSelector(graphics, assets, objectState, cameraX);
+            flushLayer(graphics);
         } finally {
             graphics.setBatchingEnabled(batchingEnabled);
             graphics.setInstancedBatchingEnabled(instancedBatchingEnabled);
@@ -182,6 +221,11 @@ public class S3kDataSelectRenderer {
 
     public void reset() {
         cached = false;
+        characterPalettesBuilt = false;
+        cachedCharLine1 = null;
+        cachedCharLine2 = null;
+        lastCachedIconIndex = -1;
+        lastCachedIconPaletteIndex = -1;
         cachedBlankLabelWords = null;
         cachedClearLabelWords = null;
         cachedBlankStatWords = null;
@@ -221,19 +265,32 @@ public class S3kDataSelectRenderer {
         cached = true;
     }
 
-    private void drawLayer(GraphicsManager graphics, Runnable layerRenderer) {
-        graphics.beginPatternBatch();
-        layerRenderer.run();
+    private void flushLayer(GraphicsManager graphics) {
         graphics.flushPatternBatch();
         graphics.flush();
     }
+
+    private int lastCachedIconIndex = -1;
+    private int lastCachedIconPaletteIndex = -1;
+    private boolean lastCachedIconFinishCard;
 
     private void cacheSelectedSlotIcon(GraphicsManager graphics,
                                        S3kDataSelectAssetSource assets,
                                        S3kSaveScreenObjectState.SelectedSlotIcon selectedSlotIcon) {
         if (selectedSlotIcon == null) {
+            lastCachedIconIndex = -1;
             return;
         }
+        // Skip re-caching if icon hasn't changed
+        if (selectedSlotIcon.iconIndex() == lastCachedIconIndex
+                && selectedSlotIcon.paletteIndex() == lastCachedIconPaletteIndex
+                && selectedSlotIcon.finishCard() == lastCachedIconFinishCard) {
+            return;
+        }
+        lastCachedIconIndex = selectedSlotIcon.iconIndex();
+        lastCachedIconPaletteIndex = selectedSlotIcon.paletteIndex();
+        lastCachedIconFinishCard = selectedSlotIcon.finishCard();
+
         int paletteLine = selectedSlotIconPaletteLine(assets, selectedSlotIcon);
         Pattern[] patterns = assets.getSlotIconPatterns(selectedSlotIcon.iconIndex());
         if (patterns.length == 0) {
@@ -917,25 +974,37 @@ public class S3kDataSelectRenderer {
      * color 1. Color 0 is intentionally preserved so donated emerald colors cannot
      * clobber the character backdrop/shadow slot that the S3K save-card art relies on.</p>
      */
+    private Palette cachedCharLine1;
+    private Palette cachedCharLine2;
+    private boolean characterPalettesBuilt;
+
     private void cacheCharacterAndEmeraldPalettes(GraphicsManager graphics,
                                                   byte[] characterPaletteBytes,
                                                   byte[] emeraldPaletteBytes) {
-        if (characterPaletteBytes == null || characterPaletteBytes.length == 0) {
-            cachePalette(graphics, emeraldPaletteBytes, 2, 1);
-            return;
+        // Build palette objects once, but re-upload to GPU each frame since other
+        // layers (selected slot icon) may overwrite these palette lines.
+        if (!characterPalettesBuilt) {
+            characterPalettesBuilt = true;
+            if (characterPaletteBytes == null || characterPaletteBytes.length == 0) {
+                cachedCharLine1 = null;
+                cachedCharLine2 = paletteFromBytes(emeraldPaletteBytes, 1);
+            } else {
+                cachedCharLine1 = paletteFromBytes(slicePaletteLine(characterPaletteBytes, 0), 0);
+                cachedCharLine2 = paletteFromBytes(
+                        slicePaletteLine(characterPaletteBytes, Palette.PALETTE_SIZE * 2), 0);
+                if (cachedCharLine2 == null) {
+                    cachedCharLine2 = new Palette();
+                }
+                overlayPaletteBytes(cachedCharLine2, emeraldPaletteBytes, 1);
+            }
         }
-
-        byte[] line1Bytes = slicePaletteLine(characterPaletteBytes, 0);
-        if (line1Bytes.length > 0) {
-            cachePalette(graphics, line1Bytes, 1);
+        // Re-upload cached palettes (cheap GPU call, no object allocation)
+        if (cachedCharLine1 != null) {
+            graphics.cachePaletteTexture(cachedCharLine1, 1);
         }
-
-        Palette line2Palette = paletteFromBytes(slicePaletteLine(characterPaletteBytes, Palette.PALETTE_SIZE * 2), 0);
-        if (line2Palette == null) {
-            line2Palette = new Palette();
+        if (cachedCharLine2 != null) {
+            graphics.cachePaletteTexture(cachedCharLine2, 2);
         }
-        overlayPaletteBytes(line2Palette, emeraldPaletteBytes, 1);
-        graphics.cachePaletteTexture(line2Palette, 2);
     }
 
     private byte[] slicePaletteLine(byte[] segaBytes, int startByte) {
