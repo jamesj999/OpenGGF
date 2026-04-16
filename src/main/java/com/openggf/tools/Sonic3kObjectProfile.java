@@ -70,6 +70,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x33, // Button
             0x34, // StarPost
             0x3C, // Door
+            0x4F, // SinkingMud
             0x51, // FloatingPlatform
             0x6C, // TensionBridge
             0x6A, // InvisibleHurtBlockH

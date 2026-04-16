@@ -82,6 +82,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new AizDrawBridgeObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.SINKING_MUD,
+                (spawn, registry) -> new SinkingMudObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_COLLAPSING_LOG_BRIDGE,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
