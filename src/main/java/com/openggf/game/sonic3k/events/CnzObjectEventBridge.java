@@ -9,9 +9,13 @@ package com.openggf.game.sonic3k.events;
  * mutations through object code and preserves a traceable mapping back to
  * {@code Obj_CNZMinibossScrollControl}, the water helpers, and the Knuckles
  * teleporter route.
+ *
+ * <p>The arena-destruction hook is intentionally a single pending request in
+ * Slice 0. The name reflects that this bridge does not yet provide FIFO queue
+ * semantics.
  */
 public interface CnzObjectEventBridge {
-    void queueArenaChunkDestruction(int chunkWorldX, int chunkWorldY);
+    void setPendingArenaChunkDestruction(int chunkWorldX, int chunkWorldY);
     void setBossScrollState(int offsetY, int velocityY);
     void setBossFlag(boolean value);
     void setEventsFg5(boolean value);
