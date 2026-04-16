@@ -402,6 +402,19 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         return knucklesTeleporterRouteActive;
     }
 
+    /**
+     * Returns whether Task 8's teleporter object should own the route palette
+     * override.
+     *
+     * <p>The override window begins when the Knuckles-only route starts and
+     * ends once the beam object has been spawned. Publishing that seam here
+     * keeps the later palette handoff explicit in CNZ event state instead of
+     * introducing another hidden object-local flag.
+     */
+    public boolean shouldApplyTeleporterPaletteOverride() {
+        return knucklesTeleporterRouteActive && !teleporterBeamSpawned;
+    }
+
     public void markTeleporterBeamSpawned() {
         teleporterBeamSpawned = true;
     }

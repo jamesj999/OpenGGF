@@ -27,7 +27,15 @@ public final class S3kPaletteOwners {
      * engine slice routes the normal-table writes through the registry and
      * mirrors them into the underwater surface so both planes stay aligned.
      */
-    public static final String CNZ_ANPAL_CYCLE = "s3k.cnz.anpalCycle";
+    public static final String CNZ_ANPAL = "s3k.cnz.anpal";
+    /**
+     * Reserved owner ID for the Knuckles-route teleporter palette override.
+     *
+     * <p>Task 5 introduces the owner now so Task 8's teleporter object can
+     * claim palette line 2 through the shared registry instead of introducing
+     * a CNZ-local side channel.
+     */
+    public static final String CNZ_TELEPORTER = "s3k.cnz.teleporter";
     public static final String HPZ_ZONE_CYCLE = "s3k.hpz.zoneCycle";
     public static final String HPZ_MASTER_EMERALD = "s3k.hpz.masterEmerald";
     public static final String HPZ_PALETTE_CONTROL = "s3k.hpz.paletteControl";

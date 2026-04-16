@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.palette.PaletteSurface;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
@@ -114,6 +115,15 @@ public class TestS3kCnzPaletteCycling {
                 "CNZ background cycle should mirror palette[2] color 9 into the underwater surface");
         assertTrue(colorsEqual(level.getPalette(2).getColor(7), underwaterPalettes[2].getColor(7)),
                 "CNZ tertiary cycle should mirror palette[2] color 7 into the underwater surface");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.NORMAL, 3, 9),
+                "CNZ bumper cycle should claim palette[3] color 9 through the ownership registry");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.NORMAL, 2, 9),
+                "CNZ background cycle should claim palette[2] color 9 through the ownership registry");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.UNDERWATER, 2, 7),
+                "CNZ tertiary cycle should mirror its ownership claim into the underwater surface");
     }
 
     // ========== Specific color value assertions ==========
