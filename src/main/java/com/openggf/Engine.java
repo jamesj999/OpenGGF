@@ -571,14 +571,18 @@ public class Engine {
 		}
 		graphicsManager.runPendingRenderThreadTasks();
 
-		// Preview capture loads levels which stomp the GPU palette with
-		// zone-specific data.  Reset all 4 palette lines to blank so the
-		// title screen / data select that follows starts from a clean state.
+		// Preview capture loads a full level per zone, stomping GPU palette
+		// state and leaving the LevelManager holding the last captured zone's
+		// level data, animated palette manager, object manager, etc.
+		// Reset both GPU and LevelManager state so the title screen starts clean.
 		if (graphicsManager.isGlInitialized()) {
 			com.openggf.level.Palette blank = new com.openggf.level.Palette();
 			for (int line = 0; line < 4; line++) {
 				graphicsManager.cachePaletteTexture(blank, line);
 			}
+		}
+		if (levelManager != null) {
+			levelManager.resetState();
 		}
 	}
 
