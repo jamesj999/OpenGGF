@@ -7,6 +7,8 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.level.objects.AbstractObjectRegistry;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlaceholderObjectInstance;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,18 @@ class TestS3kCnzTeleporterRouteHeadless {
                 "Task 6 should claim the CNZ miniboss ID explicitly");
         assertTrue(factories.containsKey(Sonic3kObjectIds.CNZ_END_BOSS),
                 "Task 6 should claim the CNZ end-boss ID explicitly");
+        assertInstanceOf(PlaceholderObjectInstance.class,
+                registry.create(new ObjectSpawn(0x4A40, 0x0A38, Sonic3kObjectIds.CNZ_WATER_LEVEL_CORK_FLOOR, 0, 0, false, 0)),
+                "Task 6 should reserve the CNZ cork-floor helper slot with a placeholder-backed factory");
+        assertInstanceOf(PlaceholderObjectInstance.class,
+                registry.create(new ObjectSpawn(0x4A40, 0x0A38, Sonic3kObjectIds.CNZ_WATER_LEVEL_BUTTON, 0, 0, false, 0)),
+                "Task 6 should reserve the CNZ water-button helper slot with a placeholder-backed factory");
+        assertInstanceOf(PlaceholderObjectInstance.class,
+                registry.create(new ObjectSpawn(0x4A40, 0x0A38, Sonic3kObjectIds.CNZ_MINIBOSS, 0, 0, false, 0)),
+                "Task 6 should reserve the CNZ miniboss slot with a placeholder-backed factory");
+        assertInstanceOf(PlaceholderObjectInstance.class,
+                registry.create(new ObjectSpawn(0x4A40, 0x0A38, Sonic3kObjectIds.CNZ_END_BOSS, 0, 0, false, 0)),
+                "Task 6 should reserve the CNZ end-boss slot with a placeholder-backed factory");
 
         ObjectArtProvider provider = GameModuleRegistry.getCurrent().getObjectArtProvider();
         Sonic3kObjectArtProvider s3kProvider = assertInstanceOf(Sonic3kObjectArtProvider.class, provider);
