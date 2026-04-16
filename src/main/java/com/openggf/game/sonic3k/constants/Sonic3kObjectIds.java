@@ -61,6 +61,7 @@ public final class Sonic3kObjectIds {
     public static final int TURBO_SPIKER = 0x96;
     public static final int MEGA_CHOPPER = 0x97;
     public static final int POINDEXTER = 0x98;
+    public static final int SPIKER = 0x9C;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
     public static final int HIDDEN_MONITOR = 0x80;
