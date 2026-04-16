@@ -144,6 +144,7 @@ public class AudioRegressionTest {
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(SmpsDriver.ReadMode.SAMPLE_ACCURATE);
 
         SmpsSequencer musicSeq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
         musicSeq.setSampleRate(SAMPLE_RATE);
@@ -272,6 +273,7 @@ public class AudioRegressionTest {
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(SmpsDriver.ReadMode.SAMPLE_ACCURATE);
 
         SmpsSequencer seq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
         seq.setSampleRate(SAMPLE_RATE);
@@ -294,6 +296,7 @@ public class AudioRegressionTest {
 
         SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
         driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(SmpsDriver.ReadMode.SAMPLE_ACCURATE);
 
         SmpsSequencer seq = new SmpsSequencer(sfxData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
         seq.setSampleRate(SAMPLE_RATE);

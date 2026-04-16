@@ -9,11 +9,15 @@ import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 import com.openggf.game.sonic2.audio.smps.Sonic2SmpsData;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestSmpsDriverBatching {
 
@@ -23,6 +27,24 @@ public class TestSmpsDriverBatching {
         short[] hybrid = renderSteadyFmSequence(SmpsDriver.ReadMode.HYBRID);
 
         assertArrayEquals(sampleAccurate, hybrid);
+    }
+
+    @Test
+    public void driverDefaultsToHybridReadMode() throws Exception {
+        SmpsDriver driver = new SmpsDriver();
+
+        assertEquals(SmpsDriver.ReadMode.HYBRID, readMode(driver));
+    }
+
+    @Test
+    public void renderChunkKeepsLargerScratchBufferWhenRenderingSmallerChunk() throws Exception {
+        SmpsDriver driver = new SmpsDriver();
+        short[] originalScratch = new short[64];
+        setChunkScratch(driver, originalScratch);
+
+        invokeRenderChunk(driver, new short[32], 0, 16);
+
+        assertSame(originalScratch, chunkScratch(driver));
     }
 
     @Test
@@ -69,6 +91,30 @@ public class TestSmpsDriverBatching {
         AbstractSmpsData smps = new Sonic2SmpsData(data);
         return new SmpsSequencer(smps, new DacData(new HashMap<>(), new HashMap<>()),
                 driver, AudioManager.getInstance(), Sonic2SmpsSequencerConfig.CONFIG);
+    }
+
+    private static SmpsDriver.ReadMode readMode(SmpsDriver driver) throws Exception {
+        Field field = SmpsDriver.class.getDeclaredField("readMode");
+        field.setAccessible(true);
+        return (SmpsDriver.ReadMode) field.get(driver);
+    }
+
+    private static short[] chunkScratch(SmpsDriver driver) throws Exception {
+        Field field = SmpsDriver.class.getDeclaredField("chunkScratch");
+        field.setAccessible(true);
+        return (short[]) field.get(driver);
+    }
+
+    private static void setChunkScratch(SmpsDriver driver, short[] scratch) throws Exception {
+        Field field = SmpsDriver.class.getDeclaredField("chunkScratch");
+        field.setAccessible(true);
+        field.set(driver, scratch);
+    }
+
+    private static void invokeRenderChunk(SmpsDriver driver, short[] target, int frameOffset, int frames) throws Exception {
+        Method method = SmpsDriver.class.getDeclaredMethod("renderChunk", short[].class, int.class, int.class);
+        method.setAccessible(true);
+        method.invoke(driver, target, frameOffset, frames);
     }
 
     private static byte[] steadyScript() {
