@@ -211,6 +211,8 @@ public class Sonic3kConstants {
     // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0)
     public static final int ARTTILE_HCZ_CONVEYOR_SPIKE = 0x043E;
 
+    // Map_MGZSwingingPlatform has a 3-word frame-offset table immediately before Frame_23331E.
+    public static final int MAP_MGZ_SWINGING_PLATFORM_ADDR = 0x233318; // Map_MGZSwingingPlatform (3 frames)
     // Map_MGZSwingingSpikeBall_ has a 4-word frame-offset table immediately before Frame_23357A.
     public static final int MAP_MGZ_SWINGING_SPIKE_BALL_ADDR = 0x233572; // Map_MGZSwingingSpikeBall (4 frames)
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
