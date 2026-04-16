@@ -186,6 +186,32 @@ public class AudioRegressionTest {
         assertAudioEquals("mixed_music_sfx.wav", reference, current);
     }
 
+    @Test
+    public void testHybridReadModeMatchesFallbackForMusicEhz() {
+        assumeTrue(loader != null, "ROM not available, skipping hybrid/fallback identity test");
+
+        int totalFrames = (int) (10.0 * SAMPLE_RATE);
+        int totalSamples = totalFrames * 2;
+
+        short[] sampleAccurate = renderMusicWithMode(MUSIC_EHZ, SmpsDriver.ReadMode.SAMPLE_ACCURATE, totalSamples);
+        short[] hybrid = renderMusicWithMode(MUSIC_EHZ, SmpsDriver.ReadMode.HYBRID, totalSamples);
+
+        assertArrayEquals(sampleAccurate, hybrid, "Hybrid read mode must match fallback output for EHZ music");
+    }
+
+    @Test
+    public void testHybridReadModeMatchesFallbackForMixedMusicSfx() {
+        assumeTrue(loader != null, "ROM not available, skipping hybrid/fallback identity test");
+
+        int totalFrames = BUFFER_SIZE * 12;
+        int totalSamples = totalFrames * 2;
+
+        short[] sampleAccurate = renderMixedWithMode(SmpsDriver.ReadMode.SAMPLE_ACCURATE, totalSamples);
+        short[] hybrid = renderMixedWithMode(SmpsDriver.ReadMode.HYBRID, totalSamples);
+
+        assertArrayEquals(sampleAccurate, hybrid, "Hybrid read mode must match fallback output for mixed music/SFX");
+    }
+
     /**
      * Performance benchmark test - measures time to render audio.
      */
@@ -321,6 +347,75 @@ public class AudioRegressionTest {
 
         int samplesWritten = 0;
         while (samplesWritten < totalSamples) {
+            int toRead = Math.min(buffer.length, totalSamples - samplesWritten);
+            driver.read(buffer);
+            System.arraycopy(buffer, 0, audio, samplesWritten, toRead);
+            samplesWritten += toRead;
+        }
+
+        return audio;
+    }
+
+    private short[] renderMusicWithMode(int musicId, SmpsDriver.ReadMode mode, int totalSamples) {
+        AbstractSmpsData musicData = loader.loadMusic(musicId);
+        assertNotNull(musicData, "Music data should load for ID 0x" + Integer.toHexString(musicId));
+
+        SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
+        driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(mode);
+
+        SmpsSequencer seq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        seq.setSampleRate(SAMPLE_RATE);
+        driver.addSequencer(seq, false);
+
+        return renderAudio(driver, totalSamples);
+    }
+
+    private short[] renderMixedWithMode(SmpsDriver.ReadMode mode, int totalSamples) {
+        AbstractSmpsData musicData = loader.loadMusic(MUSIC_EHZ);
+        AbstractSmpsData sfxRingData = loader.loadSfx(SFX_RING);
+        AbstractSmpsData sfxJumpData = loader.loadSfx(SFX_JUMP);
+
+        assertNotNull(musicData, "Music data should load for ID 0x" + Integer.toHexString(MUSIC_EHZ));
+        assertNotNull(sfxRingData, "SFX data should load for ID 0x" + Integer.toHexString(SFX_RING));
+        assertNotNull(sfxJumpData, "SFX data should load for ID 0x" + Integer.toHexString(SFX_JUMP));
+
+        SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
+        driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(mode);
+
+        SmpsSequencer musicSeq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        musicSeq.setSampleRate(SAMPLE_RATE);
+        driver.addSequencer(musicSeq, false);
+
+        short[] audio = new short[totalSamples];
+        short[] buffer = new short[BUFFER_SIZE * 2];
+
+        int samplesWritten = 0;
+        int sfx1TriggerFrame = BUFFER_SIZE * 4;
+        int sfx2TriggerFrame = BUFFER_SIZE * 8;
+        boolean sfx1Triggered = false;
+        boolean sfx2Triggered = false;
+
+        while (samplesWritten < totalSamples) {
+            int currentFrame = samplesWritten / 2;
+
+            if (!sfx1Triggered && currentFrame >= sfx1TriggerFrame) {
+                SmpsSequencer sfxSeq = new SmpsSequencer(sfxRingData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+                sfxSeq.setSampleRate(SAMPLE_RATE);
+                sfxSeq.setSfxMode(true);
+                driver.addSequencer(sfxSeq, true);
+                sfx1Triggered = true;
+            }
+
+            if (!sfx2Triggered && currentFrame >= sfx2TriggerFrame) {
+                SmpsSequencer sfxSeq = new SmpsSequencer(sfxJumpData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+                sfxSeq.setSampleRate(SAMPLE_RATE);
+                sfxSeq.setSfxMode(true);
+                driver.addSequencer(sfxSeq, true);
+                sfx2Triggered = true;
+            }
+
             int toRead = Math.min(buffer.length, totalSamples - samplesWritten);
             driver.read(buffer);
             System.arraycopy(buffer, 0, audio, samplesWritten, toRead);
