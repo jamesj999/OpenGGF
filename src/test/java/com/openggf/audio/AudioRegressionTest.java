@@ -275,6 +275,35 @@ public class AudioRegressionTest {
                 "Final read boundary should land exactly on totalSamples");
     }
 
+    @Test
+    public void benchmarkMemoryProbeReportsNonNegativeDeltasForAudioRenderWorkload() {
+        assumeTrue(loader != null, "ROM not available, skipping memory probe test");
+
+        AbstractSmpsData musicData = loader.loadMusic(MUSIC_EHZ);
+        assertNotNull(musicData, "Music data should load");
+
+        SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
+        driver.setRegion(SmpsSequencer.Region.NTSC);
+
+        SmpsSequencer seq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        seq.setSampleRate(SAMPLE_RATE);
+        driver.addSequencer(seq, false);
+
+        short[] buffer = new short[BUFFER_SIZE * 2];
+        AudioBenchmarkMemoryProbe probe = AudioBenchmarkMemoryProbe.create();
+
+        AudioBenchmarkMemoryProbe.RunResult result = probe.measureTimedRun(() -> {
+            for (int i = 0; i < 4; i++) {
+                driver.read(buffer);
+            }
+        });
+
+        assertTrue(!result.allocatedBytesSupported() || result.allocatedBytes() >= 0,
+                "Allocated bytes delta should be non-negative when supported");
+        assertTrue(result.gcCountDelta() >= 0, "GC count delta should be non-negative");
+        assertTrue(result.gcTimeDeltaMs() >= 0, "GC time delta should be non-negative");
+    }
+
     /**
      * Performance benchmark test - measures time to render audio.
      */
@@ -292,6 +321,7 @@ public class AudioRegressionTest {
         driver.addSequencer(seq, false);
 
         short[] buffer = new short[BUFFER_SIZE * 2];
+        AudioBenchmarkMemoryProbe probe = AudioBenchmarkMemoryProbe.create();
 
         // Warm up
         for (int i = 0; i < 100; i++) {
@@ -304,18 +334,30 @@ public class AudioRegressionTest {
         seq = new SmpsSequencer(musicData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
         seq.setSampleRate(SAMPLE_RATE);
         driver.addSequencer(seq, false);
+        final SmpsDriver benchmarkDriver = driver;
+        final short[] benchmarkBuffer = buffer;
 
         // Benchmark: render 1 second of audio (SAMPLE_RATE / BUFFER_SIZE iterations)
         int iterations = (int) (SAMPLE_RATE / BUFFER_SIZE);
-        long start = System.nanoTime();
-        for (int i = 0; i < iterations; i++) {
-            driver.read(buffer);
-        }
-        long elapsed = System.nanoTime() - start;
+        AudioBenchmarkMemoryProbe.RunResult memory = probe.measureTimedRun(() -> {
+            for (int i = 0; i < iterations; i++) {
+                benchmarkDriver.read(benchmarkBuffer);
+            }
+        });
+        long elapsed = memory.elapsedNanos();
+
+        SmpsDriver replayDriver = new SmpsDriver(SAMPLE_RATE);
+        replayDriver.setRegion(SmpsSequencer.Region.NTSC);
+        SmpsSequencer replaySeq = new SmpsSequencer(musicData, dacData, replayDriver, Sonic2SmpsSequencerConfig.CONFIG);
+        replaySeq.setSampleRate(SAMPLE_RATE);
+        replayDriver.addSequencer(replaySeq, false);
+        short[] replayBuffer = new short[BUFFER_SIZE * 2];
+        long peakHeapBytes = probe.measurePeakHeapBytes(() -> replayDriver.read(replayBuffer), iterations);
 
         double msPerSecond = elapsed / 1_000_000.0;
         System.out.println("Audio render time: " + msPerSecond + " ms per second of audio");
         System.out.println("Real-time factor: " + (1000.0 / msPerSecond) + "x");
+        printMemoryMetrics(memory, peakHeapBytes, iterations, 1.0, "MB per audio-second");
 
         // Assert reasonable performance (should be under 50ms to render 1 second at minimum)
         // On modern hardware this should be <5ms, but we use a lenient threshold.
@@ -333,6 +375,8 @@ public class AudioRegressionTest {
 
         System.out.println("Results tally stress render time: " + msPerRun + " ms per stress run");
         System.out.println("Results tally stress real-time factor: " + (totalDurationMs / msPerRun) + "x");
+        printMemoryMetrics(result.memory(), result.peakHeapBytes(), result.plan().readSizes().length,
+                result.plan().totalDurationMs() / 1000.0, "MB per stress-second");
 
         assertTrue(msPerRun < 500.0,
                 "Results tally stress rendering should complete in reasonable time");
@@ -684,14 +728,22 @@ public class AudioRegressionTest {
         );
         assertResultsTallyStressExecutionMatchesPlan(plan, warmupSamplesWritten);
 
+        AudioBenchmarkMemoryProbe probe = AudioBenchmarkMemoryProbe.create();
         ResultsTallyStressExecutionContext timedContext =
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
-        long start = System.nanoTime();
-        int timedSamplesWritten = executeResultsTallyStressPlan(timedContext, null);
-        long elapsed = System.nanoTime() - start;
-        assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten);
+        AudioBenchmarkMemoryProbe.RunResult memory = probe.measureTimedRun(() -> {
+            int timedSamplesWritten = executeResultsTallyStressPlan(timedContext, null);
+            assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten);
+        });
 
-        return new ResultsTallyStressBenchmarkResult(plan, elapsed);
+        ResultsTallyStressExecutionContext replayContext =
+                prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
+        long peakHeapBytes = probe.measurePeakHeapBytes(() -> {
+            int replaySamplesWritten = executeResultsTallyStressPlan(replayContext, null);
+            assertResultsTallyStressExecutionMatchesPlan(plan, replaySamplesWritten);
+        }, 1);
+
+        return new ResultsTallyStressBenchmarkResult(plan, memory.elapsedNanos(), memory, peakHeapBytes);
     }
 
     private int toAudioFrames(int gameFrames) {
@@ -736,6 +788,45 @@ public class AudioRegressionTest {
                 "Shared tally-stress plan should end exactly on totalSamples");
     }
 
+    private double bytesToMb(long bytes) {
+        return bytes / (1024.0 * 1024.0);
+    }
+
+    private String formatAllocatedBytes(AudioBenchmarkMemoryProbe.RunResult result) {
+        if (!result.allocatedBytesSupported()) {
+            return "N/A";
+        }
+        return result.allocatedBytes() + " bytes (" + bytesToMb(result.allocatedBytes()) + " MB)";
+    }
+
+    private void printMemoryMetrics(
+            AudioBenchmarkMemoryProbe.RunResult result,
+            long peakHeapBytes,
+            int readCount,
+            double normalizedRunUnits,
+            String normalizedLabel
+    ) {
+        System.out.println("Allocated bytes during run: " + formatAllocatedBytes(result));
+        System.out.println("Heap used before: " + bytesToMb(result.heapUsedBeforeBytes()) + " MB");
+        System.out.println("Heap used after: " + bytesToMb(result.heapUsedAfterBytes()) + " MB");
+        System.out.println("Heap used delta: " + bytesToMb(result.heapUsedDeltaBytes()) + " MB");
+        System.out.println("GC count delta: " + result.gcCountDelta());
+        System.out.println("GC time delta: " + result.gcTimeDeltaMs() + " ms");
+        System.out.println("Peak heap during replay: " + bytesToMb(peakHeapBytes) + " MB");
+
+        if (readCount > 0) {
+            System.out.println("KB per read: " + (peakHeapBytes / 1024.0 / readCount) + " KB");
+        } else {
+            System.out.println("KB per read: N/A");
+        }
+
+        if (normalizedRunUnits > 0.0) {
+            System.out.println(normalizedLabel + ": " + (bytesToMb(peakHeapBytes) / normalizedRunUnits));
+        } else {
+            System.out.println(normalizedLabel + ": N/A");
+        }
+    }
+
     private record ResultsTallyStressPlan(
             int totalSamples,
             double totalDurationMs,
@@ -756,7 +847,12 @@ public class AudioRegressionTest {
     ) {
     }
 
-    private record ResultsTallyStressBenchmarkResult(ResultsTallyStressPlan plan, long elapsedNanos) {
+    private record ResultsTallyStressBenchmarkResult(
+            ResultsTallyStressPlan plan,
+            long elapsedNanos,
+            AudioBenchmarkMemoryProbe.RunResult memory,
+            long peakHeapBytes
+    ) {
     }
 
     private static boolean referenceFileExists(String filename) {
