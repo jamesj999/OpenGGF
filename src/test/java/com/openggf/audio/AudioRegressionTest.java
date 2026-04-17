@@ -23,6 +23,8 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -55,6 +57,14 @@ public class AudioRegressionTest {
     private static final int SFX_RING = 0xB5;
     private static final int SFX_JUMP = 0xA3;
     private static final int SFX_SPRING = 0xB1;
+    private static final int SFX_BLIP = 0xCD;
+    private static final int SFX_TALLY_END = 0xC5;
+
+    private static final int GAME_FPS = 60;
+    private static final int RESULTS_TALLY_TICK_INTERVAL_FRAMES = 4;
+    private static final int RESULTS_TALLY_LAST_BLIP_FRAME = 176;
+    private static final int RESULTS_TALLY_END_FRAME = 180;
+    private static final int RESULTS_TALLY_TAIL_FRAMES = 30;
 
     private static Rom rom;
     private static Sonic2SmpsLoader loader;
@@ -213,6 +223,58 @@ public class AudioRegressionTest {
         assertArrayEquals(sampleAccurate, hybrid, "Hybrid read mode must match fallback output for mixed music/SFX");
     }
 
+    @Test
+    public void testHybridReadModeMatchesFallbackForResultsTallyStress() {
+        assumeTrue(loader != null, "ROM not available, skipping tally stress identity test");
+
+        int totalFrames = toAudioFrames(RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES);
+        int totalSamples = totalFrames * 2;
+
+        short[] sampleAccurate = renderResultsTallyStressWithMode(
+                SmpsDriver.ReadMode.SAMPLE_ACCURATE,
+                totalSamples
+        );
+        short[] hybrid = renderResultsTallyStressWithMode(
+                SmpsDriver.ReadMode.HYBRID,
+                totalSamples
+        );
+
+        assertTrue(hasNonZeroSample(sampleAccurate),
+                "Results tally stress should produce audible non-zero PCM output");
+        assertArrayEquals(
+                sampleAccurate,
+                hybrid,
+                "Hybrid read mode must match fallback output for results tally stress"
+        );
+    }
+
+    @Test
+    public void testResultsTallyStressBenchmarkWorkloadUsesExactSampleCount() {
+        ResultsTallyStressPlan plan = buildResultsTallyStressBenchmarkPlan();
+
+        int expectedTotalFrames = toAudioFrames(RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES);
+        int expectedTotalSamples = expectedTotalFrames * 2;
+        double expectedDurationMs = (expectedTotalFrames * 1000.0) / SAMPLE_RATE;
+        int expectedBoundaryCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] expectedTriggerBoundarySamples = buildExpectedResultsTallyTriggerBoundarySamples();
+
+        assertEquals(expectedTotalSamples, plan.totalSamples(),
+                "Benchmark plan should use the exact tally stress sample count");
+        assertEquals(expectedDurationMs, plan.totalDurationMs(), 0.0001,
+                "Benchmark duration should derive from the exact timed workload");
+        assertTrue(plan.readSizes().length > 0, "Benchmark plan should contain exact scheduled read slices");
+        assertEquals(expectedTotalSamples, sum(plan.readSizes()),
+                "Benchmark read sizes should sum to the exact tally stress workload");
+        assertEquals(expectedBoundaryCount, plan.triggerBoundarySamples().length,
+                "Plan should expose every tally trigger boundary");
+        assertArrayEquals(expectedTriggerBoundarySamples, plan.triggerBoundarySamples(),
+                "Trigger-boundary samples should match the explicit tally frame schedule");
+        assertEquals(expectedBoundaryCount, countMatchingBoundaries(plan.readEndSamples(), plan.triggerBoundarySamples()),
+                "Read boundaries should land exactly on every non-zero BLIP and tally-end boundary");
+        assertEquals(expectedTotalSamples, plan.readEndSamples()[plan.readEndSamples().length - 1],
+                "Final read boundary should land exactly on totalSamples");
+    }
+
     /**
      * Performance benchmark test - measures time to render audio.
      */
@@ -259,6 +321,21 @@ public class AudioRegressionTest {
         // On modern hardware this should be <5ms, but we use a lenient threshold.
         // CI runners (GitHub Actions) can be significantly slower, so we use 500ms.
         assertTrue(msPerSecond < 500.0, "Audio rendering should complete in reasonable time (under 500ms for 1 second of audio)");
+    }
+
+    @Test
+    public void benchmarkResultsTallyStressRendering() {
+        assumeTrue(loader != null, "ROM not available, skipping tally stress benchmark");
+
+        ResultsTallyStressBenchmarkResult result = measureResultsTallyStressRendering();
+        double msPerRun = result.elapsedNanos() / 1_000_000.0;
+        double totalDurationMs = result.plan().totalDurationMs();
+
+        System.out.println("Results tally stress render time: " + msPerRun + " ms per stress run");
+        System.out.println("Results tally stress real-time factor: " + (totalDurationMs / msPerRun) + "x");
+
+        assertTrue(msPerRun < 500.0,
+                "Results tally stress rendering should complete in reasonable time");
     }
 
     private void assertMusicMatchesReference(String filename, int musicId, double durationSeconds) throws Exception {
@@ -426,6 +503,260 @@ public class AudioRegressionTest {
         }
 
         return audio;
+    }
+
+    private short[] renderResultsTallyStressWithMode(SmpsDriver.ReadMode mode, int totalSamples) {
+        ResultsTallyStressPlan plan = buildResultsTallyStressPlan(totalSamples);
+        ResultsTallyStressExecutionContext context = prepareResultsTallyStressExecutionContext(plan, mode);
+        short[] audio = new short[plan.totalSamples()];
+        executeResultsTallyStressPlan(context, audio);
+        return audio;
+    }
+
+    private boolean hasNonZeroSample(short[] audio) {
+        for (short sample : audio) {
+            if (sample != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int[] buildResultsTallyBlipFrameSchedule() {
+        int triggerCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] triggerFrames = new int[triggerCount];
+        for (int i = 0; i < triggerCount; i++) {
+            triggerFrames[i] = toAudioFrames(i * RESULTS_TALLY_TICK_INTERVAL_FRAMES);
+        }
+        return triggerFrames;
+    }
+
+    private void addSfxSequencer(SmpsDriver driver, AbstractSmpsData sfxData) {
+        SmpsSequencer sfxSeq = new SmpsSequencer(sfxData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxSeq.setSampleRate(SAMPLE_RATE);
+        sfxSeq.setSfxMode(true);
+        driver.addSequencer(sfxSeq, true);
+    }
+
+    private ResultsTallyStressPlan buildResultsTallyStressBenchmarkPlan() {
+        int totalFrames = toAudioFrames(RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES);
+        int totalSamples = totalFrames * 2;
+        return buildResultsTallyStressPlan(totalSamples);
+    }
+
+    private ResultsTallyStressPlan buildResultsTallyStressPlan(int totalSamples) {
+        int[] blipTriggerFrames = buildResultsTallyBlipFrameSchedule();
+        int tallyEndAudioFrame = toAudioFrames(RESULTS_TALLY_END_FRAME);
+        int[] readSizes = buildResultsTallyReadSizes(blipTriggerFrames, tallyEndAudioFrame, totalSamples);
+        int[] readEndSamples = buildReadEndSamples(readSizes);
+        int[] triggerBoundarySamples = buildTriggerBoundarySamples(blipTriggerFrames, tallyEndAudioFrame);
+        double totalDurationMs = ((totalSamples / 2.0) * 1000.0) / SAMPLE_RATE;
+        return new ResultsTallyStressPlan(
+                totalSamples,
+                totalDurationMs,
+                readSizes,
+                readEndSamples,
+                triggerBoundarySamples,
+                blipTriggerFrames,
+                tallyEndAudioFrame
+        );
+    }
+
+    private int[] buildResultsTallyReadSizes(int[] blipTriggerFrames, int tallyEndAudioFrame, int totalSamples) {
+        List<Integer> readSizes = new ArrayList<>();
+        int samplesWritten = 0;
+        int blipIndex = 0;
+        boolean tallyEndTriggered = false;
+
+        while (samplesWritten < totalSamples) {
+            int currentAudioFrame = samplesWritten / 2;
+
+            while (blipIndex < blipTriggerFrames.length
+                    && currentAudioFrame >= blipTriggerFrames[blipIndex]) {
+                blipIndex++;
+            }
+
+            if (!tallyEndTriggered && currentAudioFrame >= tallyEndAudioFrame) {
+                tallyEndTriggered = true;
+            }
+
+            int nextTriggerAudioFrame = totalSamples / 2;
+            if (blipIndex < blipTriggerFrames.length) {
+                nextTriggerAudioFrame = Math.min(nextTriggerAudioFrame, blipTriggerFrames[blipIndex]);
+            }
+            if (!tallyEndTriggered) {
+                nextTriggerAudioFrame = Math.min(nextTriggerAudioFrame, tallyEndAudioFrame);
+            }
+
+            int framesUntilNextTrigger = nextTriggerAudioFrame - currentAudioFrame;
+            int framesToRead = framesUntilNextTrigger > 0
+                    ? Math.min(BUFFER_SIZE, framesUntilNextTrigger)
+                    : Math.min(BUFFER_SIZE, (totalSamples - samplesWritten) / 2);
+            int samplesToRead = Math.min(framesToRead * 2, totalSamples - samplesWritten);
+
+            readSizes.add(samplesToRead);
+            samplesWritten += samplesToRead;
+        }
+
+        int[] result = new int[readSizes.size()];
+        for (int i = 0; i < readSizes.size(); i++) {
+            result[i] = readSizes.get(i);
+        }
+        return result;
+    }
+
+    private int[] buildReadEndSamples(int[] readSizes) {
+        int[] readEndSamples = new int[readSizes.length];
+        int samplesWritten = 0;
+        for (int i = 0; i < readSizes.length; i++) {
+            samplesWritten += readSizes[i];
+            readEndSamples[i] = samplesWritten;
+        }
+        return readEndSamples;
+    }
+
+    private int[] buildTriggerBoundarySamples(int[] blipTriggerFrames, int tallyEndAudioFrame) {
+        int[] triggerBoundarySamples = new int[blipTriggerFrames.length];
+        for (int i = 1; i < blipTriggerFrames.length; i++) {
+            triggerBoundarySamples[i - 1] = blipTriggerFrames[i] * 2;
+        }
+        triggerBoundarySamples[triggerBoundarySamples.length - 1] = tallyEndAudioFrame * 2;
+        return triggerBoundarySamples;
+    }
+
+    private ResultsTallyStressExecutionContext prepareResultsTallyStressExecutionContext(
+            ResultsTallyStressPlan plan,
+            SmpsDriver.ReadMode mode
+    ) {
+        AbstractSmpsData blipData = loader.loadSfx(SFX_BLIP);
+        AbstractSmpsData tallyEndData = loader.loadSfx(SFX_TALLY_END);
+
+        assertNotNull(blipData, "SFX data should load for BLIP");
+        assertNotNull(tallyEndData, "SFX data should load for TALLY_END");
+
+        SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
+        driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(mode);
+
+        short[][] readBuffers = new short[plan.readSizes().length][];
+        for (int i = 0; i < plan.readSizes().length; i++) {
+            readBuffers[i] = new short[plan.readSizes()[i]];
+        }
+
+        return new ResultsTallyStressExecutionContext(driver, blipData, tallyEndData, plan, readBuffers);
+    }
+
+    private int executeResultsTallyStressPlan(ResultsTallyStressExecutionContext context, short[] audioOutput) {
+        int samplesWritten = 0;
+        int blipIndex = 0;
+        boolean tallyEndTriggered = false;
+
+        for (int i = 0; i < context.readBuffers().length; i++) {
+            int currentAudioFrame = samplesWritten / 2;
+
+            while (blipIndex < context.plan().blipTriggerFrames().length
+                    && currentAudioFrame >= context.plan().blipTriggerFrames()[blipIndex]) {
+                addSfxSequencer(context.driver(), context.blipData());
+                blipIndex++;
+            }
+
+            if (!tallyEndTriggered && currentAudioFrame >= context.plan().tallyEndAudioFrame()) {
+                addSfxSequencer(context.driver(), context.tallyEndData());
+                tallyEndTriggered = true;
+            }
+
+            context.driver().read(context.readBuffers()[i]);
+            if (audioOutput != null) {
+                System.arraycopy(context.readBuffers()[i], 0, audioOutput, samplesWritten, context.plan().readSizes()[i]);
+            }
+            samplesWritten += context.plan().readSizes()[i];
+        }
+
+        return samplesWritten;
+    }
+
+    private ResultsTallyStressBenchmarkResult measureResultsTallyStressRendering() {
+        ResultsTallyStressPlan plan = buildResultsTallyStressBenchmarkPlan();
+
+        int warmupSamplesWritten = executeResultsTallyStressPlan(
+                prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID),
+                null
+        );
+        assertResultsTallyStressExecutionMatchesPlan(plan, warmupSamplesWritten);
+
+        ResultsTallyStressExecutionContext timedContext =
+                prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
+        long start = System.nanoTime();
+        int timedSamplesWritten = executeResultsTallyStressPlan(timedContext, null);
+        long elapsed = System.nanoTime() - start;
+        assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten);
+
+        return new ResultsTallyStressBenchmarkResult(plan, elapsed);
+    }
+
+    private int toAudioFrames(int gameFrames) {
+        return (int) ((SAMPLE_RATE / GAME_FPS) * gameFrames);
+    }
+
+    private int sum(int[] values) {
+        int sum = 0;
+        for (int value : values) {
+            sum += value;
+        }
+        return sum;
+    }
+
+    private int countMatchingBoundaries(int[] readEndSamples, int[] triggerBoundarySamples) {
+        int matches = 0;
+        for (int triggerBoundarySample : triggerBoundarySamples) {
+            for (int readEndSample : readEndSamples) {
+                if (readEndSample == triggerBoundarySample) {
+                    matches++;
+                    break;
+                }
+            }
+        }
+        return matches;
+    }
+
+    private int[] buildExpectedResultsTallyTriggerBoundarySamples() {
+        int triggerCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] triggerBoundarySamples = new int[triggerCount];
+        for (int i = 1; i < triggerCount; i++) {
+            triggerBoundarySamples[i - 1] = toAudioFrames(i * RESULTS_TALLY_TICK_INTERVAL_FRAMES) * 2;
+        }
+        triggerBoundarySamples[triggerCount - 1] = toAudioFrames(RESULTS_TALLY_END_FRAME) * 2;
+        return triggerBoundarySamples;
+    }
+
+    private void assertResultsTallyStressExecutionMatchesPlan(ResultsTallyStressPlan plan, int samplesWritten) {
+        assertEquals(plan.totalSamples(), samplesWritten,
+                "Scheduled reads should render the exact shared tally-stress workload");
+        assertEquals(plan.totalSamples(), plan.readEndSamples()[plan.readEndSamples().length - 1],
+                "Shared tally-stress plan should end exactly on totalSamples");
+    }
+
+    private record ResultsTallyStressPlan(
+            int totalSamples,
+            double totalDurationMs,
+            int[] readSizes,
+            int[] readEndSamples,
+            int[] triggerBoundarySamples,
+            int[] blipTriggerFrames,
+            int tallyEndAudioFrame
+    ) {
+    }
+
+    private record ResultsTallyStressExecutionContext(
+            SmpsDriver driver,
+            AbstractSmpsData blipData,
+            AbstractSmpsData tallyEndData,
+            ResultsTallyStressPlan plan,
+            short[][] readBuffers
+    ) {
+    }
+
+    private record ResultsTallyStressBenchmarkResult(ResultsTallyStressPlan plan, long elapsedNanos) {
     }
 
     private static boolean referenceFileExists(String filename) {
