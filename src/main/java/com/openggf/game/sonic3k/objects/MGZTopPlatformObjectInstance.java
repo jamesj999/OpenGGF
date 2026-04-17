@@ -20,9 +20,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.physics.GroundSensor;
 import com.openggf.physics.ObjectTerrainUtils;
-import com.openggf.physics.SensorResult;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -161,7 +159,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
      */
     private boolean releasedFlight;
     private final SubpixelMotion.State motion;
-    private final GroundSensor worldTerrainProbe = new GroundSensor(null, Direction.DOWN, (byte) 0, (byte) 0, true);
 
     // Per-player state.
     private final Map<PlayableEntity, PlayerGrabState> playerStates = new IdentityHashMap<>();
@@ -438,9 +435,14 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     private void runPlayerStateMachine(AbstractPlayableSprite player, boolean isPrimary) {
         PlayerGrabState state = playerStates.computeIfAbsent(player, k -> new PlayerGrabState());
 
-        // ROM loc_34FBC safety-release conditions.
+        // ROM loc_34FBC safety-release: if player is dead/hurt/in debug mode, fall
+        // through to loc_3500A which releases the grab and, for P1, invokes sub_3519A
+        // (flip platform to released-flight drift). Same exit path as a jump-launch.
         if (state.routine == 4 && (player.getDead() || player.isHurt() || player.isDebugMode())) {
             releasePlayer(player, state, false);
+            if (isPrimary) {
+                enterReleasedFlight();
+            }
             return;
         }
 
@@ -462,10 +464,10 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     /** ROM loc_34F4C: state 2 — wait for player to cross centre, then grab. */
     private void playerStateApproach(AbstractPlayableSprite player, PlayerGrabState state) {
+        // ROM loc_34F6A: if standing bit was cleared (player no longer on top),
+        // state resets to 0 — but the grab-radius check (loc_34F72) still runs.
         if (!state.standingNow) {
             state.routine = 0;
-            state.entrySideBias = 0;
-            return;
         }
         int dx = player.getCentreX() - posX;
         // ROM: cmpi.w #$10, d0; bhs locret (unsigned compare).
@@ -490,7 +492,10 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
      */
     private void grabPlayer(AbstractPlayableSprite player, PlayerGrabState state) {
         player.setCentreX((short) posX);
-        player.setObjectControlled(true);
+        // ROM: bset #0, object_control(a1) — input lockout (bit 0 only).
+        // Java maps bit 0 to controlLocked; bit 7 (objectControlled / full physics
+        // skip) must remain clear so spikes and other hazards can still deliver
+        // solid-contact hurt reactions to the grabbed player.
         player.setControlLocked(true);
         player.setAir(true);
         state.jumpHeldAtGrab = player.isJumpPressed();
@@ -513,11 +518,17 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // ROM loc_35028: face direction from input; if no input but platform moving, face it.
-        if (player.isLeftPressed() || player.isRightPressed()) {
-            // Engine's mini-motion will set direction naturally via facing-on-gSpeed-sign.
+        // ROM loc_35028: if L/R held, facing is left to the normal input path; otherwise,
+        // if the platform has x_vel, face per its sign (Facing bit reflects platform drift).
+        // The player is object-controlled so the normal facing-from-gSpeed update doesn't
+        // run — we set it explicitly here.
+        if (player.isLeftPressed() && !player.isRightPressed()) {
+            player.setDirection(Direction.LEFT);
+        } else if (player.isRightPressed() && !player.isLeftPressed()) {
+            player.setDirection(Direction.RIGHT);
+        } else if (xVel != 0) {
+            player.setDirection(xVel < 0 ? Direction.LEFT : Direction.RIGHT);
         }
-        // ROM loc_35048: stretch y_radius happens implicitly via engine (we skip).
 
         if (!isPrimary) {
             // ROM P2 exits here (rts in loc_35048).
@@ -702,7 +713,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void releasePlayer(AbstractPlayableSprite player, PlayerGrabState state, boolean airborneRelease) {
-        player.setObjectControlled(false);
         player.setControlLocked(false);
         player.setForcedAnimationId(-1);
         player.suppressNextJumpPress();
@@ -734,8 +744,11 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             return;
         }
         if (state.standingNow) {
+            // ROM sub_35202 Status_OnObj branch:
+            //   x_pos(a1) = x_pos(a0)                 ; player X follows platform X
+            //   y_pos(a0) = y_pos(a1) + default_y_radius + $D
             int defaultYR = player.getStandYRadius();
-            posX = player.getCentreX();
+            player.setCentreX((short) posX);
             posY = player.getCentreY() + defaultYR + 0x0D;
             nextCarryLatched = true;
             return;
@@ -787,36 +800,32 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
+    /**
+     * ROM sub_34DBC → sub_F6B4: single-point probe in the rotated-angle direction,
+     * at the predicted next-frame position (x_pos + x_vel, y_pos + y_vel). The
+     * dispatch targets (sub_F828 floor, CheckCeilingDist_WithRadius, loc_FAA4 right
+     * wall, loc_FDC8 left wall) all use x_radius=$18 for the probe offset —
+     * y_radius=$13 is never actually consumed by these single-sensor variants.
+     */
     private ProbeResult runGroundWallProbe(int rotatedAngle) {
         int predictedX = predictCoordinate(posX, motion.xSub, xVel);
         int predictedY = predictCoordinate(posY, motion.ySub, yVel) - WALL_Y_OFFSET;
         int probeMode = anglePosQuadrant(rotatedAngle);
         return switch (probeMode) {
-            case 0x00 -> probeGroundForwardFloor(predictedX, predictedY, 0x00);
-            case 0x40 -> probeGroundForwardWall(predictedX - WALL_X_RADIUS, predictedY, Direction.LEFT, 0x40);
-            case 0x80 -> probeGroundForwardCeiling(predictedX, predictedY, 0x80);
-            default -> probeGroundForwardWall(predictedX + WALL_X_RADIUS, predictedY, Direction.RIGHT, 0xC0);
+            case 0x00 -> toProbeResult(
+                    ObjectTerrainUtils.checkFloorDist(predictedX, predictedY, WALL_X_RADIUS), 0x00);
+            case 0x40 -> toProbeResult(
+                    ObjectTerrainUtils.checkLeftWallDist(predictedX - WALL_X_RADIUS, predictedY), 0x40);
+            case 0x80 -> toProbeResult(
+                    ObjectTerrainUtils.checkCeilingDist(predictedX, predictedY, WALL_X_RADIUS), 0x80);
+            default -> toProbeResult(
+                    ObjectTerrainUtils.checkRightWallDist(predictedX + WALL_X_RADIUS, predictedY), 0xC0);
         };
     }
 
-    private ProbeResult probeGroundForwardFloor(int predictedX, int predictedY, int fallbackAngle) {
-        return toProbeResult(
-                worldTerrainProbe.scanAbsolute((short) predictedX, (short) (predictedY + WALL_X_RADIUS),
-                        SOLIDITY_ALL, Direction.DOWN),
-                fallbackAngle);
-    }
-
-    private ProbeResult probeGroundForwardCeiling(int predictedX, int predictedY, int fallbackAngle) {
-        return toProbeResult(
-                worldTerrainProbe.scanAbsolute((short) predictedX, (short) (predictedY - WALL_X_RADIUS),
-                        SOLIDITY_ALL, Direction.UP),
-                fallbackAngle);
-    }
-
-    private ProbeResult probeGroundForwardWall(int predictedX, int predictedY, Direction direction, int fallbackAngle) {
-        return toProbeResult(
-                worldTerrainProbe.scanAbsolute((short) predictedX, (short) predictedY, SOLIDITY_ALL, direction),
-                fallbackAngle);
+    private static int predictCoordinate(int pos, int sub, int vel) {
+        int total = (sub & 0xFF) + (vel & 0xFF);
+        return pos + (vel >> 8) + (total >> 8);
     }
 
     private ProbeResult toProbeResult(TerrainCheckResult result, int fallbackAngle) {
@@ -828,22 +837,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             probeAngle = fallbackAngle & 0xFF;
         }
         return new ProbeResult(result.distance(), probeAngle);
-    }
-
-    private ProbeResult toProbeResult(SensorResult result, int fallbackAngle) {
-        if (result == null) {
-            return null;
-        }
-        int probeAngle = result.angle() & 0xFF;
-        if ((probeAngle & 1) != 0) {
-            probeAngle = fallbackAngle & 0xFF;
-        }
-        return new ProbeResult(result.distance(), probeAngle);
-    }
-
-    private static int predictCoordinate(int pos, int sub, int vel) {
-        int total = (sub & 0xFF) + (vel & 0xFF);
-        return pos + (vel >> 8) + (total >> 8);
     }
 
     private static int anglePosQuadrant(int angle) {
@@ -1108,20 +1101,23 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         xVel = 0;
     }
 
+    // ROM sub_3526A wall probes: sub_FA1A / sub_FD32 are PAIRED wall checks at
+    // (x_pos ± x_radius, y_pos ± y_radius). x_radius=$18, y_radius=$C at these call
+    // sites, and y_pos is already posY - $13 (from the loc_34C98 shift).
     private ProbeResult probeAirborneRightWall() {
-        TerrainCheckResult top = ObjectTerrainUtils.checkRightWallDist(
-                posX + WALL_X_RADIUS, posY - WALL_Y_OFFSET);
-        TerrainCheckResult bottom = ObjectTerrainUtils.checkRightWallDist(
-                posX + WALL_X_RADIUS, posY + WALL_Y_OFFSET);
-        return chooseDeeperProbe(top, bottom, 0xC0);
+        int midY = posY - AIRBORNE_Y_OFFSET;
+        return chooseDeeperProbe(
+                ObjectTerrainUtils.checkRightWallDist(posX + WALL_X_RADIUS, midY - WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkRightWallDist(posX + WALL_X_RADIUS, midY + WALL_Y_OFFSET),
+                0xC0);
     }
 
     private ProbeResult probeAirborneLeftWall() {
-        TerrainCheckResult top = ObjectTerrainUtils.checkLeftWallDist(
-                posX - WALL_X_RADIUS, posY - WALL_Y_OFFSET);
-        TerrainCheckResult bottom = ObjectTerrainUtils.checkLeftWallDist(
-                posX - WALL_X_RADIUS, posY + WALL_Y_OFFSET);
-        return chooseDeeperProbe(top, bottom, 0x40);
+        int midY = posY - AIRBORNE_Y_OFFSET;
+        return chooseDeeperProbe(
+                ObjectTerrainUtils.checkLeftWallDist(posX - WALL_X_RADIUS, midY - WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkLeftWallDist(posX - WALL_X_RADIUS, midY + WALL_Y_OFFSET),
+                0x40);
     }
 
     private ProbeResult probeGroundFloor() {
@@ -1138,19 +1134,20 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 0x00);
     }
 
+    // ROM sub_3526A ceiling probe: sub_FB5A is a PAIRED check at y = y_pos - y_radius
+    // with sensors at x ± (x_radius - 2). x_radius=$A here, so sensors at x ± 8; probe
+    // Y resolves to (posY - $13) - $1F = posY - $32.
     private ProbeResult probeAirborneCeiling() {
+        int cornerX = GROUND_X_RADIUS - 2;
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkCeilingDist(posX + GROUND_X_RADIUS, posY, AIRBORNE_Y_RADIUS),
-                ObjectTerrainUtils.checkCeilingDist(posX - GROUND_X_RADIUS, posY, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkCeilingDist(posX + cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkCeilingDist(posX - cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
                 0x80);
     }
 
     private ProbeResult probeAirborneCornerCeiling() {
-        int cornerRadius = GROUND_X_RADIUS - 2;
-        return chooseDeeperProbe(
-                ObjectTerrainUtils.checkCeilingDist(posX + cornerRadius, posY, AIRBORNE_Y_RADIUS),
-                ObjectTerrainUtils.checkCeilingDist(posX - cornerRadius, posY, AIRBORNE_Y_RADIUS),
-                0x80);
+        // ROM loc_3536E / loc_3547A call the same sub_FB5A as the straight-up case.
+        return probeAirborneCeiling();
     }
 
     private ProbeResult chooseDeeperProbe(TerrainCheckResult primary, TerrainCheckResult secondary, int fallbackAngle) {
@@ -1320,7 +1317,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             state.routine = 0;
             state.entrySideBias = 0;
             if (entry.getKey() instanceof AbstractPlayableSprite player) {
-                player.setObjectControlled(false);
                 player.setControlLocked(false);
                 player.setForcedAnimationId(-1);
             }
