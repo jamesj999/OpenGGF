@@ -13,20 +13,12 @@ import com.openggf.level.render.SpriteMappingFrame;
  */
 public record HudStaticArt(
         Pattern[] patterns,
-        Frames frames
+        SpriteMappingFrame scoreFrame,
+        SpriteMappingFrame debugScoreFrame,
+        SpriteMappingFrame timeFrame,
+        SpriteMappingFrame timeFlashFrame,
+        SpriteMappingFrame ringsFrame,
+        SpriteMappingFrame ringsFlashFrame,
+        SpriteMappingFrame livesFrame
 ) {
-    /**
-     * Named HUD frame bundle for the static score/time/rings/lives art set.
-     * Using a grouped record makes the positional frame contract explicit at call sites.
-     */
-    public record Frames(
-            SpriteMappingFrame scoreFrame,
-            SpriteMappingFrame debugScoreFrame,
-            SpriteMappingFrame timeFrame,
-            SpriteMappingFrame timeFlashFrame,
-            SpriteMappingFrame ringsFrame,
-            SpriteMappingFrame ringsFlashFrame,
-            SpriteMappingFrame livesFrame
-    ) {
-    }
 }
