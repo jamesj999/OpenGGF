@@ -1,16 +1,13 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
-import com.openggf.game.LevelState;
-import com.openggf.game.GameStateManager;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.Level;
-import com.openggf.level.Palette;
-import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
-
-import java.util.function.Supplier;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.PatternDesc;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpritePieceRenderer;
 
 public class HudRenderManager {
 
@@ -18,41 +15,24 @@ public class HudRenderManager {
             java.util.logging.Logger.getLogger(HudRenderManager.class.getName());
 
     /**
-     * Controls how the HUD warns the player when rings=0 or time>=9:00.
-     * S1/S2 swap the label palette (red flash), S3K hides the label text entirely.
+     * Compatibility type retained while providers still expose the legacy HUD flash mode API.
+     * Static HUD rendering now selects mapping frames directly and no longer branches on this enum.
      */
     public enum HudFlashMode {
-        /** S1/S2: label switches to icon palette (red flash) */
         PALETTE_SWAP,
-        /** S3K: label text is hidden on blink frames (toggled every 8 frames) */
         TEXT_HIDE
     }
-
-    private static final int DIGIT_ZERO = 0; // Relative to loaded HUD digit patterns
-    private static final int DIGIT_COLON = 10; // Assuming colon is after 9
-
-    // Pattern indices relative to the base HUD patterns loaded
-    // We need to know where HUD patterns are loaded.
-    // Usually they are at fixed VRAM, but our GraphicsManager uses pattern indices.
-    // We might need to look up mapping frames or assume a sequence.
-
-    // For now, assuming a simple draw capability.
-    // However, given the engine structure, we likely need to use PatternDescs or
-    // similar if we want to bypass sprite system,
-    // OR create sprites for HUD elements.
-    // Given the HUD overlay nature, direct pattern drawing via GraphicsManager
-    // (like DebugOverlay) or a dedicated SpriteManager bucket is best.
-    // We'll follow the pattern of DebugOverlayManager / DebugRenderer for now, or
-    // similar to ring rendering helpers.
-
-    // BUT, Sonic 2 HUD is effectively a set of sprites/patterns fixed to screen.
-    // Let's assume we can draw direct patterns to screen coordinates.
 
     private final GraphicsManager graphicsManager;
     private final Camera camera;
     private final GameStateManager gameState;
+    private final PatternDesc staticPieceDesc = new PatternDesc();
+
     private int digitPatternIndex;
-    private int textPatternIndex;
+    private int livesNumbersPatternIndex;
+    private int hexDigitsPatternIndex;
+    private HudStaticArt staticHudArt;
+    private int staticHudPatternIndex;
 
     // Cached HUD values for performance - avoid String.valueOf() and parsing each frame
     private int cachedScore = -1;
@@ -60,29 +40,16 @@ public class HudRenderManager {
     private int cachedLives = -1;
     private String cachedTime = null;
     // Pre-computed digit arrays to avoid allocation each frame
-    private final int[] scoreDigits = new int[6];  // Max 6 digits for score
-    private final int[] ringDigits = new int[3];   // Max 3 digits for rings
-    private final int[] livesDigits = new int[3];  // Max 3 digits for lives
+    private final int[] scoreDigits = new int[6];
+    private final int[] ringDigits = new int[3];
+    private final int[] livesDigits = new int[3];
     private int scoreDigitCount = 0;
     private int ringDigitCount = 0;
     private int livesDigitCount = 0;
 
-    // PatternDesc for standard HUD rendering (Palette 0, no flip, priority high?)
-    // Priority is handled by draw order usually, but PatternDesc needs a priority
-    // bit.
-    // Assuming priority 1 (high).
     // Icon/flash palette and HUD text palette — configurable per game
-    private PatternDesc iconPatternDesc = new PatternDesc(0x8000); // default: Priority 1, Pal 0
-    private PatternDesc hudPatternDesc = new PatternDesc(0xA000);  // default: Priority 1, Pal 1
-    private int iconPaletteLine;
-    private int hudTextPaletteLine = 1;
-    /** When true, lives name tiles use iconPatternDesc (pal 0) instead of hudPatternDesc (pal 1).
-     *  Set when donor life icon art is active — S3K art uses palette 0 for all tiles. */
-    private boolean livesNameUsesIconPalette;
-    private Palette livesPaletteOverride;
-    private Supplier<Palette> livesPaletteOverrideSupplier;
-
-    private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
+    private PatternDesc iconPatternDesc = new PatternDesc(0x8000);
+    private PatternDesc hudPatternDesc = new PatternDesc(0xA000);
     private boolean bonusStageHudLayout;
 
     public HudRenderManager(GraphicsManager graphicsManager, Camera camera, GameStateManager gameState) {
@@ -99,55 +66,22 @@ public class HudRenderManager {
      * @param flashPalLine palette line for icon and flash state (red)
      */
     public void setHudPalettes(int textPalLine, int flashPalLine) {
-        this.hudTextPaletteLine = textPalLine;
-        this.iconPaletteLine = flashPalLine;
         this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
         this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
-    }
-
-    /** When set, lives name tiles render with palette 0 (icon) instead of palette 1 (HUD text).
-     *  Used when donor life icon art (S3K) replaces host art — S3K tiles use palette 0 for all. */
-    public void setLivesNameUsesIconPalette(boolean value) {
-        this.livesNameUsesIconPalette = value;
-    }
-
-    public void setLivesPaletteOverride(Palette palette) {
-        this.livesPaletteOverride = palette != null ? palette.deepCopy() : null;
-    }
-
-    public void setLivesPaletteOverrideSupplier(Supplier<Palette> supplier) {
-        this.livesPaletteOverrideSupplier = supplier;
-    }
-
-    public void setHudFlashMode(HudFlashMode mode) {
-        this.flashMode = mode;
     }
 
     public void setBonusStageHudLayout(boolean enabled) {
         this.bonusStageHudLayout = enabled;
     }
 
-    private int textPatternCount;
-    private int livesPatternCount;
-
     public void setDigitPatternIndex(int digitPatternIndex) {
         this.digitPatternIndex = digitPatternIndex;
         LOGGER.fine("HudRenderManager Digit Index: " + digitPatternIndex);
     }
 
-    public void setTextPatternIndex(int textPatternIndex, int count) {
-        this.textPatternIndex = textPatternIndex;
-        this.textPatternCount = count;
-        LOGGER.fine("HudRenderManager Text Index: " + textPatternIndex + ", Count: " + count);
-    }
-
-    private int livesPatternIndex;
-    private int livesNumbersPatternIndex;
-    private int hexDigitsPatternIndex;
-
-    public void setLivesPatternIndex(int livesPatternIndex, int count) {
-        this.livesPatternIndex = livesPatternIndex;
-        this.livesPatternCount = count;
+    public void setStaticHudArt(int basePatternIndex, HudStaticArt staticHudArt) {
+        this.staticHudPatternIndex = basePatternIndex;
+        this.staticHudArt = staticHudArt;
     }
 
     public void setLivesNumbersPatternIndex(int livesNumbersPatternIndex) {
@@ -189,7 +123,6 @@ public class HudRenderManager {
             return 1;
         }
 
-        // Count digits
         int temp = value;
         int count = 0;
         while (temp > 0) {
@@ -197,7 +130,6 @@ public class HudRenderManager {
             temp /= 10;
         }
 
-        // Extract digits in reverse order (right to left)
         int idx = count - 1;
         temp = value;
         while (temp > 0) {
@@ -213,117 +145,119 @@ public class HudRenderManager {
     }
 
     public void draw(LevelState levelGamestate, PlayableEntity player) {
-        if (levelGamestate == null)
+        if (levelGamestate == null) {
             return;
+        }
 
         if (bonusStageHudLayout) {
             drawBonusStageHud(levelGamestate);
             return;
         }
 
-        // Check if debug mode is active
         boolean debugMode = player != null && player.isDebugMode();
 
+        drawStaticFrame(debugMode ? staticHudArtOrNull(true) : staticHudArtOrNull(false), 16, 8);
+        drawStaticFrame(selectTimeFrame(levelGamestate.shouldFlashTimer(), levelGamestate.getFlashCycle()), 16, 24);
+        drawStaticFrame(selectRingsFrame(levelGamestate.getRings(), levelGamestate.getFlashCycle()), 16, 40);
+        drawStaticFrame(staticHudArt != null ? staticHudArt.livesFrame() : null, 16, 200);
+
         if (debugMode) {
-            // Debug mode: Sonic 2 style coordinate display
-            // "SCOR" text stays, "E" is replaced with smaller hex coordinates
-            // Two rows of 8 hex digits each (using smaller 8x8 lives number font):
-            // Top row: Player X (4 hex digits) + Player Y (4 hex digits)
-            // Bottom row: Camera X (4 hex digits) + Camera Y (4 hex digits)
-
-            // Draw "SCOR" (skip the E) - this uses the normal large HUD text
-            drawHudString(16, 8, "SCOR", hudPatternDesc);
-
-            // Calculate where the hex coordinates start (right after "SCOR")
-            // "SCOR" is 4 characters * 8 pixels = 32 pixels, starting at x=16
-            int hexStartX = 16 + 32; // = 48
-
-            // Player coordinates (top row, at same Y as "SCOR")
+            int hexStartX = 48;
             int playerX = player.getCentreX() & 0xFFFF;
             int playerY = player.getCentreY() & 0xFFFF;
             drawSmallHexCoordinates(hexStartX, 8, playerX, playerY);
 
-            // Camera coordinates (second row, below the first)
             int camX = camera.getX() & 0xFFFF;
             int camY = camera.getY() & 0xFFFF;
             drawSmallHexCoordinates(hexStartX, 16, camX, camY);
-
-            // Draw Time below the debug coordinates
-            boolean flashTime = levelGamestate.shouldFlashTimer();
-            drawTimeLabel(flashTime, levelGamestate.getFlashCycle());
-            drawTime(56, 24, levelGamestate.getDisplayTime());
         } else {
-            // Normal gameplay: Draw Score
-            drawHudString(16, 8, "SCORE", hudPatternDesc);
             drawScore(gameState.getScore());
-
-            // Draw Time
-            boolean flashTime = levelGamestate.shouldFlashTimer();
-            drawTimeLabel(flashTime, levelGamestate.getFlashCycle());
-            drawTime(56, 24, levelGamestate.getDisplayTime());
         }
 
-        drawCores(levelGamestate.getRings(), levelGamestate.getFlashCycle());
+        drawTime(56, 24, levelGamestate.getDisplayTime());
+        drawRings(levelGamestate.getRings(), bonusStageHudLayout ? 8 : 40);
         drawLives(gameState.getLives());
     }
 
+    private SpriteMappingFrame staticHudArtOrNull(boolean debugMode) {
+        if (staticHudArt == null) {
+            return null;
+        }
+        return debugMode ? staticHudArt.debugScoreFrame() : staticHudArt.scoreFrame();
+    }
+
     private void drawBonusStageHud(LevelState levelGamestate) {
-        int rings = levelGamestate.getRings();
-        boolean flashCycle = levelGamestate.getFlashCycle();
-        if (flashMode == HudFlashMode.TEXT_HIDE) {
-            if (!(rings == 0 && flashCycle)) {
-                drawHudString(16, 8, "RINGS", hudPatternDesc);
-            }
-        } else {
-            boolean flash = rings == 0;
-            PatternDesc desc = (flash && flashCycle) ? iconPatternDesc : hudPatternDesc;
-            drawHudString(16, 8, "RINGS", desc);
-        }
-        drawNumberRightAligned(64, 8, rings, 3);
-    }
-
-    private void drawTimeLabel(boolean flashTime, boolean flashCycle) {
-        if (flashMode == HudFlashMode.TEXT_HIDE) {
-            // S3K: hide TIME label entirely on blink frames
-            if (!(flashTime && flashCycle)) {
-                drawHudString(16, 24, "TIME", hudPatternDesc);
-            }
-        } else {
-            // S1/S2: swap palette to red on flash
-            drawHudString(16, 24, "TIME", flashTime ? iconPatternDesc : hudPatternDesc);
-        }
-    }
-
-    private void drawCores(int rings, boolean flashCycle) {
-        if (flashMode == HudFlashMode.TEXT_HIDE) {
-            // S3K: hide RINGS label entirely on blink frames when rings=0
-            if (!(rings == 0 && flashCycle)) {
-                drawHudString(16, 40, "RINGS", hudPatternDesc);
-            }
-        } else {
-            // S1/S2: swap palette to red on flash
-            boolean flash = (rings == 0);
-            PatternDesc desc = (flash && flashCycle) ? iconPatternDesc : hudPatternDesc;
-            drawHudString(16, 40, "RINGS", desc);
-        }
-        drawNumberRightAligned(64, 40, rings, 3);
+        drawStaticFrame(selectRingsFrame(levelGamestate.getRings(), levelGamestate.getFlashCycle()), 16, 8);
+        drawRings(levelGamestate.getRings(), 8);
     }
 
     private void drawScore(int score) {
-        // "SCORE" already drawn in main draw loop to group label logic?
-        // No, invalidating previous lines logic if I just change draw().
-        // Wait, original code had `drawHudString` inside `drawScore`.
-        // I removed it in my replacement block above?
-        // Let's look at the original code structure:
-        // draw() called drawHudString("SCORE"), then drawScore().
-        // default drawScore() had: drawHudString("SCORE") inside it!
-        // That's redundant double drawing in the original code?
-        // Line 83: drawHudString(.., "SCORE")
-        // Line 104 (inside drawScore): drawHudString(.., "SCORE")
-        // Yes, the original code double-drew "SCORE".
-        // I will fix this cleanliness issue while I am here.
-
         drawNumberRightAligned(64, 8, score, 6);
+    }
+
+    private void drawRings(int rings, int y) {
+        drawNumberRightAligned(64, y, rings, 3);
+    }
+
+    private void drawLives(int lives) {
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
+        int numDrawX = 40;
+        int line2Y = 208;
+
+        if (livesNumbersPatternIndex <= 0) {
+            return;
+        }
+        if (lives != cachedLives) {
+            cachedLives = lives;
+            livesDigitCount = numberToDigits(lives, livesDigits);
+        }
+        for (int i = 0; i < livesDigitCount; i++) {
+            int digit = livesDigits[i];
+            renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, numDrawX + camX + (i * 8), line2Y + camY);
+        }
+    }
+
+    private void drawStaticFrame(SpriteMappingFrame frame, int originX, int originY) {
+        if (frame == null || staticHudArt == null || staticHudPatternIndex <= 0) {
+            return;
+        }
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
+        SpritePieceRenderer.renderPieces(
+                frame.pieces(),
+                originX + camX,
+                originY + camY,
+                staticHudPatternIndex,
+                -1,
+                false,
+                false,
+                (patternId, hFlip, vFlip, paletteIndex, drawX, drawY) -> {
+                    int descIndex = patternId & 0x7FF;
+                    if (hFlip) {
+                        descIndex |= 0x800;
+                    }
+                    if (vFlip) {
+                        descIndex |= 0x1000;
+                    }
+                    descIndex |= (paletteIndex & 0x3) << 13;
+                    staticPieceDesc.set(descIndex);
+                    graphicsManager.renderPatternWithId(patternId, new PatternDesc(staticPieceDesc.get()), drawX, drawY);
+                });
+    }
+
+    private SpriteMappingFrame selectTimeFrame(boolean shouldFlashTimer, boolean flashCycle) {
+        if (staticHudArt == null) {
+            return null;
+        }
+        return (shouldFlashTimer && flashCycle) ? staticHudArt.timeFlashFrame() : staticHudArt.timeFrame();
+    }
+
+    private SpriteMappingFrame selectRingsFrame(int rings, boolean flashCycle) {
+        if (staticHudArt == null) {
+            return null;
+        }
+        return (rings == 0 && flashCycle) ? staticHudArt.ringsFlashFrame() : staticHudArt.ringsFrame();
     }
 
     /**
@@ -331,7 +265,7 @@ public class HudRenderManager {
      * mode).
      * Format: XXXXYYYY (8 hex digits total, no gap between X and Y)
      * Uses the smaller lives number font for digits 0-9.
-     * 
+     *
      * @param x      Base X position on screen
      * @param y      Base Y position on screen
      * @param xCoord X coordinate to display (will be masked to 16-bit)
@@ -341,15 +275,12 @@ public class HudRenderManager {
         int camX = camera.getXWithShake();
         int camY = camera.getYWithShake();
 
-        // Draw X coordinate (4 hex digits)
         for (int i = 0; i < 4; i++) {
             int nibble = (xCoord >> (12 - i * 4)) & 0xF;
             drawSmallHexDigit(x + camX + (i * 8), y + camY, nibble);
         }
 
-        // Draw Y coordinate immediately after X (4 hex digits, no gap)
-        int yStartX = x + 32; // 4 digits * 8 pixels = 32 pixels
-
+        int yStartX = x + 32;
         for (int i = 0; i < 4; i++) {
             int nibble = (yCoord >> (12 - i * 4)) & 0xF;
             drawSmallHexDigit(yStartX + camX + (i * 8), y + camY, nibble);
@@ -365,239 +296,27 @@ public class HudRenderManager {
      */
     private void drawSmallHexDigit(int x, int y, int digit) {
         if (hexDigitsPatternIndex > 0) {
-            // ROM-accurate: tiles 0-9 for 0-9, tiles 17-22 for A-F.
             int tileOffset = digit < 0xA ? digit : digit + 7;
             renderSafe(hexDigitsPatternIndex + tileOffset, hudPatternDesc, x, y);
             return;
         }
 
-        // Legacy fallback: no debug font loaded, reuse lives digits for 0-9 only.
         if (livesNumbersPatternIndex <= 0) {
             return;
         }
         if (digit < 10) {
             renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, x, y);
         }
-        // Intentionally no A-F fallback: mapping A-F onto 1-6 is confusing.
-    }
-
-    private void drawLives(int lives) {
-        int namePaletteLine = livesNameUsesIconPalette ? iconPaletteLine : hudTextPaletteLine;
-        boolean paletteOverridden = applyLivesPaletteOverride(iconPaletteLine, namePaletteLine);
-
-        int camX = camera.getXWithShake();
-        int camY = camera.getYWithShake();
-
-        // Base position for Lives HUD (Bottom Left)
-        int baseX = 16;
-        int baseY = 200;
-
-        // Draw Icon - Palette 0 (iconPatternDesc)
-        // 16x16 icon composed of 4 tiles in column-major order (0,1,2,3)
-        renderSafe(livesPatternIndex + 0, iconPatternDesc, baseX + camX, baseY + camY);
-        renderSafe(livesPatternIndex + 1, iconPatternDesc, baseX + camX, baseY + camY + 8);
-        renderSafe(livesPatternIndex + 2, iconPatternDesc, baseX + camX + 8, baseY + camY);
-        renderSafe(livesPatternIndex + 3, iconPatternDesc, baseX + camX + 8, baseY + camY + 8);
-
-        // Draw character name — S2 native uses hudPatternDesc (pal 1, yellow),
-        // but donor art from S3K uses iconPatternDesc (pal 0) for all tiles.
-        PatternDesc nameDesc = livesNameUsesIconPalette ? iconPatternDesc : hudPatternDesc;
-
-        int drawX = baseX + 16;
-
-        renderSafe(livesPatternIndex + 4, nameDesc, drawX + camX, baseY + camY);
-        drawX += 8;
-
-        // O (16px)
-        renderSafe(livesPatternIndex + 6, nameDesc, drawX + camX, baseY + camY);
-        renderSafe(livesPatternIndex + 9, nameDesc, drawX + camX + 8, baseY + camY);
-        drawX += 8;
-
-        // N I-l(16px)
-        renderSafe(livesPatternIndex + 8, nameDesc, drawX + camX, baseY + camY);
-        renderSafe(livesPatternIndex + 10, nameDesc, drawX + camX + 8, baseY + camY);
-        drawX += 16;
-
-        // I-r C(8px)
-        renderSafe(livesPatternIndex + 11, nameDesc, drawX + camX, baseY + camY);
-
-        // NEW LINE for X and Numbers
-        int line2Y = baseY + 8; // Next line
-        // Indent to align with text above? Or align with Icon?
-        // User said: "next to the currently-misplaced X".
-        // Usually X is roughly under the start of "SONIC".
-        int xDrawX = baseX + 16;
-
-        // Draw "X"
-        // X: 5 (Left), 7 (Right) (Swapped with O)
-        renderSafe(livesPatternIndex + 5, iconPatternDesc, xDrawX + camX, line2Y + camY);
-        renderSafe(livesPatternIndex + 7, iconPatternDesc, xDrawX + camX + 8, line2Y + camY);
-
-        // Gap after X
-        int numDrawX = xDrawX + 16 + 8; // 16 for X + 8 gap
-
-        // Numbers use livesNumbersPatternIndex and iconPatternDesc
-        // livesNumbersPatternIndex corresponds to '0'
-        // Use cached digit array to avoid String allocation each frame
-
-        if (livesNumbersPatternIndex > 0) {
-            if (lives != cachedLives) {
-                cachedLives = lives;
-                livesDigitCount = numberToDigits(lives, livesDigits);
-            }
-            for (int i = 0; i < livesDigitCount; i++) {
-                int digit = livesDigits[i];
-                renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, numDrawX + camX + (i * 8), line2Y + camY);
-            }
-        }
-
-        if (paletteOverridden) {
-            graphicsManager.flushPatternBatch();
-            graphicsManager.flush();
-            restoreHudPaletteLines(iconPaletteLine, namePaletteLine);
-        }
-    }
-
-    private boolean applyLivesPaletteOverride(int iconLine, int nameLine) {
-        Palette paletteOverride = resolveLivesPaletteOverride();
-        if (paletteOverride == null) {
-            return false;
-        }
-        graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), iconLine);
-        if (nameLine != iconLine) {
-            graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), nameLine);
-        }
-        return true;
-    }
-
-    private Palette resolveLivesPaletteOverride() {
-        if (livesPaletteOverrideSupplier != null) {
-            Palette supplied = livesPaletteOverrideSupplier.get();
-            if (supplied != null) {
-                return supplied;
-            }
-        }
-        if (livesPaletteOverride != null) {
-            return livesPaletteOverride;
-        }
-        // Direct fallback: when lives name renders on the icon palette (S3K),
-        // copy the HUD text fill/shadow colors from the text palette line so
-        // the character name text appears yellow instead of the character's
-        // native colour at index 5.
-        if (livesNameUsesIconPalette) {
-            return buildDirectPaletteOverride();
-        }
-        return null;
-    }
-
-    /**
-     * Builds the lives palette override directly from the current level palettes.
-     * Copies HUD text fill (index 5) and shadow (index 14) from the text palette
-     * line into the icon palette line so the character name text is yellow.
-     */
-    private Palette buildDirectPaletteOverride() {
-        Level level = null;
-        if (GameServices.levelOrNull() != null) {
-            level = GameServices.levelOrNull().getCurrentLevel();
-        }
-        if (level == null) {
-            return null;
-        }
-        if (iconPaletteLine >= level.getPaletteCount()
-                || hudTextPaletteLine >= level.getPaletteCount()) {
-            return null;
-        }
-        Palette iconPalette = level.getPalette(iconPaletteLine);
-        Palette textPalette = level.getPalette(hudTextPaletteLine);
-        if (iconPalette == null || textPalette == null) {
-            return null;
-        }
-        Palette override = iconPalette.deepCopy();
-        copyColorDirect(override, 5, textPalette.getColor(5));
-        copyColorDirect(override, 14, textPalette.getColor(14));
-        return override;
-    }
-
-    private static void copyColorDirect(Palette target, int index, Palette.Color source) {
-        Palette.Color c = target.getColor(index);
-        c.r = source.r;
-        c.g = source.g;
-        c.b = source.b;
-    }
-
-    private void restoreHudPaletteLines(int iconLine, int nameLine) {
-        Level level = null;
-        if (GameServices.levelOrNull() != null) {
-            level = GameServices.levelOrNull().getCurrentLevel();
-        }
-        if (level == null) {
-            return;
-        }
-        restorePaletteLine(level, iconLine);
-        if (nameLine != iconLine) {
-            restorePaletteLine(level, nameLine);
-        }
-    }
-
-    private void restorePaletteLine(Level level, int line) {
-        if (line < 0 || line >= level.getPaletteCount()) {
-            return;
-        }
-        Palette palette = level.getPalette(line);
-        if (palette != null) {
-            graphicsManager.cachePaletteTexture(palette.deepCopy(), line);
-        }
-    }
-
-    private void drawHudString(int x, int y, String text, PatternDesc patternDesc) {
-        int camX = camera.getXWithShake();
-        int camY = camera.getYWithShake();
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            int patternId = getPatternIndexForChar(c);
-            if (patternId != -1) {
-                // Interleaved layout: Top tile is even (2*k), Bottom tile is odd (2*k + 1)
-                // Assuming "Even items were bottoms" meant "2nd, 4th..." (1-based count) ->
-                // Indices 1, 3, 5...
-                // If indices 0, 2, 4 were bottoms, text would be upside down in a linear strip.
-                // Standard Nemesis/Interleaved is Top then Bottom.
-                renderSafe(textPatternIndex + (patternId * 2), patternDesc, x + camX + (i * 8), y + camY);
-                renderSafe(textPatternIndex + (patternId * 2) + 1, patternDesc, x + camX + (i * 8), y + camY + 8);
-            }
-        }
-    }
-
-    // Mapping derived from debug strip: "SCORRINGTIME"
-    // Sequence in ROM: S, C, O, R, R, I, N, G, T, I, M, E
-    // Indices: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
-    private int getPatternIndexForChar(char c) {
-        return switch (c) {
-            case 'S' -> 0;
-            case 'C' -> 1;
-            case 'O' -> 2;
-            case 'R' -> 3; // Using first R (index 3). Second R is 4.
-            case 'I' -> 5; // Using first I (index 5). Second I is 9.
-            case 'N' -> 6;
-            case 'G' -> 7;
-            case 'T' -> 8;
-            case 'M' -> 10;
-            case 'E' -> 11;
-            case ':' -> 12;
-            default -> -1;
-        };
     }
 
     private void drawNumberRightAligned(int startX, int y, int value, int maxDigits) {
         int camX = camera.getXWithShake();
         int camY = camera.getYWithShake();
 
-        // Use cached digit arrays to avoid String allocation each frame
         int[] digitArray;
         int digitCount;
 
-        // Determine which cache to use based on maxDigits and value range
         if (maxDigits == 6) {
-            // Score
             if (value != cachedScore) {
                 cachedScore = value;
                 scoreDigitCount = numberToDigits(value, scoreDigits);
@@ -605,8 +324,6 @@ public class HudRenderManager {
             digitArray = scoreDigits;
             digitCount = scoreDigitCount;
         } else if (maxDigits == 3 && value <= 999) {
-            // Could be rings or lives - use rings cache for this call
-            // (lives uses a separate method)
             if (value != cachedRings) {
                 cachedRings = value;
                 ringDigitCount = numberToDigits(value, ringDigits);
@@ -614,58 +331,43 @@ public class HudRenderManager {
             digitArray = ringDigits;
             digitCount = ringDigitCount;
         } else {
-            // Fallback: compute directly (rare case)
             digitArray = new int[maxDigits];
             digitCount = numberToDigits(value, digitArray);
         }
 
-        // Calculate offset for right alignment
         int padding = maxDigits - digitCount;
-        if (padding < 0) padding = 0;
+        if (padding < 0) {
+            padding = 0;
+        }
 
         for (int i = 0; i < digitCount; i++) {
             int digit = digitArray[i];
             int xPos = startX + (padding + i) * 8;
-
-            // Draw top
             renderSafe(digitPatternIndex + (digit * 2), hudPatternDesc, xPos + camX, y + camY);
-            // Draw bottom
             renderSafe(digitPatternIndex + (digit * 2) + 1, hudPatternDesc, xPos + camX, y + camY + 8);
         }
     }
 
     private void drawTime(int x, int y, String timeStr) {
+        if (timeStr == null || timeStr.equals(cachedTime)) {
+            cachedTime = timeStr;
+        } else {
+            cachedTime = timeStr;
+        }
+
         int camX = camera.getXWithShake();
         int camY = camera.getYWithShake();
         for (int i = 0; i < timeStr.length(); i++) {
             char c = timeStr.charAt(i);
-            int patternIdx;
-            if (c == ':') {
-                patternIdx = digitPatternIndex + 20; // Reverted to use digit patterns for colon
-            } else {
-                patternIdx = digitPatternIndex + ((c - '0') * 2);
-            }
-            // Draw top
+            int patternIdx = (c == ':')
+                    ? digitPatternIndex + 20
+                    : digitPatternIndex + ((c - '0') * 2);
             renderSafe(patternIdx, hudPatternDesc, x + camX + (i * 8), y + camY);
-            // Draw bottom
             renderSafe(patternIdx + 1, hudPatternDesc, x + camX + (i * 8), y + camY + 8);
         }
     }
 
     private void renderSafe(int patternId, PatternDesc desc, int x, int y) {
-        // Simple bounds check if we knew the max, but for now just catch GL errors
-        // effectively?
-        // Actually, just delegate. The error comes from map lookup failure.
-        // We will add debug strip here.
         graphicsManager.renderPatternWithId(patternId, desc, x, y);
-    }
-
-    public void drawDebugStrip() {
-        int camX = camera.getXWithShake();
-        int camY = camera.getYWithShake();
-        int chunks = Math.min(40, textPatternCount); // Clamp limit
-        for (int i = 0; i < chunks; i++) {
-            graphicsManager.renderPatternWithId(textPatternIndex + i, hudPatternDesc, camX + 10 + (i * 8), camY + 100);
-        }
     }
 }

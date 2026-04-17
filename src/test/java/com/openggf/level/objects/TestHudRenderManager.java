@@ -9,10 +9,7 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import org.junit.jupiter.api.Test;
 
-import com.openggf.level.Palette;
-
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -21,7 +18,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.intThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,58 +34,32 @@ public class TestHudRenderManager {
         when(levelState.getRings()).thenReturn(23);
         when(levelState.getFlashCycle()).thenReturn(false);
 
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] {
+                        new Pattern(), new Pattern(), new Pattern(),
+                        new Pattern(), new Pattern(), new Pattern(), new Pattern()
+                },
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 2, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 6, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 1, false, false, 0))));
+
         HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
-        hud.setTextPatternIndex(100, 32);
         hud.setDigitPatternIndex(200);
-        hud.setLivesPatternIndex(300, 12);
-        hud.setLivesNumbersPatternIndex(320);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
         hud.setBonusStageHudLayout(true);
 
         hud.draw(levelState, null);
 
-        verify(graphicsManager).renderPatternWithId(eq(106), any(), eq(16), eq(8));
-        verify(graphicsManager, never()).renderPatternWithId(eq(100), any(), eq(16), eq(8));
-        verify(graphicsManager, never()).renderPatternWithId(eq(116), any(), eq(16), eq(24));
-        verify(graphicsManager, never()).renderPatternWithId(eq(106), any(), eq(16), eq(40));
-        verify(graphicsManager, never()).renderPatternWithId(intThat(id -> id >= 300 && id < 332),
+        verify(graphicsManager).renderPatternWithId(eq(0x28026), any(), eq(16), eq(8));
+        verify(graphicsManager, never()).renderPatternWithId(eq(0x28022), any(), eq(16), eq(24));
+        verify(graphicsManager, never()).renderPatternWithId(eq(0x28026), any(), eq(16), eq(40));
+        verify(graphicsManager, never()).renderPatternWithId(intThat(id -> id >= 0x28020 && id < 0x28022),
                 any(), anyInt(), anyInt());
-    }
-
-    @Test
-    public void livesPaletteOverrideSupplierRefreshesBetweenDraws() {
-        GraphicsManager graphicsManager = mock(GraphicsManager.class);
-        Camera camera = mock(Camera.class);
-        GameStateManager gameState = mock(GameStateManager.class);
-        LevelState levelState = mock(LevelState.class);
-        when(camera.getXWithShake()).thenReturn((short) 0);
-        when(camera.getYWithShake()).thenReturn((short) 0);
-        when(levelState.getRings()).thenReturn(10);
-        when(levelState.getFlashCycle()).thenReturn(false);
-        when(levelState.shouldFlashTimer()).thenReturn(false);
-        when(levelState.getDisplayTime()).thenReturn("0:10");
-        when(gameState.getScore()).thenReturn(0);
-        when(gameState.getLives()).thenReturn(3);
-
-        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
-        hud.setTextPatternIndex(100, 32);
-        hud.setDigitPatternIndex(200);
-        hud.setLivesPatternIndex(300, 12);
-        hud.setLivesNumbersPatternIndex(320);
-        hud.setLivesNameUsesIconPalette(true);
-
-        Palette first = new Palette();
-        setColor(first, 5, 0, 146, 0);
-        Palette second = new Palette();
-        setColor(second, 5, 255, 182, 0);
-        AtomicReference<Palette> current = new AtomicReference<>(first);
-        hud.setLivesPaletteOverrideSupplier(current::get);
-
-        hud.draw(levelState, null);
-        current.set(second);
-        hud.draw(levelState, null);
-
-        verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(0, 146, 0)), eq(0));
-        verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(255, 182, 0)), eq(0));
     }
 
     @Test
@@ -131,23 +101,39 @@ public class TestHudRenderManager {
         verify(graphicsManager, never()).cachePaletteTexture(any(), anyInt());
     }
 
-    private static org.mockito.ArgumentMatcher<Palette> paletteMatches(int r, int g, int b) {
-        return palette -> {
-            if (palette == null) {
-                return false;
-            }
-            Palette.Color color = palette.getColor(5);
-            return (color.r & 0xFF) == r
-                    && (color.g & 0xFF) == g
-                    && (color.b & 0xFF) == b;
-        };
-    }
+    @Test
+    void mappingDrivenRingsFrameUsesFlashVariantInsteadOfHudString() {
+        GraphicsManager graphicsManager = mock(GraphicsManager.class);
+        Camera camera = mock(Camera.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        LevelState levelState = mock(LevelState.class);
+        when(camera.getXWithShake()).thenReturn((short) 0);
+        when(camera.getYWithShake()).thenReturn((short) 0);
+        when(levelState.getRings()).thenReturn(0);
+        when(levelState.getFlashCycle()).thenReturn(true);
+        when(levelState.shouldFlashTimer()).thenReturn(false);
+        when(levelState.getDisplayTime()).thenReturn("0:10");
+        when(gameState.getScore()).thenReturn(0);
+        when(gameState.getLives()).thenReturn(3);
 
-    private static void setColor(Palette palette, int index, int r, int g, int b) {
-        Palette.Color color = palette.getColor(index);
-        color.r = (byte) r;
-        color.g = (byte) g;
-        color.b = (byte) b;
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] { new Pattern(), new Pattern() },
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 1, false, false, 0))),
+                new SpriteMappingFrame(List.of()));
+
+        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
+        hud.setDigitPatternIndex(200);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
+
+        hud.draw(levelState, null);
+
+        verify(graphicsManager).renderPatternWithId(eq(0x28021), any(), eq(16), eq(40));
+        verify(graphicsManager, never()).renderPatternWithId(eq(100), any(), eq(16), eq(40));
     }
 }
-
