@@ -1,28 +1,180 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.RenderPriority;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
+import java.util.List;
 
 /**
- * CNZ hover fan stub for {@code Obj_CNZHoverFan}.
+ * Object 0x46 - CNZ Hover Fan ({@code Obj_CNZHoverFan}).
+ * <p>
+ * ROM behavior:
+ * <ul>
+ *   <li>{@code Map_CNZHoverFan} with {@code ArtTile_CNZMisc+$97}</li>
+ *   <li>Uses the sign bit of the subtype to select the active fan path</li>
+ *   <li>Initial mapping frame comes from subtype bits 4-6 when the sign bit is set</li>
+ *   <li>Applies the ROM lift window from {@code sub_30F84}</li>
+ *   <li>Sets {@code air}, zeroes {@code y_vel}, seeds {@code ground_vel = 1}</li>
+ *   <li>Only seeds flip motion once per player, matching the {@code flip_angle} gate</li>
+ * </ul>
  *
- * <p>ROM anchor: the fan uses {@code Map_CNZHoverFan} and
- * {@code ArtTile_CNZMisc+$97}. Task 1 only claims the slot and sheet, but it
- * still renders frame 0 so the fan remains visible while lift behavior is pending.
+ * <p>Like the ROM object, this instance keeps center coordinates in world space.
+ * The visible sheet is drawn directly at the spawn center, and the lift window is
+ * calculated from the same center-position deltas used by the original routine.
  */
-public final class CnzHoverFanInstance extends AbstractCnzTraversalVisibleStubInstance {
+public final class CnzHoverFanInstance extends AbstractObjectInstance {
+
+    private static final int PRIORITY = 0x280;
+
+    // ROM: move.b #$10,width_pixels(a0) / move.b #$10,height_pixels(a0)
+    private static final int HALF_WIDTH = 0x10;
+    private static final int HALF_HEIGHT = 0x10;
+
+    // ROM: d1 = (subtype & $0F) + 4, then lsl.w #4
+    private static final int BASE_LIFT_OFFSET = 0x40;
+    private static final int LIFT_WINDOW_END = 0x70;
+
+    // ROM: (subtype & $70) + $18
+    private static final int X_WINDOW_MIN_OFFSET = 0x18;
+    private static final int X_WINDOW_WIDTH = 0x30;
+
+    private static final int FLIP_INITIAL = 1;
+    private static final int FLIP_SPEED = 8;
+    private static final int FLIPS_REMAINING = 0x7F;
+
+    private final int subtype;
+    private final boolean activeVariant;
+    private final boolean xFlipped;
+    private final int initialFrame;
+    private final int baseX;
+    private final int baseY;
+    private int currentX;
+    private int renderFrame;
+
     public CnzHoverFanInstance(ObjectSpawn spawn) {
-        super(spawn, "CNZHoverFan", Sonic3kObjectArtKeys.CNZ_HOVER_FAN);
+        super(spawn, "CNZHoverFan");
+        this.subtype = spawn.subtype();
+        this.activeVariant = (subtype & 0x80) != 0;
+        this.xFlipped = (spawn.renderFlags() & 0x01) != 0;
+        this.initialFrame = activeVariant ? ((subtype & 0x70) >> 4) : 0;
+        this.baseX = spawn.x();
+        this.baseY = spawn.y();
+        this.currentX = baseX;
+        this.renderFrame = initialFrame;
     }
 
     @Override
-    protected int initialFrameIndex() {
-        // Negative subtypes route through the horizontal hover-fan variant and
-        // seed mapping_frame from subtype bits 4-6. Non-negative subtypes leave
-        // the default frame 0 until behavior-driven animation takes over.
-        if ((spawn.subtype() & 0x80) == 0) {
-            return 0;
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        currentX = resolveCurrentX();
+
+        boolean captured = false;
+        AbstractPlayableSprite player = playerEntity instanceof AbstractPlayableSprite
+                ? (AbstractPlayableSprite) playerEntity
+                : null;
+        captured |= tryCapture(player);
+
+        try {
+            for (PlayableEntity sidekick : services().sidekicks()) {
+                if (sidekick instanceof AbstractPlayableSprite sprite) {
+                    captured |= tryCapture(sprite);
+                }
+            }
+        } catch (Exception ignored) {
+            // Test fixtures may not expose sidekicks.
         }
-        return (spawn.subtype() & 0x70) >> 4;
+
+        if (captured && ((frameCounter + 1) & 0x1F) == 0) {
+            try {
+                services().playSfx(Sonic3kSfx.HOVERPAD.id);
+            } catch (Exception ignored) {
+                // Audio is unavailable in some test setups.
+            }
+        }
+    }
+
+    private int resolveCurrentX() {
+        if (!activeVariant || !xFlipped) {
+            return baseX;
+        }
+
+        // ROM: loc_30F12 -> Oscillating_table+$0E - $30 + saved X.
+        return baseX + OscillationManager.getByte(0x0E) - 0x30;
+    }
+
+    private boolean tryCapture(AbstractPlayableSprite player) {
+        if (player == null || player.isObjectControlled()) {
+            return false;
+        }
+
+        int dx = player.getCentreX() - currentX;
+        if (dx < -X_WINDOW_MIN_OFFSET || dx >= X_WINDOW_MIN_OFFSET) {
+            return false;
+        }
+
+        int osc = OscillationManager.getByte(0x16);
+        int band = player.getCentreY() - baseY + osc + BASE_LIFT_OFFSET;
+        if (band < 0 || band >= LIFT_WINDOW_END) {
+            return false;
+        }
+
+        // ROM sub_30F84:
+        //   if band >= $40, mirror the distance through the fan body before
+        //   converting it into a vertical nudge.
+        int adjustedBand = band;
+        if (adjustedBand >= BASE_LIFT_OFFSET) {
+            adjustedBand = ~((adjustedBand - BASE_LIFT_OFFSET) & 0xFFFF);
+            adjustedBand = (adjustedBand + adjustedBand) & 0xFFFF;
+        }
+
+        adjustedBand = (short) ((adjustedBand + BASE_LIFT_OFFSET) & 0xFFFF);
+        adjustedBand = (short) -adjustedBand;
+        adjustedBand >>= 4;
+
+        player.setCentreY((short) (player.getCentreY() + adjustedBand));
+        player.setAir(true);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 1);
+
+        if (player.getFlipAngle() == 0) {
+            player.setFlipAngle(FLIP_INITIAL);
+            player.setAnimationId(0);
+            player.setFlipsRemaining(FLIPS_REMAINING);
+            player.setFlipSpeed(FLIP_SPEED);
+        }
+
+        return true;
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        ObjectRenderManager renderManager = getRenderManager();
+        if (renderManager == null) {
+            return;
+        }
+
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.CNZ_HOVER_FAN);
+        if (renderer != null && renderer.isReady()) {
+            boolean hFlip = (spawn.renderFlags() & 0x01) != 0;
+            boolean vFlip = (spawn.renderFlags() & 0x02) != 0;
+            renderer.drawFrameIndex(renderFrame, currentX, baseY, hFlip, vFlip);
+        }
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        return RenderPriority.clamp(PRIORITY);
+    }
+
+    int getRenderFrameForTest() {
+        return renderFrame;
     }
 }

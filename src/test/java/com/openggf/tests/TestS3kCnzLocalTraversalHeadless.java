@@ -4,6 +4,8 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.CnzBalloonInstance;
+import com.openggf.game.sonic3k.objects.CnzHoverFanInstance;
+import com.openggf.game.sonic3k.objects.CnzTrapDoorInstance;
 import com.openggf.game.sonic3k.objects.CnzRisingPlatformInstance;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -162,9 +164,93 @@ class TestS3kCnzLocalTraversalHeadless {
                 "The test player should remain grounded while the platform is carrying them");
     }
 
+    @Test
+    void trapDoorOpensFromTheROMTriggerWindowAndEventuallyCloses() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzTrapDoorInstance trapDoor = spawnTrapDoor(0x2600, 0x0780, 0x00);
+        fixture.sprite().setCentreX((short) 0x2600);
+        fixture.sprite().setCentreY((short) 0x0788);
+
+        trapDoor.update(0, fixture.sprite());
+
+        assertTrue(invokeBooleanHook(trapDoor, "isOpenForTest"),
+                "The trap door should open when the player enters the ROM trigger box");
+        assertEquals(1, invokeIntHook(trapDoor, "getRenderFrameForTest"),
+                "The first open frame should match the disassembly animation state");
+
+        for (int frame = 1; frame < 24; frame++) {
+            trapDoor.update(frame, fixture.sprite());
+        }
+
+        assertFalse(invokeBooleanHook(trapDoor, "isOpenForTest"),
+                "The trap door should return to the closed state after the open cycle");
+        assertEquals(0, invokeIntHook(trapDoor, "getRenderFrameForTest"),
+                "The closed mapping frame should be restored after the cycle");
+    }
+
+    @Test
+    void hoverFanRaisesThePlayerWithoutStealingControlAndSeedsFlipMotion() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x80);
+        fixture.sprite().setCentreX((short) 0x2C00);
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setObjectControlled(false);
+        fixture.sprite().setControlLocked(false);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setFlipAngle(0);
+        fixture.sprite().setFlipSpeed(0);
+        fixture.sprite().setFlipsRemaining(0);
+
+        fan.update(0, fixture.sprite());
+
+        assertFalse(fixture.sprite().isObjectControlled(),
+                "CNZ hover fans push the player but do not take full object control");
+        assertFalse(fixture.sprite().isControlLocked(),
+                "CNZ hover fans do not lock the control bits");
+        assertTrue(fixture.sprite().getAir(),
+                "The fan should force the player airborne");
+        assertEquals((short) 0, fixture.sprite().getYSpeed(),
+                "The ROM routine zeroes vertical speed on capture");
+        assertEquals((short) 1, fixture.sprite().getGSpeed(),
+                "The ROM routine seeds ground_vel to 1 on the first capture frame");
+        assertEquals(1, fixture.sprite().getFlipAngle(),
+                "The first capture should seed the flip animation");
+        assertEquals(8, fixture.sprite().getFlipSpeed(),
+                "The first capture should seed the ROM flip speed");
+        assertEquals(0x7F, fixture.sprite().getFlipsRemaining(),
+                "The first capture should seed the ROM flip count");
+        assertEquals(0x08BC, fixture.sprite().getCentreY(),
+                "The lift should match the ROM-derived window-to-offset conversion");
+        assertEquals(0, invokeIntHook(fan, "getRenderFrameForTest"),
+                "Subtype 0x80 should start on mapping frame 0");
+    }
+
     private static CnzBalloonInstance spawnBalloon(int x, int y, int subtype) {
         CnzBalloonInstance object = new CnzBalloonInstance(
                 new ObjectSpawn(x, y, Sonic3kObjectIds.CNZ_BALLOON, subtype, 0, false, 0));
+        object.setServices(new DefaultObjectServices(RuntimeManager.getCurrent()));
+        return object;
+    }
+
+    private static CnzTrapDoorInstance spawnTrapDoor(int x, int y, int subtype) {
+        CnzTrapDoorInstance object = new CnzTrapDoorInstance(
+                new ObjectSpawn(x, y, Sonic3kObjectIds.CNZ_TRAP_DOOR, subtype, 0, false, 0));
+        object.setServices(new DefaultObjectServices(RuntimeManager.getCurrent()));
+        return object;
+    }
+
+    private static CnzHoverFanInstance spawnHoverFan(int x, int y, int subtype) {
+        CnzHoverFanInstance object = new CnzHoverFanInstance(
+                new ObjectSpawn(x, y, Sonic3kObjectIds.CNZ_HOVER_FAN, subtype, 0, false, 0));
         object.setServices(new DefaultObjectServices(RuntimeManager.getCurrent()));
         return object;
     }
