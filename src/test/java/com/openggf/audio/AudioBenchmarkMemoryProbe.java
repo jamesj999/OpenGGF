@@ -44,10 +44,10 @@ public final class AudioBenchmarkMemoryProbe {
     }
 
     public RunResult measureTimedRun(Runnable workload) {
-        long allocatedBefore = readThreadAllocatedBytes();
         long heapBefore = readHeapUsedBytes();
         long gcCountBefore = readTotalGcCount();
         long gcTimeBefore = readTotalGcTimeMs();
+        long allocatedBefore = readThreadAllocatedBytes();
         long start = System.nanoTime();
         workload.run();
         long elapsed = System.nanoTime() - start;
@@ -91,6 +91,10 @@ public final class AudioBenchmarkMemoryProbe {
                 readThreadAllocatedBytes(),
                 allocatedBytesSupported
         );
+    }
+
+    public long currentHeapUsedBytes() {
+        return readHeapUsedBytes();
     }
 
     private long readHeapUsedBytes() {
