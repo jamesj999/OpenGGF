@@ -30,6 +30,7 @@ import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.level.objects.HudRenderManager;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.PatternAtlas;
@@ -1730,7 +1731,6 @@ public class LevelManager {
 
             hudRenderManager = new HudRenderManager(graphicsManager, camera, gameState);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
-            hudRenderManager.setHudFlashMode(provider.getHudFlashMode());
             // Wire up HUD to unified UI render pipeline
             if (graphicsManager.getUiRenderPipeline() != null) {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
@@ -1746,48 +1746,37 @@ public class LevelManager {
                 }
                 hudRenderManager.setDigitPatternIndex(hudBaseIndex);
 
-                int textBaseIndex = hudBaseIndex + hudDigits.length;
-                Pattern[] hudText = provider.getHudTextPatterns();
-                if (hudText != null) {
-                    LOGGER.info("Cached " + hudText.length + " HUD Text patterns at index " + textBaseIndex);
-                    for (int i = 0; i < hudText.length; i++) {
-                        graphicsManager.cachePatternTexture(hudText[i], textBaseIndex + i);
+                HudStaticArt staticHudArt = provider.getHudStaticArt();
+                if (staticHudArt != null && staticHudArt.patterns() != null) {
+                    int staticBaseIndex = hudBaseIndex + hudDigits.length;
+                    LOGGER.info("Cached " + staticHudArt.patterns().length
+                            + " HUD Static patterns at index " + staticBaseIndex);
+                    for (int i = 0; i < staticHudArt.patterns().length; i++) {
+                        graphicsManager.cachePatternTexture(staticHudArt.patterns()[i], staticBaseIndex + i);
                     }
-                    hudRenderManager.setTextPatternIndex(textBaseIndex, hudText.length);
+                    hudRenderManager.setStaticHudArt(staticBaseIndex, staticHudArt);
 
-                    int livesBaseIndex = textBaseIndex + hudText.length;
-                    Pattern[] hudLives = provider.getHudLivesPatterns();
-                    if (hudLives != null) {
-                        LOGGER.info("Cached " + hudLives.length + " HUD Lives patterns at index " + livesBaseIndex);
-                        for (int i = 0; i < hudLives.length; i++) {
-                            graphicsManager.cachePatternTexture(hudLives[i], livesBaseIndex + i);
+                    int livesNumbersBaseIndex = staticBaseIndex + staticHudArt.patterns().length;
+                    Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
+                    int hexBaseIndex = livesNumbersBaseIndex;
+                    if (hudLivesNumbers != null) {
+                        LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
+                                + livesNumbersBaseIndex);
+                        for (int i = 0; i < hudLivesNumbers.length; i++) {
+                            graphicsManager.cachePatternTexture(hudLivesNumbers[i], livesNumbersBaseIndex + i);
                         }
-                        hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
-                        hudRenderManager.setLivesNameUsesIconPalette(provider.usesIconPaletteForLivesName());
-                        hudRenderManager.setLivesPaletteOverrideSupplier(provider::getHudLivesPaletteOverride);
+                        hudRenderManager.setLivesNumbersPatternIndex(livesNumbersBaseIndex);
+                        hexBaseIndex = livesNumbersBaseIndex + hudLivesNumbers.length;
+                    }
 
-                        int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
-                        Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
-                        int hexBaseIndex = livesNumbersBaseIndex;
-                        if (hudLivesNumbers != null) {
-                            LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
-                                    + livesNumbersBaseIndex);
-                            for (int i = 0; i < hudLivesNumbers.length; i++) {
-                                graphicsManager.cachePatternTexture(hudLivesNumbers[i], livesNumbersBaseIndex + i);
-                            }
-                            hudRenderManager.setLivesNumbersPatternIndex(livesNumbersBaseIndex);
-                            hexBaseIndex = livesNumbersBaseIndex + hudLivesNumbers.length;
+                    Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
+                    if (hudHexDigits != null) {
+                        LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
+                                + hexBaseIndex);
+                        for (int i = 0; i < hudHexDigits.length; i++) {
+                            graphicsManager.cachePatternTexture(hudHexDigits[i], hexBaseIndex + i);
                         }
-
-                        Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
-                        if (hudHexDigits != null) {
-                            LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
-                                    + hexBaseIndex);
-                            for (int i = 0; i < hudHexDigits.length; i++) {
-                                graphicsManager.cachePatternTexture(hudHexDigits[i], hexBaseIndex + i);
-                            }
-                            hudRenderManager.setHexDigitsPatternIndex(hexBaseIndex);
-                        }
+                        hudRenderManager.setHexDigitsPatternIndex(hexBaseIndex);
                     }
                 }
             }
