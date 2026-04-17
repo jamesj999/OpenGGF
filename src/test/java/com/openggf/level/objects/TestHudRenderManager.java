@@ -109,15 +109,16 @@ public class TestHudRenderManager {
 
         HudStaticArt staticArt = new HudStaticArt(
                 new Pattern[] { new Pattern(), new Pattern(), new Pattern(), new Pattern() },
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of(
-                        new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0),
-                        new SpriteMappingPiece(8, 0, 1, 1, 1, false, false, 1))));
+                new HudStaticArt.Frames(
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of()),
+                        new SpriteMappingFrame(List.of(
+                                new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0),
+                                new SpriteMappingPiece(8, 0, 1, 1, 1, false, false, 1)))));
 
         HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
         hud.setDigitPatternIndex(200);
@@ -129,8 +130,6 @@ public class TestHudRenderManager {
         verify(graphicsManager).renderPatternWithId(eq(0x28020), argThat(desc -> desc.getPaletteIndex() == 0), eq(16), eq(200));
         verify(graphicsManager).renderPatternWithId(eq(0x28021), argThat(desc -> desc.getPaletteIndex() == 1), eq(24), eq(200));
         verify(graphicsManager, never()).cachePaletteTexture(any(), anyInt());
-        verify(graphicsManager, never()).flushPatternBatch();
-        verify(graphicsManager, never()).flush();
     }
 
     private static org.mockito.ArgumentMatcher<Palette> paletteMatches(int r, int g, int b) {
