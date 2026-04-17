@@ -294,6 +294,20 @@ public class AudioRegressionTest {
         assertTrue(msPerSecond < 500.0, "Audio rendering should complete in reasonable time (under 500ms for 1 second of audio)");
     }
 
+    @Test
+    public void benchmarkResultsTallyStressRendering() {
+        assumeTrue(loader != null, "ROM not available, skipping tally stress benchmark");
+
+        double msPerRun = measureResultsTallyStressRenderingMs();
+        double totalDurationMs = ((RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES) * 1000.0) / GAME_FPS;
+
+        System.out.println("Results tally stress render time: " + msPerRun + " ms per stress run");
+        System.out.println("Results tally stress real-time factor: " + (totalDurationMs / msPerRun) + "x");
+
+        assertTrue(msPerRun < 500.0,
+                "Results tally stress rendering should complete in reasonable time");
+    }
+
     private void assertMusicMatchesReference(String filename, int musicId, double durationSeconds) throws Exception {
         assumeTrue(referenceFileExists(filename), "Reference file not found: " + filename);
 
@@ -541,6 +555,19 @@ public class AudioRegressionTest {
         sfxSeq.setSampleRate(SAMPLE_RATE);
         sfxSeq.setSfxMode(true);
         driver.addSequencer(sfxSeq, true);
+    }
+
+    private double measureResultsTallyStressRenderingMs() {
+        int totalFrames = toAudioFrames(RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES);
+        int totalSamples = totalFrames * 2;
+
+        renderResultsTallyStressWithMode(SmpsDriver.ReadMode.HYBRID, totalSamples);
+
+        long start = System.nanoTime();
+        renderResultsTallyStressWithMode(SmpsDriver.ReadMode.HYBRID, totalSamples);
+        long elapsed = System.nanoTime() - start;
+
+        return elapsed / 1_000_000.0;
     }
 
     private int toAudioFrames(int gameFrames) {
