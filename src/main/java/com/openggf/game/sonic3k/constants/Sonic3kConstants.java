@@ -223,6 +223,16 @@ public class Sonic3kConstants {
     public static final int MAP_MGZ_DASH_TRIGGER_ADDR = 0x224B88; // Map_MGZDashTrigger (5 frames)
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
 
+    // ===== MGZ Top Platform / Launcher (Obj_MGZTopPlatform, ID 0x5B) =====
+    // Map_MGZTopPlatform_ has a 3-word frame-offset table immediately before word_3596A.
+    // Base = word_3596A ($3596A) - 6 bytes of offsets = $035964.
+    public static final int MAP_MGZ_TOP_PLATFORM_ADDR = 0x035964; // Map_MGZTopPlatform (3 frames)
+    // Waypoint tables for sub_35666/sub_35868 arc-teleport system.
+    // Each entry = 16 bytes: trigger_x, trigger_y, flag_word, dest_x, dest_y_raw, dest_y_delta, ...
+    // Header word is (count - 1) for a dbf loop; full size is 7 entries × 16 bytes.
+    public static final int MGZ_TOP_PLATFORM_WAYPOINTS_ACT1_ADDR = 0x035784; // word_35784
+    public static final int MGZ_TOP_PLATFORM_WAYPOINTS_ACT2_ADDR = 0x0357F6; // word_357F6
+
     // ===== HCZ Block mappings (Obj_HCZBlock, ID 0x40) =====
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
     // Derived from the frame labels in Map - Block.asm: Frame_21D052 starts 8 bytes after the table base.
@@ -316,6 +326,13 @@ public class Sonic3kConstants {
     // Verified via RomOffsetFinder binary match
     public static final int ART_UNC_LIVES_DIGITS_ADDR = 0xE48A;
     public static final int ART_UNC_LIVES_DIGITS_SIZE = 320;
+
+    // ArtUnc_DebugDigits - 8x8 font used by HUD_Debug for player/camera hex coords.
+    // ASCII-aligned layout: digits 0-9 at tiles 0-9, A-F at tiles 17-22 (char offset
+    // from '0'). Sits immediately after ArtUnc_LivesDigits in ROM.
+    // 736 bytes = 23 tiles. MD5 matches General/Sprites/HUD Icon/Debug Digits.bin.
+    public static final int ART_UNC_DEBUG_DIGITS_ADDR = 0xE5CA;
+    public static final int ART_UNC_DEBUG_DIGITS_SIZE = 736;
 
     // Touch_Sizes table: 58 entries of 2 bytes (width, height radius)
     // sonic3k.asm line 20713, verified via ROM binary search

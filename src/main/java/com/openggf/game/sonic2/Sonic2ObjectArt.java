@@ -278,6 +278,8 @@ public class Sonic2ObjectArt {
         Pattern[] hudLivesPatterns = safeLoadNemesisPatterns(Sonic2Constants.ART_NEM_SONIC_LIFE_ADDR, "SonicLife");
         Pattern[] hudLivesNumbers = safeLoadUncompressedPatterns(Sonic2Constants.ART_UNC_LIVES_NUMBERS_ADDR,
                 Sonic2Constants.ART_UNC_LIVES_NUMBERS_SIZE, "LivesNumbers");
+        Pattern[] debugFontPatterns = safeLoadUncompressedPatterns(Sonic2Constants.ART_UNC_DEBUG_FONT_ADDR,
+                Sonic2Constants.ART_UNC_DEBUG_FONT_SIZE, "DebugFont");
         ObjectArtData artData = new ObjectArtData(
                 monitorSheet,
                 spikeSheet,
@@ -322,7 +324,7 @@ public class Sonic2ObjectArt {
                 hudTextPatterns,
                 hudLivesPatterns,
                 hudLivesNumbers,
-                (Pattern[]) null, // debugFontPatterns
+                debugFontPatterns,
                 monitorMappings,
                 springMappings,
                 checkpointMappings,

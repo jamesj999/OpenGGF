@@ -74,6 +74,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private Pattern[] hudHexDigits;
     private int animalTypeA = AnimalType.RABBIT.ordinal();
     private int animalTypeB = AnimalType.FLICKY.ordinal();
     private int currentZoneIndex = -1;
@@ -118,6 +119,10 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         hudLivesNumbers = art.loadUncompressedPatterns(
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_ADDR,
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_SIZE);
+
+        hudHexDigits = art.loadUncompressedPatterns(
+                Sonic1Constants.ART_UNC_TEXT_ADDR,
+                Sonic1Constants.ART_UNC_TEXT_SIZE);
 
         // Load lamppost art
         loadLamppostArt(art);
@@ -7923,6 +7928,11 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     @Override
     public Pattern[] getHudLivesNumbers() {
         return hudLivesNumbers;
+    }
+
+    @Override
+    public Pattern[] getHudHexDigitPatterns() {
+        return hudHexDigits;
     }
 
     private void overrideLivesArtFromDonor() {
