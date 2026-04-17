@@ -1746,38 +1746,37 @@ public class LevelManager {
                 }
                 hudRenderManager.setDigitPatternIndex(hudBaseIndex);
 
+                int nextHudIndex = hudBaseIndex + hudDigits.length;
                 HudStaticArt staticHudArt = provider.getHudStaticArt();
                 if (staticHudArt != null && staticHudArt.patterns() != null) {
-                    int staticBaseIndex = hudBaseIndex + hudDigits.length;
                     LOGGER.info("Cached " + staticHudArt.patterns().length
-                            + " HUD Static patterns at index " + staticBaseIndex);
+                            + " HUD Static patterns at index " + nextHudIndex);
                     for (int i = 0; i < staticHudArt.patterns().length; i++) {
-                        graphicsManager.cachePatternTexture(staticHudArt.patterns()[i], staticBaseIndex + i);
+                        graphicsManager.cachePatternTexture(staticHudArt.patterns()[i], nextHudIndex + i);
                     }
-                    hudRenderManager.setStaticHudArt(staticBaseIndex, staticHudArt);
+                    hudRenderManager.setStaticHudArt(nextHudIndex, staticHudArt);
+                    nextHudIndex += staticHudArt.patterns().length;
+                }
 
-                    int livesNumbersBaseIndex = staticBaseIndex + staticHudArt.patterns().length;
-                    Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
-                    int hexBaseIndex = livesNumbersBaseIndex;
-                    if (hudLivesNumbers != null) {
-                        LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
-                                + livesNumbersBaseIndex);
-                        for (int i = 0; i < hudLivesNumbers.length; i++) {
-                            graphicsManager.cachePatternTexture(hudLivesNumbers[i], livesNumbersBaseIndex + i);
-                        }
-                        hudRenderManager.setLivesNumbersPatternIndex(livesNumbersBaseIndex);
-                        hexBaseIndex = livesNumbersBaseIndex + hudLivesNumbers.length;
+                Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
+                if (hudLivesNumbers != null) {
+                    LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
+                            + nextHudIndex);
+                    for (int i = 0; i < hudLivesNumbers.length; i++) {
+                        graphicsManager.cachePatternTexture(hudLivesNumbers[i], nextHudIndex + i);
                     }
+                    hudRenderManager.setLivesNumbersPatternIndex(nextHudIndex);
+                    nextHudIndex += hudLivesNumbers.length;
+                }
 
-                    Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
-                    if (hudHexDigits != null) {
-                        LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
-                                + hexBaseIndex);
-                        for (int i = 0; i < hudHexDigits.length; i++) {
-                            graphicsManager.cachePatternTexture(hudHexDigits[i], hexBaseIndex + i);
-                        }
-                        hudRenderManager.setHexDigitsPatternIndex(hexBaseIndex);
+                Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
+                if (hudHexDigits != null) {
+                    LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
+                            + nextHudIndex);
+                    for (int i = 0; i < hudHexDigits.length; i++) {
+                        graphicsManager.cachePatternTexture(hudHexDigits[i], nextHudIndex + i);
                     }
+                    hudRenderManager.setHexDigitsPatternIndex(nextHudIndex);
                 }
             }
 

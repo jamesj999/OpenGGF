@@ -63,6 +63,44 @@ public class TestHudRenderManager {
     }
 
     @Test
+    void mappingDrivenScoreAndTimeLabelsRenderFromStaticFrames() {
+        GraphicsManager graphicsManager = mock(GraphicsManager.class);
+        Camera camera = mock(Camera.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        LevelState levelState = mock(LevelState.class);
+        when(camera.getXWithShake()).thenReturn((short) 0);
+        when(camera.getYWithShake()).thenReturn((short) 0);
+        when(levelState.getRings()).thenReturn(7);
+        when(levelState.getFlashCycle()).thenReturn(false);
+        when(levelState.shouldFlashTimer()).thenReturn(false);
+        when(levelState.getDisplayTime()).thenReturn("0:10");
+        when(gameState.getScore()).thenReturn(0);
+        when(gameState.getLives()).thenReturn(3);
+
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] { new Pattern(), new Pattern(), new Pattern() },
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 1, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 2, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()));
+
+        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
+        hud.setDigitPatternIndex(200);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
+
+        hud.draw(levelState, null);
+
+        verify(graphicsManager).renderPatternWithId(eq(0x28020), any(), eq(16), eq(8));
+        verify(graphicsManager).renderPatternWithId(eq(0x28021), any(), eq(16), eq(24));
+        verify(graphicsManager, never()).renderPatternWithId(eq(100), any(), eq(16), eq(8));
+        verify(graphicsManager, never()).renderPatternWithId(eq(116), any(), eq(16), eq(24));
+    }
+
+    @Test
     void mappingDrivenLivesFramePreservesPiecePalettesWithoutPaletteUpload() {
         GraphicsManager graphicsManager = mock(GraphicsManager.class);
         Camera camera = mock(Camera.class);
