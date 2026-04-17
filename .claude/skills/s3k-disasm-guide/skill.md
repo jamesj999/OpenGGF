@@ -13,9 +13,9 @@ The locked-on ROM ("Sonic and Knuckles & Sonic 3") contains **two halves**:
 - **S&K half** (0x000000–0x1FFFFF): The primary S&K code and data — this is what the engine runs
 - **S3 half** (0x200000–0x3FFFFF): The Sonic 3 standalone code and data
 
-Many shared assets (art, mappings, palettes) exist in **both halves** with identical binary content. **Always use S&K-side addresses (< 0x200000)** for all ROM constants. The S3 copies at >= 0x200000 are not referenced by the S3KL code path.
+Many shared assets (art, mappings, palettes) exist in **both halves** with identical binary content. **Always use S&K-side addresses (< 0x200000)** for all ROM constants. **NEVER use Sonic 3 / `s3.asm` pointers or addresses for S3K work** — the S3 half is not referenced at runtime by the S3KL (locked-on) code path, so any address >= 0x200000 will be silently wrong. This includes: do not read offsets from a Sonic 3 standalone ROM, do not use `--game s2` or default/no-flag `RomOffsetFinder` invocations when looking up S3K data, and do not substitute an `s3.asm` address when an `sonic3k.asm` one is hard to find.
 
-When RomOffsetFinder returns multiple results for the same label — one from `sonic3k.asm` (S&K) and one from `s3.asm` (S3) — always use the `sonic3k.asm` result. Similarly, when reading disassembly source, prefer `sonic3k.asm` over `s3.asm` for object code, as the S3KL versions may contain zone-specific overrides (e.g., FBZ art tile) absent from the S3 version.
+When RomOffsetFinder returns multiple results for the same label — one from `sonic3k.asm` (S&K) and one from `s3.asm` (S3) — **always use the `sonic3k.asm` result**. If only `s3.asm` results come back, re-search with different label variants rather than settling for the S3 address; the S&K-side label may live under `Levels/{ZONE}/` or carry a zone-specific suffix. Similarly, when reading disassembly source, prefer `sonic3k.asm` over `s3.asm` for object code, as the S3KL versions may contain zone-specific overrides (e.g., FBZ art tile, Knuckles variants) absent from the S3 version.
 
 ## Directory Structure
 
