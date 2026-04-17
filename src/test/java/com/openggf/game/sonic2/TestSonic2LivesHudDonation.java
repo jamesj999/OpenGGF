@@ -3,80 +3,83 @@ package com.openggf.game.sonic2;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
-import com.openggf.game.GameModule;
-import com.openggf.game.RuntimeManager;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
-import com.openggf.level.Pattern;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.level.objects.HudStaticArt;
+import com.openggf.tests.RomTestUtils;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.spy;
 
+@RequiresRom(SonicGame.SONIC_2)
 class TestSonic2LivesHudDonation {
-
-    @BeforeEach
-    void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
-        SonicConfigurationService.getInstance().resetToDefaults();
-    }
 
     @AfterEach
     void tearDown() {
         SessionManager.clear();
-        RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     @Test
-    void donorKnucklesLivesFrameKeepsNamePiecesOnPalette0() throws Exception {
+    void loadArtForZone_rebuildsAndExposesDonorLivesFrameThroughHudStaticArt() throws Exception {
+        Assumptions.assumeTrue(RomTestUtils.ensureSonic3kRomAvailable() != null,
+                "S3K donor ROM required for Sonic 2 donor HUD mapping test");
+
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        SessionManager.openGameplaySession(mock(GameModule.class),
+        SessionManager.openGameplaySession(GameModuleRegistry.getCurrent(),
                 SaveSessionContext.noSave("s2", new SelectedTeam("knuckles", List.of()), 0, 0));
 
-        Sonic2ObjectArtProvider provider = spy(new Sonic2ObjectArtProvider());
-        Pattern[] donorPatterns = new Pattern[12];
-        Arrays.setAll(donorPatterns, i -> new Pattern());
-        doReturn(donorPatterns).when(provider).loadS3kKnucklesLivesPatterns();
-
+        Sonic2ObjectArtProvider nativeProvider = new Sonic2ObjectArtProvider();
         try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
-            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
-            Method method = Sonic2ObjectArtProvider.class.getDeclaredMethod("overrideLivesArtFromDonor");
-            method.setAccessible(true);
-            method.invoke(provider);
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(false);
+            nativeProvider.loadArtForZone(Sonic2ZoneConstants.ROM_ZONE_EHZ);
         }
 
-        HudStaticArt art = provider.getHudStaticArt();
-        Set<String> palette0NamePieceOffsets = art.livesFrame().pieces().stream()
+        Sonic2ObjectArtProvider donorProvider = new Sonic2ObjectArtProvider();
+        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
+            donorProvider.loadArtForZone(Sonic2ZoneConstants.ROM_ZONE_EHZ);
+        }
+
+        HudStaticArt nativeArt = nativeProvider.getHudStaticArt();
+        HudStaticArt donorArt = donorProvider.getHudStaticArt();
+
+        Set<String> nativePalette1TopRowOffsets = nativeArt.livesFrame().pieces().stream()
+                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
+                .filter(piece -> piece.paletteIndex() == 1)
+                .map(piece -> piece.xOffset() + "," + piece.yOffset())
+                .collect(Collectors.toSet());
+        Set<String> donorPalette0NamePieceOffsets = donorArt.livesFrame().pieces().stream()
                 .filter(piece -> piece.xOffset() >= 16)
                 .filter(piece -> piece.paletteIndex() == 0)
                 .map(piece -> piece.xOffset() + "," + piece.yOffset())
                 .collect(Collectors.toSet());
-        long nonPalette0NamePieces = art.livesFrame().pieces().stream()
+        long donorNonPalette0NamePieces = donorArt.livesFrame().pieces().stream()
                 .filter(piece -> piece.xOffset() >= 16)
                 .filter(piece -> piece.paletteIndex() != 0)
                 .count();
 
+        assertEquals(Set.of("16,0", "24,0", "32,0", "40,0", "48,0", "56,0"), nativePalette1TopRowOffsets);
         assertEquals(Set.of("16,0", "24,0", "32,0", "40,0", "48,0", "56,0", "16,8", "24,8"),
-                palette0NamePieceOffsets);
-        assertEquals(0, nonPalette0NamePieces);
-        assertTrue(art.livesFrame().pieces().stream().anyMatch(piece -> piece.xOffset() == 0 && piece.paletteIndex() == 0));
+                donorPalette0NamePieceOffsets);
+        assertEquals(0, donorNonPalette0NamePieces);
+        assertEquals(donorProvider.getHudTextPatterns().length + donorProvider.getHudLivesPatterns().length,
+                donorArt.patterns().length);
+        assertTrue(donorArt.livesFrame().pieces().stream()
+                .anyMatch(piece -> piece.xOffset() == 0 && piece.yOffset() == 0 && piece.paletteIndex() == 0));
     }
 }

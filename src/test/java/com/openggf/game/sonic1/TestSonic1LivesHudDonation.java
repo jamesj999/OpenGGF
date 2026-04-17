@@ -2,13 +2,13 @@ package com.openggf.game.sonic1;
 
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudStaticArt;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,19 +25,17 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 
+@RequiresRom(SonicGame.SONIC_1)
 class TestSonic1LivesHudDonation {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         SonicConfigurationService.getInstance().resetToDefaults();
     }
 
     @AfterEach
     void tearDown() {
         SessionManager.clear();
-        RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     @Test
