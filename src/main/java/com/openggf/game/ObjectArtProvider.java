@@ -5,6 +5,7 @@ import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudRenderManager;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationSet;
@@ -90,6 +91,15 @@ public interface ObjectArtProvider {
      * @return the lives number patterns array
      */
     Pattern[] getHudLivesNumbers();
+
+    /**
+     * Gets the shared static HUD art bundle used by the mapping-driven HUD renderer.
+     *
+     * @return the static HUD art bundle, or null if the provider does not expose one
+     */
+    default HudStaticArt getHudStaticArt() {
+        return null;
+    }
 
     /**
      * Gets the ROM-native hex-digit font used by the debug HUD (player/camera coords).
