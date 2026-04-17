@@ -109,16 +109,15 @@ public class TestHudRenderManager {
 
         HudStaticArt staticArt = new HudStaticArt(
                 new Pattern[] { new Pattern(), new Pattern(), new Pattern(), new Pattern() },
-                new HudStaticArt.Frames(
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of()),
-                        new SpriteMappingFrame(List.of(
-                                new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0),
-                                new SpriteMappingPiece(8, 0, 1, 1, 1, false, false, 1)))));
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0),
+                        new SpriteMappingPiece(8, 0, 1, 1, 1, false, false, 1))));
 
         HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
         hud.setDigitPatternIndex(200);
