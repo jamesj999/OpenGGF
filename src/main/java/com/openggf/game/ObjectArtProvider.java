@@ -4,7 +4,6 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
-import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -153,16 +152,6 @@ public interface ObjectArtProvider {
      */
     default int getHudFlashPaletteLine() {
         return 0;
-    }
-
-    /**
-     * Gets the HUD flash mode for warning indicators (rings=0, time>=9:00).
-     * S1/S2 use palette swap (red flash), S3K hides the text label entirely.
-     *
-     * @return the flash mode, default PALETTE_SWAP (S1/S2 behavior)
-     */
-    default HudRenderManager.HudFlashMode getHudFlashMode() {
-        return HudRenderManager.HudFlashMode.PALETTE_SWAP;
     }
 
     /**

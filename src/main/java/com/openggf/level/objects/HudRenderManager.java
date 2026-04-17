@@ -14,15 +14,6 @@ public class HudRenderManager {
     private static final java.util.logging.Logger LOGGER =
             java.util.logging.Logger.getLogger(HudRenderManager.class.getName());
 
-    /**
-     * Compatibility type retained while providers still expose the legacy HUD flash mode API.
-     * Static HUD rendering now selects mapping frames directly and no longer branches on this enum.
-     */
-    public enum HudFlashMode {
-        PALETTE_SWAP,
-        TEXT_HIDE
-    }
-
     private final GraphicsManager graphicsManager;
     private final Camera camera;
     private final GameStateManager gameState;

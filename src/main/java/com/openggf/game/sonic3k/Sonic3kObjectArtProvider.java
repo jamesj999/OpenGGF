@@ -12,7 +12,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.AnimalType;
-import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.resources.PlcParser;
@@ -1621,11 +1620,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         }
         Level level = GameServices.levelOrNull().getCurrentLevel();
         return buildS3kLivesHudPaletteOverride(level.getPalette(0), level.getPalette(1));
-    }
-
-    @Override
-    public HudRenderManager.HudFlashMode getHudFlashMode() {
-        return HudRenderManager.HudFlashMode.TEXT_HIDE;
     }
 
     @Override
