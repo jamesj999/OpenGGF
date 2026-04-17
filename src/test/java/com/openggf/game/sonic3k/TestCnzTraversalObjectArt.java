@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
@@ -46,6 +47,10 @@ public class TestCnzTraversalObjectArt {
         assertEquals(4, cylinder.getFrameCount());
         assertTrue(cylinder.getPatterns().length > 0,
                 "CNZ cylinder should load the ROM-parsed Map - Cylinder.asm sheet");
+        assertNull(provider.getSheet("cnz_vacuum_tube"),
+                "Vacuum Tube stays controller-only because Obj_CNZVacuumTube has inline S&K-side logic and no mappings/make_art_tile ownership");
+        assertNull(provider.getSheet("cnz_spiral_tube"),
+                "Spiral Tube stays controller-only because its S&K-side off_33320 table family still has no mappings/make_art_tile ownership");
     }
 
     private static Sonic3kObjectArtProvider currentCnzObjectArtProvider() {
