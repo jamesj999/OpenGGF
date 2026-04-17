@@ -114,6 +114,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         lastLaunchFrame = frameCounter;
 
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        boolean shouldSnapToCentre = (subtype & 0x80) != 0 && player.isInWater();
         if ((subtype & 0x80) != 0) {
             player.setYSpeed((short) -0x380);
         } else {
@@ -124,7 +125,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         player.setJumping(false);
         player.setControlLocked(false);
         player.setObjectControlled(false);
-        if ((subtype & 0x80) != 0) {
+        if (shouldSnapToCentre) {
             player.setCentreX((short) getX());
             player.setCentreY((short) getY());
         }

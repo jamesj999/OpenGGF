@@ -72,13 +72,13 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         } else if (standing) {
             moveSprite2();
             if (displayFrame == 2) {
-                motion.yVel = 0;
+                snapToFloorIfNeeded(true);
                 displayFrame = 2;
             } else {
                 if (motion.yVel < Y_VELOCITY_MAX) {
                     motion.yVel += Y_ACCEL_STANDING;
                 }
-                if (snapToFloorIfNeeded()) {
+                if (snapToFloorIfNeeded(true)) {
                     displayFrame = 2;
                 } else {
                     displayFrame = 1;
@@ -98,7 +98,7 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         }
 
         if (!standing && motion.yVel != 0) {
-            snapToFloorIfNeeded();
+            snapToFloorIfNeeded(false);
         }
 
         updateDynamicSpawn(motion.x, motion.y);
@@ -153,12 +153,14 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         SubpixelMotion.moveSprite2(motion);
     }
 
-    private boolean snapToFloorIfNeeded() {
+    private boolean snapToFloorIfNeeded(boolean preserveVelocity) {
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(motion.x, motion.y, FLOOR_Y_RADIUS);
         if (floor.foundSurface() && floor.distance() < 0) {
             motion.y += floor.distance();
             motion.ySub = 0;
-            motion.yVel = 0;
+            if (!preserveVelocity) {
+                motion.yVel = 0;
+            }
             displayFrame = 2;
             return true;
         }
