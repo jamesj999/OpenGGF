@@ -256,6 +256,7 @@ public class AudioRegressionTest {
         int expectedTotalSamples = expectedTotalFrames * 2;
         double expectedDurationMs = (expectedTotalFrames * 1000.0) / SAMPLE_RATE;
         int expectedBoundaryCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] expectedTriggerBoundarySamples = buildExpectedResultsTallyTriggerBoundarySamples();
 
         assertEquals(expectedTotalSamples, plan.totalSamples(),
                 "Benchmark plan should use the exact tally stress sample count");
@@ -266,6 +267,8 @@ public class AudioRegressionTest {
                 "Benchmark read sizes should sum to the exact tally stress workload");
         assertEquals(expectedBoundaryCount, plan.triggerBoundarySamples().length,
                 "Plan should expose every tally trigger boundary");
+        assertArrayEquals(expectedTriggerBoundarySamples, plan.triggerBoundarySamples(),
+                "Trigger-boundary samples should match the explicit tally frame schedule");
         assertEquals(expectedBoundaryCount, countMatchingBoundaries(plan.readEndSamples(), plan.triggerBoundarySamples()),
                 "Read boundaries should land exactly on every non-zero BLIP and tally-end boundary");
         assertEquals(expectedTotalSamples, plan.readEndSamples()[plan.readEndSamples().length - 1],
@@ -643,7 +646,7 @@ public class AudioRegressionTest {
         return new ResultsTallyStressExecutionContext(driver, blipData, tallyEndData, plan, readBuffers);
     }
 
-    private void executeResultsTallyStressPlan(ResultsTallyStressExecutionContext context, short[] audioOutput) {
+    private int executeResultsTallyStressPlan(ResultsTallyStressExecutionContext context, short[] audioOutput) {
         int samplesWritten = 0;
         int blipIndex = 0;
         boolean tallyEndTriggered = false;
@@ -667,27 +670,26 @@ public class AudioRegressionTest {
                 System.arraycopy(context.readBuffers()[i], 0, audioOutput, samplesWritten, context.plan().readSizes()[i]);
             }
             samplesWritten += context.plan().readSizes()[i];
-            assertEquals(context.plan().readEndSamples()[i], samplesWritten,
-                    "Scheduled reads should end exactly on the shared tally-stress slice boundaries");
         }
 
-        assertEquals(context.plan().totalSamples(), samplesWritten,
-                "Scheduled reads should render the exact shared tally-stress workload");
+        return samplesWritten;
     }
 
     private ResultsTallyStressBenchmarkResult measureResultsTallyStressRendering() {
         ResultsTallyStressPlan plan = buildResultsTallyStressBenchmarkPlan();
 
-        executeResultsTallyStressPlan(
+        int warmupSamplesWritten = executeResultsTallyStressPlan(
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID),
                 null
         );
+        assertResultsTallyStressExecutionMatchesPlan(plan, warmupSamplesWritten);
 
         ResultsTallyStressExecutionContext timedContext =
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
         long start = System.nanoTime();
-        executeResultsTallyStressPlan(timedContext, null);
+        int timedSamplesWritten = executeResultsTallyStressPlan(timedContext, null);
         long elapsed = System.nanoTime() - start;
+        assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten);
 
         return new ResultsTallyStressBenchmarkResult(plan, elapsed);
     }
@@ -715,6 +717,23 @@ public class AudioRegressionTest {
             }
         }
         return matches;
+    }
+
+    private int[] buildExpectedResultsTallyTriggerBoundarySamples() {
+        int triggerCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] triggerBoundarySamples = new int[triggerCount];
+        for (int i = 1; i < triggerCount; i++) {
+            triggerBoundarySamples[i - 1] = toAudioFrames(i * RESULTS_TALLY_TICK_INTERVAL_FRAMES) * 2;
+        }
+        triggerBoundarySamples[triggerCount - 1] = toAudioFrames(RESULTS_TALLY_END_FRAME) * 2;
+        return triggerBoundarySamples;
+    }
+
+    private void assertResultsTallyStressExecutionMatchesPlan(ResultsTallyStressPlan plan, int samplesWritten) {
+        assertEquals(plan.totalSamples(), samplesWritten,
+                "Scheduled reads should render the exact shared tally-stress workload");
+        assertEquals(plan.totalSamples(), plan.readEndSamples()[plan.readEndSamples().length - 1],
+                "Shared tally-stress plan should end exactly on totalSamples");
     }
 
     private record ResultsTallyStressPlan(
