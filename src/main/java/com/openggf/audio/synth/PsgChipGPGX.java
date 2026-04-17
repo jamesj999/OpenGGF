@@ -282,7 +282,11 @@ public class PsgChipGPGX {
     }
 
     public void renderStereo(int[] left, int[] right) {
-        int len = Math.min(left.length, right.length);
+        renderStereo(left, right, Math.min(left.length, right.length));
+    }
+
+    public void renderStereo(int[] left, int[] right, int len) {
+        len = Math.min(len, Math.min(left.length, right.length));
         if (len <= 0) {
             return;
         }

@@ -1343,7 +1343,11 @@ public class Ym2612Chip {
      * rate (~53kHz) and resampling when needed.
      */
     public void renderStereo(int[] leftBuf, int[] rightBuf) {
-        int outputLen = Math.min(leftBuf.length, rightBuf.length);
+        renderStereo(leftBuf, rightBuf, Math.min(leftBuf.length, rightBuf.length));
+    }
+
+    public void renderStereo(int[] leftBuf, int[] rightBuf, int outputLen) {
+        outputLen = Math.min(outputLen, Math.min(leftBuf.length, rightBuf.length));
 
         if (Math.abs(resampleRatio - 1.0) < 1e-9) {
             // Direct output at internal rate (no resampling).
