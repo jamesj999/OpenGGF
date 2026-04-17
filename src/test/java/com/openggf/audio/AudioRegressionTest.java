@@ -55,6 +55,14 @@ public class AudioRegressionTest {
     private static final int SFX_RING = 0xB5;
     private static final int SFX_JUMP = 0xA3;
     private static final int SFX_SPRING = 0xB1;
+    private static final int SFX_BLIP = 0xCD;
+    private static final int SFX_TALLY_END = 0xC5;
+
+    private static final int GAME_FPS = 60;
+    private static final int RESULTS_TALLY_TICK_INTERVAL_FRAMES = 4;
+    private static final int RESULTS_TALLY_LAST_BLIP_FRAME = 176;
+    private static final int RESULTS_TALLY_END_FRAME = 180;
+    private static final int RESULTS_TALLY_TAIL_FRAMES = 30;
 
     private static Rom rom;
     private static Sonic2SmpsLoader loader;
@@ -211,6 +219,31 @@ public class AudioRegressionTest {
         short[] hybrid = renderMixedWithMode(SmpsDriver.ReadMode.HYBRID, totalSamples);
 
         assertArrayEquals(sampleAccurate, hybrid, "Hybrid read mode must match fallback output for mixed music/SFX");
+    }
+
+    @Test
+    public void testHybridReadModeMatchesFallbackForResultsTallyStress() {
+        assumeTrue(loader != null, "ROM not available, skipping tally stress identity test");
+
+        int totalFrames = toAudioFrames(RESULTS_TALLY_END_FRAME + RESULTS_TALLY_TAIL_FRAMES);
+        int totalSamples = totalFrames * 2;
+
+        short[] sampleAccurate = renderResultsTallyStressWithMode(
+                SmpsDriver.ReadMode.SAMPLE_ACCURATE,
+                totalSamples
+        );
+        short[] hybrid = renderResultsTallyStressWithMode(
+                SmpsDriver.ReadMode.HYBRID,
+                totalSamples
+        );
+
+        assertTrue(hasNonZeroSample(sampleAccurate),
+                "Results tally stress should produce audible non-zero PCM output");
+        assertArrayEquals(
+                sampleAccurate,
+                hybrid,
+                "Hybrid read mode must match fallback output for results tally stress"
+        );
     }
 
     /**
@@ -426,6 +459,23 @@ public class AudioRegressionTest {
         }
 
         return audio;
+    }
+
+    private short[] renderResultsTallyStressWithMode(SmpsDriver.ReadMode mode, int totalSamples) {
+        return new short[totalSamples];
+    }
+
+    private boolean hasNonZeroSample(short[] audio) {
+        for (short sample : audio) {
+            if (sample != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int toAudioFrames(int gameFrames) {
+        return (int) ((SAMPLE_RATE / GAME_FPS) * gameFrames);
     }
 
     private static boolean referenceFileExists(String filename) {
