@@ -13,10 +13,11 @@ public final class Sonic1HudStaticArtFactory {
     }
 
     public static HudStaticArt create(Pattern[] textPatterns, Pattern[] livesPatterns) {
-        Pattern[] safeTextPatterns = textPatterns != null ? textPatterns : new Pattern[0];
-        Pattern[] safeLivesPatterns = livesPatterns != null ? livesPatterns : new Pattern[0];
-        Pattern[] combined = combine(safeTextPatterns, safeLivesPatterns);
-        int livesBase = safeTextPatterns.length;
+        if (textPatterns == null || textPatterns.length == 0 || livesPatterns == null || livesPatterns.length == 0) {
+            return null;
+        }
+        Pattern[] combined = combine(textPatterns, livesPatterns);
+        int livesBase = textPatterns.length;
         return new HudStaticArt(
                 combined,
                 scoreFrame(),

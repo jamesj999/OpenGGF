@@ -1,25 +1,31 @@
 package com.openggf.game.sonic3k;
 
-import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudStaticArt;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@RequiresRom(SonicGame.SONIC_3K)
 class TestSonic3kLivesHudPaletteOverride {
 
     @Test
-    void create_buildsLivesFrameWithIconOnPalette0AndNameOnPalette1() {
-        Pattern[] text = { new Pattern(), new Pattern(), new Pattern(), new Pattern() };
-        Pattern[] lives = new Pattern[12];
-        Arrays.setAll(lives, i -> new Pattern());
+    void loadArtForZone_exposesHudStaticArtWithMixedLivesPalettes() throws Exception {
+        Sonic3kObjectArtProvider provider = new Sonic3kObjectArtProvider();
 
-        HudStaticArt art = Sonic3kHudStaticArtFactory.create(text, lives);
+        assertNull(provider.getHudStaticArt());
+
+        provider.loadArtForZone(0x00);
+
+        HudStaticArt art = provider.getHudStaticArt();
 
         assertNotNull(art);
+        assertEquals(provider.getHudTextPatterns().length + provider.getHudLivesPatterns().length,
+                art.patterns().length);
         assertTrue(art.livesFrame().pieces().stream().anyMatch(piece -> piece.paletteIndex() == 0));
         assertTrue(art.livesFrame().pieces().stream().anyMatch(piece -> piece.paletteIndex() == 1));
     }
