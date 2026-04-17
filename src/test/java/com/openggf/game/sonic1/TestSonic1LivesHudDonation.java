@@ -1,15 +1,14 @@
 package com.openggf.game.sonic1;
 
-import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EngineServices;
-import com.openggf.game.GameModule;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.HudStaticArt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,9 +18,10 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
 
@@ -41,24 +41,58 @@ class TestSonic1LivesHudDonation {
     }
 
     @Test
-    void overrideLivesArtFromDonor_prefersSelectedTeamOverConfig() throws Exception {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        SessionManager.openGameplaySession(mock(GameModule.class),
+    void loadArtForZone_exposesNativeHudStaticArtWithPalette0LivesFrame() throws Exception {
+        SessionManager.openGameplaySession(new Sonic1GameModule(),
+                SaveSessionContext.noSave("s1", new SelectedTeam("sonic", List.of()), 0, 0));
+
+        Sonic1ObjectArtProvider provider = new Sonic1ObjectArtProvider();
+        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(false);
+            provider.loadArtForZone(0);
+        }
+
+        HudStaticArt art = provider.getHudStaticArt();
+
+        assertNotNull(art);
+        assertEquals(provider.getHudTextPatterns().length + provider.getHudLivesPatterns().length,
+                art.patterns().length);
+        assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.livesFrame().pieces().stream()
+                .anyMatch(piece -> piece.xOffset() == 0 && piece.yOffset() == 0 && piece.tileIndex() >= 0));
+    }
+
+    @Test
+    void loadArtForZone_rebuildsDonorHudStaticArtThroughProviderPath() throws Exception {
+        SessionManager.openGameplaySession(new Sonic1GameModule(),
                 SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
 
         Sonic1ObjectArtProvider provider = spy(new Sonic1ObjectArtProvider());
-        Pattern[] donorPatterns = { new Pattern() };
+        Pattern[] donorPatterns = { new Pattern(), new Pattern() };
         doReturn(donorPatterns).when(provider).loadS3kKnucklesLivesPatterns();
 
         try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
             donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
-            Method method = Sonic1ObjectArtProvider.class.getDeclaredMethod("overrideLivesArtFromDonor");
-            method.setAccessible(true);
-            method.invoke(provider);
+            provider.loadArtForZone(0);
         }
 
+        HudStaticArt art = provider.getHudStaticArt();
+
         assertSame(donorPatterns, provider.getHudLivesPatterns());
+        assertNotNull(art);
+        assertEquals(provider.getHudTextPatterns().length + donorPatterns.length, art.patterns().length);
+        assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
     }
 
     @Test
