@@ -52,7 +52,7 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
-    void balloonSubtype80SnapsPlayerAndUsesLowerLaunchSpeed() {
+    void balloonSubtype80DoesNotSnapPlayerWhenDryAndUsesLowerLaunchSpeed() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
@@ -61,12 +61,15 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
 
+        assertFalse(fixture.sprite().isInWater(),
+                "The regression should be exercising the dry seam, not the underwater case");
+
         balloon.update(0, fixture.sprite());
 
-        assertEquals(0x19C0, fixture.sprite().getCentreX(),
-                "Negative subtype balloons should snap the player to the balloon centre");
-        assertTrue(Math.abs(fixture.sprite().getCentreY() - 0x05B0) <= 3,
-                "Negative subtype balloons should also center the player vertically");
+        assertEquals(0x19B8, fixture.sprite().getCentreX(),
+                "Dry negative subtype balloons should not snap the player horizontally");
+        assertEquals(0x05A8, fixture.sprite().getCentreY(),
+                "Dry negative subtype balloons should not snap the player vertically");
         assertEquals((short) -0x380, fixture.sprite().getYSpeed(),
                 "Negative subtype balloons use the lower upward launch speed");
         assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
@@ -116,8 +119,8 @@ class TestS3kCnzLocalTraversalHeadless {
         assertTrue(invokeBooleanHook(platform, "isArmedForTest"),
                 "Standing on the platform should arm the rising state machine");
         int settledY = platform.getSpawn().y();
-        assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
-                "Floor contact should zero the platform velocity while still carried");
+        assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
+                "Floor contact should preserve the carried compression while still standing");
         assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
                 "Floor contact while carried should switch the platform to the settled frame");
 
@@ -126,18 +129,19 @@ class TestS3kCnzLocalTraversalHeadless {
             platform.update(frame, fixture.sprite());
             assertEquals(settledY, platform.getSpawn().y(),
                     "Continued standing should not let the platform tunnel through the floor");
-            assertEquals(0, invokeIntHook(platform, "getYSpeedForTest"),
-                    "Settled platform should remain at rest while carried");
+            assertTrue(invokeIntHook(platform, "getYSpeedForTest") > 0,
+                    "Settled platform should preserve its carried compression while standing");
             assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
                     "Settled platform should keep the resting frame while carried");
         }
 
+        int storedCompression = invokeIntHook(platform, "getYSpeedForTest");
         platform.update(60, fixture.sprite());
         int releaseY = platform.getSpawn().y();
         assertFalse(invokeBooleanHook(platform, "isArmedForTest"),
                 "Stepping off should clear the armed flag");
-        assertTrue(invokeIntHook(platform, "getYSpeedForTest") < 0,
-                "Stepping off should reverse the platform velocity upward");
+        assertEquals(-storedCompression - 0x80, invokeIntHook(platform, "getYSpeedForTest"),
+                "Stepping off should bounce from the stored compression, not a clamped floor velocity");
         assertEquals(2, invokeIntHook(platform, "getRenderFrameForTest"),
                 "Release should switch the platform to the settling frame");
 
