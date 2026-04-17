@@ -50,7 +50,7 @@ public class TestCnzTraversalObjectArt {
         assertNull(provider.getSheet("cnz_vacuum_tube"),
                 "Vacuum Tube stays controller-only because Obj_CNZVacuumTube has inline S&K-side logic and no mappings/make_art_tile ownership");
         assertNull(provider.getSheet("cnz_spiral_tube"),
-                "Spiral Tube stays controller-only because its S&K-side off_33320 table family still has no mappings/make_art_tile ownership");
+                "Spiral Tube stays controller-only because its S&K-side off_33320 controller routes still have no mappings/make_art_tile ownership");
     }
 
     private static Sonic3kObjectArtProvider currentCnzObjectArtProvider() {

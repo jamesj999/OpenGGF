@@ -24,6 +24,8 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
  * </ul>
  */
 public final class CnzTubePathTables {
+    private static final int SPIRAL_PAYLOAD_LENGTH_BYTES = 0x000C;
+
     private static final String VACUUM_SOURCE = """
             Obj_CNZVacuumTube uses inline S&K-side controller logic in sonic3k.asm
             (Obj_CNZVacuumTube, sub_31F62, loc_31FF4, sub_32010), not an external path family.
@@ -32,6 +34,8 @@ public final class CnzTubePathTables {
     private static final String SPIRAL_SOURCE = """
             Obj_CNZSpiralTube uses the S&K-side off_33320 family in sonic3k.asm
             (0x033320 -> word_33328/word_33336/word_33344/word_33352).
+            Each payload starts with length word 0x000C = 3 (x,y) points.
+            Route select is subtype + ((playerX > objectX) ? 1 : 0), with valid placed subtype groups 0x00 and 0x02.
             Controller-only: no mappings or make_art_tile ownership were verified.""";
 
     private static final SpiralPath[] SPIRAL_PATHS = {
@@ -88,11 +92,39 @@ public final class CnzTubePathTables {
         return SPIRAL_PATHS.length;
     }
 
+    public static int spiralPayloadLengthBytes() {
+        return SPIRAL_PAYLOAD_LENGTH_BYTES;
+    }
+
+    /**
+     * ROM: {@code add.b subtype(a0),d0} after {@code d0=1} when
+     * {@code playerX > objectX} at {@code loc_33202}. Stock S&K placements only
+     * use subtype groups {@code 0x00} and {@code 0x02}, so the verified route
+     * family is 0/1 for the first controller pair and 2/3 for the second.
+     */
+    public static int spiralRouteIndex(int subtype, int objectX, int playerX) {
+        int subtypeGroup = subtype & 0x02;
+        return subtypeGroup + (playerX > objectX ? 1 : 0);
+    }
+
+    public static SpiralPath spiralPathForEntry(int subtype, int objectX, int playerX) {
+        return SPIRAL_PATHS[spiralRouteIndex(subtype, objectX, playerX)];
+    }
+
     public static SpiralPath spiralPath(int subtype) {
         return SPIRAL_PATHS[(subtype & 0x0F) & 0x03];
     }
 
     public record RoutePoint(int centerX, int centerY) {}
 
-    public record SpiralPath(String label, RoutePoint first, RoutePoint second, RoutePoint third) {}
+    public record SpiralPath(String label, RoutePoint first, RoutePoint second, RoutePoint third) {
+        public RoutePoint point(int index) {
+            return switch (index) {
+                case 0 -> first;
+                case 1 -> second;
+                case 2 -> third;
+                default -> throw new IllegalArgumentException("Spiral path index out of range: " + index);
+            };
+        }
+    }
 }

@@ -60,27 +60,29 @@ public class TestCnzTraversalRegistry {
 
     @Test
     public void visibleTraversalObjectsUseTheirRegisteredRendererInsteadOfRenderingNothing() {
-        assertVisibleObjectRendersFrameZero(new CnzBalloonInstance(new ObjectSpawn(0x1200, 0x0580,
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzBalloonInstance(new ObjectSpawn(0x1200, 0x0580,
                         0x41, 3, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_BALLOON, 15, 0x1200, 0x0580);
-        assertVisibleObjectRendersFrameZero(new CnzCannonInstance(new ObjectSpawn(0x1600, 0x0680,
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzCannonInstance(new ObjectSpawn(0x1600, 0x0680,
                         0x42, 0, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_CANNON, 9, 0x1600, 0x0680);
-        assertVisibleObjectRendersFrameZero(new CnzRisingPlatformInstance(new ObjectSpawn(0x1800, 0x05A0,
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzRisingPlatformInstance(new ObjectSpawn(0x1800, 0x05A0,
                         0x43, 0, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, 0, 0x1800, 0x05A0);
-        assertVisibleObjectRendersFrameZero(new CnzTrapDoorInstance(new ObjectSpawn(0x1A00, 0x05C0,
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzTrapDoorInstance(new ObjectSpawn(0x1A00, 0x05C0,
                         0x44, 0, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, 0, 0x1A00, 0x05C0);
-        assertVisibleObjectRendersFrameZero(new CnzHoverFanInstance(new ObjectSpawn(0x1C00, 0x05E0,
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzHoverFanInstance(new ObjectSpawn(0x1C00, 0x05E0,
                         0x46, 0x90, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_HOVER_FAN, 1, 0x1C00, 0x05E0);
-        assertVisibleObjectRendersFrameZero(new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
+        // ROM transcription: subtype 0 routes into entry-side quadrant 2, so the
+        // visible idle frame is the route-start frame rather than frame 0.
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
                         0x47, 0, 0, false, 0)),
-                Sonic3kObjectArtKeys.CNZ_CYLINDER, 0, 0x1E00, 0x0600);
+                Sonic3kObjectArtKeys.CNZ_CYLINDER, 2, 0x1E00, 0x0600);
     }
 
-    private static void assertVisibleObjectRendersFrameZero(ObjectInstance instance,
+    private static void assertVisibleObjectRendersExpectedInitialFrame(ObjectInstance instance,
             String artKey, int frame, int x, int y) {
         LevelManager levelManager = mock(LevelManager.class);
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
