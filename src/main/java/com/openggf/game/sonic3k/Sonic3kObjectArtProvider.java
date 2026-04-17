@@ -1298,7 +1298,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             Sonic3kObjectArt art = new Sonic3kObjectArt(level, reader);
 
             registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_BALLOON, art.buildCnzBalloonSheet(), art);
-            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_CANNON, art.buildCnzCannonSheet(), art);
+            registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_CANNON, art.loadCnzCannonSheet(rom), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, art.buildCnzRisingPlatformSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_TRAP_DOOR, art.buildCnzTrapDoorSheet(), art);
             registerLevelArtSheet(Sonic3kObjectArtKeys.CNZ_HOVER_FAN, art.buildCnzHoverFanSheet(), art);

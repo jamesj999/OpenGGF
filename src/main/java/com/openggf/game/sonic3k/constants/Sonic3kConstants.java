@@ -1130,6 +1130,14 @@ public class Sonic3kConstants {
     public static final int MAP_CNZ_HOVER_FAN_ADDR = 0x231010; // Map_CNZHoverFan (8 frames)
     public static final int MAP_CNZ_CYLINDER_ADDR = 0x2317B0; // Map_CNZCylinder (4 frames)
 
+    // Verified final lock-on offsets for the dedicated CNZ cannon art block.
+    // The Cannon.bin data lives in the S&K half of the combined ROM.
+    public static final int ART_UNC_CNZ_CANNON_ADDR = 0x08CE74;
+    public static final int ART_UNC_CNZ_CANNON_SIZE = 0x2AE6;
+    // DPLC_CNZCannon points at the 9-entry pointer table that feeds the object's
+    // animated chamber frames. The first data block starts at $31B84.
+    public static final int DPLC_CNZ_CANNON_ADDR = 0x031B72;
+
     // ArtTile_CNZMisc-derived VRAM tile bases used by the CNZ traversal objects.
     public static final int ARTTILE_CNZ_BALLOON = ARTTILE_CNZ_MISC;
     public static final int ARTTILE_CNZ_CANNON = ARTTILE_CNZ_MISC + 0x23;

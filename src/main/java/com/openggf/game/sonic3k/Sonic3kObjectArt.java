@@ -1679,17 +1679,59 @@ public class Sonic3kObjectArt {
     }
 
     /**
-     * Builds the CNZ Cannon sprite sheet.
+     * Loads the CNZ Cannon sprite sheet from the ROM's dedicated Cannon.bin art.
      *
-     * <p>ROM anchor: {@code Obj_CNZCannon}.
-     * <p>Mapping table: {@code Map_CNZCannon} (10 frames).
-     * <p>Art tile: {@code ArtTile_CNZMisc+$23} (palette 2).
+     * <p>Verified ROM anchors:
+     * <ul>
+     *   <li>{@code Obj_CNZCannon}</li>
+     *   <li>{@code Map_CNZCannon} at the final lock-on offset published in
+     *   {@link Sonic3kConstants#MAP_CNZ_CANNON_ADDR}</li>
+     *   <li>{@code DPLC_CNZCannon} at {@link Sonic3kConstants#DPLC_CNZ_CANNON_ADDR}</li>
+     *   <li>Dedicated art block {@code Cannon.bin} at
+     *   {@link Sonic3kConstants#ART_UNC_CNZ_CANNON_ADDR}</li>
+     * </ul>
+     *
+     * <p>The sheet is built from ROM-parsed mappings plus the DPLC remap table so
+     * the animated chamber pieces keep their original tile selection instead of
+     * relying on a level-art subset.
+     */
+    public ObjectSpriteSheet loadCnzCannonSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadUncompressedPatterns(rom,
+                    Sonic3kConstants.ART_UNC_CNZ_CANNON_ADDR,
+                    Sonic3kConstants.ART_UNC_CNZ_CANNON_SIZE);
+            if (patterns.length == 0) {
+                return null;
+            }
+
+            List<SpriteMappingFrame> rawMappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_CNZ_CANNON_ADDR, 10);
+            List<SpriteDplcFrame> dplcFrames =
+                    S3kSpriteDataLoader.loadDplcFrames(reader, Sonic3kConstants.DPLC_CNZ_CANNON_ADDR, 9);
+            List<SpriteMappingFrame> remapped = applyDplcRemap(rawMappings, dplcFrames);
+
+            lastBuildStartTile = Sonic3kConstants.ARTTILE_CNZ_CANNON;
+            lastBuildTileCount = patterns.length;
+            return new ObjectSpriteSheet(patterns, remapped, 2, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading CNZ cannon art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Backwards-compatible wrapper used by the registry builder path.
      */
     public ObjectSpriteSheet buildCnzCannonSheet() {
-        return buildLevelArtSheetFromRom(
-                Sonic3kConstants.MAP_CNZ_CANNON_ADDR,
-                Sonic3kConstants.ARTTILE_CNZ_CANNON,
-                2);
+        try {
+            return loadCnzCannonSheet(GameServices.rom().getRom());
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ cannon art via compatibility wrapper: " + e.getMessage());
+            return null;
+        }
     }
 
     /**
