@@ -143,6 +143,7 @@ public class HudRenderManager {
 
     private int livesPatternIndex;
     private int livesNumbersPatternIndex;
+    private int hexDigitsPatternIndex;
 
     public void setLivesPatternIndex(int livesPatternIndex, int count) {
         this.livesPatternIndex = livesPatternIndex;
@@ -151,6 +152,16 @@ public class HudRenderManager {
 
     public void setLivesNumbersPatternIndex(int livesNumbersPatternIndex) {
         this.livesNumbersPatternIndex = livesNumbersPatternIndex;
+    }
+
+    /**
+     * Registers the base pattern index for the ROM-native ASCII-aligned hex font used
+     * by the debug HUD. Tile layout: '0'-'9' at offsets 0-9, 'A'-'F' at offsets 17-22
+     * (matches 'A'-'0' = 0x11). Set to 0 to disable (falls back to lives digits,
+     * which only cover 0-9).
+     */
+    public void setHexDigitsPatternIndex(int hexDigitsPatternIndex) {
+        this.hexDigitsPatternIndex = hexDigitsPatternIndex;
     }
 
     /**
@@ -346,29 +357,28 @@ public class HudRenderManager {
     }
 
     /**
-     * Draws a single hex digit (0-F) using the small 8x8 lives number font.
-     * Unlike the large HUD digits which are 16px tall (2 tiles), these are single
-     * 8x8 tiles.
-     * 
-     * @param x     Screen X position
-     * @param y     Screen Y position
-     * @param digit Hex digit value (0-15)
+     * Draws a single hex digit (0-F) using the ROM-native debug font when available.
+     * Matches the disasm routine (S1 HudDb_XY2, S2 HudDb_XY2, S3K sub_EC90): each
+     * nibble indexes an ASCII-aligned tile table where 0-9 are contiguous and A-F
+     * start at offset 17 (+7 beyond '9'). Falls back to the lives-number font (0-9
+     * only) when the debug font has not been registered.
      */
     private void drawSmallHexDigit(int x, int y, int digit) {
-        // Fallback: use lives numbers for 0-9, approximations for A-F
-        if (livesNumbersPatternIndex <= 0) {
+        if (hexDigitsPatternIndex > 0) {
+            // ROM-accurate: tiles 0-9 for 0-9, tiles 17-22 for A-F.
+            int tileOffset = digit < 0xA ? digit : digit + 7;
+            renderSafe(hexDigitsPatternIndex + tileOffset, hudPatternDesc, x, y);
             return;
         }
 
+        // Legacy fallback: no debug font loaded, reuse lives digits for 0-9 only.
+        if (livesNumbersPatternIndex <= 0) {
+            return;
+        }
         if (digit < 10) {
             renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, x, y);
-        } else {
-            // Fallback for A-F when debug font not available
-            int fallbackDigit = digit - 9;
-            if (fallbackDigit >= 0 && fallbackDigit <= 9) {
-                renderSafe(livesNumbersPatternIndex + fallbackDigit, iconPatternDesc, x, y);
-            }
         }
+        // Intentionally no A-F fallback: mapping A-F onto 1-6 is confusing.
     }
 
     private void drawLives(int lives) {

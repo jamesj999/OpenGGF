@@ -55,6 +55,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private Pattern[] hudHexDigits;
     private boolean livesNameUsesIconPalette;
 
     /**
@@ -196,6 +197,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = artData.getHudTextPatterns();
         hudLivesPatterns = artData.getHudLivesPatterns();
         hudLivesNumbers = artData.getHudLivesNumbers();
+        hudHexDigits = artData.getDebugFontPatterns();
         livesNameUsesIconPalette = false;
 
         // Cross-game: override lives icon with donor character art (e.g., Knuckles from S3K)
@@ -338,6 +340,11 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     @Override
     public Pattern[] getHudLivesNumbers() {
         return hudLivesNumbers;
+    }
+
+    @Override
+    public Pattern[] getHudHexDigitPatterns() {
+        return hudHexDigits;
     }
 
     @Override

@@ -92,6 +92,17 @@ public interface ObjectArtProvider {
     Pattern[] getHudLivesNumbers();
 
     /**
+     * Gets the ROM-native hex-digit font used by the debug HUD (player/camera coords).
+     * Tile layout is ASCII-aligned: digits 0-9 at offsets 0-9 and A-F at offsets
+     * 17-22 (see {@link HudRenderManager#setHexDigitsPatternIndex(int)}).
+     *
+     * @return the hex digit pattern array, or null when not loaded
+     */
+    default Pattern[] getHudHexDigitPatterns() {
+        return null;
+    }
+
+    /**
      * Gets all available renderer keys.
      *
      * @return list of renderer keys
