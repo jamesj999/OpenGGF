@@ -94,12 +94,17 @@ public final class AudioBenchmarkMemoryProbe {
     }
 
     public long currentHeapUsedBytes() {
-        return readHeapUsedBytes();
+        return readRuntimeHeapUsedBytes();
     }
 
     private long readHeapUsedBytes() {
         MemoryUsage heapUsage = memoryBean.getHeapMemoryUsage();
         return heapUsage != null ? heapUsage.getUsed() : 0L;
+    }
+
+    private long readRuntimeHeapUsedBytes() {
+        Runtime runtime = Runtime.getRuntime();
+        return Math.max(0L, runtime.totalMemory() - runtime.freeMemory());
     }
 
     private long readTotalGcCount() {
