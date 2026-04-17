@@ -146,6 +146,8 @@ Apply the mapping-driven static HUD design as a shared direction:
 
 This avoids a special-case S3K HUD stack.
 
+The target should still be native per-game behavior wherever the source data supports it. If the shared HUD path deliberately normalizes some host or donor combinations around an S3K-style lives mapping contract, that choice should be treated as an explicit architectural discrepancy against the affected ROMs rather than an assumed equivalence.
+
 ## Implementation Outline
 
 1. Extend `ObjectArtProvider` with shared HUD mapping accessors.
@@ -158,18 +160,17 @@ This avoids a special-case S3K HUD stack.
    - S2 mixed icon/name palettes preserved through mappings
    - S1 flashing frame selection still correct
    - no palette uploads during steady-state HUD draw for native S3K lives HUD
-7. Update [KNOWN_DISCREPANCIES.md](../../../docs/KNOWN_DISCREPANCIES.md) to document the current discrepancy and the new aligned architecture if the implementation intentionally still differs internally.
+7. Update [KNOWN_DISCREPANCIES.md](../../../docs/KNOWN_DISCREPANCIES.md) only for intentional end-state ROM deviations. If the final shared HUD path deliberately standardizes on an S3K-style lives mapping/palette contract for any S1 or S2 cases, document those resulting behavior differences against the native ROMs. Do not use that document to record the removed palette-override bug.
 
 ## Documentation Plan
 
-Add a discrepancy entry in `docs/KNOWN_DISCREPANCIES.md` covering the current HUD issue:
+Use `docs/KNOWN_DISCREPANCIES.md` only for the final architectural result, not for transient bugs or superseded implementation details.
 
-- Current engine behavior:
-  static HUD pieces are procedurally drawn, and S3K lives can temporarily override shared palette lines during draw.
-- ROM behavior:
-  static HUD layout is mapping-driven and mixed palettes are encoded in mapping pieces, while digits are updated separately when dirty.
+For this refactor, that means:
 
-If the refactor fully removes the divergence, the entry should instead document the historical discrepancy and note that the shared HUD path was brought back in line with ROM behavior.
+- If the shared HUD path remains natively accurate for each game, no HUD entry belongs in `KNOWN_DISCREPANCIES.md`.
+- If the final design intentionally aligns some S1 or S2 HUD behavior with an S3K-style shared contract, add an entry describing the exact end-user-visible differences from the affected ROMs and why the shared architecture chose that trade-off.
+- The current per-frame palette-override issue should not be documented there because it is a defect being removed, not an intentional architectural deviation.
 
 ## Testing Strategy
 
