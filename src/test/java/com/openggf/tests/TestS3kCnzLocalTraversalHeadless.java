@@ -10,12 +10,16 @@ import com.openggf.game.sonic3k.objects.CnzRisingPlatformInstance;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.Tails;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -192,6 +196,45 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
+    void trapDoorDoesNotOpenWhenPlayerCenterIsAboveTheHinge() {
+        CnzTrapDoorInstance trapDoor = new CnzTrapDoorInstance(
+                new ObjectSpawn(0x2600, 0x0780, Sonic3kObjectIds.CNZ_TRAP_DOOR, 0x00, 0, false, 0));
+        trapDoor.setServices(new TestObjectServices());
+
+        Sonic player = new Sonic("sonic", (short) 0x2600, (short) 0x0770);
+        player.setCentreX((short) 0x2600);
+        player.setCentreY((short) 0x0770);
+
+        trapDoor.update(0, player);
+
+        assertFalse(invokeBooleanHook(trapDoor, "isOpenForTest"),
+                "An above-hinge player must not open the trap door");
+        assertEquals(0, invokeIntHook(trapDoor, "getRenderFrameForTest"),
+                "The closed frame should remain when the player stays above the hinge");
+    }
+
+    @Test
+    void trapDoorChecksSidekicksWhenPrimaryPlayerMissesTheWindow() {
+        CnzTrapDoorInstance trapDoor = new CnzTrapDoorInstance(
+                new ObjectSpawn(0x2600, 0x0780, Sonic3kObjectIds.CNZ_TRAP_DOOR, 0x00, 0, false, 0));
+        Tails sidekick = new Tails("tails", (short) 0x2600, (short) 0x0788);
+        sidekick.setCentreX((short) 0x2600);
+        sidekick.setCentreY((short) 0x0788);
+        trapDoor.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        Sonic player = new Sonic("sonic", (short) 0x1200, (short) 0x0770);
+        player.setCentreX((short) 0x1200);
+        player.setCentreY((short) 0x0770);
+
+        trapDoor.update(0, player);
+
+        assertTrue(invokeBooleanHook(trapDoor, "isOpenForTest"),
+                "The trap door should open when a sidekick enters the ROM trigger box");
+        assertEquals(1, invokeIntHook(trapDoor, "getRenderFrameForTest"),
+                "The opening frame should still be the ROM opening frame");
+    }
+
+    @Test
     void hoverFanRaisesThePlayerWithoutStealingControlAndSeedsFlipMotion() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -206,6 +249,9 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setControlLocked(false);
         fixture.sprite().setYSpeed((short) 0);
         fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setRollingJump(true);
+        fixture.sprite().setJumping(true);
+        fixture.sprite().setDoubleJumpFlag(2);
         fixture.sprite().setFlipAngle(0);
         fixture.sprite().setFlipSpeed(0);
         fixture.sprite().setFlipsRemaining(0);
@@ -222,6 +268,12 @@ class TestS3kCnzLocalTraversalHeadless {
                 "The ROM routine zeroes vertical speed on capture");
         assertEquals((short) 1, fixture.sprite().getGSpeed(),
                 "The ROM routine seeds ground_vel to 1 on the first capture frame");
+        assertFalse(fixture.sprite().getRollingJump(),
+                "The fan must clear the roll-jump state before seeding the flip");
+        assertFalse(fixture.sprite().isJumping(),
+                "The fan must clear the jumping bit before seeding the flip");
+        assertEquals(0, fixture.sprite().getDoubleJumpFlag(),
+                "The fan must clear the double-jump flag before seeding the flip");
         assertEquals(1, fixture.sprite().getFlipAngle(),
                 "The first capture should seed the flip animation");
         assertEquals(8, fixture.sprite().getFlipSpeed(),
@@ -232,6 +284,39 @@ class TestS3kCnzLocalTraversalHeadless {
                 "The lift should match the ROM-derived window-to-offset conversion");
         assertEquals(0, invokeIntHook(fan, "getRenderFrameForTest"),
                 "Subtype 0x80 should start on mapping frame 0");
+    }
+
+    @Test
+    void hoverFanSubtype90UsesItsOwnWindowAndInitialFrame() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x90);
+        fixture.sprite().setCentreX((short) 0x2C20);
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setObjectControlled(false);
+        fixture.sprite().setControlLocked(false);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setFlipAngle(0);
+        fixture.sprite().setFlipSpeed(0);
+        fixture.sprite().setFlipsRemaining(0);
+
+        fan.update(0, fixture.sprite());
+
+        assertTrue(fixture.sprite().getAir(),
+                "Subtype 0x90 should still capture the player when the subtype-derived X band matches");
+        assertEquals((short) 0, fixture.sprite().getYSpeed(),
+                "The ROM routine still clears Y speed on subtype-specific captures");
+        assertEquals((short) 1, fixture.sprite().getGSpeed(),
+                "The ROM routine still seeds ground_vel on subtype-specific captures");
+        assertEquals(1, fixture.sprite().getFlipAngle(),
+                "The first capture should seed the flip animation");
+        assertEquals(1, invokeIntHook(fan, "getRenderFrameForTest"),
+                "Subtype 0x90 should start on mapping frame 1, not the subtype-0 frame");
     }
 
     private static CnzBalloonInstance spawnBalloon(int x, int y, int subtype) {
