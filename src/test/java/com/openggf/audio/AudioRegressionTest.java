@@ -352,12 +352,16 @@ public class AudioRegressionTest {
         replaySeq.setSampleRate(SAMPLE_RATE);
         replayDriver.addSequencer(replaySeq, false);
         short[] replayBuffer = new short[BUFFER_SIZE * 2];
-        long peakHeapBytes = probe.measurePeakHeapBytes(() -> replayDriver.read(replayBuffer), iterations);
+        AudioBenchmarkMemoryProbe.PeakHeapResult peak = probe.measurePeakHeapBytes(
+                () -> replayDriver.read(replayBuffer),
+                iterations
+        );
 
         double msPerSecond = elapsed / 1_000_000.0;
         System.out.println("Audio render time: " + msPerSecond + " ms per second of audio");
         System.out.println("Real-time factor: " + (1000.0 / msPerSecond) + "x");
-        printMemoryMetrics(memory, peakHeapBytes, iterations, 1.0, "MB per audio-second");
+        printMemoryMetrics(memory, peak.peakHeapBytes(), peak.peakHeapDeltaBytes(), iterations, 1.0,
+                "MB per audio-second");
 
         // Assert reasonable performance (should be under 50ms to render 1 second at minimum)
         // On modern hardware this should be <5ms, but we use a lenient threshold.
@@ -375,7 +379,8 @@ public class AudioRegressionTest {
 
         System.out.println("Results tally stress render time: " + msPerRun + " ms per stress run");
         System.out.println("Results tally stress real-time factor: " + (totalDurationMs / msPerRun) + "x");
-        printMemoryMetrics(result.memory(), result.peakHeapBytes(), result.plan().readSizes().length,
+        printMemoryMetrics(result.memory(), result.peakHeapBytes(), result.peakHeapDeltaBytes(),
+                result.plan().readSizes().length,
                 result.plan().totalDurationMs() / 1000.0, "MB per stress-second");
 
         assertTrue(msPerRun < 500.0,
@@ -691,6 +696,14 @@ public class AudioRegressionTest {
     }
 
     private int executeResultsTallyStressPlan(ResultsTallyStressExecutionContext context, short[] audioOutput) {
+        return executeResultsTallyStressPlan(context, audioOutput, null);
+    }
+
+    private int executeResultsTallyStressPlan(
+            ResultsTallyStressExecutionContext context,
+            short[] audioOutput,
+            Runnable afterRead
+    ) {
         int samplesWritten = 0;
         int blipIndex = 0;
         boolean tallyEndTriggered = false;
@@ -714,6 +727,9 @@ public class AudioRegressionTest {
                 System.arraycopy(context.readBuffers()[i], 0, audioOutput, samplesWritten, context.plan().readSizes()[i]);
             }
             samplesWritten += context.plan().readSizes()[i];
+            if (afterRead != null) {
+                afterRead.run();
+            }
         }
 
         return samplesWritten;
@@ -724,6 +740,7 @@ public class AudioRegressionTest {
 
         int warmupSamplesWritten = executeResultsTallyStressPlan(
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID),
+                null,
                 null
         );
         assertResultsTallyStressExecutionMatchesPlan(plan, warmupSamplesWritten);
@@ -731,19 +748,32 @@ public class AudioRegressionTest {
         AudioBenchmarkMemoryProbe probe = AudioBenchmarkMemoryProbe.create();
         ResultsTallyStressExecutionContext timedContext =
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
+        final int[] timedSamplesWritten = new int[1];
         AudioBenchmarkMemoryProbe.RunResult memory = probe.measureTimedRun(() -> {
-            int timedSamplesWritten = executeResultsTallyStressPlan(timedContext, null);
-            assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten);
+            timedSamplesWritten[0] = executeResultsTallyStressPlan(timedContext, null, null);
         });
+        assertResultsTallyStressExecutionMatchesPlan(plan, timedSamplesWritten[0]);
 
         ResultsTallyStressExecutionContext replayContext =
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
-        long peakHeapBytes = probe.measurePeakHeapBytes(() -> {
-            int replaySamplesWritten = executeResultsTallyStressPlan(replayContext, null);
-            assertResultsTallyStressExecutionMatchesPlan(plan, replaySamplesWritten);
-        }, 1);
+        final long replayBaselineHeapBytes = probe.snapshot().heapUsedBytes();
+        final long[] peakHeapBytes = {replayBaselineHeapBytes};
+        final int[] replaySamplesWritten = new int[1];
+        replaySamplesWritten[0] = executeResultsTallyStressPlan(
+                replayContext,
+                null,
+                () -> peakHeapBytes[0] = Math.max(peakHeapBytes[0], probe.snapshot().heapUsedBytes())
+        );
+        assertResultsTallyStressExecutionMatchesPlan(plan, replaySamplesWritten[0]);
 
-        return new ResultsTallyStressBenchmarkResult(plan, memory.elapsedNanos(), memory, peakHeapBytes);
+        long peakHeapDeltaBytes = Math.max(0L, peakHeapBytes[0] - replayBaselineHeapBytes);
+        return new ResultsTallyStressBenchmarkResult(
+                plan,
+                memory.elapsedNanos(),
+                memory,
+                peakHeapBytes[0],
+                peakHeapDeltaBytes
+        );
     }
 
     private int toAudioFrames(int gameFrames) {
@@ -802,6 +832,7 @@ public class AudioRegressionTest {
     private void printMemoryMetrics(
             AudioBenchmarkMemoryProbe.RunResult result,
             long peakHeapBytes,
+            long peakHeapDeltaBytes,
             int readCount,
             double normalizedRunUnits,
             String normalizedLabel
@@ -814,14 +845,14 @@ public class AudioRegressionTest {
         System.out.println("GC time delta: " + result.gcTimeDeltaMs() + " ms");
         System.out.println("Peak heap during replay: " + bytesToMb(peakHeapBytes) + " MB");
 
-        if (readCount > 0) {
-            System.out.println("KB per read: " + (peakHeapBytes / 1024.0 / readCount) + " KB");
+        if (result.allocatedBytesSupported() && readCount > 0) {
+            System.out.println("KB per read: " + (peakHeapDeltaBytes / 1024.0 / readCount) + " KB");
         } else {
             System.out.println("KB per read: N/A");
         }
 
-        if (normalizedRunUnits > 0.0) {
-            System.out.println(normalizedLabel + ": " + (bytesToMb(peakHeapBytes) / normalizedRunUnits));
+        if (result.allocatedBytesSupported() && normalizedRunUnits > 0.0) {
+            System.out.println(normalizedLabel + ": " + (bytesToMb(peakHeapDeltaBytes) / normalizedRunUnits));
         } else {
             System.out.println(normalizedLabel + ": N/A");
         }
@@ -851,7 +882,8 @@ public class AudioRegressionTest {
             ResultsTallyStressPlan plan,
             long elapsedNanos,
             AudioBenchmarkMemoryProbe.RunResult memory,
-            long peakHeapBytes
+            long peakHeapBytes,
+            long peakHeapDeltaBytes
     ) {
     }
 

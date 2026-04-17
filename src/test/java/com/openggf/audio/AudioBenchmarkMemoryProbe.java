@@ -44,60 +44,87 @@ public final class AudioBenchmarkMemoryProbe {
     }
 
     public RunResult measureTimedRun(Runnable workload) {
-        Snapshot before = snapshot();
+        long allocatedBefore = readThreadAllocatedBytes();
+        long heapBefore = readHeapUsedBytes();
+        long gcCountBefore = readTotalGcCount();
+        long gcTimeBefore = readTotalGcTimeMs();
         long start = System.nanoTime();
         workload.run();
         long elapsed = System.nanoTime() - start;
-        Snapshot after = snapshot();
+        long allocatedAfter = readThreadAllocatedBytes();
+        long heapAfter = readHeapUsedBytes();
+        long gcCountAfter = readTotalGcCount();
+        long gcTimeAfter = readTotalGcTimeMs();
 
         long allocatedBytes = -1;
-        if (before.allocatedBytesSupported() && after.allocatedBytesSupported()) {
-            allocatedBytes = Math.max(0L, after.allocatedBytes() - before.allocatedBytes());
+        if (allocatedBytesSupported && allocatedBefore >= 0 && allocatedAfter >= 0) {
+            allocatedBytes = Math.max(0L, allocatedAfter - allocatedBefore);
         }
 
         return new RunResult(
                 elapsed,
                 allocatedBytes,
-                before.allocatedBytesSupported() && after.allocatedBytesSupported(),
-                before.heapUsedBytes(),
-                after.heapUsedBytes(),
-                after.heapUsedBytes() - before.heapUsedBytes(),
-                Math.max(0L, after.gcCount() - before.gcCount()),
-                Math.max(0L, after.gcTimeMs() - before.gcTimeMs())
+                allocatedBytesSupported && allocatedBefore >= 0 && allocatedAfter >= 0,
+                heapBefore,
+                heapAfter,
+                heapAfter - heapBefore,
+                Math.max(0L, gcCountAfter - gcCountBefore),
+                Math.max(0L, gcTimeAfter - gcTimeBefore)
         );
     }
 
-    public long measurePeakHeapBytes(Runnable replayStep, int iterations) {
-        long peakHeapBytes = snapshot().heapUsedBytes();
+    public PeakHeapResult measurePeakHeapBytes(Runnable replayStep, int iterations) {
+        long baselineHeapBytes = readHeapUsedBytes();
+        long peakHeapBytes = baselineHeapBytes;
         for (int i = 0; i < iterations; i++) {
             replayStep.run();
-            peakHeapBytes = Math.max(peakHeapBytes, snapshot().heapUsedBytes());
+            peakHeapBytes = Math.max(peakHeapBytes, readHeapUsedBytes());
         }
-        return Math.max(0L, peakHeapBytes);
+        return new PeakHeapResult(peakHeapBytes, Math.max(0L, peakHeapBytes - baselineHeapBytes));
     }
 
     public Snapshot snapshot() {
+        return new Snapshot(
+                readHeapUsedBytes(),
+                readTotalGcCount(),
+                readTotalGcTimeMs(),
+                readThreadAllocatedBytes(),
+                allocatedBytesSupported
+        );
+    }
+
+    private long readHeapUsedBytes() {
         MemoryUsage heapUsage = memoryBean.getHeapMemoryUsage();
-        long heapUsedBytes = heapUsage != null ? heapUsage.getUsed() : 0L;
-        long gcCount = 0L;
-        long gcTimeMs = 0L;
+        return heapUsage != null ? heapUsage.getUsed() : 0L;
+    }
+
+    private long readTotalGcCount() {
+        long total = 0L;
         for (GarbageCollectorMXBean gcBean : gcBeans) {
             long count = gcBean.getCollectionCount();
-            long time = gcBean.getCollectionTime();
             if (count >= 0) {
-                gcCount += count;
+                total += count;
             }
+        }
+        return total;
+    }
+
+    private long readTotalGcTimeMs() {
+        long total = 0L;
+        for (GarbageCollectorMXBean gcBean : gcBeans) {
+            long time = gcBean.getCollectionTime();
             if (time >= 0) {
-                gcTimeMs += time;
+                total += time;
             }
         }
+        return total;
+    }
 
-        long allocatedBytes = -1L;
-        if (allocatedBytesSupported) {
-            allocatedBytes = Math.max(0L, threadBean.getThreadAllocatedBytes(threadId));
+    private long readThreadAllocatedBytes() {
+        if (!allocatedBytesSupported) {
+            return -1L;
         }
-
-        return new Snapshot(heapUsedBytes, gcCount, gcTimeMs, allocatedBytes, allocatedBytesSupported);
+        return Math.max(0L, threadBean.getThreadAllocatedBytes(threadId));
     }
 
     public record Snapshot(
@@ -118,6 +145,12 @@ public final class AudioBenchmarkMemoryProbe {
             long heapUsedDeltaBytes,
             long gcCountDelta,
             long gcTimeDeltaMs
+    ) {
+    }
+
+    public record PeakHeapResult(
+            long peakHeapBytes,
+            long peakHeapDeltaBytes
     ) {
     }
 }
