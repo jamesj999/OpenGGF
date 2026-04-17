@@ -12,6 +12,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.AnimalType;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.resources.PlcParser;
@@ -82,6 +83,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
     private Pattern[] hudHexDigits;
+    private HudStaticArt hudStaticArt;
 
     // Zone-specific animal types (set per loadArtForZone call)
     private int animalTypeA = AnimalType.FLICKY.ordinal();
@@ -225,6 +227,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 Sonic3kConstants.ART_UNC_DEBUG_DIGITS_ADDR,
                 Sonic3kConstants.ART_UNC_DEBUG_DIGITS_SIZE);
         LOG.info("Loaded " + (hudHexDigits != null ? hudHexDigits.length : 0) + " HUD debug-digit patterns");
+
+        hudStaticArt = Sonic3kHudStaticArtFactory.create(hudTextPatterns, hudLivesPatterns);
     }
 
     /**
@@ -1611,6 +1615,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     @Override
     public Pattern[] getHudHexDigitPatterns() {
         return hudHexDigits;
+    }
+
+    @Override
+    public HudStaticArt getHudStaticArt() {
+        return hudStaticArt;
     }
 
     @Override

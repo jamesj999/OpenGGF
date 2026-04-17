@@ -10,15 +10,17 @@ import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.HudStaticArt;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -40,14 +42,15 @@ class TestSonic2LivesHudDonation {
     }
 
     @Test
-    void overrideLivesArtFromDonor_prefersSelectedTeamOverConfig() throws Exception {
+    void donorKnucklesLivesFrameKeepsNamePiecesOnPalette0() throws Exception {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
         SessionManager.openGameplaySession(mock(GameModule.class),
                 SaveSessionContext.noSave("s2", new SelectedTeam("knuckles", List.of()), 0, 0));
 
         Sonic2ObjectArtProvider provider = spy(new Sonic2ObjectArtProvider());
-        Pattern[] donorPatterns = { new Pattern() };
+        Pattern[] donorPatterns = new Pattern[12];
+        Arrays.setAll(donorPatterns, i -> new Pattern());
         doReturn(donorPatterns).when(provider).loadS3kKnucklesLivesPatterns();
 
         try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
@@ -57,6 +60,11 @@ class TestSonic2LivesHudDonation {
             method.invoke(provider);
         }
 
-        assertSame(donorPatterns, provider.getHudLivesPatterns());
+        HudStaticArt art = provider.getHudStaticArt();
+        long palette0NamePieces = art.livesFrame().pieces().stream()
+                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
+                .filter(piece -> piece.paletteIndex() == 0)
+                .count();
+        assertTrue(palette0NamePieces > 0);
     }
 }
