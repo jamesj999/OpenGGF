@@ -19,7 +19,10 @@ import org.mockito.MockedStatic;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -61,10 +64,18 @@ class TestSonic2LivesHudDonation {
         }
 
         HudStaticArt art = provider.getHudStaticArt();
-        long palette0NamePieces = art.livesFrame().pieces().stream()
+        Set<Integer> palette0TopRowOffsets = art.livesFrame().pieces().stream()
                 .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
                 .filter(piece -> piece.paletteIndex() == 0)
+                .map(piece -> piece.xOffset())
+                .collect(Collectors.toSet());
+        long nonPalette0TopRowPieces = art.livesFrame().pieces().stream()
+                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
+                .filter(piece -> piece.paletteIndex() != 0)
                 .count();
-        assertTrue(palette0NamePieces > 0);
+
+        assertEquals(Set.of(16, 24, 32, 40, 48, 56), palette0TopRowOffsets);
+        assertEquals(0, nonPalette0TopRowPieces);
+        assertTrue(art.livesFrame().pieces().stream().anyMatch(piece -> piece.xOffset() == 0 && piece.paletteIndex() == 0));
     }
 }
