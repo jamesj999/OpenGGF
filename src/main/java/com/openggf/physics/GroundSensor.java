@@ -51,18 +51,6 @@ public class GroundSensor extends Sensor {
         super(sprite, direction, x, y, active);
     }
 
-    /**
-     * Scan at an absolute world-space point without requiring a bound sprite.
-     * This is useful for ROM-style helper probes that predict a world position
-     * first and then dispatch to FindFloor/FindWall behavior.
-     */
-    public SensorResult scanAbsolute(short x, short y, int solidityBit, Direction direction) {
-        if (direction == Direction.UP || direction == Direction.DOWN) {
-            return scanVertical(x, y, solidityBit, direction);
-        }
-        return scanHorizontal(x, y, solidityBit, direction);
-    }
-
     @Override
     protected SensorResult doScan(short dx, short dy) {
         if (!active) {
@@ -131,10 +119,6 @@ public class GroundSensor extends Sensor {
             return scanVertical(originalX, originalY, solidityBit, globalDirection);
         }
         return scanHorizontal(originalX, originalY, solidityBit, globalDirection);
-    }
-
-    private boolean loopLowPlane() {
-        return sprite != null && sprite.isLoopLowPlane();
     }
 
     // ========================================
@@ -317,7 +301,7 @@ public class GroundSensor extends Sensor {
      */
     private SensorResult scanTileVertical(short origX, short origY, short checkX, short checkY,
                                           int solidityBit, Direction direction, boolean isExtension) {
-        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, checkX, checkY, loopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
 
         if (tile == null) {
@@ -479,7 +463,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult evaluateWallTile(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, loopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
 
         if (tile == null) {
@@ -527,7 +511,7 @@ public class GroundSensor extends Sensor {
     }
 
     private WallScanResult scanWallTileSimple(int x, int y, int solidityBit, Direction direction) {
-        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, loopLowPlane());
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
         int xInTile = x & 0x0F;
         int xAdjusted = (direction == Direction.LEFT) ? (15 - xInTile) : xInTile;
