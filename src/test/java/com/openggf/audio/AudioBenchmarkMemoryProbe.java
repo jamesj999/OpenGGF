@@ -74,11 +74,11 @@ public final class AudioBenchmarkMemoryProbe {
     }
 
     public PeakHeapResult measurePeakHeapBytes(Runnable replayStep, int iterations) {
-        long baselineHeapBytes = readHeapUsedBytes();
+        long baselineHeapBytes = currentHeapUsedBytes();
         long peakHeapBytes = baselineHeapBytes;
         for (int i = 0; i < iterations; i++) {
             replayStep.run();
-            peakHeapBytes = Math.max(peakHeapBytes, readHeapUsedBytes());
+            peakHeapBytes = Math.max(peakHeapBytes, currentHeapUsedBytes());
         }
         return new PeakHeapResult(peakHeapBytes, Math.max(0L, peakHeapBytes - baselineHeapBytes));
     }
