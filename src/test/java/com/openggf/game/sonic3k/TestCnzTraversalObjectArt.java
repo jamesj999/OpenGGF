@@ -28,7 +28,11 @@ public class TestCnzTraversalObjectArt {
 
         assertNotNull(balloon);
         assertEquals(25, balloon.getFrameCount());
-        assertNotNull(provider.getSheet("cnz_cannon"));
+        ObjectSpriteSheet cannon = provider.getSheet("cnz_cannon");
+        assertNotNull(cannon);
+        assertEquals(10, cannon.getFrameCount());
+        assertTrue(cannon.getPatterns().length >= 100,
+                "CNZ cannon should expose the dedicated Cannon.bin art, not a placeholder sheet");
         assertNotNull(risingPlatform);
         assertEquals(3, risingPlatform.getFrameCount());
         ObjectSpriteSheet trapDoor = provider.getSheet("cnz_trap_door");
