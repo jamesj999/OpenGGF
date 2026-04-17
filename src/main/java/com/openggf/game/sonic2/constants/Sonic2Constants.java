@@ -290,10 +290,12 @@ public class Sonic2Constants {
     public static final int ART_UNC_HUD_NUMBERS_SIZE = 0x300; // 24 tiles (10 digits x 2 tiles + extras?)
     public static final int ART_UNC_LIVES_NUMBERS_ADDR = 0x4164C; // Small numbers for lives counter
     public static final int ART_UNC_LIVES_NUMBERS_SIZE = 320; // 10 tiles (0-9)
-    // Debug font (italic hex digits 0-9, A-F with slashed zeros - leftover from
-    // Sonic 1 level select)
-    public static final int ART_UNC_DEBUG_FONT_ADDR = 0x45D74; // Art_Text (Debug font)
-    public static final int ART_UNC_DEBUG_FONT_SIZE = 512; // 16 tiles (0-9, A-F) * 32 bytes each
+    // Art_Text: Uncompressed 8x8 font used by the debug HUD (HudDb_XY) to render hex
+    // player/camera coords. ASCII-aligned layout: digits 0-9 at tiles 0-9, A-F at
+    // tiles 17-22 ('0'=0x30, 'A'=0x41 -> offset 0x11). Shared binary with
+    // "Big and small numbers used on counters - 3.bin".
+    public static final int ART_UNC_DEBUG_FONT_ADDR = 0x4178C;
+    public static final int ART_UNC_DEBUG_FONT_SIZE = 736; // 23 tiles
     public static final int ART_NEM_HUD_ADDR = 0x7923E; // HUD.nem (SCORE/TIME/RING text)
     public static final int ART_NEM_TITLE_CARD_ADDR = 0x7D22C; // Title card.nem (E, N, O, Z letters)
     public static final int ART_NEM_TITLE_CARD2_ADDR = 0x7D58A; // Font using large broken letters.nem (other letters)
