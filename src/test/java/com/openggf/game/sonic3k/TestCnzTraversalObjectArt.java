@@ -41,7 +41,11 @@ public class TestCnzTraversalObjectArt {
         assertEquals(3, trapDoor.getFrameCount());
         assertNotNull(hoverFan);
         assertEquals(8, hoverFan.getFrameCount());
-        assertNotNull(provider.getSheet("cnz_cylinder"));
+        ObjectSpriteSheet cylinder = provider.getSheet("cnz_cylinder");
+        assertNotNull(cylinder);
+        assertEquals(4, cylinder.getFrameCount());
+        assertTrue(cylinder.getPatterns().length > 0,
+                "CNZ cylinder should load the ROM-parsed Map - Cylinder.asm sheet");
     }
 
     private static Sonic3kObjectArtProvider currentCnzObjectArtProvider() {
