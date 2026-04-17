@@ -1614,42 +1614,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     @Override
-    public Palette getHudLivesPaletteOverride() {
-        if (GameServices.levelOrNull() == null || GameServices.levelOrNull().getCurrentLevel() == null) {
-            return null;
-        }
-        Level level = GameServices.levelOrNull().getCurrentLevel();
-        return buildS3kLivesHudPaletteOverride(level.getPalette(0), level.getPalette(1));
-    }
-
-    @Override
-    public boolean usesIconPaletteForLivesName() {
-        return true;
-    }
-
-    static Palette buildS3kLivesHudPaletteOverride(Palette iconPalette, Palette hudTextPalette) {
-        if (iconPalette == null || hudTextPalette == null) {
-            return null;
-        }
-        Palette override = iconPalette.deepCopy();
-
-        // S3K life-name tiles share the HUD text art contract (indices 1/5/14),
-        // but they render on palette line 0 beside the face icon. Copy the fill
-        // and shadow colors from the HUD text line so "SONIC" does not pick up
-        // the character palette's green at index 5.
-        copyColor(override, 5, hudTextPalette.getColor(5));
-        copyColor(override, 14, hudTextPalette.getColor(14));
-        return override;
-    }
-
-    private static void copyColor(Palette target, int index, Palette.Color source) {
-        Palette.Color color = target.getColor(index);
-        color.r = source.r;
-        color.g = source.g;
-        color.b = source.b;
-    }
-
-    @Override
     public List<String> getRendererKeys() {
         return new ArrayList<>(rendererKeys);
     }
