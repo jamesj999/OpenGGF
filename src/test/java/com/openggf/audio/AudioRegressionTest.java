@@ -462,7 +462,60 @@ public class AudioRegressionTest {
     }
 
     private short[] renderResultsTallyStressWithMode(SmpsDriver.ReadMode mode, int totalSamples) {
-        return new short[totalSamples];
+        AbstractSmpsData blipData = loader.loadSfx(SFX_BLIP);
+        AbstractSmpsData tallyEndData = loader.loadSfx(SFX_TALLY_END);
+
+        assertNotNull(blipData, "SFX data should load for BLIP");
+        assertNotNull(tallyEndData, "SFX data should load for TALLY_END");
+
+        SmpsDriver driver = new SmpsDriver(SAMPLE_RATE);
+        driver.setRegion(SmpsSequencer.Region.NTSC);
+        driver.setReadModeForTesting(mode);
+
+        int[] blipTriggerFrames = buildResultsTallyBlipFrameSchedule();
+        int blipIndex = 0;
+        boolean tallyEndTriggered = false;
+        int tallyEndAudioFrame = toAudioFrames(RESULTS_TALLY_END_FRAME);
+
+        short[] audio = new short[totalSamples];
+        short[] buffer = new short[BUFFER_SIZE * 2];
+        int samplesWritten = 0;
+
+        while (samplesWritten < totalSamples) {
+            int currentAudioFrame = samplesWritten / 2;
+
+            while (blipIndex < blipTriggerFrames.length
+                    && currentAudioFrame >= blipTriggerFrames[blipIndex]) {
+                addSfxSequencer(driver, blipData);
+                blipIndex++;
+            }
+
+            if (!tallyEndTriggered && currentAudioFrame >= tallyEndAudioFrame) {
+                addSfxSequencer(driver, tallyEndData);
+                tallyEndTriggered = true;
+            }
+
+            int nextTriggerAudioFrame = totalSamples / 2;
+            if (blipIndex < blipTriggerFrames.length) {
+                nextTriggerAudioFrame = Math.min(nextTriggerAudioFrame, blipTriggerFrames[blipIndex]);
+            }
+            if (!tallyEndTriggered) {
+                nextTriggerAudioFrame = Math.min(nextTriggerAudioFrame, tallyEndAudioFrame);
+            }
+
+            int framesUntilNextTrigger = nextTriggerAudioFrame - currentAudioFrame;
+            int framesToRead = framesUntilNextTrigger > 0
+                    ? Math.min(BUFFER_SIZE, framesUntilNextTrigger)
+                    : Math.min(BUFFER_SIZE, (totalSamples - samplesWritten) / 2);
+            int samplesToRead = Math.min(framesToRead * 2, totalSamples - samplesWritten);
+
+            short[] stepBuffer = samplesToRead == buffer.length ? buffer : new short[samplesToRead];
+            driver.read(stepBuffer);
+            System.arraycopy(stepBuffer, 0, audio, samplesWritten, samplesToRead);
+            samplesWritten += samplesToRead;
+        }
+
+        return audio;
     }
 
     private boolean hasNonZeroSample(short[] audio) {
@@ -472,6 +525,22 @@ public class AudioRegressionTest {
             }
         }
         return false;
+    }
+
+    private int[] buildResultsTallyBlipFrameSchedule() {
+        int triggerCount = (RESULTS_TALLY_LAST_BLIP_FRAME / RESULTS_TALLY_TICK_INTERVAL_FRAMES) + 1;
+        int[] triggerFrames = new int[triggerCount];
+        for (int i = 0; i < triggerCount; i++) {
+            triggerFrames[i] = toAudioFrames(i * RESULTS_TALLY_TICK_INTERVAL_FRAMES);
+        }
+        return triggerFrames;
+    }
+
+    private void addSfxSequencer(SmpsDriver driver, AbstractSmpsData sfxData) {
+        SmpsSequencer sfxSeq = new SmpsSequencer(sfxData, dacData, driver, Sonic2SmpsSequencerConfig.CONFIG);
+        sfxSeq.setSampleRate(SAMPLE_RATE);
+        sfxSeq.setSfxMode(true);
+        driver.addSequencer(sfxSeq, true);
     }
 
     private int toAudioFrames(int gameFrames) {
