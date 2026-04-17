@@ -31,8 +31,12 @@ public class TestCnzTraversalObjectArt {
         assertNotNull(provider.getSheet("cnz_cannon"));
         assertNotNull(risingPlatform);
         assertEquals(3, risingPlatform.getFrameCount());
-        assertNotNull(provider.getSheet("cnz_trap_door"));
-        assertNotNull(provider.getSheet("cnz_hover_fan"));
+        ObjectSpriteSheet trapDoor = provider.getSheet("cnz_trap_door");
+        ObjectSpriteSheet hoverFan = provider.getSheet("cnz_hover_fan");
+        assertNotNull(trapDoor);
+        assertEquals(3, trapDoor.getFrameCount());
+        assertNotNull(hoverFan);
+        assertEquals(8, hoverFan.getFrameCount());
         assertNotNull(provider.getSheet("cnz_cylinder"));
     }
 
