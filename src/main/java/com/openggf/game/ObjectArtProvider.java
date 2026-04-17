@@ -94,7 +94,7 @@ public interface ObjectArtProvider {
     /**
      * Gets the shared static HUD art bundle used by the mapping-driven HUD renderer.
      *
-     * @return the static HUD art bundle, or null if the provider does not expose one
+     * @return the static HUD art bundle, or null if the provider still uses legacy HUD wiring
      */
     default HudStaticArt getHudStaticArt() {
         return null;
