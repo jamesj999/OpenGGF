@@ -810,6 +810,73 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
         return (int) Math.ceil(remaining);
     }
 
+    /**
+     * Return the next observable boundary caused by driver state changes that are
+     * scheduled from tempo ticks.
+     *
+     * Tick-scoped chip writes (PSG envelope, FM volume envelope, modulation,
+     * track commands, DAC rate changes) all happen inside {@link #tick()}, and
+     * the driver's {@link #getSamplesUntilNextTempoFrame()} - 1 cap handles those.
+     */
+    public int getSamplesUntilNextObservableEvent() {
+        int nextEvent = Integer.MAX_VALUE;
+
+        if (fadeState.active) {
+            nextEvent = Math.min(nextEvent, getSamplesUntilNextTempoFrame());
+        }
+
+        if (sfxMode && maxTicks <= 1) {
+            nextEvent = Math.min(nextEvent, getSamplesUntilNextTempoFrame());
+        }
+
+        for (Track t : tracks) {
+            if (!t.active) {
+                continue;
+            }
+
+            if (t.duration <= 0) {
+                return 0;
+            }
+
+            nextEvent = Math.min(nextEvent, samplesUntilTempoTicks(t.duration));
+
+            if (t.fill > 0 && !t.tieNext && t.type != TrackType.DAC) {
+                int fillTicks = Math.max(0, t.fill + t.duration - t.scaledDuration);
+                nextEvent = Math.min(nextEvent, samplesUntilTempoTicks(fillTicks));
+            }
+        }
+
+        return nextEvent;
+    }
+
+    public boolean requiresSampleAccurateFallback() {
+        return fadeState.active || speedMultiplier > 1;
+    }
+
+    private int samplesUntilTempoTicks(int ticks) {
+        if (ticks <= 0) {
+            return 0;
+        }
+        if (tempoWeight == 0 || samplesPerFrame <= 0) {
+            return Integer.MAX_VALUE;
+        }
+
+        double counter = sampleCounter;
+        double total = 0.0;
+        for (int i = 0; i < ticks; i++) {
+            double remaining = samplesPerFrame - counter;
+            if (remaining <= 0.0) {
+                remaining = samplesPerFrame;
+            }
+            total += remaining;
+            counter += remaining;
+            while (counter >= samplesPerFrame) {
+                counter -= samplesPerFrame;
+            }
+        }
+        return (int) Math.ceil(total);
+    }
+
     private void tick() {
         for (Track t : tracks) {
             if (!t.active)
