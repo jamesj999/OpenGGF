@@ -3,6 +3,7 @@ package com.openggf.tests;
 import org.junit.jupiter.api.Test;
 import com.openggf.audio.synth.Ym2612Chip;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -76,6 +77,34 @@ public class TestYm2612ChipBasics {
         assertTrue(rightHas, "DAC should produce right output");
     }
 
+    @Test
+    public void multiChannelPanAndDacMixRemainBitExact() {
+        Ym2612Chip chip = new Ym2612Chip();
+
+        configureSimpleVoice(chip, 0, 0, 0x80, 0x22, 0x00);
+        configureSimpleVoice(chip, 0, 1, 0x40, 0x25, 0x34);
+
+        chip.write(0, 0x28, 0xF0);
+        chip.write(0, 0x28, 0xF1);
+
+        chip.write(0, 0x2B, 0x80);
+        chip.write(1, 0xB2, 0x40);
+        chip.write(0, 0x2A, 0xD0);
+
+        int[] left = new int[16];
+        int[] right = new int[16];
+        chip.renderStereo(left, right, 16);
+
+        assertArrayEquals(new int[] {
+                5577, 6978, 7889, 8738, 9836, 10773, 11694, 12609,
+                13593, 14076, 14075, 14081, 14077, 14079, 14078, 14079
+        }, left);
+        assertArrayEquals(new int[] {
+                5592, 8392, 10822, 13462, 14201, 14042, 14092, 14073,
+                14079, 14078, 14079, 14079, 14079, 14079, 14079, 14079
+        }, right);
+    }
+
     /**
      * Regression test for AU5: SSG-EG active count leak in forceSilenceChannel().
      * Enables SSG-EG on a channel, force-silences it, then verifies the chip
@@ -119,26 +148,29 @@ public class TestYm2612ChipBasics {
     }
 
     private static void configureSimpleVoice(Ym2612Chip chip) {
+        configureSimpleVoice(chip, 0, 0, 0xC0, 0x22, 0x00);
+        chip.write(0, 0x28, 0xF0);
+    }
+
+    private static void configureSimpleVoice(Ym2612Chip chip, int port, int channel, int pan, int a4, int a0) {
         // Algorithm 7 (all carriers), no feedback, pan L+R on channel 0
-        chip.write(0, 0xB0, 0xC7);
+        chip.write(port, 0xB0 + channel, 0x07);
+        chip.write(port, 0xB4 + channel, pan);
 
         // FNUM/BLOCK for a mid-range pitch
-        chip.write(0, 0xA0, 0x00); // low bits
-        chip.write(0, 0xA4, 0x22); // high bits + block
+        chip.write(port, 0xA0 + channel, a0);
+        chip.write(port, 0xA4 + channel, a4);
 
         // Set fast attack/decay and low TL on all operators
         int[] slots = {0x00, 0x04, 0x08, 0x0C}; // slot offsets within operator reg blocks
         for (int slot : slots) {
-            chip.write(0, 0x30 + slot, 0x01); // DT/MUL: minimal detune, mul=1
-            chip.write(0, 0x40 + slot, 0x00); // TL: loud
-            chip.write(0, 0x50 + slot, 0x1F); // RS/AR: AR max
-            chip.write(0, 0x60 + slot, 0x10); // AM/D1R: moderate decay
-            chip.write(0, 0x70 + slot, 0x08); // D2R
-            chip.write(0, 0x80 + slot, 0x05); // D1L/RR
+            chip.write(port, 0x30 + slot + channel, 0x01); // DT/MUL: minimal detune, mul=1
+            chip.write(port, 0x40 + slot + channel, 0x00); // TL: loud
+            chip.write(port, 0x50 + slot + channel, 0x1F); // RS/AR: AR max
+            chip.write(port, 0x60 + slot + channel, 0x10); // AM/D1R: moderate decay
+            chip.write(port, 0x70 + slot + channel, 0x08); // D2R
+            chip.write(port, 0x80 + slot + channel, 0x05); // D1L/RR
         }
-
-        // Key on all operators for channel 0
-        chip.write(0, 0x28, 0xF0);
     }
 }
 
