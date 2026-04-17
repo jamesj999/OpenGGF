@@ -756,13 +756,13 @@ public class AudioRegressionTest {
 
         ResultsTallyStressExecutionContext replayContext =
                 prepareResultsTallyStressExecutionContext(plan, SmpsDriver.ReadMode.HYBRID);
-        final long replayBaselineHeapBytes = probe.snapshot().heapUsedBytes();
+        final long replayBaselineHeapBytes = probe.currentHeapUsedBytes();
         final long[] peakHeapBytes = {replayBaselineHeapBytes};
         final int[] replaySamplesWritten = new int[1];
         replaySamplesWritten[0] = executeResultsTallyStressPlan(
                 replayContext,
                 null,
-                () -> peakHeapBytes[0] = Math.max(peakHeapBytes[0], probe.snapshot().heapUsedBytes())
+                () -> peakHeapBytes[0] = Math.max(peakHeapBytes[0], probe.currentHeapUsedBytes())
         );
         assertResultsTallyStressExecutionMatchesPlan(plan, replaySamplesWritten[0]);
 
@@ -845,13 +845,13 @@ public class AudioRegressionTest {
         System.out.println("GC time delta: " + result.gcTimeDeltaMs() + " ms");
         System.out.println("Peak heap during replay: " + bytesToMb(peakHeapBytes) + " MB");
 
-        if (result.allocatedBytesSupported() && readCount > 0) {
+        if (readCount > 0) {
             System.out.println("KB per read: " + (peakHeapDeltaBytes / 1024.0 / readCount) + " KB");
         } else {
             System.out.println("KB per read: N/A");
         }
 
-        if (result.allocatedBytesSupported() && normalizedRunUnits > 0.0) {
+        if (normalizedRunUnits > 0.0) {
             System.out.println(normalizedLabel + ": " + (bytesToMb(peakHeapDeltaBytes) / normalizedRunUnits));
         } else {
             System.out.println(normalizedLabel + ": N/A");
