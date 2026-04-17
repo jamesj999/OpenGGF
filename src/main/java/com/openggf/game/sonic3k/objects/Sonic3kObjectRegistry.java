@@ -158,6 +158,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new MGZDashTriggerObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.MGZ_TOP_PLATFORM,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MGZTopPlatformObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.BUMPER,
                 (spawn, registry) -> {
                     if (currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {

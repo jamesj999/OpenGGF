@@ -107,6 +107,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x57, // MGZTriggerPlatform
                 0x58, // MGZSwingingSpikeBall
                 0x59, // MGZDashTrigger
+                0x5B, // MGZTopPlatform
                 0x3E, // HCZConveyorBelt
                 0x3F, // HCZConveyorSpike
                 0x67, // HCZSnakeBlocks

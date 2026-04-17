@@ -954,6 +954,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Top Platform / Top Launcher: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        // Obj_MGZTopPlatform (sonic3k.asm:71477). Shared map with Obj_MGZTopLauncher.
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_TOP_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_TOP_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
         // Button: ArtTile_GrayButton, palette 0
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.BUTTON,
