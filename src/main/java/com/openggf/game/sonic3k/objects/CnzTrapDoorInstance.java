@@ -42,10 +42,6 @@ public final class CnzTrapDoorInstance extends AbstractObjectInstance
     private static final SolidObjectParams SOLID_PARAMS =
             new SolidObjectParams(0x20, 9, 9);
 
-    // ROM: sub_30D8C trigger window is effectively [-31, +32] on both axes.
-    private static final int TRIGGER_MIN_DELTA = -0x1F;
-    private static final int TRIGGER_MAX_DELTA = 0x20;
-
     private static final int FRAME_CLOSED = 0;
     private static final int FRAME_OPENING = 1;
     private static final int FRAME_OPEN = 2;
@@ -63,15 +59,27 @@ public final class CnzTrapDoorInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = playerEntity instanceof AbstractPlayableSprite
-                ? (AbstractPlayableSprite) playerEntity
-                : null;
+        if (state == FRAME_CLOSED) {
+            checkPlayable(playerEntity);
 
-        if (state == FRAME_CLOSED && shouldTrigger(player)) {
-            startOpening();
+            for (PlayableEntity sidekick : services().sidekicks()) {
+                checkPlayable(sidekick);
+                if (state != FRAME_CLOSED) {
+                    break;
+                }
+            }
         }
 
         advanceAnimation();
+    }
+
+    private void checkPlayable(PlayableEntity entity) {
+        if (state != FRAME_CLOSED || !(entity instanceof AbstractPlayableSprite player)) {
+            return;
+        }
+        if (shouldTrigger(player)) {
+            startOpening();
+        }
     }
 
     private boolean shouldTrigger(AbstractPlayableSprite player) {
@@ -82,11 +90,13 @@ public final class CnzTrapDoorInstance extends AbstractObjectInstance
         // ROM trigger box from sub_30D8C:
         //   x: objX - playerX + $20, unsigned compare against $40
         //   y: objY - playerY + $20, unsigned compare against $20
-        // That maps to deltas of [-31, +32] on both axes.
+        // The X axis is symmetric; the Y axis only triggers when the player's
+        // centre is below the hinge (playerY > objY).
         int dx = player.getCentreX() - spawn.x();
-        int dy = player.getCentreY() - spawn.y();
-        return dx >= TRIGGER_MIN_DELTA && dx <= TRIGGER_MAX_DELTA
-                && dy >= TRIGGER_MIN_DELTA && dy <= TRIGGER_MAX_DELTA;
+        if (dx < -0x1F || dx > 0x20) {
+            return false;
+        }
+        return player.getCentreY() > spawn.y();
     }
 
     private void startOpening() {
@@ -140,13 +150,8 @@ public final class CnzTrapDoorInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
-        if (contact.standing() || contact.touchTop()) {
-            // ROM still runs SolidObjectTop every frame, so standing contact is enough
-            // to trip the door even if the player is not inside the trigger box yet.
-            if (state == FRAME_CLOSED) {
-                startOpening();
-            }
-        }
+        // ROM parity is handled in update() by checking Player_1 and Player_2 each frame.
+        // Solid contact only needs the regular top-solid collision response.
     }
 
     @Override

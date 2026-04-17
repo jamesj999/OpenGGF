@@ -39,14 +39,6 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     private static final int HALF_WIDTH = 0x10;
     private static final int HALF_HEIGHT = 0x10;
 
-    // ROM: d1 = (subtype & $0F) + 4, then lsl.w #4
-    private static final int BASE_LIFT_OFFSET = 0x40;
-    private static final int LIFT_WINDOW_END = 0x70;
-
-    // ROM: (subtype & $70) + $18
-    private static final int X_WINDOW_MIN_OFFSET = 0x18;
-    private static final int X_WINDOW_WIDTH = 0x30;
-
     private static final int FLIP_INITIAL = 1;
     private static final int FLIP_SPEED = 8;
     private static final int FLIPS_REMAINING = 0x7F;
@@ -55,6 +47,10 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     private final boolean activeVariant;
     private final boolean xFlipped;
     private final int initialFrame;
+    private final int xWindowMin;
+    private final int xWindowMax;
+    private final int liftWindowMin;
+    private final int liftWindowMax;
     private final int baseX;
     private final int baseY;
     private int currentX;
@@ -66,6 +62,10 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         this.activeVariant = (subtype & 0x80) != 0;
         this.xFlipped = (spawn.renderFlags() & 0x01) != 0;
         this.initialFrame = activeVariant ? ((subtype & 0x70) >> 4) : 0;
+        this.xWindowMin = (subtype & 0x70) + 0x18;
+        this.xWindowMax = xWindowMin << 1;
+        this.liftWindowMin = ((subtype & 0x0F) + 4) << 4;
+        this.liftWindowMax = liftWindowMin + 0x30;
         this.baseX = spawn.x();
         this.baseY = spawn.y();
         this.currentX = baseX;
@@ -116,26 +116,27 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         }
 
         int dx = player.getCentreX() - currentX;
-        if (dx < -X_WINDOW_MIN_OFFSET || dx >= X_WINDOW_MIN_OFFSET) {
+        int xBand = dx + xWindowMin;
+        if (xBand < 0 || xBand >= xWindowMax) {
             return false;
         }
 
         int osc = OscillationManager.getByte(0x16);
-        int band = player.getCentreY() - baseY + osc + BASE_LIFT_OFFSET;
-        if (band < 0 || band >= LIFT_WINDOW_END) {
+        int band = player.getCentreY() - baseY + osc + liftWindowMin;
+        if (band < 0 || band >= liftWindowMax) {
             return false;
         }
 
         // ROM sub_30F84:
-        //   if band >= $40, mirror the distance through the fan body before
+        //   if band >= liftWindowMin, mirror the distance through the fan body before
         //   converting it into a vertical nudge.
         int adjustedBand = band;
-        if (adjustedBand >= BASE_LIFT_OFFSET) {
-            adjustedBand = ~((adjustedBand - BASE_LIFT_OFFSET) & 0xFFFF);
+        if (adjustedBand >= liftWindowMin) {
+            adjustedBand = ~((adjustedBand - liftWindowMin) & 0xFFFF);
             adjustedBand = (adjustedBand + adjustedBand) & 0xFFFF;
         }
 
-        adjustedBand = (short) ((adjustedBand + BASE_LIFT_OFFSET) & 0xFFFF);
+        adjustedBand = (short) ((adjustedBand + liftWindowMin) & 0xFFFF);
         adjustedBand = (short) -adjustedBand;
         adjustedBand >>= 4;
 
@@ -143,6 +144,9 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         player.setAir(true);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 1);
+        player.setRollingJump(false);
+        player.setDoubleJumpFlag(0);
+        player.setJumping(false);
 
         if (player.getFlipAngle() == 0) {
             player.setFlipAngle(FLIP_INITIAL);
