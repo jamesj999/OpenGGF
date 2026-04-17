@@ -12,11 +12,19 @@ import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
+import com.openggf.game.sonic3k.objects.CnzCannonInstance;
+import com.openggf.game.sonic3k.objects.CnzCylinderInstance;
 import com.openggf.game.sonic3k.objects.CnzTeleporterInstance;
+import com.openggf.game.sonic3k.objects.CnzHoverFanInstance;
+import com.openggf.game.sonic3k.objects.CnzSpiralTubeInstance;
+import com.openggf.game.sonic3k.objects.CnzVacuumTubeInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RgbaImage;
 import com.openggf.graphics.ScreenshotCapture;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
@@ -32,6 +40,7 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -196,6 +205,25 @@ public class TestS3kCnzVisualCapture {
     }
 
     /**
+     * Captures bounded traversal-object beats for the follow-on CNZ object phase.
+     *
+     * <p>These frames intentionally use manual object spawns in a stable camera
+     * window so the engine output is deterministic and easy to compare against
+     * ROM/emulator references or to mark as likely/skip when no exact ROM beat
+     * is available in the current capture inventory.
+     */
+    @Test
+    void captureTraversalObjectReferenceFrames() throws Exception {
+        assumeTrue(initialized, "CNZ visual capture environment was not initialized");
+
+        captureHoverFanFrame();
+        captureCannonFrame();
+        captureCylinderFrame();
+        captureVacuumTubeFrame();
+        captureSpiralTubeFrame();
+    }
+
+    /**
      * Act 1 opening state.
      *
      * <p>ROM anchor: CNZ Act 1 start sequence. This is the lowest-risk visual
@@ -252,6 +280,79 @@ public class TestS3kCnzVisualCapture {
         saveCurrentFrame(OUTPUT_DIR.resolve("cnz_a2_knuckles_route.png"));
     }
 
+    private void captureHoverFanFrame() throws Exception {
+        AbstractPlayableSprite player = prepareScenario("sonic", 0);
+        HeadlessTestRunner runner = new HeadlessTestRunner(player);
+        CnzHoverFanInstance fan = registerObject(new CnzHoverFanInstance(
+                new ObjectSpawn(0x1340, 0x02D0, 0x46, 0x90, 0, false, 0)));
+
+        player.setCentreX((short) 0x1360);
+        player.setCentreY((short) 0x0290);
+        player.setAir(false);
+        runner.stepIdleFrames(2);
+
+        saveCurrentFrame(OUTPUT_DIR.resolve("cnz_hover_fan.png"));
+    }
+
+    private void captureCannonFrame() throws Exception {
+        AbstractPlayableSprite player = prepareScenario("sonic", 0);
+        HeadlessTestRunner runner = new HeadlessTestRunner(player);
+        CnzCannonInstance cannon = registerObject(new CnzCannonInstance(
+                new ObjectSpawn(0x13C0, 0x02E0, 0x42, 0x00, 0, false, 0)));
+
+        player.setCentreX((short) 0x13C0);
+        player.setCentreY((short) 0x02C0);
+        runner.stepIdleFrames(1);
+        setCannonLaunchDelayForCapture(cannon, 0);
+        runner.stepFrame(false, false, false, false, true);
+
+        saveCurrentFrame(OUTPUT_DIR.resolve("cnz_cannon.png"));
+    }
+
+    private void captureCylinderFrame() throws Exception {
+        AbstractPlayableSprite player = prepareScenario("sonic", 0);
+        HeadlessTestRunner runner = new HeadlessTestRunner(player);
+        registerObject(new CnzCylinderInstance(
+                new ObjectSpawn(0x1440, 0x02F0, 0x47, 0x01, 0, false, 0)));
+
+        player.setCentreX((short) 0x1440);
+        player.setCentreY((short) 0x02E0);
+        runner.stepIdleFrames(3);
+
+        saveCurrentFrame(OUTPUT_DIR.resolve("cnz_cylinder.png"));
+    }
+
+    private void captureVacuumTubeFrame() throws Exception {
+        AbstractPlayableSprite player = prepareScenario("sonic", 0);
+        HeadlessTestRunner runner = new HeadlessTestRunner(player);
+        registerObject(new CnzVacuumTubeInstance(
+                new ObjectSpawn(0x14C0, 0x0308, 0x48, 0x10, 0, false, 0)));
+
+        player.setCentreX((short) 0x14C8);
+        player.setCentreY((short) 0x02E0);
+        player.setAir(false);
+        player.setJumping(true);
+        runner.stepIdleFrames(6);
+
+        saveCurrentFrame(OUTPUT_DIR.resolve("cnz_vacuum_tube.png"));
+    }
+
+    private void captureSpiralTubeFrame() throws Exception {
+        AbstractPlayableSprite player = prepareScenario("sonic", 0);
+        HeadlessTestRunner runner = new HeadlessTestRunner(player);
+        registerObject(new CnzSpiralTubeInstance(
+                new ObjectSpawn(0x13C0, 0x02D0, 0x4C, 0x00, 0, false, 0)));
+
+        player.setRingCount(1);
+        player.setCentreX((short) 0x13D0);
+        player.setCentreY((short) 0x02D0);
+        player.setAir(false);
+        player.setJumping(true);
+        runner.stepIdleFrames(220);
+
+        saveCurrentFrame(OUTPUT_DIR.resolve("cnz_spiral_tube.png"));
+    }
+
     /**
      * Rebuilds gameplay state for a single capture scenario.
      *
@@ -286,6 +387,19 @@ public class TestS3kCnzVisualCapture {
         GameServices.sprites().updateWithoutInput();
 
         return player;
+    }
+
+    private <T extends AbstractObjectInstance> T registerObject(T object) {
+        object.setServices(new DefaultObjectServices(RuntimeManager.getCurrent()));
+        GameServices.level().getObjectManager().addDynamicObject(object);
+        GameServices.camera().updatePosition(true);
+        return object;
+    }
+
+    private void setCannonLaunchDelayForCapture(CnzCannonInstance cannon, int frames) throws Exception {
+        Method method = CnzCannonInstance.class.getDeclaredMethod("setLaunchDelayFramesForTest", int.class);
+        method.setAccessible(true);
+        method.invoke(cannon, frames);
     }
 
     /**
