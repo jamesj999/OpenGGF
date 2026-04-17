@@ -10,6 +10,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class TestBlipResampler {
 
     @Test
+    void historyBuffersUseDocumentedCapacity() throws Exception {
+        BlipResampler resampler = new BlipResampler(53267.041666666664, 44100.0);
+
+        java.lang.reflect.Field historyL = BlipResampler.class.getDeclaredField("historyL");
+        java.lang.reflect.Field historyR = BlipResampler.class.getDeclaredField("historyR");
+        historyL.setAccessible(true);
+        historyR.setAccessible(true);
+
+        int[] left = (int[]) historyL.get(resampler);
+        int[] right = (int[]) historyR.get(resampler);
+
+        assertEquals(left.length, right.length, "Stereo histories should stay symmetric");
+        assertTrue(left.length <= 8192, "History capacity should be reduced from the old 16384-sample footprint");
+    }
+
+    @Test
     void deterministicStereoSequenceRemainsBitExact() {
         BlipResampler resampler = new BlipResampler(53267.041666666664, 44100.0);
         for (int i = 0; i < 40; i++) {
