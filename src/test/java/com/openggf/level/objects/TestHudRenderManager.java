@@ -63,7 +63,7 @@ public class TestHudRenderManager {
     }
 
     @Test
-    void mappingDrivenScoreAndTimeLabelsRenderFromStaticFrames() {
+    void mappingDrivenScoreTimeAndRingsLabelsRenderFromStaticFrames() {
         GraphicsManager graphicsManager = mock(GraphicsManager.class);
         Camera camera = mock(Camera.class);
         GameStateManager gameState = mock(GameStateManager.class);
@@ -96,8 +96,10 @@ public class TestHudRenderManager {
 
         verify(graphicsManager).renderPatternWithId(eq(0x28020), any(), eq(16), eq(8));
         verify(graphicsManager).renderPatternWithId(eq(0x28021), any(), eq(16), eq(24));
+        verify(graphicsManager).renderPatternWithId(eq(0x28022), any(), eq(16), eq(40));
         verify(graphicsManager, never()).renderPatternWithId(eq(100), any(), eq(16), eq(8));
         verify(graphicsManager, never()).renderPatternWithId(eq(116), any(), eq(16), eq(24));
+        verify(graphicsManager, never()).renderPatternWithId(eq(106), any(), eq(16), eq(40));
     }
 
     @Test

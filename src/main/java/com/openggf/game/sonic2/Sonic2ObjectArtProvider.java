@@ -347,11 +347,6 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         return hudHexDigits;
     }
 
-    @Override
-    public boolean usesIconPaletteForLivesName() {
-        return livesNameUsesIconPalette;
-    }
-
     /**
      * When cross-game features are active and the character is Knuckles,
      * loads the Knuckles life icon from the S3K donor ROM to replace the

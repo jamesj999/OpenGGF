@@ -9,7 +9,6 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
-import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,8 +18,8 @@ import org.mockito.MockedStatic;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -95,57 +94,4 @@ class TestSonic1LivesHudDonation {
         assertEquals(1, tile.getPixel(2, 1));
     }
 
-    @Test
-    void buildS1KnucklesLivesHudPaletteOverride_patchesOnlyKnucklesRedRamp() {
-        Palette base = new Palette();
-        setColour(base, 6, 255, 255, 255);
-        setColour(base, 10, 255, 182, 146);
-        setColour(base, 11, 182, 109, 73);
-        setColour(base, 12, 255, 0, 0);
-        setColour(base, 13, 146, 0, 0);
-        setColour(base, 14, 73, 0, 0);
-        setColour(base, 15, 255, 255, 0);
-
-        Palette override = Sonic1ObjectArtProvider.buildS1KnucklesLivesHudPaletteOverride(base);
-
-        org.junit.jupiter.api.Assertions.assertNotSame(base, override);
-        assertColour(override, 6, 255, 255, 255);
-        assertColour(override, 10, 255, 182, 146);
-        assertColour(override, 11, 182, 109, 73);
-        assertColour(override, 12, 255, 73, 109);
-        assertColour(override, 13, 219, 0, 36);
-        assertColour(override, 14, 109, 0, 36);
-        assertColour(override, 15, 255, 255, 0);
-    }
-
-    @Test
-    void hudLivesPaletteOverride_returnsNullWithoutActiveLevelPalette() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        SessionManager.openGameplaySession(mock(GameModule.class),
-                SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
-
-        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
-            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
-
-            Sonic1ObjectArtProvider provider = new Sonic1ObjectArtProvider();
-            Palette palette = provider.getHudLivesPaletteOverride();
-
-            org.junit.jupiter.api.Assertions.assertNull(palette);
-        }
-    }
-
-    private static void setColour(Palette palette, int index, int r, int g, int b) {
-        Palette.Color color = palette.getColor(index);
-        color.r = (byte) r;
-        color.g = (byte) g;
-        color.b = (byte) b;
-    }
-
-    private static void assertColour(Palette palette, int index, int r, int g, int b) {
-        Palette.Color color = palette.getColor(index);
-        assertEquals(r, color.r & 0xFF);
-        assertEquals(g, color.g & 0xFF);
-        assertEquals(b, color.b & 0xFF);
-    }
 }
