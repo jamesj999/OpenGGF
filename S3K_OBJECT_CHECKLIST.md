@@ -5,8 +5,8 @@ Generated: 2026-04-08 17:47:01
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 58 (19.1%)
-- **Unimplemented:** 245 (80.9%)
+- **Implemented:** 72 (23.8%)
+- **Unimplemented:** 231 (76.2%)
 
 ## Implemented Objects
 
@@ -69,6 +69,20 @@ Generated: 2026-04-08 17:47:01
 | 0x6C | TensionBridge | 19 |  | HCZ2, ICZ1, ICZ2, LRZ1 |
 | 0x93 | Jawz | 19 |  | HCZ2 |
 | 0x3C | Door | 63 |  | HCZ2, CNZ1, CNZ2, DEZ1, DEZ2 |
+| 0x24 | AutomaticTunnel | 24 |  | LBZ1, LRZ2 |
+| 0x32 | AIZDrawBridge | 2 |  | AIZ2 |
+| 0x4F | SinkingMud | 13 |  | MGZ1, MGZ2 |
+| 0x53 | MGZSwingingPlatform | 75 |  | MGZ1, MGZ2 |
+| 0x57 | MGZTriggerPlatform | 49 |  | MGZ1, MGZ2 |
+| 0x58 | MGZSwingingSpikeBall | 30 |  | MGZ1, MGZ2 |
+| 0x59 | MGZDashTrigger | 17 |  | MGZ1, MGZ2 |
+| 0x5B | MGZTopPlatform | 10 |  | MGZ1, MGZ2 |
+| 0x6E | WaterDrop | 8 |  | HCZ2 |
+| 0x82 | CutsceneKnuckles | 7 |  | HCZ2 |
+| 0x83 | CutsceneButton | 3 |  | AIZ2 |
+| 0x9A | HCZEndBoss | 2 |  | HCZ2 |
+| 0x9C | Spiker | 23 |  | MGZ1, MGZ2 |
+| 0x9E | Tunnelbot | 3 |  | MGZ1 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -85,7 +99,6 @@ Generated: 2026-04-08 17:47:01
 | 0x48 | Object | CNZVacuumTube | 94 |  | CNZ1, CNZ2 |
 | 0x38 | Object | SOZQuicksand | 84 |  | SOZ1, SOZ2 |
 | 0x6D | Object | InvisibleShockBlock | 78 |  | DEZ1, DEZ2 |
-| 0x53 | Object | MGZSwingingPlatform | 75 |  | MGZ1, MGZ2 |
 | 0x47 | Object | CNZCylinder | 75 |  | CNZ1, CNZ2 |
 | 0x4D | Object | DEZTorpedoLauncher | 74 |  | DEZ1, DEZ2 |
 | 0x19 | Object | LBZCupElevatorPole | 72 |  | LBZ1, LBZ2 |
@@ -96,7 +109,6 @@ Generated: 2026-04-08 17:47:01
 | 0x2D | Object | LRZSolidMovingPlatforms | 52 |  | LRZ2 |
 | 0x11 | Object | LBZMovingPlatform | 50 |  | LBZ1, LBZ2 |
 | 0xB8 | Object | DDZMissile | 50 |  | DDZ1 |
-| 0x57 | Object | MGZTriggerPlatform | 49 |  | MGZ1, MGZ2 |
 | 0xAD | Badnik | Penguinator | 44 |  | ICZ1, ICZ2 |
 | 0x9B | Badnik | BubblesBadnik | 41 |  | MGZ1, MGZ2 |
 | 0x5A | Object | DEZGravityTube | 41 |  | DEZ1, DEZ2 |
@@ -115,7 +127,6 @@ Generated: 2026-04-08 17:47:01
 | 0xB7 | Object | ICZIceSpikes | 31 |  | ICZ1, ICZ2 |
 | 0xBF | Badnik | Ribot | 31 |  | LBZ1, LBZ2 |
 | 0x9B | Badnik | Toxomister | 31 |  | LRZ1, LRZ2 |
-| 0x58 | Object | MGZSwingingSpikeBall | 30 |  | MGZ1, MGZ2 |
 | 0x44 | Object | SOZBreakableSandRock | 30 |  | SOZ1, SOZ2 |
 | 0x49 | Object | SOZSolidSprites | 30 |  | SOZ1, SOZ2 |
 | 0x99 | Badnik | Fireworm | 29 |  | LRZ1, LRZ2 |
@@ -138,9 +149,7 @@ Generated: 2026-04-08 17:47:01
 | 0xA8 | Badnik | Blaster | 24 |  | FBZ1, FBZ2 |
 | 0xAF | Object | ICZCrushingColumn | 24 |  | ICZ1, ICZ2 |
 | 0x15 | Object | LBZPlayerLauncher | 24 |  | LBZ1, LBZ2 |
-| 0x24 | Object | AutomaticTunnel | 24 |  | LBZ1, LRZ2 |
 | 0x31 | Object | LBZRollingDrum | 24 |  | LBZ1, LBZ2 |
-| 0x9C | Badnik | Spiker | 23 |  | MGZ1, MGZ2 |
 | 0x09 | Object | MHZCurledVine | 23 |  | MHZ1, MHZ2 |
 | 0x71 | Object | FBZFloatingPlatform | 22 |  | FBZ1, FBZ2 |
 | 0x7A | Object | FBZScrewDoor | 22 |  | FBZ1, FBZ2 |
@@ -162,7 +171,6 @@ Generated: 2026-04-08 17:47:01
 | 0x32 | Object | LRZTurbineSprites | 18 |  | LRZ2 |
 | 0xA4 | Badnik | Spikebonker | 18 |  | DEZ1, DEZ2 |
 | 0xA5 | Badnik | Chainspike | 18 |  | DEZ1, DEZ2 |
-| 0x59 | Object | MGZDashTrigger | 17 |  | MGZ1, MGZ2 |
 | 0x7E | Object | FBZPlatformBlocks | 17 |  | FBZ1, FBZ2 |
 | 0x3F | Object | SOZSpringVine | 17 |  | SOZ1, SOZ2 |
 | 0x96 | Badnik | Rockn | 17 |  | SOZ1 |
@@ -173,7 +181,6 @@ Generated: 2026-04-08 17:47:01
 | 0x18 | Object | LRZFallingSpike | 15 |  | LRZ1 |
 | 0x21 | Object | LRZSmashingSpikePlatform | 15 |  | LRZ1 |
 | 0x8C | Badnik | Madmole | 14 |  | MHZ1, MHZ2 |
-| 0x4F | Object | SinkingMud | 13 |  | MGZ1, MGZ2 |
 | 0x6F | Object | FBZWireCage | 13 |  | FBZ1, FBZ2 |
 | 0x17 | Object | LBZRideGrapple | 13 |  | LBZ1, LBZ2 |
 | 0xC1 | Badnik | Corkey | 13 |  | LBZ1, LBZ2 |
@@ -198,7 +205,6 @@ Generated: 2026-04-08 17:47:01
 | 0x79 | Object | SSZHPZTeleporter | 11 |  | SSZ1, SSZ2 |
 | 0x5E | Object | DEZHoverMachine | 11 |  | DEZ1 |
 | 0x5B | Object | DEZGravitySwap | 11 |  | DEZ2 |
-| 0x5B | Object | MGZTopPlatform | 10 |  | MGZ1, MGZ2 |
 | 0x49 | Object | CNZGiantWheel | 10 |  | CNZ1, CNZ2 |
 | 0x7F | Object | FBZMissileLauncher | 10 |  | FBZ1 |
 | 0x3E | Object | SOZPushableRock | 10 |  | SOZ1, SOZ2 |
@@ -212,7 +218,6 @@ Generated: 2026-04-08 17:47:01
 | 0x22 | Object | LBZAlarm | 9 |  | LBZ1 |
 | 0x37 | Object | LRZSpikeBallLauncher | 9 |  | LRZ2 |
 | 0x53 | Object | DEZConveyorPad | 9 |  | DEZ1, DEZ2 |
-| 0x6E | Object | WaterDrop | 8 |  | HCZ2 |
 | 0x43 | Object | CNZRisingPlatform | 8 |  | CNZ1, CNZ2 |
 | 0x75 | Object | FBZSnakePlatform | 8 |  | FBZ1 |
 | 0x7B | Object | FBZSpinningPole | 8 |  | FBZ1 |
@@ -221,7 +226,6 @@ Generated: 2026-04-08 17:47:01
 | 0x75 | Object | SSZSwingingCarrier | 8 |  | SSZ1 |
 | 0x7C | Object | SSZCollapsingBridge | 8 |  | SSZ1 |
 | 0x7F | Object | SSZFloatingPlatform | 8 |  | SSZ1 |
-| 0x82 | Object | CutsceneKnuckles | 7 |  | HCZ2, CNZ2, LBZ1, LBZ2, MHZ1, MHZ2 |
 | 0x50 | Object | MGZTwistingLoop | 7 |  | MGZ1, MGZ2 |
 | 0x5A | Object | MGZPulley | 7 |  | MGZ2 |
 | 0xCF | Object | FBZEggPrison | 7 |  | FBZ1, FBZ2 |
@@ -262,14 +266,10 @@ Generated: 2026-04-08 17:47:01
 | 0x8B | Object | SpriteMask | 4 |  | SOZ2, LRZ1 |
 | 0x4B | Object | DEZTiltingBridge | 4 |  | DEZ1, DEZ2 |
 | 0x4C | Object | DEZHangCarrier | 4 |  | DEZ1, DEZ2 |
-| 0x83 | Object | CutsceneButton | 3 |  | AIZ2, CNZ2 |
-| 0x9E | Badnik | Tunnelbot | 3 |  | MGZ1 |
 | 0x39 | Object | SOZSpawningSandBlocks | 3 |  | SOZ1 |
 | 0x3B | Object | SOZLoopFallthrough | 3 |  | SOZ2 |
 | 0x25 | Object | LRZChainedPlatforms | 3 |  | LRZ2 |
 | 0x5C | Object | DEZGravityHub | 3 |  | DEZ2 |
-| 0x32 | Object | AIZDrawBridge | 2 |  | AIZ2 |
-| 0x9A | Boss | HCZEndBoss | 2 |  | HCZ2 |
 | 0x44 | Object | CNZTrapDoor | 2 |  | CNZ1 |
 | 0x4C | Object | CNZSpiralTube | 2 |  | CNZ1 |
 | 0x45 | Object | CNZLightBulb | 2 |  | CNZ2 |
@@ -361,7 +361,7 @@ Total: 153 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 2
 
-Total: 751 objects | Implemented: 30 | Unimplemented: 2
+Total: 751 objects | Implemented: 32 | Unimplemented: 0
 
 **Badniks:**
 - [x] 0x8C Bloominator (x11) [0x00]
@@ -393,12 +393,12 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 - [x] 0x2E AIZSpikedLog (x4) [0x00]
 - [x] 0x2F StillSprite (x16) [6 subtypes]
 - [x] 0x30 AnimatedStillSprite (x373) [0x00, 0x01]
-- [ ] 0x32 AIZDrawBridge (x2) [0x00]
+- [x] 0x32 AIZDrawBridge (x2) [0x00]
 - [x] 0x33 Button (x2) [0x10]
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [x] 0x51 FloatingPlatform (x26) [4 subtypes]
 - [x] 0x80 HiddenMonitor (x9) [6 subtypes]
-- [ ] 0x83 CutsceneButton (x1) [0x00]
+- [x] 0x83 CutsceneButton (x1) [0x00]
 - [x] 0x85 SSEntryRing (x3) [0x03, 0x04, 0x05]
 
 ### Hydrocity Zone
@@ -445,7 +445,7 @@ Total: 383 objects | Implemented: 29 | Unimplemented: 1
 
 #### Act 2
 
-Total: 510 objects | Implemented: 25 | Unimplemented: 5
+Total: 510 objects | Implemented: 28 | Unimplemented: 2
 
 **Badniks:**
 - [x] 0x93 Jawz (x19) [0x00]
@@ -454,7 +454,7 @@ Total: 510 objects | Implemented: 25 | Unimplemented: 5
 - [x] 0x98 Poindexter (x11) [0x20]
 
 **Bosses:**
-- [ ] 0x9A HCZEndBoss (x2) [0x00]
+- [x] 0x9A HCZEndBoss (x2) [0x00]
 
 **Objects:**
 - [x] 0x01 Monitor (x21) [5 subtypes]
@@ -479,20 +479,20 @@ Total: 510 objects | Implemented: 25 | Unimplemented: 5
 - [x] 0x6B InvisibleHurtBlockV (x40) [6 subtypes]
 - [x] 0x6C TensionBridge (x7) [0x08, 0x88]
 - [x] 0x6D HCZWaterSplash (x4) [0x00]
-- [ ] 0x6E WaterDrop (x8) [0x40, 0x30]
-- [ ] 0x82 CutsceneKnuckles (x1) [0x08]
+- [x] 0x6E WaterDrop (x8) [0x40, 0x30]
+- [x] 0x82 CutsceneKnuckles (x1) [0x08]
 - [x] 0x85 SSEntryRing (x2) [0x03, 0x04]
 
 ### Marble Garden Zone
 
 #### Act 1
 
-Total: 455 objects | Implemented: 13 | Unimplemented: 15
+Total: 455 objects | Implemented: 21 | Unimplemented: 7
 
 **Badniks:**
 - [ ] 0x9B BubblesBadnik (x24) [0x00]
-- [ ] 0x9C Spiker (x10) [0x00]
-- [ ] 0x9E Tunnelbot (x3) [0x00]
+- [x] 0x9C Spiker (x10) [0x00]
+- [x] 0x9E Tunnelbot (x3) [0x00]
 
 **Bosses:**
 - [ ] 0x9F MGZMiniboss (x1) [0x00]
@@ -507,17 +507,17 @@ Total: 455 objects | Implemented: 13 | Unimplemented: 15
 - [x] 0x28 InvisibleBlock (x8) [5 subtypes]
 - [x] 0x2F StillSprite (x29) [4 subtypes]
 - [x] 0x34 StarPost (x3) [0x01, 0x02, 0x03]
-- [ ] 0x4F SinkingMud (x8) [0x10, 0x08]
+- [x] 0x4F SinkingMud (x8) [0x10, 0x08]
 - [ ] 0x50 MGZTwistingLoop (x2) [0x24, 0x18]
 - [x] 0x51 FloatingPlatform (x20) [4 subtypes]
 - [ ] 0x52 MGZSmashingPillar (x9) [0x0A]
-- [ ] 0x53 MGZSwingingPlatform (x57) [0x80, 0xD5, 0x2B]
+- [x] 0x53 MGZSwingingPlatform (x57) [0x80, 0xD5, 0x2B]
 - [ ] 0x55 MGZHeadTrigger (x4) [4 subtypes]
 - [ ] 0x56 MGZMovingSpikePlatform (x1) [0x00]
-- [ ] 0x57 MGZTriggerPlatform (x23) [17 subtypes]
-- [ ] 0x58 MGZSwingingSpikeBall (x20) [0x00, 0x01]
-- [ ] 0x59 MGZDashTrigger (x7) [7 subtypes]
-- [ ] 0x5B MGZTopPlatform (x5) [0x00]
+- [x] 0x57 MGZTriggerPlatform (x23) [17 subtypes]
+- [x] 0x58 MGZSwingingSpikeBall (x20) [0x00, 0x01]
+- [x] 0x59 MGZDashTrigger (x7) [7 subtypes]
+- [x] 0x5B MGZTopPlatform (x5) [0x00]
 - [ ] 0x5C MGZTopLauncher (x1) [0x00]
 - [x] 0x6B InvisibleHurtBlockV (x11) [0x31, 0x51, 0x15]
 - [x] 0x80 HiddenMonitor (x3) [0x03, 0x05, 0x06]
@@ -525,11 +525,11 @@ Total: 455 objects | Implemented: 13 | Unimplemented: 15
 
 #### Act 2
 
-Total: 342 objects | Implemented: 12 | Unimplemented: 17
+Total: 342 objects | Implemented: 19 | Unimplemented: 10
 
 **Badniks:**
 - [ ] 0x9B BubblesBadnik (x17) [0x00]
-- [ ] 0x9C Spiker (x13) [0x00]
+- [x] 0x9C Spiker (x13) [0x00]
 - [ ] 0x9D Mantis (x24) [0x00]
 
 **Bosses:**
@@ -546,18 +546,18 @@ Total: 342 objects | Implemented: 12 | Unimplemented: 17
 - [x] 0x28 InvisibleBlock (x5) [0x00, 0x02]
 - [x] 0x2F StillSprite (x33) [4 subtypes]
 - [x] 0x34 StarPost (x8) [8 subtypes]
-- [ ] 0x4F SinkingMud (x5) [0x10, 0x08]
+- [x] 0x4F SinkingMud (x5) [0x10, 0x08]
 - [ ] 0x50 MGZTwistingLoop (x5) [4 subtypes]
 - [x] 0x51 FloatingPlatform (x15) [0x00, 0x02, 0x04]
 - [ ] 0x52 MGZSmashingPillar (x7) [0x0A]
-- [ ] 0x53 MGZSwingingPlatform (x18) [0x80, 0xD5, 0x2B]
+- [x] 0x53 MGZSwingingPlatform (x18) [0x80, 0xD5, 0x2B]
 - [ ] 0x55 MGZHeadTrigger (x5) [5 subtypes]
 - [ ] 0x56 MGZMovingSpikePlatform (x4) [0x00]
-- [ ] 0x57 MGZTriggerPlatform (x26) [22 subtypes]
-- [ ] 0x58 MGZSwingingSpikeBall (x10) [0x00, 0x01]
-- [ ] 0x59 MGZDashTrigger (x10) [10 subtypes]
+- [x] 0x57 MGZTriggerPlatform (x26) [22 subtypes]
+- [x] 0x58 MGZSwingingSpikeBall (x10) [0x00, 0x01]
+- [x] 0x59 MGZDashTrigger (x10) [10 subtypes]
 - [ ] 0x5A MGZPulley (x7) [5 subtypes]
-- [ ] 0x5B MGZTopPlatform (x5) [0x00]
+- [x] 0x5B MGZTopPlatform (x5) [0x00]
 - [ ] 0x5C MGZTopLauncher (x5) [0x00]
 - [x] 0x6B InvisibleHurtBlockV (x7) [0x40, 0x30]
 - [x] 0x85 SSEntryRing (x3) [0x09, 0x0A, 0x0B]
@@ -820,7 +820,7 @@ Total: 356 objects | Implemented: 14 | Unimplemented: 15
 
 #### Act 1
 
-Total: 430 objects | Implemented: 11 | Unimplemented: 21
+Total: 430 objects | Implemented: 12 | Unimplemented: 20
 
 **Badniks:**
 - [ ] 0xBE SnaleBlaster (x5) [0x00]
@@ -850,7 +850,7 @@ Total: 430 objects | Implemented: 11 | Unimplemented: 21
 - [ ] 0x19 LBZCupElevatorPole (x41) [4 subtypes]
 - [ ] 0x20 MGZLBZSmashingPillar (x7) [5 subtypes]
 - [ ] 0x22 LBZAlarm (x9) [0x00, 0x01, 0x03]
-- [ ] 0x24 AutomaticTunnel (x14) [14 subtypes]
+- [x] 0x24 AutomaticTunnel (x14) [14 subtypes]
 - [x] 0x28 InvisibleBlock (x11) [5 subtypes]
 - [x] 0x2A CorkFloor (x4) [0x00]
 - [x] 0x2F StillSprite (x80) [4 subtypes]
@@ -1122,7 +1122,7 @@ Total: 609 objects | Implemented: 15 | Unimplemented: 22
 
 #### Act 2
 
-Total: 455 objects | Implemented: 14 | Unimplemented: 18
+Total: 455 objects | Implemented: 15 | Unimplemented: 17
 
 **Badniks:**
 - [ ] 0x99 Fireworm (x9) [0x00]
@@ -1142,7 +1142,7 @@ Total: 455 objects | Implemented: 14 | Unimplemented: 18
 - [ ] 0x19 LRZDoor (x11) [11 subtypes]
 - [ ] 0x1C LRZButtonHorizontal (x11) [11 subtypes]
 - [ ] 0x20 LRZSwingingSpikeBall (x14) [0x02, 0x03]
-- [ ] 0x24 AutomaticTunnel (x10) [10 subtypes]
+- [x] 0x24 AutomaticTunnel (x10) [10 subtypes]
 - [ ] 0x25 LRZChainedPlatforms (x3) [0x80, 0x81, 0x82]
 - [x] 0x28 InvisibleBlock (x15) [4 subtypes]
 - [ ] 0x29 LRZFlameThrower (x52) [11 subtypes]
