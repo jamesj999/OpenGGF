@@ -338,6 +338,7 @@ Pattern: add ROM address to `Sonic2Constants`, add key to `Sonic2ObjectArtKeys`,
 
 Critical constraints for current S3K support:
 
+- **Use S&K-side addresses only — never Sonic 3 standalone addresses:** The locked-on ROM has two halves: S&K (`< 0x200000`) and S3 (`>= 0x200000`). Shared assets exist in both halves with identical bytes, but the engine's S3KL runtime only references the S&K half. **Always put S&K-side (`sonic3k.asm`) offsets in `Sonic3kConstants.java` and never substitute an `s3.asm` address.** Run `RomOffsetFinder` with `--game s3k` (not the default S2 mode, not a Sonic 3 standalone ROM). When a label returns both `sonic3k.asm` and `s3.asm` hits, pick `sonic3k.asm`; if only `s3.asm` hits come back, re-search with different label variants rather than falling back to the S3 address. See `s3k-disasm-guide` for details.
 - **Dual object pointer tables (zone-set system):** S3K uses two object pointer tables that remap many IDs by zone. `S3kZoneSet` enum: `S3KL` (zones 0-6: AIZ-LBZ) and `SKL` (zones 7-13: MHZ-DDZ). `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` resolves zone-set-aware names. `Sonic3kObjectProfile` uses per-level resolution for names, badnik IDs, and boss IDs via `GameObjectProfile` default methods. The `ObjectDiscoveryTool` uses composite keys (`"objectId:name"`) so same-ID-different-name objects get separate checklist entries.
 - **Layout decoding:** `Sonic3kLevel.loadMap()` parses FG/BG row pointers as interleaved pairs (`FG: header + row*4`, `BG: header + 2 + row*4`), NOT contiguous tables.
 - **AIZ1 intro skip:** `Sonic3k.loadLevel()` can bootstrap to post-intro gameplay. `getLevelBoundariesAddr()` must use `LEVEL_SIZES_AIZ1_INTRO_INDEX` (26) when active.
@@ -389,6 +390,8 @@ runner.stepIdleFrames(5);
 ### Player Sprite Coordinates
 
 **Critical:** The ROM uses **center coordinates** for player position. Always use `getCentreX()`/`getCentreY()` for object interactions, NOT `getX()`/`getY()` (which return top-left corner for rendering). Using top-left creates a ~19px vertical offset causing incorrect collision detection.
+
+**Debug overlay note:** The on-screen debug HUD `Pos:` field (rendered by `DebugRenderer`) intentionally shows `sprite.getX()` / `sprite.getY()` — the **top-left** corner, NOT the ROM-centre `x_pos`/`y_pos`. Do not treat the overlay's X/Y as ROM `x_pos`/`y_pos` when diagnosing parity issues or comparing against disassembly traces — add the sprite's half-width/half-height (or call `getCentreX()`/`getCentreY()` in code) to get the ROM-equivalent values. (Camera `Cam:` and sensor probe coordinates in the overlay are world-space and unaffected.)
 
 ### Y-Axis Convention
 Engine uses Mega Drive convention: **Y increases downward** (Y=0 at top). `BatchedPatternRenderer` flips to OpenGL convention automatically.

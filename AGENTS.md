@@ -103,6 +103,7 @@ This is a frequent source of bugs and parity regressions.
 - `getX()` / `getY()` are top-left sprite bounds, not ROM object position fields.
 - When porting disassembly that reads or writes `x_pos` / `y_pos`, default to centre-coordinate APIs unless the code is explicitly working with sprite bounds, render extents, or collision box edges.
 - If camera, collision, object anchoring, or scripted movement starts drifting relative to the player, check for accidental mixing of `getX()` / `getY()` with ROM `x_pos` / `y_pos` semantics first.
+- **Debug overlay caveat:** The in-engine debug HUD `Pos:` line (from `DebugRenderer`) prints `sprite.getX()` / `sprite.getY()` — the **top-left corner**, not the centre. It is NOT the ROM `x_pos` / `y_pos`. Do not quote those numbers directly against disassembly traces; convert to centre coordinates first (or read `getCentreX()` / `getCentreY()` in code).
 
 ## Headless Testing with HeadlessTestRunner
 
@@ -649,6 +650,7 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
     *   `player.getX()` / `player.getY()` → Top-left corner (for rendering)
     *   `player.getCentreX()` / `player.getCentreY()` → Center position (for collision/interactions)
     *   **Always use center coordinates** for object collision checks to match ROM behavior. Using top-left creates ~19 pixel vertical offset errors.
+    *   **Debug HUD:** The overlay's `Pos:` field shows the top-left (`getX()` / `getY()`), NOT the ROM-centre position. Treat it as render-space only when cross-referencing the disassembly.
 *   **Terminology**: The codebase uses specific terms for level components that differ from standard Sonic 2 naming:
     *   **Pattern:** An 8x8 pixel tile.
     *   **Chunk:** A 16x16 pixel tile, composed of Patterns.

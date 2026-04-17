@@ -1768,6 +1768,7 @@ public class LevelManager {
 
                         int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
                         Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
+                        int hexBaseIndex = livesNumbersBaseIndex;
                         if (hudLivesNumbers != null) {
                             LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
                                     + livesNumbersBaseIndex);
@@ -1775,6 +1776,17 @@ public class LevelManager {
                                 graphicsManager.cachePatternTexture(hudLivesNumbers[i], livesNumbersBaseIndex + i);
                             }
                             hudRenderManager.setLivesNumbersPatternIndex(livesNumbersBaseIndex);
+                            hexBaseIndex = livesNumbersBaseIndex + hudLivesNumbers.length;
+                        }
+
+                        Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
+                        if (hudHexDigits != null) {
+                            LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
+                                    + hexBaseIndex);
+                            for (int i = 0; i < hudHexDigits.length; i++) {
+                                graphicsManager.cachePatternTexture(hudHexDigits[i], hexBaseIndex + i);
+                            }
+                            hudRenderManager.setHexDigitsPatternIndex(hexBaseIndex);
                         }
                     }
                 }
