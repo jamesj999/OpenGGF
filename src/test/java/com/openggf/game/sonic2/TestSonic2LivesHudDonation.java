@@ -64,18 +64,19 @@ class TestSonic2LivesHudDonation {
         }
 
         HudStaticArt art = provider.getHudStaticArt();
-        Set<Integer> palette0TopRowOffsets = art.livesFrame().pieces().stream()
-                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
+        Set<String> palette0NamePieceOffsets = art.livesFrame().pieces().stream()
+                .filter(piece -> piece.xOffset() >= 16)
                 .filter(piece -> piece.paletteIndex() == 0)
-                .map(piece -> piece.xOffset())
+                .map(piece -> piece.xOffset() + "," + piece.yOffset())
                 .collect(Collectors.toSet());
-        long nonPalette0TopRowPieces = art.livesFrame().pieces().stream()
-                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
+        long nonPalette0NamePieces = art.livesFrame().pieces().stream()
+                .filter(piece -> piece.xOffset() >= 16)
                 .filter(piece -> piece.paletteIndex() != 0)
                 .count();
 
-        assertEquals(Set.of(16, 24, 32, 40, 48, 56), palette0TopRowOffsets);
-        assertEquals(0, nonPalette0TopRowPieces);
+        assertEquals(Set.of("16,0", "24,0", "32,0", "40,0", "48,0", "56,0", "16,8", "24,8"),
+                palette0NamePieceOffsets);
+        assertEquals(0, nonPalette0NamePieces);
         assertTrue(art.livesFrame().pieces().stream().anyMatch(piece -> piece.xOffset() == 0 && piece.paletteIndex() == 0));
     }
 }
