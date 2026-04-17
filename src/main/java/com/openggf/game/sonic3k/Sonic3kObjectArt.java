@@ -1783,7 +1783,9 @@ public class Sonic3kObjectArt {
      * Builds the CNZ Cylinder sprite sheet.
      *
      * <p>ROM anchor: {@code Obj_CNZCylinder}.
-     * <p>Mapping table: {@code Map_CNZCylinder} (4 frames).
+     * <p>Mapping table: {@code Map_CNZCylinder} (4 frames), parsed directly from
+     * {@code Map - Cylinder.asm} rather than falling back to a hand-authored
+     * mapping transcription.
      * <p>Art tile: {@code ArtTile_CNZMisc+$3D} (palette 2).
      */
     public ObjectSpriteSheet buildCnzCylinderSheet() {
