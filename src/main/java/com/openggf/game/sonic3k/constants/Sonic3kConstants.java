@@ -351,7 +351,7 @@ public class Sonic3kConstants {
 
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
     public static final int ART_NEM_KNUCKLES_LIFE_ICON_ADDR = 0x190E4C; // ArtNem_KnucklesLifeIcon
-    public static final int ART_NEM_TAILS_LIFE_ICON_ADDR = 0x15CFFE;   // ArtNem_TailsLifeIcon (S3 portion)
+    public static final int ART_NEM_TAILS_LIFE_ICON_ADDR = 0x35CFFE;   // ArtNem_TailsLifeIcon (LockOn S3 data in combined S3&K ROM)
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
     public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;

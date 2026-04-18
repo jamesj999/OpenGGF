@@ -56,6 +56,31 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `bugfix/ai-` for bug fixes.
 2.  **Code Structure:** Keep logic within existing or new manager classes. Avoid putting all logic into `Engine.java` to maintain a strong object-oriented design.
 
+## Branch Documentation Policy
+
+Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the repo once with `git config core.hooksPath .githooks` so local commits use the tracked hooks. The hook entrypoints dispatch through `.githooks/run-policy`: on Windows they call `validate-policy.ps1`, and on macOS/Linux they call `validate-policy.sh`.
+
+- On any non-`master` branch commit, the commit message must include these trailers and each must start with `updated` or `n/a`:
+  - `Changelog`
+  - `Guide`
+  - `Known-Discrepancies`
+  - `S3K-Known-Discrepancies`
+  - `Agent-Docs`
+  - `Configuration-Docs`
+  - `Skills`
+- `prepare-commit-msg` auto-appends the trailer block on non-merge commits. Do not delete it; fill it in.
+- Trailer/file mapping:
+  - `Changelog: updated` requires `CHANGELOG.md` staged.
+  - `Guide: updated` requires at least one staged change under `docs/guide/`.
+  - `Known-Discrepancies: updated` requires `docs/KNOWN_DISCREPANCIES.md` staged.
+  - `S3K-Known-Discrepancies: updated` requires `docs/S3K_KNOWN_DISCREPANCIES.md` staged.
+  - `Agent-Docs: updated` requires both `AGENTS.md` and `CLAUDE.md` staged together.
+  - `Configuration-Docs: updated` requires `CONFIGURATION.md` staged.
+  - `Skills: updated` requires staged changes under both `.agents/skills/` and `.claude/skills/`.
+- If a matching file is staged, the corresponding trailer must not say `n/a`.
+- When merging a non-`master` branch into `develop`, stage a `README.md` update that briefly summarizes the branch change in the README release/change log area. The hooks and CI block the merge otherwise.
+- Treat the trailers as explicit attestation for the “where relevant” judgment. Do not guess around them, and do not use `--no-verify` to bypass the policy.
+
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 5 / Jupiter only).

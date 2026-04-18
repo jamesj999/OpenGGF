@@ -21,6 +21,31 @@ Maven Silent Extension (MSE) is configured in this repo via `.mvn/extensions.xml
 
 Tests in this repository must use JUnit 5 / Jupiter only. Do not add JUnit 4 tests, rules, runners, or `org.junit.*` imports.
 
+## Branch Documentation Policy
+
+Tracked Git hooks live in `.githooks/`. Configure the repo with `git config core.hooksPath .githooks` so local commits and merges are checked against the policy below. CI mirrors the same rules on PRs into `develop`. The hook entrypoints dispatch through `.githooks/run-policy`: Windows uses `validate-policy.ps1`, while macOS/Linux use `validate-policy.sh`.
+
+- Every non-`master` branch commit must carry these commit-message trailers, each starting with `updated` or `n/a`:
+  - `Changelog`
+  - `Guide`
+  - `Known-Discrepancies`
+  - `S3K-Known-Discrepancies`
+  - `Agent-Docs`
+  - `Configuration-Docs`
+  - `Skills`
+- `prepare-commit-msg` auto-appends the trailer block on non-merge commits. Fill it in rather than removing it.
+- Trailer/file mapping:
+  - `Changelog: updated` -> `CHANGELOG.md`
+  - `Guide: updated` -> at least one staged file under `docs/guide/`
+  - `Known-Discrepancies: updated` -> `docs/KNOWN_DISCREPANCIES.md`
+  - `S3K-Known-Discrepancies: updated` -> `docs/S3K_KNOWN_DISCREPANCIES.md`
+  - `Agent-Docs: updated` -> both `AGENTS.md` and `CLAUDE.md`
+  - `Configuration-Docs: updated` -> `CONFIGURATION.md`
+  - `Skills: updated` -> staged changes under both `.agents/skills/` and `.claude/skills/`
+- If the mapped files are staged, the trailer must not say `n/a`.
+- When merging a non-`master` branch into `develop`, stage a `README.md` update summarizing the branch change in the README release/change log section.
+- The trailer block is the required attestation for the repo’s “where relevant” documentation/discrepancy checks. Do not bypass it with `--no-verify`.
+
 ## ROM Requirement
 
 Keep ROMs in the working directory (gitignored):
