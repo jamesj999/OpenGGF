@@ -946,6 +946,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Head Trigger (Obj_MGZHeadTrigger, ID 0x55): make_art_tile(ArtTile_MGZMisc2, 1, 1).
+        // Art is loaded by PLC_12_13 / PLC_14_15 (ArtNem_MGZMisc2) before level start.
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_HEAD_TRIGGER,
+                Sonic3kConstants.MAP_MGZ_HEAD_TRIGGER_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC2,
+                1,
+                null
+        ));
+
         // Swinging Spike Ball: make_art_tile(ArtTile_MGZMisc1, 1, 0)
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.MGZ_SWINGING_SPIKE_BALL,

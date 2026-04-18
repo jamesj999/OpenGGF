@@ -231,6 +231,12 @@ public class Sonic3kConstants {
     // LockOn data (assembled into S3 half — no S&K-side copy exists).
     public static final int MAP_MGZ_DASH_TRIGGER_ADDR = 0x224B88; // Map_MGZDashTrigger (5 frames)
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
+    public static final int ARTTILE_MGZ_MISC2 = 0x03FF; // ArtTile_MGZMisc2
+
+    // Map_MGZHeadTrigger_ has an 8-word frame-offset table immediately before Frame_233822.
+    // Base = first frame payload ($233822) - $10 bytes of offsets = $233812. Verified via
+    // ROM search for Frame_233822 bytes "00 01 FC 0C E0 4E FF F0".
+    public static final int MAP_MGZ_HEAD_TRIGGER_ADDR = 0x233812; // Map_MGZHeadTrigger (8 frames)
 
     // ===== MGZ Top Platform / Launcher (Obj_MGZTopPlatform, ID 0x5B) =====
     // Map_MGZTopPlatform_ has a 3-word frame-offset table immediately before word_3596A.
