@@ -4,4 +4,4 @@ set -eu
 
 HOOK_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 
-"$HOOK_DIR/validate-policy.sh" pre-merge-commit "$@"
+"$HOOK_DIR/run-policy" pre-merge-commit "$@"

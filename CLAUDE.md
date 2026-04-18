@@ -23,7 +23,7 @@ Tests in this repository must use JUnit 5 / Jupiter only. Do not add JUnit 4 tes
 
 ## Branch Documentation Policy
 
-Tracked Git hooks live in `.githooks/`. Configure the repo with `git config core.hooksPath .githooks` so local commits and merges are checked against the policy below. CI mirrors the same rules on PRs into `develop`.
+Tracked Git hooks live in `.githooks/`. Configure the repo with `git config core.hooksPath .githooks` so local commits and merges are checked against the policy below. CI mirrors the same rules on PRs into `develop`. The hook entrypoints dispatch through `.githooks/run-policy`: Windows uses `validate-policy.ps1`, while macOS/Linux use `validate-policy.sh`.
 
 - Every non-`master` branch commit must carry these commit-message trailers, each starting with `updated` or `n/a`:
   - `Changelog`
