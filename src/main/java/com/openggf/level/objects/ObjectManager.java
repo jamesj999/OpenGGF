@@ -57,7 +57,10 @@ public class ObjectManager {
     private final GraphicsManager graphicsManager;
     private final Camera camera;
     private final Map<ObjectSpawn, ObjectInstance> activeObjects = new IdentityHashMap<>();
+    private final Map<ObjectInstance, ObjectSpawn> instanceToSpawn = new IdentityHashMap<>();
     private final List<ObjectInstance> dynamicObjects = new ArrayList<>();
+    private final List<ObjectInstance> dynamicFallbackScratch = new ArrayList<>();
+    private final List<ObjectInstance> activeFallbackScratch = new ArrayList<>();
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
     private int vblaCounter;
@@ -157,7 +160,7 @@ public class ObjectManager {
     }
 
     public void reset(int cameraX) {
-        activeObjects.clear();
+        clearActiveObjects();
         dynamicObjects.clear();
         reservedChildSlots.clear();
         cachedActiveObjects.clear();
@@ -188,7 +191,7 @@ public class ObjectManager {
      * the next frame will re-instantiate objects in the camera window.
      */
     public void resyncSpawnList(List<ObjectSpawn> newSpawns) {
-        activeObjects.clear();
+        clearActiveObjects();
         cachedActiveObjects.clear();
         activeObjectsCacheDirty = true;
         bucketsDirty = true;
@@ -375,10 +378,7 @@ public class ObjectManager {
         }
 
         Arrays.fill(execOrder, null);
-        Map<ObjectInstance, ObjectSpawn> instanceToSpawn = new IdentityHashMap<>();
-        for (Map.Entry<ObjectSpawn, ObjectInstance> e : activeObjects.entrySet()) {
-            ObjectInstance inst = e.getValue();
-            instanceToSpawn.put(inst, e.getKey());
+        for (ObjectInstance inst : activeObjects.values()) {
             if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
                 execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
             }
@@ -416,8 +416,7 @@ public class ObjectManager {
                     placement.removeFromActiveForUnload(spawn);
                     instance.onUnload();
                     execOrder[currentExecSlot] = null;
-                    instanceToSpawn.remove(instance);
-                    activeObjects.remove(spawn);
+                    removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
                 }
@@ -435,11 +434,10 @@ public class ObjectManager {
                     execOrder[currentExecSlot] = null;
 
                     if (spawn != null) {
-                        instanceToSpawn.remove(instance);
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
                         placement.removeFromActive(spawn);
-                        activeObjects.remove(spawn);
+                        removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
                     }
@@ -448,11 +446,8 @@ public class ObjectManager {
             }
 
             // Fallback: process dynamic objects without valid slots
-            for (ObjectInstance inst : new ArrayList<>(dynamicObjects)) {
-                if (inst instanceof AbstractObjectInstance aoi2
-                        && aoi2.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                    continue;
-                }
+            populateDynamicFallbackScratch();
+            for (ObjectInstance inst : dynamicFallbackScratch) {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -468,17 +463,17 @@ public class ObjectManager {
                 }
             }
             // Fallback: process active objects without valid slots
-            for (var entry : new ArrayList<>(activeObjects.entrySet())) {
-                ObjectInstance inst = entry.getValue();
-                if (inst instanceof AbstractObjectInstance aoi2
-                        && aoi2.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+            populateActiveFallbackScratch();
+            for (ObjectInstance inst : activeFallbackScratch) {
+                ObjectSpawn spawn = instanceToSpawn.get(inst);
+                if (spawn == null) {
                     continue;
                 }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
-                    placement.clearStayActive(entry.getKey());
-                    placement.removeFromActive(entry.getKey());
-                    activeObjects.remove(entry.getKey());
+                    placement.clearStayActive(spawn);
+                    placement.removeFromActive(spawn);
+                    removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
                 }
@@ -486,9 +481,9 @@ public class ObjectManager {
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
-                    placement.clearStayActive(entry.getKey());
-                    placement.removeFromActive(entry.getKey());
-                    activeObjects.remove(entry.getKey());
+                    placement.clearStayActive(spawn);
+                    placement.removeFromActive(spawn);
+                    removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
             }
@@ -532,10 +527,7 @@ public class ObjectManager {
 
         // ROM parity: Build slot-ordered execution array.
         Arrays.fill(execOrder, null);
-        Map<ObjectInstance, ObjectSpawn> instanceToSpawn = new IdentityHashMap<>();
-        for (Map.Entry<ObjectSpawn, ObjectInstance> e : activeObjects.entrySet()) {
-            ObjectInstance inst = e.getValue();
-            instanceToSpawn.put(inst, e.getKey());
+        for (ObjectInstance inst : activeObjects.values()) {
             if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
                 execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
             }
@@ -586,8 +578,7 @@ public class ObjectManager {
                         placement.markDormant(oorSpawn);
                         instance.onUnload();
                         execOrder[currentExecSlot] = null;
-                        instanceToSpawn.remove(instance);
-                        activeObjects.remove(oorSpawn);
+                        removeActiveObject(oorSpawn);
                         objectsRemoved = true;
                         continue;
                     }
@@ -602,12 +593,12 @@ public class ObjectManager {
                     instance.onUnload();
                     execOrder[currentExecSlot] = null;
 
-                    ObjectSpawn spawn = instanceToSpawn.remove(instance);
+                    ObjectSpawn spawn = instanceToSpawn.get(instance);
                     if (spawn != null) {
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
                         placement.removeFromActive(spawn);
-                        activeObjects.remove(spawn);
+                        removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
                     }
@@ -616,11 +607,8 @@ public class ObjectManager {
             }
 
             // Fallback: process objects without valid slots
-            for (ObjectInstance inst : new ArrayList<>(dynamicObjects)) {
-                if (inst instanceof AbstractObjectInstance aoi2
-                        && aoi2.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                    continue;
-                }
+            populateDynamicFallbackScratch();
+            for (ObjectInstance inst : dynamicFallbackScratch) {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -635,10 +623,10 @@ public class ObjectManager {
                     objectsRemoved = true;
                 }
             }
-            for (var entry : new ArrayList<>(activeObjects.entrySet())) {
-                ObjectInstance inst = entry.getValue();
-                if (inst instanceof AbstractObjectInstance aoi2
-                        && aoi2.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+            populateActiveFallbackScratch();
+            for (ObjectInstance inst : activeFallbackScratch) {
+                ObjectSpawn spawn = instanceToSpawn.get(inst);
+                if (spawn == null) {
                     continue;
                 }
                 // Skip objects already processed in the slot-based exec loop.
@@ -648,9 +636,9 @@ public class ObjectManager {
                 }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
-                    placement.clearStayActive(entry.getKey());
-                    placement.removeFromActive(entry.getKey());
-                    activeObjects.remove(entry.getKey());
+                    placement.clearStayActive(spawn);
+                    placement.removeFromActive(spawn);
+                    removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
                 }
@@ -658,9 +646,9 @@ public class ObjectManager {
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
-                    placement.clearStayActive(entry.getKey());
-                    placement.removeFromActive(entry.getKey());
-                    activeObjects.remove(entry.getKey());
+                    placement.clearStayActive(spawn);
+                    placement.removeFromActive(spawn);
+                    removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
             }
@@ -730,7 +718,7 @@ public class ObjectManager {
                     freeAllReservedChildSlots(spawn);
                     placement.clearStayActive(spawn);
                     placement.removeFromActive(spawn);
-                    activeObjects.remove(spawn);
+                    removeActiveObject(spawn);
                 } else {
                     dynamicObjects.remove(instance);
                 }
@@ -796,7 +784,7 @@ public class ObjectManager {
                 } else {
                     releaseSlot(preSlot);
                 }
-                activeObjects.put(spawn, instance);
+                registerActiveObject(spawn, instance);
                 bucketsDirty = true;
                 activeObjectsCacheDirty = true;
                 return true;
@@ -1689,6 +1677,7 @@ public class ObjectManager {
                     placement.removeFromActiveForUnload(spawn);
                 }
                 instance.onUnload();
+                instanceToSpawn.remove(instance);
                 iterator.remove();
                 changed = true;
             }
@@ -1814,7 +1803,7 @@ public class ObjectManager {
                             releaseSlot(preSlot);
                         }
                     }
-                    activeObjects.put(spawn, instance);
+                    registerActiveObject(spawn, instance);
                     changed = true;
                 } else {
                     // Creation failed: release pre-allocated slot
@@ -1844,6 +1833,45 @@ public class ObjectManager {
     private void enableVerticalWrapIfNeeded() {
         if (camera.isVerticalWrapEnabled()) {
             graphicsManager.enableVerticalWrapAdjust(Camera.VERTICAL_WRAP_RANGE, camera.getY());
+        }
+    }
+
+    private void registerActiveObject(ObjectSpawn spawn, ObjectInstance instance) {
+        activeObjects.put(spawn, instance);
+        instanceToSpawn.put(instance, spawn);
+    }
+
+    private void removeActiveObject(ObjectSpawn spawn) {
+        ObjectInstance removed = activeObjects.remove(spawn);
+        if (removed != null) {
+            instanceToSpawn.remove(removed);
+        }
+    }
+
+    private void clearActiveObjects() {
+        activeObjects.clear();
+        instanceToSpawn.clear();
+    }
+
+    private void populateDynamicFallbackScratch() {
+        dynamicFallbackScratch.clear();
+        for (ObjectInstance inst : dynamicObjects) {
+            if (inst instanceof AbstractObjectInstance aoi
+                    && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+                continue;
+            }
+            dynamicFallbackScratch.add(inst);
+        }
+    }
+
+    private void populateActiveFallbackScratch() {
+        activeFallbackScratch.clear();
+        for (ObjectInstance inst : activeObjects.values()) {
+            if (inst instanceof AbstractObjectInstance aoi
+                    && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+                continue;
+            }
+            activeFallbackScratch.add(inst);
         }
     }
 

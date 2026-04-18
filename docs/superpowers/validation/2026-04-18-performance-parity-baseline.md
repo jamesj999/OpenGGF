@@ -25,7 +25,7 @@ mvn --% -q -Dmse=off -Dtest=com.openggf.tests.graphics.PatternAtlasFallbackTest,
 - Object suite command:
 
 ```powershell
-mvn --% -q -Dmse=off -Dtest=com.openggf.tests.physics.CollisionSystemTest,com.openggf.tests.TestHTZBossTouchResponse,com.openggf.tests.TestSolidOrderingCollisionTraces,com.openggf.tests.TestSolidOrderingSentinelsHeadless,com.openggf.tests.TestS2Htz1Headless,com.openggf.tests.TestS3kAiz1SkipHeadless test
+mvn --% -q -Dmse=off -Dtest=com.openggf.tests.TestObjectManagerExecLoopParity,com.openggf.tests.physics.CollisionSystemTest,com.openggf.tests.TestHTZBossTouchResponse,com.openggf.tests.TestSolidOrderingCollisionTraces,com.openggf.tests.TestSolidOrderingSentinelsHeadless,com.openggf.tests.TestS2Htz1Headless,com.openggf.tests.TestS3kAiz1SkipHeadless test
 ```
 
 - Result: `PASS` on `2026-04-18`
@@ -36,14 +36,16 @@ mvn --% -q -Dmse=off -Dtest=com.openggf.tests.physics.CollisionSystemTest,com.op
 mvn --% -q -Dmse=off -Dtest=com.openggf.tests.trace.s1.TestS1Ghz1TraceReplay,com.openggf.tests.trace.s1.TestS1Mz1TraceReplay test
 ```
 
-- Result: `NOT RUN` in baseline capture
+- Result in isolated patch worktree: `FAIL` on `2026-04-18`
+- Result in detached pre-Patch-2 baseline at `649e168c6`: `FAIL` on `2026-04-18`
+- Classification: `PRE-EXISTING BRANCH BLOCKER`, not evidence that Patch 2 regressed parity
 
 ## Patch 3 - Typed provider lists
 
 - Object suite command:
 
 ```powershell
-mvn --% -q -Dmse=off -Dtest=com.openggf.tests.physics.CollisionSystemTest,com.openggf.tests.TestHTZBossTouchResponse,com.openggf.tests.TestSolidOrderingCollisionTraces,com.openggf.tests.TestSolidOrderingSentinelsHeadless,com.openggf.tests.TestS2Htz1Headless,com.openggf.tests.TestS3kAiz1SkipHeadless test
+mvn --% -q -Dmse=off -Dtest=com.openggf.tests.TestObjectManagerExecLoopParity,com.openggf.tests.physics.CollisionSystemTest,com.openggf.tests.TestHTZBossTouchResponse,com.openggf.tests.TestSolidOrderingCollisionTraces,com.openggf.tests.TestSolidOrderingSentinelsHeadless,com.openggf.tests.TestS2Htz1Headless,com.openggf.tests.TestS3kAiz1SkipHeadless test
 ```
 
 - Result: `PASS` on `2026-04-18`
@@ -54,7 +56,11 @@ mvn --% -q -Dmse=off -Dtest=com.openggf.tests.physics.CollisionSystemTest,com.op
 mvn --% -q -Dmse=off -Dtest=com.openggf.tests.trace.s1.TestS1Ghz1TraceReplay,com.openggf.tests.trace.s1.TestS1Mz1TraceReplay test
 ```
 
-- Result: `NOT RUN` in baseline capture
+- Result: `FAIL` on `2026-04-18` in both the Patch 2 worktree and detached baseline `649e168c6`
+- Notes:
+  - `TestS1Ghz1TraceReplay`: first error `frame 386`, `y_speed mismatch (expected=0x0300, actual=-0400)`
+  - `TestS1Mz1TraceReplay`: first error `frame 376`, `angle mismatch (expected=0x0000, actual=0x00F8)`
+  - Because both failures reproduce on the pre-Patch-2 baseline, this trace gate is currently branch debt rather than a Patch 2 regression signal.
 
 ## Patch 4 - Render/runtime cleanups
 

@@ -71,6 +71,10 @@ class TestSolidOrderingSentinelsHeadless {
         assertTrue(probe.firstStandingNow(), "The checkpoint should see the player standing on the platform");
         assertTrue(probe.helperStandingAfterMove(), "Helper queries should read the same checkpoint snapshot");
         assertFalse(probe.firstStandingLastFrame(), "First contact should not report a previous standing frame");
+
+        fixture.stepIdleFrames(2);
+        assertTrue(probe.checkpointCallCount() >= 3,
+                "Checkpoint handling should still run after bookkeeping refactors");
     }
 
     @Test
@@ -149,6 +153,7 @@ class TestSolidOrderingSentinelsHeadless {
         private boolean mainStandingAfterMove;
         private boolean sidekickStandingAfterMove;
         private boolean seededNoContactClear;
+        private int checkpointCallCount;
 
         private SnapshotProbeObject(Scenario scenario, int x, int y) {
             super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "SnapshotProbe");
@@ -176,6 +181,7 @@ class TestSolidOrderingSentinelsHeadless {
 
         private void handleSameFrameStanding(PlayableEntity player) {
             SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+            checkpointCallCount++;
             PlayerSolidContactResult result = batch.perPlayer().get(player);
             firstStandingNow = result != null && result.standingNow();
             firstStandingLastFrame = result != null && result.standingLastFrame();
@@ -186,6 +192,7 @@ class TestSolidOrderingSentinelsHeadless {
 
         private void handleNoContactClear(PlayableEntity player) {
             SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+            checkpointCallCount++;
             PlayerSolidContactResult result = batch.perPlayer().get(player);
             secondStandingNow = result != null && result.standingNow();
             secondStandingLastFrame = result != null && result.standingLastFrame();
@@ -200,6 +207,7 @@ class TestSolidOrderingSentinelsHeadless {
 
         private void handleMultiPlayerBatch(PlayableEntity player) {
             SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+            checkpointCallCount++;
             batchPlayerCount = batch.perPlayer().size();
             batchContainsMain = batch.perPlayer().containsKey(player);
 
@@ -259,6 +267,10 @@ class TestSolidOrderingSentinelsHeadless {
 
         boolean sidekickStandingAfterMove() {
             return sidekickStandingAfterMove;
+        }
+
+        int checkpointCallCount() {
+            return checkpointCallCount;
         }
 
         @Override
