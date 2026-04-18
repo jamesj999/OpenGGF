@@ -45,6 +45,7 @@ public final class Sonic3kObjectIds {
     public static final int MGZLBZ_SMASHING_PILLAR_ALT = 0x20;
     public static final int MGZLBZ_SMASHING_PILLAR = 0x52;
     public static final int MGZ_SWINGING_PLATFORM = 0x53;
+    public static final int MGZ_HEAD_TRIGGER = 0x55;
     public static final int MGZ_TRIGGER_PLATFORM = 0x57;
     public static final int MGZ_SWINGING_SPIKE_BALL = 0x58;
     public static final int MGZ_DASH_TRIGGER = 0x59;
