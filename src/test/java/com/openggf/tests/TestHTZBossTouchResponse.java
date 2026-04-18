@@ -41,7 +41,7 @@ public class TestHTZBossTouchResponse {
 
     @BeforeEach
     public void setUp() throws Exception {
-        RuntimeManager.createGameplay();
+        TestEnvironment.resetAll();
         // Position camera at boss arena so isOnScreenForTouch() passes for the boss.
         // The default camera bounds (x=0, width=320) exclude HTZ_BOSS_X=0x3040.
         GameServices.camera().setX((short) HTZ_BOSS_X);
