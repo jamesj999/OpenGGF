@@ -943,7 +943,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         for (Sonic3kPlcArtRegistry.LevelArtEntry entry : plan.levelArt()) {
             ObjectSpriteSheet sheet;
             if (entry.builderName() != null) {
-                sheet = invokeBuilder(art, entry.builderName());
+                sheet = invokeBuilder(art, entry.builderName(), entry.artTileBase());
             } else if (entry.mappingAddr() > 0 && entry.frameFilter() != null) {
                 sheet = art.buildLevelArtSheetFromRomFiltered(
                         entry.mappingAddr(), entry.artTileBase(), entry.palette(),
@@ -959,32 +959,32 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         }
     }
 
-    private ObjectSpriteSheet invokeBuilder(Sonic3kObjectArt art, String builderName) {
+    private ObjectSpriteSheet invokeBuilder(Sonic3kObjectArt art, String builderName, int artTileBase) {
         return switch (builderName) {
-            case "buildSpikesSheet" -> art.buildSpikesSheet();
-            case "buildSpringVerticalSheet" -> art.buildSpringVerticalSheet();
-            case "buildSpringVerticalYellowSheet" -> art.buildSpringVerticalYellowSheet();
-            case "buildSpringHorizontalSheet" -> art.buildSpringHorizontalSheet();
-            case "buildSpringHorizontalYellowSheet" -> art.buildSpringHorizontalYellowSheet();
-            case "buildSpringDiagonalSheet" -> art.buildSpringDiagonalSheet();
-            case "buildSpringDiagonalYellowSheet" -> art.buildSpringDiagonalYellowSheet();
-            case "buildAiz1TreeSheet" -> art.buildAiz1TreeSheet();
-            case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet();
-            case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet();
-            case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet();
-            case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet();
-            case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet();
-            case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet();
-            case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet();
-            case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet();
-            case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
-            case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
-            case "buildHczWaterDropSheet" -> art.buildHczWaterDropSheet();
-            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet();
-            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet();
-            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet();
-            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet();
-            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet();
+            case "buildSpikesSheet" -> art.buildSpikesSheet(artTileBase);
+            case "buildSpringVerticalSheet" -> art.buildSpringVerticalSheet(artTileBase);
+            case "buildSpringVerticalYellowSheet" -> art.buildSpringVerticalYellowSheet(artTileBase);
+            case "buildSpringHorizontalSheet" -> art.buildSpringHorizontalSheet(artTileBase);
+            case "buildSpringHorizontalYellowSheet" -> art.buildSpringHorizontalYellowSheet(artTileBase);
+            case "buildSpringDiagonalSheet" -> art.buildSpringDiagonalSheet(artTileBase);
+            case "buildSpringDiagonalYellowSheet" -> art.buildSpringDiagonalYellowSheet(artTileBase);
+            case "buildAiz1TreeSheet" -> art.buildAiz1TreeSheet(artTileBase);
+            case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet(artTileBase);
+            case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet(artTileBase);
+            case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet(artTileBase);
+            case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet(artTileBase);
+            case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet(artTileBase);
+            case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet(artTileBase);
+            case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet(artTileBase);
+            case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet(artTileBase);
+            case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet(artTileBase);
+            case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet(artTileBase);
+            case "buildHczWaterDropSheet" -> art.buildHczWaterDropSheet(artTileBase);
+            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet(artTileBase);
+            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet(artTileBase);
+            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet(artTileBase);
+            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet(artTileBase);
+            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet(artTileBase);
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;
