@@ -7,6 +7,7 @@ import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -59,6 +60,7 @@ public final class GameRuntime {
     private final SpecialRenderEffectRegistry specialRenderEffectRegistry;
     private final AdvancedRenderModeController advancedRenderModeController;
     private final ZoneLayoutMutationPipeline zoneLayoutMutationPipeline;
+    private final SolidExecutionRegistry solidExecutionRegistry;
 
     private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
@@ -80,7 +82,8 @@ public final class GameRuntime {
                 AnimatedTileChannelGraph animatedTileChannelGraph,
                 SpecialRenderEffectRegistry specialRenderEffectRegistry,
                 AdvancedRenderModeController advancedRenderModeController,
-                ZoneLayoutMutationPipeline zoneLayoutMutationPipeline) {
+                ZoneLayoutMutationPipeline zoneLayoutMutationPipeline,
+                SolidExecutionRegistry solidExecutionRegistry) {
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
         this.worldSession = worldSession;
         this.gameplayMode = gameplayMode;
@@ -101,6 +104,7 @@ public final class GameRuntime {
         this.specialRenderEffectRegistry = Objects.requireNonNull(specialRenderEffectRegistry, "specialRenderEffectRegistry");
         this.advancedRenderModeController = Objects.requireNonNull(advancedRenderModeController, "advancedRenderModeController");
         this.zoneLayoutMutationPipeline = Objects.requireNonNull(zoneLayoutMutationPipeline, "zoneLayoutMutationPipeline");
+        this.solidExecutionRegistry = Objects.requireNonNull(solidExecutionRegistry, "solidExecutionRegistry");
     }
 
     // ── Getters ──────────────────────────────────────────────────────────
@@ -125,6 +129,7 @@ public final class GameRuntime {
     public SpecialRenderEffectRegistry getSpecialRenderEffectRegistry() { return specialRenderEffectRegistry; }
     public AdvancedRenderModeController getAdvancedRenderModeController() { return advancedRenderModeController; }
     public ZoneLayoutMutationPipeline getZoneLayoutMutationPipeline() { return zoneLayoutMutationPipeline; }
+    public SolidExecutionRegistry getSolidExecutionRegistry() { return solidExecutionRegistry; }
 
     public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
 
@@ -144,6 +149,7 @@ public final class GameRuntime {
      */
     public void clearTransientFrameState() {
         zoneLayoutMutationPipeline.clear();
+        solidExecutionRegistry.clearTransientState();
     }
 
     // ── Convenience: LevelManager-owned sub-managers ─────────────────────

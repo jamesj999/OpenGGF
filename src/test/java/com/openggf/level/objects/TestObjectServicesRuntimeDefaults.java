@@ -1,33 +1,31 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.zone.ZoneRuntimeRegistry;
-import com.openggf.game.zone.ZoneRuntimeState;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.solid.InertSolidExecutionRegistry;
+import com.openggf.game.solid.SolidExecutionRegistry;
+import com.openggf.tests.TestEnvironment;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class TestObjectServicesRuntimeDefaults {
 
     @Test
-    void stubObjectServicesExposeInertRuntimeRegistryWithoutActiveRuntime() {
+    void stubObjectServicesExposeInertSolidExecutionRegistryWithoutActiveRuntime() {
         StubObjectServices services = new StubObjectServices();
 
-        ZoneRuntimeRegistry registry = assertDoesNotThrow(services::zoneRuntimeRegistry);
-        ZoneRuntimeState state = assertDoesNotThrow(services::zoneRuntimeState);
+        SolidExecutionRegistry registry = services.solidExecutionRegistry();
 
-        assertNotNull(registry);
-        assertNotNull(state);
+        assertInstanceOf(InertSolidExecutionRegistry.class, registry);
     }
 
     @Test
-    void testObjectServicesExposeInertRuntimeRegistryWithoutActiveRuntime() {
-        TestObjectServices services = new TestObjectServices();
+    void runtimeBackedObjectServicesExposeRuntimeOwnedSolidExecutionRegistry() {
+        TestEnvironment.resetAll();
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
 
-        ZoneRuntimeRegistry registry = assertDoesNotThrow(services::zoneRuntimeRegistry);
-        ZoneRuntimeState state = assertDoesNotThrow(services::zoneRuntimeState);
-
-        assertNotNull(registry);
-        assertNotNull(state);
+        assertSame(GameServices.solidExecutionRegistry(), services.solidExecutionRegistry());
     }
 }
