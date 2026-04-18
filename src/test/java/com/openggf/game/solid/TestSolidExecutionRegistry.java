@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -116,6 +117,54 @@ class TestSolidExecutionRegistry {
         assertEquals(ContactKind.NONE, missing.kind());
         assertFalse(missing.standingNow());
         assertEquals(ContactKind.NONE, registry.currentObject().lastCheckpoint().perPlayer().getOrDefault(player, missing).kind());
+    }
+
+    @Test
+    void resolveSolidNowPreservesPreviousStandingAndPushingWhenPlayerIsOmittedFromFreshBatch() {
+        DefaultSolidExecutionRegistry registry = new DefaultSolidExecutionRegistry();
+        PlayableEntity player = playableEntity("player");
+        ObjectInstance object = new RegistryTestObject();
+
+        registry.beginFrame(10, List.of(player));
+        registry.beginObject(object, () -> new SolidCheckpointBatch(object, Map.of(
+                player, new PlayerSolidContactResult(
+                        ContactKind.SIDE,
+                        false,
+                        false,
+                        true,
+                        false,
+                        PreContactState.ZERO,
+                        new PostContactState((short) 0, (short) 0, false, false, true)))));
+        registry.currentObject().resolveSolidNow(player);
+        registry.endObject(object);
+        registry.finishFrame();
+
+        registry.beginFrame(11, List.of(player));
+        registry.beginObject(object, () -> new SolidCheckpointBatch(object, Map.of()));
+
+        PlayerSolidContactResult result = registry.currentObject().resolveSolidNow(player);
+
+        assertEquals(ContactKind.NONE, result.kind());
+        assertFalse(result.standingNow());
+        assertFalse(result.standingLastFrame());
+        assertFalse(result.pushingNow());
+        assertTrue(result.pushingLastFrame());
+    }
+
+    @Test
+    void publishCheckpointRejectsBatchForDifferentObjectDuringActiveExecutionWindow() {
+        DefaultSolidExecutionRegistry registry = new DefaultSolidExecutionRegistry();
+        PlayableEntity player = playableEntity("player");
+        ObjectInstance activeObject = new RegistryTestObject();
+        ObjectInstance otherObject = new RegistryTestObject();
+
+        registry.beginFrame(20, List.of(player));
+        registry.beginObject(activeObject, () -> new SolidCheckpointBatch(otherObject, Map.of()));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> registry.currentObject().resolveSolidNowAll());
+
+        assertEquals("Published checkpoint batch must match the currently executing object.", error.getMessage());
     }
 
     @Test
