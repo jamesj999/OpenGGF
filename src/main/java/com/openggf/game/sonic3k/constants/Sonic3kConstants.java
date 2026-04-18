@@ -211,6 +211,15 @@ public class Sonic3kConstants {
     // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0)
     public static final int ARTTILE_HCZ_CONVEYOR_SPIKE = 0x043E;
 
+    // ===== MGZ/LBZ Smashing Pillar (Obj_MGZLBZSmashingPillar, IDs 0x20 + 0x52) =====
+    // Map_LBZSmashingSpikes_: 1-word offset table + 1 frame (2 pieces = $E bytes) = $10 total.
+    // Map_MGZSmashingPillar_: 1-word offset table + 1 frame ($A pieces = $3E bytes) = $40 total.
+    // LockOn data (S3 half — no S&K-side copy). Verified via ROM byte search at 0x228246/0x228236.
+    public static final int MAP_LBZ_SMASHING_SPIKES_ADDR = 0x228236; // Map_LBZSmashingSpikes (1 frame, 2 pieces)
+    public static final int MAP_MGZ_SMASHING_PILLAR_ADDR = 0x228246; // Map_MGZSmashingPillar (1 frame, 10 pieces)
+    // ArtTile_LBZTubeTrans = $0455 (from sonic3k.constants.asm)
+    public static final int ARTTILE_LBZ_TUBE_TRANS = 0x0455;
+
     // Map_MGZSwingingPlatform has a 3-word frame-offset table immediately before Frame_23331E.
     public static final int MAP_MGZ_SWINGING_PLATFORM_ADDR = 0x233318; // Map_MGZSwingingPlatform (3 frames)
     // Map_MGZTriggerPlatform_ has a 2-word frame-offset table immediately before Frame_2339B6.

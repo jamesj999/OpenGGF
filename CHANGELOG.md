@@ -156,6 +156,11 @@ All notable changes to the OpenGGF project are documented in this file.
   swinging platform and spike ball, sinking mud, animated tile graph channels,
   and parity fixes for top-platform collision/grab behavior plus MGZ1 vertical
   wrapping and intro flow.
+- Added the shared MGZ/LBZ smashing pillar (`Obj_MGZLBZSmashingPillar`, IDs
+  0x52 and 0x20), with zone-conditional art and dimensions, ROM-accurate
+  16.16-fixed gravity descent and 1px/frame retract, ceiling-crush hurt via
+  `SolidObjectFull`, and forced low VDP priority so the bottom spikes layer
+  behind foreground tiles like the ROM.
 - Added more S3K object and badnik coverage with Automatic Tunnel, Tunnelbot,
   Spiker, and Bubbles.
 - Polished AIZ2 post-boss and bombing-run parity with fixes for sidekick bounds

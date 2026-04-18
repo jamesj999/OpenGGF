@@ -927,6 +927,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Smashing Pillar (MGZ form of Obj_MGZLBZSmashingPillar): make_art_tile($001, 2, 0)
+        // ROM: sonic3k.asm:56866 (zone == 2 branch).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SMASHING_PILLAR,
+                Sonic3kConstants.MAP_MGZ_SMASHING_PILLAR_ADDR,
+                1,
+                2,
+                null
+        ));
+
         // Trigger Platform: make_art_tile($001, 2, 0)
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.MGZ_TRIGGER_PLATFORM,
@@ -1327,6 +1337,16 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ_LEDGE,
                 Sonic3kConstants.MAP_LBZ_COLLAPSING_LEDGE_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Smashing Spikes (LBZ form of Obj_MGZLBZSmashingPillar): make_art_tile(ArtTile_LBZTubeTrans, 2, 0)
+        // ROM: sonic3k.asm:56859 (zone != 2 branch).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.LBZ_SMASHING_SPIKES,
+                Sonic3kConstants.MAP_LBZ_SMASHING_SPIKES_ADDR,
+                Sonic3kConstants.ARTTILE_LBZ_TUBE_TRANS,
                 2,
                 null
         ));
