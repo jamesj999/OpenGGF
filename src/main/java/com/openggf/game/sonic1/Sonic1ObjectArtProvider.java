@@ -8046,6 +8046,39 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         return 0; // Sonic 1: life icon and flash both use palette line 0 (Sonic's palette)
     }
 
+    @Override
+    public Palette getHudLivesPaletteOverride() {
+        if (!com.openggf.game.CrossGameFeatureProvider.isS3kDonorActive()) {
+            return null;
+        }
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(GameServices.configuration());
+        if (!"knuckles".equalsIgnoreCase(mainChar)) {
+            return null;
+        }
+        if (GameServices.levelOrNull() == null || GameServices.levelOrNull().getCurrentLevel() == null) {
+            return null;
+        }
+        return buildS1KnucklesLivesHudPaletteOverride(GameServices.levelOrNull().getCurrentLevel().getPalette(0));
+    }
+
+    static Palette buildS1KnucklesLivesHudPaletteOverride(Palette basePalette) {
+        if (basePalette == null) {
+            return null;
+        }
+        Palette override = basePalette.deepCopy();
+        setColor(override, 12, 255, 73, 109);
+        setColor(override, 13, 219, 0, 36);
+        setColor(override, 14, 109, 0, 36);
+        return override;
+    }
+
+    private static void setColor(Palette palette, int index, int r, int g, int b) {
+        Palette.Color color = palette.getColor(index);
+        color.r = (byte) r;
+        color.g = (byte) g;
+        color.b = (byte) b;
+    }
+
     // ========================================================================
     // Ending sequence art (Obj87, Obj88, Obj89)
     // ========================================================================

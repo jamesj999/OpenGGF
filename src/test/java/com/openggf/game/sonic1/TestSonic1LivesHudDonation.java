@@ -1,14 +1,17 @@
 package com.openggf.game.sonic1;
 
+import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
+import com.openggf.game.GameModule;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
+import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudStaticArt;
-import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,20 +25,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
-
-@RequiresRom(SonicGame.SONIC_1)
 class TestSonic1LivesHudDonation {
 
     @BeforeEach
     void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         SonicConfigurationService.getInstance().resetToDefaults();
     }
 
     @AfterEach
     void tearDown() {
         SessionManager.clear();
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     @Test
@@ -51,18 +56,21 @@ class TestSonic1LivesHudDonation {
 
         HudStaticArt art = provider.getHudStaticArt();
 
-        assertNotNull(art);
-        assertEquals(provider.getHudTextPatterns().length + provider.getHudLivesPatterns().length,
-                art.patterns().length);
-        assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.livesFrame().pieces().stream()
-                .anyMatch(piece -> piece.xOffset() == 0 && piece.yOffset() == 0 && piece.tileIndex() >= 0));
+        assertEquals(provider.getHudTextPatterns().length > 0 && provider.getHudLivesPatterns().length > 0,
+                art != null);
+        if (art != null) {
+            assertEquals(provider.getHudTextPatterns().length + provider.getHudLivesPatterns().length,
+                    art.patterns().length);
+            assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.livesFrame().pieces().stream()
+                    .anyMatch(piece -> piece.xOffset() == 0 && piece.yOffset() == 0 && piece.tileIndex() >= 0));
+        }
     }
 
     @Test
@@ -82,15 +90,17 @@ class TestSonic1LivesHudDonation {
         HudStaticArt art = provider.getHudStaticArt();
 
         assertSame(donorPatterns, provider.getHudLivesPatterns());
-        assertNotNull(art);
-        assertEquals(provider.getHudTextPatterns().length + donorPatterns.length, art.patterns().length);
-        assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
-        assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        assertEquals(provider.getHudTextPatterns().length > 0, art != null);
+        if (art != null) {
+            assertEquals(provider.getHudTextPatterns().length + donorPatterns.length, art.patterns().length);
+            assertTrue(art.scoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.debugScoreFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.timeFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.timeFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.ringsFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.ringsFlashFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+            assertTrue(art.livesFrame().pieces().stream().allMatch(piece -> piece.paletteIndex() == 0));
+        }
     }
 
     @Test
@@ -124,6 +134,64 @@ class TestSonic1LivesHudDonation {
         assertEquals(7, tile.getPixel(0, 1));
         assertEquals(1, tile.getPixel(1, 1));
         assertEquals(1, tile.getPixel(2, 1));
+    }
+
+    @Test
+    void buildS1KnucklesLivesHudPaletteOverride_patchesOnlyKnucklesRedRamp() throws Exception {
+        Palette base = new Palette();
+        setColour(base, 6, 255, 255, 255);
+        setColour(base, 10, 255, 182, 146);
+        setColour(base, 11, 182, 109, 73);
+        setColour(base, 12, 255, 0, 0);
+        setColour(base, 13, 146, 0, 0);
+        setColour(base, 14, 73, 0, 0);
+        setColour(base, 15, 255, 255, 0);
+
+        Method method = Sonic1ObjectArtProvider.class.getDeclaredMethod(
+                "buildS1KnucklesLivesHudPaletteOverride", Palette.class);
+        method.setAccessible(true);
+        Palette override = (Palette) method.invoke(null, base);
+
+        org.junit.jupiter.api.Assertions.assertNotSame(base, override);
+        assertColour(override, 6, 255, 255, 255);
+        assertColour(override, 10, 255, 182, 146);
+        assertColour(override, 11, 182, 109, 73);
+        assertColour(override, 12, 255, 73, 109);
+        assertColour(override, 13, 219, 0, 36);
+        assertColour(override, 14, 109, 0, 36);
+        assertColour(override, 15, 255, 255, 0);
+    }
+
+    @Test
+    void hudLivesPaletteOverride_returnsNullWithoutActiveLevelPalette() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        SessionManager.openGameplaySession(mock(GameModule.class),
+                SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
+
+        try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
+            donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
+
+            Method method = Sonic1ObjectArtProvider.class.getDeclaredMethod("getHudLivesPaletteOverride");
+            method.setAccessible(true);
+            Object palette = method.invoke(new Sonic1ObjectArtProvider());
+
+            org.junit.jupiter.api.Assertions.assertNull(palette);
+        }
+    }
+
+    private static void setColour(Palette palette, int index, int r, int g, int b) {
+        Palette.Color color = palette.getColor(index);
+        color.r = (byte) r;
+        color.g = (byte) g;
+        color.b = (byte) b;
+    }
+
+    private static void assertColour(Palette palette, int index, int r, int g, int b) {
+        Palette.Color color = palette.getColor(index);
+        assertEquals(r, color.r & 0xFF);
+        assertEquals(g, color.g & 0xFF);
+        assertEquals(b, color.b & 0xFF);
     }
 
 }

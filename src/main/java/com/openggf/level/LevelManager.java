@@ -1755,6 +1755,7 @@ public class LevelManager {
                         graphicsManager.cachePatternTexture(staticHudArt.patterns()[i], nextHudIndex + i);
                     }
                     hudRenderManager.setStaticHudArt(nextHudIndex, staticHudArt);
+                    hudRenderManager.setLivesPaletteOverrideSupplier(provider::getHudLivesPaletteOverride);
                     nextHudIndex += staticHudArt.patterns().length;
                 }
 

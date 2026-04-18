@@ -112,6 +112,15 @@ public interface ObjectArtProvider {
     }
 
     /**
+     * Optional palette override used only while drawing the lives HUD.
+     * This is for cases where donated life-icon art needs a different palette
+     * contract than the rest of the shared in-level palette line.
+     */
+    default Palette getHudLivesPaletteOverride() {
+        return null;
+    }
+
+    /**
      * Gets all available renderer keys.
      *
      * @return list of renderer keys
