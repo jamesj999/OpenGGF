@@ -103,6 +103,8 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x38, // HCZCGZFan
                 0x3A, // HCZHandLauncher
                 0x3B, // HCZWaterWall
+                0x20, // MGZLBZSmashingPillar (alt slot)
+                0x52, // MGZLBZSmashingPillar
                 0x53, // MGZSwingingPlatform
                 0x57, // MGZTriggerPlatform
                 0x58, // MGZSwingingSpikeBall
