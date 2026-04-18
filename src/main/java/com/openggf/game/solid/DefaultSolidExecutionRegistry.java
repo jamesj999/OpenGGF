@@ -41,6 +41,11 @@ public final class DefaultSolidExecutionRegistry implements SolidExecutionRegist
 
     @Override
     public void publishCheckpoint(SolidCheckpointBatch batch) {
+        ObjectInstance executingObject = currentContext.object();
+        if (executingObject != null && (batch == null || batch.object() != executingObject)) {
+            throw new IllegalStateException(
+                    "Published checkpoint batch must match the currently executing object.");
+        }
         current.put(batch.object(), batch);
     }
 

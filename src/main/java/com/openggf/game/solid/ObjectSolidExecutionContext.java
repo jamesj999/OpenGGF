@@ -55,10 +55,13 @@ public final class ObjectSolidExecutionContext {
     }
 
     public PlayerSolidContactResult resolveSolidNow(PlayableEntity player) {
+        PlayerStandingState previousStanding = isInert()
+                ? PlayerStandingState.NONE
+                : owner.previousStanding(object, player);
         return resolveSolidNowAll().perPlayer().getOrDefault(
                 player,
                 PlayerSolidContactResult.noContact(
-                        PlayerStandingState.NONE,
+                        previousStanding,
                         PreContactState.ZERO,
                         PostContactState.ZERO));
     }
