@@ -1576,6 +1576,14 @@ public class ObjectManager {
         return solidContacts.getHeadroomDistance(player, hexAngle);
     }
 
+    public boolean latestStandingSnapshot(PlayableEntity player) {
+        return solidContacts.latestStandingSnapshot(player);
+    }
+
+    public int latestHeadroomSnapshot(PlayableEntity player, int hexAngle) {
+        return solidContacts.latestHeadroomSnapshot(player, hexAngle);
+    }
+
     /**
      * Run solid contacts resolution for a player sprite.
      * This is called by the CollisionSystem as part of the unified collision pipeline.
@@ -3406,6 +3414,11 @@ public class ObjectManager {
         // Standing/riding contacts still apply in pre-movement for platform delta tracking.
         private boolean deferSideToPostMovement;
 
+        private final Map<PlayableEntity, PlayerStandingState> latestStandingSnapshots =
+                new IdentityHashMap<>(2);
+        private final Map<PlayableEntity, Map<Integer, Integer>> latestHeadroomSnapshots =
+                new IdentityHashMap<>(2);
+
         SolidContacts(ObjectManager objectManager) {
             this.objectManager = objectManager;
         }
@@ -3413,6 +3426,23 @@ public class ObjectManager {
         void reset() {
             frameCounter = 0;
             ridingStates.clear();
+            latestStandingSnapshots.clear();
+            latestHeadroomSnapshots.clear();
+        }
+
+        private void cacheStandingSnapshot(PlayableEntity player, PlayerStandingState snapshot) {
+            if (player != null) {
+                latestStandingSnapshots.put(player, snapshot);
+            }
+        }
+
+        private void cacheHeadroomSnapshot(PlayableEntity player, int hexAngle, int distance) {
+            if (player == null) {
+                return;
+            }
+            Map<Integer, Integer> perAngle = latestHeadroomSnapshots.computeIfAbsent(
+                    player, p -> new HashMap<>());
+            perAngle.put(hexAngle & 0xFF, distance);
         }
 
         boolean isRidingObject(PlayableEntity player) {
@@ -3560,11 +3590,14 @@ public class ObjectManager {
                 boolean compatibilityCallbacks) {
             this.postMovement = postMovement;
             IdentityHashMap<PlayableEntity, PlayerSolidContactResult> perPlayer = new IdentityHashMap<>();
+            var trace = GameServices.collision().getTrace();
+            trace.onSolidCheckpointStart(instance.getClass().getSimpleName(), instance.getX(), instance.getY());
             resolveCheckpointForPlayer(instance, player, perPlayer, compatibilityCallbacks);
             for (PlayableEntity sidekick : sidekicks) {
                 resolveCheckpointForPlayer(instance, sidekick, perPlayer, compatibilityCallbacks);
             }
-            return new SolidCheckpointBatch(instance, perPlayer);
+            SolidCheckpointBatch batch = new SolidCheckpointBatch(instance, perPlayer);
+            return batch;
         }
 
         private void resolveCheckpointForPlayer(ObjectInstance instance, PlayableEntity player,
@@ -3589,21 +3622,36 @@ public class ObjectManager {
                     objectManager.services().solidExecutionRegistry().previousStanding(instance, player);
 
             if (contact == null) {
-                perPlayer.put(player,
-                        PlayerSolidContactResult.noContact(previousStanding, preContact, postContact));
+                PlayerSolidContactResult result =
+                        PlayerSolidContactResult.noContact(previousStanding, preContact, postContact);
+                perPlayer.put(player, result);
+                cacheStandingSnapshot(player, new PlayerStandingState(
+                        result.kind(), result.standingNow(), result.pushingNow()));
+                cacheHeadroomSnapshot(player, player.getAngle(),
+                        getHeadroomDistance(player, player.getAngle()));
             } else {
-                perPlayer.put(player, new PlayerSolidContactResult(
+                PlayerSolidContactResult result = new PlayerSolidContactResult(
                         toContactKind(contact),
                         contact.standing(),
                         previousStanding.standing(),
                         contact.pushing(),
                         previousStanding.pushing(),
                         preContact,
-                        postContact));
+                        postContact);
+                perPlayer.put(player, result);
+                cacheStandingSnapshot(player, new PlayerStandingState(
+                        result.kind(), result.standingNow(), result.pushingNow()));
+                cacheHeadroomSnapshot(player, player.getAngle(),
+                        getHeadroomDistance(player, player.getAngle()));
                 if (compatibilityCallbacks && instance instanceof SolidObjectListener listener) {
                     listener.onSolidContact(player, contact, frameCounter);
                 }
             }
+            var trace = GameServices.collision().getTrace();
+            String playerLabel = player.isCpuControlled() ? "sidekick" : "main";
+            PlayerSolidContactResult result = perPlayer.get(player);
+            trace.onSolidCheckpointResult(instance.getClass().getSimpleName(), playerLabel,
+                    result.kind().name(), result.standingNow(), result.standingLastFrame());
             currentPlayer = null;
         }
 
@@ -3862,6 +3910,14 @@ public class ObjectManager {
             }
         }
 
+        boolean latestStandingSnapshot(PlayableEntity player) {
+            if (player == null || player.getDead() || player.isDebugMode()) {
+                return false;
+            }
+            PlayerStandingState snapshot = latestStandingSnapshots.get(player);
+            return snapshot != null && snapshot.standing();
+        }
+
         private boolean hasStandingContactMultiPiece(PlayableEntity player,
                 MultiPieceSolidProvider multiPiece, ObjectInstance instance) {
             int pieceCount = multiPiece.getPieceCount();
@@ -3880,6 +3936,25 @@ public class ObjectManager {
                 }
             }
             return false;
+        }
+
+        int latestHeadroomSnapshot(PlayableEntity player, int hexAngle) {
+            if (player == null || objectManager == null || player.getDead()) {
+                return Integer.MAX_VALUE;
+            }
+            if (player.isDebugMode()) {
+                return Integer.MAX_VALUE;
+            }
+            Map<Integer, Integer> perAngle = latestHeadroomSnapshots.get(player);
+            if (perAngle != null) {
+                Integer cached = perAngle.get(hexAngle & 0xFF);
+                if (cached != null) {
+                    return cached;
+                }
+            }
+            int distance = getHeadroomDistance(player, hexAngle);
+            cacheHeadroomSnapshot(player, hexAngle, distance);
+            return distance;
         }
 
         int getHeadroomDistance(PlayableEntity player, int hexAngle) {
@@ -4282,6 +4357,13 @@ public class ObjectManager {
             if (nextRidingObject == null) {
                 player.setOnObject(false);
             }
+
+            boolean standingSnapshot = nextRidingObject != null;
+            cacheStandingSnapshot(player, new PlayerStandingState(
+                    standingSnapshot ? ContactKind.TOP : ContactKind.NONE,
+                    standingSnapshot,
+                    currentPushingState(player)));
+            cacheHeadroomSnapshot(player, player.getAngle(), getHeadroomDistance(player, player.getAngle()));
 
             currentPlayer = null;
         }
