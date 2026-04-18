@@ -4,6 +4,7 @@ import com.openggf.level.objects.SolidContact;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * CollisionTrace implementation that records all events for later comparison.
@@ -127,6 +128,7 @@ public class RecordingCollisionTrace implements CollisionTrace {
 
     private boolean eventsMatch(CollisionEvent a, CollisionEvent b) {
         if (a.type() != b.type()) return false;
+        if (!Objects.equals(a.description(), b.description())) return false;
         // Allow small position differences (1 pixel tolerance)
         if (Math.abs(a.x() - b.x()) > 1) return false;
         if (Math.abs(a.y() - b.y()) > 1) return false;

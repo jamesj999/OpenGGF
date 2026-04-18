@@ -70,6 +70,33 @@ public class CollisionSystemTest {
     }
 
     @Test
+    public void testHasStandingContactIgnoresUpwardMotionBeforeDelegation() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+        Mockito.when(player.getYSpeed()).thenReturn((short) -1);
+
+        assertFalse(collisionSystem.hasStandingContact(player));
+        assertEquals(0, objectManager.latestStandingCalls);
+        assertEquals(0, objectManager.fallbackStandingCalls);
+    }
+
+    @Test
+    public void testClearRidingObjectInvalidatesStandingSnapshot() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+
+        assertTrue(collisionSystem.hasStandingContact(player));
+        collisionSystem.clearRidingObject(player);
+        assertFalse(collisionSystem.hasStandingContact(player));
+        assertEquals(2, objectManager.latestStandingCalls);
+        assertEquals(1, objectManager.clearRidingCalls);
+    }
+
+    @Test
     public void testGetHeadroomDistanceDelegatesToLatestSnapshot() {
         TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
         collisionSystem.setObjectManager(objectManager);
@@ -586,10 +613,12 @@ public class CollisionSystemTest {
     private static final class TrackingObjectManager extends com.openggf.level.objects.ObjectManager {
         private final boolean standingSnapshot;
         private final int headroomSnapshot;
+        private boolean standingSnapshotCleared;
         int latestStandingCalls;
         int latestHeadroomCalls;
         int fallbackStandingCalls;
         int fallbackHeadroomCalls;
+        int clearRidingCalls;
 
         private TrackingObjectManager(boolean standingSnapshot, int headroomSnapshot) {
             super(List.of(), new ObjectRegistry() {
@@ -613,12 +642,18 @@ public class CollisionSystemTest {
 
         public boolean latestStandingSnapshot(PlayableEntity player) {
             latestStandingCalls++;
-            return standingSnapshot;
+            return standingSnapshot && !standingSnapshotCleared;
         }
 
         public int latestHeadroomSnapshot(PlayableEntity player, int hexAngle) {
             latestHeadroomCalls++;
             return headroomSnapshot;
+        }
+
+        @Override
+        public void clearRidingObject(PlayableEntity player) {
+            clearRidingCalls++;
+            standingSnapshotCleared = true;
         }
 
         @Override

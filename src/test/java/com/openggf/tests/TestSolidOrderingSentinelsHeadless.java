@@ -114,6 +114,8 @@ class TestSolidOrderingSentinelsHeadless {
         assertTrue(probe.batchContainsMain(), "The checkpoint batch should contain the main player");
         assertTrue(probe.batchContainsSidekick(), "The checkpoint batch should contain the sidekick");
         assertTrue(probe.mainStandingAfterMove(), "Main player should remain standing from the published batch");
+        assertEquals(probe.sidekickStandingFromBatch(), probe.sidekickStandingAfterMove(),
+                "Sidekick helper queries should read the published batch snapshot");
     }
 
     private AbstractPlayableSprite createSidekick() {
@@ -143,6 +145,7 @@ class TestSolidOrderingSentinelsHeadless {
         private int batchPlayerCount;
         private boolean batchContainsMain;
         private boolean batchContainsSidekick;
+        private boolean sidekickStandingFromBatch;
         private boolean mainStandingAfterMove;
         private boolean sidekickStandingAfterMove;
         private boolean seededNoContactClear;
@@ -202,6 +205,8 @@ class TestSolidOrderingSentinelsHeadless {
 
             AbstractPlayableSprite batchSidekick = GameServices.sprites().getSidekicks().getFirst();
             batchContainsSidekick = batch.perPlayer().containsKey(batchSidekick);
+            PlayerSolidContactResult sidekickResult = batch.perPlayer().get(batchSidekick);
+            sidekickStandingFromBatch = sidekickResult != null && sidekickResult.standingNow();
 
             updateDynamicSpawn(getX() + 0x80, getY());
             mainStandingAfterMove = GameServices.collision().hasStandingContact((AbstractPlayableSprite) player);
@@ -242,6 +247,10 @@ class TestSolidOrderingSentinelsHeadless {
 
         boolean batchContainsSidekick() {
             return batchContainsSidekick;
+        }
+
+        boolean sidekickStandingFromBatch() {
+            return sidekickStandingFromBatch;
         }
 
         boolean mainStandingAfterMove() {
