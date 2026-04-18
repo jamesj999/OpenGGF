@@ -85,6 +85,8 @@ public class ObjectManager {
 
     // Cached combined active objects list to avoid allocation in getActiveObjects()
     private final List<ObjectInstance> cachedActiveObjects = new ArrayList<>();
+    private final List<ObjectInstance> cachedSolidProviderObjects = new ArrayList<>();
+    private final List<ObjectInstance> cachedTouchResponseObjects = new ArrayList<>();
     private boolean activeObjectsCacheDirty = true;
 
 
@@ -1033,6 +1035,21 @@ public class ObjectManager {
     }
 
     public Collection<ObjectInstance> getActiveObjects() {
+        rebuildActiveObjectCaches();
+        return cachedActiveObjects;
+    }
+
+    private List<ObjectInstance> getSolidProviderObjects() {
+        rebuildActiveObjectCaches();
+        return cachedSolidProviderObjects;
+    }
+
+    private List<ObjectInstance> getTouchResponseObjects() {
+        rebuildActiveObjectCaches();
+        return cachedTouchResponseObjects;
+    }
+
+    private void rebuildActiveObjectCaches() {
         if (activeObjectsCacheDirty) {
             cachedActiveObjects.clear();
             cachedActiveObjects.addAll(activeObjects.values());
@@ -1046,9 +1063,18 @@ public class ObjectManager {
                 int slotB = b instanceof AbstractObjectInstance aoiB ? aoiB.getSlotIndex() : Integer.MAX_VALUE;
                 return Integer.compare(slotA, slotB);
             });
+            cachedSolidProviderObjects.clear();
+            cachedTouchResponseObjects.clear();
+            for (ObjectInstance instance : cachedActiveObjects) {
+                if (instance instanceof SolidObjectProvider) {
+                    cachedSolidProviderObjects.add(instance);
+                }
+                if (instance instanceof TouchResponseProvider) {
+                    cachedTouchResponseObjects.add(instance);
+                }
+            }
             activeObjectsCacheDirty = false;
         }
-        return cachedActiveObjects;
     }
 
     public int getFrameCounter() {
@@ -2956,12 +2982,10 @@ public class ObjectManager {
                 int playerX, int playerY, int playerHeight, int playerWidth,
                 Set<ObjectInstance> buildingSet, Set<ObjectInstance> overlappingSet,
                 boolean isSidekick) {
-            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+            Collection<ObjectInstance> touchObjects = objectManager.getTouchResponseObjects();
 
-            for (ObjectInstance instance : activeObjects) {
-                if (!(instance instanceof TouchResponseProvider provider)) {
-                    continue;
-                }
+            for (ObjectInstance instance : touchObjects) {
+                TouchResponseProvider provider = (TouchResponseProvider) instance;
                 if (instance.isSkipTouchThisFrame()) {
                     continue;
                 }
@@ -3893,11 +3917,9 @@ public class ObjectManager {
             PlayableEntity savedPlayer = currentPlayer;
             currentPlayer = player;
             try {
-                Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
-                for (ObjectInstance instance : activeObjects) {
-                    if (!(instance instanceof SolidObjectProvider provider)) {
-                        continue;
-                    }
+                Collection<ObjectInstance> solidObjects = objectManager.getSolidProviderObjects();
+                for (ObjectInstance instance : solidObjects) {
+                    SolidObjectProvider provider = (SolidObjectProvider) instance;
                     if (!provider.isSolidFor(player)) {
                         continue;
                     }
@@ -4003,11 +4025,9 @@ public class ObjectManager {
             int playerXRadius = player.getXRadius();
             int playerYRadius = player.getYRadius();
 
-            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
-            for (ObjectInstance instance : activeObjects) {
-                if (!(instance instanceof SolidObjectProvider provider)) {
-                    continue;
-                }
+            Collection<ObjectInstance> solidObjects = objectManager.getSolidProviderObjects();
+            for (ObjectInstance instance : solidObjects) {
+                SolidObjectProvider provider = (SolidObjectProvider) instance;
                 if (!provider.isSolidFor(player)) {
                     continue;
                 }
@@ -4123,7 +4143,7 @@ public class ObjectManager {
             // and solid object collision sets pushing when appropriate. Clearing here would
             // override the pushing flag set by terrain collision earlier in the same frame.
 
-            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
+            Collection<ObjectInstance> solidObjects = objectManager.getSolidProviderObjects();
 
             // Extract this player's riding state
             RidingState state = ridingStates.get(player);
@@ -4248,7 +4268,7 @@ public class ObjectManager {
             int nextRidingX = 0;
             int nextRidingY = 0;
             int nextRidingPieceIndex = -1;
-            for (ObjectInstance instance : activeObjects) {
+            for (ObjectInstance instance : solidObjects) {
                 // DropOnFloor detached the player from this object — don't re-land on it
                 // this frame. Terrain collision will handle the player next frame.
                 if (instance == dropOnFloorExclude) {
@@ -4274,9 +4294,7 @@ public class ObjectManager {
                         continue;
                     }
                 }
-                if (!(instance instanceof SolidObjectProvider provider)) {
-                    continue;
-                }
+                SolidObjectProvider provider = (SolidObjectProvider) instance;
                 if (!provider.isSolidFor(player)) {
                     continue;
                 }
