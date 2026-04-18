@@ -3547,32 +3547,29 @@ public class ObjectManager {
 
         SolidCheckpointBatch processManualCheckpoint(ObjectInstance instance, PlayableEntity player,
                 List<? extends PlayableEntity> sidekicks, boolean postMovement) {
-            return resolveCheckpointBatch(instance, player, sidekicks, postMovement).batch();
+            return resolveCheckpointBatch(instance, player, sidekicks, postMovement, false);
         }
 
         SolidCheckpointBatch processCompatibilityCheckpoint(ObjectInstance instance, PlayableEntity player,
                 List<? extends PlayableEntity> sidekicks, boolean postMovement) {
-            CheckpointResolution resolution =
-                    resolveCheckpointBatch(instance, player, sidekicks, postMovement);
-            emitCompatibilityCallbacks(instance, resolution.contacts());
-            return resolution.batch();
+            return resolveCheckpointBatch(instance, player, sidekicks, postMovement, true);
         }
 
-        private CheckpointResolution resolveCheckpointBatch(ObjectInstance instance, PlayableEntity player,
-                List<? extends PlayableEntity> sidekicks, boolean postMovement) {
+        private SolidCheckpointBatch resolveCheckpointBatch(ObjectInstance instance, PlayableEntity player,
+                List<? extends PlayableEntity> sidekicks, boolean postMovement,
+                boolean compatibilityCallbacks) {
             this.postMovement = postMovement;
             IdentityHashMap<PlayableEntity, PlayerSolidContactResult> perPlayer = new IdentityHashMap<>();
-            IdentityHashMap<PlayableEntity, SolidContact> contacts = new IdentityHashMap<>();
-            resolveCheckpointForPlayer(instance, player, perPlayer, contacts);
+            resolveCheckpointForPlayer(instance, player, perPlayer, compatibilityCallbacks);
             for (PlayableEntity sidekick : sidekicks) {
-                resolveCheckpointForPlayer(instance, sidekick, perPlayer, contacts);
+                resolveCheckpointForPlayer(instance, sidekick, perPlayer, compatibilityCallbacks);
             }
-            return new CheckpointResolution(new SolidCheckpointBatch(instance, perPlayer), contacts);
+            return new SolidCheckpointBatch(instance, perPlayer);
         }
 
         private void resolveCheckpointForPlayer(ObjectInstance instance, PlayableEntity player,
                 IdentityHashMap<PlayableEntity, PlayerSolidContactResult> perPlayer,
-                IdentityHashMap<PlayableEntity, SolidContact> contacts) {
+                boolean compatibilityCallbacks) {
             if (player == null) {
                 return;
             }
@@ -3595,7 +3592,6 @@ public class ObjectManager {
                 perPlayer.put(player,
                         PlayerSolidContactResult.noContact(previousStanding, preContact, postContact));
             } else {
-                contacts.put(player, contact);
                 perPlayer.put(player, new PlayerSolidContactResult(
                         toContactKind(contact),
                         contact.standing(),
@@ -3604,6 +3600,9 @@ public class ObjectManager {
                         previousStanding.pushing(),
                         preContact,
                         postContact));
+                if (compatibilityCallbacks && instance instanceof SolidObjectListener listener) {
+                    listener.onSolidContact(player, contact, frameCounter);
+                }
             }
             currentPlayer = null;
         }
@@ -3777,19 +3776,6 @@ public class ObjectManager {
             player.setOnObject(false);
             player.setAir(true);
             return null;
-        }
-
-        private void emitCompatibilityCallbacks(ObjectInstance instance,
-                IdentityHashMap<PlayableEntity, SolidContact> contacts) {
-            if (!(instance instanceof SolidObjectListener listener)) {
-                return;
-            }
-            for (Map.Entry<PlayableEntity, SolidContact> entry : contacts.entrySet()) {
-                SolidContact contact = entry.getValue();
-                if (contact != null) {
-                    listener.onSolidContact(entry.getKey(), contact, frameCounter);
-                }
-            }
         }
 
         private ContactKind toContactKind(SolidContact contact) {
@@ -4299,10 +4285,6 @@ public class ObjectManager {
 
             currentPlayer = null;
         }
-
-        private record CheckpointResolution(
-                SolidCheckpointBatch batch,
-                IdentityHashMap<PlayableEntity, SolidContact> contacts) {}
 
         private record MultiPieceContactResult(
                 boolean standing,
