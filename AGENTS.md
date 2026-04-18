@@ -58,7 +58,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
 
 ## Branch Documentation Policy
 
-Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the repo once with `git config core.hooksPath .githooks` so local commits use the tracked hooks.
+Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the repo once with `git config core.hooksPath .githooks` so local commits use the tracked hooks. The hook entrypoints dispatch through `.githooks/run-policy`: on Windows they call `validate-policy.ps1`, and on macOS/Linux they call `validate-policy.sh`.
 
 - On any non-`master` branch commit, the commit message must include these trailers and each must start with `updated` or `n/a`:
   - `Changelog`
