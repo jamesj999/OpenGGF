@@ -62,6 +62,24 @@ public class RecordingCollisionTrace implements CollisionTrace {
     }
 
     @Override
+    public void onSolidCheckpointStart(String objectType, int objectX, int objectY) {
+        events.add(CollisionEvent.position(
+                CollisionEvent.EventType.SOLID_CHECKPOINT_START,
+                objectType,
+                objectX,
+                objectY));
+    }
+
+    @Override
+    public void onSolidCheckpointResult(String objectType, String playerLabel, String kind,
+            boolean standingNow, boolean standingLastFrame) {
+        events.add(new CollisionEvent(
+                CollisionEvent.EventType.SOLID_CHECKPOINT_RESULT,
+                objectType + ":" + playerLabel + ":" + kind,
+                0, 0, 0, (byte) 0, standingNow, standingLastFrame));
+    }
+
+    @Override
     public void onSolidContactsComplete(boolean ridingObject, int adjustedX, int adjustedY) {
         events.add(new CollisionEvent(
             CollisionEvent.EventType.SOLID_CONTACTS_COMPLETE,

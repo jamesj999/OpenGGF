@@ -150,7 +150,7 @@ public class CollisionSystem {
         if (objectManager == null) {
             return false;
         }
-        return objectManager.hasStandingContact(player);
+        return objectManager.latestStandingSnapshot(player);
     }
 
     /**
@@ -161,7 +161,7 @@ public class CollisionSystem {
         if (objectManager == null) {
             return Integer.MAX_VALUE;
         }
-        return objectManager.getHeadroomDistance(player, hexAngle);
+        return objectManager.latestHeadroomSnapshot(player, hexAngle);
     }
 
     /**
