@@ -140,6 +140,9 @@ All notable changes to the OpenGGF project are documented in this file.
   use the team selected for the current gameplay session instead of stale
   persistent config. This fixes mismatches between launched character, palette,
   lives HUD, and gameplay-side main-character lookups.
+- Fixed S3K Tails-alone startup art loading by correcting the combined-ROM
+  `ArtNem_TailsLifeIcon` address, which restored the lives HUD, badnik/object
+  art, and other shared sprite sheets when starting Angel Island as Tails.
 - Fixed cross-game Knuckles donation in S1/S2 so the selected team now carries
   through runtime palette loading, HUD lives icon/name resolution, and
   gameplay startup. S1 donated Knuckles now uses a dedicated lives-HUD palette
