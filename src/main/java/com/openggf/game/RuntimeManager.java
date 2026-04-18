@@ -7,6 +7,8 @@ import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
+import com.openggf.game.solid.DefaultSolidExecutionRegistry;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -179,6 +181,7 @@ public final class RuntimeManager {
         SpecialRenderEffectRegistry specialRenderEffectRegistry = new SpecialRenderEffectRegistry();
         AdvancedRenderModeController advancedRenderModeController = new AdvancedRenderModeController();
         ZoneLayoutMutationPipeline zoneLayoutMutationPipeline = new ZoneLayoutMutationPipeline();
+        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
 
         GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
@@ -186,7 +189,7 @@ public final class RuntimeManager {
                 collisionSystem, spriteManager, levelManager, rng, zoneRuntimeRegistry,
                 paletteOwnershipRegistry, animatedTileChannelGraph, specialRenderEffectRegistry,
                 advancedRenderModeController,
-                zoneLayoutMutationPipeline);
+                zoneLayoutMutationPipeline, solidExecutionRegistry);
         current = runtime;
         return runtime;
     }
