@@ -5,9 +5,12 @@ import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Palette;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpritePieceRenderer;
+
+import java.util.function.Supplier;
 
 public class HudRenderManager {
 
@@ -41,6 +44,9 @@ public class HudRenderManager {
     // Icon/flash palette and HUD text palette — configurable per game
     private PatternDesc iconPatternDesc = new PatternDesc(0x8000);
     private PatternDesc hudPatternDesc = new PatternDesc(0xA000);
+    private int iconPaletteLine;
+    private Palette livesPaletteOverride;
+    private Supplier<Palette> livesPaletteOverrideSupplier;
     private boolean bonusStageHudLayout;
 
     public HudRenderManager(GraphicsManager graphicsManager, Camera camera, GameStateManager gameState) {
@@ -59,6 +65,7 @@ public class HudRenderManager {
     public void setHudPalettes(int textPalLine, int flashPalLine) {
         this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
         this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
+        this.iconPaletteLine = flashPalLine;
     }
 
     public void setBonusStageHudLayout(boolean enabled) {
@@ -77,6 +84,14 @@ public class HudRenderManager {
 
     public void setLivesNumbersPatternIndex(int livesNumbersPatternIndex) {
         this.livesNumbersPatternIndex = livesNumbersPatternIndex;
+    }
+
+    public void setLivesPaletteOverride(Palette palette) {
+        this.livesPaletteOverride = palette != null ? palette.deepCopy() : null;
+    }
+
+    public void setLivesPaletteOverrideSupplier(Supplier<Palette> supplier) {
+        this.livesPaletteOverrideSupplier = supplier;
     }
 
     /**
@@ -150,7 +165,6 @@ public class HudRenderManager {
         drawStaticFrame(debugMode ? staticHudArtOrNull(true) : staticHudArtOrNull(false), 16, 8);
         drawStaticFrame(selectTimeFrame(levelGamestate.shouldFlashTimer(), levelGamestate.getFlashCycle()), 16, 24);
         drawStaticFrame(selectRingsFrame(levelGamestate.getRings(), levelGamestate.getFlashCycle()), 16, 40);
-        drawStaticFrame(staticHudArt != null ? staticHudArt.livesFrame() : null, 16, 200);
 
         if (debugMode) {
             int hexStartX = 48;
@@ -167,7 +181,13 @@ public class HudRenderManager {
 
         drawTime(56, 24, levelGamestate.getDisplayTime());
         drawRings(levelGamestate.getRings(), bonusStageHudLayout ? 8 : 40);
+        boolean paletteOverridden = applyLivesPaletteOverride();
+        drawStaticFrame(staticHudArt != null ? staticHudArt.livesFrame() : null, 16, 200);
         drawLives(gameState.getLives());
+        if (paletteOverridden) {
+            graphicsManager.flushPatternBatch();
+            graphicsManager.flush();
+        }
     }
 
     private SpriteMappingFrame staticHudArtOrNull(boolean debugMode) {
@@ -193,7 +213,7 @@ public class HudRenderManager {
     private void drawLives(int lives) {
         int camX = camera.getXWithShake();
         int camY = camera.getYWithShake();
-        int numDrawX = 40;
+        int numDrawX = 56;
         int line2Y = 208;
 
         if (livesNumbersPatternIndex <= 0) {
@@ -207,6 +227,25 @@ public class HudRenderManager {
             int digit = livesDigits[i];
             renderSafe(livesNumbersPatternIndex + digit, iconPatternDesc, numDrawX + camX + (i * 8), line2Y + camY);
         }
+    }
+
+    private boolean applyLivesPaletteOverride() {
+        Palette paletteOverride = resolveLivesPaletteOverride();
+        if (paletteOverride == null) {
+            return false;
+        }
+        graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), iconPaletteLine);
+        return true;
+    }
+
+    private Palette resolveLivesPaletteOverride() {
+        if (livesPaletteOverrideSupplier != null) {
+            Palette supplied = livesPaletteOverrideSupplier.get();
+            if (supplied != null) {
+                return supplied;
+            }
+        }
+        return livesPaletteOverride;
     }
 
     private void drawStaticFrame(SpriteMappingFrame frame, int originX, int originY) {

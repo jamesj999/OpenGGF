@@ -18,9 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mockStatic;
@@ -58,25 +55,18 @@ class TestSonic2LivesHudDonation {
         HudStaticArt nativeArt = nativeProvider.getHudStaticArt();
         HudStaticArt donorArt = donorProvider.getHudStaticArt();
 
-        Set<String> nativePalette1TopRowOffsets = nativeArt.livesFrame().pieces().stream()
-                .filter(piece -> piece.xOffset() >= 16 && piece.yOffset() == 0)
-                .filter(piece -> piece.paletteIndex() == 1)
-                .map(piece -> piece.xOffset() + "," + piece.yOffset())
-                .collect(Collectors.toSet());
-        Set<String> donorPalette0NamePieceOffsets = donorArt.livesFrame().pieces().stream()
-                .filter(piece -> piece.xOffset() >= 16)
-                .filter(piece -> piece.paletteIndex() == 0)
-                .map(piece -> piece.xOffset() + "," + piece.yOffset())
-                .collect(Collectors.toSet());
-        long donorNonPalette0NamePieces = donorArt.livesFrame().pieces().stream()
-                .filter(piece -> piece.xOffset() >= 16)
-                .filter(piece -> piece.paletteIndex() != 0)
-                .count();
-
-        assertEquals(Set.of("16,0", "24,0", "32,0", "40,0", "48,0", "56,0"), nativePalette1TopRowOffsets);
-        assertEquals(Set.of("16,0", "24,0", "32,0", "40,0", "48,0", "56,0", "16,8", "24,8"),
-                donorPalette0NamePieceOffsets);
-        assertEquals(0, donorNonPalette0NamePieces);
+        assertEquals(2, nativeArt.livesFrame().pieces().size());
+        assertEquals(2, donorArt.livesFrame().pieces().size());
+        assertEquals(16, nativeArt.livesFrame().pieces().get(1).xOffset());
+        assertEquals(0, nativeArt.livesFrame().pieces().get(1).yOffset());
+        assertEquals(4, nativeArt.livesFrame().pieces().get(1).widthTiles());
+        assertEquals(2, nativeArt.livesFrame().pieces().get(1).heightTiles());
+        assertEquals(1, nativeArt.livesFrame().pieces().get(1).paletteIndex());
+        assertEquals(16, donorArt.livesFrame().pieces().get(1).xOffset());
+        assertEquals(0, donorArt.livesFrame().pieces().get(1).yOffset());
+        assertEquals(4, donorArt.livesFrame().pieces().get(1).widthTiles());
+        assertEquals(2, donorArt.livesFrame().pieces().get(1).heightTiles());
+        assertEquals(0, donorArt.livesFrame().pieces().get(1).paletteIndex());
         assertEquals(donorProvider.getHudTextPatterns().length + donorProvider.getHudLivesPatterns().length,
                 donorArt.patterns().length);
         assertTrue(donorArt.livesFrame().pieces().stream()

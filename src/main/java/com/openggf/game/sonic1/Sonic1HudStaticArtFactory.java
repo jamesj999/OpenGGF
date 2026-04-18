@@ -63,13 +63,6 @@ public final class Sonic1HudStaticArtFactory {
     private static SpriteMappingFrame nativeLivesFrame(int livesBase) {
         return new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(0, 0, 2, 2, livesBase, false, false, 0),
-                new SpriteMappingPiece(16, 0, 1, 1, livesBase + 4, false, false, 0),
-                new SpriteMappingPiece(24, 0, 1, 1, livesBase + 6, false, false, 0),
-                new SpriteMappingPiece(32, 0, 1, 1, livesBase + 9, false, false, 0),
-                new SpriteMappingPiece(40, 0, 1, 1, livesBase + 8, false, false, 0),
-                new SpriteMappingPiece(48, 0, 1, 1, livesBase + 10, false, false, 0),
-                new SpriteMappingPiece(56, 0, 1, 1, livesBase + 11, false, false, 0),
-                new SpriteMappingPiece(16, 8, 1, 1, livesBase + 5, false, false, 0),
-                new SpriteMappingPiece(24, 8, 1, 1, livesBase + 7, false, false, 0)));
+                new SpriteMappingPiece(16, 0, 4, 2, livesBase + 4, false, false, 0)));
     }
 }
