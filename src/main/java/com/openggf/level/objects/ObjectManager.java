@@ -9,6 +9,14 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.solid.ContactKind;
+import com.openggf.game.solid.ObjectSolidExecutionContext;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.PlayerStandingState;
+import com.openggf.game.solid.PostContactState;
+import com.openggf.game.solid.PreContactState;
+import com.openggf.game.solid.SolidCheckpointBatch;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandGroup;
 import com.openggf.graphics.FadeManager;
@@ -239,31 +247,38 @@ public class ObjectManager {
         frameCounter++;
         vblaCounter++;
         updateCameraBounds();
+        SolidExecutionRegistry solidExecutionRegistry = objectServices.solidExecutionRegistry();
+        solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, sidekicks));
 
         boolean counterBased = placement.isCounterBasedRespawn();
-
-        if (counterBased) {
-            preAllocateReservedChildSlots();
-            updateCounterBasedExecThenLoad(cameraX, player);
-        } else {
-            syncActiveSpawnsUnload();
-            // ROM parity: In the ROM, ExecuteObjects runs BEFORE ObjPosLoad.
-            // Dynamic children (e.g. GlassBlock reflections) whose parent was just
-            // unloaded in syncActiveSpawnsUnload may now be marked destroyed (via
-            // the parent's onUnload()). Free their slots before the load phase so
-            // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
-            cleanupDestroyedDynamicObjects();
-            syncActiveSpawnsLoad();
-            if (inlineSolidResolution) {
-                solidContacts.beginInlineFrame(player, sidekicks, solidPostMovement);
-            }
-            try {
+        if (inlineSolidResolution) {
+            solidContacts.beginInlineFrame(player, sidekicks, solidPostMovement);
+        }
+        try {
+            if (counterBased) {
+                preAllocateReservedChildSlots();
+                updateCounterBasedExecThenLoad(
+                        cameraX,
+                        player,
+                        sidekicks,
+                        inlineSolidResolution,
+                        solidPostMovement);
+            } else {
+                syncActiveSpawnsUnload();
+                // ROM parity: In the ROM, ExecuteObjects runs BEFORE ObjPosLoad.
+                // Dynamic children (e.g. GlassBlock reflections) whose parent was just
+                // unloaded in syncActiveSpawnsUnload may now be marked destroyed (via
+                // the parent's onUnload()). Free their slots before the load phase so
+                // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
+                cleanupDestroyedDynamicObjects();
+                syncActiveSpawnsLoad();
                 runExecLoop(cameraX, player, sidekicks, inlineSolidResolution, solidPostMovement);
-            } finally {
-                if (inlineSolidResolution) {
-                    solidContacts.finishInlineFrame(player, sidekicks);
-                }
             }
+        } finally {
+            if (inlineSolidResolution) {
+                solidContacts.finishInlineFrame(player, sidekicks);
+            }
+            solidExecutionRegistry.finishFrame();
         }
 
         // Note: solidContacts.update() is now called during SpriteManager.update(),
@@ -289,6 +304,48 @@ public class ObjectManager {
         }
     }
 
+    private List<PlayableEntity> collectActivePlayers(PlayableEntity player,
+            List<? extends PlayableEntity> sidekicks) {
+        ArrayList<PlayableEntity> players = new ArrayList<>(1 + sidekicks.size());
+        if (player != null) {
+            players.add(player);
+        }
+        for (PlayableEntity sidekick : sidekicks) {
+            if (sidekick != null) {
+                players.add(sidekick);
+            }
+        }
+        return players;
+    }
+
+    private void executeObjectWithSolidContext(ObjectInstance instance, PlayableEntity player,
+            List<? extends PlayableEntity> sidekicks,
+            boolean inlineSolidResolution, boolean solidPostMovement) {
+        SolidExecutionRegistry registry = objectServices.solidExecutionRegistry();
+        SolidExecutionMode mode = null;
+        if (inlineSolidResolution && instance instanceof SolidObjectProvider provider) {
+            mode = provider.solidExecutionMode();
+        }
+
+        ObjectSolidExecutionContext.Resolver resolver =
+                mode == SolidExecutionMode.MANUAL_CHECKPOINT
+                        ? () -> solidContacts.processManualCheckpoint(
+                                instance, player, sidekicks, solidPostMovement)
+                        : null;
+
+        registry.beginObject(instance, resolver);
+        try {
+            instance.update(vblaCounter, player);
+            if (mode == SolidExecutionMode.AUTO_AFTER_UPDATE && !instance.isDestroyed()) {
+                registry.publishCheckpoint(
+                        solidContacts.processCompatibilityCheckpoint(
+                                instance, player, sidekicks, solidPostMovement));
+            }
+        } finally {
+            registry.endObject(instance);
+        }
+    }
+
     /**
      * ROM-accurate update flow for S1 counter-based respawn.
      * <p>
@@ -306,7 +363,9 @@ public class ObjectManager {
      * then loaded new objects before exec. New objects could fill freed slots that should
      * have been available for child allocations, causing cumulative slot offset drift.
      */
-    private void updateCounterBasedExecThenLoad(int cameraX, PlayableEntity player) {
+    private void updateCounterBasedExecThenLoad(int cameraX, PlayableEntity player,
+            List<? extends PlayableEntity> sidekicks,
+            boolean inlineSolidResolution, boolean solidPostMovement) {
         // Phase 1: Snapshot positions and build exec order from EXISTING objects.
         for (ObjectInstance inst : activeObjects.values()) {
             inst.snapshotPreUpdatePosition();
@@ -363,7 +422,8 @@ public class ObjectManager {
                     continue;
                 }
 
-                instance.update(vblaCounter, player);
+                executeObjectWithSolidContext(
+                        instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
 
                 if (instance.isDestroyed()) {
                     int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
@@ -399,7 +459,8 @@ public class ObjectManager {
                     objectsRemoved = true;
                     continue;
                 }
-                inst.update(vblaCounter, player);
+                executeObjectWithSolidContext(
+                        inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -421,7 +482,8 @@ public class ObjectManager {
                     objectsRemoved = true;
                     continue;
                 }
-                inst.update(vblaCounter, player);
+                executeObjectWithSolidContext(
+                        inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(entry.getKey());
@@ -450,7 +512,7 @@ public class ObjectManager {
         // 1-frame pipeline delay (spawns added by postCameraPlacementUpdate are
         // instantiated the next frame). Running new objects now compensates for
         // this delay, keeping object behavior in sync with the trace.
-        runNewlyLoadedObjects(player);
+        runNewlyLoadedObjects(player, sidekicks, inlineSolidResolution, solidPostMovement);
     }
 
     /**
@@ -499,11 +561,8 @@ public class ObjectManager {
                 if (instance == null) continue;
                 processedInExecLoop.add(instance);
 
-                instance.update(vblaCounter, player);
-
-                if (inlineSolidResolution && !instance.isDestroyed()) {
-                    solidContacts.processInlineObject(instance, player, sidekicks, solidPostMovement);
-                }
+                executeObjectWithSolidContext(
+                        instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
 
                 // ROM parity: each object calls RememberState / out_of_range
                 // at the END of its routine, AFTER updating position. Check
@@ -568,10 +627,8 @@ public class ObjectManager {
                     objectsRemoved = true;
                     continue;
                 }
-                inst.update(vblaCounter, player);
-                if (inlineSolidResolution && !inst.isDestroyed()) {
-                    solidContacts.processInlineObject(inst, player, sidekicks, solidPostMovement);
-                }
+                executeObjectWithSolidContext(
+                        inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -597,10 +654,8 @@ public class ObjectManager {
                     objectsRemoved = true;
                     continue;
                 }
-                inst.update(vblaCounter, player);
-                if (inlineSolidResolution && !inst.isDestroyed()) {
-                    solidContacts.processInlineObject(inst, player, sidekicks, solidPostMovement);
-                }
+                executeObjectWithSolidContext(
+                        inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(entry.getKey());
@@ -627,7 +682,9 @@ public class ObjectManager {
      * But the engine compensates for its pipeline delay by running them immediately.
      * They run in slot order for consistency.
      */
-    private void runNewlyLoadedObjects(PlayableEntity player) {
+    private void runNewlyLoadedObjects(PlayableEntity player,
+            List<? extends PlayableEntity> sidekicks,
+            boolean inlineSolidResolution, boolean solidPostMovement) {
         // Build a slot-ordered list of newly loaded objects.
         // These are objects in activeObjects that are NOT in execOrder (they weren't
         // present during the exec loop) and have valid slots.
@@ -659,7 +716,8 @@ public class ObjectManager {
             if (instance == null) continue;
 
             instance.snapshotPreUpdatePosition();
-            instance.update(vblaCounter, player);
+            executeObjectWithSolidContext(
+                    instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
 
             if (instance.isDestroyed()) {
                 int slotIndex = slot + DYNAMIC_SLOT_BASE;
@@ -3487,24 +3545,35 @@ public class ObjectManager {
             }
         }
 
-        void processInlineObject(ObjectInstance instance, PlayableEntity player,
+        SolidCheckpointBatch processManualCheckpoint(ObjectInstance instance, PlayableEntity player,
                 List<? extends PlayableEntity> sidekicks, boolean postMovement) {
-            this.postMovement = postMovement;
-            processInlineObjectForPlayer(instance, player);
-            for (PlayableEntity sidekick : sidekicks) {
-                processInlineObjectForPlayer(instance, sidekick);
-            }
+            return resolveCheckpointBatch(instance, player, sidekicks, postMovement).batch();
         }
 
-        private void processInlineObjectForPlayer(ObjectInstance instance, PlayableEntity player) {
-            if (player == null || objectManager == null || player.getDead()) {
-                if (player != null) {
-                    ridingStates.remove(player);
-                }
-                return;
+        SolidCheckpointBatch processCompatibilityCheckpoint(ObjectInstance instance, PlayableEntity player,
+                List<? extends PlayableEntity> sidekicks, boolean postMovement) {
+            CheckpointResolution resolution =
+                    resolveCheckpointBatch(instance, player, sidekicks, postMovement);
+            emitCompatibilityCallbacks(instance, resolution.contacts());
+            return resolution.batch();
+        }
+
+        private CheckpointResolution resolveCheckpointBatch(ObjectInstance instance, PlayableEntity player,
+                List<? extends PlayableEntity> sidekicks, boolean postMovement) {
+            this.postMovement = postMovement;
+            IdentityHashMap<PlayableEntity, PlayerSolidContactResult> perPlayer = new IdentityHashMap<>();
+            IdentityHashMap<PlayableEntity, SolidContact> contacts = new IdentityHashMap<>();
+            resolveCheckpointForPlayer(instance, player, perPlayer, contacts);
+            for (PlayableEntity sidekick : sidekicks) {
+                resolveCheckpointForPlayer(instance, sidekick, perPlayer, contacts);
             }
-            if (player.isDebugMode()) {
-                ridingStates.remove(player);
+            return new CheckpointResolution(new SolidCheckpointBatch(instance, perPlayer), contacts);
+        }
+
+        private void resolveCheckpointForPlayer(ObjectInstance instance, PlayableEntity player,
+                IdentityHashMap<PlayableEntity, PlayerSolidContactResult> perPlayer,
+                IdentityHashMap<PlayableEntity, SolidContact> contacts) {
+            if (player == null) {
                 return;
             }
 
@@ -3512,6 +3581,44 @@ public class ObjectManager {
             preContactXSpeed = player.getXSpeed();
             preContactYSpeed = player.getYSpeed();
             preContactRolling = player.getRolling();
+
+            PreContactState preContact = new PreContactState(
+                    preContactXSpeed, preContactYSpeed, preContactRolling);
+            SolidContact contact = processInlineObjectForPlayer(instance, player);
+            PostContactState postContact = new PostContactState(
+                    player.getXSpeed(), player.getYSpeed(), player.getAir(),
+                    player.isOnObject(), currentPushingState(player));
+            PlayerStandingState previousStanding =
+                    objectManager.services().solidExecutionRegistry().previousStanding(instance, player);
+
+            if (contact == null) {
+                perPlayer.put(player,
+                        PlayerSolidContactResult.noContact(previousStanding, preContact, postContact));
+            } else {
+                contacts.put(player, contact);
+                perPlayer.put(player, new PlayerSolidContactResult(
+                        toContactKind(contact),
+                        contact.standing(),
+                        previousStanding.standing(),
+                        contact.pushing(),
+                        previousStanding.pushing(),
+                        preContact,
+                        postContact));
+            }
+            currentPlayer = null;
+        }
+
+        private SolidContact processInlineObjectForPlayer(ObjectInstance instance, PlayableEntity player) {
+            if (player == null || objectManager == null || player.getDead()) {
+                if (player != null) {
+                    ridingStates.remove(player);
+                }
+                return null;
+            }
+            if (player.isDebugMode()) {
+                ridingStates.remove(player);
+                return null;
+            }
 
             RidingState state = ridingStates.get(player);
             ObjectInstance ridingObject = state != null ? state.object : null;
@@ -3527,10 +3634,10 @@ public class ObjectManager {
             }
 
             if (instance == ridingObject && ridingObject instanceof SolidObjectProvider provider) {
-                processInlineRidingObject(player, instance, provider, ridingX, ridingY, ridingPieceIndex);
+                SolidContact ridingContact = processInlineRidingObject(
+                        player, instance, provider, ridingX, ridingY, ridingPieceIndex);
                 if (!(provider instanceof MultiPieceSolidProvider)) {
-                    currentPlayer = null;
-                    return;
+                    return ridingContact;
                 }
                 // ROM parity for staircase-style multi-piece objects: after carrying Sonic
                 // on the currently ridden piece, later sibling pieces of the same logical
@@ -3539,36 +3646,31 @@ public class ObjectManager {
             }
 
             if (!(instance instanceof SolidObjectProvider provider)) {
-                currentPlayer = null;
-                return;
+                return null;
             }
             if (!provider.isSolidFor(player)) {
-                currentPlayer = null;
-                return;
+                return null;
             }
             if (player.isObjectControlled()) {
-                currentPlayer = null;
-                return;
+                return null;
             }
             if (instance.isSkipSolidContactThisFrame()) {
-                currentPlayer = null;
-                return;
+                return null;
             }
 
             if (provider instanceof MultiPieceSolidProvider multiPiece) {
                 MultiPieceContactResult result = processMultiPieceCollision(
                         player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
-                if (result.pushing) {
+                if (result.pushing()) {
                     player.setPushing(true);
                     provider.setPlayerPushing(player, true);
                 }
-                if (result.standing) {
+                if (result.standing()) {
                     ridingStates.put(player, new RidingState(
-                            instance, result.ridingX, result.ridingY, result.pieceIndex));
+                            instance, result.ridingX(), result.ridingY(), result.pieceIndex()));
                     inlineSupportedPlayers.add(player);
                 }
-                currentPlayer = null;
-                return;
+                return result.aggregateContact();
             }
 
             SolidObjectParams params = provider.getSolidParams();
@@ -3595,8 +3697,7 @@ public class ObjectManager {
             }
 
             if (contact == null) {
-                currentPlayer = null;
-                return;
+                return null;
             }
             if (contact.pushing()) {
                 player.setPushing(true);
@@ -3606,13 +3707,10 @@ public class ObjectManager {
                 ridingStates.put(player, new RidingState(instance, instance.getX(), instance.getY(), -1));
                 inlineSupportedPlayers.add(player);
             }
-            if (instance instanceof SolidObjectListener listener) {
-                listener.onSolidContact(player, contact, frameCounter);
-            }
-            currentPlayer = null;
+            return contact;
         }
 
-        private void processInlineRidingObject(PlayableEntity player, ObjectInstance instance,
+        private SolidContact processInlineRidingObject(PlayableEntity player, ObjectInstance instance,
                 SolidObjectProvider provider, int ridingX, int ridingY, int ridingPieceIndex) {
             int currentX;
             int currentY;
@@ -3667,20 +3765,54 @@ public class ObjectManager {
                         ridingStates.remove(player);
                         player.setOnObject(false);
                         player.setAir(true);
-                        return;
+                        return null;
                     }
                 }
 
                 inlineSupportedPlayers.add(player);
-                if (instance instanceof SolidObjectListener listener) {
-                    listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
-                }
-                return;
+                return SolidContact.STANDING;
             }
 
             ridingStates.remove(player);
             player.setOnObject(false);
             player.setAir(true);
+            return null;
+        }
+
+        private void emitCompatibilityCallbacks(ObjectInstance instance,
+                IdentityHashMap<PlayableEntity, SolidContact> contacts) {
+            if (!(instance instanceof SolidObjectListener listener)) {
+                return;
+            }
+            for (Map.Entry<PlayableEntity, SolidContact> entry : contacts.entrySet()) {
+                SolidContact contact = entry.getValue();
+                if (contact != null) {
+                    listener.onSolidContact(entry.getKey(), contact, frameCounter);
+                }
+            }
+        }
+
+        private ContactKind toContactKind(SolidContact contact) {
+            if (contact == null) {
+                return ContactKind.NONE;
+            }
+            if (contact.standing() || contact.touchTop()) {
+                return ContactKind.TOP;
+            }
+            if (contact.touchSide()) {
+                return ContactKind.SIDE;
+            }
+            if (contact.touchBottom()) {
+                return ContactKind.BOTTOM;
+            }
+            return ContactKind.NONE;
+        }
+
+        private boolean currentPushingState(PlayableEntity player) {
+            if (player instanceof AbstractPlayableSprite sprite) {
+                return sprite.getPushing();
+            }
+            return false;
         }
 
         boolean hasStandingContact(PlayableEntity player) {
@@ -4075,16 +4207,19 @@ public class ObjectManager {
                 if (provider instanceof MultiPieceSolidProvider multiPiece) {
                     MultiPieceContactResult result = processMultiPieceCollision(
                             player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
-                    if (result.pushing) {
+                    if (result.pushing()) {
                         player.setPushing(true);
                         // ROM: s2.asm:35220-35226 — also set pushing bit on the object
                         provider.setPlayerPushing(player, true);
                     }
-                    if (result.standing) {
+                    if (result.standing()) {
                         nextRidingObject = instance;
-                        nextRidingX = result.ridingX;
-                        nextRidingY = result.ridingY;
-                        nextRidingPieceIndex = result.pieceIndex;
+                        nextRidingX = result.ridingX();
+                        nextRidingY = result.ridingY();
+                        nextRidingPieceIndex = result.pieceIndex();
+                    }
+                    if (result.aggregateContact() != null && instance instanceof SolidObjectListener listener) {
+                        listener.onSolidContact(player, result.aggregateContact(), frameCounter);
                     }
                     continue;
                 }
@@ -4165,7 +4300,17 @@ public class ObjectManager {
             currentPlayer = null;
         }
 
-        private record MultiPieceContactResult(boolean standing, boolean pushing, int ridingX, int ridingY, int pieceIndex) {}
+        private record CheckpointResolution(
+                SolidCheckpointBatch batch,
+                IdentityHashMap<PlayableEntity, SolidContact> contacts) {}
+
+        private record MultiPieceContactResult(
+                boolean standing,
+                boolean pushing,
+                int ridingX,
+                int ridingY,
+                int pieceIndex,
+                SolidContact aggregateContact) {}
 
         private MultiPieceContactResult processMultiPieceCollision(PlayableEntity player,
                 MultiPieceSolidProvider multiPiece, ObjectInstance instance, int frameCounter,
@@ -4223,15 +4368,15 @@ public class ObjectManager {
                 multiPiece.onPieceContact(i, player, contact, frameCounter);
             }
 
-            if (anyStanding || anyTouchTop || anyTouchBottom || anyTouchSide || anyPushing) {
-                if (instance instanceof SolidObjectListener listener) {
-                    SolidContact aggregateContact = new SolidContact(
-                            anyStanding, anyTouchSide, anyTouchBottom, anyTouchTop, anyPushing);
-                    listener.onSolidContact(player, aggregateContact, frameCounter);
-                }
-            }
+            SolidContact aggregateContact = (anyStanding || anyTouchTop || anyTouchBottom
+                    || anyTouchSide || anyPushing)
+                    ? new SolidContact(
+                            anyStanding, anyTouchSide, anyTouchBottom, anyTouchTop, anyPushing)
+                    : null;
 
-            return new MultiPieceContactResult(anyStanding, anyPushing, standingPieceX, standingPieceY, standingPieceIndex);
+            return new MultiPieceContactResult(
+                    anyStanding, anyPushing, standingPieceX, standingPieceY,
+                    standingPieceIndex, aggregateContact);
         }
 
         /**
