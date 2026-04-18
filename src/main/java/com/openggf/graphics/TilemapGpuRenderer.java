@@ -305,22 +305,8 @@ public class TilemapGpuRenderer {
 
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
-        glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
         perLineScroll = false; // Reset for next frame
         perColumnVScroll = false;
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_1D, dummyTexture1dId);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, 0);
 
         shader.stop();
     }

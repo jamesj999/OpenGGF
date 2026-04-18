@@ -38,6 +38,7 @@ public class InstancedPatternRenderer {
     private final GraphicsManager graphicsManager;
     private final int screenHeight;
     private final float[] instanceData;
+    private final boolean drainGlErrors;
 
     private int instanceCount;
     private boolean batchActive;
@@ -87,6 +88,7 @@ public class InstancedPatternRenderer {
         Objects.requireNonNull(configService, "configService");
         this.screenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
         this.instanceData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE];
+        this.drainGlErrors = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 
     /**
@@ -149,6 +151,7 @@ public class InstancedPatternRenderer {
         cachedWaterEnabledLoc = glGetUniformLocation(priorityProgramId, "WaterEnabled");
 
         initBuffers();
+        configureVertexArray();
         initialized = true;
         LOGGER.info("Instanced pattern renderer initialized.");
     }
@@ -370,6 +373,58 @@ public class InstancedPatternRenderer {
         MemoryUtil.memFree(quadBuffer);
     }
 
+    private void configureVertexArray() {
+        if (vaoId == 0 || quadVboId == 0 || instanceVboId == 0) {
+            return;
+        }
+
+        glBindVertexArray(vaoId);
+
+        glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
+        configureVertexAttributes(defaultAttribs);
+        configureVertexAttributes(waterAttribs);
+        configureVertexAttributes(priorityAttribs);
+
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboId);
+        configureInstanceAttributes(defaultAttribs);
+        configureInstanceAttributes(waterAttribs);
+        configureInstanceAttributes(priorityAttribs);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+
+    private void configureVertexAttributes(AttribLocations attribs) {
+        if (attribs == null || attribs.vertexPos < 0) {
+            return;
+        }
+        glEnableVertexAttribArray(attribs.vertexPos);
+        glVertexAttribPointer(attribs.vertexPos, 2, GL_FLOAT, false, 0, 0L);
+        glVertexAttribDivisor(attribs.vertexPos, 0);
+    }
+
+    private void configureInstanceAttributes(AttribLocations attribs) {
+        if (attribs == null) {
+            return;
+        }
+        int stride = FLOATS_PER_INSTANCE * Float.BYTES;
+        enableInstanceAttrib(attribs.instancePos, 2, stride, 0L);
+        enableInstanceAttrib(attribs.instanceSize, 2, stride, 2L * Float.BYTES);
+        enableInstanceAttrib(attribs.instanceUv0, 2, stride, 4L * Float.BYTES);
+        enableInstanceAttrib(attribs.instanceUv1, 2, stride, 6L * Float.BYTES);
+        enableInstanceAttrib(attribs.instancePalette, 1, stride, 8L * Float.BYTES);
+        enableInstanceAttrib(attribs.instanceHighPriority, 1, stride, 9L * Float.BYTES);
+    }
+
+    private void enableInstanceAttrib(int location, int size, int stride, long offset) {
+        if (location < 0) {
+            return;
+        }
+        glEnableVertexAttribArray(location);
+        glVertexAttribPointer(location, size, GL_FLOAT, false, stride, offset);
+        glVertexAttribDivisor(location, 1);
+    }
+
     private boolean isInstancingSupported() {
         // LWJGL with GL3.1+ context always supports instancing
         // Check OpenGL version - instancing requires GL 3.1+ or extensions
@@ -460,8 +515,10 @@ public class InstancedPatternRenderer {
                 return;
             }
 
-            // Clear any accumulated GL errors from previous operations
-            while (glGetError() != GL_NO_ERROR) { /* drain errors */ }
+            // Only drain accumulated GL errors in debug view builds.
+            if (drainGlErrors) {
+                while (glGetError() != GL_NO_ERROR) { /* drain errors */ }
+            }
             GraphicsManager gm = graphicsManager;
             boolean useWaterShader = gm.getShaderProgram() instanceof WaterShaderProgram;
             // Use captured priority shader state from batch creation time
@@ -622,47 +679,12 @@ public class InstancedPatternRenderer {
                 glUniform2f(cameraOffsetLoc, -cameraX, cameraY);
             }
 
-            int stride = FLOATS_PER_INSTANCE * Float.BYTES;
-
-            glBindBuffer(GL_ARRAY_BUFFER, quadVboId);
-            enableAttrib(attribs.vertexPos, 2, GL_FLOAT, 0, 0L);
-            glVertexAttribDivisor(attribs.vertexPos, 0);
-
             glBindBuffer(GL_ARRAY_BUFFER, instanceVboId);
             instanceBuffer.rewind();
             instanceBuffer.limit(floatCount);
             glBufferData(GL_ARRAY_BUFFER, instanceBuffer, GL_DYNAMIC_DRAW);
 
-            enableAttrib(attribs.instancePos, 2, GL_FLOAT, stride, 0L);
-            enableAttrib(attribs.instanceSize, 2, GL_FLOAT, stride, 2L * Float.BYTES);
-            enableAttrib(attribs.instanceUv0, 2, GL_FLOAT, stride, 4L * Float.BYTES);
-            enableAttrib(attribs.instanceUv1, 2, GL_FLOAT, stride, 6L * Float.BYTES);
-            enableAttrib(attribs.instancePalette, 1, GL_FLOAT, stride, 8L * Float.BYTES);
-            enableAttrib(attribs.instanceHighPriority, 1, GL_FLOAT, stride, 9L * Float.BYTES);
-
-            setDivisor(attribs.instancePos, 1);
-            setDivisor(attribs.instanceSize, 1);
-            setDivisor(attribs.instanceUv0, 1);
-            setDivisor(attribs.instanceUv1, 1);
-            setDivisor(attribs.instancePalette, 1);
-            setDivisor(attribs.instanceHighPriority, 1);
-
             glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, instanceCount);
-
-            setDivisor(attribs.instancePos, 0);
-            setDivisor(attribs.instanceSize, 0);
-            setDivisor(attribs.instanceUv0, 0);
-            setDivisor(attribs.instanceUv1, 0);
-            setDivisor(attribs.instancePalette, 0);
-            setDivisor(attribs.instanceHighPriority, 0);
-
-            disableAttrib(attribs.instanceHighPriority);
-            disableAttrib(attribs.instancePalette);
-            disableAttrib(attribs.instanceUv1);
-            disableAttrib(attribs.instanceUv0);
-            disableAttrib(attribs.instanceSize);
-            disableAttrib(attribs.instancePos);
-            disableAttrib(attribs.vertexPos);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
@@ -696,20 +718,6 @@ public class InstancedPatternRenderer {
             }
             glEnableVertexAttribArray(location);
             glVertexAttribPointer(location, size, type, false, stride, offset);
-        }
-
-        private void disableAttrib(int location) {
-            if (location < 0) {
-                return;
-            }
-            glDisableVertexAttribArray(location);
-        }
-
-        private void setDivisor(int location, int divisor) {
-            if (location < 0) {
-                return;
-            }
-            glVertexAttribDivisor(location, divisor);
         }
     }
 }

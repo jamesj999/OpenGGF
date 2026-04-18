@@ -41,6 +41,7 @@ public class MemoryStats {
 
     private String activeSection = null;
     private long sectionStartAllocBytes = 0;
+    private boolean enabled;
 
     public MemoryStats() {
         memoryBean = ManagementFactory.getMemoryMXBean();
@@ -66,10 +67,24 @@ public class MemoryStats {
         return INSTANCE;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            activeSection = null;
+        }
+    }
+
     /**
      * Update allocation rate tracking. Call once per frame.
      */
     public void update() {
+        if (!enabled) {
+            return;
+        }
         long now = System.nanoTime();
         long currentAllocatedBytes = getThreadAllocatedBytes();
 
@@ -123,6 +138,9 @@ public class MemoryStats {
      * Call this at the start of a profiled section.
      */
     public void beginSection(String name) {
+        if (!enabled) {
+            return;
+        }
         if (activeSection != null) {
             endSection(activeSection);
         }
@@ -135,6 +153,9 @@ public class MemoryStats {
      * Uses cumulative thread allocation bytes - immune to GC.
      */
     public void endSection(String name) {
+        if (!enabled) {
+            return;
+        }
         if (activeSection == null || !activeSection.equals(name)) {
             return;
         }
@@ -247,6 +268,22 @@ public class MemoryStats {
         reusableSnapshot.allocationRateMBPerSec = getAllocationRateMBPerSec();
         reusableSnapshot.topAllocators = getTopAllocators(5);
         return reusableSnapshot;
+    }
+
+    public void reset() {
+        lastHeapUsed = getHeapUsed();
+        lastAllocatedBytes = getThreadAllocatedBytes();
+        allocationWindowStartTime = System.nanoTime();
+        allocationWindowStartBytes = lastAllocatedBytes;
+        allocationRateBytesPerSec = 0;
+        sectionAllocHistories.clear();
+        sectionAllocSums.clear();
+        currentFrameAllocations.clear();
+        frameCount = 0;
+        activeSection = null;
+        sectionStartAllocBytes = 0;
+        topAllocatorsCache.clear();
+        reusableSnapshot.topAllocators = List.of();
     }
 
     public static class Snapshot {
