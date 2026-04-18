@@ -147,7 +147,7 @@ public class CollisionSystem {
      * Convenience method that delegates to SolidContacts.
      */
     public boolean hasStandingContact(AbstractPlayableSprite player) {
-        if (objectManager == null) {
+        if (player == null || player.getYSpeed() < 0 || objectManager == null) {
             return false;
         }
         return objectManager.latestStandingSnapshot(player);

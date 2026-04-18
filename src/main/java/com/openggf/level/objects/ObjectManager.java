@@ -3474,6 +3474,7 @@ public class ObjectManager {
         void clearRidingObject(PlayableEntity player) {
             if (player != null) {
                 ridingStates.remove(player);
+                latestStandingSnapshots.remove(player);
             }
         }
 
@@ -3567,11 +3568,13 @@ public class ObjectManager {
             }
             if (player.getDead() || player.isDebugMode()) {
                 ridingStates.remove(player);
+                latestStandingSnapshots.remove(player);
                 return;
             }
             if (!inlineSupportedPlayers.contains(player)) {
                 ridingStates.remove(player);
                 player.setOnObject(false);
+                latestStandingSnapshots.remove(player);
             }
         }
 
@@ -4073,6 +4076,10 @@ public class ObjectManager {
             if (player.isDebugMode()) {
                 ridingStates.remove(player);
                 return;
+            }
+
+            if (!isCurrentlySupported(player)) {
+                latestStandingSnapshots.remove(player);
             }
 
             // Set currentPlayer so internal resolveContact/resolveSlopedContact can check

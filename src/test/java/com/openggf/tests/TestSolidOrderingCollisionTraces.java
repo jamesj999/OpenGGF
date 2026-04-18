@@ -9,6 +9,7 @@ import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.physics.CollisionEvent;
+import com.openggf.physics.CollisionTrace;
 import com.openggf.physics.RecordingCollisionTrace;
 import com.openggf.graphics.GLCommand;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -95,6 +96,27 @@ class TestSolidOrderingCollisionTraces {
                 "SOLID_CHECKPOINT_RESULT"),
                 checkpointEvents,
                 "Checkpoint events should stay ordered by object execution");
+
+        List<CollisionEvent> actualCheckpointEvents = trace.getEvents().stream()
+                .filter(event -> event.type().name().startsWith("SOLID_CHECKPOINT"))
+                .collect(Collectors.toList());
+        assertEquals("TraceProbeObject", actualCheckpointEvents.get(0).description());
+        assertTrue(actualCheckpointEvents.get(1).description().startsWith("TraceProbeObject:"));
+        assertTrue(actualCheckpointEvents.get(2).description().startsWith("TraceProbeObject:"));
+
+        List<CollisionEvent> alteredCheckpointEvents = actualCheckpointEvents.stream()
+                .map(event -> new CollisionEvent(
+                        event.type(),
+                        event.description() + "_alt",
+                        event.x(),
+                        event.y(),
+                        event.distance(),
+                        event.angle(),
+                        event.flag1(),
+                        event.flag2()))
+                .collect(Collectors.toList());
+        assertFalse(trace.compareWith(traceWithEvents(alteredCheckpointEvents)).isEmpty(),
+                "Checkpoint descriptions should affect trace comparison");
     }
 
     private AbstractPlayableSprite createSidekick() {
@@ -103,6 +125,60 @@ class TestSolidOrderingCollisionTraces {
         tails.setCpuController(new SidekickCpuController(tails, player));
         GameServices.sprites().addSprite(tails, "tails");
         return tails;
+    }
+
+    private static CollisionTrace traceWithEvents(List<CollisionEvent> events) {
+        return new CollisionTrace() {
+            @Override
+            public void onTerrainProbesStart(int playerX, int playerY, boolean inAir) {
+            }
+
+            @Override
+            public void onTerrainProbeResult(String sensorName, com.openggf.physics.SensorResult result) {
+            }
+
+            @Override
+            public void onTerrainProbesComplete(int adjustedX, int adjustedY, byte angle) {
+            }
+
+            @Override
+            public void onSolidContactsStart(int playerX, int playerY) {
+            }
+
+            @Override
+            public void onSolidCandidate(String objectType, int objectX, int objectY, boolean contacted) {
+            }
+
+            @Override
+            public void onSolidResolved(com.openggf.level.objects.SolidContact contact, boolean standing, boolean pushing) {
+            }
+
+            @Override
+            public void onSolidCheckpointStart(String objectType, int objectX, int objectY) {
+            }
+
+            @Override
+            public void onSolidCheckpointResult(String objectType, String playerLabel, String kind,
+                    boolean standingNow, boolean standingLastFrame) {
+            }
+
+            @Override
+            public void onSolidContactsComplete(boolean ridingObject, int adjustedX, int adjustedY) {
+            }
+
+            @Override
+            public void onPostAdjustment(String adjustmentType, int beforeValue, int afterValue) {
+            }
+
+            @Override
+            public List<CollisionEvent> getEvents() {
+                return events;
+            }
+
+            @Override
+            public void clear() {
+            }
+        };
     }
 
     private static final class TraceProbeObject extends AbstractObjectInstance implements SolidObjectProvider {
