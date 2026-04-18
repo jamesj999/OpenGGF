@@ -4,7 +4,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
-import com.openggf.level.objects.HudRenderManager;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationSet;
@@ -92,6 +92,15 @@ public interface ObjectArtProvider {
     Pattern[] getHudLivesNumbers();
 
     /**
+     * Gets the shared static HUD art bundle used by the mapping-driven HUD renderer.
+     *
+     * @return the static HUD art bundle, or null if the provider still uses legacy HUD wiring
+     */
+    default HudStaticArt getHudStaticArt() {
+        return null;
+    }
+
+    /**
      * Gets the ROM-native hex-digit font used by the debug HUD (player/camera coords).
      * Tile layout is ASCII-aligned: digits 0-9 at offsets 0-9 and A-F at offsets
      * 17-22 (see {@link HudRenderManager#setHexDigitsPatternIndex(int)}).
@@ -99,6 +108,15 @@ public interface ObjectArtProvider {
      * @return the hex digit pattern array, or null when not loaded
      */
     default Pattern[] getHudHexDigitPatterns() {
+        return null;
+    }
+
+    /**
+     * Optional palette override used only while drawing the lives HUD.
+     * This is for cases where donated life-icon art needs a different palette
+     * contract than the rest of the shared in-level palette line.
+     */
+    default Palette getHudLivesPaletteOverride() {
         return null;
     }
 
@@ -143,34 +161,6 @@ public interface ObjectArtProvider {
      */
     default int getHudFlashPaletteLine() {
         return 0;
-    }
-
-    /**
-     * Gets the HUD flash mode for warning indicators (rings=0, time>=9:00).
-     * S1/S2 use palette swap (red flash), S3K hides the text label entirely.
-     *
-     * @return the flash mode, default PALETTE_SWAP (S1/S2 behavior)
-     */
-    default HudRenderManager.HudFlashMode getHudFlashMode() {
-        return HudRenderManager.HudFlashMode.PALETTE_SWAP;
-    }
-
-    /**
-     * Returns whether the lives-name tiles should render with the icon palette.
-     * Native S2 life names use the HUD text palette, while S3K-style life icon art
-     * keeps icon and name tiles on the same palette line.
-     */
-    default boolean usesIconPaletteForLivesName() {
-        return false;
-    }
-
-    /**
-     * Optional palette override used only while drawing the lives HUD.
-     * This is for cases where donated life-icon art needs a different palette
-     * contract than the rest of the shared in-level palette line.
-     */
-    default Palette getHudLivesPaletteOverride() {
-        return null;
     }
 
     /**
