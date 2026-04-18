@@ -56,6 +56,12 @@ All notable changes to the OpenGGF project are documented in this file.
   direct float buffer for every glyph draw.
 - Fixed debug overlay sensor label overlap and improved text batching/caching
   so heavy overlay usage produces less garbage and more stable spacing.
+- Replaced the dual-path `Layer/Prio/Solidity` debug readout with S1-relevant
+  `Layer/Tunnel` state when the active game uses the UNIFIED collision model.
+  S1 now surfaces the loop-low-plane flag as `Layer: A/B` and the roll-tunnel
+  flag as `Tunnel: 0/1` in both the player status panel and the overhead
+  character label. S2 and S3K continue to show the existing A/B + L/H + top/lrb
+  solidity readout.
 - First-run startup now materializes `config.json` automatically when the file
   is missing. The bundled defaults were also normalized so generated configs
   use readable key-name bindings, an empty `PLAYBACK_MOVIE_PATH`, and the

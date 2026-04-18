@@ -1,6 +1,8 @@
 package com.openggf.debug;
 
+import com.openggf.game.CollisionModel;
 import com.openggf.game.GameServices;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.GameModule;
 
@@ -342,7 +344,16 @@ public class DebugRenderer {
                 if (screenY < -16 || screenY > baseHeight + 16) {
                         return;
                 }
-                String label = formatLayer(playable.getLayer()) + " " + formatPriority(playable.isHighPriority());
+                String label;
+                if (isUnifiedCollision(playable)) {
+                        // S1 (UNIFIED): layer derived from loop-low-plane; tunnel = 0/1
+                        char layerChar = playable.isLoopLowPlane() ? 'B' : 'A';
+                        char tunnelChar = playable.isTunnelMode() ? '1' : '0';
+                        label = layerChar + " " + tunnelChar;
+                } else {
+                        // S2/S3K (DUAL_PATH): collision path + VDP sprite priority
+                        label = formatLayer(playable.getLayer()) + " " + formatPriority(playable.isHighPriority());
+                }
                 glyphBatch.drawTextOutlined(label,
                                 toScreenX(screenX - 6),
                                 toScreenYFromWorld(screenY) + uiY(8),
@@ -608,16 +619,27 @@ public class DebugRenderer {
                 lines.add("State: " + formatStateFlags(sprite));
 
                 pb.setLength(0);
-                pb.append("Layer: ").append(formatLayer(sprite.getLayer()))
-                  .append("  Prio: ").append(formatPriority(sprite.isHighPriority()));
-                lines.add(pb.toString());
+                if (isUnifiedCollision(sprite)) {
+                        // S1 (UNIFIED): A/B from loop-low-plane; tunnel mode 0/1.
+                        // Dual-path Prio/Solidity bits are stuck at defaults in S1, so we
+                        // surface S1's actual per-frame routing state instead.
+                        char layerChar = sprite.isLoopLowPlane() ? 'B' : 'A';
+                        char tunnelChar = sprite.isTunnelMode() ? '1' : '0';
+                        pb.append("Layer: ").append(layerChar)
+                          .append("  Tunnel: ").append(tunnelChar);
+                        lines.add(pb.toString());
+                } else {
+                        pb.append("Layer: ").append(formatLayer(sprite.getLayer()))
+                          .append("  Prio: ").append(formatPriority(sprite.isHighPriority()));
+                        lines.add(pb.toString());
 
-                pb.setLength(0);
-                pb.append("Solidity: top ");
-                DebugRenderContext.appendHex2(pb, sprite.getTopSolidBit() & 0xFF);
-                pb.append(" lrb ");
-                DebugRenderContext.appendHex2(pb, sprite.getLrbSolidBit() & 0xFF);
-                lines.add(pb.toString());
+                        pb.setLength(0);
+                        pb.append("Solidity: top ");
+                        DebugRenderContext.appendHex2(pb, sprite.getTopSolidBit() & 0xFF);
+                        pb.append(" lrb ");
+                        DebugRenderContext.appendHex2(pb, sprite.getLrbSolidBit() & 0xFF);
+                        lines.add(pb.toString());
+                }
 
                 pb.setLength(0);
                 pb.append("Radii: x ").append(sprite.getXRadius())
@@ -1005,6 +1027,11 @@ public class DebugRenderer {
 
         private char formatLayer(byte layer) {
                 return ObjectManager.formatPlaneSwitcherLayer(layer);
+        }
+
+        private boolean isUnifiedCollision(AbstractPlayableSprite sprite) {
+                PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+                return fs != null && fs.collisionModel() == CollisionModel.UNIFIED;
         }
 
         private char formatPriority(boolean highPriority) {
