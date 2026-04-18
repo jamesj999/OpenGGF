@@ -73,6 +73,23 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void compatibilityAutoObjectPreservesPerPlayerCallbackTimingWithSidekickMutation() {
+        TestPlayableSprite player = createStandingProbePlayer();
+        TestPlayableSprite sidekick = createStandingProbePlayer();
+
+        FirstContactDisablesSolidityProbeObject object =
+                new FirstContactDisablesSolidityProbeObject(100, 100);
+        ObjectManager manager = buildManager(object);
+
+        manager.update(0, player, List.of(sidekick), 0, false, true, false);
+
+        assertEquals(1, object.compatibilityCallbackCount);
+        assertEquals(player, object.firstCallbackPlayer);
+        assertTrue(object.mainPlayerSawCallback);
+        assertFalse(object.sidekickSawCallback);
+    }
+
+    @Test
     public void testStandingContactOnFlatObject() {
         SolidObjectParams params = new SolidObjectParams(16, 8, 8);
         TestSolidObject object = new TestSolidObject(100, 100, params);
@@ -366,6 +383,17 @@ public class TestSolidObjectManager {
         field.setBoolean(instance, value);
     }
 
+    private TestPlayableSprite createStandingProbePlayer() {
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 83);
+        player.setYSpeed((short) 0x100);
+        player.setAir(true);
+        return player;
+    }
+
     private ObjectManager buildManager(ObjectInstance instance) {
         ObjectRegistry registry = new ObjectRegistry() {
             @Override
@@ -549,6 +577,67 @@ public class TestSolidObjectManager {
         @Override
         public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
             compatibilityCallbackCount++;
+        }
+    }
+
+    private static final class FirstContactDisablesSolidityProbeObject extends AbstractObjectInstance
+            implements SolidObjectProvider, SolidObjectListener {
+        private final SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        private boolean solid = true;
+        private int compatibilityCallbackCount;
+        private PlayableEntity firstCallbackPlayer;
+        private boolean mainPlayerSawCallback;
+        private boolean sidekickSawCallback;
+
+        private FirstContactDisablesSolidityProbeObject(int x, int y) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "FirstContactDisablesSolidityProbe");
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return params;
+        }
+
+        @Override
+        public boolean isSolidFor(PlayableEntity player) {
+            return solid;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            // No-op for tests.
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // No-op for tests.
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return false;
+        }
+
+        @Override
+        public boolean isSkipSolidContactThisFrame() {
+            return false;
+        }
+
+        @Override
+        public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
+            compatibilityCallbackCount++;
+            if (firstCallbackPlayer == null) {
+                firstCallbackPlayer = player;
+                solid = false;
+                mainPlayerSawCallback = true;
+            } else {
+                sidekickSawCallback = true;
+            }
         }
     }
 
