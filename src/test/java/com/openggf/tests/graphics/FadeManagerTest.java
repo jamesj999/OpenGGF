@@ -8,6 +8,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.FadeManager.FadeState;
 import com.openggf.graphics.FadeManager.FadeType;
+import com.openggf.tests.TestEnvironment;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,7 +28,7 @@ public class FadeManagerTest {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.createGameplay();
+        TestEnvironment.resetAll();
         GameServices.fade().resetState();
         fadeManager = GameServices.fade();
     }

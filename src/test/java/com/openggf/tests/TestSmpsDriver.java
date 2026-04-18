@@ -1,6 +1,8 @@
 package com.openggf.tests;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.openggf.audio.driver.SmpsDriver;
@@ -8,6 +10,7 @@ import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.game.sonic2.audio.smps.Sonic2SmpsData;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.smps.DacData;
+import com.openggf.game.RuntimeManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +20,16 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSmpsDriver {
+
+    @BeforeEach
+    void setUp() {
+        TestEnvironment.resetAll();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     // A spy driver that records writes
     static class SpyDriver extends SmpsDriver {
