@@ -32,6 +32,13 @@ All notable changes to the OpenGGF project are documented in this file.
   `@FullReset`.
 - Reduced S3K load-time duplicate decompression and restored bootstrap-safe
   module/title/runtime behavior after the service-closure refactor.
+- Runtime app version metadata is now generated at build time and loaded at
+  runtime with a hardened fallback path, and native-image bootstrap/package
+  fixes restored correct metadata and library resolution in native builds.
+- Graphics teardown now clears queued render-thread work, the main loop stops
+  burning CPU while the window is unfocused, and donated preview capture now
+  rebuilds `LevelManager`, GPU palette/atlas state, and gameplay runtime before
+  normal play resumes so stale preview state cannot leak into gameplay.
 
 ### Configuration and Debug Tooling
 
@@ -49,6 +56,22 @@ All notable changes to the OpenGGF project are documented in this file.
   direct float buffer for every glyph draw.
 - Fixed debug overlay sensor label overlap and improved text batching/caching
   so heavy overlay usage produces less garbage and more stable spacing.
+- First-run startup now materializes `config.json` automatically when the file
+  is missing. The bundled defaults were also normalized so generated configs
+  use readable key-name bindings, an empty `PLAYBACK_MOVIE_PATH`, and the
+  intended title-screen startup flow defaults.
+- The on-screen debug HUD now renders ROM-native hexadecimal coordinate text
+  per game instead of a generic decimal-only presentation.
+
+### Audio and Performance
+
+- Added hybrid SMPS batching with shared batch-boundary helpers and identity
+  regression coverage; the SMPS driver now defaults to the hybrid batching path.
+- Fixed override music restoration after the 1-up jingle interrupts
+  invincibility music.
+- Reduced audio and results-screen memory churn with non-allocating replay heap
+  sampling, quieter benchmark probe semantics, smaller blip-resampler history,
+  and explicit stress/benchmark coverage for the audio results tally path.
 
 ### Data Select and Save System
 
@@ -88,6 +111,13 @@ All notable changes to the OpenGGF project are documented in this file.
   S1 now uses a symmetric six-emerald layout, S1/S2 use host-specific emerald
   colour ordering on top of the native S3K presentation, and preview rendering
   no longer corrupts emerald palettes when selected-slot screenshots are shown.
+- Switched most data-select rendering onto batched pattern draws, removed the
+  remaining high-frequency per-frame allocations in the screen, and corrected
+  selected-slot icon palette restoration/caching so donated previews no longer
+  corrupt the active slot presentation.
+- Hardened preview capture cleanup for donated S1/S2 screenshots so generated
+  previews no longer leave stale `LevelManager`, palette, or pattern-atlas
+  state behind after cache generation.
 
 ### Runtime-Owned Frameworks
 
@@ -115,6 +145,21 @@ All notable changes to the OpenGGF project are documented in this file.
   gameplay startup. S1 donated Knuckles now uses a dedicated lives-HUD palette
   adaptation over the live S1 HUD line, while S2 keeps the correct donated HUD
   icon/text contract.
+- Completed the S3K HCZ2 boss line with the full end-boss sequence, geyser and
+  blade choreography, Knuckles-specific cutscene path, and a long parity pass
+  over camera locks, water-column visuals, blade physics, prison/cutscene
+  sequencing, and post-results behavior.
+- Expanded Marble Garden coverage with the trigger platform, dash trigger,
+  swinging platform and spike ball, sinking mud, animated tile graph channels,
+  and parity fixes for top-platform collision/grab behavior plus MGZ1 vertical
+  wrapping and intro flow.
+- Added more S3K object and badnik coverage with Automatic Tunnel, Tunnelbot,
+  Spiker, and Bubbles.
+- Polished AIZ2 post-boss and bombing-run parity with fixes for sidekick bounds
+  during autoscroll, bridge/button state rendering, boss flash/visibility and
+  turret angles, waterfall priority, and egg-prison collision/animal rendering.
+- Fixed seamless act transitions that could leave ring/time counters stale
+  after a transition boundary.
 
 ## v0.5.20260411 (Released 2026-04-11)
 
