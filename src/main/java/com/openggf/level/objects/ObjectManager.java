@@ -3952,9 +3952,7 @@ public class ObjectManager {
                     return cached;
                 }
             }
-            int distance = getHeadroomDistance(player, hexAngle);
-            cacheHeadroomSnapshot(player, hexAngle, distance);
-            return distance;
+            return Integer.MAX_VALUE;
         }
 
         int getHeadroomDistance(PlayableEntity player, int hexAngle) {

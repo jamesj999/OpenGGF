@@ -193,8 +193,7 @@ class TestSolidOrderingSentinelsHeadless {
             }
 
             helperStandingAfterMoveBack = GameServices.collision().hasStandingContact((AbstractPlayableSprite) player);
-        secondStandingNow = services().solidExecution().resolveSolidNow(player).standingNow();
-    }
+        }
 
         private void handleMultiPlayerBatch(PlayableEntity player) {
             SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
