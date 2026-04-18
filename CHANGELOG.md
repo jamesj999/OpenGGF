@@ -168,6 +168,15 @@ All notable changes to the OpenGGF project are documented in this file.
   turret angles, waterfall priority, and egg-prison collision/animal rendering.
 - Fixed seamless act transitions that could leave ring/time counters stale
   after a transition boundary.
+- Fixed corrupted diagonal spring art in MGZ and MHZ. The S3K PLC registry
+  already encoded the zone-specific override to use
+  `ArtTile_MGZMHZDiagonalSpring ($0478)` instead of the shared
+  `ArtTile_DiagonalSpring ($043A)`, but the hardcoded builders ignored it.
+  `Sonic3kObjectArt` builder methods now take an `artTileBase` parameter and
+  `Sonic3kObjectArtProvider.invokeBuilder` threads `LevelArtEntry.artTileBase()`
+  through, matching the ROM's split between shared `Map_*` tables and
+  per-zone `art_tile` selection. Also fixes a latent `Sonic3kObjectArtKeys.SPIKES`
+  override that was silently ignored for FBZ.
 
 ## v0.5.20260411 (Released 2026-04-11)
 
