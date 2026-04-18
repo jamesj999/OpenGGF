@@ -46,6 +46,7 @@ public class HudRenderManager {
     private PatternDesc hudPatternDesc = new PatternDesc(0xA000);
     private int iconPaletteLine;
     private Palette livesPaletteOverride;
+    private Palette lastAppliedLivesPaletteOverride;
     private Supplier<Palette> livesPaletteOverrideSupplier;
     private boolean bonusStageHudLayout;
 
@@ -88,10 +89,12 @@ public class HudRenderManager {
 
     public void setLivesPaletteOverride(Palette palette) {
         this.livesPaletteOverride = palette != null ? palette.deepCopy() : null;
+        this.lastAppliedLivesPaletteOverride = null;
     }
 
     public void setLivesPaletteOverrideSupplier(Supplier<Palette> supplier) {
         this.livesPaletteOverrideSupplier = supplier;
+        this.lastAppliedLivesPaletteOverride = null;
     }
 
     /**
@@ -116,6 +119,7 @@ public class HudRenderManager {
         scoreDigitCount = 0;
         ringDigitCount = 0;
         livesDigitCount = 0;
+        lastAppliedLivesPaletteOverride = null;
     }
 
     /**
@@ -232,9 +236,15 @@ public class HudRenderManager {
     private boolean applyLivesPaletteOverride() {
         Palette paletteOverride = resolveLivesPaletteOverride();
         if (paletteOverride == null) {
+            lastAppliedLivesPaletteOverride = null;
             return false;
         }
-        graphicsManager.cachePaletteTexture(paletteOverride.deepCopy(), iconPaletteLine);
+        if (lastAppliedLivesPaletteOverride != null && lastAppliedLivesPaletteOverride.dataEquals(paletteOverride)) {
+            return false;
+        }
+        Palette uploadedOverride = paletteOverride.deepCopy();
+        graphicsManager.cachePaletteTexture(uploadedOverride, iconPaletteLine);
+        lastAppliedLivesPaletteOverride = uploadedOverride;
         return true;
     }
 

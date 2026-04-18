@@ -230,6 +230,99 @@ public class TestHudRenderManager {
 
         verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(0, 146, 0)), eq(0));
         verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(255, 73, 109)), eq(0));
+        verify(graphicsManager, times(2)).flushPatternBatch();
+        verify(graphicsManager, times(2)).flush();
+    }
+
+    @Test
+    void unchangedLivesPaletteOverrideDoesNotReuploadOrRefush() throws Exception {
+        GraphicsManager graphicsManager = mock(GraphicsManager.class);
+        Camera camera = mock(Camera.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        LevelState levelState = mock(LevelState.class);
+        when(camera.getXWithShake()).thenReturn((short) 0);
+        when(camera.getYWithShake()).thenReturn((short) 0);
+        when(levelState.getRings()).thenReturn(10);
+        when(levelState.getFlashCycle()).thenReturn(false);
+        when(levelState.shouldFlashTimer()).thenReturn(false);
+        when(levelState.getDisplayTime()).thenReturn("0:10");
+        when(gameState.getScore()).thenReturn(0);
+        when(gameState.getLives()).thenReturn(3);
+
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] { new Pattern(), new Pattern(), new Pattern(), new Pattern(), new Pattern(), new Pattern() },
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(0, 0, 2, 2, 0, false, false, 0),
+                        new SpriteMappingPiece(16, 0, 4, 2, 2, false, false, 0))));
+
+        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
+        hud.setDigitPatternIndex(200);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
+
+        Method setSupplier = HudRenderManager.class.getDeclaredMethod(
+                "setLivesPaletteOverrideSupplier", java.util.function.Supplier.class);
+        Palette override = new Palette();
+        setColor(override, 12, 255, 73, 109);
+        java.util.function.Supplier<Palette> supplier = () -> override;
+        setSupplier.invoke(hud, supplier);
+
+        hud.draw(levelState, null);
+        hud.draw(levelState, null);
+
+        verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(255, 73, 109)), eq(0));
+        verify(graphicsManager, times(1)).flushPatternBatch();
+        verify(graphicsManager, times(1)).flush();
+    }
+
+    @Test
+    void nullLivesPaletteOverrideSupplierDoesNotUploadPaletteOrFlush() throws Exception {
+        GraphicsManager graphicsManager = mock(GraphicsManager.class);
+        Camera camera = mock(Camera.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        LevelState levelState = mock(LevelState.class);
+        when(camera.getXWithShake()).thenReturn((short) 0);
+        when(camera.getYWithShake()).thenReturn((short) 0);
+        when(levelState.getRings()).thenReturn(10);
+        when(levelState.getFlashCycle()).thenReturn(false);
+        when(levelState.shouldFlashTimer()).thenReturn(false);
+        when(levelState.getDisplayTime()).thenReturn("0:10");
+        when(gameState.getScore()).thenReturn(0);
+        when(gameState.getLives()).thenReturn(3);
+
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] { new Pattern(), new Pattern(), new Pattern(), new Pattern(), new Pattern(), new Pattern() },
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(0, 0, 2, 2, 0, false, false, 0),
+                        new SpriteMappingPiece(16, 0, 4, 2, 2, false, false, 0))));
+
+        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
+        hud.setDigitPatternIndex(200);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
+
+        Method setSupplier = HudRenderManager.class.getDeclaredMethod(
+                "setLivesPaletteOverrideSupplier", java.util.function.Supplier.class);
+        java.util.function.Supplier<Palette> supplier = () -> null;
+        setSupplier.invoke(hud, supplier);
+
+        hud.draw(levelState, null);
+
+        verify(graphicsManager, never()).cachePaletteTexture(any(), anyInt());
+        verify(graphicsManager, never()).flushPatternBatch();
+        verify(graphicsManager, never()).flush();
     }
 
     @Test

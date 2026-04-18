@@ -4,11 +4,11 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EngineServices;
-import com.openggf.game.GameModule;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.SessionManager;
+import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudStaticArt;
@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 class TestSonic1LivesHudDonation {
 
     @BeforeEach
@@ -137,7 +139,13 @@ class TestSonic1LivesHudDonation {
     }
 
     @Test
-    void buildS1KnucklesLivesHudPaletteOverride_patchesOnlyKnucklesRedRamp() throws Exception {
+    void hudLivesPaletteOverride_returnsKnucklesRampForS1KnucklesDonorWithActiveLevel() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "knuckles");
+        SessionManager.openGameplaySession(new Sonic1GameModule(),
+                SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
+        RuntimeManager.createGameplay();
+
         Palette base = new Palette();
         setColour(base, 6, 255, 255, 255);
         setColour(base, 10, 255, 182, 146);
@@ -147,36 +155,25 @@ class TestSonic1LivesHudDonation {
         setColour(base, 14, 73, 0, 0);
         setColour(base, 15, 255, 255, 0);
 
-        Method method = Sonic1ObjectArtProvider.class.getDeclaredMethod(
-                "buildS1KnucklesLivesHudPaletteOverride", Palette.class);
-        method.setAccessible(true);
-        Palette override = (Palette) method.invoke(null, base);
-
-        org.junit.jupiter.api.Assertions.assertNotSame(base, override);
-        assertColour(override, 6, 255, 255, 255);
-        assertColour(override, 10, 255, 182, 146);
-        assertColour(override, 11, 182, 109, 73);
-        assertColour(override, 12, 255, 73, 109);
-        assertColour(override, 13, 219, 0, 36);
-        assertColour(override, 14, 109, 0, 36);
-        assertColour(override, 15, 255, 255, 0);
-    }
-
-    @Test
-    void hudLivesPaletteOverride_returnsNullWithoutActiveLevelPalette() throws Exception {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
-        SessionManager.openGameplaySession(mock(GameModule.class),
-                SaveSessionContext.noSave("s1", new SelectedTeam("knuckles", List.of()), 0, 0));
+        Level level = mock(Level.class);
+        when(level.getPalette(0)).thenReturn(base);
+        Field levelField = com.openggf.level.LevelManager.class.getDeclaredField("level");
+        levelField.setAccessible(true);
+        levelField.set(RuntimeManager.getCurrent().getLevelManager(), level);
 
         try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
             donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);
 
-            Method method = Sonic1ObjectArtProvider.class.getDeclaredMethod("getHudLivesPaletteOverride");
-            method.setAccessible(true);
-            Object palette = method.invoke(new Sonic1ObjectArtProvider());
+            Palette override = new Sonic1ObjectArtProvider().getHudLivesPaletteOverride();
 
-            org.junit.jupiter.api.Assertions.assertNull(palette);
+            assertNotNull(override);
+            assertColour(override, 6, 255, 255, 255);
+            assertColour(override, 10, 255, 182, 146);
+            assertColour(override, 11, 182, 109, 73);
+            assertColour(override, 12, 255, 73, 109);
+            assertColour(override, 13, 219, 0, 36);
+            assertColour(override, 14, 109, 0, 36);
+            assertColour(override, 15, 255, 255, 0);
         }
     }
 
