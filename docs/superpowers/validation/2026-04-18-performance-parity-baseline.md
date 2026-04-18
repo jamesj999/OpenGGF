@@ -68,7 +68,7 @@ mvn --% -q -Dmse=off -Dtest=com.openggf.tests.trace.s1.TestS1Ghz1TraceReplay,com
 - Render suite command:
 
 ```powershell
-mvn --% -q -Dmse=off -Dtest=com.openggf.tests.graphics.PatternAtlasFallbackTest,com.openggf.tests.graphics.RenderOrderTest,com.openggf.tests.graphics.FadeManagerTest,com.openggf.tests.TestPatternDesc,com.openggf.tests.TestPaletteCycling,com.openggf.tests.TestSwScrlHtzEarthquakeMode,com.openggf.tests.TestS3kCnzBossScrollHandler test
+mvn --% -q -Dmse=off -Dtest=com.openggf.tests.TestPerformanceProfilerGating,com.openggf.tests.graphics.RenderOrderTest,com.openggf.tests.graphics.FadeManagerTest,com.openggf.tests.graphics.PatternAtlasFallbackTest,com.openggf.tests.TestPaletteCycling,com.openggf.tests.TestSwScrlHtzEarthquakeMode,com.openggf.tests.TestS3kCnzBossScrollHandler test
 ```
 
 - Result: `PASS` on `2026-04-18`

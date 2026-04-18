@@ -55,6 +55,7 @@ public class PatternRenderCommand implements GLCommandable {
     private static int lastAtlasTextureId = -1;
     private static int lastPaletteTextureId = -1;
     private static int lastPaletteIndex = -1;
+    private static int lastPriorityShaderProgramId = -1;
     private static boolean stateInitialized = false;
 
     // Pre-allocated vertex buffers for transformed coordinates
@@ -154,6 +155,7 @@ public class PatternRenderCommand implements GLCommandable {
         lastAtlasTextureId = -1;
         lastPaletteTextureId = -1;
         lastPaletteIndex = -1;
+        lastPriorityShaderProgramId = -1;
         stateInitialized = false;
     }
 
@@ -222,34 +224,39 @@ public class PatternRenderCommand implements GLCommandable {
         }
 
         if (shaderProgram instanceof SpritePriorityShaderProgram priorityShader) {
-            TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO();
-            if (fbo != null && fbo.isInitialized()) {
-                glActiveTexture(GL_TEXTURE5);
-                glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
-                priorityShader.setTilePriorityTexture(5);
-                glActiveTexture(GL_TEXTURE0);
+            int programId = shaderProgram.getProgramId();
+            if (lastPriorityShaderProgramId != programId) {
+                TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO();
+                if (fbo != null && fbo.isInitialized()) {
+                    glActiveTexture(GL_TEXTURE5);
+                    glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
+                    priorityShader.setTilePriorityTexture(5);
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setScreenSize(graphicsManager.getViewportWidth(), graphicsManager.getViewportHeight());
+                priorityShader.setViewportOffset(graphicsManager.getViewportX(), graphicsManager.getViewportY());
+
+                Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+                if (underwaterPaletteId != null) {
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
+                    int loc = priorityShader.getUnderwaterPaletteLocation();
+                    if (loc != -1) {
+                        glUniform1i(loc, 2);
+                    }
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setWaterEnabled(graphicsManager.isWaterEnabled());
+                priorityShader.setWaterlineScreenY(graphicsManager.getWaterlineScreenY());
+                priorityShader.setWindowHeight(graphicsManager.getWindowHeight());
+                priorityShader.setScreenHeight(graphicsManager.getScreenHeight());
+                lastPriorityShaderProgramId = programId;
             }
 
             // Per-piece VDP priority: use ROM per-tile bit OR'd with global override
             priorityShader.setSpriteHighPriority(piecePriority || capturedGlobalHighPriority);
-            priorityShader.setScreenSize(graphicsManager.getViewportWidth(), graphicsManager.getViewportHeight());
-            priorityShader.setViewportOffset(graphicsManager.getViewportX(), graphicsManager.getViewportY());
-
-            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-            if (underwaterPaletteId != null) {
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
-                int loc = priorityShader.getUnderwaterPaletteLocation();
-                if (loc != -1) {
-                    glUniform1i(loc, 2);
-                }
-                glActiveTexture(GL_TEXTURE0);
-            }
-
-            priorityShader.setWaterEnabled(graphicsManager.isWaterEnabled());
-            priorityShader.setWaterlineScreenY(graphicsManager.getWaterlineScreenY());
-            priorityShader.setWindowHeight(graphicsManager.getWindowHeight());
-            priorityShader.setScreenHeight(graphicsManager.getScreenHeight());
         }
 
         // Only bind palette texture if it changed

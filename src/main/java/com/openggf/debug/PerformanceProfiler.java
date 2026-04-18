@@ -56,6 +56,7 @@ public class PerformanceProfiler {
     /** Reusable snapshot — populated in-place each frame to avoid allocation */
     private final ProfileSnapshot reusableSnapshot = new ProfileSnapshot();
     private final MemoryStats memoryStats = new MemoryStats();
+    private boolean enabled;
 
     private PerformanceProfiler() {
     }
@@ -67,11 +68,31 @@ public class PerformanceProfiler {
         return instance;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        if (this.enabled == enabled) {
+            return;
+        }
+        this.enabled = enabled;
+        memoryStats.setEnabled(enabled);
+        if (!enabled) {
+            reset();
+        }
+    }
+
     /**
      * Marks the beginning of a new frame.
      * Call this at the start of the main display loop.
      */
     public void beginFrame() {
+        if (!enabled) {
+            currentFrameSections.clear();
+            activeSection = null;
+            return;
+        }
         long now = System.nanoTime();
 
         // Track actual frame-to-frame time (for real FPS)
@@ -94,6 +115,9 @@ public class PerformanceProfiler {
      * Updates rolling averages and frame history.
      */
     public void endFrame() {
+        if (!enabled) {
+            return;
+        }
         long frameEndNanos = System.nanoTime();
         long frameDurationNanos = frameEndNanos - frameStartNanos;
 
@@ -143,6 +167,9 @@ public class PerformanceProfiler {
      * @param name The name of the section (e.g., "audio", "physics", "render.bg")
      */
     public void beginSection(String name) {
+        if (!enabled) {
+            return;
+        }
         if (activeSection != null) {
             // Implicitly end the previous section
             endSection(activeSection);
@@ -158,6 +185,9 @@ public class PerformanceProfiler {
      * @param name The name of the section (must match the most recent beginSection call)
      */
     public void endSection(String name) {
+        if (!enabled) {
+            return;
+        }
         if (activeSection == null || !activeSection.equals(name)) {
             return; // Ignore mismatched end calls
         }
@@ -175,8 +205,13 @@ public class PerformanceProfiler {
      * @return ProfileSnapshot containing averaged timing data
      */
     public ProfileSnapshot getSnapshot() {
+        if (!enabled) {
+            reusableSnapshot.clear();
+            return reusableSnapshot;
+        }
         int effectiveFrames = Math.min(frameCount, AVERAGING_FRAMES);
         if (effectiveFrames == 0) {
+            reusableSnapshot.clear();
             return reusableSnapshot;
         }
 
@@ -205,13 +240,18 @@ public class PerformanceProfiler {
         sectionHistories.clear();
         frameCount = 0;
         historyIndex = 0;
+        frameStartNanos = 0;
         previousFrameStartNanos = 0;
+        sectionStartNanos = 0;
         actualFrameTimeSum = 0;
+        activeSection = null;
         for (int i = 0; i < HISTORY_SIZE; i++) {
             frameHistory[i] = 0;
         }
         for (int i = 0; i < AVERAGING_FRAMES; i++) {
             actualFrameTimes[i] = 0;
         }
+        memoryStats.reset();
+        reusableSnapshot.clear();
     }
 }
