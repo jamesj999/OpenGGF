@@ -32,6 +32,10 @@ public final class PaletteOwnershipRegistry {
 
     public void resolveInto(Palette[] normal, Palette[] underwater,
                             GraphicsManager graphics, Palette normalLine0) {
+        if (writes.isEmpty()) {
+            return;
+        }
+
         boolean[] normalDirty = new boolean[4];
 
         List<PaletteWrite> sorted = new ArrayList<>(writes);

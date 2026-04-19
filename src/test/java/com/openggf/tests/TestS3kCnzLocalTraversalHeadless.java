@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -8,6 +9,7 @@ import com.openggf.game.sonic3k.objects.CnzHoverFanInstance;
 import com.openggf.game.sonic3k.objects.CnzTrapDoorInstance;
 import com.openggf.game.sonic3k.objects.CnzRisingPlatformInstance;
 import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.TestObjectServices;
@@ -103,6 +105,27 @@ class TestS3kCnzLocalTraversalHeadless {
                 "Popped balloons should stop responding to later touches");
         assertEquals(3, invokeIntHook(balloon, "getRenderFrameForTest"),
                 "Popped balloons should keep the popped visual frame");
+    }
+
+    @Test
+    void poppedBalloonLeavesThePlayfieldAfterItsPopAnimationCompletes() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzBalloonInstance balloon = spawnBalloon(0x19C0, 0x05B0, 0x00);
+        fixture.sprite().setCentreX((short) 0x19B8);
+        fixture.sprite().setCentreY((short) 0x05A8);
+
+        balloon.update(0, fixture.sprite());
+        assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
+
+        for (int frame = 1; frame <= 6; frame++) {
+            balloon.update(frame, fixture.sprite());
+        }
+
+        assertTrue(balloon.isDestroyed(),
+                "CNZ balloon pop animation should retire the object instead of leaving a frozen visible terminal frame");
     }
 
     @Test
@@ -287,6 +310,84 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
+    void hoverFanStopsOncePlayerLeavesTheRomLiftBandAndRetriggersOnReentry() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x80);
+        fixture.sprite().setCentreX((short) 0x2C00);
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setObjectControlled(false);
+        fixture.sprite().setControlLocked(false);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setRollingJump(true);
+        fixture.sprite().setJumping(true);
+        fixture.sprite().setDoubleJumpFlag(2);
+        fixture.sprite().setFlipAngle(0);
+        fixture.sprite().setFlipSpeed(0);
+        fixture.sprite().setFlipsRemaining(0);
+
+        fan.update(0, fixture.sprite());
+        int firstLiftY = fixture.sprite().getCentreY();
+
+        fan.update(1, fixture.sprite());
+        int secondFrameY = fixture.sprite().getCentreY();
+
+        int reentryStartY = 0x08C0;
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fan.update(2, fixture.sprite());
+
+        assertEquals(firstLiftY, secondFrameY,
+                "CNZ hover fan should stop affecting the player immediately after they leave the ROM lift band");
+        assertTrue(fixture.sprite().getCentreY() < reentryStartY,
+                "CNZ hover fan should retrigger as soon as the player re-enters the valid force window");
+    }
+
+    @Test
+    void hoverFanContinuesApplyingLiftAcrossGameplayFrames() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        objectManager.addDynamicObject(new CnzHoverFanInstance(
+                new ObjectSpawn(0x2C00, 0x0900, Sonic3kObjectIds.CNZ_HOVER_FAN, 0x80, 0, false, 0)));
+
+        fixture.sprite().setCentreX((short) 0x2C00);
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setObjectControlled(false);
+        fixture.sprite().setControlLocked(false);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setRollingJump(true);
+        fixture.sprite().setJumping(true);
+        fixture.sprite().setDoubleJumpFlag(2);
+        fixture.sprite().setFlipAngle(0);
+        fixture.sprite().setFlipSpeed(0);
+        fixture.sprite().setFlipsRemaining(0);
+
+        fixture.camera().updatePosition(true);
+
+        int startY = fixture.sprite().getCentreY();
+        fixture.stepFrame(false, false, false, false, false);
+        int afterFirstFrame = fixture.sprite().getCentreY();
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.stepFrame(false, false, false, false, false);
+        int afterSecondFrame = fixture.sprite().getCentreY();
+
+        assertTrue(afterFirstFrame < startY,
+                "CNZ hover fan should lift the player on the first gameplay frame inside the force window");
+        assertTrue(afterSecondFrame < 0x08C0,
+                "CNZ hover fan should retrigger on the next gameplay frame when the player re-enters the force window");
+    }
+
+    @Test
     void hoverFanSubtype90UsesItsOwnWindowAndInitialFrame() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -317,6 +418,44 @@ class TestS3kCnzLocalTraversalHeadless {
                 "The first capture should seed the flip animation");
         assertEquals(1, invokeIntHook(fan, "getRenderFrameForTest"),
                 "Subtype 0x90 should start on mapping frame 1, not the subtype-0 frame");
+    }
+
+    @Test
+    void hoverFanIgnoresHurtPlayersLikeTheRomRoutineGate() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x80);
+        fixture.sprite().setCentreX((short) 0x2C00);
+        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setAir(false);
+        fixture.sprite().setRolling(false);
+        fixture.sprite().setObjectControlled(false);
+        fixture.sprite().setControlLocked(false);
+        fixture.sprite().setYSpeed((short) 0);
+        fixture.sprite().setGSpeed((short) 0);
+        fixture.sprite().setRollingJump(true);
+        fixture.sprite().setJumping(true);
+        fixture.sprite().setDoubleJumpFlag(2);
+        fixture.sprite().setFlipAngle(0);
+        fixture.sprite().setFlipSpeed(0);
+        fixture.sprite().setFlipsRemaining(0);
+        fixture.sprite().setHurt(true);
+
+        int startY = fixture.sprite().getCentreY();
+        fan.update(0, fixture.sprite());
+
+        assertEquals(startY, fixture.sprite().getCentreY(),
+                "CNZ hover fan should ignore hurt players, matching the ROM routine >= 4 gate");
+        assertFalse(fixture.sprite().getAir(),
+                "CNZ hover fan should not force hurt players airborne");
+        assertEquals((short) 0, fixture.sprite().getYSpeed(),
+                "CNZ hover fan should not change hurt-player Y speed");
+        assertEquals((short) 0, fixture.sprite().getGSpeed(),
+                "CNZ hover fan should not seed ground velocity for hurt players");
+        assertEquals(0, fixture.sprite().getFlipAngle(),
+                "CNZ hover fan should not seed flip motion for hurt players");
     }
 
     private static CnzBalloonInstance spawnBalloon(int x, int y, int subtype) {
