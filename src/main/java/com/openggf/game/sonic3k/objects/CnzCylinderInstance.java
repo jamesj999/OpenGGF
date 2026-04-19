@@ -30,6 +30,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             new SolidObjectParams(0x2B, 0x20, 0x21);
     private static final int PLAYER_CAPTURE_PRIORITY = RenderPriority.PLAYER_DEFAULT;
     private static final int PLAYER_TWIST_PRIORITY = RenderPriority.PLAYER_DEFAULT - 1;
+    private static final int PRIORITY_THRESHOLD_SOURCE = 0x60;
     private static final int RECAPTURE_COOLDOWN_FRAMES = 2;
     private static final int RELEASE_Y_SPEED = -0x680;
     private static final int[] MODE0_SPEED_CAPS = {
@@ -49,7 +50,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         private boolean contactLatched;
         private int twistAngle;
         private int horizontalDistance;
-        private int priorityThreshold;
+        private int priorityThresholdSource;
         private AbstractPlayableSprite player;
     }
 
@@ -74,7 +75,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     private int currentYVelocity;
     private int angle;
     private int mappingFrame;
-    private int animFrameTimer = 1;
+    private int animFrameTimer = 0;
 
     public CnzCylinderInstance(ObjectSpawn spawn) {
         super(spawn, "CNZCylinder");
@@ -92,7 +93,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             step = -step;
         }
         this.angleStep = step;
-        this.mode0Velocity = motionSelector == 0 ? speedCap : 0;
+        this.mode0Velocity = 0;
         this.currentYVelocity = 0;
         updateDynamicSpawn(centerX, centerY);
     }
@@ -282,11 +283,9 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         boolean latchedContact = slot.contactLatched;
         slot.contactLatched = false;
 
-        boolean standing = latchedContact || isStandingOnCylinder(player);
-        if (!standing && canFallbackCapture(player)) {
-            standing = true;
-        }
+        boolean standing = latchedContact || hasStandingBit(player);
         if (slot.active) {
+            standing = standing || !player.getAir();
             if (!standing) {
                 releaseSlot(slot, frameCounter, false);
                 return;
@@ -306,36 +305,9 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         captureSlot(slot, player);
     }
 
-    private boolean canFallbackCapture(AbstractPlayableSprite player) {
-        if (player == null || player.getAir() || player.getYSpeed() < 0) {
-            return false;
-        }
-        // The ROM consumes the object's standing bit from the previous frame before
-        // calling SolidObjectFull again. The engine still cannot publish that exact
-        // same-frame status flow for every full-solid traversal object, so keep a
-        // narrow overlap fallback for the cylinder's rider-entry seam.
-        int relX = player.getCentreX() - centerX + SOLID_PARAMS.halfWidth();
-        if (relX < 0 || relX >= SOLID_PARAMS.halfWidth() * 2) {
-            return false;
-        }
-        int maxTop = SOLID_PARAMS.airHalfHeight() + player.getYRadius();
-        int relY = player.getCentreY() - centerY + 4 + maxTop;
-        return relY >= 0 && relY < maxTop * 2;
-    }
-
-    private boolean isStandingOnCylinder(AbstractPlayableSprite player) {
-        ObjectServices svc = tryServices();
-        if (svc == null || svc.objectManager() == null) {
-            return false;
-        }
-        if (svc.objectManager().isRidingObject(player, this)) {
-            return true;
-        }
+    private boolean hasStandingBit(AbstractPlayableSprite player) {
         int bit = standingMaskBitFor(player);
-        if (bit != 0 && (standingMask & bit) != 0) {
-            return true;
-        }
-        return svc.objectManager().hasStandingContact(player);
+        return bit != 0 && (standingMask & bit) != 0;
     }
 
     private void primeDefaultRiderSlots(PlayableEntity playerEntity) {
@@ -377,7 +349,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         slot.active = true;
         slot.twistAngle = player.getCentreX() < centerX ? 0x80 : 0x00;
         slot.horizontalDistance = Math.min(0xFF, Math.abs(player.getCentreX() - centerX));
-        slot.priorityThreshold = 0;
+        slot.priorityThresholdSource = getPriorityThresholdSource();
 
         player.setObjectControlled(true);
         player.setControlLocked(true);
@@ -409,10 +381,17 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
 
-        slot.priorityThreshold = ((TrigLookupTable.sinHex(slot.twistAngle) + 0x100) >> 2) & 0xFF;
-        player.setPriorityBucket(slot.priorityThreshold > 0x60 ? PLAYER_TWIST_PRIORITY : PLAYER_CAPTURE_PRIORITY);
+        int thresholdByte = ((TrigLookupTable.sinHex(slot.twistAngle) + 0x100) >> 2) & 0xFF;
+        int objectThreshold = slot.priorityThresholdSource & 0xFF;
+        player.setPriorityBucket(thresholdByte < objectThreshold
+                ? PLAYER_TWIST_PRIORITY
+                : PLAYER_CAPTURE_PRIORITY);
         applyTwistFrame(player, slot.twistAngle);
         slot.twistAngle = (slot.twistAngle + 2) & 0xFF;
+    }
+
+    private int getPriorityThresholdSource() {
+        return PRIORITY_THRESHOLD_SOURCE;
     }
 
     private void releaseSlot(RiderSlot slot, int frameCounter, boolean jumpedOff) {
@@ -498,8 +477,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
-        if (!(contact.standing() || contact.touchSide() || contact.pushing())
-                || !(player instanceof AbstractPlayableSprite sprite)) {
+        if (!contact.standing() || !(player instanceof AbstractPlayableSprite sprite)) {
             return;
         }
 
