@@ -1,20 +1,32 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.Sonic3kPlcLoader.TileRange;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@RequiresRom(SonicGame.SONIC_3K)
 public class TestSonic3kObjectArtProvider {
 
     private Sonic3kObjectArtProvider provider;
@@ -71,6 +83,43 @@ public class TestSonic3kObjectArtProvider {
         assertSame(patterns[8], sheet.getPatterns()[0], "Mappings that start at source tile $08 should render from pattern $08, not pattern 0");
         assertEquals(0, sheet.getFrame(0).pieces().get(0).tileIndex());
         assertEquals(2, sheet.getFrame(0).pieces().get(1).tileIndex());
+    }
+
+    @Test
+    public void cnzTraversalSheetsAreRegisteredDuringCnzLoad() {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        assertNotNull(currentProvider.getSheet("cnz_balloon"));
+        assertNotNull(currentProvider.getSheet("cnz_cannon"));
+    }
+
+    @Test
+    public void cnzTraversalSheetsParticipateInLevelArtRefreshTracking() throws Exception {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        Field field = Sonic3kObjectArtProvider.class.getDeclaredField("levelArtTileRanges");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, TileRange> ranges = (Map<String, TileRange>) field.get(currentProvider);
+
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_BALLOON));
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_CANNON));
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM));
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_TRAP_DOOR));
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_HOVER_FAN));
+        assertTrue(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_CYLINDER));
+        assertFalse(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_VACUUM_TUBE));
+        assertFalse(ranges.containsKey(Sonic3kObjectArtKeys.CNZ_SPIRAL_TUBE));
     }
 
     @Test

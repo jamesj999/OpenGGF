@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -8,6 +9,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -147,7 +149,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
             return;
         }
 
-        playerStanding = isPlayerRiding();
+        SolidCheckpointBatch batch = checkpointAll();
+        playerStanding = hasStandingContact(batch);
 
         if (routine == 6) {
             updateIdle(frameCounter, player);
@@ -155,6 +158,11 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
             // Routine 2 or 4 (VanP_Vanish / VanP_Appear - same code)
             updateVanishAppear(player);
         }
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     /**
@@ -289,8 +297,7 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Standing state is managed via isPlayerRiding() check in update()
+        // Standing state is driven via manual checkpoints in update().
     }
 
     // ---- Debug ----

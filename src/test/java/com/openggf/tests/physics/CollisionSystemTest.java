@@ -4,8 +4,15 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.LevelManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.physics.*;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectRegistry;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.graphics.GLCommand;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.TestEnvironment;
+import org.mockito.Mockito;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +55,57 @@ public class CollisionSystemTest {
 
         assertNotNull(fresh.getTrace());
         assertEquals(NoOpCollisionTrace.INSTANCE, fresh.getTrace());
+    }
+
+    @Test
+    public void testHasStandingContactDelegatesToLatestSnapshot() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+
+        assertTrue(collisionSystem.hasStandingContact(player));
+        assertEquals(1, objectManager.latestStandingCalls);
+        assertEquals(0, objectManager.fallbackStandingCalls);
+    }
+
+    @Test
+    public void testHasStandingContactIgnoresUpwardMotionBeforeDelegation() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+        Mockito.when(player.getYSpeed()).thenReturn((short) -1);
+
+        assertFalse(collisionSystem.hasStandingContact(player));
+        assertEquals(0, objectManager.latestStandingCalls);
+        assertEquals(0, objectManager.fallbackStandingCalls);
+    }
+
+    @Test
+    public void testClearRidingObjectInvalidatesStandingSnapshot() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+
+        assertTrue(collisionSystem.hasStandingContact(player));
+        collisionSystem.clearRidingObject(player);
+        assertFalse(collisionSystem.hasStandingContact(player));
+        assertEquals(2, objectManager.latestStandingCalls);
+        assertEquals(1, objectManager.clearRidingCalls);
+    }
+
+    @Test
+    public void testGetHeadroomDistanceDelegatesToLatestSnapshot() {
+        TrackingObjectManager objectManager = new TrackingObjectManager(true, 12);
+        collisionSystem.setObjectManager(objectManager);
+
+        AbstractPlayableSprite player = Mockito.mock(AbstractPlayableSprite.class);
+
+        assertEquals(12, collisionSystem.getHeadroomDistance(player, 0x40));
+        assertEquals(1, objectManager.latestHeadroomCalls);
+        assertEquals(0, objectManager.fallbackHeadroomCalls);
     }
 
     @Test
@@ -410,13 +468,15 @@ public class CollisionSystemTest {
     @Test
     public void testEventTypeEnumValues() {
         CollisionEvent.EventType[] types = CollisionEvent.EventType.values();
-        assertEquals(8, types.length);
+        assertEquals(10, types.length);
         assertNotNull(CollisionEvent.EventType.valueOf("TERRAIN_PROBES_START"));
         assertNotNull(CollisionEvent.EventType.valueOf("TERRAIN_PROBE_RESULT"));
         assertNotNull(CollisionEvent.EventType.valueOf("TERRAIN_PROBES_COMPLETE"));
         assertNotNull(CollisionEvent.EventType.valueOf("SOLID_CONTACTS_START"));
         assertNotNull(CollisionEvent.EventType.valueOf("SOLID_CANDIDATE"));
         assertNotNull(CollisionEvent.EventType.valueOf("SOLID_RESOLVED"));
+        assertNotNull(CollisionEvent.EventType.valueOf("SOLID_CHECKPOINT_START"));
+        assertNotNull(CollisionEvent.EventType.valueOf("SOLID_CHECKPOINT_RESULT"));
         assertNotNull(CollisionEvent.EventType.valueOf("SOLID_CONTACTS_COMPLETE"));
         assertNotNull(CollisionEvent.EventType.valueOf("POST_ADJUSTMENT"));
     }
@@ -547,6 +607,65 @@ public class CollisionSystemTest {
             return (Direction) method.invoke(probe);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Failed reading probe accessor " + accessor, e);
+        }
+    }
+
+    private static final class TrackingObjectManager extends com.openggf.level.objects.ObjectManager {
+        private final boolean standingSnapshot;
+        private final int headroomSnapshot;
+        private boolean standingSnapshotCleared;
+        int latestStandingCalls;
+        int latestHeadroomCalls;
+        int fallbackStandingCalls;
+        int fallbackHeadroomCalls;
+        int clearRidingCalls;
+
+        private TrackingObjectManager(boolean standingSnapshot, int headroomSnapshot) {
+            super(List.of(), new ObjectRegistry() {
+                @Override
+                public ObjectInstance create(ObjectSpawn spawn) {
+                    return null;
+                }
+
+                @Override
+                public void reportCoverage(List<ObjectSpawn> spawns) {
+                }
+
+                @Override
+                public String getPrimaryName(int objectId) {
+                    return "Test";
+                }
+            }, 0, null, null);
+            this.standingSnapshot = standingSnapshot;
+            this.headroomSnapshot = headroomSnapshot;
+        }
+
+        public boolean latestStandingSnapshot(PlayableEntity player) {
+            latestStandingCalls++;
+            return standingSnapshot && !standingSnapshotCleared;
+        }
+
+        public int latestHeadroomSnapshot(PlayableEntity player, int hexAngle) {
+            latestHeadroomCalls++;
+            return headroomSnapshot;
+        }
+
+        @Override
+        public void clearRidingObject(PlayableEntity player) {
+            clearRidingCalls++;
+            standingSnapshotCleared = true;
+        }
+
+        @Override
+        public boolean hasStandingContact(PlayableEntity player) {
+            fallbackStandingCalls++;
+            return false;
+        }
+
+        @Override
+        public int getHeadroomDistance(PlayableEntity player, int hexAngle) {
+            fallbackHeadroomCalls++;
+            return Integer.MAX_VALUE;
         }
     }
 }

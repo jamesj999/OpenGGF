@@ -41,6 +41,7 @@ public class MemoryStats {
 
     private String activeSection = null;
     private long sectionStartAllocBytes = 0;
+    private boolean enabled = true;
 
     public MemoryStats() {
         memoryBean = ManagementFactory.getMemoryMXBean();
@@ -123,6 +124,10 @@ public class MemoryStats {
      * Call this at the start of a profiled section.
      */
     public void beginSection(String name) {
+        if (!enabled) {
+            return;
+        }
+
         if (activeSection != null) {
             endSection(activeSection);
         }
@@ -135,6 +140,10 @@ public class MemoryStats {
      * Uses cumulative thread allocation bytes - immune to GC.
      */
     public void endSection(String name) {
+        if (!enabled) {
+            return;
+        }
+
         if (activeSection == null || !activeSection.equals(name)) {
             return;
         }
@@ -144,6 +153,15 @@ public class MemoryStats {
             currentFrameAllocations.merge(name, delta, Long::sum);
         }
         activeSection = null;
+    }
+
+    void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            activeSection = null;
+            sectionStartAllocBytes = 0;
+            currentFrameAllocations.clear();
+        }
     }
 
     // Reusable list for top allocators to avoid per-call allocation

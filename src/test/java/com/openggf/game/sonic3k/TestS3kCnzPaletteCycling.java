@@ -2,6 +2,8 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.palette.PaletteOwnershipRegistry;
+import com.openggf.game.palette.PaletteSurface;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
@@ -82,6 +84,46 @@ public class TestS3kCnzPaletteCycling {
         cycler.update();
         Palette.Color after = level.getPalette(2).getColor(9);
         assertFalse(colorsEqual(before, after), "palette[2] color 9 should change on the very first frame (ch2 always runs)");
+    }
+
+    /**
+     * Verifies CNZ palette cycling routes writes through the palette ownership
+     * registry and mirrors the normal surface into the underwater surface when
+     * both palette planes are supplied.
+     *
+     * <p>CNZ has separate normal and water palette tables in the ROM. This slice
+     * keeps the existing normal-palette animation behavior and mirrors the same
+     * writes into the underwater surface so waterline rendering stays in sync.
+     */
+    @Test
+    public void cnzPaletteCycleMirrorsNormalWritesIntoUnderwaterSurface() throws IOException {
+        PaletteOwnershipRegistry registry = new PaletteOwnershipRegistry();
+        Palette[] underwaterPalettes = blankPalettes();
+        cycler = new Sonic3kPaletteCycler(
+                RomByteReader.fromRom(com.openggf.tests.TestEnvironment.currentRom()),
+                level,
+                3,
+                0,
+                registry,
+                underwaterPalettes);
+
+        cycler.update();
+
+        assertTrue(colorsEqual(level.getPalette(3).getColor(9), underwaterPalettes[3].getColor(9)),
+                "CNZ bumper cycle should mirror palette[3] color 9 into the underwater surface");
+        assertTrue(colorsEqual(level.getPalette(2).getColor(9), underwaterPalettes[2].getColor(9)),
+                "CNZ background cycle should mirror palette[2] color 9 into the underwater surface");
+        assertTrue(colorsEqual(level.getPalette(2).getColor(7), underwaterPalettes[2].getColor(7)),
+                "CNZ tertiary cycle should mirror palette[2] color 7 into the underwater surface");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.NORMAL, 3, 9),
+                "CNZ bumper cycle should claim palette[3] color 9 through the ownership registry");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.NORMAL, 2, 9),
+                "CNZ background cycle should claim palette[2] color 9 through the ownership registry");
+        assertEquals(S3kPaletteOwners.CNZ_ANPAL,
+                registry.ownerAt(PaletteSurface.UNDERWATER, 2, 7),
+                "CNZ tertiary cycle should mirror its ownership claim into the underwater surface");
     }
 
     // ========== Specific color value assertions ==========
@@ -202,6 +244,14 @@ public class TestS3kCnzPaletteCycling {
     }
 
     // ===== helpers =====
+
+    private static Palette[] blankPalettes() {
+        Palette[] palettes = new Palette[4];
+        for (int i = 0; i < palettes.length; i++) {
+            palettes[i] = new Palette();
+        }
+        return palettes;
+    }
 
     private static Palette.Color snapshot(Palette.Color c) {
         return new Palette.Color(c.r, c.g, c.b);

@@ -165,6 +165,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String LBZ_SMASHING_SPIKES = "lbz_smashing_spikes";
     public static final String MGZ_SWINGING_PLATFORM = "mgz_swinging_platform";
     public static final String MGZ_HEAD_TRIGGER = "mgz_head_trigger";
+    public static final String MGZ_MOVING_SPIKE_PLATFORM = "mgz_moving_spike_platform";
     public static final String MGZ_TRIGGER_PLATFORM = "mgz_trigger_platform";
     public static final String MGZ_SWINGING_SPIKE_BALL = "mgz_swinging_spike_ball";
     public static final String MGZ_DASH_TRIGGER = "mgz_dash_trigger";
@@ -174,6 +175,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String MGZ_MANTIS = "mgz_mantis";
     public static final String MGZ_BUBBLES_BADNIK = "mgz_bubbles_badnik";
     public static final String MGZ_MINIBOSS = "mgz_miniboss";
+    public static final String MGZ_MINIBOSS_SPIRE = "mgz_miniboss_spire";
     public static final String MGZ_MINIBOSS_DEBRIS = "mgz_miniboss_debris";
     /** Tunnelbot shares art with MGZ Miniboss (same ObjDat_Tunnelbot → Map_MGZMiniboss). */
     public static final String MGZ_TUNNELBOT = MGZ_MINIBOSS;
@@ -185,6 +187,21 @@ public final class Sonic3kObjectArtKeys {
     public static final String CNZ_CLAMER = "cnz_clamer";
     public static final String CNZ_CLAMER_SHOT = "cnz_clamer_shot";
     public static final String CNZ_BALLOON = "cnz_balloon";
+    public static final String CNZ_CANNON = "cnz_cannon";
+    public static final String CNZ_RISING_PLATFORM = "cnz_rising_platform";
+    public static final String CNZ_TRAP_DOOR = "cnz_trap_door";
+    public static final String CNZ_HOVER_FAN = "cnz_hover_fan";
+    public static final String CNZ_CYLINDER = "cnz_cylinder";
+    public static final String CNZ_VACUUM_TUBE = "cnz_vacuum_tube";
+    public static final String CNZ_SPIRAL_TUBE = "cnz_spiral_tube";
+
+    // CNZ route/boss infrastructure:
+    // - Obj_CNZTeleporter queues ArtKosM_CNZTeleport and then hands off to shared Obj_TeleporterBeam.
+    // - Obj_CNZMiniboss uses Map_CNZMiniboss after PLC_5C/5D loads its art.
+    // - Obj_CNZEndBoss uses Map_CNZEndBoss after PLC_6E loads body/ship/explosion/capsule art.
+    public static final String CNZ_TELEPORTER = "cnz_teleporter";
+    public static final String CNZ_MINIBOSS = "cnz_miniboss";
+    public static final String CNZ_END_BOSS = "cnz_end_boss";
 
     // Button (zone-specific variants)
     public static final String BUTTON = "button";            // Default (gray) - AIZ, MGZ, ICZ, LBZ, etc.

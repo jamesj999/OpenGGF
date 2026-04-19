@@ -210,6 +210,14 @@ further S3K parity work.
   (`AnimatedTileChannelGraph`), live level edits (`ZoneLayoutMutationPipeline`), deform/parallax
   reuse (`ScrollEffectComposer`), staged special draw passes (`SpecialRenderEffectRegistry`), and
   frame-level render-mode control (`AdvancedRenderModeController`).
+- **Solid ordering parity:** same-frame solid contact ordering now snapshots pre/post-contact
+  player state explicitly, tightening ROM parity across rideable, breakable, and trigger-driven
+  objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
+  collapsing solids.
+- **S3K CNZ and MGZ expansion:** Carnival Night now has a much larger traversal/object pass
+  including tubes, teleporters, balloons, cannons, hover fans, trap doors, water helpers, and
+  miniboss/boss scaffolding, while Marble Garden gains more event/object coverage and supporting
+  PLC/art runtime updates.
 - **Configuration and debug UX:** `config.json` key bindings now accept human-readable names such
   as `"SPACE"` and `"F9"`, and the debug/editor overlay text stack now uses the shared pixel-font
   renderer with improved batching and overlap handling.

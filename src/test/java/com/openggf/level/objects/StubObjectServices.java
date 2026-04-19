@@ -19,6 +19,7 @@ import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -54,6 +55,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public void fadeOutMusic() {}
     @Override public AudioManager audioManager() { return null; }
     @Override public GameRng rng() { return rng; }
+    @Override public SolidExecutionRegistry solidExecutionRegistry() { return SolidExecutionRegistry.inert(); }
     @Override public void spawnLostRings(PlayableEntity player, int frameCounter) {}
     @Override public Camera camera() { return null; }
     @Override public GameStateManager gameState() { return null; }

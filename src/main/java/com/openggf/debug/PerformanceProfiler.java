@@ -50,6 +50,9 @@ public class PerformanceProfiler {
     /** Name of currently active section (for validation) */
     private String activeSection;
 
+    /** Whether profiling is currently enabled. */
+    private boolean enabled = true;
+
     /** Circular buffer of per-section timing per frame (for rolling average) */
     private final Map<String, long[]> sectionHistories = new LinkedHashMap<>();
 
@@ -72,6 +75,12 @@ public class PerformanceProfiler {
      * Call this at the start of the main display loop.
      */
     public void beginFrame() {
+        if (!enabled) {
+            currentFrameSections.clear();
+            activeSection = null;
+            return;
+        }
+
         long now = System.nanoTime();
 
         // Track actual frame-to-frame time (for real FPS)
@@ -94,6 +103,10 @@ public class PerformanceProfiler {
      * Updates rolling averages and frame history.
      */
     public void endFrame() {
+        if (!enabled) {
+            return;
+        }
+
         long frameEndNanos = System.nanoTime();
         long frameDurationNanos = frameEndNanos - frameStartNanos;
 
@@ -143,6 +156,10 @@ public class PerformanceProfiler {
      * @param name The name of the section (e.g., "audio", "physics", "render.bg")
      */
     public void beginSection(String name) {
+        if (!enabled) {
+            return;
+        }
+
         if (activeSection != null) {
             // Implicitly end the previous section
             endSection(activeSection);
@@ -158,6 +175,10 @@ public class PerformanceProfiler {
      * @param name The name of the section (must match the most recent beginSection call)
      */
     public void endSection(String name) {
+        if (!enabled) {
+            return;
+        }
+
         if (activeSection == null || !activeSection.equals(name)) {
             return; // Ignore mismatched end calls
         }
@@ -197,6 +218,21 @@ public class PerformanceProfiler {
     }
 
     /**
+     * Enables or disables profiling collection.
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        memoryStats.setEnabled(enabled);
+        if (!enabled) {
+            currentFrameSections.clear();
+            activeSection = null;
+            frameStartNanos = 0;
+            previousFrameStartNanos = 0;
+            sectionStartNanos = 0;
+        }
+    }
+
+    /**
      * Resets all profiling data.
      */
     public void reset() {
@@ -207,6 +243,9 @@ public class PerformanceProfiler {
         historyIndex = 0;
         previousFrameStartNanos = 0;
         actualFrameTimeSum = 0;
+        activeSection = null;
+        frameStartNanos = 0;
+        sectionStartNanos = 0;
         for (int i = 0; i < HISTORY_SIZE; i++) {
             frameHistory[i] = 0;
         }

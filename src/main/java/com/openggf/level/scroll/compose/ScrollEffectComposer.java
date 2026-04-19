@@ -60,6 +60,16 @@ public final class ScrollEffectComposer {
         return packedScrollWords.length;
     }
 
+    /**
+     * Returns the live packed scroll buffer for zero-allocation read access.
+     *
+     * <p>Callers must treat the returned array as read-only. Use
+     * {@link #copyPackedScrollWordsTo(int[])} when a defensive copy is needed.
+     */
+    public int[] packedScrollWordsView() {
+        return packedScrollWords;
+    }
+
     public int[] packedScrollWords() {
         return Arrays.copyOf(packedScrollWords, packedScrollWords.length);
     }

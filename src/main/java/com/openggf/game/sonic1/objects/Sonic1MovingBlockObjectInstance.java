@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.SolidCheckpointBatch;
 
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -10,6 +11,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -212,7 +214,8 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        playerStanding = isPlayerRiding();
+        SolidCheckpointBatch batch = checkpointAll();
+        playerStanding = hasStandingContact(batch);
 
         // MBlock_StandOn (routine 4): ExitPlatform, save X, move, MvSonicOnPtfm2
         // MBlock_Platform (routine 2): move, PlatformObject
@@ -220,6 +223,11 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         applyMovement();
 
         updateDynamicSpawn(x, y);
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
@@ -242,8 +250,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Standing state managed via isPlayerRiding() in update()
+        // Standing state is driven via manual checkpoints in update().
     }
 
     @Override
