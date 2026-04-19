@@ -1,5 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.solid.ContactKind;
+import com.openggf.game.solid.DefaultSolidExecutionRegistry;
+import com.openggf.game.solid.ObjectSolidExecutionContext;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.PostContactState;
+import com.openggf.game.solid.PreContactState;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.EngineServices;
@@ -29,6 +36,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -113,6 +121,35 @@ public class TestTornadoObjectInstance {
                 new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, false);
 
         assertEquals(151, tornado.getX(), "SCZ Tornado anchors to main when sidekick is suppressed");
+    }
+
+    @Test
+    public void tornadoSczMainReadsStandingStateFromManualCheckpointBeforeFollowMotion() throws Exception {
+        TornadoObjectInstance tornado = new TornadoObjectInstance(new ObjectSpawn(
+                100, 0x100, Sonic2ObjectIds.TORNADO, 0x50, 0, false, 0));
+        TestPlayableSprite main = new TestPlayableSprite("main", (short) 100, (short) 100);
+        main.setAir(false);
+
+        DefaultSolidExecutionRegistry registry = new DefaultSolidExecutionRegistry();
+        registry.beginFrame(1, List.of(main));
+        registry.beginObject(tornado, () -> new SolidCheckpointBatch(tornado, Map.of(
+                main, new PlayerSolidContactResult(
+                        ContactKind.TOP,
+                        true,
+                        false,
+                        false,
+                        false,
+                        PreContactState.ZERO,
+                        PostContactState.ZERO))));
+
+        tornado.setServices(new CheckpointServices(registry.currentObject()));
+        invokePrivate(tornado, "updateSczMain",
+                new Class<?>[]{AbstractPlayableSprite.class}, main);
+
+        assertTrue((boolean) getField(tornado, "lastMainStanding"),
+                "SCZ Tornado should use the current-frame checkpoint standing state");
+        assertTrue((boolean) getField(tornado, "standingTransition"),
+                "SCZ Tornado should detect the same-frame standing transition before follow motion");
     }
 
     @Test
@@ -206,6 +243,12 @@ public class TestTornadoObjectInstance {
         field.set(target, value);
     }
 
+    private static Object getField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
         private TestPlayableSprite(String code, short x, short y) {
             super(code, x, y);
@@ -265,6 +308,22 @@ public class TestTornadoObjectInstance {
         @Override
         public void requestSessionSave(SaveReason reason) {
             lastSaveReason = reason;
+        }
+    }
+
+    private static final class CheckpointServices extends TestObjectServices {
+        private final ObjectSolidExecutionContext solidExecution;
+
+        private CheckpointServices(ObjectSolidExecutionContext solidExecution) {
+            this.solidExecution = solidExecution;
+            withCamera(GameServices.camera());
+            withParallaxManager(GameServices.parallax());
+            withSpriteManager(GameServices.sprites());
+        }
+
+        @Override
+        public ObjectSolidExecutionContext solidExecution() {
+            return solidExecution;
         }
     }
 }

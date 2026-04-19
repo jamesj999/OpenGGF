@@ -18,7 +18,8 @@ import java.util.logging.Logger;
  *
  * The pipeline executes in three explicit phases:
  * 1. Terrain probes (ground/ceiling/wall sensors against level collision)
- * 2. Solid object resolution (platforms, moving solids, sloped solids)
+ * 2. Compatibility solid-object resolution when the active frame path still uses a
+ *    batched solid pass
  * 3. Post-resolution adjustments (ground mode, gSpeed recompute, headroom)
  */
 public class CollisionSystem {
@@ -122,8 +123,8 @@ public class CollisionSystem {
     }
 
     /**
-     * Phase 2: Resolve solid object contacts.
-     * Currently delegates to ObjectManager.SolidContacts.
+     * Phase 2: Resolve solid object contacts for the legacy batched path.
+     * Inline-order modules resolve object solids during object execution instead.
      */
     public void resolveSolidContacts(AbstractPlayableSprite sprite) {
         if (objectManager == null) {
@@ -147,10 +148,10 @@ public class CollisionSystem {
      * Convenience method that delegates to SolidContacts.
      */
     public boolean hasStandingContact(AbstractPlayableSprite player) {
-        if (objectManager == null) {
+        if (player == null || player.getYSpeed() < 0 || objectManager == null) {
             return false;
         }
-        return objectManager.hasStandingContact(player);
+        return objectManager.latestStandingSnapshot(player);
     }
 
     /**
@@ -161,7 +162,7 @@ public class CollisionSystem {
         if (objectManager == null) {
             return Integer.MAX_VALUE;
         }
-        return objectManager.getHeadroomDistance(player, hexAngle);
+        return objectManager.latestHeadroomSnapshot(player, hexAngle);
     }
 
     /**

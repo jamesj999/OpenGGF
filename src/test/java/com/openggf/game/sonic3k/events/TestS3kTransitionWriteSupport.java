@@ -57,6 +57,7 @@ class TestS3kTransitionWriteSupport {
         private boolean hczBossFlag;
         private boolean actTransitionSignaled;
         private boolean hczPostTransitionCutsceneRequested;
+        private boolean mgzPostTransitionReleaseRequested;
 
         @Override
         public void initLevel(int zone, int act) {
@@ -79,6 +80,11 @@ class TestS3kTransitionWriteSupport {
         @Override
         public void requestHczPostTransitionCutscene() {
             hczPostTransitionCutsceneRequested = true;
+        }
+
+        @Override
+        public void requestMgzPostTransitionRelease() {
+            mgzPostTransitionReleaseRequested = true;
         }
     }
 }

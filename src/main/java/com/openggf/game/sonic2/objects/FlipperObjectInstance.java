@@ -1,5 +1,8 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.ContactKind;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 
@@ -72,7 +75,6 @@ public class FlipperObjectInstance extends BoxObjectInstance
     // has moved away. Our onSolidContact callback only fires when there IS a contact,
     // so we must check in update() whether the player has left and release the lock.
     private AbstractPlayableSprite lockedPlayer = null;
-    private boolean contactThisFrame = false;
 
     public FlipperObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 8, 8, 0.8f, 0.4f, 0.2f, false);
@@ -82,8 +84,16 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (player == null || launchCooldown > 0) {
+        // Manual checkpoints drive flipper state from update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
+    }
+
+    private void applyCheckpointContact(AbstractPlayableSprite player, PlayerSolidContactResult result) {
+        if (player == null || result == null || launchCooldown > 0) {
             return;
         }
 
@@ -97,16 +107,12 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
         if (isHorizontal()) {
             // Horizontal flipper: launch on push (loc_2B35C)
-            if (contact.pushing()) {
+            if (result.pushingNow()) {
                 applyHorizontalLaunch(player);
             }
         } else {
-            // Mark that we received a contact callback this frame - used by update()
-            // to detect when the player has moved out of range entirely (no callback).
-            contactThisFrame = true;
-
             // Vertical flipper state machine (loc_2B20A - loc_2B288)
-            if (contact.standing()) {
+            if (result.standingNow()) {
                 // ROM: move.b #1,obj_control(a1) - locks ALL player input including jumping
                 // This is set every frame while standing on the flipper
                 player.setControlLocked(true);
@@ -132,13 +138,15 @@ public class FlipperObjectInstance extends BoxObjectInstance
                         applyFlipperSlide(player);
                     }
                 }
-            } else {
+            } else if (result.kind() == ContactKind.NONE) {
                 // Player left flipper without jumping (loc_2B23C branch to clear)
                 // ROM: move.b #0,obj_control(a1)
-                if (playerFlipperState != 0) {
+                if (playerFlipperState != 0 && (lockedPlayer == null || lockedPlayer == player)) {
                     releaseLockedPlayer();
+                    player.setControlLocked(false);
+                    player.setPinballMode(false);
+                    playerFlipperState = 0;
                 }
-                playerFlipperState = 0;
             }
 
             // Process pending launch (loc_2B290)
@@ -336,24 +344,27 @@ public class FlipperObjectInstance extends BoxObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (launchCooldown > 0) {
             launchCooldown--;
         }
 
-        // ROM: loc_2B20A runs every frame as part of the object's main routine.
-        // It checks the standing bit (set/cleared by SlopedSolid) and clears
-        // obj_control when the player is no longer standing. Our onSolidContact
-        // callback only fires when collision is detected, so if the player has
-        // moved out of range entirely, we never get a callback. Detect that here.
-        if (!isHorizontal() && playerFlipperState != 0 && !contactThisFrame) {
-            releaseLockedPlayer();
-            playerFlipperState = 0;
+        SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+        if (playerEntity instanceof AbstractPlayableSprite player) {
+            PlayerSolidContactResult result = batch.perPlayer().get(player);
+            applyCheckpointContact(player, result != null ? result : checkpoint(player));
         }
-        contactThisFrame = false;
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sidekickSprite) {
+                applyCheckpointContact(sidekickSprite, batch.perPlayer().get(sidekick));
+            }
+        }
 
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
+    }
+
+    private PlayerSolidContactResult checkpoint(AbstractPlayableSprite player) {
+        return services().solidExecution().resolveSolidNow(player);
     }
 
     /**

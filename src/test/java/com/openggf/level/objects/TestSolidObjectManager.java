@@ -6,12 +6,14 @@ import org.junit.jupiter.api.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
+import com.openggf.tests.TestEnvironment;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -24,12 +26,67 @@ public class TestSolidObjectManager {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.createGameplay();
+        TestEnvironment.resetAll();
     }
 
     @AfterEach
     public void tearDown() {
         RuntimeManager.destroyCurrent();
+    }
+
+    @Test
+    public void manualCheckpointObjectSeesStandingStateInsideUpdate() {
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 83);
+        player.setYSpeed((short) 0x100);
+        player.setAir(true);
+
+        ManualCheckpointProbeObject object = new ManualCheckpointProbeObject(100, 100);
+        ObjectManager manager = buildManager(object);
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertTrue(object.standingSeenInsideUpdate);
+        assertEquals(1, object.manualCheckpointCount);
+        assertEquals(0, object.compatibilityCallbackCount);
+    }
+
+    @Test
+    public void legacyAutoObjectStillReceivesOnePostUpdateCompatibilityCallback() {
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 83);
+        player.setYSpeed((short) 0x100);
+        player.setAir(true);
+
+        AutoCheckpointProbeObject object = new AutoCheckpointProbeObject(100, 100);
+        ObjectManager manager = buildManager(object);
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertEquals(1, object.compatibilityCallbackCount);
+    }
+
+    @Test
+    public void compatibilityAutoObjectPreservesPerPlayerCallbackTimingWithSidekickMutation() {
+        TestPlayableSprite player = createStandingProbePlayer();
+        TestPlayableSprite sidekick = createStandingProbePlayer();
+
+        FirstContactDisablesSolidityProbeObject object =
+                new FirstContactDisablesSolidityProbeObject(100, 100);
+        ObjectManager manager = buildManager(object);
+
+        manager.update(0, player, List.of(sidekick), 0, false, true, false);
+
+        assertEquals(1, object.compatibilityCallbackCount);
+        assertEquals(player, object.firstCallbackPlayer);
+        assertTrue(object.mainPlayerSawCallback);
+        assertFalse(object.sidekickSawCallback);
     }
 
     @Test
@@ -252,7 +309,7 @@ public class TestSolidObjectManager {
     }
 
     @Test
-    public void testRidingStateClearsWhenLeavingNarrowTopSurface() {
+    public void testRidingStatePersistsWhileInsideCollisionWidth() {
         SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
         TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
         ObjectManager manager = buildManager(object);
@@ -271,11 +328,13 @@ public class TestSolidObjectManager {
         manager.updateSolidContacts(player);
         assertTrue(manager.isRidingObject(player));
 
-        // Move to X that is still inside collision width but outside top-standing width.
+        // Move to X that is still inside the full collision width but outside the
+        // narrower top-standing width. ExitPlatform-style continuation should keep
+        // the player riding until they actually leave the object's collision box.
         player.setCentreX((short) (100 + 0x28));
         manager.updateSolidContacts(player);
 
-        assertFalse(manager.isRidingObject(player));
+        assertTrue(manager.isRidingObject(player));
     }
 
     @Test
@@ -324,6 +383,17 @@ public class TestSolidObjectManager {
         Field field = instance.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setBoolean(instance, value);
+    }
+
+    private TestPlayableSprite createStandingProbePlayer() {
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 83);
+        player.setYSpeed((short) 0x100);
+        player.setAir(true);
+        return player;
     }
 
     private ObjectManager buildManager(ObjectInstance instance) {
@@ -410,6 +480,166 @@ public class TestSolidObjectManager {
         @Override
         public int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
             return topLandingHalfWidth != null ? topLandingHalfWidth : collisionHalfWidth;
+        }
+    }
+
+    private static final class ManualCheckpointProbeObject extends AbstractObjectInstance
+            implements SolidObjectProvider, SolidObjectListener {
+        private final SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        private boolean standingSeenInsideUpdate;
+        private int manualCheckpointCount;
+        private int compatibilityCallbackCount;
+
+        private ManualCheckpointProbeObject(int x, int y) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "ManualCheckpointProbe");
+        }
+
+        @Override
+        public SolidExecutionMode solidExecutionMode() {
+            return SolidExecutionMode.MANUAL_CHECKPOINT;
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return params;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            PlayerSolidContactResult result = services().solidExecution().resolveSolidNow(player);
+            standingSeenInsideUpdate = result.standingNow();
+            manualCheckpointCount++;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // No-op for tests.
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return false;
+        }
+
+        @Override
+        public boolean isSkipSolidContactThisFrame() {
+            return false;
+        }
+
+        @Override
+        public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
+            compatibilityCallbackCount++;
+        }
+    }
+
+    private static final class AutoCheckpointProbeObject extends AbstractObjectInstance
+            implements SolidObjectProvider, SolidObjectListener {
+        private final SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        private int compatibilityCallbackCount;
+
+        private AutoCheckpointProbeObject(int x, int y) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "AutoCheckpointProbe");
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return params;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            // No-op for tests.
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // No-op for tests.
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return false;
+        }
+
+        @Override
+        public boolean isSkipSolidContactThisFrame() {
+            return false;
+        }
+
+        @Override
+        public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
+            compatibilityCallbackCount++;
+        }
+    }
+
+    private static final class FirstContactDisablesSolidityProbeObject extends AbstractObjectInstance
+            implements SolidObjectProvider, SolidObjectListener {
+        private final SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        private boolean solid = true;
+        private int compatibilityCallbackCount;
+        private PlayableEntity firstCallbackPlayer;
+        private boolean mainPlayerSawCallback;
+        private boolean sidekickSawCallback;
+
+        private FirstContactDisablesSolidityProbeObject(int x, int y) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "FirstContactDisablesSolidityProbe");
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return params;
+        }
+
+        @Override
+        public boolean isSolidFor(PlayableEntity player) {
+            return solid;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            // No-op for tests.
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            // No-op for tests.
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return false;
+        }
+
+        @Override
+        public boolean isSkipSolidContactThisFrame() {
+            return false;
+        }
+
+        @Override
+        public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
+            compatibilityCallbackCount++;
+            if (firstCallbackPlayer == null) {
+                firstCallbackPlayer = player;
+                solid = false;
+                mainPlayerSawCallback = true;
+            } else {
+                sidekickSawCallback = true;
+            }
         }
     }
 

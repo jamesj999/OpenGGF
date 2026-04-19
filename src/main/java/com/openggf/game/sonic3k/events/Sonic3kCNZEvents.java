@@ -5,72 +5,164 @@ import java.util.logging.Logger;
 /**
  * CNZ (Carnival Night Zone) dynamic level events.
  *
- * <p>ROM: CNZ1_BackgroundEvent (sonic3k.asm lines 107421-107659)
- * and CNZ2_ScreenEvent / CNZ2_BackgroundEvent (sonic3k.asm lines 107876-108030).
- *
- * <h3>Act 1 BG state machine (CNZ1_BackgroundEvent):</h3>
+ * <p>This class models the ROM-shaped CNZ act-state split needed for the
+ * current bring-up:
  * <ul>
- *   <li>Stage 0 (NORMAL): Camera X &lt; $3000 → normal deform/scroll</li>
- *   <li>Stage 0 → miniboss: Camera X &gt;= $3000 → enter miniboss path,
- *       load boss palette, clamp Camera_min_Y_pos</li>
- *   <li>Stages 4-8: Boss scroll, arena destruction, BG refresh</li>
- *   <li>Stage 12 (ACT1_POST_BOSS): Events_fg_5 → FG refresh / collision handoff</li>
- *   <li>Stage 24: seamless Act 1 → Act 2 transition</li>
+ *   <li>Act 1 miniboss entry and post-boss handoff</li>
+ *   <li>Act 1 seamless reload request</li>
+ *   <li>Act 2 Knuckles teleporter route markers</li>
  * </ul>
- *
- * <h3>Act 2 FG (CNZ2_ScreenEvent):</h3>
- * <ul>
- *   <li>Stage 0: Knuckles branch — X &gt;= $4880, Y &gt;= $0B00 →
- *       spawn teleporter + egg capsule</li>
- *   <li>Sonic/Tails skip directly to normal draw</li>
- * </ul>
- *
- * <p>This class currently models the boss background mode transitions
- * used by {@link com.openggf.game.sonic3k.scroll.SwScrlCnz} to switch
- * between normal deform scroll and the fixed boss scroll path.
  */
 public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     private static final Logger LOG = Logger.getLogger(Sonic3kCNZEvents.class.getName());
 
-    // =========================================================================
-    // Act 1 BG miniboss camera threshold (ROM: CNZ1BGE_Normal)
-    // =========================================================================
+    /** CNZ1_BackgroundEvent stage 0. */
+    public static final int BG_NORMAL = 0x00;
+    /** CNZ1_BackgroundEvent stage 4. */
+    public static final int BG_BOSS_START = 0x04;
+    /** CNZ1_BackgroundEvent stage 8. */
+    public static final int BG_BOSS = 0x08;
+    /** CNZ1_BackgroundEvent stage 12. */
+    public static final int BG_AFTER_BOSS = 0x0C;
+    /** CNZ1_BackgroundEvent stage 16. */
+    public static final int BG_FG_REFRESH = 0x10;
+    /** CNZ1_BackgroundEvent stage 20. */
+    public static final int BG_FG_REFRESH_2 = 0x14;
+    /** CNZ1_BackgroundEvent stage 24. */
+    public static final int BG_DO_TRANSITION = 0x18;
+
+    /** CNZ2_ScreenEvent stage 0. */
+    public static final int FG_ACT2_ENTRY = 0x00;
+    /** CNZ2_ScreenEvent stage 4. */
+    public static final int FG_ACT2_KNUCKLES_ROUTE = 0x04;
+    /** CNZ2_ScreenEvent stage 8. */
+    public static final int FG_ACT2_NORMAL = 0x08;
+
     private static final int MINIBOSS_CAM_X_THRESHOLD = 0x3000;
+    private static final int KNUCKLES_ROUTE_MIN_X = 0x4750;
+    private static final int KNUCKLES_ROUTE_MAX_X = 0x48E0;
 
-    // =========================================================================
-    // State
-    // =========================================================================
+    /**
+     * CNZ-local foreground routine mirror.
+     *
+     * <p>The ROM keeps separate FG/BG routines. CNZ stores the FG routine
+     * locally so the event manager and runtime state can expose it without
+     * relying on the base class counters.
+     */
+    private int fgRoutine;
 
-    /** ROM: Events_fg_5 — set by results screen / signpost to trigger BG act transition. */
+    /**
+     * CNZ-local background routine mirror.
+     *
+     * <p>This tracks the Act 1 boss chain and the later seamless reload gate.
+     */
+    private int bgRoutine;
+
+    /** ROM: Events_fg_5. */
     private boolean eventsFg5;
 
-    /** Current boss background scroll mode, derived from BG event state. */
+    /**
+     * Published deform phase source later consumed by AnimateTiles_CNZ.
+     */
+    private int deformPhaseBgX;
+
+    /**
+     * Published stabilized BG camera X copy.
+     */
+    private int publishedBgCameraX;
+
+    /**
+     * ROM-shaped boss scroll offset and velocity values.
+     */
+    private int bossScrollOffsetY;
+    private int bossScrollVelocityY;
+
+    /** Suppresses wall-grab interactions during the miniboss path. */
+    private boolean wallGrabSuppressed;
+
+    /** Latest requested water target. */
+    private int waterTargetY;
+
+    /** Bridge flag for the Act 1 water button helper. */
+    private boolean waterButtonArmed;
+
+    /** Boss ownership mirror used by later slices. */
+    private boolean bossFlag;
+
+    /** True once the Knuckles-only Act 2 teleporter route is active. */
+    private boolean knucklesTeleporterRouteActive;
+
+    /** True once the teleporter beam child has spawned. */
+    private boolean teleporterBeamSpawned;
+
+    /** True once the seamless Act 1 -> Act 2 reload has been requested. */
+    private boolean act2TransitionRequested;
+    private int pendingZoneActWord;
+    private int transitionWorldOffsetX;
+    private int transitionWorldOffsetY;
+
+    /** Teleporter route clamp values mirrored for tests. */
+    private int cameraMinXClamp;
+    private int cameraMaxXClamp;
+
+    /**
+     * Last pending arena chunk coordinates. Slice 0 intentionally exposes a
+     * single pending request instead of a queue.
+     */
+    private int arenaChunkWorldX;
+    private int arenaChunkWorldY;
+    private boolean arenaChunkDestructionQueued;
+    /**
+     * Accumulated destroyed arena height in pixels.
+     *
+     * <p>ROM: {@code Obj_CNZMinibossTop} only ever reports impacts snapped to the
+     * arena block grid before {@code CNZMiniboss_BlockExplosion} removes the
+     * touched chunk. Task 7 keeps a single scalar here instead of replaying the
+     * full live-layout mutation, because the current tests only need to prove
+     * that each top hit contributes one 0x20-pixel row toward the lowering
+     * sequence consumed by the base object.
+     */
+    private int destroyedArenaRows;
+
+    /** Current boss background scroll mode. */
     private BossBackgroundMode bossBackgroundMode = BossBackgroundMode.NORMAL;
 
     /**
-     * Describes which scroll path the CNZ background should use.
-     * {@link com.openggf.game.sonic3k.scroll.SwScrlCnz} reads this to
-     * switch between normal deform math and fixed boss arena scroll.
+     * Background scroll modes used by CNZ.
      */
     public enum BossBackgroundMode {
-        /** Standard CNZ1_Deform deformation (7/16 X ratio, 13/128 Y ratio). */
         NORMAL,
-        /** Act 1 miniboss arena path — CNZ1_BossLevelScroll / CNZ1_BossLevelScroll2. */
         ACT1_MINIBOSS_PATH,
-        /** Post-boss FG refresh / collision handoff (still uses boss scroll). */
         ACT1_POST_BOSS,
-        /** Act 2 Knuckles teleporter sequence (normal scroll continues). */
         ACT2_KNUCKLES_TELEPORTER
     }
-
-    // =========================================================================
-    // Lifecycle
-    // =========================================================================
 
     @Override
     public void init(int act) {
         super.init(act);
+        fgRoutine = 0;
+        bgRoutine = 0;
         eventsFg5 = false;
+        deformPhaseBgX = 0;
+        publishedBgCameraX = 0;
+        bossScrollOffsetY = 0;
+        bossScrollVelocityY = 0;
+        wallGrabSuppressed = false;
+        waterTargetY = 0;
+        waterButtonArmed = false;
+        bossFlag = false;
+        knucklesTeleporterRouteActive = false;
+        teleporterBeamSpawned = false;
+        act2TransitionRequested = false;
+        pendingZoneActWord = 0;
+        transitionWorldOffsetX = 0;
+        transitionWorldOffsetY = 0;
+        cameraMinXClamp = 0;
+        cameraMaxXClamp = 0;
+        arenaChunkWorldX = 0;
+        arenaChunkWorldY = 0;
+        arenaChunkDestructionQueued = false;
+        destroyedArenaRows = 0;
         bossBackgroundMode = BossBackgroundMode.NORMAL;
     }
 
@@ -78,59 +170,382 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     public void update(int act, int frameCounter) {
         if (act == 0) {
             updateAct1Bg();
+        } else {
+            updateAct2Fg();
         }
-        // Act 2 BG uses the shared CNZ1_Deform path (NORMAL mode).
-        // Act 2 FG Knuckles teleporter is not yet implemented.
     }
 
-    // =========================================================================
-    // Act 1 BG — boss background mode transitions
-    // =========================================================================
+    private void updateAct1Bg() {
+        switch (bgRoutine) {
+            case BG_AFTER_BOSS -> handleAfterBossStage();
+            case BG_FG_REFRESH -> advanceRefreshStageToSecondPass();
+            case BG_FG_REFRESH_2 -> advanceRefreshStageToTransitionGate();
+            case BG_DO_TRANSITION -> handleSeamlessReloadStage();
+            default -> handleAct1Entry();
+        }
+    }
 
     /**
-     * ROM: CNZ1_BackgroundEvent state 0 (CNZ1BGE_Normal).
-     * Checks Camera X against $3000 threshold to enter miniboss path.
-     * Post-boss transition triggered by Events_fg_5.
+     * Handles the normal Act 1 entry path and the miniboss threshold gate.
      */
-    private void updateAct1Bg() {
+    private void handleAct1Entry() {
         switch (bossBackgroundMode) {
             case NORMAL -> {
-                // ROM: CNZ1BGE_Normal — Camera X >= $3000 enters miniboss path
                 if (camera().getX() >= MINIBOSS_CAM_X_THRESHOLD) {
                     bossBackgroundMode = BossBackgroundMode.ACT1_MINIBOSS_PATH;
-                    LOG.info("CNZ1 BG: Camera X >= $3000, entering miniboss path");
+                    bgRoutine = BG_BOSS_START;
+                    wallGrabSuppressed = true;
+                    LOG.info("CNZ: camera reached miniboss threshold");
                 }
             }
             case ACT1_MINIBOSS_PATH -> {
-                // ROM: CNZ1BGE_AfterBoss — Events_fg_5 triggers post-boss handoff
                 if (eventsFg5) {
                     eventsFg5 = false;
                     bossBackgroundMode = BossBackgroundMode.ACT1_POST_BOSS;
-                    LOG.info("CNZ1 BG: Events_fg_5 set, entering post-boss phase");
+                    bgRoutine = BG_FG_REFRESH;
+                    LOG.info("CNZ: post-boss handoff entered");
                 }
             }
-            case ACT1_POST_BOSS -> {
-                // Post-boss phases (FG refresh, signpost, seamless transition)
-                // will be expanded as arena destruction and transition are implemented.
-            }
-            case ACT2_KNUCKLES_TELEPORTER -> {
-                // Knuckles Act 2 teleporter — not yet implemented.
-            }
+            case ACT1_POST_BOSS -> handleAfterBossStage();
+            case ACT2_KNUCKLES_TELEPORTER -> updateAct2Fg();
         }
     }
 
-    // =========================================================================
-    // Accessors
-    // =========================================================================
+    /**
+     * ROM: CNZ1BGE_AfterBoss.
+     *
+     * <p>The first Events_fg_5 only advances the refresh chain. It does not
+     * request the act reload.
+     */
+    private void handleAfterBossStage() {
+        if (!eventsFg5) {
+            return;
+        }
+        eventsFg5 = false;
+        bgRoutine = BG_FG_REFRESH;
+    }
+
+    /**
+     * ROM: CNZ1BGE_FGRefresh.
+     *
+     * <p>The real game copies arena data back into the foreground before the
+     * signpost phase. This bring-up keeps the same sequencing contract by
+     * advancing to the second refresh pass on the next update while leaving
+     * the actual layout mutation to later slices.
+     */
+    private void advanceRefreshStageToSecondPass() {
+        bgRoutine = BG_FG_REFRESH_2;
+    }
+
+    /**
+     * ROM: CNZ1BGE_FGRefresh2.
+     *
+     * <p>The real game finishes the foreground handoff here. For the current
+     * scope we only need the stage to become reachable and to progress to the
+     * reload gate without an external test forcing BG_DO_TRANSITION.
+     */
+    private void advanceRefreshStageToTransitionGate() {
+        bgRoutine = BG_DO_TRANSITION;
+    }
+
+    /**
+     * ROM: CNZ1BGE_DoTransition.
+     *
+     * <p>The second Events_fg_5 loads the transition PLCs, publishes the
+     * seamless reload metadata, and moves the handler into the Act 2 route
+     * state.
+     */
+    private void handleSeamlessReloadStage() {
+        if (!eventsFg5) {
+            return;
+        }
+        eventsFg5 = false;
+        applyPlc(0x18);
+        applyPlc(0x19);
+        act2TransitionRequested = true;
+        pendingZoneActWord = 0x0301;
+        transitionWorldOffsetX = -0x3000;
+        transitionWorldOffsetY = 0x0200;
+        fgRoutine = FG_ACT2_ENTRY;
+        bgRoutine = BG_NORMAL;
+        bossBackgroundMode = BossBackgroundMode.ACT2_KNUCKLES_TELEPORTER;
+        wallGrabSuppressed = false;
+    }
+
+    /**
+     * CNZ Act 2 foreground logic.
+     *
+     * <p>The current bring-up only needs the route selection and clamp
+     * publication. Later slices will add the teleporter and capsule object
+     * sequence.
+     */
+    private void updateAct2Fg() {
+        switch (fgRoutine) {
+            case FG_ACT2_ENTRY -> {
+                if (knucklesTeleporterRouteActive) {
+                    fgRoutine = FG_ACT2_KNUCKLES_ROUTE;
+                    publishKnucklesTeleporterClamp();
+                } else {
+                    fgRoutine = FG_ACT2_NORMAL;
+                }
+            }
+            case FG_ACT2_KNUCKLES_ROUTE -> publishKnucklesTeleporterClamp();
+            case FG_ACT2_NORMAL -> {
+                // Normal Act 2 draw path.
+            }
+            default -> {
+                if (knucklesTeleporterRouteActive) {
+                    fgRoutine = FG_ACT2_KNUCKLES_ROUTE;
+                    publishKnucklesTeleporterClamp();
+                }
+            }
+        }
+    }
 
     /** Returns the current boss background scroll mode. */
     public BossBackgroundMode getBossBackgroundMode() {
         return bossBackgroundMode;
     }
 
-    /** Set the Events_fg_5 flag (called by results screen / signpost). */
+    /** CNZ-local foreground routine mirror. */
+    public int getForegroundRoutine() {
+        return fgRoutine;
+    }
+
+    /** CNZ-local background routine mirror. */
+    public int getBackgroundRoutine() {
+        return bgRoutine;
+    }
+
+    /** Restores the CNZ-local background routine. */
+    public void setBackgroundRoutine(int routine) {
+        this.bgRoutine = routine;
+    }
+
+    /** Test hook for the foreground routine. */
+    public void forceForegroundRoutine(int routine) {
+        this.fgRoutine = routine;
+    }
+
+    /** Test hook for the background routine. */
+    public void forceBackgroundRoutine(int routine) {
+        this.bgRoutine = routine;
+    }
+
+    /** Test hook for the boss background mode. */
+    public void forceBossBackgroundMode(BossBackgroundMode mode) {
+        this.bossBackgroundMode = mode;
+    }
+
+    /** Publishes the deform inputs consumed by later CNZ systems. */
+    public void setPublishedDeformInputs(int phaseSourceX, int bgCameraX) {
+        this.deformPhaseBgX = phaseSourceX;
+        this.publishedBgCameraX = bgCameraX;
+    }
+
+    public int getDeformPhaseBgX() {
+        return deformPhaseBgX;
+    }
+
+    public int getPublishedBgCameraX() {
+        return publishedBgCameraX;
+    }
+
+    /** Publishes the boss-scroll Y state used by the miniboss path. */
+    public void setBossScrollState(int offsetY, int velocityY) {
+        this.bossScrollOffsetY = offsetY;
+        this.bossScrollVelocityY = velocityY;
+    }
+
+    public int getBossScrollOffsetY() {
+        return bossScrollOffsetY;
+    }
+
+    public int getBossScrollVelocityY() {
+        return bossScrollVelocityY;
+    }
+
+    public boolean isWallGrabSuppressed() {
+        return wallGrabSuppressed;
+    }
+
+    public void setWallGrabSuppressed(boolean wallGrabSuppressed) {
+        this.wallGrabSuppressed = wallGrabSuppressed;
+    }
+
+    public int getWaterTargetY() {
+        return waterTargetY;
+    }
+
+    public void setWaterTargetY(int waterTargetY) {
+        this.waterTargetY = waterTargetY;
+        /**
+         * ROM anchors:
+         * {@code Obj_CNZWaterLevelCorkFloor} writes {@code Target_water_level}
+         * directly to {@code $0958}, and {@code Obj_CNZWaterLevelButton} writes
+         * {@code $0A58} once the arming flag has been set. The engine mirrors
+         * those writes into both the CNZ event state and the shared water system
+         * so tests and later runtime consumers observe the same explicit source
+         * of truth.
+         */
+        waterSystem().setWaterLevelTarget(levelManager().getRomZoneId(),
+                levelManager().getCurrentAct(),
+                waterTargetY);
+    }
+
+    public boolean isWaterButtonArmed() {
+        return waterButtonArmed;
+    }
+
+    public void setWaterButtonArmed(boolean waterButtonArmed) {
+        this.waterButtonArmed = waterButtonArmed;
+    }
+
+    public boolean isBossFlag() {
+        return bossFlag;
+    }
+
+    public void setBossFlag(boolean bossFlag) {
+        /**
+         * Task 8 boundary note:
+         * CNZ's end-boss implementation currently owns only the startup gate and
+         * defeat handoff, so this flag is the explicit shared seam between the
+         * bounded boss wrapper and the wider CNZ event script.
+         */
+        this.bossFlag = bossFlag;
+    }
+
+    /**
+     * Enters the Knuckles-only Act 2 teleporter route.
+     *
+     * <p>The route is represented by a dedicated FG routine plus the camera
+     * clamp values the ROM applies while the teleporter sequence is active.
+     */
+    public void beginKnucklesTeleporterRoute() {
+        knucklesTeleporterRouteActive = true;
+        bossBackgroundMode = BossBackgroundMode.ACT2_KNUCKLES_TELEPORTER;
+        fgRoutine = FG_ACT2_KNUCKLES_ROUTE;
+        /**
+         * ROM: the late Knuckles route clamps the camera to the teleporter lane
+         * while {@code Obj_CNZTeleporter} owns the cutscene-specific player and
+         * palette state. Publishing the route transition here keeps the object
+         * dependency explicit instead of burying it in object-local booleans.
+         */
+        publishKnucklesTeleporterClamp();
+    }
+
+    public boolean isKnucklesTeleporterRouteActive() {
+        return knucklesTeleporterRouteActive;
+    }
+
+    /**
+     * Returns whether Task 8's teleporter object should own the route palette
+     * override.
+     *
+     * <p>The override window begins when the Knuckles-only route starts and
+     * ends once the beam object has been spawned. Publishing that seam here
+     * keeps the later palette handoff explicit in CNZ event state instead of
+     * introducing another hidden object-local flag.
+     */
+    public boolean shouldApplyTeleporterPaletteOverride() {
+        return knucklesTeleporterRouteActive && !teleporterBeamSpawned;
+    }
+
+    public void markTeleporterBeamSpawned() {
+        /**
+         * Once the shared beam exists, the teleporter-specific palette override
+         * is no longer the active owner. Task 8 uses this explicit event seam
+         * so tests can observe the parent -> beam handoff without depending on
+         * hidden object state.
+         */
+        teleporterBeamSpawned = true;
+    }
+
+    public boolean isTeleporterBeamSpawned() {
+        return teleporterBeamSpawned;
+    }
+
+    public boolean isAct2TransitionRequested() {
+        return act2TransitionRequested;
+    }
+
+    public int getPendingZoneActWord() {
+        return pendingZoneActWord;
+    }
+
+    public int getTransitionWorldOffsetX() {
+        return transitionWorldOffsetX;
+    }
+
+    public int getTransitionWorldOffsetY() {
+        return transitionWorldOffsetY;
+    }
+
+    public int getCameraMinXClamp() {
+        return cameraMinXClamp;
+    }
+
+    public int getCameraMaxXClamp() {
+        return cameraMaxXClamp;
+    }
+
+    public void setPendingArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
+        arenaChunkWorldX = chunkWorldX;
+        arenaChunkWorldY = chunkWorldY;
+        arenaChunkDestructionQueued = true;
+        /**
+         * ROM: {@code Obj_CNZMinibossTop} snaps the impact coordinates to the
+         * 0x20-pixel block grid before calling {@code CNZMiniboss_BlockExplosion}.
+         * Task 7 uses that same block height as the destroyed-row accumulator so
+         * the miniboss base can react to a ROM-sized arena step without the full
+         * mutation pipeline from later slices.
+         */
+        destroyedArenaRows += 0x20;
+    }
+
+    public boolean isArenaChunkDestructionQueued() {
+        return arenaChunkDestructionQueued;
+    }
+
+    public int getArenaChunkWorldX() {
+        return arenaChunkWorldX;
+    }
+
+    public int getArenaChunkWorldY() {
+        return arenaChunkWorldY;
+    }
+
+    /**
+     * Alias used by the Task 7 headless tests.
+     *
+     * <p>The plan originally named these accessors after the queue contract
+     * rather than the world-coordinate storage field. Keeping both names avoids
+     * forcing later CNZ slices to rewrite their state vocabulary.
+     */
+    public int getPendingArenaChunkX() {
+        return arenaChunkWorldX;
+    }
+
+    /**
+     * Alias used by the Task 7 headless tests.
+     */
+    public int getPendingArenaChunkY() {
+        return arenaChunkWorldY;
+    }
+
+    /**
+     * Returns the accumulated destroyed arena height in pixels.
+     *
+     * <p>Each queued top-piece impact contributes exactly one 0x20-pixel row,
+     * matching the block-sized destruction seam exported from
+     * {@code Obj_CNZMinibossTop}.
+     */
+    public int getDestroyedArenaRows() {
+        return destroyedArenaRows;
+    }
+
     public void setEventsFg5(boolean flag) {
-        this.eventsFg5 = flag;
+        eventsFg5 = flag;
         if (flag) {
             LOG.info("CNZ: Events_fg_5 set externally");
         }
@@ -138,5 +553,23 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
     public boolean isEventsFg5() {
         return eventsFg5;
+    }
+
+    @Override
+    public int getDynamicResizeRoutine() {
+        return fgRoutine;
+    }
+
+    @Override
+    public void setDynamicResizeRoutine(int routine) {
+        fgRoutine = routine;
+    }
+
+    /**
+     * Publishes the clamp values used by the teleporter route.
+     */
+    private void publishKnucklesTeleporterClamp() {
+        cameraMinXClamp = KNUCKLES_ROUTE_MIN_X;
+        cameraMaxXClamp = KNUCKLES_ROUTE_MAX_X;
     }
 }

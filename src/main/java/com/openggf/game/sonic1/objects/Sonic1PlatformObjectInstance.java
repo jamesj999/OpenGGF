@@ -1,5 +1,7 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -11,6 +13,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -179,8 +182,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Check if player is standing on us via ObjectManager
-        playerStanding = isPlayerRiding();
+        playerStanding = hasStandingContact(checkpointAll());
 
         if (!inFallingRoutine) {
             // Routine 2/4: update bob angle (frozen in routine 8 / Plat_Action)
@@ -194,6 +196,11 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         applyNudge();
 
         updateDynamicSpawn(x, y);
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
@@ -285,6 +292,19 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         x = baseX + d1;
         // .chgmotion: move.b (v_oscillate+$1A).w,objoff_26(a0)
         cachedOscillator = OscillationManager.getByte(OSC_SELF_DRIVEN);
+    }
+
+    protected SolidCheckpointBatch checkpointAll() {
+        return services().solidExecution().resolveSolidNowAll();
+    }
+
+    protected boolean hasStandingContact(SolidCheckpointBatch batch) {
+        for (PlayerSolidContactResult result : batch.perPlayer().values()) {
+            if (result != null && result.standingNow()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
