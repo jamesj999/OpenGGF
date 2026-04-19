@@ -75,6 +75,7 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         currentX = resolveCurrentX();
+        updateDynamicSpawn(currentX, baseY);
 
         boolean captured = false;
         AbstractPlayableSprite player = playerEntity instanceof AbstractPlayableSprite
@@ -111,26 +112,22 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     }
 
     private boolean tryCapture(AbstractPlayableSprite player) {
-        if (player == null || player.isObjectControlled()) {
+        if (player == null || player.isObjectControlled() || player.isHurt() || player.getDead()) {
             return false;
         }
 
-        int dx = player.getCentreX() - currentX;
-        int xBand = dx + xWindowMin;
-        if (xBand < 0 || xBand >= xWindowMax) {
+        if (!isWithinXWindow(player)) {
             return false;
         }
 
-        int osc = OscillationManager.getByte(0x16);
-        int band = player.getCentreY() - baseY + osc + liftWindowMin;
-        if (band < 0 || band >= liftWindowMax) {
+        int adjustedBand = rawLiftBand(player);
+        if (adjustedBand < 0 || adjustedBand >= liftWindowMax) {
             return false;
         }
 
         // ROM sub_30F84:
         //   if band >= liftWindowMin, mirror the distance through the fan body before
         //   converting it into a vertical nudge.
-        int adjustedBand = band;
         if (adjustedBand >= liftWindowMin) {
             adjustedBand = ~((adjustedBand - liftWindowMin) & 0xFFFF);
             adjustedBand = (adjustedBand + adjustedBand) & 0xFFFF;
@@ -156,6 +153,17 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         }
 
         return true;
+    }
+
+    private boolean isWithinXWindow(AbstractPlayableSprite player) {
+        int dx = player.getCentreX() - currentX;
+        int xBand = dx + xWindowMin;
+        return xBand >= 0 && xBand < xWindowMax;
+    }
+
+    private int rawLiftBand(AbstractPlayableSprite player) {
+        int osc = OscillationManager.getByte(0x16);
+        return player.getCentreY() - baseY + osc + liftWindowMin;
     }
 
     @Override

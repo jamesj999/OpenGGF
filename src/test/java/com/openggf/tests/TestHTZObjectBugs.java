@@ -291,15 +291,20 @@ public class TestHTZObjectBugs {
         logState("Before high-speed approach");
 
         // Step 30 frames moving right Ã¢â‚¬â€ Sonic should reach the springboard
+        boolean launched = false;
         for (int i = 0; i < 30; i++) {
             testRunner.stepFrame(false, false, false, true, false);
+            if (sprite.getYSpeed() < -0x200) {
+                launched = true;
+                break;
+            }
         }
 
         logState("After high-speed pass");
 
         // The springboard should have launched Sonic upward
-        assertTrue(sprite.getYSpeed() < -0x200, "Springboard should launch Sonic upward at high speed. " +
-                "YSpeed=" + sprite.getYSpeed() + " (expected < -0x200). " +
+        assertTrue(launched, "Springboard should launch Sonic upward at high speed. " +
+                "Final YSpeed=" + sprite.getYSpeed() + " (expected a launch below -0x200 during the pass). " +
                 "At 16px/frame, Sonic may have passed over without triggering.");
     }
 

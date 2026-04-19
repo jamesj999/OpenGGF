@@ -697,24 +697,34 @@ public class AizIntroArtLoader {
 
         int nextBase = INTRO_PATTERN_BASE;
 
-        planeRenderer = new PatternSpriteRenderer(planeSheet);
-        planeRenderer.ensurePatternsCached(gm, nextBase);
-        nextBase += planePatterns.length;
+        if (planeSheet != null && planePatterns != null && planePatterns.length > 0) {
+            planeRenderer = new PatternSpriteRenderer(planeSheet);
+            planeRenderer.ensurePatternsCached(gm, nextBase);
+            nextBase += planePatterns.length;
+        }
 
-        emeraldRenderer = new PatternSpriteRenderer(emeraldSheet);
-        emeraldRenderer.ensurePatternsCached(gm, nextBase);
-        nextBase += emeraldPatterns.length;
+        if (emeraldSheet != null && emeraldPatterns != null && emeraldPatterns.length > 0) {
+            emeraldRenderer = new PatternSpriteRenderer(emeraldSheet);
+            emeraldRenderer.ensurePatternsCached(gm, nextBase);
+            nextBase += emeraldPatterns.length;
+        }
 
-        introSpritesRenderer = new PatternSpriteRenderer(introSpritesSheet);
-        introSpritesRenderer.ensurePatternsCached(gm, nextBase);
-        nextBase += introSpritesPatterns.length;
+        if (introSpritesSheet != null && introSpritesPatterns != null && introSpritesPatterns.length > 0) {
+            introSpritesRenderer = new PatternSpriteRenderer(introSpritesSheet);
+            introSpritesRenderer.ensurePatternsCached(gm, nextBase);
+            nextBase += introSpritesPatterns.length;
+        }
 
-        knucklesRenderer = new PatternSpriteRenderer(knucklesSheet);
-        knucklesRenderer.ensurePatternsCached(gm, nextBase);
-        nextBase += knucklesPatterns.length;
+        if (knucklesSheet != null && knucklesPatterns != null && knucklesPatterns.length > 0) {
+            knucklesRenderer = new PatternSpriteRenderer(knucklesSheet);
+            knucklesRenderer.ensurePatternsCached(gm, nextBase);
+            nextBase += knucklesPatterns.length;
+        }
 
-        corkFloorRenderer = new PatternSpriteRenderer(corkFloorSheet);
-        corkFloorRenderer.ensurePatternsCached(gm, nextBase);
+        if (corkFloorSheet != null && corkFloorPatterns != null && corkFloorPatterns.length > 0) {
+            corkFloorRenderer = new PatternSpriteRenderer(corkFloorSheet);
+            corkFloorRenderer.ensurePatternsCached(gm, nextBase);
+        }
 
         renderersCached = true;
         LOG.info("AIZ intro renderers cached. Pattern bases: plane=" +

@@ -50,13 +50,15 @@ public class PerformanceProfiler {
     /** Name of currently active section (for validation) */
     private String activeSection;
 
+    /** Whether profiling is currently enabled. */
+    private boolean enabled = true;
+
     /** Circular buffer of per-section timing per frame (for rolling average) */
     private final Map<String, long[]> sectionHistories = new LinkedHashMap<>();
 
     /** Reusable snapshot — populated in-place each frame to avoid allocation */
     private final ProfileSnapshot reusableSnapshot = new ProfileSnapshot();
     private final MemoryStats memoryStats = new MemoryStats();
-    private boolean enabled;
 
     private PerformanceProfiler() {
     }
@@ -66,21 +68,6 @@ public class PerformanceProfiler {
             instance = new PerformanceProfiler();
         }
         return instance;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        if (this.enabled == enabled) {
-            return;
-        }
-        this.enabled = enabled;
-        memoryStats.setEnabled(enabled);
-        if (!enabled) {
-            reset();
-        }
     }
 
     /**
@@ -93,6 +80,7 @@ public class PerformanceProfiler {
             activeSection = null;
             return;
         }
+
         long now = System.nanoTime();
 
         // Track actual frame-to-frame time (for real FPS)
@@ -118,6 +106,7 @@ public class PerformanceProfiler {
         if (!enabled) {
             return;
         }
+
         long frameEndNanos = System.nanoTime();
         long frameDurationNanos = frameEndNanos - frameStartNanos;
 
@@ -170,6 +159,7 @@ public class PerformanceProfiler {
         if (!enabled) {
             return;
         }
+
         if (activeSection != null) {
             // Implicitly end the previous section
             endSection(activeSection);
@@ -188,6 +178,7 @@ public class PerformanceProfiler {
         if (!enabled) {
             return;
         }
+
         if (activeSection == null || !activeSection.equals(name)) {
             return; // Ignore mismatched end calls
         }
@@ -205,13 +196,8 @@ public class PerformanceProfiler {
      * @return ProfileSnapshot containing averaged timing data
      */
     public ProfileSnapshot getSnapshot() {
-        if (!enabled) {
-            reusableSnapshot.clear();
-            return reusableSnapshot;
-        }
         int effectiveFrames = Math.min(frameCount, AVERAGING_FRAMES);
         if (effectiveFrames == 0) {
-            reusableSnapshot.clear();
             return reusableSnapshot;
         }
 
@@ -232,6 +218,21 @@ public class PerformanceProfiler {
     }
 
     /**
+     * Enables or disables profiling collection.
+     */
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        memoryStats.setEnabled(enabled);
+        if (!enabled) {
+            currentFrameSections.clear();
+            activeSection = null;
+            frameStartNanos = 0;
+            previousFrameStartNanos = 0;
+            sectionStartNanos = 0;
+        }
+    }
+
+    /**
      * Resets all profiling data.
      */
     public void reset() {
@@ -240,18 +241,16 @@ public class PerformanceProfiler {
         sectionHistories.clear();
         frameCount = 0;
         historyIndex = 0;
-        frameStartNanos = 0;
         previousFrameStartNanos = 0;
-        sectionStartNanos = 0;
         actualFrameTimeSum = 0;
         activeSection = null;
+        frameStartNanos = 0;
+        sectionStartNanos = 0;
         for (int i = 0; i < HISTORY_SIZE; i++) {
             frameHistory[i] = 0;
         }
         for (int i = 0; i < AVERAGING_FRAMES; i++) {
             actualFrameTimes[i] = 0;
         }
-        memoryStats.reset();
-        reusableSnapshot.clear();
     }
 }

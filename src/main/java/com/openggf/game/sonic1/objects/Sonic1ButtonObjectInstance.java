@@ -3,6 +3,8 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -11,6 +13,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -68,8 +71,6 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     private final int switchBit;
     private final boolean blockPressable;
 
-    // State
-    private boolean playerStanding;
     private int flashTimer;
     private int currentFrame;
 
@@ -103,15 +104,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
 
         // Default to unpressed frame
         // bclr #0,obFrame(a0)
-        boolean pressed = false;
-
-        // Check if player is standing on button (obSolid check).
-        // Read and reset: onSolidContact sets this each frame the player is on top;
-        // if the player walked off, the callback won't fire and this stays false.
-        if (playerStanding) {
-            pressed = true;
-        }
-        playerStanding = false;
+        boolean pressed = hasStandingContact(checkpointAll());
 
         // Check if MZ PushBlock is pressing the button (bit 7 of subtype)
         // tst.b obSubtype(a0) / bpl.s loc_BDBE / bsr.w But_MZBlock
@@ -157,10 +150,12 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Track whether player is standing on button
-        // The SolidObject subroutine sets obSolid when player stands on top
-        playerStanding = contact.standing();
+        // Manual checkpoints drive the current-frame press state from update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     /**
@@ -260,6 +255,19 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(PRIORITY);
     }
 
+    protected SolidCheckpointBatch checkpointAll() {
+        return services().solidExecution().resolveSolidNowAll();
+    }
+
+    protected boolean hasStandingContact(SolidCheckpointBatch batch) {
+        for (PlayerSolidContactResult result : batch.perPlayer().values()) {
+            if (result != null && result.standingNow()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUTTON);
@@ -272,10 +280,11 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
         int y = adjustedY;
+        boolean pressed = currentFrame != 0;
 
         // Draw solid collision box
-        float r = playerStanding ? 0f : 0.5f;
-        float g = playerStanding ? 1f : 0.5f;
+        float r = pressed ? 0f : 0.5f;
+        float g = pressed ? 1f : 0.5f;
         float b = 0f;
         ctx.drawRect(x, y, SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT, r, g, b);
 
