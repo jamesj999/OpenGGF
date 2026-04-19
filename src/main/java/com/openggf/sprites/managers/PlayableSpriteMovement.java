@@ -1725,7 +1725,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int leftBoundary = minX + LEFT_OFFSET;
 		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
-		if (!gameState().isBossFightActive()) {
+		if (!gameState().isBossFightActive() && !gameState().isEndOfLevelActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
 

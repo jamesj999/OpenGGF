@@ -4,13 +4,15 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.AnimalType;
-import com.openggf.level.objects.HudRenderManager;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.resources.PlcParser;
@@ -80,6 +82,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private Pattern[] hudHexDigits;
+    private HudStaticArt hudStaticArt;
 
     // Zone-specific animal types (set per loadArtForZone call)
     private int animalTypeA = AnimalType.FLICKY.ordinal();
@@ -225,6 +229,14 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 Sonic3kConstants.ART_UNC_LIVES_DIGITS_ADDR,
                 Sonic3kConstants.ART_UNC_LIVES_DIGITS_SIZE);
         LOG.info("Loaded " + (hudLivesNumbers != null ? hudLivesNumbers.length : 0) + " HUD lives digit patterns");
+
+        // Debug HUD hex font (ArtUnc_DebugDigits) - ASCII-aligned, 0-9 then A-F at +17.
+        hudHexDigits = loadUncompressedPatterns(rom,
+                Sonic3kConstants.ART_UNC_DEBUG_DIGITS_ADDR,
+                Sonic3kConstants.ART_UNC_DEBUG_DIGITS_SIZE);
+        LOG.info("Loaded " + (hudHexDigits != null ? hudHexDigits.length : 0) + " HUD debug-digit patterns");
+
+        hudStaticArt = Sonic3kHudStaticArtFactory.create(hudTextPatterns, hudLivesPatterns);
     }
 
     /**
@@ -232,8 +244,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      * ROM: PLC_01 (Sonic), PLC_05 (Knuckles), PLC_07 (Tails).
      */
     private int resolveLifeIconAddr() {
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = ActiveGameplayTeamResolver.resolveMainCharacterCode(
+                GameServices.configuration());
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR;
         } else if ("tails".equalsIgnoreCase(mainChar)) {
@@ -942,7 +954,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         for (Sonic3kPlcArtRegistry.LevelArtEntry entry : plan.levelArt()) {
             ObjectSpriteSheet sheet;
             if (entry.builderName() != null) {
-                sheet = invokeBuilder(art, entry.builderName());
+                sheet = invokeBuilder(art, entry.builderName(), entry.artTileBase());
             } else if (entry.mappingAddr() > 0 && entry.frameFilter() != null) {
                 sheet = art.buildLevelArtSheetFromRomFiltered(
                         entry.mappingAddr(), entry.artTileBase(), entry.palette(),
@@ -958,32 +970,32 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         }
     }
 
-    private ObjectSpriteSheet invokeBuilder(Sonic3kObjectArt art, String builderName) {
+    private ObjectSpriteSheet invokeBuilder(Sonic3kObjectArt art, String builderName, int artTileBase) {
         return switch (builderName) {
-            case "buildSpikesSheet" -> art.buildSpikesSheet();
-            case "buildSpringVerticalSheet" -> art.buildSpringVerticalSheet();
-            case "buildSpringVerticalYellowSheet" -> art.buildSpringVerticalYellowSheet();
-            case "buildSpringHorizontalSheet" -> art.buildSpringHorizontalSheet();
-            case "buildSpringHorizontalYellowSheet" -> art.buildSpringHorizontalYellowSheet();
-            case "buildSpringDiagonalSheet" -> art.buildSpringDiagonalSheet();
-            case "buildSpringDiagonalYellowSheet" -> art.buildSpringDiagonalYellowSheet();
-            case "buildAiz1TreeSheet" -> art.buildAiz1TreeSheet();
-            case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet();
-            case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet();
-            case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet();
-            case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet();
-            case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet();
-            case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet();
-            case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet();
-            case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet();
-            case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
-            case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
-            case "buildHczWaterDropSheet" -> art.buildHczWaterDropSheet();
-            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet();
-            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet();
-            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet();
-            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet();
-            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet();
+            case "buildSpikesSheet" -> art.buildSpikesSheet(artTileBase);
+            case "buildSpringVerticalSheet" -> art.buildSpringVerticalSheet(artTileBase);
+            case "buildSpringVerticalYellowSheet" -> art.buildSpringVerticalYellowSheet(artTileBase);
+            case "buildSpringHorizontalSheet" -> art.buildSpringHorizontalSheet(artTileBase);
+            case "buildSpringHorizontalYellowSheet" -> art.buildSpringHorizontalYellowSheet(artTileBase);
+            case "buildSpringDiagonalSheet" -> art.buildSpringDiagonalSheet(artTileBase);
+            case "buildSpringDiagonalYellowSheet" -> art.buildSpringDiagonalYellowSheet(artTileBase);
+            case "buildAiz1TreeSheet" -> art.buildAiz1TreeSheet(artTileBase);
+            case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet(artTileBase);
+            case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet(artTileBase);
+            case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet(artTileBase);
+            case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet(artTileBase);
+            case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet(artTileBase);
+            case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet(artTileBase);
+            case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet(artTileBase);
+            case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet(artTileBase);
+            case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet(artTileBase);
+            case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet(artTileBase);
+            case "buildHczWaterDropSheet" -> art.buildHczWaterDropSheet(artTileBase);
+            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet(artTileBase);
+            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet(artTileBase);
+            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet(artTileBase);
+            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet(artTileBase);
+            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet(artTileBase);
             case "buildCnzBalloonSheet" -> art.buildCnzBalloonSheet();
             case "buildCnzCannonSheet" -> art.buildCnzCannonSheet();
             case "buildCnzRisingPlatformSheet" -> art.buildCnzRisingPlatformSheet();
@@ -1109,6 +1121,22 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         } catch (IOException e) {
             LOG.warning("Failed to load shared boss explosion art: " + e.getMessage());
         }
+    }
+
+    /**
+     * Ensures the shared boss explosion art is registered.
+     * Used by bosses in zones that do not preload the explosion sheet during zone art setup.
+     *
+     * @return true if the shared boss explosion sheet exists after the call
+     */
+    public boolean ensureBossExplosionArtLoaded() {
+        if (sheets.containsKey(ObjectArtKeys.BOSS_EXPLOSION)
+                && renderers.containsKey(ObjectArtKeys.BOSS_EXPLOSION)) {
+            return true;
+        }
+        loadSharedBossExplosionArt();
+        return sheets.containsKey(ObjectArtKeys.BOSS_EXPLOSION)
+                && renderers.containsKey(ObjectArtKeys.BOSS_EXPLOSION);
     }
 
     /**
@@ -1663,6 +1691,46 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Ensures a standalone registry-backed sheet is registered for the current zone/act.
+     * Used by objects whose ROM behavior loads auxiliary PLC art on demand.
+     *
+     * @param key standalone art key
+     * @return true if the sheet is registered after the call
+     */
+    public boolean ensureStandaloneArtLoaded(String key) {
+        if (renderers.containsKey(key) && sheets.containsKey(key)) {
+            return true;
+        }
+
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(currentZoneIndex, currentActIndex);
+        Sonic3kPlcArtRegistry.StandaloneArtEntry entry = null;
+        for (Sonic3kPlcArtRegistry.StandaloneArtEntry candidate : plan.standaloneArt()) {
+            if (candidate.key().equals(key)) {
+                entry = candidate;
+                break;
+            }
+        }
+        if (entry == null) {
+            return false;
+        }
+
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return false;
+            }
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+            registerSheet(key, art.loadStandaloneSheet(rom, entry));
+            return renderers.containsKey(key) && sheets.containsKey(key);
+        } catch (IOException e) {
+            LOG.warning("Failed to ensure standalone art '" + key + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Refreshes an existing sheet's pattern data and re-uploads GPU textures.
      * Used after PLC reloads or boss defeat to ensure renderers show updated art.
      *
@@ -1743,13 +1811,13 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     @Override
-    public HudRenderManager.HudFlashMode getHudFlashMode() {
-        return HudRenderManager.HudFlashMode.TEXT_HIDE;
+    public Pattern[] getHudHexDigitPatterns() {
+        return hudHexDigits;
     }
 
     @Override
-    public boolean usesIconPaletteForLivesName() {
-        return true;
+    public HudStaticArt getHudStaticArt() {
+        return hudStaticArt;
     }
 
     @Override

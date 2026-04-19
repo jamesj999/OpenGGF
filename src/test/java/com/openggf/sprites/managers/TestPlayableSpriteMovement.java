@@ -2,6 +2,7 @@ package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
@@ -68,6 +69,27 @@ public class TestPlayableSpriteMovement {
                 } else {
                         GameModuleRegistry.reset();
                 }
+        }
+
+        @Test
+        public void testEndOfLevelKeepsBossStyleRightBoundaryClamp() throws Exception {
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x0300);
+                GameServices.gameState().setCurrentBossId(0);
+                GameServices.gameState().setEndOfLevelActive(true);
+
+                mockSprite.setCentreX((short) 0x0500);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setGSpeed((short) 0x0400);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals(0x0300 + 320 - 24, mockSprite.getCentreX(),
+                                "End-of-level signpost flow should keep the tighter post-boss right clamp");
+                assertEquals(0, mockSprite.getXSpeed(), "Right clamp should clear xSpeed");
+                assertEquals(0, mockSprite.getGSpeed(), "Right clamp should clear gSpeed");
         }
 
         @Test
@@ -1463,5 +1485,4 @@ public class TestPlayableSpriteMovement {
                 assertEquals(expectedThreshold, threshold, "Threshold should be based on xSpeed");
         }
 }
-
 

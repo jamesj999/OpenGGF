@@ -478,7 +478,10 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void onExitReady() {
         int zone = services().romZoneId();
-        boolean hasSeamlessTransition = (act == 0) && (zone == 0x01); // HCZ Act 1
+        // Zones whose Act 1 → Act 2 boundary is a seamless level reload:
+        //   HCZ (zone $01): HCZ1BGE_DoTransition
+        //   MGZ (zone $02): MGZ1BGE_Transition
+        boolean hasSeamlessTransition = (act == 0) && (zone == 0x01 || zone == 0x02);
 
         // Restore player controls (locked by signpost in Set_PlayerEndingPose).
         // For zones with seamless transitions (HCZ), defer unlocking — the player
