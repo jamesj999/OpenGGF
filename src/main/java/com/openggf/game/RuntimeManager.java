@@ -68,7 +68,8 @@ public final class RuntimeManager {
         Objects.requireNonNull(services, "services");
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (current != null) {
-            if (current.getGameplayModeContext() != gameplayMode) {
+            if (current.getGameplayModeContext() != gameplayMode
+                    || current.getEngineServices() != services) {
                 current.destroy();
                 current = null;
             } else {

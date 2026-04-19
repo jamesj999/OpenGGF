@@ -4,6 +4,8 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.BonusStageProvider;
+import com.openggf.game.BonusStageType;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
@@ -123,6 +125,113 @@ class TestObjectServicesExpansion {
         assertSame(RomManager.getInstance(), services.romManager());
         assertSame(CrossGameFeatureProvider.getInstance(), services.crossGameFeatures());
         assertNotNull(services.engineServices());
+    }
+
+    @Test
+    void defaultObjectServices_bonusStageActionsUseInjectedRuntimeProviderNotActiveRuntime() {
+        com.openggf.game.GameRuntime runtimeA = RuntimeManager.getCurrent();
+        CountingBonusStageProvider providerA = new CountingBonusStageProvider();
+        runtimeA.setActiveBonusStageProvider(providerA);
+
+        com.openggf.game.GameRuntime runtimeB = RuntimeManager.createGameplay();
+        CountingBonusStageProvider providerB = new CountingBonusStageProvider();
+        runtimeB.setActiveBonusStageProvider(providerB);
+
+        try {
+            DefaultObjectServices servicesFromRuntimeA = new DefaultObjectServices(runtimeA);
+
+            servicesFromRuntimeA.requestBonusStageExit();
+            servicesFromRuntimeA.addBonusStageRings(7);
+            servicesFromRuntimeA.setBonusStageShield(com.openggf.game.ShieldType.LIGHTNING);
+
+            assertEquals(1, providerA.requestExitCount,
+                    "requestBonusStageExit should call provider on the injected runtime");
+            assertEquals(7, providerA.ringsAdded,
+                    "addBonusStageRings should add rings on the injected runtime provider");
+            assertEquals(1, providerA.shieldsSet,
+                    "setBonusStageShield should forward to the injected runtime provider");
+            assertEquals(0, providerB.requestExitCount,
+                    "active runtime provider should not be used when runtime is injected");
+            assertEquals(0, providerB.ringsAdded,
+                    "active runtime provider should not receive injected runtime calls");
+            assertEquals(0, providerB.shieldsSet,
+                    "active runtime provider should not receive injected runtime calls");
+        } finally {
+            RuntimeManager.destroyCurrent();
+            RuntimeManager.setCurrent(runtimeA);
+        }
+    }
+
+    private static final class CountingBonusStageProvider implements BonusStageProvider {
+        int requestExitCount;
+        int ringsAdded;
+        int shieldsSet;
+
+        @Override
+        public boolean hasBonusStages() {
+            return true;
+        }
+
+        @Override
+        public BonusStageType selectBonusStage(int ringCount) {
+            return null;
+        }
+
+        @Override
+        public void onEnter(BonusStageType type, com.openggf.game.BonusStageState savedState) {
+        }
+
+        @Override
+        public void onExit() {
+        }
+
+        @Override
+        public void onFrameUpdate() {
+        }
+
+        @Override
+        public boolean isStageComplete() {
+            return false;
+        }
+
+        @Override
+        public void requestExit() {
+            requestExitCount++;
+        }
+
+        @Override
+        public int getZoneId(BonusStageType type) {
+            return -1;
+        }
+
+        @Override
+        public int getMusicId(BonusStageType type) {
+            return -1;
+        }
+
+        @Override
+        public com.openggf.game.BonusStageState getSavedState() {
+            return null;
+        }
+
+        @Override
+        public com.openggf.game.BonusStageProvider.BonusStageRewards getRewards() {
+            return com.openggf.game.BonusStageProvider.BonusStageRewards.none();
+        }
+
+        @Override
+        public void addRings(int count) {
+            ringsAdded += count;
+        }
+
+        @Override
+        public void addLife() {
+        }
+
+        @Override
+        public void setAwardedShield(com.openggf.game.ShieldType type) {
+            shieldsSet++;
+        }
     }
 
     private DefaultObjectServices bootstrapConstructorServicesWithoutRuntime() {

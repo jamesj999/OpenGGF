@@ -4,11 +4,13 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.BonusStageProvider;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.NoOpBonusStageProvider;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameModule;
@@ -60,6 +62,7 @@ public class DefaultObjectServices implements ObjectServices {
     private final WorldSession worldSession;
     private final GameRng rng;
     private final EngineServices engineServices;
+    private final BonusStageProvider bonusStageProvider;
 
     /**
      * Primary constructor backed by a GameRuntime.
@@ -74,7 +77,8 @@ public class DefaultObjectServices implements ObjectServices {
                 runtime.getParallaxManager(),
                 runtime.getWorldSession(),
                 runtime.getRng(),
-                runtime.getEngineServices());
+                runtime.getEngineServices(),
+                runtime.getActiveBonusStageProvider());
     }
 
     public DefaultObjectServices(LevelManager levelManager,
@@ -86,7 +90,7 @@ public class DefaultObjectServices implements ObjectServices {
                                  ParallaxManager parallaxManager) {
         this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem,
                 parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2),
-                engineServicesFromGameServices());
+                engineServicesFromGameServices(), NoOpBonusStageProvider.INSTANCE);
     }
 
     private DefaultObjectServices(LevelManager levelManager,
@@ -98,7 +102,8 @@ public class DefaultObjectServices implements ObjectServices {
                                  ParallaxManager parallaxManager,
                                  WorldSession worldSession,
                                  GameRng rng,
-                                 EngineServices engineServices) {
+                                 EngineServices engineServices,
+                                 BonusStageProvider bonusStageProvider) {
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
         this.camera = Objects.requireNonNull(camera, "camera");
         this.gameState = Objects.requireNonNull(gameState, "gameState");
@@ -109,6 +114,7 @@ public class DefaultObjectServices implements ObjectServices {
         this.worldSession = worldSession;
         this.rng = Objects.requireNonNull(rng, "rng");
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
+        this.bonusStageProvider = Objects.requireNonNull(bonusStageProvider, "bonusStageProvider");
     }
 
     private static EngineServices engineServicesFromGameServices() {
@@ -390,7 +396,7 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void requestBonusStageExit() {
         try {
-            com.openggf.game.GameServices.bonusStage().requestExit();
+            bonusStageProvider.requestExit();
         } catch (Exception e) {
             LOG.warning("requestBonusStageExit failed: " + e.getMessage());
         }
@@ -399,7 +405,7 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void addBonusStageRings(int count) {
         try {
-            com.openggf.game.GameServices.bonusStage().addRings(count);
+            bonusStageProvider.addRings(count);
         } catch (Exception e) {
             LOG.warning("addBonusStageRings failed: " + e.getMessage());
         }
@@ -408,7 +414,7 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void setBonusStageShield(com.openggf.game.ShieldType type) {
         try {
-            com.openggf.game.GameServices.bonusStage().setAwardedShield(type);
+            bonusStageProvider.setAwardedShield(type);
         } catch (Exception e) {
             LOG.warning("setBonusStageShield failed: " + e.getMessage());
         }
