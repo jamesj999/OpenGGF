@@ -1843,7 +1843,7 @@ public class ObjectManager {
      */
     private void enableVerticalWrapIfNeeded() {
         if (camera.isVerticalWrapEnabled()) {
-            graphicsManager.enableVerticalWrapAdjust(Camera.VERTICAL_WRAP_RANGE, camera.getY());
+            graphicsManager.enableVerticalWrapAdjust(camera.getVerticalWrapRange(), camera.getY());
         }
     }
 
@@ -1852,7 +1852,7 @@ public class ObjectManager {
         int top = camera.getY();
         int right = left + camera.getWidth();
         int bottom = top + camera.getHeight();
-        int wrapRange = camera.isVerticalWrapEnabled() ? Camera.VERTICAL_WRAP_RANGE : 0;
+        int wrapRange = camera.isVerticalWrapEnabled() ? camera.getVerticalWrapRange() : 0;
         AbstractObjectInstance.updateCameraBounds(left, top, right, bottom, wrapRange);
     }
 
@@ -4924,7 +4924,7 @@ public class ObjectManager {
                         }
                     }
                 }
-                return SolidContact.side(pushing, distX);
+                return SolidContact.side(pushing, distX, movingInto);
             }
 
             if (distY >= 0 || (sticky && distY >= -16)) {
@@ -5009,7 +5009,7 @@ public class ObjectManager {
                             }
                         }
                     }
-                    return SolidContact.side(pushing, distX);
+                    return SolidContact.side(pushing, distX, movingInto);
                 }
                 // Player is well inside horizontally - crush death.
                 // ROM: KillCharacter (s2.asm:84995) - unconditional death.

@@ -211,6 +211,48 @@ public class Sonic3kConstants {
     // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0)
     public static final int ARTTILE_HCZ_CONVEYOR_SPIKE = 0x043E;
 
+    // ===== MGZ/LBZ Smashing Pillar (Obj_MGZLBZSmashingPillar, IDs 0x20 + 0x52) =====
+    // Map_LBZSmashingSpikes_: 1-word offset table + 1 frame (2 pieces = $E bytes) = $10 total.
+    // Map_MGZSmashingPillar_: 1-word offset table + 1 frame ($A pieces = $3E bytes) = $40 total.
+    // LockOn data (S3 half — no S&K-side copy). Verified via ROM byte search at 0x228246/0x228236.
+    public static final int MAP_LBZ_SMASHING_SPIKES_ADDR = 0x228236; // Map_LBZSmashingSpikes (1 frame, 2 pieces)
+    public static final int MAP_MGZ_SMASHING_PILLAR_ADDR = 0x228246; // Map_MGZSmashingPillar (1 frame, 10 pieces)
+    // ArtTile_LBZTubeTrans = $0455 (from sonic3k.constants.asm)
+    public static final int ARTTILE_LBZ_TUBE_TRANS = 0x0455;
+
+    // Map_MGZSwingingPlatform has a 3-word frame-offset table immediately before Frame_23331E.
+    public static final int MAP_MGZ_SWINGING_PLATFORM_ADDR = 0x233318; // Map_MGZSwingingPlatform (3 frames)
+    // Map_MGZTriggerPlatform_ has a 2-word frame-offset table immediately before Frame_2339B6.
+    // Base = first frame payload ($2339B6) - 4 bytes of offsets = $2339B2.
+    public static final int MAP_MGZ_TRIGGER_PLATFORM_ADDR = 0x2339B2; // Map_MGZTriggerPlatform (2 frames)
+    // Map_MGZSwingingSpikeBall_ has a 4-word frame-offset table immediately before Frame_23357A.
+    public static final int MAP_MGZ_SWINGING_SPIKE_BALL_ADDR = 0x233572; // Map_MGZSwingingSpikeBall (4 frames)
+    // Map_MGZDashTrigger_ has a 5-word frame-offset table immediately before Frame_224B92.
+    // LockOn data (assembled into S3 half — no S&K-side copy exists).
+    public static final int MAP_MGZ_DASH_TRIGGER_ADDR = 0x224B88; // Map_MGZDashTrigger (5 frames)
+    public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
+    public static final int ARTTILE_MGZ_MISC2 = 0x03FF; // ArtTile_MGZMisc2
+
+    // Map_MGZHeadTrigger_ has an 8-word frame-offset table immediately before Frame_233822.
+    // Base = first frame payload ($233822) - $10 bytes of offsets = $233812. Verified via
+    // ROM search for Frame_233822 bytes "00 01 FC 0C E0 4E FF F0".
+    public static final int MAP_MGZ_HEAD_TRIGGER_ADDR = 0x233812; // Map_MGZHeadTrigger (8 frames)
+
+    // Map_MGZMovingSpikePlatform_ has a 4-word frame-offset table immediately before Frame_233BA0.
+    // Base = first frame payload ($233BA0) - 8 bytes of offsets = $233B98. Verified via
+    // ROM search for offset table bytes "00 08 00 52 00 9C 00 E6".
+    public static final int MAP_MGZ_MOVING_SPIKE_PLATFORM_ADDR = 0x233B98; // Map_MGZMovingSpikePlatform (4 frames)
+
+    // ===== MGZ Top Platform / Launcher (Obj_MGZTopPlatform, ID 0x5B) =====
+    // Map_MGZTopPlatform_ has a 3-word frame-offset table immediately before word_3596A.
+    // Base = word_3596A ($3596A) - 6 bytes of offsets = $035964.
+    public static final int MAP_MGZ_TOP_PLATFORM_ADDR = 0x035964; // Map_MGZTopPlatform (3 frames)
+    // Waypoint tables for sub_35666/sub_35868 arc-teleport system.
+    // Each entry = 16 bytes: trigger_x, trigger_y, flag_word, dest_x, dest_y_raw, dest_y_delta, ...
+    // Header word is (count - 1) for a dbf loop; full size is 7 entries × 16 bytes.
+    public static final int MGZ_TOP_PLATFORM_WAYPOINTS_ACT1_ADDR = 0x035784; // word_35784
+    public static final int MGZ_TOP_PLATFORM_WAYPOINTS_ACT2_ADDR = 0x0357F6; // word_357F6
+
     // ===== HCZ Block mappings (Obj_HCZBlock, ID 0x40) =====
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
     // Derived from the frame labels in Map - Block.asm: Frame_21D052 starts 8 bytes after the table base.
@@ -305,6 +347,13 @@ public class Sonic3kConstants {
     public static final int ART_UNC_LIVES_DIGITS_ADDR = 0xE48A;
     public static final int ART_UNC_LIVES_DIGITS_SIZE = 320;
 
+    // ArtUnc_DebugDigits - 8x8 font used by HUD_Debug for player/camera hex coords.
+    // ASCII-aligned layout: digits 0-9 at tiles 0-9, A-F at tiles 17-22 (char offset
+    // from '0'). Sits immediately after ArtUnc_LivesDigits in ROM.
+    // 736 bytes = 23 tiles. MD5 matches General/Sprites/HUD Icon/Debug Digits.bin.
+    public static final int ART_UNC_DEBUG_DIGITS_ADDR = 0xE5CA;
+    public static final int ART_UNC_DEBUG_DIGITS_SIZE = 736;
+
     // Touch_Sizes table: 58 entries of 2 bytes (width, height radius)
     // sonic3k.asm line 20713, verified via ROM binary search
     public static final int TOUCH_SIZES_ADDR = 0x00FF62;
@@ -322,7 +371,7 @@ public class Sonic3kConstants {
 
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
     public static final int ART_NEM_KNUCKLES_LIFE_ICON_ADDR = 0x190E4C; // ArtNem_KnucklesLifeIcon
-    public static final int ART_NEM_TAILS_LIFE_ICON_ADDR = 0x15CFFE;   // ArtNem_TailsLifeIcon (S3 portion)
+    public static final int ART_NEM_TAILS_LIFE_ICON_ADDR = 0x35CFFE;   // ArtNem_TailsLifeIcon (LockOn S3 data in combined S3&K ROM)
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
     public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
@@ -713,6 +762,10 @@ public class Sonic3kConstants {
     // AniPLC_HCZ2: 2 scripts (waterfall stream, water shimmer)
     // Verified against S&K ROM bytes immediately following AniPLC_HCZ1 at 0x02882C.
     public static final int ANIPLC_HCZ2_ADDR = 0x02882C;
+
+    // AniPLC_MGZ: 2 scripts (shared MGZ background tiles for both acts)
+    // Verified against S&K ROM bytes at 0x028862 and skdisasm AniPLC_MGZ.
+    public static final int ANIPLC_MGZ_ADDR = 0x028862;
 
     // AniPLC_CNZ: 7 scripts (both acts share the same script table)
     // Verified by S&K ROM search for the first inline record:
@@ -1107,7 +1160,10 @@ public class Sonic3kConstants {
     public static final int DPLC_BUBBLES_BADNIK_ADDR = 0x361C40;
     public static final int ART_KOSM_MGZ_MINIBOSS_ADDR = 0x36B02C;
     public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
+    public static final int ART_NEM_MGZ_SPIRE_ADDR = 0x36B2CE;
+    public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B7E;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
+    public static final int MAP_MGZ_ENDBOSS_DEBRIS_ADDR = 0x3637D6;
 
     // ===== CNZ Badnik Art =====
     public static final int ART_KOSM_SPARKLE_ADDR = 0x3700CA;

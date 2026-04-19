@@ -189,7 +189,13 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         savedPreContactYSpeed = result.preContact().ySpeed();
         savedPreContactRolling = result.preContact().rolling();
 
-        if (!result.pushingNow()) {
+        // MGZ spin-break walls key off side-contact feedback instead of the
+        // generic push flag. The other modes still require a pushing contact.
+        if (config.breakMode == BreakMode.MGZ_SPIN_BREAK) {
+            if (result.kind() != com.openggf.game.solid.ContactKind.SIDE) {
+                return;
+            }
+        } else if (!result.pushingNow()) {
             return;
         }
 
@@ -220,8 +226,18 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         return true;
     }
 
+    /**
+     * MGZ spin-break check (loc_2172E).
+     * ROM: bclr #6,$37(a1) clears the wall-cling side-contact bit when the wall
+     * sees a side hit. Knuckles-in-glide is kept as an engine fallback because
+     * the glide path does not always raise the cling bit at the same point.
+     */
     private boolean checkMgzSpinBreak(AbstractPlayableSprite player) {
-        return isKnuckles();
+        if (player.isWallCling()) {
+            player.setWallClingSideContact(false);
+            return true;
+        }
+        return isKnuckles() && player.getDoubleJumpFlag() == GLIDE_ACTIVE;
     }
 
     private void performBreak(AbstractPlayableSprite player) {

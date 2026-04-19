@@ -592,10 +592,10 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
                 // (e.g., killing a nearby badnik sets the trigger array entry).
             }
             case MGZ_STOMP -> {
-                // MGZ stomp: check if player is rolling (status_tertiary bit 7 proxy)
-                // ROM: btst #7,status_tertiary(a1) — set during spindash release on ground
+                // ROM: btst #7,status_tertiary(a1) — only the wall-cling bit triggers
+                // the stomp, which in stock S3K is raised exclusively by MGZ Top Platform.
                 AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-                if (player.getRolling() && !fragmented) {
+                if (player.isWallCling() && !fragmented) {
                     performMgzStomp(player);
                 }
             }

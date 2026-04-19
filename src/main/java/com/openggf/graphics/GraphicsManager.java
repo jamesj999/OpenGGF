@@ -1055,6 +1055,30 @@ public class GraphicsManager {
 	}
 
 	/**
+	 * Resets the pattern atlas and palette textures without destroying shaders
+	 * or the GL context.  Use after preview capture to discard all stale pattern
+	 * data and palette state so subsequent rendering starts from a clean GPU.
+	 */
+	public void resetPatternAndPaletteState() {
+		if (headlessMode || !glInitialized) {
+			return;
+		}
+		if (patternAtlas != null) {
+			patternAtlas.cleanup();
+			patternAtlas = new PatternAtlas(ATLAS_WIDTH, ATLAS_HEIGHT);
+			patternAtlas.init();
+		}
+		// Reset combined palette texture so it's rebuilt from scratch
+		if (combinedPaletteTextureId != null) {
+			glDeleteTextures(combinedPaletteTextureId);
+			combinedPaletteTextureId = null;
+			currentPaletteTextureHeight = 0;
+		}
+		paletteTextureMap.clear();
+		commands.clear();
+	}
+
+	/**
 	 * Cleanup method to delete textures and release resources.
 	 */
 	public void cleanup() {

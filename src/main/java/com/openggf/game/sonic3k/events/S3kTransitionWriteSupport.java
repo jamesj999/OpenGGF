@@ -19,4 +19,10 @@ public final class S3kTransitionWriteSupport {
             bridge.requestHczPostTransitionCutscene();
         }
     }
+
+    public static void requestMgzPostTransitionRelease(LevelEventProvider provider) {
+        if (provider instanceof S3kTransitionEventBridge bridge) {
+            bridge.requestMgzPostTransitionRelease();
+        }
+    }
 }

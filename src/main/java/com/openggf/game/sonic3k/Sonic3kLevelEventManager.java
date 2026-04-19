@@ -5,6 +5,7 @@ import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.AizObjectEventBridge;
@@ -13,6 +14,7 @@ import com.openggf.game.sonic3k.events.HczObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
 import com.openggf.game.sonic3k.events.S3kTransitionEventBridge;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
@@ -56,6 +58,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     private Sonic3kAIZEvents aizEvents;
     private Sonic3kCNZEvents cnzEvents;
     private Sonic3kHCZEvents hczEvents;
+    private Sonic3kMGZEvents mgzEvents;
 
     // Tracks whether the intro-fall forced animation is active on each player.
     // Cleared per-player when they land (air → ground transition).
@@ -66,6 +69,11 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     // whirlpool descent cutscene should play. Consumed on the first onUpdate()
     // after the transition completes.
     private boolean hczPendingPostTransitionCutscene;
+
+    // Set by MGZ Act 1 transition: after the seamless reload to Act 2, the
+    // player (still in signpost victory pose) must be released so they can
+    // resume playing. Consumed on the first onUpdate() in MGZ Act 2.
+    private boolean mgzPendingPostTransitionRelease;
 
 
     public Sonic3kLevelEventManager() {
@@ -93,21 +101,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
-        // Resolve from config — matches ROM's Player_mode variable
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("knuckles".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.KNUCKLES;
-        } else if ("tails".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-        // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
-        String sidekick = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekick == null || sidekick.isBlank()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
+        return ActiveGameplayTeamResolver.resolvePlayerCharacter(GameServices.configuration());
     }
 
     @Override
@@ -147,6 +141,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
             hczEvents.init(act);
         } else {
             hczEvents = null;
+        }
+        if (zone == Sonic3kZoneIds.ZONE_MGZ) {
+            mgzEvents = new Sonic3kMGZEvents();
+            mgzEvents.init(act);
+        } else {
+            mgzEvents = null;
         }
 
         // Install typed zone runtime state into the registry.
@@ -198,6 +198,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents.update(currentAct, frameCounter);
         }
+        if (mgzEvents != null && currentZone == Sonic3kZoneIds.ZONE_MGZ) {
+            mgzEvents.update(currentAct, frameCounter);
+        }
+        releasePendingMgzPostTransition();
         syncSidekickBoundsToCamera();
     }
 
@@ -289,7 +293,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (currentZone == Sonic3kZoneIds.ZONE_HCZ && currentAct == 0) {
             applyHcz1IntroState();
         }
-        // TODO: MGZ1, LRZ1/Knuckles, SSZ falling intros (loc_68A6)
+        // ROM: sonic3k.asm loc_68A6 — simple falling intro (anim $1B + airborne).
+        // Applied to MGZ1, SSZ, and LRZ1 (non-Knuckles only).
+        if (currentZone == Sonic3kZoneIds.ZONE_MGZ && currentAct == 0) {
+            applySimpleFallingIntro("MGZ1");
+        }
+        // TODO: LRZ1 non-Knuckles, SSZ falling intros (same loc_68A6 path)
     }
 
     /**
@@ -337,6 +346,32 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
 
         LOG.info("HCZ1 intro: set falling state on player(s)");
+    }
+
+    /**
+     * Simple falling intro shared by MGZ1, SSZ, and LRZ1 (non-Knuckles).
+     * ROM: sonic3k.asm loc_68A6.
+     *
+     * <p>Sets animation $1B (HURT_FALL) and airborne on both players.
+     * Unlike HCZ1, no Knuckles-specific animation or jumping flag.
+     */
+    private void applySimpleFallingIntro(String zoneName) {
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player == null) {
+            return;
+        }
+
+        player.setForcedAnimationId(Sonic3kAnimationIds.HURT_FALL);
+        player.setAir(true);
+        introFallActiveOnPlayer = true;
+
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
+            sidekick.setForcedAnimationId(Sonic3kAnimationIds.HURT_FALL);
+            sidekick.setAir(true);
+            introFallActiveOnSidekick = true;
+        }
+
+        LOG.info(zoneName + " intro: set falling state on player(s)");
     }
 
     // =========================================================================
@@ -496,6 +531,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null) {
             hczEvents.setEventsFg5(true);
         }
+        if (mgzEvents != null) {
+            mgzEvents.setEventsFg5(true);
+        }
         // Other zones' event handlers will be added here as implemented.
     }
 
@@ -507,6 +545,40 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     @Override
     public void requestHczPostTransitionCutscene() {
         setHczPendingPostTransitionCutscene(true);
+    }
+
+    @Override
+    public void requestMgzPostTransitionRelease() {
+        this.mgzPendingPostTransitionRelease = true;
+    }
+
+    /**
+     * After the MGZ1 → MGZ2 seamless reload, release the player (and sidekicks)
+     * from the signpost victory pose so normal play resumes. The ROM's
+     * MGZ1BGE_Transition does not run a cutscene; the player simply continues
+     * under their own control once the level has reloaded.
+     */
+    private void releasePendingMgzPostTransition() {
+        if (!mgzPendingPostTransitionRelease) {
+            return;
+        }
+        if (currentZone != Sonic3kZoneIds.ZONE_MGZ || currentAct != 1) {
+            return;
+        }
+        mgzPendingPostTransitionRelease = false;
+
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player != null) {
+            player.setObjectControlled(false);
+            player.setControlLocked(false);
+            player.setForcedAnimationId(-1);
+        }
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
+            sidekick.setObjectControlled(false);
+            sidekick.setControlLocked(false);
+            sidekick.setForcedAnimationId(-1);
+        }
+        LOG.info("MGZ: released player from victory pose after Act 1 → Act 2 reload");
     }
 
 

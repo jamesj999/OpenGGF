@@ -30,6 +30,7 @@ import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.level.objects.HudRenderManager;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.PatternAtlas;
@@ -117,6 +118,15 @@ public class LevelManager {
             return runtime.getWorldSession().getGameModule();
         }
         return RuntimeManager.resolveCurrentOrBootstrapGameModule();
+    }
+
+    /** S1 uses UNIFIED collision (single path); S2/S3K use DUAL_PATH. */
+    private boolean isUnifiedCollisionModel() {
+        PhysicsProvider pp = activeGameModule().getPhysicsProvider();
+        return pp != null
+                && pp.getFeatureSet() != null
+                && pp.getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.UNIFIED;
     }
 
     /** Returns the tilemap lifecycle delegate. */
@@ -1721,7 +1731,6 @@ public class LevelManager {
 
             hudRenderManager = new HudRenderManager(graphicsManager, camera, gameState);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
-            hudRenderManager.setHudFlashMode(provider.getHudFlashMode());
             // Wire up HUD to unified UI render pipeline
             if (graphicsManager.getUiRenderPipeline() != null) {
                 graphicsManager.getUiRenderPipeline().setHudRenderManager(hudRenderManager);
@@ -1737,37 +1746,38 @@ public class LevelManager {
                 }
                 hudRenderManager.setDigitPatternIndex(hudBaseIndex);
 
-                int textBaseIndex = hudBaseIndex + hudDigits.length;
-                Pattern[] hudText = provider.getHudTextPatterns();
-                if (hudText != null) {
-                    LOGGER.info("Cached " + hudText.length + " HUD Text patterns at index " + textBaseIndex);
-                    for (int i = 0; i < hudText.length; i++) {
-                        graphicsManager.cachePatternTexture(hudText[i], textBaseIndex + i);
+                int nextHudIndex = hudBaseIndex + hudDigits.length;
+                HudStaticArt staticHudArt = provider.getHudStaticArt();
+                if (staticHudArt != null && staticHudArt.patterns() != null) {
+                    LOGGER.info("Cached " + staticHudArt.patterns().length
+                            + " HUD Static patterns at index " + nextHudIndex);
+                    for (int i = 0; i < staticHudArt.patterns().length; i++) {
+                        graphicsManager.cachePatternTexture(staticHudArt.patterns()[i], nextHudIndex + i);
                     }
-                    hudRenderManager.setTextPatternIndex(textBaseIndex, hudText.length);
+                    hudRenderManager.setStaticHudArt(nextHudIndex, staticHudArt);
+                    hudRenderManager.setLivesPaletteOverrideSupplier(provider::getHudLivesPaletteOverride);
+                    nextHudIndex += staticHudArt.patterns().length;
+                }
 
-                    int livesBaseIndex = textBaseIndex + hudText.length;
-                    Pattern[] hudLives = provider.getHudLivesPatterns();
-                    if (hudLives != null) {
-                        LOGGER.info("Cached " + hudLives.length + " HUD Lives patterns at index " + livesBaseIndex);
-                        for (int i = 0; i < hudLives.length; i++) {
-                            graphicsManager.cachePatternTexture(hudLives[i], livesBaseIndex + i);
-                        }
-                        hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
-                        hudRenderManager.setLivesNameUsesIconPalette(provider.usesIconPaletteForLivesName());
-                        hudRenderManager.setLivesPaletteOverride(provider.getHudLivesPaletteOverride());
-
-                        int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
-                        Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
-                        if (hudLivesNumbers != null) {
-                            LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
-                                    + livesNumbersBaseIndex);
-                            for (int i = 0; i < hudLivesNumbers.length; i++) {
-                                graphicsManager.cachePatternTexture(hudLivesNumbers[i], livesNumbersBaseIndex + i);
-                            }
-                            hudRenderManager.setLivesNumbersPatternIndex(livesNumbersBaseIndex);
-                        }
+                Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();
+                if (hudLivesNumbers != null) {
+                    LOGGER.info("Cached " + hudLivesNumbers.length + " HUD Lives Numbers patterns at index "
+                            + nextHudIndex);
+                    for (int i = 0; i < hudLivesNumbers.length; i++) {
+                        graphicsManager.cachePatternTexture(hudLivesNumbers[i], nextHudIndex + i);
                     }
+                    hudRenderManager.setLivesNumbersPatternIndex(nextHudIndex);
+                    nextHudIndex += hudLivesNumbers.length;
+                }
+
+                Pattern[] hudHexDigits = provider.getHudHexDigitPatterns();
+                if (hudHexDigits != null) {
+                    LOGGER.info("Cached " + hudHexDigits.length + " HUD Hex Digit patterns at index "
+                            + nextHudIndex);
+                    for (int i = 0; i < hudHexDigits.length; i++) {
+                        graphicsManager.cachePatternTexture(hudHexDigits[i], nextHudIndex + i);
+                    }
+                    hudRenderManager.setHexDigitsPatternIndex(nextHudIndex);
                 }
             }
 
@@ -3641,6 +3651,20 @@ public class LevelManager {
             camera.setMaxX((short) currentLevel.getMaxX());
             camera.setMinY((short) currentLevel.getMinY());
             camera.setMaxY((short) currentLevel.getMaxY());
+            // Vertical wrapping: enabled when minY < 0. The wrap range differs per game:
+            // S1 (UNIFIED): 0x800 (DeformLayers.asm LZ3/SBZ2 loop sections)
+            // S3K (DUAL_PATH): level height in pixels (e.g. 0x1000 for MGZ1's 32-row map).
+            //   The S3K block lookup masks the row index (Layout_row_index_mask=$7C),
+            //   so Y coordinates wrap at the map height — rows above the level (negative Y)
+            //   map to the bottom rows of the layout.
+            if (currentLevel.getMinY() < 0) {
+                int wrapRange = isUnifiedCollisionModel()
+                        ? Camera.VERTICAL_WRAP_RANGE  // S1: 0x800
+                        : cachedFgHeightPx;            // S3K: level height
+                camera.setVerticalWrapEnabled(true, wrapRange);
+            } else {
+                camera.setVerticalWrapEnabled(false);
+            }
             verticalWrapEnabled = camera.isVerticalWrapEnabled();
             camera.updatePosition(true);
         }
@@ -3998,6 +4022,14 @@ public class LevelManager {
         cam.setMaxX((short) currentLevel.getMaxX());
         cam.setMinY((short) currentLevel.getMinY());
         cam.setMaxY((short) currentLevel.getMaxY());
+        if (currentLevel.getMinY() < 0) {
+            int wrapRange = isUnifiedCollisionModel()
+                    ? Camera.VERTICAL_WRAP_RANGE
+                    : cachedFgHeightPx;
+            cam.setVerticalWrapEnabled(true, wrapRange);
+        } else {
+            cam.setVerticalWrapEnabled(false);
+        }
         verticalWrapEnabled = cam.isVerticalWrapEnabled();
     }
 

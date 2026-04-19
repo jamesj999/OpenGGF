@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.PlayableEntity;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -325,8 +326,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private AbstractPlayableSprite resolveMainPlayer() {
         var sprite = services().spriteManager().getSprite(
-                config()
-                        .getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+                ActiveGameplayTeamResolver.resolveMainCharacterCode(config()));
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;
     }
 
