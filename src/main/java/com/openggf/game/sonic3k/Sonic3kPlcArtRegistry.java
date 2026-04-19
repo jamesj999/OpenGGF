@@ -874,6 +874,15 @@ public final class Sonic3kPlcArtRegistry {
                     -1
             ));
             standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_MINIBOSS_SPIRE,
+                    Sonic3kConstants.ART_NEM_MGZ_SPIRE_ADDR,
+                    CompressionType.NEMESIS,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_MINIBOSS_SPIRE_ADDR,
+                    2,
+                    -1
+            ));
+            standalone.add(new StandaloneArtEntry(
                     Sonic3kObjectArtKeys.MGZ_MINIBOSS_DEBRIS,
                     Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR,
                     CompressionType.KOSINSKI_MODULED,
@@ -962,6 +971,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_MGZ_SWINGING_SPIKE_BALL_ADDR,
                 Sonic3kConstants.ARTTILE_MGZ_MISC1,
                 1,
+                null
+        ));
+
+        // Moving Spike Platform (Obj_MGZMovingSpikePlatform, ID 0x56): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_MOVING_SPIKE_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_MOVING_SPIKE_PLATFORM_ADDR,
+                1,
+                2,
                 null
         ));
 

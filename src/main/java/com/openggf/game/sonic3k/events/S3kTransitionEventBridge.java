@@ -4,4 +4,6 @@ public interface S3kTransitionEventBridge {
     void signalActTransition();
 
     void requestHczPostTransitionCutscene();
+
+    void requestMgzPostTransitionRelease();
 }
