@@ -47,6 +47,7 @@ public final class Sonic3kObjectIds {
     public static final int MGZLBZ_SMASHING_PILLAR = 0x52;
     public static final int MGZ_SWINGING_PLATFORM = 0x53;
     public static final int MGZ_HEAD_TRIGGER = 0x55;
+    public static final int MGZ_MOVING_SPIKE_PLATFORM = 0x56;
     public static final int MGZ_TRIGGER_PLATFORM = 0x57;
     public static final int MGZ_SWINGING_SPIKE_BALL = 0x58;
     public static final int MGZ_DASH_TRIGGER = 0x59;
@@ -70,6 +71,7 @@ public final class Sonic3kObjectIds {
     public static final int POINDEXTER = 0x98;
     public static final int BUBBLES_BADNIK = 0x9B;
     public static final int SPIKER = 0x9C;
+    public static final int MGZ_MINIBOSS = 0x9F;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
     public static final int HIDDEN_MONITOR = 0x80;

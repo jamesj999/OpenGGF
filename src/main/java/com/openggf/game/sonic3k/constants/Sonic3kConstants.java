@@ -238,6 +238,11 @@ public class Sonic3kConstants {
     // ROM search for Frame_233822 bytes "00 01 FC 0C E0 4E FF F0".
     public static final int MAP_MGZ_HEAD_TRIGGER_ADDR = 0x233812; // Map_MGZHeadTrigger (8 frames)
 
+    // Map_MGZMovingSpikePlatform_ has a 4-word frame-offset table immediately before Frame_233BA0.
+    // Base = first frame payload ($233BA0) - 8 bytes of offsets = $233B98. Verified via
+    // ROM search for offset table bytes "00 08 00 52 00 9C 00 E6".
+    public static final int MAP_MGZ_MOVING_SPIKE_PLATFORM_ADDR = 0x233B98; // Map_MGZMovingSpikePlatform (4 frames)
+
     // ===== MGZ Top Platform / Launcher (Obj_MGZTopPlatform, ID 0x5B) =====
     // Map_MGZTopPlatform_ has a 3-word frame-offset table immediately before word_3596A.
     // Base = word_3596A ($3596A) - 6 bytes of offsets = $035964.
@@ -1145,6 +1150,8 @@ public class Sonic3kConstants {
     public static final int DPLC_BUBBLES_BADNIK_ADDR = 0x361C40;
     public static final int ART_KOSM_MGZ_MINIBOSS_ADDR = 0x36B02C;
     public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
+    public static final int ART_NEM_MGZ_SPIRE_ADDR = 0x36B2CE;
+    public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B80;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
     public static final int MAP_MGZ_ENDBOSS_DEBRIS_ADDR = 0x3637D6;
 
