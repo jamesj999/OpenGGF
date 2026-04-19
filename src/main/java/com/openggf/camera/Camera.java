@@ -47,12 +47,13 @@ public class Camera {
 	// This flag does NOT freeze camera scroll; use `frozen` for camera suppression.
 	private boolean levelStarted = true;
 
-	// ROM: LZ3/SBZ2 vertical wrapping (DeformLayers.asm lines 542-580)
-	// When top boundary is negative (e.g. 0xFF00 = -256), coordinates wrap modularly
-	// to create an infinite-falling effect. The wrap range is 0x800 (2048 pixels).
+	// ROM: Vertical wrapping — coordinates wrap modularly when top boundary is negative.
+	// S1 LZ3/SBZ2: range 0x800 (DeformLayers.asm lines 542-580)
+	// S3K zones with negative minY: range = level height (e.g. 0x1000 for MGZ1's 32-row map)
 	private boolean verticalWrapEnabled = false;
-	public static final int VERTICAL_WRAP_RANGE = 0x800;  // 2048 pixels
-	private static final int VERTICAL_WRAP_MASK = 0x7FF;   // AND mask for camera/player Y
+	private int verticalWrapRange = 0x800;     // Default S1 range; overridden per-level
+	private int verticalWrapMask = 0x7FF;      // Range - 1
+	public static final int VERTICAL_WRAP_RANGE = 0x800;  // S1 default; referenced by LevelManager and GraphicsManager
 	private static final int VERTICAL_WRAP_BG_MASK = 0x3FF; // AND mask for BG Y
 	// Tracks whether a wrap occurred this frame, and the delta applied
 	private boolean lastFrameWrapped = false;
@@ -149,9 +150,9 @@ public class Camera {
 		short focusedSpriteRealY;
 		if (verticalWrapEnabled) {
 			int diff = (int) focusedSprite.getCentreY() - (int) y;
-			diff = ((diff % VERTICAL_WRAP_RANGE) + VERTICAL_WRAP_RANGE) % VERTICAL_WRAP_RANGE;
-			if (diff > VERTICAL_WRAP_RANGE / 2) {
-				diff -= VERTICAL_WRAP_RANGE;
+			diff = ((diff % verticalWrapRange) + verticalWrapRange) % verticalWrapRange;
+			if (diff > verticalWrapRange / 2) {
+				diff -= verticalWrapRange;
 			}
 			focusedSpriteRealY = (short) diff;
 		} else {
@@ -262,20 +263,20 @@ public class Camera {
 			// ROM: cmpi.w #-$100,d1 / bgt.s .noupwrap — wraps when d1 <= -$100
 			if (y <= -0x100) {
 				short oldY = y;
-				y = (short) (y & VERTICAL_WRAP_MASK);
+				y = (short) (y & verticalWrapMask);
 				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & VERTICAL_WRAP_MASK));
+					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
 				}
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
 			}
-			// Downward wrap: camera Y reached bottom boundary (0x800)
+			// Downward wrap: camera Y reached bottom boundary
 			// ROM: cmp.w (Camera_Max_Y_pos).w,d1 / blt.s .nodownwrap / sub.w d0,y
-			else if (y >= VERTICAL_WRAP_RANGE) {
+			else if (y >= verticalWrapRange) {
 				short oldY = y;
-				y = (short) (y - VERTICAL_WRAP_RANGE);
+				y = (short) (y - verticalWrapRange);
 				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & VERTICAL_WRAP_MASK));
+					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
 				}
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
@@ -569,13 +570,36 @@ public class Camera {
 	 * Sets minY immediately (both current and target).
 	 * Use setMinYTarget() for smooth easing.
 	 *
-	 * ROM: When minY is negative (e.g. LZ3 top=0xFF00=-256), vertical wrapping
-	 * is automatically enabled (DeformLayers.asm lines 542-580).
+	 * ROM: In S1, negative minY (e.g. LZ3 top=0xFF00=-256) indicates vertical
+	 * wrapping (DeformLayers.asm lines 542-580). S3K zones can have negative
+	 * minY without wrapping (e.g. MGZ1 minY=-$100 for falling intro headroom).
+	 * Use {@link #setVerticalWrapEnabled(boolean)} to control wrapping explicitly.
 	 */
 	public void setMinY(short minY) {
 		this.minY = minY;
 		this.minYTarget = minY;
-		this.verticalWrapEnabled = (minY < 0);
+	}
+
+	/**
+	 * Explicitly enables or disables vertical wrapping.
+	 * When enabled, the camera and player Y coordinates wrap at the given range.
+	 *
+	 * @param enabled whether to enable vertical wrapping
+	 * @param range   wrap range in pixels (must be a power of 2; e.g. 0x800 for S1, 0x1000 for S3K 32-row levels)
+	 */
+	public void setVerticalWrapEnabled(boolean enabled, int range) {
+		this.verticalWrapEnabled = enabled;
+		if (enabled && range > 0) {
+			this.verticalWrapRange = range;
+			this.verticalWrapMask = range - 1;
+		}
+	}
+
+	/**
+	 * Convenience overload that uses the default S1 range (0x800).
+	 */
+	public void setVerticalWrapEnabled(boolean enabled) {
+		setVerticalWrapEnabled(enabled, VERTICAL_WRAP_RANGE);
 	}
 
 	/**
@@ -795,10 +819,10 @@ public class Camera {
 	}
 
 	/**
-	 * @return the vertical wrap range (0x800 = 2048 pixels)
+	 * @return the current vertical wrap range for this camera instance
 	 */
-	public static int getVerticalWrapRange() {
-		return VERTICAL_WRAP_RANGE;
+	public int getVerticalWrapRange() {
+		return verticalWrapRange;
 	}
 
 	/**
@@ -833,6 +857,8 @@ public class Camera {
 		yPosBias = DEFAULT_Y_BIAS;
 		fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
 		verticalWrapEnabled = false;
+		verticalWrapRange = VERTICAL_WRAP_RANGE;
+		verticalWrapMask = VERTICAL_WRAP_RANGE - 1;
 		lastFrameWrapped = false;
 		wrapDeltaY = 0;
 	}

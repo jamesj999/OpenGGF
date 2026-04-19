@@ -99,8 +99,8 @@ public class SonicConfigurationService {
 
 			// Step 3: fall back to default with warning
 			if (!str.isEmpty()) {
-				Object defaultValue = defaults.get(sonicConfiguration.name());
-				if (defaultValue instanceof Integer intDefault && intDefault > 0) {
+				int intDefault = resolveKeyCode(defaults.get(sonicConfiguration.name()));
+				if (intDefault > 0) {
 					LOGGER.warning("'" + str + "' could not be interpreted as a valid input for "
 							+ sonicConfiguration.name() + ". Defaulting to '"
 							+ GlfwKeyNameResolver.nameOf(intDefault) + "'");
@@ -186,17 +186,18 @@ public class SonicConfigurationService {
 
 	public void saveConfig() {
 		ObjectMapper mapper = new ObjectMapper();
-		File target;
-		if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) {
-			File execConfig = findConfigNextToExecutable();
-			target = (execConfig != null) ? execConfig : resolveRelativeFile("config.json");
-		} else {
-			target = resolveRelativeFile("config.json");
-		}
+		File target = resolveConfigFile();
 		try {
 			mapper.writerWithDefaultPrettyPrinter().writeValue(target, config);
 		} catch (IOException e) {
 			LOGGER.log(Level.WARNING, "Failed to save config.json", e);
+		}
+	}
+
+	public void ensureConfigFileExists() {
+		File target = resolveConfigFile();
+		if (!target.exists()) {
+			saveConfig();
 		}
 	}
 
@@ -241,44 +242,43 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT, false);
 		putDefault(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE, true);
 		putDefault(SonicConfiguration.REGION, "NTSC");
-		// Key codes - using GLFW key codes
-		putDefault(SonicConfiguration.UP, GLFW_KEY_UP);
-		putDefault(SonicConfiguration.DOWN, GLFW_KEY_DOWN);
-		putDefault(SonicConfiguration.LEFT, GLFW_KEY_LEFT);
-		putDefault(SonicConfiguration.RIGHT, GLFW_KEY_RIGHT);
-		putDefault(SonicConfiguration.JUMP, GLFW_KEY_SPACE);
-		putDefault(SonicConfiguration.P2_UP, GLFW_KEY_I);
-		putDefault(SonicConfiguration.P2_DOWN, GLFW_KEY_K);
-		putDefault(SonicConfiguration.P2_LEFT, GLFW_KEY_J);
-		putDefault(SonicConfiguration.P2_RIGHT, GLFW_KEY_L);
-		putDefault(SonicConfiguration.P2_JUMP, GLFW_KEY_RIGHT_SHIFT);
-		putDefault(SonicConfiguration.P2_START, GLFW_KEY_ENTER);
-		putDefault(SonicConfiguration.TEST, GLFW_KEY_T);
-		putDefault(SonicConfiguration.NEXT_ACT, GLFW_KEY_PAGE_UP);
-		putDefault(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);
-		putDefault(SonicConfiguration.DEBUG_MODE_KEY, GLFW_KEY_D);
+		putDefaultKey(SonicConfiguration.UP, GLFW_KEY_UP);
+		putDefaultKey(SonicConfiguration.DOWN, GLFW_KEY_DOWN);
+		putDefaultKey(SonicConfiguration.LEFT, GLFW_KEY_LEFT);
+		putDefaultKey(SonicConfiguration.RIGHT, GLFW_KEY_RIGHT);
+		putDefaultKey(SonicConfiguration.JUMP, GLFW_KEY_SPACE);
+		putDefaultKey(SonicConfiguration.P2_UP, GLFW_KEY_I);
+		putDefaultKey(SonicConfiguration.P2_DOWN, GLFW_KEY_K);
+		putDefaultKey(SonicConfiguration.P2_LEFT, GLFW_KEY_J);
+		putDefaultKey(SonicConfiguration.P2_RIGHT, GLFW_KEY_L);
+		putDefaultKey(SonicConfiguration.P2_JUMP, GLFW_KEY_RIGHT_SHIFT);
+		putDefaultKey(SonicConfiguration.P2_START, GLFW_KEY_ENTER);
+		putDefaultKey(SonicConfiguration.TEST, GLFW_KEY_T);
+		putDefaultKey(SonicConfiguration.NEXT_ACT, GLFW_KEY_PAGE_UP);
+		putDefaultKey(SonicConfiguration.NEXT_ZONE, GLFW_KEY_PAGE_DOWN);
+		putDefaultKey(SonicConfiguration.DEBUG_MODE_KEY, GLFW_KEY_D);
 		putDefault(SonicConfiguration.FPS, 60);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_TAB);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, GLFW_KEY_END);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, GLFW_KEY_DELETE);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, GLFW_KEY_F12);
-		putDefault(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
-		putDefault(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
-		putDefault(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
-		putDefault(SonicConfiguration.PLAYBACK_MOVIE_PATH, "playback.bk2");
-		putDefault(SonicConfiguration.PLAYBACK_TOGGLE_KEY, GLFW_KEY_B);
-		putDefault(SonicConfiguration.PLAYBACK_LOAD_KEY, GLFW_KEY_N);
-		putDefault(SonicConfiguration.PLAYBACK_PLAY_PAUSE_KEY, GLFW_KEY_M);
-		putDefault(SonicConfiguration.PLAYBACK_STEP_BACK_KEY, GLFW_KEY_COMMA);
-		putDefault(SonicConfiguration.PLAYBACK_STEP_FORWARD_KEY, GLFW_KEY_PERIOD);
-		putDefault(SonicConfiguration.PLAYBACK_JUMP_BACK_KEY, GLFW_KEY_LEFT_BRACKET);
-		putDefault(SonicConfiguration.PLAYBACK_JUMP_FORWARD_KEY, GLFW_KEY_RIGHT_BRACKET);
-		putDefault(SonicConfiguration.PLAYBACK_FAST_RATE_KEY, GLFW_KEY_SLASH);
-		putDefault(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY, GLFW_KEY_BACKSLASH);
+		putDefaultKey(SonicConfiguration.SPECIAL_STAGE_KEY, GLFW_KEY_TAB);
+		putDefaultKey(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY, GLFW_KEY_END);
+		putDefaultKey(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY, GLFW_KEY_DELETE);
+		putDefaultKey(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY, GLFW_KEY_F12);
+		putDefaultKey(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY, GLFW_KEY_F3);
+		putDefaultKey(SonicConfiguration.PAUSE_KEY, GLFW_KEY_ENTER);
+		putDefaultKey(SonicConfiguration.FRAME_STEP_KEY, GLFW_KEY_Q);
+		putDefault(SonicConfiguration.PLAYBACK_MOVIE_PATH, "");
+		putDefaultKey(SonicConfiguration.PLAYBACK_TOGGLE_KEY, GLFW_KEY_B);
+		putDefaultKey(SonicConfiguration.PLAYBACK_LOAD_KEY, GLFW_KEY_N);
+		putDefaultKey(SonicConfiguration.PLAYBACK_PLAY_PAUSE_KEY, GLFW_KEY_M);
+		putDefaultKey(SonicConfiguration.PLAYBACK_STEP_BACK_KEY, GLFW_KEY_COMMA);
+		putDefaultKey(SonicConfiguration.PLAYBACK_STEP_FORWARD_KEY, GLFW_KEY_PERIOD);
+		putDefaultKey(SonicConfiguration.PLAYBACK_JUMP_BACK_KEY, GLFW_KEY_LEFT_BRACKET);
+		putDefaultKey(SonicConfiguration.PLAYBACK_JUMP_FORWARD_KEY, GLFW_KEY_RIGHT_BRACKET);
+		putDefaultKey(SonicConfiguration.PLAYBACK_FAST_RATE_KEY, GLFW_KEY_SLASH);
+		putDefaultKey(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY, GLFW_KEY_BACKSLASH);
 		putDefault(SonicConfiguration.PLAYBACK_START_OFFSET_FRAME, 0);
-		putDefault(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
-		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
-		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
+		putDefaultKey(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY, GLFW_KEY_C);
+		putDefaultKey(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
+		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, true);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
 		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
@@ -296,13 +296,13 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.S3K_SKIP_INTROS, false);
 		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
-		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
-		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
+		putDefaultKey(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
+		putDefaultKey(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);
 		putDefault(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP, true);
 		putDefault(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
 		putDefault(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
-		putDefault(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_APOSTROPHE);
+		putDefaultKey(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_APOSTROPHE);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
 	}
 
@@ -312,6 +312,10 @@ public class SonicConfigurationService {
 		}
 		config.putIfAbsent(key.name(), value);
 		defaults.put(key.name(), value);
+	}
+
+	private void putDefaultKey(SonicConfiguration key, int glfwKeyCode) {
+		putDefault(key, GlfwKeyNameResolver.nameOf(glfwKeyCode));
 	}
 
 	/**
@@ -346,5 +350,31 @@ public class SonicConfigurationService {
 			}
 		}
 		return f;
+	}
+
+	private static File resolveConfigFile() {
+		if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) {
+			File execConfig = findConfigNextToExecutable();
+			return (execConfig != null) ? execConfig : resolveRelativeFile("config.json");
+		}
+		return resolveRelativeFile("config.json");
+	}
+
+	private static int resolveKeyCode(Object value) {
+		if (value instanceof Number number) {
+			return number.intValue();
+		}
+		if (value != null) {
+			String str = value.toString();
+			try {
+				return Integer.parseInt(str);
+			} catch (NumberFormatException ignored) {
+			}
+			OptionalInt resolved = GlfwKeyNameResolver.resolve(str);
+			if (resolved.isPresent()) {
+				return resolved.getAsInt();
+			}
+		}
+		return -1;
 	}
 }

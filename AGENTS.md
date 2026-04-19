@@ -56,6 +56,31 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `bugfix/ai-` for bug fixes.
 2.  **Code Structure:** Keep logic within existing or new manager classes. Avoid putting all logic into `Engine.java` to maintain a strong object-oriented design.
 
+## Branch Documentation Policy
+
+Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the repo once with `git config core.hooksPath .githooks` so local commits use the tracked hooks. The hook entrypoints dispatch through `.githooks/run-policy`: on Windows they call `validate-policy.ps1`, and on macOS/Linux they call `validate-policy.sh`.
+
+- On any non-`master` branch commit, the commit message must include these trailers and each must start with `updated` or `n/a`:
+  - `Changelog`
+  - `Guide`
+  - `Known-Discrepancies`
+  - `S3K-Known-Discrepancies`
+  - `Agent-Docs`
+  - `Configuration-Docs`
+  - `Skills`
+- `prepare-commit-msg` auto-appends the trailer block on non-merge commits. Do not delete it; fill it in.
+- Trailer/file mapping:
+  - `Changelog: updated` requires `CHANGELOG.md` staged.
+  - `Guide: updated` requires at least one staged change under `docs/guide/`.
+  - `Known-Discrepancies: updated` requires `docs/KNOWN_DISCREPANCIES.md` staged.
+  - `S3K-Known-Discrepancies: updated` requires `docs/S3K_KNOWN_DISCREPANCIES.md` staged.
+  - `Agent-Docs: updated` requires both `AGENTS.md` and `CLAUDE.md` staged together.
+  - `Configuration-Docs: updated` requires `CONFIGURATION.md` staged.
+  - `Skills: updated` requires staged changes under both `.agents/skills/` and `.claude/skills/`.
+- If a matching file is staged, the corresponding trailer must not say `n/a`.
+- When merging a non-`master` branch into `develop`, stage a `README.md` update that briefly summarizes the branch change in the README release/change log area. The hooks and CI block the merge otherwise.
+- Treat the trailers as explicit attestation for the “where relevant” judgment. Do not guess around them, and do not use `--no-verify` to bypass the policy.
+
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
 *   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 5 / Jupiter only).
@@ -103,6 +128,7 @@ This is a frequent source of bugs and parity regressions.
 - `getX()` / `getY()` are top-left sprite bounds, not ROM object position fields.
 - When porting disassembly that reads or writes `x_pos` / `y_pos`, default to centre-coordinate APIs unless the code is explicitly working with sprite bounds, render extents, or collision box edges.
 - If camera, collision, object anchoring, or scripted movement starts drifting relative to the player, check for accidental mixing of `getX()` / `getY()` with ROM `x_pos` / `y_pos` semantics first.
+- **Debug overlay caveat:** The in-engine debug HUD `Pos:` line (from `DebugRenderer`) prints `sprite.getX()` / `sprite.getY()` — the **top-left corner**, not the centre. It is NOT the ROM `x_pos` / `y_pos`. Do not quote those numbers directly against disassembly traces; convert to centre coordinates first (or read `getCentreX()` / `getCentreY()` in code).
 
 ## Headless Testing with HeadlessTestRunner
 
@@ -443,6 +469,8 @@ om.addDynamicObject(childInstance);
 
 **S3K level-art objects:** Prefer `Sonic3kObjectArt.buildLevelArtSheetFromRom(mappingAddr, artTileBase, palette)` to parse S3K mappings from ROM at runtime. Add mapping ROM address to `Sonic3kConstants.java` (use RomOffsetFinder). Extract art_tile base and palette from the object code's `make_art_tile()` call. Only hardcode mapping pieces when the ROM table can't be used directly.
 
+**Hard rule: ROM-only runtime assets.** If the engine needs object art, mappings, DPLCs, animation scripts, PLC data, or any other gameplay/runtime asset bytes, they must come from the user-supplied ROM through the engine's ROM-loading pipeline. Do **not** read runtime asset bytes from checked-in disassembly/reference files under `docs/` as a fallback. The disassembly tree is for research, labels, and offset discovery only. If a ROM-backed source is missing, find or verify the ROM address/path instead of loading from `docs/`.
+
 **PLC system:** `PlcParser` in `level.resources` provides game-agnostic PLC parsing. See `plc-system` skill for cross-game reference, `s3k-plc-system` for S3K-specific details.
 
 ### Constants Files
@@ -649,6 +677,7 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
     *   `player.getX()` / `player.getY()` → Top-left corner (for rendering)
     *   `player.getCentreX()` / `player.getCentreY()` → Center position (for collision/interactions)
     *   **Always use center coordinates** for object collision checks to match ROM behavior. Using top-left creates ~19 pixel vertical offset errors.
+    *   **Debug HUD:** The overlay's `Pos:` field shows the top-left (`getX()` / `getY()`), NOT the ROM-centre position. Treat it as render-space only when cross-referencing the disassembly.
 *   **Terminology**: The codebase uses specific terms for level components that differ from standard Sonic 2 naming:
     *   **Pattern:** An 8x8 pixel tile.
     *   **Chunk:** A 16x16 pixel tile, composed of Patterns.

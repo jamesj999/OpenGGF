@@ -16,6 +16,27 @@ import static com.openggf.level.scroll.M68KMath.negWord;
  * produce real per-line parallax rather than a flat fallback ratio.
  */
 public class SwScrlMgz extends AbstractZoneScrollHandler {
+
+    // Screen shake support (ROM: Screen_shake_flag, used by Tunnelbot / MGZ Miniboss).
+    // Applied to FG VScroll (tiles) AND propagated via getShakeOffsetY() (sprites),
+    // matching the HCZ2 pattern: composer.setVscrollFactorFG(cameraY + offset).
+    private int screenShakeOffset;
+    private short vscrollFactorFG;
+
+    public void setScreenShakeOffset(int offset) {
+        this.screenShakeOffset = offset;
+    }
+
+    @Override
+    public int getShakeOffsetY() {
+        return screenShakeOffset;
+    }
+
+    @Override
+    public short getVscrollFactorFG() {
+        return vscrollFactorFG;
+    }
+
     private static final int HSCROLL_WORD_COUNT = 32;
 
     // MGZ1_BGDeformArray
@@ -93,10 +114,17 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     NEGATE_WORD);
         }
 
+        // Screen shake: apply to FG VScroll (tiles shake), matching HCZ2 pattern.
+        // ROM: ShakeScreen modifies Camera_Y_pos_copy which affects FG scroll.
+        if (screenShakeOffset != 0) {
+            composer.setVscrollFactorFG((short) (cameraY + screenShakeOffset));
+        }
+
         composer.copyPackedScrollWordsTo(horizScrollBuf);
         minScrollOffset = composer.getMinScrollOffset();
         maxScrollOffset = composer.getMaxScrollOffset();
         vscrollFactorBG = composer.getVscrollFactorBG();
+        vscrollFactorFG = composer.getVscrollFactorFG();
     }
 
     private void resetActState(int actId) {

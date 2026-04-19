@@ -429,7 +429,6 @@ public class Ym2612Chip {
     private double resampleAccum = 0.0;
     private int lastLeft = 0, lastRight = 0;
     private int prevLeft = 0, prevRight = 0;
-    private final int[] channelOut = new int[6];
 
     // Band-limited resampler (replaces simple linear interpolation)
     private BlipResampler blipResampler = new BlipResampler(INTERNAL_RATE, DEFAULT_OUTPUT_RATE);
@@ -1343,7 +1342,11 @@ public class Ym2612Chip {
      * rate (~53kHz) and resampling when needed.
      */
     public void renderStereo(int[] leftBuf, int[] rightBuf) {
-        int outputLen = Math.min(leftBuf.length, rightBuf.length);
+        renderStereo(leftBuf, rightBuf, Math.min(leftBuf.length, rightBuf.length));
+    }
+
+    public void renderStereo(int[] leftBuf, int[] rightBuf, int outputLen) {
+        outputLen = Math.min(outputLen, Math.min(leftBuf.length, rightBuf.length));
 
         if (Math.abs(resampleRatio - 1.0) < 1e-9) {
             // Direct output at internal rate (no resampling).
@@ -1401,14 +1404,6 @@ public class Ym2612Chip {
         int pmLfo = lfoPm;
         int envLfo = lfoAm; // GPGX: 126 (max AM) when disabled
 
-        // Explicit zeroing is faster than Arrays.fill() for small arrays in hot path
-        channelOut[0] = 0;
-        channelOut[1] = 0;
-        channelOut[2] = 0;
-        channelOut[3] = 0;
-        channelOut[4] = 0;
-        channelOut[5] = 0;
-
         // Skip SSG-EG processing when no operators use it (common case)
         if (ssgEgActiveCount > 0) {
             updateSsgEg();
@@ -1420,34 +1415,25 @@ public class Ym2612Chip {
             dacOut = LIMIT_CH_OUT_POS;
         else if (dacOut < LIMIT_CH_OUT_NEG)
             dacOut = LIMIT_CH_OUT_NEG;
-        if (dacEnabled && !mutes[5]) {
-            channelOut[5] = dacOut;
-        }
-
-        // FM channels
-        for (int ch = 0; ch < 6; ch++) {
-            if (mutes[ch])
-                continue;
-            if (ch == 5 && dacEnabled)
-                continue;
-            channelOut[ch] = renderChannel(ch, envLfo, pmLfo);
-        }
+        int dacMixedOut = (dacEnabled && !mutes[5]) ? dacOut : 0;
 
         int leftSum = 0;
         int rightSum = 0;
         for (int ch = 0; ch < 6; ch++) {
-            int out = channelOut[ch];
             Channel chan = channels[ch];
+            int out = 0;
+            if (ch == 5 && dacEnabled) {
+                out = dacMixedOut;
+            } else if (!mutes[ch]) {
+                out = renderChannel(ch, envLfo, pmLfo);
+            }
+
             if (chan.leftMask != 0)
                 leftSum += out;
             if (chan.rightMask != 0)
                 rightSum += out;
-        }
 
-        if (chipType == YM2612_DISCRETE) {
-            for (int ch = 0; ch < 6; ch++) {
-                int out = channelOut[ch];
-                Channel chan = channels[ch];
+            if (chipType == YM2612_DISCRETE) {
                 if (out < 0) {
                     leftSum -= ((4 - (chan.leftMask & 1)) << 5);
                     rightSum -= ((4 - (chan.rightMask & 1)) << 5);

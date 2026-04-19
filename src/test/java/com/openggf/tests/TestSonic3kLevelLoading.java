@@ -108,6 +108,41 @@ public class TestSonic3kLevelLoading {
         assertLevelResourceIntegrity(level, 4, 0);
     }
 
+    @Test
+    public void mgz1Has32RowMapWithCorrectBlocks() throws Exception {
+        Level level = game.loadLevel(LevelData.S3K_MARBLE_GARDEN_1.getLevelIndex());
+        assertNotNull(level);
+        Map map = level.getMap();
+        assertNotNull(map);
+
+        // MGZ1 layout header: FG 96x32
+        assertEquals(96, level.getLayerWidthBlocks(0), "FG width should be 96 blocks");
+        assertEquals(32, level.getLayerHeightBlocks(0), "FG height should be 32 blocks");
+        assertEquals(96, map.getWidth());
+        assertEquals(32, map.getHeight());
+
+        // MGZ1 boundaries from LevelSizes: minY=-$100, maxY=$1000
+        assertEquals(-0x100, level.getMinY(), "MGZ1 minY should be -$100");
+        assertEquals(0x1000, level.getMaxY(), "MGZ1 maxY should be $1000");
+
+        // Verify block values at spawn area (row 30):
+        // Columns 0-3 should be empty (block 0x00), columns 4+ should be solid (block 0x10)
+        assertEquals(0x00, Byte.toUnsignedInt(map.getValue(0, 1, 30)),
+                "Block at (1,30) should be empty");
+        assertEquals(0x10, Byte.toUnsignedInt(map.getValue(0, 4, 30)),
+                "Block at (4,30) should be solid");
+
+        // Row 14 (what 0x800 wrapping would show at row 30) should be all solid
+        assertEquals(0x10, Byte.toUnsignedInt(map.getValue(0, 1, 14)),
+                "Block at (1,14) should be solid");
+
+        // Row 28 should be solid at columns 0-3 (ledge above the shaft)
+        assertEquals(0x10, Byte.toUnsignedInt(map.getValue(0, 1, 28)),
+                "Block at (1,28) should be solid");
+
+        assertLevelResourceIntegrity(level, 2, 0);
+    }
+
     private void assertLevelResourceIntegrity(Level level, int zone, int act) throws Exception {
         assertNotNull(level);
         assertNotNull(level.getMap());

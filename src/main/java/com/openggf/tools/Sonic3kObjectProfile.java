@@ -70,6 +70,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x33, // Button
             0x34, // StarPost
             0x3C, // Door
+            0x4F, // SinkingMud
             0x51, // FloatingPlatform
             0x6C, // TensionBridge
             0x6A, // InvisibleHurtBlockH
@@ -102,6 +103,14 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x38, // HCZCGZFan
                 0x3A, // HCZHandLauncher
                 0x3B, // HCZWaterWall
+                0x20, // MGZLBZSmashingPillar (alt slot)
+                0x52, // MGZLBZSmashingPillar
+                0x53, // MGZSwingingPlatform
+                0x55, // MGZHeadTrigger
+                0x57, // MGZTriggerPlatform
+                0x58, // MGZSwingingSpikeBall
+                0x59, // MGZDashTrigger
+                0x5B, // MGZTopPlatform
                 0x3E, // HCZConveyorBelt
                 0x3F, // HCZConveyorSpike
                 0x67, // HCZSnakeBlocks
@@ -117,6 +126,9 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x94, // Blastoid
                 0x95, // Buggernaut
                 0x98, // Poindexter
+                0x9B, // BubblesBadnik
+                0x9C, // Spiker
+                0x9E, // Tunnelbot
                 0x90, // AIZMinibossCutscene
                 0x91, // AIZMiniboss
                 0x92, // AIZEndBoss

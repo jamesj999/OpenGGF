@@ -32,6 +32,10 @@ CNZ --validate-only
 | **s3k-palette-cycling** | `.agents/skills/s3k-palette-cycling/SKILL.md` | Implement AnPal handlers with counter/step/limit cycling and validation |
 | **s3k-zone-validate** | `.agents/skills/s3k-zone-validate/SKILL.md` | Visual comparison via stable-retro + image recognition for validation |
 
+## S&K-Side Addresses Only — Never Sonic 3 Standalone
+
+When dispatching feature agents, re-iterate this rule in every prompt: **the engine is S3KL (locked-on), so all ROM constants must come from the S&K half (`sonic3k.asm`, addresses < 0x200000). Never use Sonic 3 (`s3.asm`) pointers or addresses**, even when the two halves look identical. Always invoke `RomOffsetFinder` with `--game s3k`, and if a lookup returns both halves, pick the `sonic3k.asm` result. See `s3k-disasm-guide` for the full selection rule.
+
 ## Framework-First Rule
 
 When feature agents implement the zone, prefer the runtime-owned stack over bespoke zone-local state:

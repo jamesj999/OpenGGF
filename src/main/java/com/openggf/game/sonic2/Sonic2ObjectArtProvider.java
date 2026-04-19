@@ -11,6 +11,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.ObjectArtData;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -55,6 +56,8 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private Pattern[] hudHexDigits;
+    private HudStaticArt hudStaticArt;
     private boolean livesNameUsesIconPalette;
 
     /**
@@ -196,10 +199,12 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = artData.getHudTextPatterns();
         hudLivesPatterns = artData.getHudLivesPatterns();
         hudLivesNumbers = artData.getHudLivesNumbers();
+        hudHexDigits = artData.getDebugFontPatterns();
         livesNameUsesIconPalette = false;
 
         // Cross-game: override lives icon with donor character art (e.g., Knuckles from S3K)
         overrideLivesArtFromDonor();
+        rebuildHudStaticArt();
 
         LOGGER.info("Sonic2ObjectArtProvider loaded for zone " + zoneIndex +
                 " with " + rendererKeys.size() + " renderers (PLC-driven)");
@@ -341,8 +346,13 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     }
 
     @Override
-    public boolean usesIconPaletteForLivesName() {
-        return livesNameUsesIconPalette;
+    public Pattern[] getHudHexDigitPatterns() {
+        return hudHexDigits;
+    }
+
+    @Override
+    public HudStaticArt getHudStaticArt() {
+        return hudStaticArt;
     }
 
     /**
@@ -362,8 +372,16 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         if (knuxLife != null && knuxLife.length > 0) {
             hudLivesPatterns = knuxLife;
             livesNameUsesIconPalette = true;
+            rebuildHudStaticArt();
             LOGGER.info("Overrode lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
         }
+    }
+
+    private void rebuildHudStaticArt() {
+        hudStaticArt = Sonic2HudStaticArtFactory.create(
+                hudTextPatterns,
+                hudLivesPatterns,
+                livesNameUsesIconPalette);
     }
 
     Pattern[] loadS3kKnucklesLivesPatterns() {
