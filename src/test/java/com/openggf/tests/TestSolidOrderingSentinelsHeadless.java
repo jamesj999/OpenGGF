@@ -2,6 +2,9 @@ package com.openggf.tests;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.sonic2.objects.FlipperObjectInstance;
+import com.openggf.game.sonic2.objects.SpringboardObjectInstance;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.solid.SolidCheckpointBatch;
@@ -20,6 +23,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -118,6 +122,53 @@ class TestSolidOrderingSentinelsHeadless {
                 "Sidekick helper queries should read the published batch snapshot");
     }
 
+    @Test
+    void flipperClearsControlLockOnSameFrameNoContactResult() throws Exception {
+        HeadlessTestFixture localFixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+
+        AbstractPlayableSprite localPlayer = localFixture.sprite();
+        FlipperObjectInstance flipper = spawnFlipper(0x0120, 0x0100);
+        localPlayer.setCentreX((short) 0x0120);
+        localPlayer.setCentreY((short) 0x00F4);
+        localPlayer.setAir(false);
+        localFixture.camera().updatePosition(true);
+
+        localFixture.stepFrame(false, false, false, false, false);
+        assertTrue(localPlayer.isControlLocked(), "Vertical flipper should lock the player while standing");
+
+        localPlayer.setCentreX((short) 0x0180);
+        localFixture.stepFrame(false, false, false, false, false);
+
+        assertEquals(0, (int) getField(flipper, "playerFlipperState"),
+                "Vertical flipper should clear same-frame standing state on an explicit no-contact result");
+        assertFalse(localPlayer.isControlLocked(),
+                "Vertical flipper should clear the control lock on the same no-contact frame");
+    }
+
+    @Test
+    void springboardLaunchesFromCurrentFrameStandingState() throws Exception {
+        HeadlessTestFixture localFixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+
+        AbstractPlayableSprite localPlayer = localFixture.sprite();
+        SpringboardObjectInstance springboard = spawnSpringboard(0x0120, 0x0100);
+        localPlayer.setCentreX((short) 0x0140);
+        localPlayer.setCentreY((short) 0x00F5);
+        localPlayer.setAir(true);
+        localPlayer.setYSpeed((short) 0x0180);
+        localFixture.camera().updatePosition(true);
+
+        localFixture.stepFrame(false, false, false, false, false);
+
+        assertTrue((boolean) getField(springboard, "launchSequenceActive"),
+                "Springboard should start the launch sequence from the current-frame standing checkpoint");
+        assertTrue(localPlayer.getYSpeed() < 0,
+                "Springboard should launch off the current-frame standing state instead of waiting a frame");
+    }
+
     private AbstractPlayableSprite createSidekick() {
         Tails tails = new Tails("tails", (short) 0x120, (short) 0x0EE);
         tails.setCpuControlled(true);
@@ -125,6 +176,26 @@ class TestSolidOrderingSentinelsHeadless {
         GameServices.sprites().addSprite(tails, "tails");
         tails.setCpuControlled(false);
         return tails;
+    }
+
+    private static FlipperObjectInstance spawnFlipper(int x, int y) {
+        FlipperObjectInstance object = new FlipperObjectInstance(new ObjectSpawn(
+                x, y, Sonic2ObjectIds.FLIPPER, 0, 0, false, 0), "Flipper");
+        GameServices.level().getObjectManager().addDynamicObject(object);
+        return object;
+    }
+
+    private static SpringboardObjectInstance spawnSpringboard(int x, int y) {
+        SpringboardObjectInstance object = new SpringboardObjectInstance(new ObjectSpawn(
+                x, y, Sonic2ObjectIds.SPRINGBOARD, 0, 0, false, 0), "Springboard");
+        GameServices.level().getObjectManager().addDynamicObject(object);
+        return object;
+    }
+
+    private static Object getField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     private static final class SnapshotProbeObject extends AbstractObjectInstance implements SolidObjectProvider {
