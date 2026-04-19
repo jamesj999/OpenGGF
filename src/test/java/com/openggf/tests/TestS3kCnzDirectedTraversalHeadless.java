@@ -5,6 +5,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.CnzCannonInstance;
 import com.openggf.game.sonic3k.objects.CnzCylinderInstance;
+import com.openggf.game.sonic3k.objects.CorkFloorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -75,6 +76,35 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCorkFloorUsesCurrentFramePreContactRollingCheckpoint() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x1180);
+        player.setCentreY((short) 0x04EE);
+        player.setAir(true);
+        player.setRolling(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0x0180);
+        player.setGSpeed((short) 0);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CorkFloorObjectInstance floor = new CorkFloorObjectInstance(new ObjectSpawn(
+                0x1180, 0x0520, Sonic3kObjectIds.CORK_FLOOR, 1, 0, false, 0));
+        objectManager.addDynamicObject(floor);
+
+        fixture.camera().updatePosition(true);
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertTrue((boolean) getPrivateField(floor, "savedPreContactRolling"),
+                "CNZ cork floor should capture the current-frame rolling state before contact resolution clears it");
+        assertTrue((boolean) getPrivateField(floor, "broken"),
+                "CNZ cork floor should use the current-frame checkpoint to break on the landing frame");
+    }
+
+    @Test
     void cnzCylinderCapturesPlayerAppliesRollingRadiiAndReleasesAtSubtypeExit() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -135,6 +165,12 @@ public class TestS3kCnzDirectedTraversalHeadless {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Failed to set CNZ cannon launch delay for test", e);
         }
+    }
+
+    private static Object getPrivateField(Object target, String fieldName) throws Exception {
+        java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     private static int invokeCylinderHook(CnzCylinderInstance cylinder, String methodName) {
