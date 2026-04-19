@@ -330,7 +330,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private SolidCheckpointBatch checkpointAll() {
+    protected SolidCheckpointBatch checkpointAll() {
         return services().solidExecution().resolveSolidNowAll();
     }
 

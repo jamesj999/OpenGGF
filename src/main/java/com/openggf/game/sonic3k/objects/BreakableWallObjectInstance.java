@@ -372,7 +372,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
                 services().configuration()) == PlayerCharacter.KNUCKLES;
     }
 
-    private SolidCheckpointBatch checkpointAll() {
+    protected SolidCheckpointBatch checkpointAll() {
         return services().solidExecution().resolveSolidNowAll();
     }
 

@@ -441,7 +441,7 @@ public class HCZHandLauncherObjectInstance extends AbstractObjectInstance
         return facingLeft;
     }
 
-    private SolidCheckpointBatch checkpointAll() {
+    protected SolidCheckpointBatch checkpointAll() {
         return services().solidExecution().resolveSolidNowAll();
     }
 

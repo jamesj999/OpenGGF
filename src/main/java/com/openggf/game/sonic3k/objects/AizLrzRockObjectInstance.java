@@ -403,7 +403,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         return ZoneVariant.UNKNOWN;
     }
 
-    private SolidCheckpointBatch checkpointAll() {
+    protected SolidCheckpointBatch checkpointAll() {
         return services().solidExecution().resolveSolidNowAll();
     }
 }

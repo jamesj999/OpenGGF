@@ -300,7 +300,7 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
         ctx.drawLine(left, bottom, left, top, r, g, b);
     }
 
-    private SolidCheckpointBatch checkpointAll() {
+    protected SolidCheckpointBatch checkpointAll() {
         return services().solidExecution().resolveSolidNowAll();
     }
 
