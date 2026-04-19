@@ -4710,7 +4710,7 @@ public class ObjectManager {
                         }
                     }
                 }
-                return SolidContact.side(pushing, distX);
+                return SolidContact.side(pushing, distX, movingInto);
             }
 
             if (distY >= 0 || (sticky && distY >= -16)) {
@@ -4795,7 +4795,7 @@ public class ObjectManager {
                             }
                         }
                     }
-                    return SolidContact.side(pushing, distX);
+                    return SolidContact.side(pushing, distX, movingInto);
                 }
                 // Player is well inside horizontally - crush death.
                 // ROM: KillCharacter (s2.asm:84995) - unconditional death.

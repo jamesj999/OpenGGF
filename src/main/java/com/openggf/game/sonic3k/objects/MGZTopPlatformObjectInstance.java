@@ -11,6 +11,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -55,9 +56,6 @@ import java.util.Map;
  */
 public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
-    private static final int SOLIDITY_TOP = 0x0C;
-    private static final int SOLIDITY_ALL = 0x0D;
-
     private static final String ART_KEY = Sonic3kObjectArtKeys.MGZ_TOP_PLATFORM;
 
     // ROM: move.w #$280, priority(a0)
@@ -128,8 +126,8 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     private record ProbeResult(int distance, int angle) {
     }
 
-    private final int rawSubtype;
-    private final boolean activeLauncher;
+    private int currentSubtype;
+    private boolean bodyDriven;
 
     // Platform state (ROM a0 fields) ===================================
     private int posX;
@@ -145,9 +143,12 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     private int arcMode;         // $35(a0)
     private int arcProgress;     // $3C(a0)
     private int arcLimit;        // $2E(a0)
+    private int arcFlagsHi;      // $3E(a0)
     private int arcFlagsLo;      // $3F(a0)
     private int arcTimer;        // $3A(a0)
     private int arcDataIndex;    // decoded form of $36(a0)
+    private int arcXSub;         // 16.16 subpixel used by sub_35868 linear legs
+    private int arcYSub;         // 16.16 subpixel used by sub_35868 linear legs
     private int[] activeWaypointTable;
     private boolean airborne;    // status bit 1
     private boolean carryLatched; // ROM: $2D(a0), consumed by next body update
@@ -166,11 +167,14 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     // Waypoints (lazy).
     private int[] waypointAct1;
     private int[] waypointAct2;
+    private int firstActivatedWaypointEntryStart = -1;
+    private int lastActivatedWaypointEntryStart = -1;
+    private int waypointActivationCount;
 
     public MGZTopPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MGZTopPlatform");
-        this.rawSubtype = spawn.subtype() & 0xFF;
-        this.activeLauncher = (rawSubtype == 0);
+        this.currentSubtype = spawn.subtype() & 0xFF;
+        this.bodyDriven = (currentSubtype == 0);
         this.posX = spawn.x();
         this.posY = spawn.y();
         this.homeX = posX;
@@ -216,6 +220,22 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 state.entrySideBias = (platformMinusPlayer < 0) ? GRAB_ENTRY_BIAS : 0;
             }
         }
+        // ROM SolidObjectFull: while the wall-cling bit is set (grabbed), a horizontal
+        // push records a side-contact flag and a ceiling hit records a top-contact
+        // flag. The grabbed state machine reads and clears these the same frame to
+        // zero ground_vel / y_vel.
+        if (!(playerEntity instanceof AbstractPlayableSprite sprite)) {
+            return;
+        }
+        if (!sprite.isWallCling()) {
+            return;
+        }
+        if (contact.touchSide() && contact.movingInto()) {
+            sprite.setWallClingSideContact(true);
+        }
+        if (contact.touchBottom()) {
+            sprite.setWallClingTopContact(true);
+        }
     }
 
     // =============================================================
@@ -252,8 +272,8 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Platform body — subtype != 0 stays passive (Obj_MGZTopLauncher drives it externally).
-        if (activeLauncher) {
+        // Platform body — subtype != 0 stays passive until Obj_MGZTopLauncher releases it.
+        if (bodyDriven) {
             if (arcMode != 0) {
                 runArcTravel();
             } else if (airborne) {
@@ -268,9 +288,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         if (primary != null) snapGrabbedPlayer(primary);
         if (sidekick != null) snapGrabbedPlayer(sidekick);
         carryLatched = nextCarryLatched;
-
-        // Animation timer ROM: addq.w #4, $24(a0) (unless already advanced in ground-ride)
-        timer = (timer + 4) & 0xFFFF;
 
         // Reset per-frame standing flags; SolidContacts will re-assert next tick.
         for (PlayerGrabState ps : playerStates.values()) {
@@ -323,6 +340,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             // ROM sub_34E6E: floor-follow — ALWAYS runs (even with ground_vel == 0).
             probeGroundAngle();
         }
+        timer = (timer + 4) & 0xFFFF;
 
         if (groundVel == 0) {
             rolling = 0;
@@ -368,6 +386,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 rolling = 1;
             }
         }
+
     }
 
     /** ROM sub_35868: sine-arced teleport between waypoints. */
@@ -375,20 +394,36 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         if (arcMode != 2) {
             arcTimer--;
             if (arcTimer >= 0) {
-                movePlatform(false, 0);
+                SubpixelMotion.State arcMotion = new SubpixelMotion.State(
+                        posX,
+                        posY,
+                        arcXSub,
+                        arcYSub,
+                        xVel,
+                        yVel);
+                SubpixelMotion.speedToPos(arcMotion);
+                posX = arcMotion.x;
+                posY = arcMotion.y;
+                arcXSub = arcMotion.xSub;
+                arcYSub = arcMotion.ySub;
+                timer = (timer + 4) & 0xFFFF;
                 return;
             }
             if (arcMode == 3) {
-                if ((byte) arcFlagsLo < 0) {
+                if ((byte) arcFlagsHi < 0) {
                     groundVel = -groundVel;
                 }
                 arcMode = 0;
+                syncArcSubpixelsToMotion();
+                timer = (timer + 4) & 0xFFFF;
                 return;
             }
             arcProgress = 0;
             arcMode = 2;
             if (activeWaypointTable == null || arcDataIndex >= activeWaypointTable.length) {
                 arcMode = 0;
+                syncArcSubpixelsToMotion();
+                timer = (timer + 4) & 0xFFFF;
                 return;
             }
             arcLimit = activeWaypointTable[arcDataIndex++];
@@ -409,11 +444,13 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         if ((arcFlagsLo & 0x7F) != 0) {
             arcProgress -= step;
             if (arcProgress > 0) {
+                timer = (timer + 4) & 0xFFFF;
                 return;
             }
         } else {
             arcProgress += step;
             if (arcProgress < arcLimit) {
+                timer = (timer + 4) & 0xFFFF;
                 return;
             }
         }
@@ -421,11 +458,14 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         arcMode = 3;
         if (activeWaypointTable == null || arcDataIndex + 1 >= activeWaypointTable.length) {
             arcMode = 0;
+            syncArcSubpixelsToMotion();
+            timer = (timer + 4) & 0xFFFF;
             return;
         }
         int tailX = activeWaypointTable[arcDataIndex++];
         int tailY = activeWaypointTable[arcDataIndex++];
         computeArcLinearVelocity(tailX, tailY);
+        timer = (timer + 4) & 0xFFFF;
     }
 
     // =============================================================
@@ -447,7 +487,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         }
 
         switch (state.routine) {
-            case 0 -> playerStateLanding(state);
+            case 0 -> playerStateLanding(player, state);
             case 2 -> playerStateApproach(player, state);
             case 4 -> playerStateGrabbed(player, state, isPrimary);
             case 6 -> playerStateReleased(state);
@@ -456,9 +496,13 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     }
 
     /** ROM loc_34F04: state 0 — wait for standing, then advance to state 2. */
-    private void playerStateLanding(PlayerGrabState state) {
+    private void playerStateLanding(AbstractPlayableSprite player, PlayerGrabState state) {
         if (state.standingNow) {
             state.routine = 2;
+            // ROM loc_34F2A falls through into loc_34F6A on the same object tick.
+            // Without that immediate approach/grab check, the passive launcher child
+            // can miss the centre-crossing window and never arm the stand launcher.
+            playerStateApproach(player, state);
         }
     }
 
@@ -492,12 +536,23 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
      */
     private void grabPlayer(AbstractPlayableSprite player, PlayerGrabState state) {
         player.setCentreX((short) posX);
-        // ROM: bset #0, object_control(a1) — input lockout (bit 0 only).
-        // Java maps bit 0 to controlLocked; bit 7 (objectControlled / full physics
-        // skip) must remain clear so spikes and other hazards can still deliver
-        // solid-contact hurt reactions to the grabbed player.
+        // ROM sets obj_control bit 0 here, which skips Sonic_Modes until release.
+        // Input lockout is enough for our engine: movePlatform/snapGrabbedPlayer
+        // overwrite the player's position every frame, and zeroing the player's
+        // speeds below prevents modeAirborne from drifting between frames.
         player.setControlLocked(true);
+        player.setOnObject(false);
         player.setAir(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.applyCustomRadii(player.getXRadius(), player.getStandYRadius() + 0x18);
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null) {
+            svc.objectManager().clearRidingObject(player);
+        }
+        player.setWallCling(true);
+        player.setWallClingSideContact(false);
+        player.setWallClingTopContact(false);
         state.jumpHeldAtGrab = player.isJumpPressed();
         state.grabbed = true;
         state.routine = 4;
@@ -547,6 +602,14 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             airborne = true;
             rolling = 0;
             return;
+        }
+
+        if (player.consumeWallClingSideContact()) {
+            groundVel = 0;
+            xVel = 0;
+        }
+        if (player.consumeWallClingTopContact()) {
+            yVel = 0;
         }
 
         // ROM loc_350C8 copies the platform's current movement back to the player
@@ -678,6 +741,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         player.setJumping(true);
         player.setAir(true);
         player.setRolling(true);
+        player.applyRollingRadii(false);
         player.setAnimationId(Sonic3kAnimationIds.ROLL.id());
         playSfx(Sonic3kSfx.JUMP);
 
@@ -698,10 +762,15 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         releasedFlight = true;
         carryLatched = false;
         nextCarryLatched = false;
-        for (PlayerGrabState ps : playerStates.values()) {
-            ps.routine = 6;
-            ps.grabbed = false;
-            ps.entrySideBias = 0;
+        for (Map.Entry<PlayableEntity, PlayerGrabState> entry : playerStates.entrySet()) {
+            PlayerGrabState ps = entry.getValue();
+            if (entry.getKey() instanceof AbstractPlayableSprite player && ps.routine == 4) {
+                releasePlayer(player, ps, true);
+            } else {
+                ps.routine = 6;
+                ps.grabbed = false;
+                ps.entrySideBias = 0;
+            }
         }
     }
 
@@ -714,11 +783,21 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     private void releasePlayer(AbstractPlayableSprite player, PlayerGrabState state, boolean airborneRelease) {
         player.setControlLocked(false);
+        player.setOnObject(false);
         player.setForcedAnimationId(-1);
+        player.restoreDefaultRadii();
+        player.clearWallClingState();
         player.suppressNextJumpPress();
         if (airborneRelease) {
             player.setAir(true);
         }
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null) {
+            svc.objectManager().clearRidingObject(player);
+        }
+        state.entrySideBias = 0;
+        state.xSub = 0;
+        state.ySub = 0;
         state.routine = 6;
         state.grabbed = false;
     }
@@ -743,7 +822,12 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         if (state.routine != 4) {
             return;
         }
-        if (state.standingNow) {
+        ObjectInstance riding = currentRidingObject(player);
+        if (riding instanceof SinkingMudObjectInstance && riding != this) {
+            enterReleasedFlight();
+            return;
+        }
+        if (player.isOnObject() && riding == this) {
             // ROM sub_35202 Status_OnObj branch:
             //   x_pos(a1) = x_pos(a0)                 ; player X follows platform X
             //   y_pos(a0) = y_pos(a1) + default_y_radius + $D
@@ -759,6 +843,11 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         short snapX = (short) posX;
         player.setCentreX(snapX);
         player.setCentreY(snapY);
+        // ROM obj_control bit 0 skips Sonic_Modes, so speeds never drive the
+        // grabbed player. Engine-side, modeAirborne still runs each frame;
+        // zeroing speeds here prevents a frame of drift before the next snap.
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
         nextCarryLatched = false;
     }
 
@@ -785,7 +874,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 xVel -= velocityAdjustment;
                 yVel = 0;
                 groundVel = 0;
-                rolling = 0;
             }
             case 0x80 -> yVel -= velocityAdjustment;
             default -> {
@@ -795,7 +883,6 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 xVel += velocityAdjustment;
                 yVel = 0;
                 groundVel = 0;
-                rolling = 0;
             }
         }
     }
@@ -881,7 +968,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             posY += dist;
         } else {
             // ROM loc_34EBA: drop gap capped at min(|x_vel.byte| + 4, $E).
-            int maxDrop = Math.min((Math.abs(xVel) >> 8) + 4, 0x0E);
+            int maxDrop = Math.min(Math.abs((byte) xVel) + 4, 0x0E);
             if (dist <= maxDrop) {
                 posY += dist;
             } else {
@@ -915,9 +1002,8 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             if (dxWin < 0 || dxWin >= WAYPOINT_MATCH_WINDOW) continue;
             int dyWin = (triggerY - posY) + WAYPOINT_MATCH_HALF;
             if (dyWin < 0 || dyWin >= WAYPOINT_MATCH_WINDOW) continue;
-            int flagWord = table[i + 2];
-            int flagLow = flagWord & 0xFF;
-            int probe = ((flagLow & 0x7F) != 0) ? -groundVel : groundVel;
+            int flagByte = (table[i + 2] >> 8) & 0xFF;
+            int probe = ((flagByte & 0x7F) != 0) ? -groundVel : groundVel;
             if (probe < 0) continue;
             activateArc(table, i);
             return;
@@ -926,6 +1012,11 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     private void activateArc(int[] table, int entryStart) {
         arcMode = 1;
+        // ROM stores the whole word at $3E(a0). sub_35868 then uses:
+        // - $3F(a0) (low byte) for the arc direction/progress logic
+        // - $3E(a0) (high byte) for the final ground_vel sign flip after the tail
+        // - move.b 4(a1),d2 (high byte) for the trigger-direction gate in sub_35666
+        arcFlagsHi = (table[entryStart + 2] >> 8) & 0xFF;
         arcFlagsLo = table[entryStart + 2] & 0xFF;
         int destX = table[entryStart + 3];
         int destY = table[entryStart + 4];
@@ -936,10 +1027,16 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         homeX = (short) destX;
         homeY = (short) destY;
         activeWaypointTable = table;
+        if (firstActivatedWaypointEntryStart < 0) {
+            firstActivatedWaypointEntryStart = entryStart;
+        }
+        lastActivatedWaypointEntryStart = entryStart;
+        waypointActivationCount++;
         arcDataIndex = entryStart + 5;
         arcProgress = 0;
         arcLimit = 0;
         arcTimer = 0;
+        syncMotionSubpixelsToArc();
         computeArcLinearVelocity(destX, destY);
     }
 
@@ -1206,7 +1303,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             int calcXVel = (dx == 0 || duration == 0) ? 0 : (int) ((((long) dx) << 16) / duration);
             xVel = (short) calcXVel;
             yVel = (short) d3;
-            arcTimer = Math.abs(duration);
+            arcTimer = arcTimerByteFromWord(Math.abs(duration));
             return;
         }
 
@@ -1214,7 +1311,13 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         int calcYVel = (dy == 0 || duration == 0) ? 0 : (int) ((((long) dy) << 16) / duration);
         yVel = (short) calcYVel;
         xVel = (short) d2;
-        arcTimer = Math.abs(duration);
+        arcTimer = arcTimerByteFromWord(Math.abs(duration));
+    }
+
+    private static int arcTimerByteFromWord(int durationWord) {
+        // ROM writes the 16-bit duration to $3A(a0), then decrements the byte at
+        // $3A(a0). On 68000 that is the high byte of the stored word.
+        return (durationWord >> 8) & 0xFF;
     }
 
     @Override
@@ -1251,7 +1354,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (ctx == null) return;
         ctx.drawRect(posX, posY, WIDTH_PIXELS + 0x0B, HEIGHT_PIXELS,
-                activeLauncher ? 0.2f : 0.6f,
+                bodyDriven ? 0.2f : 0.6f,
                 airborne ? 0.4f : 0.9f,
                 rolling != 0 ? 0.4f : 0.9f);
     }
@@ -1308,6 +1411,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         state.ySub = playerMotion.ySub;
         player.setCentreX((short) playerMotion.x);
         player.setCentreY((short) playerMotion.y);
+        clampGrabbedPlayerToLevel(player);
     }
 
     private void releaseAllPlayers() {
@@ -1318,8 +1422,82 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             state.entrySideBias = 0;
             if (entry.getKey() instanceof AbstractPlayableSprite player) {
                 player.setControlLocked(false);
+                player.setOnObject(false);
                 player.setForcedAnimationId(-1);
+                player.restoreDefaultRadii();
+                player.clearWallClingState();
+                ObjectServices svc = tryServices();
+                if (svc != null && svc.objectManager() != null) {
+                    svc.objectManager().clearRidingObject(player);
+                }
             }
         }
+    }
+
+    void syncFromLauncher(int newX, int newY) {
+        posX = newX;
+        posY = newY;
+        homeX = newX;
+        homeY = newY;
+    }
+
+    void advanceAnimationTimer(int delta) {
+        timer = (timer + delta) & 0xFFFF;
+    }
+
+    boolean isAnyPlayerGrabbed() {
+        for (PlayerGrabState state : playerStates.values()) {
+            if (state.routine == 4) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void activateFromLauncher(int launchVelocity) {
+        currentSubtype = 0;
+        bodyDriven = true;
+        groundVel = launchVelocity;
+        xVel = launchVelocity;
+        arcMode = 0;
+        firstActivatedWaypointEntryStart = -1;
+        lastActivatedWaypointEntryStart = -1;
+        waypointActivationCount = 0;
+        syncMotionSubpixelsToArc();
+        rolling = 1;
+        airborne = false;
+    }
+
+    private void syncMotionSubpixelsToArc() {
+        arcXSub = (motion.xSub & 0xFF) << 8;
+        arcYSub = (motion.ySub & 0xFF) << 8;
+    }
+
+    private void syncArcSubpixelsToMotion() {
+        motion.xSub = (arcXSub >> 8) & 0xFF;
+        motion.ySub = (arcYSub >> 8) & 0xFF;
+    }
+
+    private ObjectInstance currentRidingObject(AbstractPlayableSprite player) {
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
+            return null;
+        }
+        return svc.objectManager().getRidingObject(player);
+    }
+
+    private void clampGrabbedPlayerToLevel(AbstractPlayableSprite player) {
+        if (player == null || player.currentLevelManager() == null
+                || player.currentLevelManager().getCurrentLevel() == null) {
+            return;
+        }
+        int minX = player.currentLevelManager().getCurrentLevel().getMinX() + player.getXRadius();
+        int maxX = player.currentLevelManager().getCurrentLevel().getMaxX() - player.getXRadius();
+        int minY = player.currentLevelManager().getCurrentLevel().getMinY() + player.getYRadius();
+        int maxY = player.currentLevelManager().getCurrentLevel().getMaxY() - player.getYRadius();
+        int clampedX = Math.max(minX, Math.min(maxX, player.getCentreX()));
+        int clampedY = Math.max(minY, Math.min(maxY, player.getCentreY()));
+        player.setCentreX((short) clampedX);
+        player.setCentreY((short) clampedY);
     }
 }
