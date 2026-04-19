@@ -64,11 +64,11 @@ public class SwScrlLz extends AbstractZoneScrollHandler {
         // by checking if |deltaY| exceeds half the wrap range.
         Camera camera = GameServices.camera();
         if (camera.isVerticalWrapEnabled()) {
-            int halfRange = Camera.getVerticalWrapRange() / 2; // 0x400
+            int halfRange = camera.getVerticalWrapRange() / 2;
             if (deltaY > halfRange) {
-                deltaY -= Camera.getVerticalWrapRange();
+                deltaY -= camera.getVerticalWrapRange();
             } else if (deltaY < -halfRange) {
-                deltaY += Camera.getVerticalWrapRange();
+                deltaY += camera.getVerticalWrapRange();
             }
         }
 

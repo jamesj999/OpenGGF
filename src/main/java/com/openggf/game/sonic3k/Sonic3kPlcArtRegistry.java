@@ -874,12 +874,21 @@ public final class Sonic3kPlcArtRegistry {
                     -1
             ));
             standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_MINIBOSS_SPIRE,
+                    Sonic3kConstants.ART_NEM_MGZ_SPIRE_ADDR,
+                    CompressionType.NEMESIS,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_MINIBOSS_SPIRE_ADDR,
+                    2,
+                    -1
+            ));
+            standalone.add(new StandaloneArtEntry(
                     Sonic3kObjectArtKeys.MGZ_MINIBOSS_DEBRIS,
                     Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR,
                     CompressionType.KOSINSKI_MODULED,
                     0,
-                    Sonic3kConstants.MAP_MGZ_MINIBOSS_ADDR,
-                    1,
+                    Sonic3kConstants.MAP_MGZ_ENDBOSS_DEBRIS_ADDR,
+                    2, // ROM: make_art_tile(ArtTile_MGZMiniBossDebris,2,0) — palette line 2
                     -1
             ));
         } else {
@@ -914,6 +923,89 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_MGZ,
                 Sonic3kConstants.MAP_MGZ_FLOATING_PLATFORM_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Swinging Platform: make_art_tile(ArtTile_MGZMisc1, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SWINGING_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_SWINGING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                2,
+                null
+        ));
+
+        // Smashing Pillar (MGZ form of Obj_MGZLBZSmashingPillar): make_art_tile($001, 2, 0)
+        // ROM: sonic3k.asm:56866 (zone == 2 branch).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SMASHING_PILLAR,
+                Sonic3kConstants.MAP_MGZ_SMASHING_PILLAR_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Trigger Platform: make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_TRIGGER_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_TRIGGER_PLATFORM_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Head Trigger (Obj_MGZHeadTrigger, ID 0x55): make_art_tile(ArtTile_MGZMisc2, 1, 1).
+        // Art is loaded by PLC_12_13 / PLC_14_15 (ArtNem_MGZMisc2) before level start.
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_HEAD_TRIGGER,
+                Sonic3kConstants.MAP_MGZ_HEAD_TRIGGER_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC2,
+                1,
+                null
+        ));
+
+        // Swinging Spike Ball: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_SWINGING_SPIKE_BALL,
+                Sonic3kConstants.MAP_MGZ_SWINGING_SPIKE_BALL_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
+        // Moving Spike Platform (Obj_MGZMovingSpikePlatform, ID 0x56): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_MOVING_SPIKE_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_MOVING_SPIKE_PLATFORM_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Dash Trigger: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_DASH_TRIGGER,
+                Sonic3kConstants.MAP_MGZ_DASH_TRIGGER_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
+        // Top Platform: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_TOP_PLATFORM,
+                Sonic3kConstants.MAP_MGZ_TOP_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
+        // Top Launcher: make_art_tile(ArtTile_MGZMisc2, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_TOP_LAUNCHER,
+                Sonic3kConstants.MAP_MGZ_TOP_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC2,
                 2,
                 null
         ));
@@ -1281,6 +1373,16 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ_LEDGE,
                 Sonic3kConstants.MAP_LBZ_COLLAPSING_LEDGE_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Smashing Spikes (LBZ form of Obj_MGZLBZSmashingPillar): make_art_tile(ArtTile_LBZTubeTrans, 2, 0)
+        // ROM: sonic3k.asm:56859 (zone != 2 branch).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.LBZ_SMASHING_SPIKES,
+                Sonic3kConstants.MAP_LBZ_SMASHING_SPIKES_ADDR,
+                Sonic3kConstants.ARTTILE_LBZ_TUBE_TRANS,
                 2,
                 null
         ));

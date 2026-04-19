@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.runtime;
 
-import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 
 import java.util.Optional;
@@ -32,18 +32,6 @@ public final class S3kRuntimeStates {
             }
         }
 
-        String mainChar = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("knuckles".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.KNUCKLES;
-        }
-        if ("tails".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-
-        String sidekick = config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekick == null || sidekick.isBlank()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
+        return ActiveGameplayTeamResolver.resolvePlayerCharacter(config);
     }
 }

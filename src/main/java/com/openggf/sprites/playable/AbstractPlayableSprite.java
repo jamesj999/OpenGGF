@@ -77,6 +77,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected byte topSolidBit = 0x0C;
         protected byte lrbSolidBit = 0x0D;
+        /** ROM status_tertiary bit-field, mirrored so objects can coordinate across frames. */
+        private byte statusTertiary = 0;
 
         /**
          * Sonic 1 loop plane state. When true, the player is on the "low plane"
@@ -657,6 +659,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.topSolidBit = 0x0C;
                 this.lrbSolidBit = 0x0D;
                 this.loopLowPlane = false;
+                this.statusTertiary = 0;
                 defineSpeeds(); // Reset speeds to default
                 instaShieldRegistered = false; // Force re-registration with new ObjectManager on level load
                 resolvePhysicsProfile();
@@ -1213,6 +1216,61 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         return;
                 }
                 this.lrbSolidBit = lrbSolidBit;
+        }
+
+        // ROM status_tertiary ($37) bit layout (SCHG "wall cling"):
+        //   bit 7 — wall-cling active (only MGZ Top Platform raises this in stock S3K).
+        //   bit 6 — SolidObjectFull side-hit feedback while bit 7 is set.
+        //   bit 5 — SolidObjectFull ceiling-hit feedback while bit 7 is set.
+        private static final int WALL_CLING_BIT = 1 << 7;
+        private static final int WALL_CLING_SIDE_BIT = 1 << 6;
+        private static final int WALL_CLING_TOP_BIT = 1 << 5;
+
+        public boolean isWallCling() {
+                return (statusTertiary & WALL_CLING_BIT) != 0;
+        }
+
+        public void setWallCling(boolean active) {
+                statusTertiary = (byte) ((statusTertiary & ~WALL_CLING_BIT)
+                        | (active ? WALL_CLING_BIT : 0));
+        }
+
+        public boolean hasWallClingSideContact() {
+                return (statusTertiary & WALL_CLING_SIDE_BIT) != 0;
+        }
+
+        public void setWallClingSideContact(boolean active) {
+                statusTertiary = (byte) ((statusTertiary & ~WALL_CLING_SIDE_BIT)
+                        | (active ? WALL_CLING_SIDE_BIT : 0));
+        }
+
+        public boolean consumeWallClingSideContact() {
+                boolean set = hasWallClingSideContact();
+                if (set) {
+                        setWallClingSideContact(false);
+                }
+                return set;
+        }
+
+        public boolean hasWallClingTopContact() {
+                return (statusTertiary & WALL_CLING_TOP_BIT) != 0;
+        }
+
+        public void setWallClingTopContact(boolean active) {
+                statusTertiary = (byte) ((statusTertiary & ~WALL_CLING_TOP_BIT)
+                        | (active ? WALL_CLING_TOP_BIT : 0));
+        }
+
+        public boolean consumeWallClingTopContact() {
+                boolean set = hasWallClingTopContact();
+                if (set) {
+                        setWallClingTopContact(false);
+                }
+                return set;
+        }
+
+        public void clearWallClingState() {
+                statusTertiary = 0;
         }
 
         public boolean isLoopLowPlane() {

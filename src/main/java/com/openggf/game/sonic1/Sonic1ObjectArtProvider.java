@@ -6,6 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
+import com.openggf.level.objects.HudStaticArt;
 import com.openggf.level.objects.AnimalType;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
@@ -74,6 +75,8 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudTextPatterns;
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
+    private Pattern[] hudHexDigits;
+    private HudStaticArt hudStaticArt;
     private int animalTypeA = AnimalType.RABBIT.ordinal();
     private int animalTypeB = AnimalType.FLICKY.ordinal();
     private int currentZoneIndex = -1;
@@ -113,11 +116,16 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_HUD_ADDR);
 
         hudLivesPatterns = art.loadNemesisPatterns(Sonic1Constants.ART_NEM_LIFE_ICON_ADDR);
+        rebuildHudStaticArt();
         overrideLivesArtFromDonor();
 
         hudLivesNumbers = art.loadUncompressedPatterns(
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_ADDR,
                 Sonic1Constants.ART_UNC_LIVES_NUMBERS_SIZE);
+
+        hudHexDigits = art.loadUncompressedPatterns(
+                Sonic1Constants.ART_UNC_TEXT_ADDR,
+                Sonic1Constants.ART_UNC_TEXT_SIZE);
 
         // Load lamppost art
         loadLamppostArt(art);
@@ -7925,6 +7933,16 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         return hudLivesNumbers;
     }
 
+    @Override
+    public Pattern[] getHudHexDigitPatterns() {
+        return hudHexDigits;
+    }
+
+    @Override
+    public HudStaticArt getHudStaticArt() {
+        return hudStaticArt;
+    }
+
     private void overrideLivesArtFromDonor() {
         if (!com.openggf.game.CrossGameFeatureProvider.isS3kDonorActive()) {
             return;
@@ -7936,8 +7954,13 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         Pattern[] knuxLife = loadS3kKnucklesLivesPatterns();
         if (knuxLife != null && knuxLife.length > 0) {
             hudLivesPatterns = knuxLife;
+            rebuildHudStaticArt();
             LOGGER.info("Overrode S1 lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
         }
+    }
+
+    private void rebuildHudStaticArt() {
+        hudStaticArt = Sonic1HudStaticArtFactory.create(hudTextPatterns, hudLivesPatterns);
     }
 
     Pattern[] loadS3kKnucklesLivesPatterns() {

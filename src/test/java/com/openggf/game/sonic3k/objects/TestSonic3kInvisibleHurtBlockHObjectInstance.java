@@ -45,7 +45,7 @@ public class TestSonic3kInvisibleHurtBlockHObjectInstance {
                 new ObjectSpawn(0x100, 0x180, 0x6A, 0x11, 0x01, false, 0));
         RecordingPlayer player = new RecordingPlayer();
 
-        block.onSolidContact(player, new SolidContact(false, true, false, false, false, 6), 7);
+        block.onSolidContact(player, new SolidContact(false, true, false, false, false, 6, true), 7);
 
         assertTrue(player.hurtOrDeathCalled);
     }
@@ -110,5 +110,4 @@ public class TestSonic3kInvisibleHurtBlockHObjectInstance {
         }
     }
 }
-
 

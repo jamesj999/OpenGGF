@@ -55,6 +55,7 @@ public class TestSonicConfigurationService {
     @Test
     public void testGetters() {
         SonicConfigurationService svc = SonicConfigurationService.getInstance();
+        svc.resetToDefaults();
         assertEquals(640, svc.getInt(SonicConfiguration.SCREEN_WIDTH));
         assertEquals(320, svc.getShort(SonicConfiguration.SCREEN_WIDTH_PIXELS));
         // DEBUG_VIEW_ENABLED is environment-dependent; just verify it returns a value
@@ -66,6 +67,10 @@ public class TestSonicConfigurationService {
                 svc.getString(SonicConfiguration.SONIC_2_ROM));
         // DEFAULT_ROM is always populated (from config.json or applyDefaults)
         assertFalse(svc.getString(SonicConfiguration.DEFAULT_ROM).isEmpty());
+        assertEquals("", svc.getString(SonicConfiguration.PLAYBACK_MOVIE_PATH));
+        assertTrue(svc.getBoolean(SonicConfiguration.TITLE_SCREEN_ON_STARTUP));
+        assertFalse(svc.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP));
+        assertTrue(svc.getBoolean(SonicConfiguration.MASTER_TITLE_SCREEN_ON_STARTUP));
         assertEquals(GLFW_KEY_APOSTROPHE, svc.getInt(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY));
         assertFalse(svc.getBoolean(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE));
     }
