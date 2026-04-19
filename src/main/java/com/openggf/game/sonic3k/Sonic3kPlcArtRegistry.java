@@ -901,6 +901,43 @@ public final class Sonic3kPlcArtRegistry {
                     1,
                     -1
             ));
+            // MGZ2 Drilling Robotnik (mini-events + future end boss).
+            // ROM: ObjDat_MGZDrillBoss at sonic3k.asm:144542 — make_art_tile(ArtTile_MGZEndBoss,1,0).
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_ENDBOSS,
+                    Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_ENDBOSS_ADDR,
+                    1,
+                    -1
+            ));
+            // Shared Robotnik ship art (for the ship + pilot sprite on top of the drill).
+            // ROM: Load_PLC #$6D at Obj_MGZ2DrillingRobotnik init (sonic3k.asm:142399) loads
+            // ArtNem_RobotnikShip alongside the MGZ end-boss art. The ship uses Map_RobotnikShip
+            // with make_art_tile(ArtTile_RobotnikShip, 0, 0) — palette line 0.
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.ROBOTNIK_SHIP,
+                    Sonic3kConstants.ART_NEM_ROBOTNIK_SHIP_ADDR,
+                    CompressionType.NEMESIS,
+                    0,
+                    Sonic3kConstants.MAP_ROBOTNIK_SHIP_ADDR,
+                    0,
+                    -1
+            ));
+            // MGZ2 end-boss debris art (ArtKosM_MGZEndBossDebris + Map_MGZEndBossDebris).
+            // ROM: ObjDat3_6D7A8 (sonic3k.asm:144569) uses make_art_tile(ArtTile_MGZEndBossDebris,2,1)
+            // — palette line 2. Used by the 10 debris chunks spawned during drilldown
+            // (ChildObjDat_6D7EA at sonic3k.asm:144597).
+            standalone.add(new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS,
+                    Sonic3kConstants.ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR,
+                    CompressionType.KOSINSKI_MODULED,
+                    0,
+                    Sonic3kConstants.MAP_MGZ_ENDBOSS_DEBRIS_ADDR,
+                    2,
+                    -1
+            ));
         }
 
         // Diagonal spring override
@@ -987,6 +1024,15 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.MGZ_DASH_TRIGGER,
                 Sonic3kConstants.MAP_MGZ_DASH_TRIGGER_ADDR,
+                Sonic3kConstants.ARTTILE_MGZ_MISC1,
+                1,
+                null
+        ));
+
+        // Pulley: make_art_tile(ArtTile_MGZMisc1, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.MGZ_PULLEY,
+                Sonic3kConstants.MAP_MGZ_PULLEY_ADDR,
                 Sonic3kConstants.ARTTILE_MGZ_MISC1,
                 1,
                 null

@@ -19,6 +19,7 @@ public final class S3kPaletteOwners {
     public static final String HCZ_CAVE_LIGHTING = "s3k.hcz.caveLighting";
     public static final String HCZ_MINIBOSS = "s3k.hcz.miniboss";
     public static final String HCZ_END_BOSS = "s3k.hcz.endBoss";
+    public static final String MGZ_END_BOSS = "s3k.mgz.endBoss";
     public static final String HPZ_ZONE_CYCLE = "s3k.hpz.zoneCycle";
     public static final String HPZ_MASTER_EMERALD = "s3k.hpz.masterEmerald";
     public static final String HPZ_PALETTE_CONTROL = "s3k.hpz.paletteControl";
