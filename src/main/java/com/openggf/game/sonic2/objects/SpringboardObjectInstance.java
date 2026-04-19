@@ -321,6 +321,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
         }
 
         boolean launchContactNow = result.standingNow()
+                || result.postContact().onObject()
                 || (result.kind() != ContactKind.NONE && result.preContact().ySpeed() > 0);
         if (launchContactNow && isPlayerOnHighSide(player)) {
             launchSequenceActive = true;

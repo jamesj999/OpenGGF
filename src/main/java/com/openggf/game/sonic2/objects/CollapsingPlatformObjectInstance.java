@@ -341,7 +341,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         return services().objectManager().isAnyPlayerRiding(this);
     }
 
-    private boolean hasStandingContact(SolidCheckpointBatch batch) {
+    protected boolean hasStandingContact(SolidCheckpointBatch batch) {
         for (PlayerSolidContactResult result : batch.perPlayer().values()) {
             if (result != null && result.standingNow()) {
                 return true;

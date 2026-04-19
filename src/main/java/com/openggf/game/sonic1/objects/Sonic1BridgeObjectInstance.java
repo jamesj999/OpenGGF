@@ -1,5 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -9,6 +11,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SlopedSolidProvider;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -159,8 +162,12 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Standing detection is handled in update() via isAnyPlayerRiding
+        // Standing detection is handled via manual checkpoints in update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     // ---- Update logic ----
@@ -168,22 +175,7 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        ObjectManager objectManager = services().objectManager();
-
-        playerOnBridge = false;
-
-        if (player != null && objectManager != null && objectManager.isAnyPlayerRiding(this)) {
-            playerOnBridge = true;
-
-            // Determine which log Sonic is standing on
-            // From Bri_WalkOff/ExitPlatform2: d0 = (sonicX - bridgeX + logCount*8 + 8) >> 4
-            // The +8 offset comes from Bri_Solid: d1 = logCount*8; addq.w #8,d1
-            int relX = player.getCentreX() - spawn.x() + (logCount * 8) + 8;
-            int logIdx = relX >> 4;
-            if (logIdx < 0) logIdx = 0;
-            if (logIdx >= logCount) logIdx = logCount - 1;
-            playerLogIndex = logIdx;
-
+        if (playerOnBridge) {
             // Increase depression angle (ramp up)
             // From disassembly: addq.b #4,objoff_3E(a0); cmpi.b #$40,d0
             if (depressionAngle < MAX_DEPRESSION_ANGLE) {
@@ -214,6 +206,45 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
         // Update slope data for collision system
         updateSlopeData();
+
+        // Manual checkpoints replace the legacy post-pass callback, so bridge
+        // bending uses the previously latched rider state and the current
+        // frame's contact updates the rider slot for the next frame.
+        SolidCheckpointBatch batch = checkpointAll();
+        updateStandingState(player, batch);
+    }
+
+    private AbstractPlayableSprite firstStandingPlayer(AbstractPlayableSprite player,
+                                                       SolidCheckpointBatch batch) {
+        PlayerSolidContactResult mainResult = player != null ? batch.perPlayer().get(player) : null;
+        if (mainResult != null && mainResult.standingNow()) {
+            return player;
+        }
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sidekickSprite) {
+                PlayerSolidContactResult result = batch.perPlayer().get(sidekick);
+                if (result != null && result.standingNow()) {
+                    return sidekickSprite;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void updateStandingState(AbstractPlayableSprite player, SolidCheckpointBatch batch) {
+        AbstractPlayableSprite standingPlayer = firstStandingPlayer(player, batch);
+        playerOnBridge = standingPlayer != null;
+        if (standingPlayer == null) {
+            return;
+        }
+
+        // From Bri_WalkOff/ExitPlatform2: d0 = (sonicX - bridgeX + logCount*8 + 8) >> 4
+        // The +8 offset comes from Bri_Solid: d1 = logCount*8; addq.w #8,d1
+        int relX = standingPlayer.getCentreX() - spawn.x() + (logCount * 8) + 8;
+        int logIdx = relX >> 4;
+        if (logIdx < 0) logIdx = 0;
+        if (logIdx >= logCount) logIdx = logCount - 1;
+        playerLogIndex = logIdx;
     }
 
     /**

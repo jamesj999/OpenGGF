@@ -309,7 +309,7 @@ public class TestSolidObjectManager {
     }
 
     @Test
-    public void testRidingStateClearsWhenLeavingNarrowTopSurface() {
+    public void testRidingStatePersistsWhileInsideCollisionWidth() {
         SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
         TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
         ObjectManager manager = buildManager(object);
@@ -328,11 +328,13 @@ public class TestSolidObjectManager {
         manager.updateSolidContacts(player);
         assertTrue(manager.isRidingObject(player));
 
-        // Move to X that is still inside collision width but outside top-standing width.
+        // Move to X that is still inside the full collision width but outside the
+        // narrower top-standing width. ExitPlatform-style continuation should keep
+        // the player riding until they actually leave the object's collision box.
         player.setCentreX((short) (100 + 0x28));
         manager.updateSolidContacts(player);
 
-        assertFalse(manager.isRidingObject(player));
+        assertTrue(manager.isRidingObject(player));
     }
 
     @Test

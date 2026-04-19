@@ -6,6 +6,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -94,6 +95,13 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         this.mode0Velocity = motionSelector == 0 ? speedCap : 0;
         this.currentYVelocity = 0;
         updateDynamicSpawn(centerX, centerY);
+    }
+
+    @Override
+    public boolean isSkipSolidContactThisFrame() {
+        // ROM: Obj_CNZCylinder falls through from init into loc_32188 and calls
+        // SolidObjectFull immediately; it does not guard the first frame on obRender bit 7.
+        return false;
     }
 
     @Override
@@ -275,6 +283,9 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         slot.contactLatched = false;
 
         boolean standing = latchedContact || isStandingOnCylinder(player);
+        if (!standing && canFallbackCapture(player)) {
+            standing = true;
+        }
         if (slot.active) {
             if (!standing) {
                 releaseSlot(slot, frameCounter, false);
@@ -295,15 +306,36 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         captureSlot(slot, player);
     }
 
+    private boolean canFallbackCapture(AbstractPlayableSprite player) {
+        if (player == null || player.getAir() || player.getYSpeed() < 0) {
+            return false;
+        }
+        // The ROM consumes the object's standing bit from the previous frame before
+        // calling SolidObjectFull again. The engine still cannot publish that exact
+        // same-frame status flow for every full-solid traversal object, so keep a
+        // narrow overlap fallback for the cylinder's rider-entry seam.
+        int relX = player.getCentreX() - centerX + SOLID_PARAMS.halfWidth();
+        if (relX < 0 || relX >= SOLID_PARAMS.halfWidth() * 2) {
+            return false;
+        }
+        int maxTop = SOLID_PARAMS.airHalfHeight() + player.getYRadius();
+        int relY = player.getCentreY() - centerY + 4 + maxTop;
+        return relY >= 0 && relY < maxTop * 2;
+    }
+
     private boolean isStandingOnCylinder(AbstractPlayableSprite player) {
-        if (services().objectManager().isRidingObject(player, this)) {
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
+            return false;
+        }
+        if (svc.objectManager().isRidingObject(player, this)) {
             return true;
         }
         int bit = standingMaskBitFor(player);
         if (bit != 0 && (standingMask & bit) != 0) {
             return true;
         }
-        return services().objectManager().hasStandingContact(player);
+        return svc.objectManager().hasStandingContact(player);
     }
 
     private void primeDefaultRiderSlots(PlayableEntity playerEntity) {
@@ -311,7 +343,10 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             playerOneSlot.player = sprite;
         }
 
-        AbstractPlayableSprite focused = services().camera().getFocusedSprite();
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
         if (playerOneSlot.player == null && focused != null) {
             playerOneSlot.player = focused;
         }
@@ -325,7 +360,11 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getFirstSidekick() {
-        var sidekicks = services().sidekicks();
+        ObjectServices svc = tryServices();
+        if (svc == null) {
+            return null;
+        }
+        var sidekicks = svc.sidekicks();
         if (sidekicks.isEmpty()) {
             return null;
         }
@@ -343,8 +382,8 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         player.setObjectControlled(true);
         player.setControlLocked(true);
         player.setObjectMappingFrameControl(true);
-        player.restoreDefaultRadii();
-        player.setRolling(false);
+        player.applyRollingRadii(false);
+        player.setRolling(true);
         player.setAir(false);
         player.setPushing(false);
         player.setRollingJump(false);
@@ -484,7 +523,10 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         if (playerTwoSlot.player == sprite) {
             return playerTwoSlot;
         }
-        AbstractPlayableSprite focused = services().camera().getFocusedSprite();
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
         if (sprite == focused) {
             return playerOneSlot;
         }
@@ -501,7 +543,11 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     }
 
     private boolean isFirstSidekick(AbstractPlayableSprite sprite) {
-        var sidekicks = services().sidekicks();
+        ObjectServices svc = tryServices();
+        if (svc == null) {
+            return false;
+        }
+        var sidekicks = svc.sidekicks();
         return !sidekicks.isEmpty() && sidekicks.getFirst() == sprite;
     }
 
@@ -510,16 +556,22 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     }
 
     private int standingMaskBitFor(AbstractPlayableSprite sprite) {
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
         if (playerOneSlot.player == sprite
-                || (sprite == services().camera().getFocusedSprite() && playerTwoSlot.player != sprite)) {
+                || (sprite == focused && playerTwoSlot.player != sprite)) {
             return 0x01;
         }
         if (playerTwoSlot.player == sprite || isFirstSidekick(sprite)) {
             return 0x02;
         }
-        for (PlayableEntity sidekick : services().sidekicks()) {
-            if (sidekick == sprite) {
-                return 0x02;
+        if (svc != null) {
+            for (PlayableEntity sidekick : svc.sidekicks()) {
+                if (sidekick == sprite) {
+                    return 0x02;
+                }
             }
         }
         return 0;

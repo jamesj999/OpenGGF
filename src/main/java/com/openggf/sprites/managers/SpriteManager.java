@@ -747,12 +747,9 @@ public class SpriteManager {
 										   LevelManager levelManager, int frameCounter) {
 		boolean isUnified = requiresPostMovementSolidPass(playable);
 		boolean usesInlineSolidResolution = levelManager != null && levelManager.usesInlineObjectSolidResolution();
-		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
-		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
-		// so only the post-movement pass is ROM-accurate. Running both creates
-		// double-correction artifacts.
-		// For S2/S3K: solid contacts now resolve inline during the object exec loop
-		// after movement, so the old pre-movement batched pass must be skipped.
+		// Inline-order modules resolve solids during object execution after movement,
+		// so the old batched pre-movement pass must be skipped.
+		// Legacy compatibility modules still use the historical batched pass.
 		if (!isUnified && !usesInlineSolidResolution) {
 			applySolidContacts(levelManager, playable, false, false);
 		}
@@ -765,10 +762,9 @@ public class SpriteManager {
 		// ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
 		// after their physics but before other objects' solid checks.
 		levelManager.applyTouchResponses(playable);
-		// S1 (UNIFIED): Post-movement solid pass matches ROM timing — solid objects
-		// check Sonic's position after he has moved in the ROM's ExecuteObjects loop.
-		// postMovement=true disables velocity classification adjustment.
-		if (isUnified) {
+		// Legacy unified-mode compatibility path: keep the old post-movement solid
+		// pass only when inline object checkpoints are not active.
+		if (isUnified && !usesInlineSolidResolution) {
 			applySolidContacts(levelManager, playable, true, false);
 		}
 		levelManager.applyPlaneSwitchers(playable);
