@@ -6,6 +6,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -70,6 +71,10 @@ public class TestS3kSpecialStageResultsVisual {
                 return;
             }
 
+            // Bootstrap EngineServices once so GraphicsManager.init can reach
+            // GameServices.configuration() during the fresh-singleton init below.
+            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+
             GLFWErrorCallback.createPrint(System.err).set();
             if (!glfwInit()) {
                 throw new IllegalStateException("Unable to initialize GLFW");
@@ -94,7 +99,6 @@ public class TestS3kSpecialStageResultsVisual {
             // in an incompatible state. resetState() only clears per-level resources; this GPU test
             // needs shaders and the tilemap renderer fully re-initialized for correct pixel rendering.
             GraphicsManager.destroyForReinit(); // full GL teardown needed, not resetState()
-            GameServices.camera().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
@@ -118,6 +122,17 @@ public class TestS3kSpecialStageResultsVisual {
             assertTrue(rom.open(romFile.getAbsolutePath()), "Failed to open S3K ROM");
             GameModuleRegistry.detectAndSetModule(rom);
             RomManager.getInstance().setRom(rom);
+
+            // Re-capture EngineServices now that GraphicsManager has been re-created by
+            // destroyForReinit() + getInstance() above. The earlier bootstrap captured
+            // the now-destroyed singleton; without refreshing, GameServices.graphics()
+            // (called from S3kSpecialStageResultsScreen.ensureArtCached) would write
+            // pattern/palette cache entries into the dead instance and the rendered
+            // frame would stay all-white.
+            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+
+            // Create the gameplay runtime so GameServices.* accessors resolve.
+            RuntimeManager.createGameplay();
 
             // Configure emerald state for tests
             GameStateManager gs = GameServices.gameState();
@@ -145,9 +160,7 @@ public class TestS3kSpecialStageResultsVisual {
         }
         glfwTerminate();
         GraphicsManager.getInstance().resetState();
-        if (RuntimeManager.getCurrent() != null) {
-            GameServices.camera().resetState();
-        }
+        RuntimeManager.destroyCurrent();
     }
 
     /**
