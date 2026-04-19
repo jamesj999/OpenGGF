@@ -3,6 +3,8 @@ import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.*;
@@ -137,43 +139,12 @@ public class SeesawObjectInstance extends BoxObjectInstance
      */
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (player == null) {
-            return;
-        }
+        // Manual checkpoints drive seesaw standing state from update().
+    }
 
-        // Determine if this is player 1 or player 2
-        boolean isPlayer1 = isMainCharacter(player);
-
-        if (!contact.standing()) {
-            // Player left the seesaw - clear standing tracking
-            // ROM: bclr #p1_standing_bit,status(a0) / bclr #p2_standing_bit,status(a0)
-            if (isPlayer1) {
-                standingPlayer1 = null;
-            } else {
-                standingPlayer2 = null;
-            }
-            return;
-        }
-
-        // Track this player as standing on the seesaw
-        // ROM: bset #p1_standing_bit,status(a0) / bset #p2_standing_bit,status(a0)
-        if (isPlayer1) {
-            standingPlayer1 = player;
-        } else {
-            standingPlayer2 = player;
-        }
-
-        // Note: Y velocity storage is handled in update() when NEITHER player is standing,
-        // capturing the approaching velocity BEFORE landing (ROM: loc_21A38).
-        // We do NOT store Y velocity on contact since ROM only stores when neither is standing.
-
-        // Calculate angles for standing players and average if both standing
-        // ROM: loc_21A28 through loc_21A4C
-        int targetAngle = calculateCombinedTargetAngle();
-
-        // Update current angle toward target (gradual transition)
-        updateAngle(targetAngle);
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     /**
@@ -268,6 +239,21 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // Spawn ball on first update
         ensureBallSpawned();
 
+        SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+        PlayerSolidContactResult mainResult = player != null ? batch.perPlayer().get(player) : null;
+        standingPlayer1 = mainResult != null && mainResult.standingNow() ? player : null;
+
+        AbstractPlayableSprite sidekickSprite = null;
+        PlayerSolidContactResult sidekickResult = null;
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sp) {
+                sidekickSprite = sp;
+                sidekickResult = batch.perPlayer().get(sidekick);
+                break;
+            }
+        }
+        standingPlayer2 = sidekickResult != null && sidekickResult.standingNow() ? sidekickSprite : null;
+
         // ROM: SlopedPlatform_SingleCharacter runs every frame to validate standing players.
         // Checks in_air status and X bounds, clearing standing bit if either fails.
         // (s2.asm:35526-35545)
@@ -276,17 +262,18 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // ROM: loc_21A38 - Store max Y velocity when NEITHER player is standing
         // This prepares for heavy landing detection before the player actually lands
         if (standingPlayer1 == null && standingPlayer2 == null) {
-            // player parameter is always the main character
-            int p1Vel = (player != null) ? player.getYSpeed() : 0;
-            int p2Vel = 0;
-            for (PlayableEntity sidekick : services().sidekicks()) {
-                p2Vel = Math.max(p2Vel, sidekick.getYSpeed());
-            }
+            int p1Vel = mainResult != null ? mainResult.preContact().ySpeed() : 0;
+            int p2Vel = sidekickResult != null ? sidekickResult.preContact().ySpeed() : 0;
 
             // Bug fix #4: ROM always overwrites with max of both players.
             // Java incorrectly only updated if new value was higher.
             // ROM: cmp.w d0,d2 / blt.s + / move.w d2,d0 then move.w d0,objoff_38(a1)
             storedPlayerYVel = Math.max(p1Vel, p2Vel);
+        }
+
+        if (standingPlayer1 != null || standingPlayer2 != null) {
+            int targetAngle = calculateCombinedTargetAngle();
+            updateAngle(targetAngle);
         }
 
         // ROM: Obj14_SetMapping is called every frame to animate visual transition

@@ -75,11 +75,11 @@ public class TestCnzTraversalRegistry {
         assertVisibleObjectRendersExpectedInitialFrame(new CnzHoverFanInstance(new ObjectSpawn(0x1C00, 0x05E0,
                         0x46, 0x90, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_HOVER_FAN, 1, 0x1C00, 0x05E0);
-        // ROM transcription: subtype 0 routes into entry-side quadrant 2, so the
-        // visible idle frame is the route-start frame rather than frame 0.
+        // ROM parity: the cylinder's visible mapping frame starts at 0 and only
+        // advances through the shared 4-frame timer loop after initialization.
         assertVisibleObjectRendersExpectedInitialFrame(new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
                         0x47, 0, 0, false, 0)),
-                Sonic3kObjectArtKeys.CNZ_CYLINDER, 2, 0x1E00, 0x0600);
+                Sonic3kObjectArtKeys.CNZ_CYLINDER, 0, 0x1E00, 0x0600);
     }
 
     private static void assertVisibleObjectRendersExpectedInitialFrame(ObjectInstance instance,

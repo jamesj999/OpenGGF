@@ -1,5 +1,8 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.ContactKind;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -80,8 +83,16 @@ public class SpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (player == null) {
+        // Manual checkpoints drive spring activation from update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
+    }
+
+    private void applyCheckpointContact(AbstractPlayableSprite player, PlayerSolidContactResult contact) {
+        if (player == null || contact == null || contact.kind() == ContactKind.NONE) {
             return;
         }
 
@@ -112,7 +123,7 @@ public class SpringObjectInstance extends BoxObjectInstance
             // SolidObjectParams halfWidth (27) bounds the overall contact area, while
             // the slope data constrains the Y surface — together they gate activation
             // more accurately than the fixed 4px X offset.
-            if (!contact.standing() && player.getAir()) {
+            if (!contact.standingNow() && player.getAir()) {
                 return;
             }
             applyDiagonalSpring(player, true);
@@ -121,7 +132,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         if (type == TYPE_DIAGONAL_DOWN) {
             // Same logic as diagonal-up: accept any contact when player is grounded
-            if (!contact.touchBottom() && player.getAir()) {
+            if (contact.kind() != ContactKind.BOTTOM && player.getAir()) {
                 return;
             }
             applyDiagonalSpring(player, false);
@@ -130,7 +141,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         if (type == TYPE_HORIZONTAL) {
             // ROM: checks pushing_bit, which maps to our pushing/touchSide
-            if (!contact.pushing()) {
+            if (!contact.pushingNow()) {
                 return;
             }
             applyHorizontalSpring(player);
@@ -138,7 +149,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         }
 
         if (type == TYPE_DOWN) {
-            if (!contact.touchBottom()) {
+            if (contact.kind() != ContactKind.BOTTOM) {
                 return;
             }
             applyDownSpring(player);
@@ -146,7 +157,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         }
 
         // Default: Up spring
-        if (!contact.standing()) {
+        if (!contact.standingNow()) {
             return;
         }
         applyUpSpring(player);
@@ -427,9 +438,18 @@ public class SpringObjectInstance extends BoxObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
+
+        SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+        if (playerEntity instanceof AbstractPlayableSprite player) {
+            applyCheckpointContact(player, batch.perPlayer().get(player));
+        }
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sidekickSprite) {
+                applyCheckpointContact(sidekickSprite, batch.perPlayer().get(sidekick));
+            }
+        }
     }
 
     @Override

@@ -41,7 +41,7 @@ public class MemoryStats {
 
     private String activeSection = null;
     private long sectionStartAllocBytes = 0;
-    private boolean enabled;
+    private boolean enabled = true;
 
     public MemoryStats() {
         memoryBean = ManagementFactory.getMemoryMXBean();
@@ -67,24 +67,10 @@ public class MemoryStats {
         return INSTANCE;
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-        if (!enabled) {
-            activeSection = null;
-        }
-    }
-
     /**
      * Update allocation rate tracking. Call once per frame.
      */
     public void update() {
-        if (!enabled) {
-            return;
-        }
         long now = System.nanoTime();
         long currentAllocatedBytes = getThreadAllocatedBytes();
 
@@ -141,6 +127,7 @@ public class MemoryStats {
         if (!enabled) {
             return;
         }
+
         if (activeSection != null) {
             endSection(activeSection);
         }
@@ -156,6 +143,7 @@ public class MemoryStats {
         if (!enabled) {
             return;
         }
+
         if (activeSection == null || !activeSection.equals(name)) {
             return;
         }
@@ -165,6 +153,15 @@ public class MemoryStats {
             currentFrameAllocations.merge(name, delta, Long::sum);
         }
         activeSection = null;
+    }
+
+    void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) {
+            activeSection = null;
+            sectionStartAllocBytes = 0;
+            currentFrameAllocations.clear();
+        }
     }
 
     // Reusable list for top allocators to avoid per-call allocation
@@ -268,22 +265,6 @@ public class MemoryStats {
         reusableSnapshot.allocationRateMBPerSec = getAllocationRateMBPerSec();
         reusableSnapshot.topAllocators = getTopAllocators(5);
         return reusableSnapshot;
-    }
-
-    public void reset() {
-        lastHeapUsed = getHeapUsed();
-        lastAllocatedBytes = getThreadAllocatedBytes();
-        allocationWindowStartTime = System.nanoTime();
-        allocationWindowStartBytes = lastAllocatedBytes;
-        allocationRateBytesPerSec = 0;
-        sectionAllocHistories.clear();
-        sectionAllocSums.clear();
-        currentFrameAllocations.clear();
-        frameCount = 0;
-        activeSection = null;
-        sectionStartAllocBytes = 0;
-        topAllocatorsCache.clear();
-        reusableSnapshot.topAllocators = List.of();
     }
 
     public static class Snapshot {

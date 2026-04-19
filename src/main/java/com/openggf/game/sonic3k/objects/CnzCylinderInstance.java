@@ -3,7 +3,17 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.RenderPriority;
+import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.Direction;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -11,185 +21,570 @@ import java.util.List;
 /**
  * Object 0x47 - CNZ Cylinder ({@code Obj_CNZCylinder}).
  *
- * <p>ROM anchors:
- * <ul>
- *   <li>{@code Obj_CNZCylinder} in {@code sonic3k.asm}</li>
- *   <li>{@code Map - Cylinder.asm} / {@code Map_CNZCylinder}</li>
- *   <li>{@code ArtTile_CNZMisc+$3D} for the visible sheet</li>
- * </ul>
- *
- * <p>The disassembly does not expose a literal waypoint table for this object in
- * the same way that {@code AutomaticTunnel} does. Instead, {@code Obj_CNZCylinder}
- * uses a side-selecting motion routine in {@code loc_32456} and rider control
- * handoff in {@code sub_324C0} to walk the player around the cylinder surface.
- * This implementation transcribes that behavior into a compact four-point route:
- * top, right, bottom, left. The route order is rotated from the subtype-derived
- * entry side so the object still exposes deterministic capture, per-frame motion,
- * and release parity while keeping the relation to the ROM routine explicit.
- *
- * <p>Subtype handling follows the ROM split:
- * <ul>
- *   <li>Low nibble selects the entry side by subtracting {@code $A} and masking
- *   to 2 bits, matching the quadrant select in {@code loc_32456}.</li>
- *   <li>High nibble controls the angular speed family via the table at
- *   {@code word_320E2}.</li>
- * </ul>
- *
- * <p>Control flow:
- * <ul>
- *   <li>On capture, force rolling, lock control, and apply the standard rolling
- *   radii ({@code $07/$0E}) to match the ROM object-control handoff.</li>
- *   <li>While captured, advance the player through the four route points in the
- *   order implied by the subtype entry side.</li>
- *   <li>On the final route step, release object control and clear the lock so the
- *   player exits at the documented route endpoint.</li>
- * </ul>
+ * <p>This class ports the ROM motion families from {@code sub_321E2} and the
+ * rider-control seam from {@code sub_324C0}.</p>
  */
-public final class CnzCylinderInstance extends AbstractCnzTraversalVisibleStubInstance {
-    private static final int ROUTE_HALF_EXTENT = 0x20;
-    private static final int ROUTE_FRAME_COUNT = 4;
-    private static final int CAPTURE_HALF_WIDTH = 0x20;
-    private static final int CAPTURE_HALF_HEIGHT = 0x20;
-    private static final int ROLL_X_RADIUS = 7;
-    private static final int ROLL_Y_RADIUS = 14;
-    private static final int EXIT_X_NUDGE = 0x0A;
+public final class CnzCylinderInstance extends AbstractObjectInstance
+        implements SolidObjectProvider, SolidObjectListener {
+    private static final SolidObjectParams SOLID_PARAMS =
+            new SolidObjectParams(0x2B, 0x20, 0x21);
+    private static final int PLAYER_CAPTURE_PRIORITY = RenderPriority.PLAYER_DEFAULT;
+    private static final int PLAYER_TWIST_PRIORITY = RenderPriority.PLAYER_DEFAULT - 1;
+    private static final int RECAPTURE_COOLDOWN_FRAMES = 2;
+    private static final int RELEASE_Y_SPEED = -0x680;
+    private static final int[] MODE0_SPEED_CAPS = {
+            0x04E0, 0x06F0, 0x0870, 0x09C0, 0x0AE0, 0x0C00, 0x0CF0, 0x0DE0
+    };
+    private static final int[] PLAYER_TWIST_FRAMES = {
+            0x55, 0x59, 0x5A, 0x5B, 0x5A, 0x59, 0x55, 0x56, 0x57, 0x58, 0x57, 0x56
+    };
+    private static final boolean[] PLAYER_TWIST_FLIPS = {
+            false, true, true, false, false, false, true, true, true, false, false, false
+    };
 
-    private final RoutePoint[] routePoints;
-    private final int routeStartIndex;
-    private final RoutePoint expectedExitPoint;
+    private static final int CIRCULAR_HALF_EXTENT = 0x20;
 
-    private AbstractPlayableSprite capturedPlayer;
-    private int routeStep;
-    private boolean released;
-    private int renderFrameIndex;
+    private static final class RiderSlot {
+        private boolean active;
+        private boolean contactLatched;
+        private int twistAngle;
+        private int horizontalDistance;
+        private int priorityThreshold;
+        private AbstractPlayableSprite player;
+    }
+
+    private final int baseX;
+    private final int baseY;
+    private final int motionSelector;
+    private final int speedCap;
+    private final boolean circularRoute;
+    private final int angleStep;
+    private final RiderSlot playerOneSlot = new RiderSlot();
+    private final RiderSlot playerTwoSlot = new RiderSlot();
+
+    private int routeQuadrant;
+    private int centerX;
+    private int centerY;
+    private int standingMaskCache;
+    private int standingMask;
+    private int nextStandingMask;
+    private int heldInputMask;
+    private int nextHeldInputMask;
+    private int mode0Velocity;
+    private int currentYVelocity;
+    private int angle;
+    private int mappingFrame;
+    private int animFrameTimer = 1;
 
     public CnzCylinderInstance(ObjectSpawn spawn) {
-        super(spawn, "CNZCylinder", Sonic3kObjectArtKeys.CNZ_CYLINDER);
-        this.routePoints = buildRoutePoints(spawn.x(), spawn.y());
-        this.routeStartIndex = routeStartIndexForSubtype(spawn.subtype());
-        // The route anchor is the raw transcribed surface point; the actual
-        // exit position carries the deterministic post-release X nudge visible
-        // in the headless regression because the player leaves the cylinder on
-        // the follow-up physics step.
-        RoutePoint routeExit = routePoints[(routeStartIndex + ROUTE_FRAME_COUNT - 1) & 0x03];
-        this.expectedExitPoint = new RoutePoint(routeExit.centerX() + EXIT_X_NUDGE,
-                routeExit.centerY());
-        this.renderFrameIndex = routeStartIndex;
+        super(spawn, "CNZCylinder");
+        this.baseX = spawn.x();
+        this.baseY = spawn.y();
+        this.centerX = spawn.x();
+        this.centerY = spawn.y();
+        int subtype = spawn.subtype() & 0xFF;
+        this.motionSelector = (subtype << 1) & 0x1E;
+        this.speedCap = MODE0_SPEED_CAPS[((subtype >>> 3) & 0x0E) >>> 1];
+        this.circularRoute = motionSelector >= 0x12;
+        this.routeQuadrant = ((subtype & 0x0F) - 0x0A) & 0x03;
+        int step = (subtype & 0xF0) << 2;
+        if ((spawn.renderFlags() & 0x01) != 0) {
+            step = -step;
+        }
+        this.angleStep = step;
+        this.mode0Velocity = motionSelector == 0 ? speedCap : 0;
+        this.currentYVelocity = 0;
+        updateDynamicSpawn(centerX, centerY);
+    }
+
+    @Override
+    public boolean isSkipSolidContactThisFrame() {
+        // ROM: Obj_CNZCylinder falls through from init into loc_32188 and calls
+        // SolidObjectFull immediately; it does not guard the first frame on obRender bit 7.
+        return false;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (!(playerEntity instanceof AbstractPlayableSprite player)) {
+        standingMask = nextStandingMask;
+        heldInputMask = nextHeldInputMask;
+        nextStandingMask = 0;
+        nextHeldInputMask = 0;
+
+        primeDefaultRiderSlots(playerEntity);
+        int previousCenterY = centerY;
+        updateMotion();
+        currentYVelocity = motionSelector == 0 ? mode0Velocity : ((centerY - previousCenterY) << 8);
+        updateRiderSlots(frameCounter);
+        advanceAnimation();
+    }
+
+    private void updateMotion() {
+        if (circularRoute) {
+            updateCircularRoute();
+        } else {
+            switch (motionSelector) {
+                case 0x00 -> updateMode0VerticalController();
+                case 0x02 -> updateHorizontalShift(3);
+                case 0x04 -> updateHorizontalShift(2);
+                case 0x06 -> updateHorizontalThreeEighths();
+                case 0x08 -> updateHorizontalShift(1);
+                case 0x0A -> updateVerticalShift(3);
+                case 0x0C -> updateVerticalShift(2);
+                case 0x0E -> updateVerticalThreeEighths();
+                case 0x10 -> updateVerticalShift(1);
+                default -> updateMode0VerticalController();
+            }
+        }
+
+        updateDynamicSpawn(centerX, centerY);
+    }
+
+    private void updateMode0VerticalController() {
+        int standingMask = currentStandingMask();
+        if (standingMask != standingMaskCache) {
+            int delta = standingMask - standingMaskCache;
+            standingMaskCache = standingMask;
+            if (delta > 0 && Math.abs(mode0Velocity) < 0x200) {
+                mode0Velocity += 0x400;
+                if (mode0Velocity > speedCap) {
+                    mode0Velocity = speedCap;
+                }
+            }
+        }
+
+        centerX = baseX;
+        centerY += mode0Velocity >> 8;
+
+        int offset = centerY - baseY;
+        if (offset < 0) {
+            if (mode0Velocity < speedCap) {
+                mode0Velocity += 0x20;
+                if (mode0Velocity < 0) {
+                    mode0Velocity += 0x10;
+                } else if ((collectHeldInputMask() & AbstractPlayableSprite.INPUT_DOWN) != 0) {
+                    mode0Velocity += 0x20;
+                }
+            }
             return;
         }
 
-        if (capturedPlayer == null && !released && shouldCapture(player)) {
-            capturePlayer(player);
+        if (offset > 0) {
+            int negativeCap = -speedCap;
+            if (mode0Velocity > negativeCap) {
+                mode0Velocity -= 0x20;
+                if (mode0Velocity > 0) {
+                    mode0Velocity -= 0x10;
+                } else if ((collectHeldInputMask() & AbstractPlayableSprite.INPUT_UP) != 0) {
+                    mode0Velocity -= 0x20;
+                }
+            }
+            return;
         }
 
-        if (capturedPlayer != null) {
-            advanceRoute(player, frameCounter);
+        if (Math.abs(mode0Velocity) < 0x80) {
+            mode0Velocity = 0;
         }
     }
 
-    private boolean shouldCapture(AbstractPlayableSprite player) {
-        if (player.isObjectControlled() || player.isJumping()) {
+    private void updateHorizontalShift(int shift) {
+        int sine = TrigLookupTable.sinHex((angle >> 8) & 0xFF);
+        centerX = baseX + (sine >> shift);
+        centerY = baseY;
+        angle = (angle + angleStep) & 0xFFFF;
+    }
+
+    private void updateHorizontalThreeEighths() {
+        int sine = TrigLookupTable.sinHex((angle >> 8) & 0xFF);
+        int shifted = sine >> 2;
+        centerX = baseX + shifted + (shifted >> 1);
+        centerY = baseY;
+        angle = (angle + angleStep) & 0xFFFF;
+    }
+
+    private void updateVerticalShift(int shift) {
+        int sine = TrigLookupTable.sinHex((angle >> 8) & 0xFF);
+        centerX = baseX;
+        centerY = baseY + (sine >> shift);
+        angle = (angle + angleStep) & 0xFFFF;
+    }
+
+    private void updateVerticalThreeEighths() {
+        int sine = TrigLookupTable.sinHex((angle >> 8) & 0xFF);
+        int shifted = sine >> 2;
+        centerX = baseX;
+        centerY = baseY + shifted + (shifted >> 1);
+        angle = (angle + angleStep) & 0xFFFF;
+    }
+
+    private void updateCircularRoute() {
+        angle = (angle + angleStep) & 0xFFFF;
+        int angleByte = (angle >> 8) & 0xFF;
+
+        if (angleStep < 0) {
+            if (angleByte < 0x80) {
+                angleByte = (angleByte & 0x7F) + 0x80;
+                angle = (angle & 0x00FF) | (angleByte << 8);
+                routeQuadrant = (routeQuadrant - 1) & 0x03;
+            }
+        } else if (angleStep > 0) {
+            if (angleByte < 0x80) {
+                angleByte = (angleByte & 0x7F) + 0x80;
+                angle = (angle & 0x00FF) | (angleByte << 8);
+                routeQuadrant = (routeQuadrant + 1) & 0x03;
+            }
+        }
+
+        int varying = TrigLookupTable.cosHex(angleByte) >> 3;
+        switch (routeQuadrant & 0x03) {
+            case 0 -> {
+                centerX = baseX + varying;
+                centerY = baseY - CIRCULAR_HALF_EXTENT;
+            }
+            case 1 -> {
+                centerX = baseX + CIRCULAR_HALF_EXTENT;
+                centerY = baseY + varying;
+            }
+            case 2 -> {
+                centerX = baseX - varying;
+                centerY = baseY + CIRCULAR_HALF_EXTENT;
+            }
+            default -> {
+                centerX = baseX - CIRCULAR_HALF_EXTENT;
+                centerY = baseY - varying;
+            }
+        }
+    }
+
+    private int currentStandingMask() {
+        return standingMask;
+    }
+
+    private int collectHeldInputMask() {
+        return heldInputMask;
+    }
+
+    private void updateRiderSlots(int frameCounter) {
+        updateRiderSlot(playerOneSlot, frameCounter);
+        updateRiderSlot(playerTwoSlot, frameCounter);
+    }
+
+    private void updateRiderSlot(RiderSlot slot, int frameCounter) {
+        AbstractPlayableSprite player = slot.player;
+        if (player == null || player.getDead() || player.isHurt()) {
+            if (slot.active) {
+                releaseSlot(slot, frameCounter, false);
+            }
+            slot.contactLatched = false;
+            return;
+        }
+
+        boolean latchedContact = slot.contactLatched;
+        slot.contactLatched = false;
+
+        boolean standing = latchedContact || isStandingOnCylinder(player);
+        if (!standing && canFallbackCapture(player)) {
+            standing = true;
+        }
+        if (slot.active) {
+            if (!standing) {
+                releaseSlot(slot, frameCounter, false);
+                return;
+            }
+            if (player.isJumpPressed()) {
+                releaseSlot(slot, frameCounter, true);
+                return;
+            }
+            holdSlot(slot);
+            return;
+        }
+
+        if (!standing || player.wasRecentlyObjectControlled(frameCounter, RECAPTURE_COOLDOWN_FRAMES)
+                || player.isObjectControlled()) {
+            return;
+        }
+        captureSlot(slot, player);
+    }
+
+    private boolean canFallbackCapture(AbstractPlayableSprite player) {
+        if (player == null || player.getAir() || player.getYSpeed() < 0) {
             return false;
         }
-
-        int dx = Math.abs(player.getCentreX() - spawn.x());
-        int dy = Math.abs(player.getCentreY() - spawn.y());
-        return dx <= CAPTURE_HALF_WIDTH && dy <= CAPTURE_HALF_HEIGHT;
+        // The ROM consumes the object's standing bit from the previous frame before
+        // calling SolidObjectFull again. The engine still cannot publish that exact
+        // same-frame status flow for every full-solid traversal object, so keep a
+        // narrow overlap fallback for the cylinder's rider-entry seam.
+        int relX = player.getCentreX() - centerX + SOLID_PARAMS.halfWidth();
+        if (relX < 0 || relX >= SOLID_PARAMS.halfWidth() * 2) {
+            return false;
+        }
+        int maxTop = SOLID_PARAMS.airHalfHeight() + player.getYRadius();
+        int relY = player.getCentreY() - centerY + 4 + maxTop;
+        return relY >= 0 && relY < maxTop * 2;
     }
 
-    private void capturePlayer(AbstractPlayableSprite player) {
-        capturedPlayer = player;
-        routeStep = 0;
-        renderFrameIndex = routeStartIndex;
+    private boolean isStandingOnCylinder(AbstractPlayableSprite player) {
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
+            return false;
+        }
+        if (svc.objectManager().isRidingObject(player, this)) {
+            return true;
+        }
+        int bit = standingMaskBitFor(player);
+        if (bit != 0 && (standingMask & bit) != 0) {
+            return true;
+        }
+        return svc.objectManager().hasStandingContact(player);
+    }
 
-        // ROM: move.b #3,object_control(a1) / bset #Status_Roll,status(a1)
+    private void primeDefaultRiderSlots(PlayableEntity playerEntity) {
+        if (playerOneSlot.player == null && playerEntity instanceof AbstractPlayableSprite sprite) {
+            playerOneSlot.player = sprite;
+        }
+
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
+        if (playerOneSlot.player == null && focused != null) {
+            playerOneSlot.player = focused;
+        }
+
+        if (playerTwoSlot.player == null) {
+            AbstractPlayableSprite firstSidekick = getFirstSidekick();
+            if (firstSidekick != null && firstSidekick != playerOneSlot.player) {
+                playerTwoSlot.player = firstSidekick;
+            }
+        }
+    }
+
+    private AbstractPlayableSprite getFirstSidekick() {
+        ObjectServices svc = tryServices();
+        if (svc == null) {
+            return null;
+        }
+        var sidekicks = svc.sidekicks();
+        if (sidekicks.isEmpty()) {
+            return null;
+        }
+        PlayableEntity first = sidekicks.getFirst();
+        return first instanceof AbstractPlayableSprite sprite ? sprite : null;
+    }
+
+    private void captureSlot(RiderSlot slot, AbstractPlayableSprite player) {
+        slot.player = player;
+        slot.active = true;
+        slot.twistAngle = player.getCentreX() < centerX ? 0x80 : 0x00;
+        slot.horizontalDistance = Math.min(0xFF, Math.abs(player.getCentreX() - centerX));
+        slot.priorityThreshold = 0;
+
         player.setObjectControlled(true);
         player.setControlLocked(true);
-        player.setRolling(true);
+        player.setObjectMappingFrameControl(true);
         player.applyRollingRadii(false);
-        player.setAir(true);
+        player.setRolling(true);
+        player.setAir(false);
+        player.setPushing(false);
+        player.setRollingJump(false);
         player.setJumping(false);
+        player.setAnimationId(0);
+        player.setForcedAnimationId(-1);
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
+        player.setPriorityBucket(PLAYER_CAPTURE_PRIORITY);
+        applyTwistFrame(player, slot.twistAngle);
     }
 
-    private void advanceRoute(AbstractPlayableSprite player, int frameCounter) {
-        if (routeStep >= ROUTE_FRAME_COUNT) {
-            releasePlayer(player, frameCounter);
+    private void holdSlot(RiderSlot slot) {
+        AbstractPlayableSprite player = slot.player;
+        if (player == null) {
             return;
         }
 
-        int routeIndex = (routeStartIndex + routeStep) & 0x03;
-        RoutePoint point = routePoints[routeIndex];
-        player.setCentreX((short) point.centerX());
-        player.setCentreY((short) point.centerY());
-        renderFrameIndex = routeIndex;
-        routeStep++;
+        int xOffset = (TrigLookupTable.cosHex(slot.twistAngle) * slot.horizontalDistance) >> 8;
+        player.setCentreX((short) (centerX + xOffset));
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 0);
 
-        if (routeStep >= ROUTE_FRAME_COUNT) {
-            releasePlayer(player, frameCounter);
-        }
+        slot.priorityThreshold = ((TrigLookupTable.sinHex(slot.twistAngle) + 0x100) >> 2) & 0xFF;
+        player.setPriorityBucket(slot.priorityThreshold > 0x60 ? PLAYER_TWIST_PRIORITY : PLAYER_CAPTURE_PRIORITY);
+        applyTwistFrame(player, slot.twistAngle);
+        slot.twistAngle = (slot.twistAngle + 2) & 0xFF;
     }
 
-    private void releasePlayer(AbstractPlayableSprite player, int frameCounter) {
-        if (released) {
+    private void releaseSlot(RiderSlot slot, int frameCounter, boolean jumpedOff) {
+        AbstractPlayableSprite player = slot.player;
+        if (player == null) {
+            slot.active = false;
             return;
         }
 
-        player.releaseFromObjectControl(frameCounter);
+        slot.active = false;
+        player.setObjectMappingFrameControl(false);
         player.setControlLocked(false);
-        capturedPlayer = null;
-        released = true;
+        player.releaseFromObjectControl(frameCounter);
+        player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
+        player.setForcedAnimationId(-1);
+
+        if (jumpedOff) {
+            player.setAir(true);
+            player.setJumping(true);
+            player.applyRollingRadii(false);
+            player.setRolling(true);
+            player.setAnimationId(2);
+            player.setYSpeed((short) (currentYVelocity + RELEASE_Y_SPEED));
+            player.setXSpeed((short) 0);
+            player.setGSpeed((short) 0);
+            player.suppressNextJumpPress();
+        } else {
+            player.setAir(true);
+            player.setJumping(false);
+            player.setXSpeed((short) 0);
+            player.setYSpeed((short) 0);
+            player.setGSpeed((short) 0);
+        }
     }
 
-    @Override
-    protected int initialFrameIndex() {
-        return renderFrameIndex;
+    private void applyTwistFrame(AbstractPlayableSprite player, int twistAngle) {
+        int frameIndex = ((twistAngle + 0x0B) & 0xFF) / 0x16;
+        if (frameIndex < 0 || frameIndex >= PLAYER_TWIST_FRAMES.length) {
+            frameIndex = 0;
+        }
+
+        player.setMappingFrame(PLAYER_TWIST_FRAMES[frameIndex]);
+        boolean flipLeft = PLAYER_TWIST_FLIPS[frameIndex];
+        player.setDirection(flipLeft ? Direction.LEFT : Direction.RIGHT);
+        player.setRenderFlips(flipLeft, false);
     }
 
-    /**
-     * Returns the route frame count used by the transcribed cylinder route.
-     *
-     * <p>The ROM object uses four side positions when walking the rider around
-     * the cylinder surface. The implementation keeps that as a four-step route
-     * so tests can assert capture and release parity without depending on the
-     * sprite-art frame count.
-     */
-    int getRouteFrameCountForTest() {
-        return ROUTE_FRAME_COUNT;
+    private void advanceAnimation() {
+        animFrameTimer--;
+        if (animFrameTimer >= 0) {
+            return;
+        }
+        animFrameTimer = 1;
+        mappingFrame = (mappingFrame + 1) & 0x03;
     }
-
-    int getExpectedExitXForTest() {
-        return expectedExitPoint.centerX();
-    }
-
-    int getExpectedExitYForTest() {
-        return expectedExitPoint.centerY();
-    }
-
-    private static int routeStartIndexForSubtype(int subtype) {
-        return ((subtype & 0x0F) - 0x0A) & 0x03;
-    }
-
-    private static RoutePoint[] buildRoutePoints(int centerX, int centerY) {
-        return new RoutePoint[] {
-                new RoutePoint(centerX, centerY - ROUTE_HALF_EXTENT),
-                new RoutePoint(centerX + ROUTE_HALF_EXTENT, centerY),
-                new RoutePoint(centerX, centerY + ROUTE_HALF_EXTENT),
-                new RoutePoint(centerX - ROUTE_HALF_EXTENT, centerY),
-        };
-    }
-
-    private record RoutePoint(int centerX, int centerY) {}
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        super.appendRenderCommands(commands);
+        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.CNZ_CYLINDER);
+        if (renderer == null) {
+            return;
+        }
+
+        boolean hFlip = (spawn.renderFlags() & 0x01) != 0;
+        boolean vFlip = (spawn.renderFlags() & 0x02) != 0;
+        renderer.drawFrameIndex(mappingFrame, getX(), getY(), hFlip, vFlip);
+    }
+
+    @Override
+    public SolidObjectParams getSolidParams() {
+        return SOLID_PARAMS;
+    }
+
+    @Override
+    public boolean isSolidFor(PlayableEntity player) {
+        return true;
+    }
+
+    @Override
+    public boolean isTopSolidOnly() {
+        return false;
+    }
+
+    @Override
+    public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
+        if (!(contact.standing() || contact.touchSide() || contact.pushing())
+                || !(player instanceof AbstractPlayableSprite sprite)) {
+            return;
+        }
+
+        RiderSlot slot = resolveContactSlot(sprite);
+        if (slot == null) {
+            return;
+        }
+
+        slot.player = sprite;
+        slot.contactLatched = true;
+
+        int mask = slotMask(slot);
+        nextStandingMask |= mask;
+        nextHeldInputMask |= heldInputMaskFor(sprite);
+    }
+
+    private RiderSlot resolveContactSlot(AbstractPlayableSprite sprite) {
+        if (playerOneSlot.player == sprite) {
+            return playerOneSlot;
+        }
+        if (playerTwoSlot.player == sprite) {
+            return playerTwoSlot;
+        }
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
+        if (sprite == focused) {
+            return playerOneSlot;
+        }
+        if (isFirstSidekick(sprite)) {
+            return playerTwoSlot;
+        }
+        if (playerOneSlot.player == null) {
+            return playerOneSlot;
+        }
+        if (playerTwoSlot.player == null) {
+            return playerTwoSlot;
+        }
+        return null;
+    }
+
+    private boolean isFirstSidekick(AbstractPlayableSprite sprite) {
+        ObjectServices svc = tryServices();
+        if (svc == null) {
+            return false;
+        }
+        var sidekicks = svc.sidekicks();
+        return !sidekicks.isEmpty() && sidekicks.getFirst() == sprite;
+    }
+
+    private int slotMask(RiderSlot slot) {
+        return slot == playerOneSlot ? 0x01 : 0x02;
+    }
+
+    private int standingMaskBitFor(AbstractPlayableSprite sprite) {
+        ObjectServices svc = tryServices();
+        AbstractPlayableSprite focused = svc != null && svc.camera() != null
+                ? svc.camera().getFocusedSprite()
+                : null;
+        if (playerOneSlot.player == sprite
+                || (sprite == focused && playerTwoSlot.player != sprite)) {
+            return 0x01;
+        }
+        if (playerTwoSlot.player == sprite || isFirstSidekick(sprite)) {
+            return 0x02;
+        }
+        if (svc != null) {
+            for (PlayableEntity sidekick : svc.sidekicks()) {
+                if (sidekick == sprite) {
+                    return 0x02;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private int heldInputMaskFor(AbstractPlayableSprite sprite) {
+        int mask = 0;
+        if (sprite.isUpPressed()) {
+            mask |= AbstractPlayableSprite.INPUT_UP;
+        }
+        if (sprite.isDownPressed()) {
+            mask |= AbstractPlayableSprite.INPUT_DOWN;
+        }
+        return mask;
     }
 }

@@ -235,9 +235,9 @@ public class ObjectManager {
         // (knockback only, no ring scatter or death). Must dispatch to updateSidekick
         // to avoid routing through the main player's applyHurtOrDeath path.
         if (player.isCpuControlled()) {
-            touchResponses.updateSidekick(player, touchFrameCounter);
+            touchResponses.updateSidekick(player, touchFrameCounter, false);
         } else {
-            touchResponses.update(player, touchFrameCounter);
+            touchResponses.update(player, touchFrameCounter, false);
         }
     }
 
@@ -249,15 +249,16 @@ public class ObjectManager {
     public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
             int touchFrameCounter, boolean enableTouchResponses,
             boolean inlineSolidResolution, boolean solidPostMovement) {
+        List<? extends PlayableEntity> activeSidekicks = sidekicks != null ? sidekicks : List.of();
         frameCounter++;
         vblaCounter++;
         updateCameraBounds();
         SolidExecutionRegistry solidExecutionRegistry = objectServices.solidExecutionRegistry();
-        solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, sidekicks));
+        solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, activeSidekicks));
 
         boolean counterBased = placement.isCounterBasedRespawn();
         if (inlineSolidResolution) {
-            solidContacts.beginInlineFrame(player, sidekicks, solidPostMovement);
+            solidContacts.beginInlineFrame(player, activeSidekicks, solidPostMovement);
         }
         try {
             if (counterBased) {
@@ -265,7 +266,7 @@ public class ObjectManager {
                 updateCounterBasedExecThenLoad(
                         cameraX,
                         player,
-                        sidekicks,
+                        activeSidekicks,
                         inlineSolidResolution,
                         solidPostMovement);
             } else {
@@ -277,11 +278,11 @@ public class ObjectManager {
                 // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
                 cleanupDestroyedDynamicObjects();
                 syncActiveSpawnsLoad();
-                runExecLoop(cameraX, player, sidekicks, inlineSolidResolution, solidPostMovement);
+                runExecLoop(cameraX, player, activeSidekicks, inlineSolidResolution, solidPostMovement);
             }
         } finally {
             if (inlineSolidResolution) {
-                solidContacts.finishInlineFrame(player, sidekicks);
+                solidContacts.finishInlineFrame(player, activeSidekicks);
             }
             solidExecutionRegistry.finishFrame();
         }
@@ -295,7 +296,7 @@ public class ObjectManager {
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
             // Each sidekick uses separate overlap tracking and special hurt handling.
-            for (PlayableEntity sk : sidekicks) {
+            for (PlayableEntity sk : activeSidekicks) {
                 touchResponses.updateSidekick(sk, touchFrameCounter);
             }
         }
@@ -311,11 +312,12 @@ public class ObjectManager {
 
     private List<PlayableEntity> collectActivePlayers(PlayableEntity player,
             List<? extends PlayableEntity> sidekicks) {
-        ArrayList<PlayableEntity> players = new ArrayList<>(1 + sidekicks.size());
+        List<? extends PlayableEntity> activeSidekicks = sidekicks != null ? sidekicks : List.of();
+        ArrayList<PlayableEntity> players = new ArrayList<>(1 + activeSidekicks.size());
         if (player != null) {
             players.add(player);
         }
-        for (PlayableEntity sidekick : sidekicks) {
+        for (PlayableEntity sidekick : activeSidekicks) {
             if (sidekick != null) {
                 players.add(sidekick);
             }
@@ -2866,6 +2868,10 @@ public class ObjectManager {
         }
 
         void update(PlayableEntity player, int frameCounter) {
+            update(player, frameCounter, true);
+        }
+
+        void update(PlayableEntity player, int frameCounter, boolean usePreUpdateState) {
             currentFrameCounter = frameCounter;
             if (player == null || objectManager == null || player.getDead() || table == null) {
                 overlapping.clear();
@@ -2914,7 +2920,7 @@ public class ObjectManager {
             building.clear();
 
             processCollisionLoop(player, playerX, playerY, playerHeight, playerWidth,
-                    building, overlapping, false);
+                    building, overlapping, false, usePreUpdateState);
 
             // Swap buffers: building becomes overlapping for next frame
             Set<ObjectInstance> temp = overlapping;
@@ -2931,6 +2937,10 @@ public class ObjectManager {
          * rings when hurt and can never die from enemy contact.
          */
         void updateSidekick(PlayableEntity sidekick, int frameCounter) {
+            updateSidekick(sidekick, frameCounter, true);
+        }
+
+        void updateSidekick(PlayableEntity sidekick, int frameCounter, boolean usePreUpdateState) {
             currentPlayer = null; // Sidekick doesn't get insta-shield
             currentFrameCounter = frameCounter;
             OverlapBufferPair buffers = sidekickOverlaps.computeIfAbsent(sidekick, k -> new OverlapBufferPair());
@@ -2957,7 +2967,7 @@ public class ObjectManager {
             buffers.building.clear();
 
             processCollisionLoop(sidekick, playerX, playerY, playerHeight, 0x10,
-                    buffers.building, buffers.overlapping, true);
+                    buffers.building, buffers.overlapping, true, usePreUpdateState);
 
             buffers.swap();
         }
@@ -2981,7 +2991,7 @@ public class ObjectManager {
         private void processCollisionLoop(PlayableEntity player,
                 int playerX, int playerY, int playerHeight, int playerWidth,
                 Set<ObjectInstance> buildingSet, Set<ObjectInstance> overlappingSet,
-                boolean isSidekick) {
+                boolean isSidekick, boolean usePreUpdateState) {
             Collection<ObjectInstance> touchObjects = objectManager.getTouchResponseObjects();
 
             for (ObjectInstance instance : touchObjects) {
@@ -3015,8 +3025,13 @@ public class ObjectManager {
                 if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
                     continue;
                 }
-                int preFlags = instance.getPreUpdateCollisionFlags();
-                int flags = (preFlags >= 0) ? preFlags : provider.getCollisionFlags();
+                int flags;
+                if (usePreUpdateState) {
+                    int preFlags = instance.getPreUpdateCollisionFlags();
+                    flags = (preFlags >= 0) ? preFlags : provider.getCollisionFlags();
+                } else {
+                    flags = provider.getCollisionFlags();
+                }
                 if (flags == 0) {
                     continue; // Skip collision for objects with no collision flags
                 }
@@ -3033,8 +3048,8 @@ public class ObjectManager {
                 // objects update. So touch collision sees objects at their pre-update
                 // positions. Use getPreUpdateX()/getPreUpdateY() which return the
                 // position snapshot taken before the object update loop ran.
-                int objX = instance.getPreUpdateX();
-                int objY = instance.getPreUpdateY();
+                int objX = usePreUpdateState ? instance.getPreUpdateX() : instance.getX();
+                int objY = usePreUpdateState ? instance.getPreUpdateY() : instance.getY();
                 boolean overlap = isOverlapping(playerX, playerY, playerHeight, objX, objY, width, height, playerWidth);
 
                 if (!isSidekick && debugState.isEnabled()) {
@@ -3829,10 +3844,9 @@ public class ObjectManager {
             }
 
             int halfWidth = params.halfWidth();
-            int configuredTopHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
-            int ridingHalfWidth = (configuredTopHalfWidth < halfWidth)
-                    ? configuredTopHalfWidth
-                    : halfWidth;
+            // ROM: ExitPlatform walk-off checks use the full collision width of the
+            // current solid, not the narrower Solid_Landed top-landing width.
+            int ridingHalfWidth = halfWidth;
 
             int boundsX = currentX + params.offsetX();
             int relX = player.getCentreX() - boundsX + ridingHalfWidth;
@@ -3866,7 +3880,9 @@ public class ObjectManager {
                     if (floorCheck.distance() <= 0) {
                         ridingStates.remove(player);
                         player.setOnObject(false);
-                        player.setAir(true);
+                        // Inline solid execution runs after terrain resolution for the frame.
+                        // Releasing the object here should not force airborne state; preserve
+                        // whatever the terrain/object pipeline already established.
                         return null;
                     }
                 }
@@ -3877,7 +3893,9 @@ public class ObjectManager {
 
             ridingStates.remove(player);
             player.setOnObject(false);
-            player.setAir(true);
+            // ROM ExitPlatform clears the on-object latch but does not force Sonic into
+            // air mode. In the inline scheduler the player's air state has already been
+            // resolved earlier in the frame, so preserve it here.
             return null;
         }
 
@@ -4178,15 +4196,10 @@ public class ObjectManager {
                 }
 
                 int halfWidth = params.halfWidth();
-                // Continued riding normally uses the full collision width, but some
-                // objects expose a deliberately narrower standable top surface than
-                // their side/body collision box. When a provider opts into that via
-                // getTopLandingHalfWidth(), use the narrower width for ExitPlatform-style
-                // walk-off checks as well so the riding state clears at the visible edge.
-                int configuredTopHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
-                int ridingHalfWidth = (configuredTopHalfWidth < halfWidth)
-                        ? configuredTopHalfWidth
-                        : halfWidth;
+                // ROM: continued riding uses ExitPlatform / ExitPlatform2 semantics,
+                // which check the full collision width. Narrow top widths only apply
+                // to new Solid_Landed-style landings.
+                int ridingHalfWidth = halfWidth;
 
                 // ROM: Bounds check uses collision-offset X (anchorX = obX + offsetX),
                 // while delta tracking uses raw object X for movement following.

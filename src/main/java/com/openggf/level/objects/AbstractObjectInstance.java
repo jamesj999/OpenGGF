@@ -10,6 +10,8 @@ import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -566,6 +568,19 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     protected boolean isPlayerRiding() {
         ObjectManager om = services().objectManager();
         return om != null && om.isAnyPlayerRiding(this);
+    }
+
+    protected SolidCheckpointBatch checkpointAll() {
+        return services().solidExecution().resolveSolidNowAll();
+    }
+
+    protected boolean hasStandingContact(SolidCheckpointBatch batch) {
+        for (PlayerSolidContactResult result : batch.perPlayer().values()) {
+            if (result != null && result.standingNow()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

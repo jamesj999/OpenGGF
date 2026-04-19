@@ -12,7 +12,6 @@ public final class PaletteOwnershipRegistry {
 
     private final List<PaletteWrite> writes = new ArrayList<>();
     private final String[][][] owners = new String[2][4][16];
-    private boolean ownersNeedReset;
 
     public PaletteOwnershipRegistry() {
         resetOwners();
@@ -20,10 +19,7 @@ public final class PaletteOwnershipRegistry {
 
     public void beginFrame() {
         writes.clear();
-        if (ownersNeedReset) {
-            resetOwners();
-            ownersNeedReset = false;
-        }
+        resetOwners();
     }
 
     public void submit(PaletteWrite write) {
@@ -39,10 +35,12 @@ public final class PaletteOwnershipRegistry {
         if (writes.isEmpty()) {
             return;
         }
+
         boolean[] normalDirty = new boolean[4];
 
-        writes.sort(Comparator.comparingInt(PaletteWrite::priority));
-        for (PaletteWrite write : writes) {
+        List<PaletteWrite> sorted = new ArrayList<>(writes);
+        sorted.sort(Comparator.comparingInt(PaletteWrite::priority));
+        for (PaletteWrite write : sorted) {
             applyWrite(surfaceArray(write.surface(), normal, underwater), write, normalDirty);
             applyOwners(write.surface(), write);
             if (write.mirrorToUnderwaterEnabled() && underwater != null) {
@@ -50,7 +48,6 @@ public final class PaletteOwnershipRegistry {
                 applyOwners(PaletteSurface.UNDERWATER, write);
             }
         }
-        ownersNeedReset = true;
 
         if (graphics != null && graphics.isGlInitialized()) {
             for (int line = 0; line < normalDirty.length; line++) {

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -48,6 +49,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
     }
@@ -86,22 +88,22 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         levelManager.setObjectManager(manager);
 
         manager.reset(0);
-        manager.update(0, null, null, 1);
+        manager.update(0, null, List.of(), 1);
 
         assertEquals(0, manager.getActiveObjects().size());
         assertFalse(manager.getActiveSpawns().contains(spawn));
 
         // Staying in the same camera window must not instantly recreate the platform.
-        manager.update(0, null, null, 2);
+        manager.update(0, null, List.of(), 2);
         assertEquals(0, manager.getActiveObjects().size());
 
         // After leaving the window and coming back, normal respawn should be allowed.
         // With deferred placement, placement.update() streams spawns at end of each frame
         // and syncActiveSpawns() creates instances at start of the next frame.
         camera.setMaxY((short) 1000);
-        manager.update(1400, null, null, 3);  // Streams spawn out of window
-        manager.update(0, null, null, 4);     // Streams spawn back into window
-        manager.update(0, null, null, 5);     // syncActiveSpawns creates the instance
+        manager.update(1400, null, List.of(), 3);  // Streams spawn out of window
+        manager.update(0, null, List.of(), 4);     // Streams spawn back into window
+        manager.update(0, null, List.of(), 5);     // syncActiveSpawns creates the instance
         assertTrue(manager.getActiveSpawns().contains(spawn));
         assertEquals(1, manager.getActiveObjects().size());
     }
