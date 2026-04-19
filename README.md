@@ -223,6 +223,9 @@ further S3K parity work.
   renderer with improved batching and overlap handling.
 - **S3K parity fixes:** HCZ2 now has the moving-wall chase sequence, HCZ water/column behavior was
   corrected further, and water state is restored properly after stage returns.
+- **CNZ traversal parity:** the S3K CNZ cylinder now follows tighter ROM-facing motion, rider
+  capture/release, twist-frame, priority, and visible-cadence checks, with refreshed directed
+  tests and design notes backing the current behavior.
 - **Data select and save system:** a full S3K data select screen with ROM-accurate rendering,
   8 save slots, team selection (Sonic+Tails, Sonic, Tails, Knuckles), and JSON-based save
   persistence with integrity verification. S1 and S2 can use the S3K data select via cross-game
