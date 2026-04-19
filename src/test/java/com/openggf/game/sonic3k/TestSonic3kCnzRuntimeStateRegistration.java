@@ -38,4 +38,22 @@ class TestSonic3kCnzRuntimeStateRegistration {
         assertEquals(0, GameServices.zoneRuntimeRegistry().current().actIndex());
         assertEquals("s3k", GameServices.zoneRuntimeRegistry().current().gameId());
     }
+
+    @Test
+    void restoreEventRoutineStateRestoresCnzLocalForegroundAndBackgroundRoutines() {
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+
+        manager.initLevel(Sonic3kZoneIds.ZONE_CNZ, 0);
+        manager.restoreEventRoutineState(0x08, 0x0C);
+
+        CnzZoneRuntimeState state = GameServices.zoneRuntimeRegistry()
+                .currentAs(CnzZoneRuntimeState.class)
+                .orElseThrow();
+
+        assertEquals(0x08, manager.getEventRoutineFg());
+        assertEquals(0x0C, manager.getEventRoutineBg());
+        assertEquals(0x08, state.foregroundRoutine());
+        assertEquals(0x0C, state.backgroundRoutine());
+    }
 }

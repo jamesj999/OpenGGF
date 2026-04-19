@@ -8,6 +8,7 @@ import com.openggf.game.sonic3k.Sonic3kLevelTriggerManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.MGZDashTriggerObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
@@ -131,12 +132,13 @@ public class TestS3kMgzDashTriggerAdjacentSpindash {
         sprite.setCentreX((short) trigger.getX());
         sprite.setCentreY((short) (trigger.getY() - (16 + 19)));
         sprite.setAir(false);
-
-        fixture.stepFrame(false, true, false, false, false);
-        fixture.stepFrame(false, true, false, false, true);
+        fixture.stepIdleFrames(1);
+        sprite.setAnimationId(Sonic3kAnimationIds.SPINDASH.id());
+        sprite.setSpindash(true);
+        ((MGZDashTriggerObjectInstance) trigger).update(fixture.frameCount() + 1, sprite);
 
         assertTrue(Sonic3kLevelTriggerManager.testAny(triggerIndex),
-                "Spindashing on top of the dash trigger should arm trigger slot "
+                "A player already in spindash state on top of the dash trigger should arm trigger slot "
                         + triggerIndex + ". anim=" + sprite.getAnimationId());
     }
 

@@ -29,6 +29,7 @@ import com.openggf.game.render.SpecialRenderEffectContext;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
+import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.HudStaticArt;
 import com.openggf.graphics.GLCommand;
@@ -120,7 +121,7 @@ public class LevelManager {
         return RuntimeManager.resolveCurrentOrBootstrapGameModule();
     }
 
-    /** S1 uses UNIFIED collision (single path); S2/S3K use DUAL_PATH. */
+    /** Collision model metadata only; frame scheduling may still use inline checkpoints. */
     private boolean isUnifiedCollisionModel() {
         PhysicsProvider pp = activeGameModule().getPhysicsProvider();
         return pp != null
@@ -1072,17 +1073,19 @@ public class LevelManager {
     }
 
     /**
-     * Returns true for Sonic 2/Sonic 3&K's dual-path collision model, where the ROM
-     * runs player physics before object slot execution and each solid object resolves
-     * contact inline during its own update.
+     * Returns true when the active module executes objects after player physics and
+     * solid checkpoints are resolved during object execution.
      */
     public boolean usesInlineObjectSolidResolution() {
         GameModule activeModule = activeGameModule();
-        return activeModule != null
-                && activeModule.getPhysicsProvider() != null
-                && activeModule.getPhysicsProvider().getFeatureSet() != null
-                && activeModule.getPhysicsProvider().getFeatureSet().collisionModel()
-                   == com.openggf.game.CollisionModel.DUAL_PATH;
+        if (activeModule == null
+                || activeModule.getPhysicsProvider() == null
+                || activeModule.getPhysicsProvider().getFeatureSet() == null) {
+            return false;
+        }
+        return activeModule.getPhysicsProvider().getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.DUAL_PATH
+                || activeModule instanceof Sonic1GameModule;
     }
 
     /**
@@ -1106,46 +1109,8 @@ public class LevelManager {
             Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
-            // ROM parity: In ExecuteObjects, Sonic (slot 0) runs his full physics
-            // (SpeedToPos + terrain collision) before other objects execute. Objects
-            // reading player.getCentreY() see his post-physics position. Our engine
-            // runs objects BEFORE player physics (step 2 before step 3) so that
-            // SolidContacts sees up-to-date object positions. To compensate, we
-            // pre-apply the player's velocity (SpeedToPos) so objects see the
-            // projected post-movement position. This is exact for airborne Sonic
-            // and within 0-2px for grounded (terrain snap not modelled here).
-            // The real physics in tickPlayablePhysics (step 3) overwrites position
-            // correctly, so the temporary pre-apply has no lasting effect.
-            //
-            // Skip when objectControlled: the ROM's Obj01_Control skips the entire
-            // physics routine (including SpeedToPos) when obj_control bit 7 is set,
-            // so objects that take control of the player (e.g., AIZ hollow tree)
-            // see the position the controlling object set — not a velocity-projected
-            // position. Applying velocity here would corrupt the controlled position,
-            // and the undo move(-v) would operate on a position the controlling
-            // object wrote, leaving a net offset each frame.
-            short preAppliedXSpeed = 0, preAppliedYSpeed = 0;
-            if (playable != null && !playable.isObjectControlled()) {
-                preAppliedXSpeed = playable.getXSpeed();
-                preAppliedYSpeed = playable.getYSpeed();
-                playable.move(preAppliedXSpeed, preAppliedYSpeed);
-            }
-
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1, false);
-
-            // Restore the player's exact pre-move position. move(v) + move(-v) is
-            // an identity in 16:16 fixed-point arithmetic, so pixel and subpixel
-            // are both restored precisely.
-            // Only undo if we actually pre-applied (preAppliedXSpeed/YSpeed are both
-            // zero when skipped due to objectControlled). Also skip the undo if the
-            // player became objectControlled during the object update (e.g., hollow
-            // tree capture) — the controlling object set the authoritative position,
-            // and undoing the pre-apply would corrupt it.
-            if (playable != null && (preAppliedXSpeed != 0 || preAppliedYSpeed != 0)
-                    && !playable.isObjectControlled()) {
-                playable.move((short) -preAppliedXSpeed, (short) -preAppliedYSpeed);
-            }
         }
 
         // ROM parity: OscillateNumDo runs AFTER ExecuteObjects in both S1
@@ -1158,7 +1123,7 @@ public class LevelManager {
 
     /**
      * Runs object execution after player physics with inline solid resolution.
-     * Used by Sonic 2/Sonic 3&K, where the ROM executes the player slot first,
+     * Used by inline-order modules, where the ROM executes the player slot first,
      * then processes solid objects in slot order against the player's already-moved state.
      */
     public void updateObjectPositionsPostPhysicsWithoutTouches() {

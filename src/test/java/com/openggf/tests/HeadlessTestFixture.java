@@ -8,6 +8,7 @@ import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -148,6 +149,7 @@ public final class HeadlessTestFixture {
 
             // 1. Reset transient per-test state
             TestEnvironment.resetPerTest();
+            GraphicsManager.getInstance().initHeadless();
 
             // 2. Shared-level tests rely on the config snapshot that was active
             // when the level was originally loaded. @RequiresRom rebuilds the

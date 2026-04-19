@@ -141,7 +141,9 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
      */
     private void tryArmFromPlayer(AbstractPlayableSprite player) {
         if (player == null) return;
-        if (player.getAnimationId() != SPINDASH_ANIM_ID) return;
+        boolean animationMatches = player.getAnimationId() == SPINDASH_ANIM_ID;
+        boolean spindashFlag = player.getSpindash();
+        if (!animationMatches && !spindashFlag) return;
         if (!isAdjacent(player)) return;
 
         armTimer = TIMER_DURATION;

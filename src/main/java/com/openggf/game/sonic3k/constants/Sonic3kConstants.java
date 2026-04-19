@@ -772,6 +772,11 @@ public class Sonic3kConstants {
     // Verified against S&K ROM bytes at 0x028862 and skdisasm AniPLC_MGZ.
     public static final int ANIPLC_MGZ_ADDR = 0x028862;
 
+    // AniPLC_CNZ: 7 scripts (both acts share the same script table)
+    // Verified by S&K ROM search for the first inline record:
+    // 00 06 03 2A F8 00 56 40 10 09 ...
+    public static final int ANIPLC_CNZ_ADDR = 0x028882;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A
@@ -803,6 +808,11 @@ public class Sonic3kConstants {
     public static final int ART_UNC_HCZ2_3_SIZE = 0x1000;
     public static final int ART_UNC_HCZ2_4_ADDR = 0x2AA3A0;
     public static final int ART_UNC_HCZ2_4_SIZE = 0x3000;
+
+    // CNZ direct-DMA source art used by AnimateTiles_CNZ for the background
+    // strip uploads into VRAM tile $308+.
+    public static final int ART_UNC_ANI_CNZ_6_ADDR = 0x2B5B80;
+    public static final int ART_UNC_ANI_CNZ_6_SIZE = 0x2000;
 
     // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
     // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings
@@ -1175,7 +1185,31 @@ public class Sonic3kConstants {
     public static final int MAP_CLAMER_ADDR = 0x361ABC;
     public static final int ART_KOSM_CLAMER_SHOT_ADDR = 0x370058;
     public static final int ART_KOSM_CNZ_BALLOON_ADDR = 0x37060E;
-    public static final int MAP_CNZ_BALLOON_ADDR = 0x230502;
+    // CNZ traversal object sheets live in the LockOn S3 half of the combined ROM.
+    // Keep these addresses paired with the S3K disassembly labels; do not shift
+    // them to raw Sonic 3 source offsets.
+    public static final int MAP_CNZ_BALLOON_ADDR = 0x230502; // Map_CNZBalloon (25 frames)
+    public static final int MAP_CNZ_CANNON_ADDR = 0x230A32; // Map_CNZCannon (10 frames)
+    public static final int MAP_CNZ_RISING_PLATFORM_ADDR = 0x230CDC; // Map_CNZRisingPlatform (3 frames)
+    public static final int MAP_CNZ_TRAP_DOOR_ADDR = 0x230DCC; // Map_CNZTrapDoor (3 frames)
+    public static final int MAP_CNZ_HOVER_FAN_ADDR = 0x231010; // Map_CNZHoverFan (8 frames)
+    public static final int MAP_CNZ_CYLINDER_ADDR = 0x2317B0; // Map_CNZCylinder (4 frames)
+
+    // Verified final lock-on offsets for the dedicated CNZ cannon art block.
+    // The Cannon.bin data lives in the S&K half of the combined ROM.
+    public static final int ART_UNC_CNZ_CANNON_ADDR = 0x08CE74;
+    public static final int ART_UNC_CNZ_CANNON_SIZE = 0x2AE6;
+    // DPLC_CNZCannon points at the 9-entry pointer table that feeds the object's
+    // animated chamber frames. The first data block starts at $31B84.
+    public static final int DPLC_CNZ_CANNON_ADDR = 0x031B72;
+
+    // ArtTile_CNZMisc-derived VRAM tile bases used by the CNZ traversal objects.
+    public static final int ARTTILE_CNZ_BALLOON = ARTTILE_CNZ_MISC;
+    public static final int ARTTILE_CNZ_CANNON = ARTTILE_CNZ_MISC + 0x23;
+    public static final int ARTTILE_CNZ_RISING_PLATFORM = ARTTILE_CNZ_MISC + 0x6D;
+    public static final int ARTTILE_CNZ_TRAP_DOOR = ARTTILE_CNZ_MISC + 0x9F;
+    public static final int ARTTILE_CNZ_HOVER_FAN = ARTTILE_CNZ_MISC + 0x97;
+    public static final int ARTTILE_CNZ_CYLINDER = ARTTILE_CNZ_MISC + 0x3D;
 
     // ===== FBZ Badnik Art =====
     public static final int ART_KOSM_FBZ_BLASTER_ADDR = 0x0DC6C2;
@@ -1321,6 +1355,41 @@ public class Sonic3kConstants {
 
     // HCZ Geyser Cutscene Art (ArtTile_HCZCutsceneGeyser, from sonic3k.constants.asm)
     public static final int ARTTILE_HCZ_CUTSCENE_GEYSER = 0x036B;
+
+    // ===== CNZ Teleporter / Miniboss / End Boss (Task 6 infrastructure only) =====
+    // The CNZ teleporter route is split across Obj_CNZTeleporter and the shared
+    // Obj_TeleporterBeam routines in sonic3k.asm. Unlike the future Tasks 7/8
+    // behavior work, Task 6 only needs the art/mapping/PLC metadata so the
+    // renderer registrations exist before any route scripting is implemented.
+
+    // ArtKosM_CNZTeleport - dedicated Kosinski Moduled art queued by Obj_CNZTeleporter.
+    // Verified with RomOffsetFinder against the S&K-side label:
+    //   ArtKosM_CNZTeleport -> 0x159CAE, 512-byte decompressed payload.
+    public static final int ART_KOSM_CNZ_TELEPORT_ADDR = 0x159CAE;
+
+    // Map_SSZHPZTeleporter - shared mapping table used by both Obj_CNZTeleporterMain
+    // and Obj_TeleporterBeam for the CNZ teleporter route. The include file exposes
+    // 11 dc.w entries before the first frame label word_46B52, so the table starts
+    // 22 bytes earlier at 0x046B3C.
+    public static final int MAP_SSZ_HPZ_TELEPORTER_ADDR = 0x046B3C;
+
+    // PLC 0x5C/0x5D (shared across both CNZ acts) loads the CNZ miniboss body art
+    // plus shared boss-explosion art. The object code references Map_CNZMiniboss
+    // with ArtTile_CNZMiniboss after this PLC has populated VRAM.
+    public static final int PLC_CNZ_MINIBOSS = 0x5C;
+
+    // Map_CNZMiniboss - CNZ miniboss mappings. The include file has 22 dc.w entries
+    // before Frame_362F00, so the table base is 44 bytes earlier at 0x362ED4.
+    public static final int MAP_CNZ_MINIBOSS_ADDR = 0x362ED4;
+
+    // PLC 0x6E loads ArtNem_CNZEndBoss, ArtNem_RobotnikShip, ArtNem_BossExplosion,
+    // and ArtNem_EggCapsule for Obj_CNZEndBoss. Task 6 only needs the body sheet and
+    // shared support art registrations; the control handoff stays deferred to Task 8.
+    public static final int PLC_CNZ_END_BOSS = 0x6E;
+
+    // Map_CNZEndBoss - CNZ end-boss mappings. The include file has 13 dc.w entries
+    // before Frame_3609C4, so the table base is 26 bytes earlier at 0x3609AA.
+    public static final int MAP_CNZ_END_BOSS_ADDR = 0x3609AA;
 
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)

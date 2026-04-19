@@ -11,6 +11,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -144,6 +145,10 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             case ROUTINE_SOLID_WAITING -> updateSolidWaiting();
             case ROUTINE_DISINTEGRATING -> updateDisintegrating();
             case ROUTINE_CLEANUP -> updateCleanup(player);
+        }
+
+        if (!isDestroyed() && (routine == ROUTINE_SOLID_WAITING || routine == ROUTINE_DISINTEGRATING)) {
+            super.checkpointAll();
         }
     }
 
@@ -290,6 +295,11 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handled by ObjectManager
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     // =========================================================================

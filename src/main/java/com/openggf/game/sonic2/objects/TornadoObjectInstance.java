@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.save.SaveReason;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -22,6 +23,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -290,7 +292,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         solidActive = true;
         highPriority = player.isHighPriority();
 
-        boolean mainStandingNow = isMainPlayerStanding(player);
+        PlayerSolidContactResult contact = checkpoint(player);
+        boolean mainStandingNow = contact.standingNow();
         standingTransition = (mainStandingNow != lastMainStanding);
         lastMainStanding = mainStandingNow;
 
@@ -504,7 +507,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         alignPlaneAndSolid();
         renderThisFrame = true;
 
-        if (isMainPlayerStanding(player)) {
+        if (checkpoint(player).standingNow()) {
             routineSecondary = 0x0A;
             jumpTimer = 0x20;
             applyJumpToPlaneLayoutPatch();
@@ -729,6 +732,11 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         return TORNADO_SOLID_PARAMS;
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
@@ -1022,6 +1030,10 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private boolean isMainPlayerStanding(AbstractPlayableSprite player) {
         ObjectManager objectManager = services().objectManager();
         return objectManager != null && objectManager.isRidingObject(player, this);
+    }
+
+    private PlayerSolidContactResult checkpoint(AbstractPlayableSprite player) {
+        return services().solidExecution().resolveSolidNow(player);
     }
 
     private void releasePlayersFromPlatform() {

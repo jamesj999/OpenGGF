@@ -2,6 +2,9 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.ContactKind;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -12,6 +15,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -274,6 +278,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // PushB_ChkLava (motion path only, after state machine)
         if (inMotion) {
             checkLavaGeyser();
+        }
+
+        SolidCheckpointBatch batch = checkpointAll();
+        if (solidState == 0 && !inMotion) {
+            applyPushContacts(batch, frameCounter);
         }
 
         // loc_BFC6: out_of_range check
@@ -576,6 +585,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         }
     }
 
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
+    }
+
     /**
      * Custom push handler (loc_C230 in loc_C186/Solid_ChkEnter).
      * <p>
@@ -704,6 +718,24 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         }
 
         updateDynamicSpawn(x, y);
+    }
+
+    protected SolidCheckpointBatch checkpointAll() {
+        return services().solidExecution().resolveSolidNowAll();
+    }
+
+    private void applyPushContacts(SolidCheckpointBatch batch, int frameCounter) {
+        for (PlayableEntity entity : batch.perPlayer().keySet()) {
+            if (!(entity instanceof AbstractPlayableSprite player)) {
+                continue;
+            }
+            PlayerSolidContactResult result = batch.perPlayer().get(entity);
+            if (result == null || result.kind() != ContactKind.SIDE) {
+                continue;
+            }
+            int d0 = player.getCentreX() < x ? 1 : -1;
+            handlePush(player, d0, frameCounter);
+        }
     }
 
     /**

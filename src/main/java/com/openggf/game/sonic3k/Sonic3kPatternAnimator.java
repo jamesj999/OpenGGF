@@ -8,6 +8,7 @@ import com.openggf.game.animation.ChannelContext;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
+import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.S3kRuntimeStates;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -73,6 +74,16 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             0x00, 0x00, 0x00, 0x00,
             0xA0, 0x0A, 0x50, 0x05
     };
+    private static final int[] CNZ_DMA_WORD_COUNTS = {
+            0x200, 0x000,
+            0x1C0, 0x040,
+            0x180, 0x080,
+            0x140, 0x0C0,
+            0x100, 0x100,
+            0x0C0, 0x140,
+            0x080, 0x180,
+            0x040, 0x1C0
+    };
     private static final int ANIPLC_LRZ1_ADDR = 0x028A6A;
     private static final int ART_UNC_ANI_SOZ1_BG_ADDR = 0x0BD9C0;
     private static final int ART_UNC_ANI_SOZ1_BG_SIZE = 0x0C00;
@@ -119,6 +130,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     private final Pattern[] hcz2Art2Patterns;
     private final Pattern[] hcz2Art3Patterns;
     private final Pattern[] hcz2Art4Patterns;
+    private final byte[] cnzBgData;
     private final byte[] soz1BgData;
     private final byte[] soz1Bg2Data;
     private final byte[] pachinkoScratch;
@@ -184,6 +196,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art2Patterns = null;
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
+            this.cnzBgData = null;
             this.soz1BgData = null;
             this.soz1Bg2Data = null;
             this.pachinkoScratch = null;
@@ -274,6 +287,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art2Patterns = null;
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
+            this.cnzBgData = null;
             // HCZ1 starts with the lower repair strips resident before the
             // waterline-specific recomposition path kicks in.
             applyPatternsToLevel(this.hcz1LowerBg1Patterns, 0x2F4);
@@ -317,6 +331,33 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art4Patterns = loadUncompressedPatterns(reader,
                     Sonic3kConstants.ART_UNC_HCZ2_4_ADDR,
                     Sonic3kConstants.ART_UNC_HCZ2_4_SIZE);
+            this.cnzBgData = null;
+        } else if (zoneIndex == 0x03) {
+            this.hczWaterlineScrollData = null;
+            this.hcz1DynamicBlockData = null;
+            this.hcz1WaterlineBelow1Data = null;
+            this.hcz1WaterlineAbove1Data = null;
+            this.hcz1WaterlineBelow1Patterns = null;
+            this.hcz1UpperBg1Patterns = null;
+            this.hcz1WaterlineAbove1Patterns = null;
+            this.hcz1LowerBg1Patterns = null;
+            this.hcz1WaterlineBelow2Data = null;
+            this.hcz1WaterlineAbove2Data = null;
+            this.hcz1WaterlineBelow2Patterns = null;
+            this.hcz1UpperBg2Patterns = null;
+            this.hcz1WaterlineAbove2Patterns = null;
+            this.hcz1LowerBg2Patterns = null;
+            this.hcz2SmallBgLineData = null;
+            this.hcz2Art2Data = null;
+            this.hcz2Art3Data = null;
+            this.hcz2Art4Data = null;
+            this.hcz2SmallBgLinePatterns = null;
+            this.hcz2Art2Patterns = null;
+            this.hcz2Art3Patterns = null;
+            this.hcz2Art4Patterns = null;
+            this.cnzBgData = loadRawBytes(reader,
+                    Sonic3kConstants.ART_UNC_ANI_CNZ_6_ADDR,
+                    Sonic3kConstants.ART_UNC_ANI_CNZ_6_SIZE);
         } else {
             this.hczWaterlineScrollData = null;
             this.hcz1DynamicBlockData = null;
@@ -340,6 +381,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art2Patterns = null;
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
+            this.cnzBgData = null;
         }
 
         if (zoneIndex == 0x08 && actIndex == 0) {
@@ -514,6 +556,15 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         return soz1BgData != null && soz1Bg2Data != null;
     }
 
+    /**
+     * CNZ custom DMA can run whenever the direct background art source is
+     * present. The graph caches the phase, so this guard does not need to
+     * inspect transient animation state.
+     */
+    boolean shouldRunCnzCustomChannels() {
+        return cnzBgData != null;
+    }
+
     void tickScript(AniPlcScriptState script) {
         script.tick(level, GameServices.graphics());
     }
@@ -528,6 +579,17 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     void updateSoz1BackgroundTilesForGraph() {
         updateSoz1BackgroundTiles();
+    }
+
+    /**
+     * Graph entry point for the direct-DMA half of AnimateTiles_CNZ.
+     *
+     * <p>The shared graph owns the invalidation policy, while this method keeps
+     * the ROM-shaped transfer math in one place for direct comparison against
+     * {@code AnimateTiles_CNZ}.
+     */
+    void updateCnzBackgroundTilesForGraph() {
+        updateCnzBackgroundTiles();
     }
 
     private void updateHcz1BackgroundStrips() {
@@ -804,6 +866,58 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             LOG.fine(() -> "Sonic3kPatternAnimator.resolveSoz1BgCameraX: " + e.getMessage());
         }
         return cameraX >> 4;
+    }
+
+    /**
+     * ROM: AnimateTiles_CNZ phase formula.
+     *
+     * <p>CNZ derives its direct-DMA phase from the same shared-state edge that
+     * Task 3 published through the runtime adapter:
+     * {@code (Events_bg+$10 - Camera_X_pos_BG_copy) & $3F}. This keeps the
+     * animated tiles tied to the actual deform math instead of a free-running
+     * local counter.
+     */
+    int computeCnzPhase() {
+        if (!GameServices.hasRuntime()) {
+            return 0;
+        }
+        CnzZoneRuntimeState state = GameServices.zoneRuntimeRegistry()
+                .currentAs(CnzZoneRuntimeState.class)
+                .orElse(null);
+        if (state == null) {
+            return 0;
+        }
+        return (state.deformPhaseBgX() - state.publishedBgCameraX()) & 0x3F;
+    }
+
+    /**
+     * ROM: AnimateTiles_CNZ direct background DMA path.
+     *
+     * <p>The ROM uses {@code phase & 7} to choose the base 1 KB source bank,
+     * {@code phase & $38} to select one of eight split layouts from
+     * {@code word_27C9C}, and then DMA-copies one or two word-count segments
+     * from {@code ArtUnc_AniCNZ__6} into VRAM tile {@code $308+}. The engine
+     * mirrors that by copying raw pattern slices into the level pattern buffer
+     * so the graph can own CNZ's direct-DMA destination range.
+     */
+    private void updateCnzBackgroundTiles() {
+        if (cnzBgData == null) {
+            return;
+        }
+
+        int phase = computeCnzPhase();
+        int baseSourceOffset = ror16(phase & 7, 6);
+        int bandBits = phase & 0x38;
+        int primarySourceOffset = baseSourceOffset + (bandBits << 4);
+        int pairIndex = bandBits >> 2;
+        int firstWordCount = CNZ_DMA_WORD_COUNTS[pairIndex];
+        int secondWordCount = CNZ_DMA_WORD_COUNTS[pairIndex + 1];
+
+        applyRawPatternSliceToLevel(cnzBgData, primarySourceOffset, firstWordCount << 1, 0x308);
+        if (secondWordCount != 0) {
+            int secondDestTile = 0x308 + ((firstWordCount << 1) / Pattern.PATTERN_SIZE_IN_ROM);
+            applyRawPatternSliceToLevel(cnzBgData, baseSourceOffset, secondWordCount << 1, secondDestTile);
+        }
     }
 
     private void updateSoz1BackgroundTiles() {
@@ -1105,6 +1219,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
                     ? Sonic3kConstants.ANIPLC_HCZ1_ADDR
                     : Sonic3kConstants.ANIPLC_HCZ2_ADDR;
             case 2 -> Sonic3kConstants.ANIPLC_MGZ_ADDR;
+            case 0x03 -> Sonic3kConstants.ANIPLC_CNZ_ADDR;
             case 0x08 -> ANIPLC_LRZ1_ADDR;
             case 0x14 -> Sonic3kConstants.ANIPLC_PACHINKO_ADDR;
             default -> -1;
@@ -1122,6 +1237,10 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
         if (zoneIndex == 0x08 && actIndex == 0) {
             graph.install(S3kAnimatedTileChannels.buildSozChannels(this, scripts));
+            return;
+        }
+        if (zoneIndex == 0x03) {
+            graph.install(S3kAnimatedTileChannels.buildCnzChannels(this, scripts));
             return;
         }
         graph.install(List.of());

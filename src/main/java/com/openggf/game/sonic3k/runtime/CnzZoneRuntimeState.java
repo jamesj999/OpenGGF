@@ -26,4 +26,65 @@ public final class CnzZoneRuntimeState implements S3kZoneRuntimeState {
     public Sonic3kCNZEvents.BossBackgroundMode bossBackgroundMode() {
         return events.getBossBackgroundMode();
     }
+
+    /**
+     * ROM-facing FG routine mirror. CNZ stores this locally on the zone-events
+     * instance rather than relying on {@code AbstractLevelEventManager}'s shared
+     * protected counters.
+     */
+    public int foregroundRoutine() {
+        return events.getForegroundRoutine();
+    }
+
+    /**
+     * ROM-facing BG routine mirror used by the CNZ background-event path.
+     */
+    public int backgroundRoutine() {
+        return events.getBackgroundRoutine();
+    }
+
+    /**
+     * Published BG deform phase source matching the value later consumed by
+     * {@code AnimateTiles_CNZ} through the ROM's event workspace.
+     */
+    public int deformPhaseBgX() {
+        return events.getDeformPhaseBgX();
+    }
+
+    /**
+     * Published background camera X copy corresponding to
+     * {@code Camera_X_pos_BG_copy}.
+     */
+    public int publishedBgCameraX() {
+        return events.getPublishedBgCameraX();
+    }
+
+    /**
+     * Publishes the ROM-equivalent CNZ deform outputs without exposing the
+     * backing event object to callers.
+     *
+     * <p>The scroll handler uses this to mirror the values that CNZ later
+     * stores in {@code Events_bg+$10} and {@code Camera_X_pos_BG_copy}. The
+     * adapter keeps the publication boundary narrow: callers can write the
+     * deform outputs, but they still cannot reach the raw event instance.
+     */
+    public void publishDeformOutputs(int deformPhaseBgX, int bgCameraX) {
+        events.setPublishedDeformInputs(deformPhaseBgX, bgCameraX);
+    }
+
+    public int bossScrollOffsetY() {
+        return events.getBossScrollOffsetY();
+    }
+
+    public int bossScrollVelocityY() {
+        return events.getBossScrollVelocityY();
+    }
+
+    public boolean isWallGrabSuppressed() {
+        return events.isWallGrabSuppressed();
+    }
+
+    public int waterTargetY() {
+        return events.getWaterTargetY();
+    }
 }

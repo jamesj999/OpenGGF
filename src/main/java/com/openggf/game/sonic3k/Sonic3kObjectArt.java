@@ -781,6 +781,34 @@ public class Sonic3kObjectArt {
     }
 
     /**
+     * Loads the dedicated CNZ teleporter beam sheet used by {@code Obj_CNZTeleporter}
+     * and the shared {@code Obj_TeleporterBeam} route in CNZ.
+     *
+     * <p>ROM behavior:
+     * {@code Obj_CNZTeleporter} queues {@code ArtKosM_CNZTeleport} directly rather
+     * than relying on a zone PLC, then both the teleporter and beam objects render
+     * through {@code Map_SSZHPZTeleporter}. Task 6 only needs the renderer
+     * registration; the palette write and control-lock behavior stay in Task 8.
+     */
+    public ObjectSpriteSheet loadCnzTeleporterSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadKosinskiModuledPatterns(rom, Sonic3kConstants.ART_KOSM_CNZ_TELEPORT_ADDR);
+            if (patterns == null || patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_SSZ_HPZ_TELEPORTER_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading CNZ teleporter art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Loads a standalone art sheet from a registry entry.
      * Dispatches based on the entry's compression type and DPLC presence.
      */
@@ -1626,5 +1654,155 @@ public class Sonic3kObjectArt {
                 new SpriteMappingPiece(  16, -8, 2, 2, 0, false, false, 0, false)
         ));
         return buildLevelArtSheet(artTileBase, 2, List.of(f0), 0, 4);
+    }
+
+    /**
+     * Builds the CNZ Balloon sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZBalloon}.
+     * <p>Mapping table: {@code Map_CNZBalloon} (25 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc} (palette 0).
+     * <p>The mapping address is the final S3K lock-on offset published in
+     * {@link Sonic3kConstants}; it is not the raw Sonic 3-side disassembly
+     * address.
+     */
+    public ObjectSpriteSheet buildCnzBalloonSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_BALLOON_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_BALLOON,
+                0);
+    }
+
+    /**
+     * Loads the CNZ Cannon sprite sheet from the ROM's dedicated Cannon.bin art.
+     *
+     * <p>Verified ROM anchors:
+     * <ul>
+     *   <li>{@code Obj_CNZCannon}</li>
+     *   <li>{@code Map_CNZCannon} at the final lock-on offset published in
+     *   {@link Sonic3kConstants#MAP_CNZ_CANNON_ADDR}</li>
+     *   <li>{@code DPLC_CNZCannon} at {@link Sonic3kConstants#DPLC_CNZ_CANNON_ADDR}</li>
+     *   <li>Dedicated art block {@code Cannon.bin} at
+     *   {@link Sonic3kConstants#ART_UNC_CNZ_CANNON_ADDR}</li>
+     * </ul>
+     *
+     * <p>The sheet is built from ROM-parsed mappings plus the DPLC remap table so
+     * the animated chamber pieces keep their original tile selection instead of
+     * relying on a level-art subset.
+     */
+    public ObjectSpriteSheet loadCnzCannonSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = loadUncompressedPatterns(rom,
+                    Sonic3kConstants.ART_UNC_CNZ_CANNON_ADDR,
+                    Sonic3kConstants.ART_UNC_CNZ_CANNON_SIZE);
+            if (patterns.length == 0) {
+                return null;
+            }
+
+            List<SpriteMappingFrame> rawMappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_CNZ_CANNON_ADDR, 10);
+            List<SpriteDplcFrame> dplcFrames =
+                    S3kSpriteDataLoader.loadDplcFrames(reader, Sonic3kConstants.DPLC_CNZ_CANNON_ADDR, 9);
+            List<SpriteMappingFrame> remapped = applyDplcRemap(rawMappings, dplcFrames);
+
+            lastBuildStartTile = Sonic3kConstants.ARTTILE_CNZ_CANNON;
+            lastBuildTileCount = patterns.length;
+            return new ObjectSpriteSheet(patterns, remapped, 2, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading CNZ cannon art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Backwards-compatible wrapper used by the registry builder path.
+     */
+    public ObjectSpriteSheet buildCnzCannonSheet() {
+        try {
+            return loadCnzCannonSheet(GameServices.rom().getRom());
+        } catch (IOException e) {
+            LOG.warning("Failed to load CNZ cannon art via compatibility wrapper: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Builds the CNZ Rising Platform sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZRisingPlatform}.
+     * <p>Mapping table: {@code Map_CNZRisingPlatform} (3 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$6D} (palette 2).
+     * <p>The mapping address is the final S3K lock-on offset published in
+     * {@link Sonic3kConstants}; the table is shared by both the idle and rising
+     * animation states.
+     */
+    public ObjectSpriteSheet buildCnzRisingPlatformSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_RISING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_RISING_PLATFORM,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Trap Door sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZTrapDoor}.
+     * <p>Mapping table: {@code Map_CNZTrapDoor} (3 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$9F} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzTrapDoorSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_TRAP_DOOR_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_TRAP_DOOR,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Hover Fan sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZHoverFan}.
+     * <p>Mapping table: {@code Map_CNZHoverFan} (8 frames, repeated idle frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$97} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzHoverFanSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_HOVER_FAN_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_HOVER_FAN,
+                2);
+    }
+
+    /**
+     * Builds the CNZ Cylinder sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_CNZCylinder}.
+     * <p>Mapping table: {@code Map_CNZCylinder} (4 frames), parsed directly from
+     * {@code Map - Cylinder.asm} rather than falling back to a hand-authored
+     * mapping transcription.
+     * <p>Art tile: {@code ArtTile_CNZMisc+$3D} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzCylinderSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_CYLINDER_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_CYLINDER,
+                2);
+    }
+
+    /**
+     * CNZ Vacuum Tube is controller-only in this task slice.
+     * The ROM object exists, but no dedicated traversal sprite sheet is claimed here.
+     */
+    public ObjectSpriteSheet buildCnzVacuumTubeSheet() {
+        return null;
+    }
+
+    /**
+     * CNZ Spiral Tube is controller-only in this task slice.
+     * The ROM object exists, but no dedicated traversal sprite sheet is claimed here.
+     */
+    public ObjectSpriteSheet buildCnzSpiralTubeSheet() {
+        return null;
     }
 }

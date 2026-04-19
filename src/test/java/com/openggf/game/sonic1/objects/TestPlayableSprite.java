@@ -1,5 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -12,6 +14,18 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * (e.g. hurt callbacks).
  */
 public class TestPlayableSprite extends AbstractPlayableSprite {
+
+    static {
+        ensureEngineServicesConfigured();
+    }
+
+    private static void ensureEngineServicesConfigured() {
+        try {
+            RuntimeManager.currentEngineServices();
+        } catch (IllegalStateException ex) {
+            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        }
+    }
 
     /**
      * Creates a test sprite with rollHeight=0 and runHeight=0.
