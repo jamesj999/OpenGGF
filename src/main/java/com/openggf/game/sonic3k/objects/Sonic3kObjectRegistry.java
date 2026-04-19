@@ -151,6 +151,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new MGZLBZSmashingPillarObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.MGZ_TWISTING_LOOP,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MGZTwistingLoopObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.MGZ_TRIGGER_PLATFORM,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
@@ -190,6 +198,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new MGZTopPlatformObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.MGZ_TOP_LAUNCHER,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MGZTopLauncherObjectInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.BUMPER,
                 (spawn, registry) -> {

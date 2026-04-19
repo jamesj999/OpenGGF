@@ -26,6 +26,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_DISAPPEARING_FLOOR = 0x29;
     public static final int AIZ_DRAW_BRIDGE = 0x32;
     public static final int SINKING_MUD = 0x4F;
+    public static final int MGZ_TWISTING_LOOP = 0x50;
     public static final int FLOATING_PLATFORM = 0x51;
     public static final int BUMPER = 0x4A;
     public static final int BUBBLER = 0x54;
@@ -50,6 +51,7 @@ public final class Sonic3kObjectIds {
     public static final int MGZ_SWINGING_SPIKE_BALL = 0x58;
     public static final int MGZ_DASH_TRIGGER = 0x59;
     public static final int MGZ_TOP_PLATFORM = 0x5B;
+    public static final int MGZ_TOP_LAUNCHER = 0x5C;
     public static final int HCZ_SNAKE_BLOCKS = 0x67;
     public static final int TENSION_BRIDGE = 0x6C;
     public static final int INVISIBLE_HURT_BLOCK_H = 0x6A;
