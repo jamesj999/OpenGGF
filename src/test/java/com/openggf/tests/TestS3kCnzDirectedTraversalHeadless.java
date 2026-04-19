@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.objects.CorkFloorObjectInstance;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidContact;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.managers.SpriteManager;
@@ -17,6 +18,7 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,6 +94,7 @@ public class TestS3kCnzDirectedTraversalHeadless {
 
         int startX = cylinder.getX();
         int startY = cylinder.getY();
+        cylinder.onSolidContact(player, new SolidContact(true, false, false, false, true), 0);
         for (int frame = 0; frame < 8; frame++) {
             cylinder.update(frame, player);
         }
@@ -100,6 +103,24 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 "ROM mode 0 cylinder should not drift horizontally");
         assertTrue(cylinder.getY() != startY,
                 "ROM mode 0 cylinder should move via its vertical velocity controller");
+    }
+
+    @Test
+    void cnzCylinderMode0SeedsSpeedCapWithoutHotStartingLiveVelocity() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x00, 0, false, 0));
+
+        assertEquals(0x04E0, getCylinderInt(cylinder, "speedCap"));
+        assertEquals(0, getCylinderInt(cylinder, "mode0Velocity"),
+                "ROM init stores the cap in $3E(a0) but leaves y_vel(a0) at rest");
+
+        cylinder.update(0, fixture.sprite());
+
+        assertEquals(0x38C0, getCylinderInt(cylinder, "centerX"));
     }
 
     @Test
@@ -132,6 +153,28 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 "ROM circular cylinder should include a horizontal-edge segment");
         assertTrue(hasEdgeSegment(xs, ys, 0x38C0, 0x0800, false),
                 "ROM circular cylinder should include a vertical-edge segment");
+    }
+
+    @Test
+    void cnzCylinderCircularSubtypeFollowsSquareQuadrantTransitionsFromOff321Ee() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x49, 0, false, 0));
+
+        int[] quadrants = new int[400];
+        for (int frame = 0; frame < quadrants.length; frame++) {
+            cylinder.update(frame, fixture.sprite());
+            quadrants[frame] = getCylinderInt(cylinder, "routeQuadrant");
+        }
+
+        assertTrue(arrayContains(quadrants, 0));
+        assertTrue(arrayContains(quadrants, 1));
+        assertTrue(arrayContains(quadrants, 2));
+        assertTrue(arrayContains(quadrants, 3),
+                "Routines 9-12 should mutate $44(a0) through all square-route quadrants");
     }
 
     @Test
@@ -171,7 +214,7 @@ public class TestS3kCnzDirectedTraversalHeadless {
 
         AbstractPlayableSprite player = fixture.sprite();
         player.setCentreX((short) 0x38C0);
-        player.setCentreY((short) 0x07F0);
+        player.setCentreY((short) (0x0800 - 0x20 - player.getYRadius() + 3));
         player.setAir(false);
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
@@ -231,7 +274,7 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 .build();
 
         AbstractPlayableSprite player = fixture.sprite();
-        prepareRiderForCylinder(player, 0x38C0, 0x07F0);
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
         CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
@@ -271,13 +314,71 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCylinderUsesTheExactPlayerTwistFramesTableWhileCaptured() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+
+        fixture.camera().updatePosition(true);
+        waitForCylinderCapture(fixture, player);
+
+        int[] expected = new int[24];
+        int[] actual = new int[expected.length];
+
+        for (int frame = 0; frame < expected.length; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            expected[frame] = expectedTwistFrame(frame);
+            actual[frame] = player.getMappingFrame();
+        }
+
+        assertArrayEquals(expected, actual);
+    }
+
+    @Test
+    void cnzCylinderDropsPriorityOnlyWhenThresholdByteFallsBelowObject35() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+
+        fixture.camera().updatePosition(true);
+        waitForCylinderCapture(fixture, player);
+
+        int[] priorities = new int[12];
+        for (int frame = 0; frame < priorities.length; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            priorities[frame] = player.getPriorityBucket();
+        }
+
+        assertTrue(arrayContains(priorities, RenderPriority.PLAYER_DEFAULT));
+        assertTrue(arrayContains(priorities, RenderPriority.PLAYER_DEFAULT - 1));
+        assertEquals(RenderPriority.PLAYER_DEFAULT - 1, priorities[3],
+                "The drop should occur only on the low-threshold half of the twist cycle");
+    }
+
+    @Test
     void cnzCylinderKeepsControlUntilThePlayerJumpsOut() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
 
         AbstractPlayableSprite player = fixture.sprite();
-        prepareRiderForCylinder(player, 0x38C0, 0x07F0);
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
         CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
@@ -315,6 +416,25 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCylinderDoesNotCaptureFromSideContactWithoutStandingBit() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinder(player, 0x38E8, 0x0800);
+
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+
+        cylinder.onSolidContact(player, new SolidContact(false, true, false, false, true), 0);
+        cylinder.update(0, player);
+
+        assertFalse(player.isObjectControlled(),
+                "The slot-init branch must stay closed when btst d6,status(a0) would fail");
+    }
+
+    @Test
     void cnzCylinderMaintainsIndependentRiderStateForPlayerAndSidekick() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -323,8 +443,8 @@ public class TestS3kCnzDirectedTraversalHeadless {
         AbstractPlayableSprite player = fixture.sprite();
         AbstractPlayableSprite sidekick = ensureCnzSidekick();
 
-        prepareRiderForCylinder(player, 0x38C0, 0x07F0);
-        prepareRiderForCylinder(sidekick, 0x38D0, 0x07E8);
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+        prepareRiderForCylinderStanding(sidekick, 0x38D0, 0x0800);
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
         CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
@@ -363,7 +483,7 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 .build();
 
         AbstractPlayableSprite player = fixture.sprite();
-        prepareRiderForCylinder(player, 0x38C0, 0x07F0);
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
         CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
@@ -402,6 +522,87 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 "CNZ cylinder should release object control once standing contact is lost without jump input");
     }
 
+    @Test
+    void cnzCylinderStandingLossClearsSlotWithoutJumpSetup() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+        fixture.camera().updatePosition(true);
+
+        waitForCylinderCapture(fixture, player);
+
+        player.setJumpInputPressed(false);
+        player.setAir(true);
+        player.setCentreY((short) (player.getCentreY() - 0x20));
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertFalse(player.isObjectControlled());
+        assertFalse(player.isJumping());
+        assertEquals(0, player.getYSpeed());
+        assertFalse(isPlayerOneSlotActive(cylinder));
+    }
+
+    @Test
+    void cnzCylinderJumpReleaseClearsSlotOnTheJumpFrame() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+        fixture.camera().updatePosition(true);
+
+        waitForCylinderCapture(fixture, player);
+
+        player.setJumpInputPressed(true);
+        fixture.stepFrame(false, false, false, false, true);
+
+        assertTrue(player.isJumping());
+        assertTrue(player.getAir());
+        assertTrue(player.getYSpeed() < 0);
+        assertFalse(player.isObjectControlled());
+        assertFalse(isPlayerOneSlotActive(cylinder));
+    }
+
+    @Test
+    void cnzCylinderForcedReleaseClearsInvalidRiderStateWithoutUsingTheJumpPath() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+        fixture.camera().updatePosition(true);
+
+        waitForCylinderCapture(fixture, player);
+
+        player.setHurt(true);
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertFalse(player.isObjectControlled());
+        assertFalse(player.isJumping());
+        assertEquals(0, player.getYSpeed());
+        assertFalse(isPlayerOneSlotActive(cylinder));
+    }
+
     private static void invokeLaunchDelayHook(CnzCannonInstance cannon, int frames) {
         try {
             java.lang.reflect.Method method = CnzCannonInstance.class.getDeclaredMethod("setLaunchDelayFramesForTest", int.class);
@@ -418,6 +619,21 @@ public class TestS3kCnzDirectedTraversalHeadless {
         return field.get(target);
     }
 
+    private static int getCylinderInt(CnzCylinderInstance cylinder, String fieldName) throws Exception {
+        java.lang.reflect.Field field = CnzCylinderInstance.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getInt(cylinder);
+    }
+
+    private static boolean isPlayerOneSlotActive(CnzCylinderInstance cylinder) throws Exception {
+        java.lang.reflect.Field slotField = CnzCylinderInstance.class.getDeclaredField("playerOneSlot");
+        slotField.setAccessible(true);
+        Object slot = slotField.get(cylinder);
+        java.lang.reflect.Field activeField = slot.getClass().getDeclaredField("active");
+        activeField.setAccessible(true);
+        return activeField.getBoolean(slot);
+    }
+
     private static void prepareRiderForCylinder(AbstractPlayableSprite rider, int x, int y) {
         rider.setCentreX((short) x);
         rider.setCentreY((short) y);
@@ -429,6 +645,30 @@ public class TestS3kCnzDirectedTraversalHeadless {
         rider.setControlLocked(false);
         rider.setObjectControlled(false);
         rider.setJumpInputPressed(false);
+    }
+
+    private static void prepareRiderForCylinderStanding(AbstractPlayableSprite rider, int x, int cylinderY) {
+        int standingY = cylinderY - 0x20 - rider.getYRadius() + 3;
+        prepareRiderForCylinder(rider, x, standingY);
+    }
+
+    private static void waitForCylinderCapture(HeadlessTestFixture fixture, AbstractPlayableSprite player) {
+        boolean captured = false;
+        for (int frame = 0; frame < 32; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (player.isObjectControlled()) {
+                captured = true;
+                break;
+            }
+        }
+        assertTrue(captured, "Cylinder should capture the rider before exercising release branches");
+    }
+
+    private static int expectedTwistFrame(int updateIndex) {
+        int[] table = {0x55, 0x59, 0x5A, 0x5B, 0x5A, 0x59, 0x55, 0x56, 0x57, 0x58, 0x57, 0x56};
+        int twistAngle = (updateIndex * 2) & 0xFF;
+        int frameIndex = ((twistAngle + 0x0B) & 0xFF) / 0x16;
+        return table[frameIndex];
     }
 
     private static void stepDualRiderFrame(int frameCounter,
@@ -452,7 +692,8 @@ public class TestS3kCnzDirectedTraversalHeadless {
             return GameServices.sprites().getSidekicks().getFirst();
         }
 
-        Tails sidekick = new Tails("cnz_sidekick", (short) 0x38C0, (short) 0x07F0);
+        Tails sidekick = new Tails("cnz_sidekick", (short) 0x38C0, (short) 0x0800);
+        prepareRiderForCylinderStanding(sidekick, 0x38C0, 0x0800);
         sidekick.setCpuControlled(true);
         GameServices.sprites().addSprite(sidekick, "tails");
         return sidekick;

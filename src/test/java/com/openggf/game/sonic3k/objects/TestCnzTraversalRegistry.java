@@ -10,6 +10,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -82,6 +83,31 @@ public class TestCnzTraversalRegistry {
                 Sonic3kObjectArtKeys.CNZ_CYLINDER, 0, 0x1E00, 0x0600);
     }
 
+    @Test
+    public void cnzCylinderVisibleCadenceAdvancesFromAZeroInitializedTimer() throws Exception {
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
+                0x47, 0, 0, false, 0));
+        setPrivateIntField(cylinder, "animFrameTimer", 0);
+
+        LevelManager levelManager = mock(LevelManager.class);
+        ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
+        PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
+        when(levelManager.getObjectRenderManager()).thenReturn(renderManager);
+        when(renderManager.getRenderer(Sonic3kObjectArtKeys.CNZ_CYLINDER)).thenReturn(renderer);
+        when(renderer.isReady()).thenReturn(true);
+
+        ((com.openggf.level.objects.AbstractObjectInstance) cylinder).setServices(
+                new TestObjectServices().withLevelManager(levelManager));
+
+        assertCylinderRenderedFrame(cylinder, renderer, renderManager, 0);
+
+        int[] expectedFrames = {1, 1, 2, 2, 3, 3, 0, 0};
+        for (int frameIndex : expectedFrames) {
+            cylinder.update(0, null);
+            assertCylinderRenderedFrame(cylinder, renderer, renderManager, frameIndex);
+        }
+    }
+
     private static void assertVisibleObjectRendersExpectedInitialFrame(ObjectInstance instance,
             String artKey, int frame, int x, int y) {
         LevelManager levelManager = mock(LevelManager.class);
@@ -97,5 +123,25 @@ public class TestCnzTraversalRegistry {
 
         verify(renderManager).getRenderer(artKey);
         verify(renderer).drawFrameIndex(frame, x, y, false, false);
+    }
+
+    private static void assertCylinderRenderedFrame(CnzCylinderInstance cylinder,
+            PatternSpriteRenderer renderer, ObjectRenderManager renderManager,
+            int frame) {
+        cylinder.appendRenderCommands(new ArrayList<>());
+        verify(renderManager).getRenderer(Sonic3kObjectArtKeys.CNZ_CYLINDER);
+        verify(renderer).drawFrameIndex(org.mockito.ArgumentMatchers.eq(frame),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.eq(false),
+                org.mockito.ArgumentMatchers.eq(false));
+        org.mockito.Mockito.clearInvocations(renderManager, renderer);
+    }
+
+    private static void setPrivateIntField(Object target, String fieldName, int value)
+            throws ReflectiveOperationException {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(target, value);
     }
 }
