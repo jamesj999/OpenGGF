@@ -20,6 +20,8 @@ The branch now has new solid-ordering behavior and dedicated headless coverage a
 
 ## Current Findings
 
+These findings reflect the current post-`d8b11ae30` branch state, not the earlier pre-solid-ordering draft.
+
 ### Design/Code Review Findings
 
 The current `CnzCylinderInstance` is no longer a trivial stub. It already contains:
@@ -31,6 +33,7 @@ The current `CnzCylinderInstance` is no longer a trivial stub. It already contai
 
 However, it still contains several approximation seams that are too heuristic for a literal ROM port:
 
+- mode `0` still hot-seeds `mode0Velocity` from the speed cap at init
 - `canFallbackCapture()` uses narrow overlap logic as a rider-entry seam
 - slot ownership is inferred from camera focus / first sidekick heuristics rather than a more literal ROM-shaped rider contract
 - the circular route logic is still engine-shaped rather than fully locked down by literal quadrant-transition parity tests
@@ -61,6 +64,8 @@ Excluded:
 - speculative shared-engine rewrites before the refreshed cylinder tests exist
 - broad renderer refactors unless cylinder parity specifically proves they are needed
 
+Implementation approach: `cylinder-first, engine-fixes-if-proven`.
+
 ## Decision Rule For Shared Engine Cleanup
 
 Shared solid-pipeline cleanup is explicitly in scope, but it is not the default first move.
@@ -73,25 +78,10 @@ The implementation should assume:
 Shared engine work is justified if the refreshed cylinder tests show that:
 
 - valid ROM-like capture still cannot happen without a `canFallbackCapture()`-style seam
-- standing-bit timing still cannot be observed in a way that allows a more literal `sub_324C0` port
+- the ROM gate `btst d6,status(a0)` in `sub_324C0` cannot be expressed closely enough through the current standing-bit/contact publication flow
 - release semantics still require non-ROM cylinder-local hacks that other traversal full-solids would also likely need
 
 Shared engine work is not justified if the failure is still fully explained by cylinder-local state, motion, slot, or release logic.
-
-## Selected Approach
-
-The refreshed implementation approach is:
-
-`cylinder-first, engine-fixes-if-proven`
-
-This means:
-
-- rewrite the spec/plan around the remaining cylinder-local ROM drift
-- front-load stricter failing tests
-- make cylinder-local changes first
-- only widen into shared solid-pipeline cleanup if the refreshed tests still prove the object cannot be made ROM-like locally
-
-This is preferred over a shared-pipeline-first approach because the current code still contains obvious object-level approximations, and broad engine changes would be harder to justify while those remain.
 
 ## Refreshed Design
 
@@ -102,8 +92,11 @@ The first TDD slice should lock down the motion state that still differs materia
 Required focus:
 
 - mode `0` must not preload live velocity from the speed cap
+  - ROM contract: init stores the vertical speed cap in `$3E(a0)` from `word_320E2`, but leaves live `y_vel(a0)` untouched at init; the live controller then starts from `0` and evolves inside `loc_32208` (`sonic3k.asm`, `Obj_CNZCylinder` init through `sub_321E2`)
 - early-frame mode `0` behavior should be asserted more tightly than “it moved vertically”
+  - ROM contract: `loc_32208` changes `y_vel(a0)` based on standing-mask transitions, current displacement from saved origin `$30(a0)`, and held up/down input, then snaps near-rest values to `0`
 - representative circular subtype tests should assert literal quadrant evolution more directly than the current “visited both sides” smoke checks
+  - ROM contract: `loc_323EC` mutates `$44(a0)` when the signed angle step crosses the low-half threshold, clamps `angle(a0)` back into the `$80-$FF` half, and then derives the square route edge from `$44(a0)` rather than a generic circular orbit
 
 The object state should remain organized around explicit ROM-like motion fields:
 
@@ -124,12 +117,14 @@ The second TDD slice should target the capture/release seam directly.
 Required focus:
 
 - capture should be proven from valid standing-state conditions, not just broad overlap or side/push contact
+  - ROM contract: entry is gated by `btst d6,status(a0)` at the top of `sub_324C0`; the rider slot only initializes when the object's standing bit for that player is already set
 - tests should distinguish:
   - valid capture entry
   - no-capture on invalid contact paths
   - standing-loss behavior
   - jump-triggered release
   - forced-release / invalid-rider-state behavior
+  - ROM contract: these are not one merged path. `sub_324C0` has a slot-init branch, an active-rider branch guarded by render/routine checks, a jump-release branch, and a standing-bit-clear branch that simply clears slot state without reusing the jump path
 - player and sidekick slot behavior should remain independent and explicitly covered
 
 The goal is to delete, replace, or narrowly justify the current heuristic seams:
@@ -147,9 +142,14 @@ The third TDD slice should keep the ROM twist tables but tighten everything arou
 Required focus:
 
 - exact twist-frame sequence windows
+  - ROM contract: `PlayerTwistFrames` is the exact 12-frame cycle
+    - `$55, $59, $5A, $5B, $5A, $59, $55, $56, $57, $58, $57, $56`
 - priority changes across the twist cycle
+  - ROM contract: active riders default to priority `$100`, then drop to `$80` only when the computed threshold byte `3(a2) = ((sin(angle)+$100)>>2)` is less than object byte `$35(a0)` (`cmp.b 3(a2),d0 / bls.s ... / move.w #$80,priority(a1)`)
 - capture-state radii / roll / animation ownership rules
+  - ROM contract: on capture, `sub_324C0` restores default radii and clears roll/in-air/push/roll-jump bits before active twist updates take over mapping-frame ownership
 - visible cylinder frame cadence, not only initial frame selection
+  - ROM contract: object `mapping_frame(a0)` still advances on the cylinder's own 4-frame idle loop via `anim_frame_timer(a0)` after `SolidObjectFull`
 
 The current object should not be treated as done merely because the frame table values themselves match the ROM. The surrounding state transitions matter just as much.
 
@@ -190,7 +190,7 @@ Key principle:
    - related CNZ traversal tests
    - then full `mvn test`, accepting the known trace exception context until that separate work is addressed
 
-## Files Expected To Change Later
+## Files Expected To Change
 
 Primary:
 
@@ -202,6 +202,13 @@ Conditional shared-engine follow-up:
 
 - `src/main/java/com/openggf/level/objects/ObjectManager.java`
 - related solid/contact-publication classes touched by the new ordering work
+- `src/test/java/com/openggf/tests/TestSolidOrderingSentinelsHeadless.java`
+
+Related dependent verification:
+
+- `src/test/java/com/openggf/game/sonic3k/TestS3kCnzVisualCapture.java`
+- `src/test/java/com/openggf/game/sonic3k/TestCnzTraversalObjectArt.java`
+- `src/test/java/com/openggf/tests/TestS3kCnzDirectedTraversalHeadless.java`
 
 ## Success Criteria
 
@@ -213,5 +220,16 @@ And the resulting implementation is successful when one of these is true:
 
 1. `CnzCylinderInstance` passes the refreshed parity tests without needing the current heuristic capture/release seams, or
 2. a narrowly scoped shared solid-pipeline cleanup is proven necessary by refreshed failing cylinder tests and is covered by dedicated regressions
+
+The stricter pass conditions should be literal, not outcome-only. At minimum, the refreshed implementation/test set should prove that:
+
+- mode `0` init seeds the speed cap but not the live vertical velocity
+- standing-bit transitions drive capture semantics through the ROM gate `btst d6,status(a0)` rather than through side/push/overlap heuristics
+- no remaining code path captures a rider solely because broad overlap or fallback contact guessed that capture should happen
+- standing-loss, jump-release, and forced-release behaviors remain distinct and map to the correct ROM branches
+- the full 12-frame twist cycle is observed as
+  - `$55, $59, $5A, $5B, $5A, $59, $55, $56, $57, $58, $57, $56`
+- the active-rider priority drop follows the ROM threshold rule instead of a hand-picked simplified split
+- the visible cylinder frame cadence remains locked to the object's own idle animation loop
 
 Either way, the work should end with a cylinder design that is more literal than the current one and a plan that no longer relies on stale pre-solid-ordering assumptions.
