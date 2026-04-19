@@ -469,6 +469,8 @@ om.addDynamicObject(childInstance);
 
 **S3K level-art objects:** Prefer `Sonic3kObjectArt.buildLevelArtSheetFromRom(mappingAddr, artTileBase, palette)` to parse S3K mappings from ROM at runtime. Add mapping ROM address to `Sonic3kConstants.java` (use RomOffsetFinder). Extract art_tile base and palette from the object code's `make_art_tile()` call. Only hardcode mapping pieces when the ROM table can't be used directly.
 
+**Hard rule: ROM-only runtime assets.** If the engine needs object art, mappings, DPLCs, animation scripts, PLC data, or any other gameplay/runtime asset bytes, they must come from the user-supplied ROM through the engine's ROM-loading pipeline. Do **not** read runtime asset bytes from checked-in disassembly/reference files under `docs/` as a fallback. The disassembly tree is for research, labels, and offset discovery only. If a ROM-backed source is missing, find or verify the ROM address/path instead of loading from `docs/`.
+
 **PLC system:** `PlcParser` in `level.resources` provides game-agnostic PLC parsing. See `plc-system` skill for cross-game reference, `s3k-plc-system` for S3K-specific details.
 
 ### Constants Files
