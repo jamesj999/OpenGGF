@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class TestEngineServices {
@@ -67,6 +68,24 @@ class TestEngineServices {
         new GameLoop(injectedRoot);
 
         assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+    }
+
+    @Test
+    void runtimeRebindsWhenEngineServicesRootChangesWhileActive() {
+        EngineServices staleRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineServices injectedRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        RuntimeManager.configureEngineServices(staleRoot);
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+
+        com.openggf.game.GameRuntime runtime = RuntimeManager.createGameplay();
+        assertSame(staleRoot, runtime.getEngineServices());
+
+        RuntimeManager.configureEngineServices(injectedRoot);
+
+        com.openggf.game.GameRuntime rebound = RuntimeManager.getCurrent(injectedRoot);
+
+        assertSame(injectedRoot, rebound.getEngineServices());
+        assertNotSame(runtime, rebound);
     }
 
     @Test
