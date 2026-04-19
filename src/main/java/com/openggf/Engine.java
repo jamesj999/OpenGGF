@@ -204,11 +204,6 @@ public class Engine {
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
 
-		// Some desktop-only debug helpers are still not native-safe.
-		if (isNativeImage()) {
-			debugViewEnabled = false;
-		}
-
 		// Set up game mode change listener to update projection width
 		gameLoop.setGameModeChangeListener((oldMode, newMode) -> {
 			// Keep projection at 320 for both modes
@@ -294,8 +289,10 @@ public class Engine {
 		// Setup window focus callback
 		glfwSetWindowFocusCallback(window, (windowHandle, focused) -> {
 			if (focused) {
+				paused = false;
 				gameLoop.resume();
 			} else {
+				paused = true;
 				gameLoop.pause();
 			}
 		});
@@ -381,7 +378,7 @@ public class Engine {
 		}
 
 		// Eagerly initialize debug renderer resources before the main loop starts.
-		if (debugViewEnabled && !isNativeImage()) {
+		if (debugViewEnabled) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().eagerInit();
 			// Force GL sync and unbind all state
@@ -415,8 +412,18 @@ public class Engine {
 		}
 		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
 		initializeGameplayRuntime(gameplayMode, true);
-		boolean warmupPumpedRenderTasks = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
-		if (!warmupPumpedRenderTasks) {
+		boolean generationRan = maybeGenerateDonatedDataSelectImagesBeforeStartupMode(module);
+		if (generationRan) {
+			// Preview capture loaded full levels into the LevelManager and
+			// GraphicsManager, corrupting the pattern atlas, palette textures,
+			// DPLC banks, sprite art, and other GPU/manager state.
+			// Reset GPU state (pattern atlas + palette textures) and rebuild
+			// the gameplay runtime so everything starts from a clean slate.
+			graphicsManager.resetPatternAndPaletteState();
+			RuntimeManager.destroyCurrent();
+			gameplayMode = SessionManager.openGameplaySession(module);
+			initializeGameplayRuntime(gameplayMode, false);
+		} else {
 			graphicsManager.runPendingRenderThreadTasks();
 		}
 		enterConfiguredStartupMode();
@@ -1097,6 +1104,20 @@ public class Engine {
 			// to properly handle isKeyPressed() edge detection. Do NOT call update()
 			// here or isKeyPressed() will always return false.
 
+			if (paused) {
+				// When unfocused/minimized, sleep longer — no need for frame-precise
+				// timing. Just poll events ~30 times/sec to stay responsive to focus.
+				try {
+					Thread.sleep(33);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+				// Reset accumulator so we don't process a burst of frames on resume
+				accumulator = 0;
+				previousTime = System.nanoTime();
+				continue;
+			}
+
 			// Hybrid sleep: sleep most of the wait time, then spin-wait for precision
 			long remainingTime = frameTimeNanos - accumulator;
 			if (remainingTime > 2_000_000) {
@@ -1230,7 +1251,7 @@ public class Engine {
 
 		boolean playbackHud = playbackDebugManager.isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
-				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE && !isNativeImage());
+				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE);
 
 		if (needsOverlay) {
 			prepareOverlayState();
@@ -1244,7 +1265,7 @@ public class Engine {
 			} else {
 				ssProvider.renderLagCompensationOverlay(windowWidth, windowHeight);
 			}
-		} else if ((debugViewEnabled || playbackHud) && !isNativeImage()) {
+		} else if (debugViewEnabled || playbackHud) {
 			getDebugRenderer().updateViewport(viewportWidth, viewportHeight);
 			getDebugRenderer().renderDebugInfo();
 
@@ -1521,7 +1542,9 @@ public class Engine {
 				System.setProperty("org.lwjgl.librarypath", libPath);
 			}
 		}
-		new Engine(EngineServices.fromLegacySingletonsForBootstrap()).run();
+		EngineServices services = EngineServices.fromLegacySingletonsForBootstrap();
+		services.configuration().ensureConfigFileExists();
+		new Engine(services).run();
 	}
 
 	private static String findNativeLibsDir() {

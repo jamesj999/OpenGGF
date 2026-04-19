@@ -580,7 +580,7 @@ public class SpriteManager {
 		Camera camera = GameServices.cameraOrNull();
 		if (camera != null && camera.isVerticalWrapEnabled()) {
 			GameServices.graphics().enableVerticalWrapAdjust(
-					Camera.VERTICAL_WRAP_RANGE, camera.getY());
+					camera.getVerticalWrapRange(), camera.getY());
 			return true;
 		}
 		return false;

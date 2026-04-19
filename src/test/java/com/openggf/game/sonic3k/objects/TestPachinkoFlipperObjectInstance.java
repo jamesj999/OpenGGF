@@ -24,7 +24,7 @@ public class TestPachinkoFlipperObjectInstance {
         when(player.isJumpJustPressed()).thenReturn(false, false, false);
 
         flipper.setServices(new TestObjectServices());
-        SolidContact standing = new SolidContact(true, false, false, false, false, 0);
+        SolidContact standing = new SolidContact(true, false, false, false, false, 0, false);
 
         flipper.onSolidContact(player, standing, 0);
         flipper.update(0, player);
@@ -36,5 +36,4 @@ public class TestPachinkoFlipperObjectInstance {
         verify(player, never()).setXSpeed(anyShort());
     }
 }
-
 

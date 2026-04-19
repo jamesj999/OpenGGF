@@ -88,7 +88,7 @@ public class BlipResampler {
     private double ratio;  // inputRate / outputRate
 
     // Circular buffer for input samples (stereo)
-    private static final int BUFFER_SIZE = 1 << 14;
+    private static final int BUFFER_SIZE = 1 << 13;
     private static final int BUFFER_MASK = BUFFER_SIZE - 1;
     private final int[] historyL = new int[BUFFER_SIZE];
     private final int[] historyR = new int[BUFFER_SIZE];

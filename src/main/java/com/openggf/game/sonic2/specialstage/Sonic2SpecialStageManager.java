@@ -6,6 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.data.Rom;
 import com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug;
 import com.openggf.graphics.GraphicsManager;
@@ -919,7 +920,7 @@ public class Sonic2SpecialStageManager {
         sonicPlayer = null;
         tailsPlayer = null;
 
-        String characterCode = configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String characterCode = ActiveGameplayTeamResolver.resolveMainCharacterCode(configuration());
         if (characterCode == null) {
             characterCode = "sonic";
         }

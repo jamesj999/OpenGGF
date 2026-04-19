@@ -182,6 +182,12 @@ public final class Sonic1Constants {
     public static final int ART_UNC_LIVES_NUMBERS_ADDR = 0x1D5A6;
     public static final int ART_UNC_LIVES_NUMBERS_SIZE = 320; // 10 tiles
 
+    // Art_Text: Uncompressed 8x8 font used by level select + debug HUD hex coords.
+    // ASCII-aligned layout: tile n = character ('0' + n), so digits 0-9 at tiles 0-9
+    // and A-F at tiles 17-22 (matches '0'=0x30, 'A'=0x41 -> offset 0x11).
+    public static final int ART_UNC_TEXT_ADDR = 0x5F0;
+    public static final int ART_UNC_TEXT_SIZE = 1312; // 41 tiles
+
     // Nem_Hud: Nemesis-compressed HUD text labels (SCORE/TIME/RINGS)
     public static final int ART_NEM_HUD_ADDR = 0x39812;
 

@@ -14,6 +14,23 @@ final class S3kAnimatedTileChannels {
     private S3kAnimatedTileChannels() {
     }
 
+    static List<AnimatedTileChannel> buildMgzChannels(Sonic3kPatternAnimator owner,
+                                                      List<AniPlcScriptState> scripts) {
+        List<AnimatedTileChannel> channels = new ArrayList<>(scripts.size());
+        for (int i = 0; i < scripts.size(); i++) {
+            AniPlcScriptState script = scripts.get(i);
+            channels.add(new AnimatedTileChannel(
+                    "s3k.mgz.script." + i,
+                    owner::shouldRunMgzScriptChannels,
+                    ctx -> ctx.frameCounter(),
+                    scriptDestination(script),
+                    AnimatedTileCachePolicy.ALWAYS,
+                    ctx -> owner.tickScript(script)
+            ));
+        }
+        return channels;
+    }
+
     static List<AnimatedTileChannel> buildHczChannels(Sonic3kPatternAnimator owner,
                                                       List<AniPlcScriptState> scripts,
                                                       int actIndex) {

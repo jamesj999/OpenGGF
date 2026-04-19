@@ -226,8 +226,15 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
             savedPreContactXSpeed = om.getPreContactXSpeed();
         }
 
-        // Only interested in pushing contacts (ROM: d6 bits 16-17 = pushing flags)
-        if (!contact.pushing()) return;
+        // MGZ spin-break walls key off grabbed-state side-contact feedback, not the
+        // generic push flag. The other modes still require a pushing contact.
+        if (config.breakMode == BreakMode.MGZ_SPIN_BREAK) {
+            if (!contact.touchSide()) {
+                return;
+            }
+        } else if (!contact.pushing()) {
+            return;
+        }
 
         boolean shouldBreak = switch (config.breakMode) {
             case STANDARD -> checkStandardBreak(player);
@@ -268,17 +275,19 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     /**
      * MGZ spin-break check (loc_2172E).
-     * ROM: bclr #6,$37(a1) — tests status_tertiary bit 6 (wall-cling contact).
-     * Effectively only Knuckles can trigger this via gliding into the wall.
+     * ROM: bclr #6,$37(a1) — tests/clears the wall-cling side-contact bit, which
+     * SolidObjectFull raises for any solid object whenever bit 7 is set. The
+     * onSolidContact caller has already gated on touchSide for MGZ_SPIN_BREAK, so
+     * an active wall-cling here is the ROM-equivalent trigger. Knuckles-in-glide
+     * is kept as an engine-side fallback since stock S3K never raises the cling
+     * bit for glides.
      */
     private boolean checkMgzSpinBreak(AbstractPlayableSprite player) {
-        // In the ROM, bit 6 of status_tertiary is set by SolidObjectFull when bit 7
-        // (wall-cling) is already set. Practically only Knuckles triggers this.
-        // Approximate: Knuckles gliding or pushing triggers break.
-        if (!isKnuckles()) return false;
-        // ROM: the actual check is on a contact bit, not glide state specifically.
-        // Any Knuckles contact with this wall type breaks it.
-        return true;
+        if (player.isWallCling()) {
+            player.setWallClingSideContact(false);
+            return true;
+        }
+        return isKnuckles() && player.getDoubleJumpFlag() == GLIDE_ACTIVE;
     }
 
     // ===== Break logic =====
@@ -355,7 +364,6 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) return;
 
         // Trigger-controlled deletion (ROM: tst.b subtype(a0) / bpl.s)

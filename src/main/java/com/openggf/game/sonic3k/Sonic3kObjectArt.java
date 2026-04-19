@@ -137,7 +137,7 @@ public class Sonic3kObjectArt {
      * Mapping: 1 frame, 3 pieces (2x2 each), tile index 0x38
      * Y offsets: -24, -8, +8; X offset: -8
      */
-    public ObjectSpriteSheet buildAiz1TreeSheet() {
+    public ObjectSpriteSheet buildAiz1TreeSheet(int artTileBase) {
         // Mapping pieces from Map - Act 1 Tree.asm
         // 3 pieces, each 2x2 tiles (16x16px), all tile index 0x38, palette 0
         List<SpriteMappingPiece> pieces = List.of(
@@ -148,10 +148,9 @@ public class Sonic3kObjectArt {
         SpriteMappingFrame frame = new SpriteMappingFrame(pieces);
         List<SpriteMappingFrame> frames = List.of(frame);
 
-        // art_tile base = 1, palette = 2
         // Tile range: 0x38 to 0x38+3 = 0x3B (each 2x2 piece uses 4 tiles)
         // minTile = 0x38, maxTileExclusive = 0x3C
-        return buildLevelArtSheet(1, 2, frames, 0x38, 0x3C);
+        return buildLevelArtSheet(artTileBase, 2, frames, 0x38, 0x3C);
     }
 
     /**
@@ -164,7 +163,7 @@ public class Sonic3kObjectArt {
      * Piece 1: 2x1 (16x8px), tile 4, Y=-4, X=-8
      * Piece 2: 3x3 (24x24px), tile 6, Y=-12, X=+8
      */
-    public ObjectSpriteSheet buildAiz1ZiplinePegSheet() {
+    public ObjectSpriteSheet buildAiz1ZiplinePegSheet(int artTileBase) {
         // Mapping pieces from Map - Act 1 Zipline Peg.asm
         List<SpriteMappingPiece> pieces = List.of(
                 new SpriteMappingPiece(-32, -12, 4, 1, 0, false, false, 0),
@@ -174,9 +173,8 @@ public class Sonic3kObjectArt {
         SpriteMappingFrame frame = new SpriteMappingFrame(pieces);
         List<SpriteMappingFrame> frames = List.of(frame);
 
-        // art_tile base = 0x324, palette = 2
         // Tile range: 0 to 6 + (3*3) - 1 = 14 → maxTileExclusive = 15
-        return buildLevelArtSheet(0x324, 2, frames, 0, 15);
+        return buildLevelArtSheet(artTileBase, 2, frames, 0, 15);
     }
 
     /**
@@ -201,8 +199,8 @@ public class Sonic3kObjectArt {
      * Map_AnimatedStillSprites / Ani_AnimatedStillSprites (sonic3k.asm:60424+).
      * art_tile = make_art_tile(ArtTile_AIZMisc2,3,0). Frames 0-8.
      */
-    public ObjectSpriteSheet buildAnimatedStillSpritesSheet() {
-        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 3, 0, 8);
+    public ObjectSpriteSheet buildAnimatedStillSpritesSheet(int artTileBase) {
+        return buildAnimStillSheet(artTileBase, 3, 0, 8);
     }
 
     /**
@@ -215,12 +213,12 @@ public class Sonic3kObjectArt {
      * The ROM overrides art_tile for sideways spikes (size index >= 4) to use
      * tiles $0494-$049B instead of $049C-$04A3. Sheet covers both ranges (16 tiles).
      */
-    public ObjectSpriteSheet buildSpikesSheet() {
-        // Sheet base = $0494, covering tiles 0-15 (sideways=0-7, upright=8-15)
+    public ObjectSpriteSheet buildSpikesSheet(int artTileBase) {
+        // Sheet covers tiles 0-15 (sideways=0-7, upright=8-15) relative to artTileBase
         List<SpriteMappingFrame> frames = new ArrayList<>(8);
 
         // Frames 0-3: upright spikes (2w×4h = 16×32px pieces)
-        // art_tile = $049C = base + 8, so piece tile index = 8
+        // piece tile index = 8 (upright art at base + 8)
         for (int count = 2; count <= 8; count += 2) {
             List<SpriteMappingPiece> pieces = new ArrayList<>(count);
             int startX = -(count / 2) * 16;
@@ -231,7 +229,7 @@ public class Sonic3kObjectArt {
         }
 
         // Frames 4-7: sideways spikes (4w×2h = 32×16px pieces, hflip=true)
-        // art_tile = $0494 = base, so piece tile index = 0
+        // piece tile index = 0 (sideways art at base)
         for (int count = 2; count <= 8; count += 2) {
             List<SpriteMappingPiece> pieces = new ArrayList<>(count);
             int startY = -(count / 2) * 16;
@@ -242,7 +240,7 @@ public class Sonic3kObjectArt {
         }
 
         // 16 tiles: sideways art (0-7) + upright art (8-15)
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_SPIKES_SPRINGS, 0, frames, 0, 16);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 16);
     }
 
     // --- Spring art sheets ---
@@ -252,7 +250,7 @@ public class Sonic3kObjectArt {
     // Diagonal springs: art_tile = ArtTile_DiagonalSpring = $043A
 
     /** Red vertical spring: 3 frames (idle, triggered-compress, triggered-extend). */
-    public ObjectSpriteSheet buildSpringVerticalSheet() {
+    public ObjectSpriteSheet buildSpringVerticalSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 // Frame 0 (idle): coil plate + base plate
                 new SpriteMappingFrame(List.of(
@@ -265,11 +263,11 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(-16, -24, 4, 1, 0, false, false, 0),
                         new SpriteMappingPiece(-8, -16, 2, 3, 0xA, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_SPIKES_SPRINGS + 0x10, 0, frames, 0, 0x10);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x10);
     }
 
     /** Yellow vertical spring: same layout as red, different coil tiles (4) and palette (1). */
-    public ObjectSpriteSheet buildSpringVerticalYellowSheet() {
+    public ObjectSpriteSheet buildSpringVerticalYellowSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(-16, -8, 4, 1, 4, false, false, 1),
@@ -279,11 +277,11 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(-16, -24, 4, 1, 4, false, false, 1),
                         new SpriteMappingPiece(-8, -16, 2, 3, 0xA, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_SPIKES_SPRINGS + 0x10, 0, frames, 0, 0x10);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x10);
     }
 
     /** Red horizontal spring: 3 frames. */
-    public ObjectSpriteSheet buildSpringHorizontalSheet() {
+    public ObjectSpriteSheet buildSpringHorizontalSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 // Frame 0 (idle): coil column + base column
                 new SpriteMappingFrame(List.of(
@@ -296,11 +294,11 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(16, -16, 1, 4, 0, false, false, 0),
                         new SpriteMappingPiece(-8, -8, 3, 2, 0xA, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_SPIKES_SPRINGS + 0x20, 0, frames, 0, 0x10);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x10);
     }
 
     /** Yellow horizontal spring: same layout, different coil tiles. */
-    public ObjectSpriteSheet buildSpringHorizontalYellowSheet() {
+    public ObjectSpriteSheet buildSpringHorizontalYellowSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(0, -16, 1, 4, 4, false, false, 1),
@@ -310,11 +308,11 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(16, -16, 1, 4, 4, false, false, 1),
                         new SpriteMappingPiece(-8, -8, 3, 2, 0xA, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_SPIKES_SPRINGS + 0x20, 0, frames, 0, 0x10);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x10);
     }
 
     /** Red diagonal spring: 3 frames. */
-    public ObjectSpriteSheet buildSpringDiagonalSheet() {
+    public ObjectSpriteSheet buildSpringDiagonalSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 // Frame 0 (idle): 4 pieces
                 new SpriteMappingFrame(List.of(
@@ -334,11 +332,11 @@ public class Sonic3kObjectArt {
                         new SpriteMappingPiece(6, -10, 2, 2, 6, false, false, 0),
                         new SpriteMappingPiece(-6, -11, 2, 1, 0x18, false, false, 0),
                         new SpriteMappingPiece(-14, -3, 2, 1, 0x1A, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DIAGONAL_SPRING, 0, frames, 0, 0x1C);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x1C);
     }
 
     /** Yellow diagonal spring: different coil tiles (0xA/0xD/0x10), palette 1. */
-    public ObjectSpriteSheet buildSpringDiagonalYellowSheet() {
+    public ObjectSpriteSheet buildSpringDiagonalYellowSheet(int artTileBase) {
         List<SpriteMappingFrame> frames = List.of(
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(-21, -15, 3, 1, 0xA, false, false, 1),
@@ -355,7 +353,7 @@ public class Sonic3kObjectArt {
                         new SpriteMappingPiece(6, -10, 2, 2, 0x10, false, false, 1),
                         new SpriteMappingPiece(-6, -11, 2, 1, 0x18, false, false, 0),
                         new SpriteMappingPiece(-14, -3, 2, 1, 0x1A, false, false, 0))));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DIAGONAL_SPRING, 0, frames, 0, 0x1C);
+        return buildLevelArtSheet(artTileBase, 0, frames, 0, 0x1C);
     }
 
     /**
@@ -366,7 +364,7 @@ public class Sonic3kObjectArt {
      * Mapping: 2 frames (0=with flowers, 1=without flowers), 8 pieces each.
      * Tile range: 0x64 to 0x9B (56 patterns from level art).
      */
-    public ObjectSpriteSheet buildAizForegroundPlantSheet() {
+    public ObjectSpriteSheet buildAizForegroundPlantSheet(int artTileBase) {
         // Frame 0: with flowers (8 pieces)
         List<SpriteMappingPiece> frame0Pieces = List.of(
                 new SpriteMappingPiece(-32, -48, 4, 3, 0x64, false, false, 0),
@@ -393,9 +391,8 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(frame0Pieces),
                 new SpriteMappingFrame(frame1Pieces));
 
-        // art_tile base = 0x333, palette = 2
         // Tile range: 0x64 to 0x9C (exclusive) = 56 patterns
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC1, 2, frames, 0x64, 0x9C);
+        return buildLevelArtSheet(artTileBase, 2, frames, 0x64, 0x9C);
     }
 
     /**
@@ -448,24 +445,24 @@ public class Sonic3kObjectArt {
      * Builds AnimatedStillSprite sheet for LRZ subtype 2 (ceiling rock flicker).
      * art_tile = $0D3, palette 2. Animation frames 9-10.
      */
-    public ObjectSpriteSheet buildAnimStillLrzD3Sheet() {
-        return buildAnimStillSheet(0x00D3, 2, 9, 10);
+    public ObjectSpriteSheet buildAnimStillLrzD3Sheet(int artTileBase) {
+        return buildAnimStillSheet(artTileBase, 2, 9, 10);
     }
 
     /**
      * Builds AnimatedStillSprite sheet for LRZ2 subtype 3 (torch flame).
      * art_tile = LRZ2Misc ($040D), palette 1. Animation frames 11-13.
      */
-    public ObjectSpriteSheet buildAnimStillLrz2Sheet() {
-        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_LRZ2_MISC, 1, 11, 13);
+    public ObjectSpriteSheet buildAnimStillLrz2Sheet(int artTileBase) {
+        return buildAnimStillSheet(artTileBase, 1, 11, 13);
     }
 
     /**
      * Builds AnimatedStillSprite sheet for SOZ subtypes 4-7 (torches).
      * art_tile = SOZMisc+$46 ($040F), palette 2. Animation frames 14-29.
      */
-    public ObjectSpriteSheet buildAnimStillSozSheet() {
-        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_SOZ_MISC + 0x46, 2, 14, 29);
+    public ObjectSpriteSheet buildAnimStillSozSheet(int artTileBase) {
+        return buildAnimStillSheet(artTileBase, 2, 14, 29);
     }
 
     private ObjectSpriteSheet buildAnimStillSheet(int artTileBase, int palette,
@@ -531,7 +528,7 @@ public class Sonic3kObjectArt {
      * so the auto-detect frame count method would compute 60 instead of 32. Uses explicit
      * frame count.
      */
-    public ObjectSpriteSheet buildFlippingBridgeSheet() {
+    public ObjectSpriteSheet buildFlippingBridgeSheet(int artTileBase) {
         if (reader == null) return null;
         List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
                 reader, Sonic3kConstants.MAP_AIZ_FLIPPING_BRIDGE_ADDR, 32);
@@ -548,7 +545,7 @@ public class Sonic3kObjectArt {
         }
         if (minTile == Integer.MAX_VALUE) return null;
 
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, minTile, maxTile);
+        return buildLevelArtSheet(artTileBase, 2, frames, minTile, maxTile);
     }
 
     /**
@@ -556,10 +553,10 @@ public class Sonic3kObjectArt {
      * ROM: Obj_AIZDrawBridge uses art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 1).
      * Map_AIZDrawBridge has 2 frames: frame 0 = empty, frame 1 = single 2x2 segment.
      */
-    public ObjectSpriteSheet buildDrawBridgeSheet() {
+    public ObjectSpriteSheet buildDrawBridgeSheet(int artTileBase) {
         return buildLevelArtSheetFromRom(
                 Sonic3kConstants.MAP_AIZ_DRAW_BRIDGE_ADDR,
-                Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                artTileBase,
                 2);
     }
 
@@ -572,7 +569,7 @@ public class Sonic3kObjectArt {
      * Note: Map_AIZDisappearingFloor and Map_AIZDisappearingFloor2 share a memory region
      * (interleaved offset tables), so auto-detect frame count would fail. Uses explicit count 6.
      */
-    public ObjectSpriteSheet buildDisappearingFloorSheet() {
+    public ObjectSpriteSheet buildDisappearingFloorSheet(int artTileBase) {
         if (reader == null) return null;
         List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
                 reader, Sonic3kConstants.MAP_AIZ_DISAPPEARING_FLOOR_ADDR, 6);
@@ -589,7 +586,7 @@ public class Sonic3kObjectArt {
         }
         if (minTile == Integer.MAX_VALUE) return null;
 
-        return buildLevelArtSheet(1, 2, frames, minTile, maxTile);
+        return buildLevelArtSheet(artTileBase, 2, frames, minTile, maxTile);
     }
 
     /**
@@ -599,7 +596,7 @@ public class Sonic3kObjectArt {
      * <p>
      * Interleaved with Map_AIZDisappearingFloor; uses explicit count 4.
      */
-    public ObjectSpriteSheet buildDisappearingFloorBorderSheet() {
+    public ObjectSpriteSheet buildDisappearingFloorBorderSheet(int artTileBase) {
         if (reader == null) return null;
         List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
                 reader, Sonic3kConstants.MAP_AIZ_DISAPPEARING_FLOOR_BORDER_ADDR, 4);
@@ -616,7 +613,7 @@ public class Sonic3kObjectArt {
         }
         if (minTile == Integer.MAX_VALUE) return null;
 
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 3, frames, minTile, maxTile);
+        return buildLevelArtSheet(artTileBase, 3, frames, minTile, maxTile);
     }
 
     // ===== AIZ Spiked Log sprite sheet (parsed from ROM) =====
@@ -1553,10 +1550,9 @@ public class Sonic3kObjectArt {
      * Sprite_OnScreen_Test, but art_tile addition overflows ($235C + $FCA4 = $2000)
      * producing tile 0 / palette 1, which is effectively invisible in-game.
      */
-    public ObjectSpriteSheet buildHczWaterDropSheet() {
+    public ObjectSpriteSheet buildHczWaterDropSheet(int artTileBase) {
         if (level == null) return null;
 
-        int artTileBase = Sonic3kConstants.ARTTILE_HCZ2_SLIDE; // 0x035C
         int levelPatternCount = level.getPatternCount();
 
         // Tiles at artTileBase + 0..0xB (12 tiles from HCZ2Slide art)
@@ -1592,10 +1588,10 @@ public class Sonic3kObjectArt {
                 List.of(f0, f1, f2, f3, f4, f5), 1, 1);
     }
 
-    public ObjectSpriteSheet buildHczWaterRushBlockSheet() {
+    public ObjectSpriteSheet buildHczWaterRushBlockSheet(int artTileBase) {
         SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0)));
         SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-16, 0, 4, 4, 0x00, false, false, 0)));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK, 2, List.of(f0, f1), 0, 16);
+        return buildLevelArtSheet(artTileBase, 2, List.of(f0, f1), 0, 16);
     }
 
     /**
@@ -1604,12 +1600,11 @@ public class Sonic3kObjectArt {
      * Subtype 0 / mapping frame 0.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
      */
-    public ObjectSpriteSheet buildDoorVerticalHczSheet() {
+    public ObjectSpriteSheet buildDoorVerticalHczSheet(int artTileBase) {
         SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-16, -32, 4, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(-16, 0, 4, 4, 0, false, false, 0, false)
         ));
-        int artTileBase = Sonic3kConstants.ARTTILE_HCZ_MISC + 0x0A;
         return buildLevelArtSheet(artTileBase, 2, List.of(f0), 0, 16);
     }
 
@@ -1619,14 +1614,14 @@ public class Sonic3kObjectArt {
      * Subtype 1 / mapping frame 1.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
      */
-    public ObjectSpriteSheet buildDoorVerticalCnzSheet() {
+    public ObjectSpriteSheet buildDoorVerticalCnzSheet(int artTileBase) {
         SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -32, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-8, -16, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-8, 0, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-8, 16, 2, 2, 0, false, false, 0, false)
         ));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f1), 0, 16);
+        return buildLevelArtSheet(artTileBase, 2, List.of(f1), 0, 16);
     }
 
     /**
@@ -1635,14 +1630,14 @@ public class Sonic3kObjectArt {
      * Subtype 2 / mapping frame 2.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
      */
-    public ObjectSpriteSheet buildDoorVerticalDezSheet() {
+    public ObjectSpriteSheet buildDoorVerticalDezSheet(int artTileBase) {
         SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-16, -32, 2, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(0, -32, 2, 4, 8, false, false, 0, false),
                 new SpriteMappingPiece(-16, 0, 2, 4, 0, false, false, 0, false),
                 new SpriteMappingPiece(0, 0, 2, 4, 8, false, false, 0, false)
         ));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E, 1, List.of(f2), 0, 16);
+        return buildLevelArtSheet(artTileBase, 1, List.of(f2), 0, 16);
     }
 
     /**
@@ -1651,14 +1646,14 @@ public class Sonic3kObjectArt {
      * One frame: 4 pieces (size=$05, 2x2=16x16 each), tile 0
      * From Map - Door Horizontal.asm (Map_CNZDoorHorizontal).
      */
-    public ObjectSpriteSheet buildDoorHorizontalSheet() {
+    public ObjectSpriteSheet buildDoorHorizontalSheet(int artTileBase) {
         SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-32, -8, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-16, -8, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(   0, -8, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(  16, -8, 2, 2, 0, false, false, 0, false)
         ));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f0), 0, 4);
+        return buildLevelArtSheet(artTileBase, 2, List.of(f0), 0, 4);
     }
 
     /**

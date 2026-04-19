@@ -49,15 +49,20 @@ class TestConfigKeyNameResolution {
 
     @Test
     void getInt_invalidString_fallsBackToDefault() {
-        // FRAME_STEP_KEY default is GLFW_KEY_Q (81)
         configService.setConfigValue(SonicConfiguration.FRAME_STEP_KEY, "banana");
         assertEquals(GLFW_KEY_Q, configService.getInt(SonicConfiguration.FRAME_STEP_KEY));
     }
 
     @Test
     void getInt_invalidString_nonKeyConfig_returnsDefault() {
-        // DEBUG_MODE_KEY default is GLFW_KEY_D (68)
         configService.setConfigValue(SonicConfiguration.DEBUG_MODE_KEY, "banana");
         assertEquals(GLFW_KEY_D, configService.getInt(SonicConfiguration.DEBUG_MODE_KEY));
+    }
+
+    @Test
+    void defaults_storeReadableKeyNames() {
+        assertEquals("Q", configService.getDefaultValue(SonicConfiguration.FRAME_STEP_KEY));
+        assertEquals("D", configService.getDefaultValue(SonicConfiguration.DEBUG_MODE_KEY));
+        assertEquals("UP", configService.getDefaultValue(SonicConfiguration.UP));
     }
 }

@@ -5,6 +5,7 @@ import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.AizObjectEventBridge;
@@ -93,21 +94,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
-        // Resolve from config — matches ROM's Player_mode variable
-        String mainChar = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
-        if ("knuckles".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.KNUCKLES;
-        } else if ("tails".equalsIgnoreCase(mainChar)) {
-            return PlayerCharacter.TAILS_ALONE;
-        }
-        // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
-        String sidekick = GameServices.configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekick == null || sidekick.isBlank()) {
-            return PlayerCharacter.SONIC_ALONE;
-        }
-        return PlayerCharacter.SONIC_AND_TAILS;
+        return ActiveGameplayTeamResolver.resolvePlayerCharacter(GameServices.configuration());
     }
 
     @Override
@@ -289,7 +276,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (currentZone == Sonic3kZoneIds.ZONE_HCZ && currentAct == 0) {
             applyHcz1IntroState();
         }
-        // TODO: MGZ1, LRZ1/Knuckles, SSZ falling intros (loc_68A6)
+        // ROM: sonic3k.asm loc_68A6 — simple falling intro (anim $1B + airborne).
+        // Applied to MGZ1, SSZ, and LRZ1 (non-Knuckles only).
+        if (currentZone == Sonic3kZoneIds.ZONE_MGZ && currentAct == 0) {
+            applySimpleFallingIntro("MGZ1");
+        }
+        // TODO: LRZ1 non-Knuckles, SSZ falling intros (same loc_68A6 path)
     }
 
     /**
@@ -337,6 +329,32 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
 
         LOG.info("HCZ1 intro: set falling state on player(s)");
+    }
+
+    /**
+     * Simple falling intro shared by MGZ1, SSZ, and LRZ1 (non-Knuckles).
+     * ROM: sonic3k.asm loc_68A6.
+     *
+     * <p>Sets animation $1B (HURT_FALL) and airborne on both players.
+     * Unlike HCZ1, no Knuckles-specific animation or jumping flag.
+     */
+    private void applySimpleFallingIntro(String zoneName) {
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player == null) {
+            return;
+        }
+
+        player.setForcedAnimationId(Sonic3kAnimationIds.HURT_FALL);
+        player.setAir(true);
+        introFallActiveOnPlayer = true;
+
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
+            sidekick.setForcedAnimationId(Sonic3kAnimationIds.HURT_FALL);
+            sidekick.setAir(true);
+            introFallActiveOnSidekick = true;
+        }
+
+        LOG.info(zoneName + " intro: set falling state on player(s)");
     }
 
     // =========================================================================
