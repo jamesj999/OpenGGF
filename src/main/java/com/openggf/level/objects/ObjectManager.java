@@ -180,6 +180,14 @@ public class ObjectManager {
         if (touchResponses != null) {
             touchResponses.reset();
         }
+        if (placement.isCounterBasedRespawn()) {
+            // ROM parity: S1 runs OPL_Main/OPL_Next during level setup, so the
+            // initial object window already occupies SST slots before the first
+            // gameplay frame's ExecuteObjects pass begins. If we defer this
+            // load until ObjectManager.update(), grouped rings and other Routine 0
+            // objects start one frame late and the slot map drifts immediately.
+            syncActiveSpawnsLoad();
+        }
     }
 
     ObjectServices services() {
@@ -238,6 +246,20 @@ public class ObjectManager {
             touchResponses.updateSidekick(player, touchFrameCounter, false);
         } else {
             touchResponses.update(player, touchFrameCounter, false);
+        }
+    }
+
+    /**
+     * Refreshes the object-state snapshot used by inline-order touch checks.
+     * Called at frame start before player physics so ReactToItem sees the
+     * current frame's pre-object-update positions.
+     */
+    public void snapshotTouchResponseState() {
+        for (ObjectInstance inst : activeObjects.values()) {
+            inst.snapshotTouchResponseState();
+        }
+        for (ObjectInstance inst : dynamicObjects) {
+            inst.snapshotTouchResponseState();
         }
     }
 
@@ -408,19 +430,9 @@ public class ObjectManager {
                 // batch pre-pass) ensures child allocations from higher slots see
                 // the correct set of available slots.
                 ObjectSpawn spawn = instanceToSpawn.get(instance);
-                if (spawn != null && !instance.isPersistent()
-                        && isOutOfRangeS1(instance.getX(), cameraX)) {
-                    int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
-                    if (instance instanceof AbstractObjectInstance aoi
-                            && aoi.getSlotIndex() == slotIndex) {
-                        releaseSlot(slotIndex);
-                    }
-                    freeAllReservedChildSlots(spawn);
-                    placement.clearCounterForSpawn(spawn);
-                    placement.removeFromActiveForUnload(spawn);
-                    instance.onUnload();
+                if (unloadCounterBasedOutOfRange(instance, spawn,
+                        currentExecSlot + DYNAMIC_SLOT_BASE, cameraX)) {
                     execOrder[currentExecSlot] = null;
-                    removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
                 }
@@ -460,6 +472,10 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
+                if (unloadCounterBasedOutOfRange(inst, null, -1, cameraX)) {
+                    objectsRemoved = true;
+                    continue;
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -483,6 +499,10 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
+                if (unloadCounterBasedOutOfRange(inst, spawn, -1, cameraX)) {
+                    objectsRemoved = true;
+                    continue;
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
@@ -505,13 +525,6 @@ public class ObjectManager {
         // are now reflected in usedSlots. New objects get the correct slot numbers.
         syncActiveSpawnsLoad();
 
-        // Phase 4: Run newly loaded objects immediately.
-        // ROM parity compensation: In the ROM, objects loaded by ObjPosLoad don't
-        // execute until the next frame's ExecuteObjects. But the engine has a
-        // 1-frame pipeline delay (spawns added by postCameraPlacementUpdate are
-        // instantiated the next frame). Running new objects now compensates for
-        // this delay, keeping object behavior in sync with the trace.
-        runNewlyLoadedObjects(player, sidekicks, inlineSolidResolution, solidPostMovement);
     }
 
     /**
@@ -566,23 +579,9 @@ public class ObjectManager {
                 // survive (matching ROM behavior where obX reflects movement).
                 if (counterBased && !instance.isDestroyed()) {
                     ObjectSpawn oorSpawn = instanceToSpawn.get(instance);
-                    if (oorSpawn != null && !instance.isPersistent()
-                            && isOutOfRangeS1(instance.getX(), cameraX)) {
-                        int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
-                        if (instance instanceof AbstractObjectInstance aoi
-                                && aoi.getSlotIndex() == slotIndex) {
-                            releaseSlot(slotIndex);
-                        }
-                        freeAllReservedChildSlots(oorSpawn);
-                        placement.clearCounterForSpawn(oorSpawn);
-                        // ROM parity: mark dormant instead of removing from active.
-                        // The spawn stays in placement.active but syncActiveSpawnsLoad
-                        // skips dormant spawns. Only the cursor system clears dormant
-                        // when it naturally re-processes this position.
-                        placement.markDormant(oorSpawn);
-                        instance.onUnload();
+                    if (unloadCounterBasedOutOfRange(instance, oorSpawn,
+                            currentExecSlot + DYNAMIC_SLOT_BASE, cameraX)) {
                         execOrder[currentExecSlot] = null;
-                        removeActiveObject(oorSpawn);
                         objectsRemoved = true;
                         continue;
                     }
@@ -621,6 +620,11 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
+                if (counterBased && !inst.isDestroyed()
+                        && unloadCounterBasedOutOfRange(inst, null, -1, cameraX)) {
+                    objectsRemoved = true;
+                    continue;
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -648,6 +652,11 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
+                if (counterBased && !inst.isDestroyed()
+                        && unloadCounterBasedOutOfRange(inst, spawn, -1, cameraX)) {
+                    objectsRemoved = true;
+                    continue;
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
@@ -663,75 +672,6 @@ public class ObjectManager {
                 bucketsDirty = true;
                 activeObjectsCacheDirty = true;
             }
-        }
-    }
-
-    /**
-     * Runs update() on objects that were just created by syncActiveSpawnsLoad.
-     * <p>
-     * These objects were loaded AFTER the exec loop (matching ROM's ObjPosLoad timing).
-     * In the ROM, objects loaded by ObjPosLoad don't execute until the next frame.
-     * But the engine compensates for its pipeline delay by running them immediately.
-     * They run in slot order for consistency.
-     */
-    private void runNewlyLoadedObjects(PlayableEntity player,
-            List<? extends PlayableEntity> sidekicks,
-            boolean inlineSolidResolution, boolean solidPostMovement) {
-        // Build a slot-ordered list of newly loaded objects.
-        // These are objects in activeObjects that are NOT in execOrder (they weren't
-        // present during the exec loop) and have valid slots.
-        boolean objectsRemoved = false;
-        for (int slot = 0; slot < DYNAMIC_SLOT_COUNT; slot++) {
-            if (execOrder[slot] != null) continue; // Already processed in exec loop
-            if (!usedSlots.get(slot)) continue; // No object at this slot
-
-            // Find the object at this slot
-            ObjectInstance instance = null;
-            ObjectSpawn spawn = null;
-            for (Map.Entry<ObjectSpawn, ObjectInstance> e : activeObjects.entrySet()) {
-                if (e.getValue() instanceof AbstractObjectInstance aoi
-                        && aoi.getSlotIndex() == slot + DYNAMIC_SLOT_BASE) {
-                    instance = e.getValue();
-                    spawn = e.getKey();
-                    break;
-                }
-            }
-            if (instance == null) {
-                for (ObjectInstance di : dynamicObjects) {
-                    if (di instanceof AbstractObjectInstance aoi
-                            && aoi.getSlotIndex() == slot + DYNAMIC_SLOT_BASE) {
-                        instance = di;
-                        break;
-                    }
-                }
-            }
-            if (instance == null) continue;
-
-            instance.snapshotPreUpdatePosition();
-            executeObjectWithSolidContext(
-                    instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
-
-            if (instance.isDestroyed()) {
-                int slotIndex = slot + DYNAMIC_SLOT_BASE;
-                if (instance instanceof AbstractObjectInstance aoi
-                        && aoi.getSlotIndex() == slotIndex) {
-                    releaseSlot(slotIndex);
-                }
-                instance.onUnload();
-                if (spawn != null) {
-                    freeAllReservedChildSlots(spawn);
-                    placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
-                    removeActiveObject(spawn);
-                } else {
-                    dynamicObjects.remove(instance);
-                }
-                objectsRemoved = true;
-            }
-        }
-        if (objectsRemoved) {
-            bucketsDirty = true;
-            activeObjectsCacheDirty = true;
         }
     }
 
@@ -757,7 +697,7 @@ public class ObjectManager {
      * @param postCameraX camera X position after the camera update step
      */
     public void postCameraPlacementUpdate(int postCameraX) {
-        placement.extendForPostCamera(postCameraX);
+        placement.extendForPostCamera(postCameraX, this::inlineCreateObject);
     }
 
     /**
@@ -1348,7 +1288,9 @@ public class ObjectManager {
      * that ordering by allocating child slots before syncActiveSpawnsLoad runs.
      */
     private void preAllocateReservedChildSlots() {
-        for (ObjectInstance inst : activeObjects.values()) {
+        List<ObjectInstance> ordered = new ArrayList<>(activeObjects.values());
+        ordered.sort(Comparator.comparingInt(ObjectManager::slotOrderKey));
+        for (ObjectInstance inst : ordered) {
             if (!inst.needsPreAllocatedChildSlots()) {
                 continue;
             }
@@ -1357,6 +1299,16 @@ public class ObjectManager {
                 allocateChildSlots(inst.getSpawn(), childCount);
             }
         }
+    }
+
+    private static int slotOrderKey(ObjectInstance instance) {
+        if (instance instanceof AbstractObjectInstance aoi) {
+            int slot = aoi.getSlotIndex();
+            if (slot >= 0) {
+                return slot;
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 
     /**
@@ -1466,6 +1418,10 @@ public class ObjectManager {
         return peakSlotCount;
     }
 
+    public int getAllocatedSlotCount() {
+        return usedSlots.cardinality();
+    }
+
     /**
      * Frees all reserved child slots for a given spawn, removing the tracking entry.
      * Called when the parent object is destroyed or unloaded.
@@ -1504,6 +1460,14 @@ public class ObjectManager {
 
     public boolean isRemembered(ObjectSpawn spawn) {
         return placement.isRemembered(spawn);
+    }
+
+    public boolean isDormant(ObjectSpawn spawn) {
+        return placement.isDormant(spawn);
+    }
+
+    public int getSpawnCounter(ObjectSpawn spawn) {
+        return placement.getCounterForSpawn(spawn);
     }
 
     public void markRemembered(ObjectSpawn spawn) {
@@ -1769,6 +1733,80 @@ public class ObjectManager {
         return distance > 640;
     }
 
+    private boolean unloadCounterBasedOutOfRange(ObjectInstance instance, ObjectSpawn spawn,
+            int expectedSlotIndex, int cameraX) {
+        ObjectSpawn positionSpawn = spawn != null ? spawn : instance.getSpawn();
+        // Fallback dynamic children may exist briefly without any spawn-backed
+        // identity. They still need update() calls, but cannot participate in
+        // S1's out_of_range unload check.
+        if (positionSpawn == null) {
+            return false;
+        }
+        boolean persistent;
+        try {
+            persistent = instance.isPersistent();
+        } catch (NullPointerException e) {
+            throw new IllegalStateException(describeCounterBasedUnloadObject(instance, spawn), e);
+        }
+        int referenceX;
+        try {
+            // ROM parity: most objects feed obX(a0) to out_of_range, but some
+            // S1 objects store an alternate anchor/origin in objoff_30/32/3A.
+            // Use the object's explicit ROM reference X when provided.
+            referenceX = instance.getOutOfRangeReferenceX();
+        } catch (NullPointerException e) {
+            throw new IllegalStateException(describeCounterBasedUnloadObject(instance, spawn), e);
+        }
+        if (persistent || !isOutOfRangeS1(referenceX, cameraX)) {
+            return false;
+        }
+        if (instance instanceof AbstractObjectInstance aoi) {
+            int slotIndex = aoi.getSlotIndex();
+            if (slotIndex >= DYNAMIC_SLOT_BASE
+                    && (expectedSlotIndex < 0 || slotIndex == expectedSlotIndex)) {
+                releaseSlot(slotIndex);
+            }
+        }
+        instance.onUnload();
+        if (spawn != null) {
+            freeAllReservedChildSlots(spawn);
+            placement.clearCounterForSpawn(spawn);
+            // ROM parity: mark dormant instead of removing from placement.active.
+            // The cursor system clears the dormant bit when it naturally re-processes
+            // the spawn position, preventing immediate same-window respawn.
+            placement.markDormant(spawn);
+            removeActiveObject(spawn);
+        } else {
+            dynamicObjects.remove(instance);
+        }
+        return true;
+    }
+
+    private static String describeCounterBasedUnloadObject(ObjectInstance instance, ObjectSpawn spawn) {
+        StringBuilder sb = new StringBuilder("Counter-based out_of_range check failed for ");
+        sb.append(instance.getClass().getName());
+        if (instance instanceof AbstractObjectInstance aoi) {
+            sb.append(" slot=").append(aoi.getSlotIndex());
+            sb.append(" name=").append(aoi.getName());
+        }
+        sb.append(" managerSpawn=");
+        if (spawn == null) {
+            sb.append("null");
+        } else {
+            sb.append(String.format("0x%04X,0x%04X id=0x%02X",
+                    spawn.x() & 0xFFFF, spawn.y() & 0xFFFF, spawn.objectId() & 0xFF));
+        }
+        ObjectSpawn instanceSpawn = instance.getSpawn();
+        sb.append(" instanceSpawn=");
+        if (instanceSpawn == null) {
+            sb.append("null");
+        } else {
+            sb.append(String.format("0x%04X,0x%04X id=0x%02X",
+                    instanceSpawn.x() & 0xFFFF, instanceSpawn.y() & 0xFFFF, instanceSpawn.objectId() & 0xFF));
+        }
+        return sb.toString();
+    }
+
     /**
      * Phase 2 of spawn window sync: load new objects from the placement window.
      * <p>
@@ -1783,8 +1821,10 @@ public class ObjectManager {
         Collection<ObjectSpawn> activeSpawns = placement.getActiveSpawns();
         boolean changed = false;
 
-        // ROM parity: OPL processes objects in X-sorted order (left-to-right),
-        // calling FindFreeObj for each. Sort new spawns by ascending X.
+        // ROM parity: OPL forward scans process entries left-to-right (a0 += 6),
+        // while backward scans process right-to-left (a0 -= 6). Counter-based
+        // S1 placement must preserve that direction so FindFreeObj assigns the
+        // same slot numbers the ROM would have used.
         List<ObjectSpawn> sortedNewSpawns = new ArrayList<>();
         for (ObjectSpawn spawn : activeSpawns) {
             if (!activeObjects.containsKey(spawn)
@@ -1793,7 +1833,16 @@ public class ObjectManager {
                 sortedNewSpawns.add(spawn);
             }
         }
-        sortedNewSpawns.sort(Comparator.comparingInt(ObjectSpawn::x));
+        Comparator<ObjectSpawn> spawnOrder = Comparator
+                .comparingInt(ObjectSpawn::x)
+                .thenComparingInt(placement::getSpawnIndex);
+        if (placement.isCounterBasedRespawn() && placement.isLastScrollBackward()) {
+            spawnOrder = Comparator
+                    .comparingInt(ObjectSpawn::x)
+                    .reversed()
+                    .thenComparing(Comparator.comparingInt(placement::getSpawnIndex).reversed());
+        }
+        sortedNewSpawns.sort(spawnOrder);
 
         // Allocate parent slots for all new objects (matching ObjPosLoad).
         // ROM parity: ObjPosLoad assigns one slot per object in X order.
@@ -2473,6 +2522,9 @@ public class ObjectManager {
                 } else {
                     if (!destroyedInWindow.get(leftCursorIndex)) {
                         active.add(prev);
+                        if (inlineCallback != null) {
+                            inlineCallback.tryCreate(prev, -1);
+                        }
                     }
                 }
             }
@@ -3051,10 +3103,13 @@ public class ObjectManager {
                 int objX = usePreUpdateState ? instance.getPreUpdateX() : instance.getX();
                 int objY = usePreUpdateState ? instance.getPreUpdateY() : instance.getY();
                 boolean overlap = isOverlapping(playerX, playerY, playerHeight, objX, objY, width, height, playerWidth);
-
                 if (!isSidekick && debugState.isEnabled()) {
+                    int slotIndex = instance instanceof AbstractObjectInstance aoi
+                            ? aoi.getSlotIndex()
+                            : -1;
                     debugState.addHit(
-                            new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
+                            new TouchResponseDebugHit(slotIndex, instance.getSpawn(), objX, objY, flags, sizeIndex,
+                                    width, height, category, overlap));
                 }
                 if (!overlap) {
                     continue;
@@ -3378,9 +3433,11 @@ public class ObjectManager {
             // preserves rolling through enemy bounces (ground roll into badnik).
             short ySpeed = player.getYSpeed();
             // TEMPORARY DIAGNOSTIC
-            System.err.printf("[ENEMY_BOUNCE] frame=%d vbla=%d obj=%s objX=0x%04X objY=0x%04X playerX=0x%04X playerY=0x%04X ySpd=0x%04X%n",
+            int slotIndex = instance instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+            System.err.printf("[ENEMY_BOUNCE] frame=%d vbla=%d obj=%s slot=%d objX=0x%04X objY=0x%04X playerX=0x%04X playerY=0x%04X ySpd=0x%04X%n",
                 currentFrameCounter, objectManager.vblaCounter,
                 instance != null ? instance.getClass().getSimpleName() : "null",
+                slotIndex,
                 instance != null ? instance.getX() : 0,
                 instance != null ? instance.getY() : 0,
                 player.getCentreX(), player.getCentreY(),

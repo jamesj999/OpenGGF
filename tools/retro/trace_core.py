@@ -44,7 +44,7 @@ ADDR_OPL_DATA_BWD = 0xF774  # long: backward cursor ROM pointer
 ADDR_OBJSTATE = 0xFC00    # byte[192]: v_objstate array
 
 # Level state
-ADDR_FRAMECOUNT = 0xFE02  # word: v_framecount (Level_MainLoop counter)
+ADDR_FRAMECOUNT = 0xFE04  # word: v_framecount (Level_MainLoop counter)
 ADDR_ZONE = 0xFE10
 ADDR_ACT = 0xFE11
 ADDR_LIVES = 0xFE12

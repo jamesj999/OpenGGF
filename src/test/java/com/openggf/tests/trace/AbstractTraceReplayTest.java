@@ -1,9 +1,14 @@
 package com.openggf.tests.trace;
 
+import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseDebugHit;
+import com.openggf.level.objects.TouchResponseDebugState;
+import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
@@ -14,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -80,16 +87,15 @@ public abstract class AbstractTraceReplayTest {
                 .build();
 
             // 4a. ROM parity: Initialize ObjectManager's frame counter to match
-            //     v_vbla_byte at trace start. The ROM's v_vbla_byte counts ALL
-            //     VBlanks since power-on. Objects with timing gates like
-            //     (v_vbla_byte + d7) & 7 (Batbrain drop check) depend on this.
-            //     The bk2FrameOffset equals v_vbla_byte at trace start.
-            //     ObjectManager.update() increments vblaCounter BEFORE passing
-            //     it to objects, so we initialize one below the offset so the
-            //     first increment lands on bk2FrameOffset exactly.
+            //     v_vbla_byte at trace start. Schema v3 traces record the ROM
+            //     VBlank counter directly; older traces fall back to the
+            //     historical BK2-offset heuristic.
             ObjectManager om = GameServices.level().getObjectManager();
             if (om != null) {
-                om.initVblaCounter(meta.bk2FrameOffset() - 1);
+                om.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+            if (GameServices.debugOverlay() != null) {
+                GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
             }
 
 
@@ -118,12 +124,13 @@ public abstract class AbstractTraceReplayTest {
             for (int i = 0; i < trace.frameCount(); i++) {
                 TraceFrame expected = trace.getFrame(i);
 
-                // Lag frame detection: skip physics only for frames where the
-                // ROM truly didn't complete Level_MainLoop. The heuristic
-                // requires BOTH identical physics state AND non-zero speed/air,
-                // avoiding false positives when Sonic is standing still.
+                // Drive replay from recorded ROM counters instead of inferring
+                // lag from unchanged physics state.
                 int bk2Input;
-                if (trace.isLagFrame(i)) {
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                    TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
                     bk2Input = fixture.skipFrameFromRecording();
                 } else {
                     bk2Input = fixture.stepFrameFromRecording();
@@ -144,13 +151,16 @@ public abstract class AbstractTraceReplayTest {
 
                 // Capture engine-side diagnostic state for context window
                 EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
+                String romDiag = combineDiagnostics(
+                        expected.hasExtendedData() ? expected.formatDiagnostics() : "",
+                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(i)));
 
                 var frameResult = binder.compareFrame(expected,
                     sprite.getCentreX(), sprite.getCentreY(),
                     sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                     sprite.getAngle(),
                     sprite.getAir(), sprite.getRolling(),
-                    sprite.getGroundMode().ordinal(),
+                    sprite.getGroundMode().ordinal(), romDiag,
                     engineDiag);
 
                 // Track first subpixel divergence (before it becomes pixel-level)
@@ -216,6 +226,16 @@ public abstract class AbstractTraceReplayTest {
         }
     }
 
+    private static String combineDiagnostics(String base, String extra) {
+        if (base == null || base.isEmpty()) {
+            return extra == null ? "" : extra;
+        }
+        if (extra == null || extra.isEmpty()) {
+            return base;
+        }
+        return base + " | " + extra;
+    }
+
 
 
     /**
@@ -270,8 +290,63 @@ public abstract class AbstractTraceReplayTest {
         int xSub = sprite.getXSubpixelRaw();
         int ySub = sprite.getYSubpixelRaw();
 
+        String solidEvent = "";
+        if (om != null) {
+            TouchResponseDebugState touchState = om.getTouchResponseDebugState();
+            if (touchState != null) {
+                solidEvent = combineDiagnostics(solidEvent, String.format(
+                        "touchBox @%04X,%04X h=%d yr=%d crouch=%d",
+                        touchState.getPlayerX() & 0xFFFF,
+                        touchState.getPlayerY() & 0xFFFF,
+                        touchState.getPlayerHeight(),
+                        touchState.getPlayerYRadius(),
+                        touchState.isCrouching() ? 1 : 0));
+            }
+            if (touchState != null && !touchState.getHits().isEmpty()) {
+                solidEvent = combineDiagnostics(solidEvent,
+                        TouchResponseDebugHitFormatter.summariseOverlaps(touchState.getHits()));
+                solidEvent = combineDiagnostics(solidEvent,
+                        TouchResponseDebugHitFormatter.summariseNearbyScans(
+                                touchState.getHits(),
+                                sprite.getCentreX(),
+                                sprite.getCentreY()));
+            }
+
+            List<EngineNearbyObject> nearbyObjects = new ArrayList<>();
+            for (ObjectInstance instance : om.getActiveObjects()) {
+                if (!(instance instanceof AbstractObjectInstance aoi)
+                        || !(instance instanceof TouchResponseProvider provider)) {
+                    continue;
+                }
+                ObjectSpawn spawn = aoi.getSpawn();
+                if (spawn == null || spawn.objectId() == 0) {
+                    continue;
+                }
+                int dx = Math.abs(spawn.x() - sprite.getCentreX());
+                int dy = Math.abs(spawn.y() - sprite.getCentreY());
+                if (dx > 160 || dy > 160) {
+                    continue;
+                }
+                nearbyObjects.add(new EngineNearbyObject(
+                        aoi.getSlotIndex(),
+                        spawn.objectId(),
+                        aoi.getName(),
+                        spawn.x(),
+                        spawn.y(),
+                        provider.getCollisionFlags(),
+                        aoi.getPreUpdateCollisionFlags(),
+                        aoi.getPreUpdateX(),
+                        aoi.getPreUpdateY(),
+                        aoi.isSkipTouchThisFrame(),
+                        aoi.isSkipSolidContactThisFrame(),
+                        aoi.isOnScreenForTouch()));
+            }
+            solidEvent = combineDiagnostics(solidEvent,
+                    EngineNearbyObjectFormatter.summarise(nearbyObjects));
+        }
+
         return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
-                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, "", xSub, ySub);
+                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

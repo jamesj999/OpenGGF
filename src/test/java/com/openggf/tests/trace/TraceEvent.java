@@ -14,7 +14,14 @@ public sealed interface TraceEvent {
 
     int frame();
 
-    record ObjectAppeared(int frame, String objectType, short x, short y)
+    record ObjectAppeared(int frame, int slot, String objectType, short x, short y)
+        implements TraceEvent {}
+
+    record ObjectRemoved(int frame, int slot, String objectType)
+        implements TraceEvent {}
+
+    record ObjectNear(int frame, int slot, String objectType, short x, short y,
+                      String routine, String status)
         implements TraceEvent {}
 
     record StateSnapshot(int frame, Map<String, Object> fields)
@@ -24,6 +31,9 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     record ModeChange(int frame, String field, int from, int to)
+        implements TraceEvent {}
+
+    record RoutineChange(int frame, String from, String to, short sonicX, short sonicY)
         implements TraceEvent {}
 
     /**
@@ -39,9 +49,24 @@ public sealed interface TraceEvent {
             return switch (event) {
                 case "object_appeared" -> new ObjectAppeared(
                     frame,
+                    node.get("slot").asInt(),
                     node.get("object_type").asText(),
                     parseHexShort(node, "x"),
                     parseHexShort(node, "y")
+                );
+                case "object_removed" -> new ObjectRemoved(
+                    frame,
+                    node.get("slot").asInt(),
+                    node.has("object_type") ? node.get("object_type").asText() : ""
+                );
+                case "object_near" -> new ObjectNear(
+                    frame,
+                    node.get("slot").asInt(),
+                    node.has("type") ? node.get("type").asText() : "",
+                    parseHexShort(node, "x"),
+                    parseHexShort(node, "y"),
+                    node.has("routine") ? node.get("routine").asText() : "",
+                    node.has("status") ? node.get("status").asText() : ""
                 );
                 case "collision_event" -> new CollisionEvent(
                     frame,
@@ -55,6 +80,13 @@ public sealed interface TraceEvent {
                     node.get("field").asText(),
                     node.get("from").asInt(),
                     node.get("to").asInt()
+                );
+                case "routine_change" -> new RoutineChange(
+                    frame,
+                    node.has("from") ? stripHexPrefix(node.get("from").asText()) : "",
+                    node.has("to") ? stripHexPrefix(node.get("to").asText()) : "",
+                    parseHexShort(node, "sonic_x"),
+                    parseHexShort(node, "sonic_y")
                 );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
@@ -72,8 +104,12 @@ public sealed interface TraceEvent {
 
     private static short parseHexShort(JsonNode node, String field) {
         if (!node.has(field)) return 0;
-        String hex = node.get(field).asText().replace("0x", "");
+        String hex = stripHexPrefix(node.get(field).asText());
         return (short) Integer.parseInt(hex, 16);
+    }
+
+    private static String stripHexPrefix(String value) {
+        return value.replace("0x", "");
     }
 
     private static Object nodeToValue(JsonNode node) {
@@ -81,6 +117,7 @@ public sealed interface TraceEvent {
         if (node.isLong()) return node.asLong();
         if (node.isBoolean()) return node.asBoolean();
         if (node.isDouble()) return node.asDouble();
+        if (node.isArray() || node.isObject()) return node.toString();
         return node.asText();
     }
 }
