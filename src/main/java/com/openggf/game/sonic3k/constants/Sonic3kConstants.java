@@ -1151,7 +1151,7 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_MGZ_MINIBOSS_ADDR = 0x36B02C;
     public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
     public static final int ART_NEM_MGZ_SPIRE_ADDR = 0x36B2CE;
-    public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B80;
+    public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B7E;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
     public static final int MAP_MGZ_ENDBOSS_DEBRIS_ADDR = 0x3637D6;
 

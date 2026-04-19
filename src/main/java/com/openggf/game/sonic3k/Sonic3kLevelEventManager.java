@@ -13,6 +13,7 @@ import com.openggf.game.sonic3k.events.HczObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
 import com.openggf.game.sonic3k.events.S3kTransitionEventBridge;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
@@ -56,6 +57,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     private Sonic3kAIZEvents aizEvents;
     private Sonic3kCNZEvents cnzEvents;
     private Sonic3kHCZEvents hczEvents;
+    private Sonic3kMGZEvents mgzEvents;
 
     // Tracks whether the intro-fall forced animation is active on each player.
     // Cleared per-player when they land (air → ground transition).
@@ -66,6 +68,11 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     // whirlpool descent cutscene should play. Consumed on the first onUpdate()
     // after the transition completes.
     private boolean hczPendingPostTransitionCutscene;
+
+    // Set by MGZ Act 1 transition: after the seamless reload to Act 2, the
+    // player (still in signpost victory pose) must be released so they can
+    // resume playing. Consumed on the first onUpdate() in MGZ Act 2.
+    private boolean mgzPendingPostTransitionRelease;
 
 
     public Sonic3kLevelEventManager() {
@@ -134,6 +141,12 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         } else {
             hczEvents = null;
         }
+        if (zone == Sonic3kZoneIds.ZONE_MGZ) {
+            mgzEvents = new Sonic3kMGZEvents();
+            mgzEvents.init(act);
+        } else {
+            mgzEvents = null;
+        }
 
         // Install typed zone runtime state into the registry.
         // Uses getActiveRuntime() to avoid the mode-checking side effects of
@@ -184,6 +197,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
             hczEvents.update(currentAct, frameCounter);
         }
+        if (mgzEvents != null && currentZone == Sonic3kZoneIds.ZONE_MGZ) {
+            mgzEvents.update(currentAct, frameCounter);
+        }
+        releasePendingMgzPostTransition();
         syncSidekickBoundsToCamera();
     }
 
@@ -450,6 +467,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null) {
             hczEvents.setEventsFg5(true);
         }
+        if (mgzEvents != null) {
+            mgzEvents.setEventsFg5(true);
+        }
         // Other zones' event handlers will be added here as implemented.
     }
 
@@ -461,6 +481,40 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     @Override
     public void requestHczPostTransitionCutscene() {
         setHczPendingPostTransitionCutscene(true);
+    }
+
+    @Override
+    public void requestMgzPostTransitionRelease() {
+        this.mgzPendingPostTransitionRelease = true;
+    }
+
+    /**
+     * After the MGZ1 → MGZ2 seamless reload, release the player (and sidekicks)
+     * from the signpost victory pose so normal play resumes. The ROM's
+     * MGZ1BGE_Transition does not run a cutscene; the player simply continues
+     * under their own control once the level has reloaded.
+     */
+    private void releasePendingMgzPostTransition() {
+        if (!mgzPendingPostTransitionRelease) {
+            return;
+        }
+        if (currentZone != Sonic3kZoneIds.ZONE_MGZ || currentAct != 1) {
+            return;
+        }
+        mgzPendingPostTransitionRelease = false;
+
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player != null) {
+            player.setObjectControlled(false);
+            player.setControlLocked(false);
+            player.setForcedAnimationId(-1);
+        }
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
+            sidekick.setObjectControlled(false);
+            sidekick.setControlLocked(false);
+            sidekick.setForcedAnimationId(-1);
+        }
+        LOG.info("MGZ: released player from victory pose after Act 1 → Act 2 reload");
     }
 
 
