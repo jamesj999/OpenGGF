@@ -165,6 +165,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String LBZ_SMASHING_SPIKES = "lbz_smashing_spikes";
     public static final String MGZ_SWINGING_PLATFORM = "mgz_swinging_platform";
     public static final String MGZ_HEAD_TRIGGER = "mgz_head_trigger";
+    public static final String MGZ_MOVING_SPIKE_PLATFORM = "mgz_moving_spike_platform";
     public static final String MGZ_TRIGGER_PLATFORM = "mgz_trigger_platform";
     public static final String MGZ_SWINGING_SPIKE_BALL = "mgz_swinging_spike_ball";
     public static final String MGZ_DASH_TRIGGER = "mgz_dash_trigger";
@@ -174,6 +175,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String MGZ_MANTIS = "mgz_mantis";
     public static final String MGZ_BUBBLES_BADNIK = "mgz_bubbles_badnik";
     public static final String MGZ_MINIBOSS = "mgz_miniboss";
+    public static final String MGZ_MINIBOSS_SPIRE = "mgz_miniboss_spire";
     public static final String MGZ_MINIBOSS_DEBRIS = "mgz_miniboss_debris";
     /** Tunnelbot shares art with MGZ Miniboss (same ObjDat_Tunnelbot → Map_MGZMiniboss). */
     public static final String MGZ_TUNNELBOT = MGZ_MINIBOSS;
