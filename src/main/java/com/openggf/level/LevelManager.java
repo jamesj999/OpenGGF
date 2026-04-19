@@ -1097,6 +1097,22 @@ public class LevelManager {
         if (objectManager != null) {
             objectManager.runTouchResponsesForPlayer(player, frameCounter + 1);
         }
+        if (ringManager != null && player instanceof AbstractPlayableSprite playable && !playable.getDead()) {
+            if (!ringManager.usesObjectTouchCollection()) {
+                ringManager.collectStageRings(playable, frameCounter + 1);
+            }
+            ringManager.checkLostRingCollection(playable);
+        }
+    }
+
+    /**
+     * Refreshes object touch snapshots before inline-order player physics runs.
+     * This keeps ReactToItem aligned to the current frame's pre-object-update state.
+     */
+    public void prepareTouchResponseSnapshots() {
+        if (objectManager != null) {
+            objectManager.snapshotTouchResponseState();
+        }
     }
 
     /**
@@ -1196,16 +1212,10 @@ public class LevelManager {
         }
         if (ringManager != null) {
             ringManager.update(camera.getX(), playable, frameCounter + 1);
-            // Lost ring physics run once per frame; collection checks run per-player.
+            // Lost ring physics run once per frame after all players have had their
+            // touch-phase collection checks via applyTouchResponses(), matching the
+            // ROM's Touch_Rings/Obj37 order.
             ringManager.updateLostRingPhysics(frameCounter + 1);
-            ringManager.checkLostRingCollection(playable);
-            // ROM: CPU Tails can also collect rings in 1P mode
-            for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
-                if (!sidekick.getDead()) {
-                    ringManager.update(camera.getX(), sidekick, frameCounter + 1);
-                    ringManager.checkLostRingCollection(sidekick);
-                }
-            }
         }
         // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
         // DynWaterHeight (zone features set new target for next frame).

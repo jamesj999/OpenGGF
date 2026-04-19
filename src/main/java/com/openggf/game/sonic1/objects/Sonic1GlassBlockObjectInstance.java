@@ -163,12 +163,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         this.playerStanding = false;
 
         updateDynamicSpawn(x, y);
-
-        // ROM: Glass_Main .Repeat loop spawns reflection via FindNextFreeObj
-        // during the object's first routine (construction). The pre-allocated
-        // slot mechanism ensures the parent already has its slot assigned,
-        // so allocateSlotAfter() correctly gives the child a HIGHER slot.
-        spawnReflection();
     }
 
     @Override
@@ -183,6 +177,14 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+
+        // ROM: the reflection child is allocated in Glass_Main (routine 0),
+        // after ObjPosLoad has already finished loading this frame's parents.
+        // Spawning it during construction lets it steal SST slots from later
+        // ObjPosLoad siblings in the same pass, which does not happen in S1.
+        if (reflectionChild == null) {
+            spawnReflection();
+        }
 
         SolidCheckpointBatch batch = checkpointAll();
         playerStanding = hasStandingContact(batch);

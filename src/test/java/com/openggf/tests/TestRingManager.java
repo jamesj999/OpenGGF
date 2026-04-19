@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.rings.LostRing;
 import com.openggf.level.rings.RingFrame;
 import com.openggf.level.rings.RingFramePiece;
 import com.openggf.level.rings.RingManager;
@@ -15,6 +16,7 @@ import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,28 +74,98 @@ public class TestRingManager {
         assertEquals(1, player.getRingCount());
     }
 
+    @Test
+    public void testS1RingCollectionUsesTouchWindowInsteadOfSpriteBounds() {
+        RingSpawn spawn = new RingSpawn(0x0098, 0x0248);
+        RingManager ringManager = buildRingManagerWithSpinPiece(List.of(spawn),
+                new RingFramePiece(-16, -16, 4, 4, 0, false, false, 0));
+        ringManager.reset(0);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0x0087, (short) 0x025B);
+        player.setRolling(false);
+
+        ringManager.update(0, player, 0);
+
+        assertFalse(ringManager.isCollected(spawn),
+                "Ring should not collect at the MZ1 frame-71 trace position");
+        assertEquals(0, player.getRingCount());
+
+        player.setCentreX((short) 0x008B);
+        player.setCentreY((short) 0x024F);
+
+        ringManager.update(0, player, 1);
+
+        assertTrue(ringManager.isCollected(spawn),
+                "Ring should collect once the ROM touch window overlaps");
+        assertEquals(1, player.getRingCount());
+    }
+
+    @Test
+    public void testLostRingCollectionUsesTouchPhaseInvulnerabilityThreshold() throws Exception {
+        RingManager ringManager = buildRingManager(List.of());
+        TestPlayableSprite player = new TestPlayableSprite((short) 0x03B7, (short) 0x025A);
+        player.setRolling(true);
+
+        player.setInvulnerableFrames(90);
+        configureSingleLostRing(ringManager, 0x03AE, 0x0261);
+        ringManager.checkLostRingCollection(player);
+        assertEquals(0, player.getRingCount(),
+                "Lost ring recollection should stay blocked while the ROM threshold is still active");
+
+        player.setInvulnerableFrames(89);
+        configureSingleLostRing(ringManager, 0x03AE, 0x0261);
+        ringManager.checkLostRingCollection(player);
+        assertEquals(1, player.getRingCount(),
+                "Lost ring recollection should award as soon as the touch-phase timer drops below the ROM threshold");
+    }
+
     private RingManager buildRingManager(List<RingSpawn> spawns) {
+        return buildRingManagerWithSpinPiece(spawns, new RingFramePiece(0, 0, 1, 1, 0, false, false, 0));
+    }
+
+    private RingManager buildRingManagerWithSpinPiece(List<RingSpawn> spawns, RingFramePiece piece) {
         Pattern pattern = new Pattern();
         pattern.setPixel(0, 0, (byte) 1);
 
-        RingFramePiece piece = new RingFramePiece(0, 0, 1, 1, 0, false, false, 0);
         RingFrame frame = new RingFrame(List.of(piece));
         List<RingFrame> frames = new ArrayList<>();
         frames.add(frame);
         frames.add(frame);
         frames.add(frame);
 
-        RingSpriteSheet spriteSheet = new RingSpriteSheet(new Pattern[] { pattern }, frames, 1, 1, 1, 2);
+        Pattern[] patterns = new Pattern[16];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = pattern;
+        }
+
+        RingSpriteSheet spriteSheet = new RingSpriteSheet(patterns, frames, 1, 1, 1, 2);
         RingManager ringManager = new RingManager(spawns, spriteSheet, null, null);
         ringManager.ensurePatternsCached(GraphicsManager.getInstance(), 0);
         return ringManager;
     }
 
+    private void configureSingleLostRing(RingManager ringManager, int x, int y) throws Exception {
+        Field lostRingsField = RingManager.class.getDeclaredField("lostRings");
+        lostRingsField.setAccessible(true);
+        Object lostRings = lostRingsField.get(ringManager);
+
+        Field ringPoolField = lostRings.getClass().getDeclaredField("ringPool");
+        ringPoolField.setAccessible(true);
+        LostRing[] ringPool = (LostRing[]) ringPoolField.get(lostRings);
+        ringPool[0].reset(0, x, y, 0, 0, 0xFF);
+
+        Field activeRingCountField = lostRings.getClass().getDeclaredField("activeRingCount");
+        activeRingCountField.setAccessible(true);
+        activeRingCountField.setInt(lostRings, 1);
+    }
+
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
         private TestPlayableSprite(short x, short y) {
             super("TEST", x, y);
-            setWidth(20);
-            setHeight(20);
+            setWidth(16);
+            setHeight(32);
+            setCentreX(x);
+            setCentreY(y);
         }
 
         @Override

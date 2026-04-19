@@ -6,6 +6,7 @@ import com.openggf.game.PowerUpObject;
 import com.openggf.game.PowerUpSpawner;
 import com.openggf.game.ShieldType;
 import com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance;
+import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
@@ -34,6 +35,8 @@ import java.util.logging.Logger;
 public class DefaultPowerUpSpawner implements PowerUpSpawner {
 
     private static final Logger LOGGER = Logger.getLogger(DefaultPowerUpSpawner.class.getName());
+    // S1 Variables.asm: v_shieldobj = v_objspace + object_size*6
+    private static final int S1_SHIELD_SLOT = 6;
 
     private final ObjectManager objectManager;
     private final ObjectServices services;
@@ -57,7 +60,7 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
             // Non-elemental fallback when player is not AbstractPlayableSprite
             shield = constructWithServices(() -> new ShieldObjectInstance(player));
         }
-        objectManager.addDynamicObject(shield);
+        addPowerUpObject(shield);
         return shield;
     }
 
@@ -91,7 +94,7 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
                 // manager and must be dropped before the new manager allocates one.
                 aoi.setSlotIndex(-1);
             }
-            objectManager.addDynamicObject(oi);
+            addPowerUpObject(oi);
         }
     }
 
@@ -147,5 +150,23 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
         } finally {
             AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
         }
+    }
+
+    private void addPowerUpObject(ObjectInstance object) {
+        if (objectManager == null || object == null) {
+            return;
+        }
+        if (usesSonic1FixedShieldSlot(object)) {
+            objectManager.addDynamicObjectAtSlot(object, S1_SHIELD_SLOT);
+            return;
+        }
+        objectManager.addDynamicObject(object);
+    }
+
+    private boolean usesSonic1FixedShieldSlot(ObjectInstance object) {
+        if (!(object instanceof ShieldObjectInstance)) {
+            return false;
+        }
+        return services != null && services.gameModule() instanceof Sonic1GameModule;
     }
 }

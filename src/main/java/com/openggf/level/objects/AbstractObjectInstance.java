@@ -180,6 +180,17 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     @Override
+    public void snapshotTouchResponseState() {
+        if (getSpawn() == null) return;
+        preUpdateX = getX();
+        preUpdateY = getY();
+        preUpdateValid = true;
+        if (this instanceof TouchResponseProvider trp) {
+            preUpdateCollisionFlags = trp.getCollisionFlags();
+        }
+    }
+
+    @Override
     public int getPreUpdateX() {
         return preUpdateValid ? preUpdateX : getX();
     }

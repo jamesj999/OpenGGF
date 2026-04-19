@@ -9,6 +9,8 @@ import org.mockito.Mockito;
 import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.camera.Camera;
 
 import java.util.List;
 
@@ -27,9 +29,19 @@ public class TestTouchResponseManager {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.createGameplay();
         // Use Mockito to mock TouchResponseTable since its constructor reads from ROM
         table = Mockito.mock(TouchResponseTable.class);
+        DebugOverlayManager debugOverlay = mock(DebugOverlayManager.class);
+        when(debugOverlay.isEnabled(any())).thenReturn(false);
+        Camera camera = mock(Camera.class);
+        when(camera.getX()).thenReturn((short) 0);
+        when(camera.getY()).thenReturn((short) 0);
+        when(camera.getWidth()).thenReturn((short) 320);
+        when(camera.getHeight()).thenReturn((short) 224);
+        when(camera.isVerticalWrapEnabled()).thenReturn(false);
+        ObjectServices services = new TestObjectServices()
+                .withDebugOverlay(debugOverlay)
+                .withCamera(camera);
         objectManager = new ObjectManager(List.of(), new ObjectRegistry() {
             @Override
             public ObjectInstance create(ObjectSpawn spawn) {
@@ -44,7 +56,7 @@ public class TestTouchResponseManager {
             public String getPrimaryName(int objectId) {
                 return "Test";
             }
-        }, 0, null, table);
+        }, 0, null, table, null, camera, services);
         objectManager.resetTouchResponses();
 
         // Create a mock player using Mockito
@@ -321,6 +333,58 @@ public class TestTouchResponseManager {
     }
 
     @Test
+    public void testRunTouchResponsesForPlayerUsesLiveCurrentObjectPosition() {
+        // Current position barely overlaps; pre-update position does not.
+        MockTrackedTouchObject obj = new MockTrackedTouchObject(174, 112, 176, 112, 0x48);
+        setupTableSize(8, 6, 6);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.runTouchResponsesForPlayer(player, 1);
+
+        assertTrue(obj.wasTouched,
+                "Player-slot touch responses should use the live object position because objects have not updated yet");
+    }
+
+    @Test
+    public void testFrame387MissileGeometryOverlapsWithRollingPlayer() {
+        when(player.getCentreX()).thenReturn((short) 0x0241);
+        when(player.getCentreY()).thenReturn((short) 0x0394);
+        when(player.getYRadius()).thenReturn((short) 14);
+        when(player.getRolling()).thenReturn(true);
+
+        MockTrackedTouchObject missile = new MockTrackedTouchObject(
+                0x024A, 0x0386,
+                0x024C, 0x0384,
+                0x87);
+        setupTableSize(7, 6, 6);
+        objectManager.addDynamicObject(missile);
+
+        objectManager.runTouchResponsesForPlayer(player, 1);
+
+        assertTrue(missile.wasTouched,
+                "The GHZ frame-387 missile geometry should overlap Sonic with rolling radii");
+    }
+
+    @Test
+    public void testRunTouchResponsesRefreshesPreUpdateSnapshotForCurrentFrame() {
+        MockSnapshotTouchObject obj = new MockSnapshotTouchObject(300, 112, 0x48);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        // Simulate the end of the previous frame: the saved pre-update snapshot is stale
+        // and still points at the old off-screen position.
+        obj.snapshotPreUpdatePosition();
+
+        // At the start of the current frame, the object is already overlapping Sonic.
+        obj.setPosition(160, 112);
+
+        objectManager.runTouchResponsesForPlayer(player, 1);
+
+        assertTrue(obj.wasTouched,
+                "Player-slot touch responses should ignore stale prior-frame snapshots and use the current object position");
+    }
+
+    @Test
     public void testTouchTriggersAgainAfterExitAndReenter() {
         MockTouchObject obj = new MockTouchObject(160, 112, 0x48);
         setupTableSize(8, 16, 16);
@@ -449,6 +513,94 @@ public class TestTouchResponseManager {
         @Override
         public boolean isSkipTouchThisFrame() {
             return true;
+        }
+    }
+
+    private static class MockTrackedTouchObject extends MockTouchObject {
+        private final int currentX;
+        private final int currentY;
+        private final int preUpdateX;
+        private final int preUpdateY;
+
+        public MockTrackedTouchObject(int currentX, int currentY, int preUpdateX, int preUpdateY, int flags) {
+            super(currentX, currentY, flags);
+            this.currentX = currentX;
+            this.currentY = currentY;
+            this.preUpdateX = preUpdateX;
+            this.preUpdateY = preUpdateY;
+        }
+
+        @Override
+        public int getX() {
+            return currentX;
+        }
+
+        @Override
+        public int getY() {
+            return currentY;
+        }
+
+        @Override
+        public int getPreUpdateX() {
+            return preUpdateX;
+        }
+
+        @Override
+        public int getPreUpdateY() {
+            return preUpdateY;
+        }
+    }
+
+    private static class MockSnapshotTouchObject extends AbstractObjectInstance
+            implements TouchResponseProvider, TouchResponseListener {
+        private int currentX;
+        private int currentY;
+        private final int collisionFlags;
+        boolean wasTouched = false;
+
+        private MockSnapshotTouchObject(int x, int y, int flags) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "MockSnapshotTouchObject");
+            this.currentX = x;
+            this.currentY = y;
+            this.collisionFlags = flags;
+        }
+
+        void setPosition(int x, int y) {
+            this.currentX = x;
+            this.currentY = y;
+        }
+
+        @Override
+        public int getX() {
+            return currentX;
+        }
+
+        @Override
+        public int getY() {
+            return currentY;
+        }
+
+        @Override
+        public int getCollisionFlags() {
+            return collisionFlags;
+        }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0;
+        }
+
+        @Override
+        public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
+            wasTouched = true;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
         }
     }
 }
