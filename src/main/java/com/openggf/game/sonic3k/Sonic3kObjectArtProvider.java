@@ -1108,6 +1108,22 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
+     * Ensures the shared boss explosion art is registered.
+     * Used by bosses in zones that do not preload the explosion sheet during zone art setup.
+     *
+     * @return true if the shared boss explosion sheet exists after the call
+     */
+    public boolean ensureBossExplosionArtLoaded() {
+        if (sheets.containsKey(ObjectArtKeys.BOSS_EXPLOSION)
+                && renderers.containsKey(ObjectArtKeys.BOSS_EXPLOSION)) {
+            return true;
+        }
+        loadSharedBossExplosionArt();
+        return sheets.containsKey(ObjectArtKeys.BOSS_EXPLOSION)
+                && renderers.containsKey(ObjectArtKeys.BOSS_EXPLOSION);
+    }
+
+    /**
      * Loads HCZ miniboss art via PLC 0x5B, matching the ROM's Load_PLC call.
      */
     private void loadHczMinibossArtFromPlc() {
@@ -1530,6 +1546,46 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         rendererKeys.add(key);
         sheetOrder.add(sheet);
         rendererOrder.add(renderer);
+    }
+
+    /**
+     * Ensures a standalone registry-backed sheet is registered for the current zone/act.
+     * Used by objects whose ROM behavior loads auxiliary PLC art on demand.
+     *
+     * @param key standalone art key
+     * @return true if the sheet is registered after the call
+     */
+    public boolean ensureStandaloneArtLoaded(String key) {
+        if (renderers.containsKey(key) && sheets.containsKey(key)) {
+            return true;
+        }
+
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan =
+                Sonic3kPlcArtRegistry.getPlan(currentZoneIndex, currentActIndex);
+        Sonic3kPlcArtRegistry.StandaloneArtEntry entry = null;
+        for (Sonic3kPlcArtRegistry.StandaloneArtEntry candidate : plan.standaloneArt()) {
+            if (candidate.key().equals(key)) {
+                entry = candidate;
+                break;
+            }
+        }
+        if (entry == null) {
+            return false;
+        }
+
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return false;
+            }
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+            registerSheet(key, art.loadStandaloneSheet(rom, entry));
+            return renderers.containsKey(key) && sheets.containsKey(key);
+        } catch (IOException e) {
+            LOG.warning("Failed to ensure standalone art '" + key + "': " + e.getMessage());
+            return false;
+        }
     }
 
     /**
