@@ -9,6 +9,7 @@ import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.AizObjectEventBridge;
+import com.openggf.game.sonic3k.events.CnzObjectEventBridge;
 import com.openggf.game.sonic3k.events.HczObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
@@ -49,7 +50,7 @@ import java.util.logging.Logger;
  * Zone event handlers will be added incrementally per zone.
  */
 public class Sonic3kLevelEventManager extends AbstractLevelEventManager
-        implements AizObjectEventBridge, HczObjectEventBridge, S3kTransitionEventBridge {
+        implements AizObjectEventBridge, CnzObjectEventBridge, HczObjectEventBridge, S3kTransitionEventBridge {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static final int PACHINKO_TOP_EXIT_Y = -0x20;
 
@@ -391,12 +392,18 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (aizEvents != null) {
             aizEvents.setBossFlag(value);
         }
+        if (cnzEvents != null) {
+            cnzEvents.setBossFlag(value);
+        }
     }
 
     @Override
     public void setEventsFg5(boolean value) {
         if (aizEvents != null) {
             aizEvents.setEventsFg5(value);
+        }
+        if (cnzEvents != null) {
+            cnzEvents.setEventsFg5(value);
         }
     }
 
@@ -428,12 +435,69 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
 
     @Override
     public boolean isAct2TransitionRequested() {
-        return aizEvents != null && aizEvents.isAct2TransitionRequested();
+        if (aizEvents != null) {
+            return aizEvents.isAct2TransitionRequested();
+        }
+        return cnzEvents != null && cnzEvents.isAct2TransitionRequested();
     }
 
     /** Returns the CNZ zone events handler, or null if not in CNZ. */
     public Sonic3kCNZEvents getCnzEvents() {
         return cnzEvents;
+    }
+
+    @Override
+    public void setPendingArenaChunkDestruction(int chunkWorldX, int chunkWorldY) {
+        if (cnzEvents != null) {
+            cnzEvents.setPendingArenaChunkDestruction(chunkWorldX, chunkWorldY);
+        }
+    }
+
+    @Override
+    public void setBossScrollState(int offsetY, int velocityY) {
+        if (cnzEvents != null) {
+            cnzEvents.setBossScrollState(offsetY, velocityY);
+        }
+    }
+
+    @Override
+    public void setWallGrabSuppressed(boolean value) {
+        if (cnzEvents != null) {
+            cnzEvents.setWallGrabSuppressed(value);
+        }
+    }
+
+    @Override
+    public void setWaterButtonArmed(boolean value) {
+        if (cnzEvents != null) {
+            cnzEvents.setWaterButtonArmed(value);
+        }
+    }
+
+    @Override
+    public boolean isWaterButtonArmed() {
+        return cnzEvents != null && cnzEvents.isWaterButtonArmed();
+    }
+
+    @Override
+    public void setWaterTargetY(int targetY) {
+        if (cnzEvents != null) {
+            cnzEvents.setWaterTargetY(targetY);
+        }
+    }
+
+    @Override
+    public void beginKnucklesTeleporterRoute() {
+        if (cnzEvents != null) {
+            cnzEvents.beginKnucklesTeleporterRoute();
+        }
+    }
+
+    @Override
+    public void markTeleporterBeamSpawned() {
+        if (cnzEvents != null) {
+            cnzEvents.markTeleporterBeamSpawned();
+        }
     }
 
     /** Returns the HCZ zone events handler, or null if not in HCZ. */
@@ -562,6 +626,19 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     /**
+     * S3K zone handlers maintain their own BG routine counters independently of
+     * the base class fields. CNZ now persists a local background routine for
+     * save/restore parity, so callers must read from the active zone handler.
+     */
+    @Override
+    public int getEventRoutineBg() {
+        if (cnzEvents != null) {
+            return cnzEvents.getBackgroundRoutine();
+        }
+        return super.getEventRoutineBg();
+    }
+
+    /**
      * Restores the event routine state after a bonus/special stage return.
      * Propagates to the active zone handler so its internal state machine
      * resumes from the saved position instead of replaying from 0.
@@ -570,6 +647,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     public void restoreEventRoutineState(int routineFg, int routineBg) {
         super.restoreEventRoutineState(routineFg, routineBg);
         setDynamicResizeRoutine(routineFg);
+        if (cnzEvents != null) {
+            cnzEvents.setBackgroundRoutine(routineBg);
+        }
     }
 
     /**

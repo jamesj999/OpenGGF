@@ -1,5 +1,7 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -9,6 +11,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -120,6 +123,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
     // objoff_3F: solid contact result from SolidObject (0=none, 1=side, -1=top)
     private int solidContactResult;
+    private boolean playerStanding;
 
     // Movement subtype (low nybble, may change during gameplay)
     private int moveType;
@@ -156,6 +160,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         this.delayTimer = 0;
         this.sinkAngle = 0;
         this.solidContactResult = 0;
+        this.playerStanding = false;
         this.yVelocity = 0;
 
         // andi.b #$F,d0 -> moveType = low nybble
@@ -187,12 +192,18 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         // Dispatch movement by subtype
         applyMovement();
 
-        // SolidObject call (solid collision handled by engine's SolidContacts system)
+        SolidCheckpointBatch batch = checkpointAll();
+        updateContactState(batch);
 
         // loc_12180: Gradual sink effect for untouched blocks while Sonic stands on them
         applySinkEffect();
 
         updateDynamicSpawn(x, y);
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
@@ -220,17 +231,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Store the contact result for type 05 checking
-        // ROM: move.b d4,objoff_3F(a0)
-        // d4 from SolidObject: 1 = side contact (pushing), -1 = top (standing), 0 = none
-        if (contact.pushing()) {
-            solidContactResult = 1;
-        } else if (contact.standing()) {
-            solidContactResult = -1;
-        } else {
-            solidContactResult = 0;
-        }
+        // Contact state is driven via manual checkpoints in update().
     }
 
     @Override
@@ -318,7 +319,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         }
 
         // Check if player is standing on this object (obStatus bit 3)
-        if (isPlayerRiding()) {
+        if (playerStanding) {
             // Start the 30-frame delay
             delayTimer = STAND_DELAY_FRAMES;
         }
@@ -526,8 +527,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        boolean playerStanding = isPlayerRiding();
-
         if (playerStanding) {
             // loc_1219A: increase angle
             if (sinkAngle >= SINK_MAX_ANGLE) {
@@ -554,6 +553,24 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
         // add.w lblk_origY(a0),d0 / move.w d0,obY(a0)
         y = origY + offset;
+    }
+
+    private void updateContactState(SolidCheckpointBatch batch) {
+        playerStanding = false;
+        solidContactResult = 0;
+        for (PlayerSolidContactResult result : batch.perPlayer().values()) {
+            if (result == null) {
+                continue;
+            }
+            if (result.standingNow()) {
+                playerStanding = true;
+                solidContactResult = -1;
+                return;
+            }
+            if (result.pushingNow() || result.kind() == com.openggf.game.solid.ContactKind.SIDE) {
+                solidContactResult = 1;
+            }
+        }
     }
 
     // ========================================

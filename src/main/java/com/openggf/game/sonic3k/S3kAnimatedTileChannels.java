@@ -97,6 +97,33 @@ final class S3kAnimatedTileChannels {
         return channels;
     }
 
+    static List<AnimatedTileChannel> buildCnzChannels(Sonic3kPatternAnimator owner,
+                                                      List<AniPlcScriptState> scripts) {
+        List<AnimatedTileChannel> channels = new ArrayList<>(scripts.size() + 1);
+        for (int i = 0; i < scripts.size(); i++) {
+            AniPlcScriptState script = scripts.get(i);
+            channels.add(new AnimatedTileChannel(
+                    "s3k.cnz.script." + i,
+                    owner::shouldRunScriptChannels,
+                    ctx -> ctx.frameCounter(),
+                    scriptDestination(script),
+                    AnimatedTileCachePolicy.ALWAYS,
+                    ctx -> owner.tickScript(script)
+            ));
+        }
+
+        channels.add(new AnimatedTileChannel(
+                "s3k.cnz.scroll",
+                owner::shouldRunCnzCustomChannels,
+                ctx -> owner.computeCnzPhase(),
+                new DestinationPlan(0x308, 0x327),
+                AnimatedTileCachePolicy.ON_PHASE_CHANGE,
+                new SplitTransferApplyStrategy(owner::updateCnzBackgroundTilesForGraph)
+        ));
+
+        return channels;
+    }
+
     private static DestinationPlan scriptDestination(AniPlcScriptState script) {
         int startTile = script.destinationTileIndex();
         if (script.tilesPerFrame() <= 1) {

@@ -210,11 +210,22 @@ further S3K parity work.
   (`AnimatedTileChannelGraph`), live level edits (`ZoneLayoutMutationPipeline`), deform/parallax
   reuse (`ScrollEffectComposer`), staged special draw passes (`SpecialRenderEffectRegistry`), and
   frame-level render-mode control (`AdvancedRenderModeController`).
+- **Solid ordering parity:** same-frame solid contact ordering now snapshots pre/post-contact
+  player state explicitly, tightening ROM parity across rideable, breakable, and trigger-driven
+  objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
+  collapsing solids.
+- **S3K CNZ and MGZ expansion:** Carnival Night now has a much larger traversal/object pass
+  including tubes, teleporters, balloons, cannons, hover fans, trap doors, water helpers, and
+  miniboss/boss scaffolding, while Marble Garden gains more event/object coverage and supporting
+  PLC/art runtime updates.
 - **Configuration and debug UX:** `config.json` key bindings now accept human-readable names such
   as `"SPACE"` and `"F9"`, and the debug/editor overlay text stack now uses the shared pixel-font
   renderer with improved batching and overlap handling.
 - **S3K parity fixes:** HCZ2 now has the moving-wall chase sequence, HCZ water/column behavior was
   corrected further, and water state is restored properly after stage returns.
+- **CNZ traversal parity:** the S3K CNZ cylinder now follows tighter ROM-facing motion, rider
+  capture/release, twist-frame, priority, and visible-cadence checks, with refreshed directed
+  tests and design notes backing the current behavior.
 - **Data select and save system:** a full S3K data select screen with ROM-accurate rendering,
   8 save slots, team selection (Sonic+Tails, Sonic, Tails, Knuckles), and JSON-based save
   persistence with integrity verification. S1 and S2 can use the S3K data select via cross-game

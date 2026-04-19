@@ -5,6 +5,8 @@ import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -192,6 +194,9 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        SolidCheckpointBatch batch = services().solidExecution().resolveSolidNowAll();
+        boolean isStanding = hasStandingContact(batch);
+
         // ROM: Obj1F_FragmentFall — collapsed parent falls with gravity, delete when offscreen.
         if (collapsed) {
             parentVelY += GRAVITY;
@@ -239,7 +244,6 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         }
 
         // ROM: check status standing_mask bits — set stood_on_flag when player is on platform
-        boolean isStanding = isPlayerStanding();
         if (isStanding) {
             stoodOnFlag = true;
         }
@@ -284,13 +288,12 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // ROM: Obj1F_Main — standing_mask bits set stood_on_flag.
-        // Using the callback (like S1/S3K) instead of polling ensures the flag
-        // is set on the same frame the player lands, matching ROM timing.
-        if (contact.standing() && !inFragmentPhase && !collapsed) {
-            stoodOnFlag = true;
-        }
+        // Manual checkpoints drive collapsing-platform standing state from update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
@@ -336,6 +339,15 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return false;
         }
         return services().objectManager().isAnyPlayerRiding(this);
+    }
+
+    protected boolean hasStandingContact(SolidCheckpointBatch batch) {
+        for (PlayerSolidContactResult result : batch.perPlayer().values()) {
+            if (result != null && result.standingNow()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void collapse() {

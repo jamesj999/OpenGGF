@@ -12,6 +12,7 @@ import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.session.WorldSession;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.zone.ZoneRuntimeRegistry;
 import com.openggf.game.zone.ZoneRuntimeState;
@@ -138,6 +139,11 @@ public final class GameServices {
         return rt != null ? rt.getActiveBonusStageProvider() : null;
     }
 
+    public static SolidExecutionRegistry solidExecutionRegistryOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getSolidExecutionRegistry() : null;
+    }
+
     // â”€â”€ Runtime-owned managers (delegate to RuntimeManager) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
@@ -223,6 +229,10 @@ public final class GameServices {
      */
     public static BonusStageProvider bonusStage() {
         return requireRuntime("bonusStage").getActiveBonusStageProvider();
+    }
+
+    public static SolidExecutionRegistry solidExecutionRegistry() {
+        return requireRuntime("solidExecutionRegistry").getSolidExecutionRegistry();
     }
 
     public static ZoneRuntimeRegistry zoneRuntimeRegistry() {

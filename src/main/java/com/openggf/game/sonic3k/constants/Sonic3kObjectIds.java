@@ -1,5 +1,13 @@
 package com.openggf.game.sonic3k.constants;
 
+/**
+ * Named Sonic 3 & Knuckles object IDs used by the engine's S3K object registry.
+ *
+ * <p>The S3KL/SKL pointer tables remap some high IDs by zone set. New constants
+ * added for the CNZ bring-up intentionally follow the S3KL naming from
+ * {@code Object pointers - SK Set 1.asm}, while registry code remains zone-set
+ * aware so the same numeric slot can still resolve to DEZ names on the SKL side.
+ */
 public final class Sonic3kObjectIds {
     public static final int MONITOR = 0x01;
     public static final int PATH_SWAP = 0x02;
@@ -43,6 +51,22 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_CONVEYOR_BELT = 0x3E;
     public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
+    // S3KL object table: Obj_CNZBalloon.
+    public static final int CNZ_BALLOON = 0x41;
+    // S3KL object table: Obj_CNZCannon.
+    public static final int CNZ_CANNON = 0x42;
+    // S3KL object table: Obj_CNZRisingPlatform.
+    public static final int CNZ_RISING_PLATFORM = 0x43;
+    // S3KL object table: Obj_CNZTrapDoor.
+    public static final int CNZ_TRAP_DOOR = 0x44;
+    // S3KL object table: Obj_CNZHoverFan.
+    public static final int CNZ_HOVER_FAN = 0x46;
+    // S3KL object table: Obj_CNZCylinder.
+    public static final int CNZ_CYLINDER = 0x47;
+    // S3KL object table: Obj_CNZVacuumTube. Controller-only scaffold for Task 1.
+    public static final int CNZ_VACUUM_TUBE = 0x48;
+    // S3KL object table: Obj_CNZSpiralTube. Controller-only scaffold for Task 1.
+    public static final int CNZ_SPIRAL_TUBE = 0x4C;
     public static final int MGZLBZ_SMASHING_PILLAR_ALT = 0x20;
     public static final int MGZLBZ_SMASHING_PILLAR = 0x52;
     public static final int MGZ_SWINGING_PLATFORM = 0x53;
@@ -61,6 +85,10 @@ public final class Sonic3kObjectIds {
     public static final int SS_ENTRY_RING = 0x85;
     public static final int GUMBALL_MACHINE = 0x86;
     public static final int GUMBALL_TRIANGLE_BUMPER = 0x87;
+    // S3KL object table: Obj_CNZWaterLevelCorkFloor.
+    public static final int CNZ_WATER_LEVEL_CORK_FLOOR = 0x88;
+    // S3KL object table: Obj_CNZWaterLevelButton.
+    public static final int CNZ_WATER_LEVEL_BUTTON = 0x89;
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
@@ -98,6 +126,10 @@ public final class Sonic3kObjectIds {
     public static final int TUNNELBOT = 0x9E;
     public static final int HCZ_MINIBOSS = 0x99;
     public static final int HCZ_END_BOSS = 0x9A;
+    // S3KL object table: Obj_CNZMiniboss. SKL reuses $A6 for DEZMiniboss.
+    public static final int CNZ_MINIBOSS = 0xA6;
+    // S3KL object table: Obj_CNZEndBoss. SKL reuses $A7 for DEZEndBoss.
+    public static final int CNZ_END_BOSS = 0xA7;
 
     private Sonic3kObjectIds() {
     }
