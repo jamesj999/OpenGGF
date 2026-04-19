@@ -36,11 +36,14 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     private static final int ROM_BOUNCE_Y_SPEED = 0x700;
     private static final int BOB_AMPLITUDE = 8;
     private static final int[] FRAME_BY_COLOR = {0, 5, 10, 15, 20};
+    private static final int POP_RETIRE_FRAMES = 6;
+    private static final int POP_FRAME_SWITCH = 4;
 
     private final int subtype;
     private final int baseY;
     private int angle;
     private boolean popped;
+    private int poppedFrames;
     private int lastLaunchFrame = Integer.MIN_VALUE;
 
     public CnzBalloonInstance(ObjectSpawn spawn) {
@@ -52,11 +55,23 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (isDestroyed()) {
+            return;
+        }
+
         int bobbedY = baseY + bobOffset(angle);
         updateDynamicSpawn(spawn.x(), bobbedY);
         angle = (angle + 1) & 0xFF;
 
-        if (!popped && playerEntity != null && isTouchingPlayer(playerEntity)) {
+        if (popped) {
+            poppedFrames++;
+            if (poppedFrames >= POP_RETIRE_FRAMES) {
+                setDestroyed(true);
+            }
+            return;
+        }
+
+        if (playerEntity != null && isTouchingPlayer(playerEntity)) {
             launchPlayer(playerEntity, frameCounter);
         }
     }
@@ -104,7 +119,10 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         if (color >= FRAME_BY_COLOR.length) {
             color = FRAME_BY_COLOR.length - 1;
         }
-        return FRAME_BY_COLOR[color] + (popped ? 3 : 0);
+        if (!popped) {
+            return FRAME_BY_COLOR[color];
+        }
+        return FRAME_BY_COLOR[color] + (poppedFrames >= POP_FRAME_SWITCH ? 4 : 3);
     }
 
     private void launchPlayer(PlayableEntity playerEntity, int frameCounter) {
@@ -130,6 +148,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             player.setCentreY((short) getY());
         }
         popped = true;
+        poppedFrames = 0;
 
         try {
             services().playSfx(Sonic3kSfx.BALLOON.id);
