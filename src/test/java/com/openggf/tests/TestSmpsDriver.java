@@ -254,6 +254,26 @@ public class TestSmpsDriver {
         assertTrue(driver.rawPsgWrites.contains(0xDF), "Should silence PSG3 (0xDF)");
         assertTrue(driver.rawPsgWrites.contains(0xFF), "Should silence noise channel (0xFF)");
     }
+
+    @Test
+    public void testReadMatchesSingleFrameChunkingForSilentDriver() {
+        SmpsDriver bulkDriver = new SmpsDriver();
+        SmpsDriver singleFrameDriver = new SmpsDriver();
+
+        short[] actual = new short[512];
+        short[] expected = new short[512];
+        short[] frame = new short[2];
+
+        bulkDriver.read(actual);
+        for (int i = 0; i < expected.length / 2; i++) {
+            singleFrameDriver.read(frame);
+            expected[i * 2] = frame[0];
+            expected[i * 2 + 1] = frame[1];
+        }
+
+        assertArrayEquals(expected, actual,
+                "Driver output should not depend on whether audio is read a frame at a time or in one block");
+    }
 }
 
 
