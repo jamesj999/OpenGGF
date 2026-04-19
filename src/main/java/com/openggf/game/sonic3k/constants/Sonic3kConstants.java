@@ -233,6 +233,11 @@ public class Sonic3kConstants {
     public static final int ARTTILE_MGZ_MISC1 = 0x035F; // ArtTile_MGZMisc1
     public static final int ARTTILE_MGZ_MISC2 = 0x03FF; // ArtTile_MGZMisc2
 
+    // ===== MGZ Pulley (Obj_MGZPulley, ID 0x5A) =====
+    // Mapping table has 7 word offsets at 0x2340C0; first frame payload starts at 0x2340CE.
+    // Using 0x2340CE causes the loader to treat frame payload bytes as frame offsets.
+    public static final int MAP_MGZ_PULLEY_ADDR = 0x2340C0; // Map_MGZPulley (7 frames)
+
     // Map_MGZHeadTrigger_ has an 8-word frame-offset table immediately before Frame_233822.
     // Base = first frame payload ($233822) - $10 bytes of offsets = $233812. Verified via
     // ROM search for Frame_233822 bytes "00 01 FC 0C E0 4E FF F0".
@@ -1152,6 +1157,10 @@ public class Sonic3kConstants {
     public static final int MAP_MGZ_MINIBOSS_ADDR = 0x361972;
     public static final int ART_NEM_MGZ_SPIRE_ADDR = 0x36B2CE;
     public static final int MAP_MGZ_MINIBOSS_SPIRE_ADDR = 0x088B7E;
+    public static final int PAL_MGZ_ADDR = 0x0A8F5C;
+    public static final int ART_KOSM_MGZ_ENDBOSS_ADDR = 0x36B340;
+    public static final int MAP_MGZ_ENDBOSS_ADDR = 0x362608;
+    public static final int PAL_MGZ_ENDBOSS_ADDR = 0x06D97C;
     public static final int ART_KOSM_MGZ_ENDBOSS_DEBRIS_ADDR = 0x36D572;
     public static final int MAP_MGZ_ENDBOSS_DEBRIS_ADDR = 0x3637D6;
 
