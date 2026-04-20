@@ -91,7 +91,7 @@ public class TestObjectManagerCounterBasedDynamicUnload {
     }
 
     @Test
-    public void counterBasedObjPosLoadDoesNotExecuteFreshlyLoadedObjectsUntilNextFrame() {
+    public void counterBasedResetPreloadsInWindowObjectsBeforeFirstExecuteObjectsPass() {
         ObjectSpawn spawn = new ObjectSpawn(0x0100, 0x0100, 0x31, 0, 0, false, 0);
         TrackingRegistry registry = new TrackingRegistry();
         objectManager = new ObjectManager(List.of(spawn), registry, 0, null, null,
@@ -104,17 +104,90 @@ public class TestObjectManagerCounterBasedDynamicUnload {
         objectManager.enableCounterBasedRespawn();
         objectManager.reset(0);
 
+        TrackingObjectInstance instance = registry.instance;
+        assertNotNull(instance, "Reset should preload in-window counter-based spawns");
+        assertEquals(0, instance.updateCount,
+                "Preloaded S1 counter-based objects should still wait for the first ExecuteObjects pass");
+
         objectManager.update(0, null, List.of(), 1);
 
-        TrackingObjectInstance instance = registry.instance;
-        assertNotNull(instance, "ObjPosLoad-equivalent pass should instantiate in-window spawns");
-        assertEquals(0, instance.updateCount,
-                "Freshly loaded S1 counter-based objects should not execute until the next ExecuteObjects pass");
-
-        objectManager.update(0, null, List.of(), 2);
-
         assertEquals(1, instance.updateCount,
-                "Object should execute on the following frame once it is present in the slot-ordered pass");
+                "Object should execute on the first gameplay frame after reset preload");
+    }
+
+    @Test
+    public void counterBasedNonTrackedSpawnUnloadsWhenCameraMovesOutOfRange() {
+        ObjectSpawn spawn = new ObjectSpawn(0x0100, 0x0100, 0x31, 0, 0, false, 0);
+        TrackingRegistry registry = new TrackingRegistry();
+        objectManager = new ObjectManager(List.of(spawn), registry, 0, null, null,
+                null, GameServices.camera(), new StubObjectServices() {
+                    @Override
+                    public com.openggf.camera.Camera camera() {
+                        return GameServices.camera();
+                    }
+                });
+        objectManager.enableCounterBasedRespawn();
+        objectManager.reset(0);
+
+        TrackingObjectInstance first = registry.instance;
+        assertNotNull(first, "Initial reset should preload the in-window non-tracked spawn");
+        assertEquals(1, registry.createCount, "Initial preload should create exactly one instance");
+
+        objectManager.update(0x0400, null, List.of(), 1);
+
+        assertFalse(objectManager.getActiveObjects().contains(first),
+                "Non-tracked S1 objects should unload once their spawn leaves the placement window");
+    }
+
+    @Test
+    public void counterBasedNonTrackedSpawnStaysAliveWhileCurrentPositionRemainsInRange() {
+        ObjectSpawn spawn = new ObjectSpawn(0x0100, 0x0100, 0x31, 0, 0, false, 0);
+        InRangeButMovedRegistry registry = new InRangeButMovedRegistry();
+        objectManager = new ObjectManager(List.of(spawn), registry, 0, null, null,
+                null, GameServices.camera(), new StubObjectServices() {
+                    @Override
+                    public com.openggf.camera.Camera camera() {
+                        return GameServices.camera();
+                    }
+                });
+        objectManager.enableCounterBasedRespawn();
+        objectManager.reset(0);
+
+        InRangeButMovedObject instance = registry.instance;
+        assertNotNull(instance, "Initial reset should preload the non-tracked spawn");
+
+        objectManager.update(0, null, List.of(), 1);
+        objectManager.postCameraPlacementUpdate(0x0200);
+        objectManager.update(0x0200, null, List.of(), 2);
+
+        assertTrue(objectManager.getActiveObjects().contains(instance),
+                "Counter-based S1 updates should keep non-tracked objects alive until ROM out_of_range "
+                        + "fails against the object's current/reference X");
+    }
+
+    @Test
+    public void counterBasedPostCameraPlacementCatchesUpAfterLargeCameraJump() {
+        ObjectSpawn farSpawn = new ObjectSpawn(0x1000, 0x0100, 0x31, 0, 0, false, 0);
+        TrackingRegistry registry = new TrackingRegistry();
+        objectManager = new ObjectManager(List.of(farSpawn), registry, 0, null, null,
+                null, GameServices.camera(), new StubObjectServices() {
+                    @Override
+                    public com.openggf.camera.Camera camera() {
+                        return GameServices.camera();
+                    }
+                });
+        objectManager.enableCounterBasedRespawn();
+        objectManager.reset(0);
+
+        assertEquals(0, registry.createCount,
+                "Sanity check: far spawn should not preload into the initial window");
+
+        objectManager.postCameraPlacementUpdate(0x1000);
+
+        assertNotNull(registry.instance,
+                "A large post-camera jump should populate the current counter-based window immediately");
+        assertTrue(objectManager.getActiveSpawns().contains(farSpawn),
+                "Placement active set should catch up to the jumped camera position");
     }
 
     private static final class TestDynamicObject extends AbstractObjectInstance {
@@ -161,9 +234,11 @@ public class TestObjectManagerCounterBasedDynamicUnload {
 
     private static final class TrackingRegistry implements ObjectRegistry {
         private TrackingObjectInstance instance;
+        private int createCount;
 
         @Override
         public ObjectInstance create(ObjectSpawn spawn) {
+            createCount++;
             instance = new TrackingObjectInstance(spawn);
             return instance;
         }
@@ -188,6 +263,47 @@ public class TestObjectManagerCounterBasedDynamicUnload {
         @Override
         public void update(int frameCounter, PlayableEntity player) {
             updateCount++;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+        }
+    }
+
+    private static final class InRangeButMovedRegistry implements ObjectRegistry {
+        private InRangeButMovedObject instance;
+
+        @Override
+        public ObjectInstance create(ObjectSpawn spawn) {
+            instance = new InRangeButMovedObject(spawn);
+            return instance;
+        }
+
+        @Override
+        public void reportCoverage(List<ObjectSpawn> spawns) {
+        }
+
+        @Override
+        public String getPrimaryName(int objectId) {
+            return "InRangeMoved";
+        }
+    }
+
+    private static final class InRangeButMovedObject extends AbstractObjectInstance {
+        private static final int CURRENT_X = 0x0200;
+
+        private InRangeButMovedObject(ObjectSpawn spawn) {
+            super(spawn, "InRangeMoved");
+        }
+
+        @Override
+        public int getX() {
+            return CURRENT_X;
+        }
+
+        @Override
+        public int getOutOfRangeReferenceX() {
+            return CURRENT_X;
         }
 
         @Override

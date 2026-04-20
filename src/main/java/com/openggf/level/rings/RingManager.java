@@ -9,7 +9,6 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
-import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.spawn.AbstractPlacementManager;
@@ -23,6 +22,7 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.physics.TrigLookupTable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -351,6 +351,10 @@ public class RingManager {
 
     public void spawnLostRings(AbstractPlayableSprite player, int ringCount, int frameCounter) {
         lostRings.spawnLostRings(player, ringCount, frameCounter);
+    }
+
+    public List<LostRing> getActiveLostRings() {
+        return lostRings.getActiveRingsSnapshot();
     }
 
     public boolean areAllCollected() {
@@ -850,6 +854,7 @@ public class RingManager {
         }
 
         private void reset() {
+            releaseReservedSlots();
             activeRingCount = 0;
         }
 
@@ -864,10 +869,9 @@ public class RingManager {
             int angle = 0x288;
             int xVel = 0;
             int yVel = 0;
-            int[] slotPhases = allocateSlotPhases(count);
+            reset();
             int[] slotIndices = allocateSlotIndices(count);
-
-            activeRingCount = 0;
+            int[] slotPhases = computeSlotPhases(slotIndices);
             // ROM: Ring_spill_anim_counter = $FF, accumulator reset
             spillAnimCounter = LIFETIME_FRAMES;
             spillAnimAccum = 0;
@@ -985,10 +989,15 @@ public class RingManager {
                     }
                 }
 
+                if (ring.isCollected() && collectedSparkleFinished(ring, frameCounter)) {
+                    deactivateRing(ring, objectManager);
+                    continue;
+                }
+
                 ring.decLifetime();
                 // ROM: tst.b (Ring_spill_anim_counter).w / beq.s Obj37_Delete
                 if (ring.getLifetime() <= 0 || ring.getY() > cameraBottom) {
-                    ring.deactivate();
+                    deactivateRing(ring, objectManager);
                 }
             }
         }
@@ -1032,32 +1041,55 @@ public class RingManager {
             if (objectManager == null) {
                 return slots;
             }
-
-            BitSet occupiedSlots = new BitSet(128);
-            for (var instance : objectManager.getActiveObjects()) {
-                if (instance instanceof AbstractObjectInstance aoi) {
-                    int slotIndex = aoi.getSlotIndex();
-                    if (slotIndex >= 32 && slotIndex < 128) {
-                        occupiedSlots.set(slotIndex);
-                    }
+            int previousSlot = 31;
+            for (int i = 0; i < count; i++) {
+                int slot = objectManager.allocateSlotAfter(previousSlot);
+                slots[i] = slot;
+                if (slot >= 0) {
+                    previousSlot = slot;
                 }
-            }
-
-            int assigned = 0;
-            for (int slot = 32; slot < 128 && assigned < count; slot++) {
-                if (occupiedSlots.get(slot)) {
-                    continue;
-                }
-                slots[assigned++] = slot;
-                occupiedSlots.set(slot);
             }
             return slots;
         }
 
-        private int[] allocateSlotPhases(int count) {
-            int[] slots = allocateSlotIndices(count);
-            int[] phases = new int[count];
-            for (int i = 0; i < count; i++) {
+        private void deactivateRing(LostRing ring, ObjectManager objectManager) {
+            if (ring == null || !ring.isActive()) {
+                return;
+            }
+            releaseReservedSlot(ring, objectManager);
+            ring.deactivate();
+        }
+
+        private void releaseReservedSlots() {
+            ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
+            for (LostRing ring : ringPool) {
+                releaseReservedSlot(ring, objectManager);
+                ring.deactivate();
+            }
+        }
+
+        private void releaseReservedSlot(LostRing ring, ObjectManager objectManager) {
+            if (ring == null || ring.getSlotIndex() < 0 || objectManager == null) {
+                return;
+            }
+            objectManager.releaseDynamicSlot(ring.getSlotIndex());
+            ring.setSlotIndex(-1);
+        }
+
+        private List<LostRing> getActiveRingsSnapshot() {
+            List<LostRing> active = new ArrayList<>();
+            for (int i = 0; i < activeRingCount; i++) {
+                LostRing ring = ringPool[i];
+                if (ring.isActive()) {
+                    active.add(ring);
+                }
+            }
+            return List.copyOf(active);
+        }
+
+        private int[] computeSlotPhases(int[] slots) {
+            int[] phases = new int[slots.length];
+            for (int i = 0; i < slots.length; i++) {
                 phases[i] = slots[i] >= 0 ? 127 - slots[i] : i;
             }
             return phases;
@@ -1098,12 +1130,27 @@ public class RingManager {
                 }
                 int sparkleFrameOffset = elapsed / renderer.getSparkleFrameDelay();
                 if (sparkleFrameOffset >= renderer.getSparkleFrameCount()) {
-                    ring.deactivate();
                     continue;
                 }
                 int sparkleFrameIndex = renderer.getSparkleStartIndex() + sparkleFrameOffset;
                 renderer.drawFrameIndex(sparkleFrameIndex, ring.getX(), ring.getY());
             }
+        }
+
+        private boolean collectedSparkleFinished(LostRing ring, int frameCounter) {
+            if (ring == null || !ring.isCollected()) {
+                return false;
+            }
+            if (renderer == null || renderer.getSparkleFrameCount() <= 0) {
+                return true;
+            }
+            int sparkleStartFrame = ring.getSparkleStartFrame();
+            if (sparkleStartFrame < 0) {
+                return true;
+            }
+            int elapsed = Math.max(0, frameCounter - sparkleStartFrame);
+            int sparkleFrameOffset = elapsed / renderer.getSparkleFrameDelay();
+            return sparkleFrameOffset >= renderer.getSparkleFrameCount();
         }
 
         private boolean ringOverlapsPlayer(int playerX, int playerY, int playerHeight, LostRing ring) {

@@ -77,11 +77,6 @@ public class Sonic1RingInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean needsPreAllocatedChildSlots() {
-        return !childRingSpawns.isEmpty();
-    }
-
-    @Override
     public void update(int frameCounter, PlayableEntity player) {
         switch (state) {
             case INIT -> {
@@ -126,15 +121,19 @@ public class Sonic1RingInstance extends AbstractObjectInstance
         int baseY = spawn.y();
 
         ObjectManager om = services().objectManager();
+        if (om != null) {
+            // ROM parity: Ring_Main calls FindFreeObj during this object's own
+            // ExecuteObjects slot, after lower-numbered slots have already had a
+            // chance to delete themselves.
+            om.allocateChildSlots(spawn, childRingSpawns.size());
+        }
         for (int i = 0; i < childRingSpawns.size(); i++) {
             int childX = baseX + (i + 1) * dx;
             int childY = baseY + (i + 1) * dy;
             RingSpawn childRing = childRingSpawns.get(i);
             if (om != null) {
-                // ROM parity: ring children must occupy pre-allocated slot numbers
-                // (lower than ObjPosLoad objects loaded in the same frame).
-                // Use addDynamicObjectToReservedSlot() to place the child into the
-                // slot reserved by preAllocateReservedChildSlots().
+                // Use the slots allocated above from the live SST state of this
+                // exec sweep so child numbers match the ROM's FindFreeObj order.
                 // The child constructor doesn't need services() — ring children only
                 // use services() after construction, so it's safe to construct without
                 // CONSTRUCTION_CONTEXT. setServices() is called by addDynamicObjectToReservedSlot.

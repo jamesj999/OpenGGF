@@ -270,6 +270,11 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         return !isDestroyed() && isInRange(origX);
     }
 
+    @Override
+    public int getOutOfRangeReferenceX() {
+        return origX;
+    }
+
     // ========================================
     // Movement dispatch (MBlock_Move)
     // ========================================

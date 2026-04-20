@@ -1,12 +1,18 @@
 package com.openggf.tests;
 
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRegistry;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.LostRing;
 import com.openggf.level.rings.RingFrame;
 import com.openggf.level.rings.RingFramePiece;
@@ -119,11 +125,68 @@ public class TestRingManager {
                 "Lost ring recollection should award as soon as the touch-phase timer drops below the ROM threshold");
     }
 
+    @Test
+    public void testCollectedLostRingExpiresFromLogicWithoutRenderPass() throws Exception {
+        RingManager ringManager = buildRingManager(List.of());
+        TestPlayableSprite player = new TestPlayableSprite((short) 0x03B7, (short) 0x025A);
+        player.setRolling(true);
+        player.setInvulnerableFrames(0);
+        GameServices.camera().setMaxY((short) 0x7FFF);
+
+        configureSingleLostRing(ringManager, 0x03AE, 0x0261);
+
+        ringManager.checkLostRingCollection(player);
+        assertEquals(1, player.getRingCount());
+        assertEquals(1, ringManager.getActiveLostRings().size(),
+                "Freshly collected lost rings should remain active long enough to show their sparkle");
+
+        ringManager.updateLostRingPhysics(1);
+        ringManager.updateLostRingPhysics(2);
+
+        assertTrue(ringManager.getActiveLostRings().isEmpty(),
+                "Collected lost rings must leave the active pool from logic alone so headless replay matches ROM slots");
+    }
+
+    @Test
+    public void testLostRingSpawnReservesAndReleasesDynamicSlots() throws Exception {
+        LevelManager levelManager = GameServices.level();
+        ObjectManager objectManager = new ObjectManager(List.of(), new NoOpObjectRegistry(), 0, null, null);
+        setField(levelManager, "objectManager", objectManager);
+
+        RingManager ringManager = buildRingManagerWithLevelManager(List.of(), levelManager);
+        setField(levelManager, "ringManager", ringManager);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 100, (short) 100);
+
+        ringManager.spawnLostRings(player, 3, 0);
+
+        assertEquals(3, objectManager.getAllocatedSlotCount(),
+                "Spilled lost rings should reserve real dynamic slots while active");
+
+        for (int frame = 0; frame <= 0xFF; frame++) {
+            ringManager.updateLostRingPhysics(frame);
+        }
+
+        assertEquals(0, objectManager.getAllocatedSlotCount(),
+                "Expired lost rings should release their reserved dynamic slots");
+    }
+
     private RingManager buildRingManager(List<RingSpawn> spawns) {
         return buildRingManagerWithSpinPiece(spawns, new RingFramePiece(0, 0, 1, 1, 0, false, false, 0));
     }
 
+    private RingManager buildRingManagerWithLevelManager(List<RingSpawn> spawns, LevelManager levelManager) {
+        return buildRingManagerWithLevelManagerAndSpinPiece(spawns, levelManager,
+                new RingFramePiece(0, 0, 1, 1, 0, false, false, 0));
+    }
+
     private RingManager buildRingManagerWithSpinPiece(List<RingSpawn> spawns, RingFramePiece piece) {
+        return buildRingManagerWithLevelManagerAndSpinPiece(spawns, null, piece);
+    }
+
+    private RingManager buildRingManagerWithLevelManagerAndSpinPiece(List<RingSpawn> spawns,
+                                                                     LevelManager levelManager,
+                                                                     RingFramePiece piece) {
         Pattern pattern = new Pattern();
         pattern.setPixel(0, 0, (byte) 1);
 
@@ -139,7 +202,12 @@ public class TestRingManager {
         }
 
         RingSpriteSheet spriteSheet = new RingSpriteSheet(patterns, frames, 1, 1, 1, 2);
-        RingManager ringManager = new RingManager(spawns, spriteSheet, null, null);
+        RingManager ringManager = new RingManager(
+                spawns,
+                spriteSheet,
+                levelManager,
+                null,
+                RuntimeManager.getCurrent().getEngineServices().audio());
         ringManager.ensurePatternsCached(GraphicsManager.getInstance(), 0);
         return ringManager;
     }
@@ -157,6 +225,28 @@ public class TestRingManager {
         Field activeRingCountField = lostRings.getClass().getDeclaredField("activeRingCount");
         activeRingCountField.setAccessible(true);
         activeRingCountField.setInt(lostRings, 1);
+    }
+
+    private void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
+    private static final class NoOpObjectRegistry implements ObjectRegistry {
+        @Override
+        public ObjectInstance create(ObjectSpawn spawn) {
+            return null;
+        }
+
+        @Override
+        public void reportCoverage(List<ObjectSpawn> spawns) {
+        }
+
+        @Override
+        public String getPrimaryName(int objectId) {
+            return "noop";
+        }
     }
 
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
@@ -204,6 +294,11 @@ public class TestRingManager {
         @Override
         public int getRingCount() {
             return ringCount;
+        }
+
+        @Override
+        public void setRingCount(int ringCount) {
+            this.ringCount = ringCount;
         }
 
         @Override
