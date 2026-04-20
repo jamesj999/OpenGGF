@@ -548,6 +548,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         // ROM sets object_control bit 7 during MGZ carry, so normal movement/collision
         // paths stop entirely while the platform owns the player.
         player.setObjectControlled(true);
+        player.setMgzTopPlatformCarrySolidContacts(true);
         player.setControlLocked(false);
         player.setOnObject(false);
         player.setAir(true);
@@ -776,6 +777,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 if (ps.routine == 4) {
                     releasePlayer(player, ps, true);
                 } else if (ps.routine != 0) {
+                    player.setMgzTopPlatformCarrySolidContacts(false);
                     player.setOnObject(false);
                     ps.routine = 6;
                     ps.grabbed = false;
@@ -798,6 +800,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     private void releasePlayer(AbstractPlayableSprite player, PlayerGrabState state, boolean airborneRelease) {
         player.setObjectControlled(false);
+        player.setMgzTopPlatformCarrySolidContacts(false);
         player.setControlLocked(false);
         player.setOnObject(false);
         player.setForcedAnimationId(-1);

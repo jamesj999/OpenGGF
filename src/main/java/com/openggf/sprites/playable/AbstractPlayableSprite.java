@@ -430,6 +430,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean objectControlled = false;
         /**
+         * Narrow seam for MGZ top-platform carry. That object uses object control for
+         * ownership but still needs SolidObject side/top feedback while the carry is active.
+         */
+        protected boolean mgzTopPlatformCarrySolidContacts = false;
+        /**
          * When true, airborne terrain collision is suppressed for this frame.
          * Set by zone feature providers (e.g., HCZ vertical water tunnels) to
          * prevent false collision contacts from stalling the player.  Cleared
@@ -633,6 +638,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.controlLocked = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
+                this.mgzTopPlatformCarrySolidContacts = false;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
                 this.jumpInputPressed = false;
@@ -1898,16 +1904,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.objectControlled = objectControlled;
                 if (objectControlled) {
                         this.deferredObjectControlRelease = false;
+                } else {
+                        this.mgzTopPlatformCarrySolidContacts = false;
                 }
         }
 
         /**
          * Returns whether solid-object contacts should still be evaluated while
-         * object-controlled. MGZ top platform carry uses object control for ownership
-         * but still depends on ROM wall-cling side/top feedback from SolidObjectFull.
+         * object-controlled. This is an explicit MGZ top-platform carry seam, not a
+         * generic wall-cling rule.
          */
         public boolean allowsSolidContactsWhileObjectControlled() {
-                return isWallCling();
+                return mgzTopPlatformCarrySolidContacts;
+        }
+
+        public void setMgzTopPlatformCarrySolidContacts(boolean active) {
+                this.mgzTopPlatformCarrySolidContacts = active;
         }
 
         public boolean isSuppressAirCollision() {
@@ -1942,6 +1954,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void releaseFromObjectControl(int frameCounter) {
                 this.objectControlled = false;
+                this.mgzTopPlatformCarrySolidContacts = false;
                 this.objectControlReleasedFrame = frameCounter;
         }
 
@@ -2422,6 +2435,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 pinballMode = false;
                 pinballSpeedLock = false;
                 objectControlled = false;
+                mgzTopPlatformCarrySolidContacts = false;
                 onObject = false;           // Clear "standing on object" flag
                 stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
         }
@@ -3033,6 +3047,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public void endOfTick() {
                 if (deferredObjectControlRelease) {
                         objectControlled = false;
+                        mgzTopPlatformCarrySolidContacts = false;
                         deferredObjectControlRelease = false;
                 }
                 // ROM: Sonic_Pos_Record_Index wraps at 256 bytes (64 entries * 4 bytes per entry)

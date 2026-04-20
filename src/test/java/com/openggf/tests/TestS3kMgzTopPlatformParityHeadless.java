@@ -6,7 +6,9 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.MGZTopPlatformObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterAll;
@@ -14,6 +16,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -111,6 +119,68 @@ class TestS3kMgzTopPlatformParityHeadless {
         assertTrue(sprite.getAir(), "Released player should return to airborne movement");
     }
 
+    @Test
+    void wallClingAlone_doesNotOptIntoObjectControlledSolidContacts() {
+        Sonic isolated = new Sonic("sonic", (short) 0, (short) 0);
+        isolated.setObjectControlled(true);
+        isolated.setWallCling(true);
+
+        assertFalse(isolated.allowsSolidContactsWhileObjectControlled(),
+                "Generic wall-cling state should not re-enable solid contacts while object-controlled");
+    }
+
+    @Test
+    void releasedFlight_clearsOccupiedSecondaryRiderStandingState() throws Exception {
+        MGZTopPlatformObjectInstance platform = new MGZTopPlatformObjectInstance(
+                new ObjectSpawn(0, 0, 0x5B, 0, 0, false, 0));
+        Sonic mainPlayer = new Sonic("sonic", (short) 0, (short) 0);
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        mainPlayer.setObjectControlled(true);
+        mainPlayer.setMgzTopPlatformCarrySolidContacts(true);
+        mainPlayer.setWallCling(true);
+        sidekick.setOnObject(true);
+
+        Object mainState = newPlayerGrabState();
+        setIntField(mainState, "routine", 4);
+        setBooleanField(mainState, "grabbed", true);
+        setIntField(mainState, "entrySideBias", 0x0F);
+
+        Object sidekickState = newPlayerGrabState();
+        setIntField(sidekickState, "routine", 2);
+        setBooleanField(sidekickState, "standingNow", true);
+        setBooleanField(sidekickState, "grabbed", false);
+        setIntField(sidekickState, "entrySideBias", 0x0F);
+
+        Map<Object, Object> playerStates = playerStates(platform);
+        playerStates.put(mainPlayer, mainState);
+        playerStates.put(sidekick, sidekickState);
+
+        Method enterReleasedFlight = MGZTopPlatformObjectInstance.class.getDeclaredMethod("enterReleasedFlight");
+        enterReleasedFlight.setAccessible(true);
+        enterReleasedFlight.invoke(platform);
+
+        assertFalse(mainPlayer.isObjectControlled(),
+                "Released-flight handoff should drop main-player object control");
+        assertFalse(mainPlayer.isWallCling(),
+                "Released-flight handoff should clear the MGZ wall-cling bits");
+        assertFalse(mainPlayer.allowsSolidContactsWhileObjectControlled(),
+                "Released-flight handoff should clear the explicit MGZ carry solid-contact seam");
+        assertFalse(sidekick.isOnObject(),
+                "Occupied secondary riders should be detached from ordinary standing state");
+        assertEquals(6, getIntField(mainState, "routine"),
+                "Main player should advance to the released slot state");
+        assertEquals(6, getIntField(sidekickState, "routine"),
+                "Occupied secondary rider should advance to the released slot state");
+        assertFalse(getBooleanField(mainState, "grabbed"),
+                "Released-flight handoff should clear main-player grabbed state");
+        assertFalse(getBooleanField(sidekickState, "grabbed"),
+                "Released-flight handoff should clear occupied secondary-rider grabbed state");
+        assertEquals(0, getIntField(mainState, "entrySideBias"),
+                "Released-flight handoff should clear main-player entry bias");
+        assertEquals(0, getIntField(sidekickState, "entrySideBias"),
+                "Released-flight handoff should clear secondary-rider entry bias");
+    }
+
     private MGZTopPlatformObjectInstance runUntilGrabbedHoldingLeft() {
         for (int frame = 0; frame < 120; frame++) {
             fixture.stepFrame(false, false, true, false, false);
@@ -135,5 +205,44 @@ class TestS3kMgzTopPlatformParityHeadless {
         fixture.camera().updatePosition(true);
         GameServices.level().postCameraObjectPlacementSync();
         GameServices.level().getObjectManager().reset(fixture.camera().getX());
+    }
+
+    private static Object newPlayerGrabState() throws Exception {
+        Constructor<?> ctor = Class
+                .forName("com.openggf.game.sonic3k.objects.MGZTopPlatformObjectInstance$PlayerGrabState")
+                .getDeclaredConstructor();
+        ctor.setAccessible(true);
+        return ctor.newInstance();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Object, Object> playerStates(MGZTopPlatformObjectInstance platform) throws Exception {
+        Field field = MGZTopPlatformObjectInstance.class.getDeclaredField("playerStates");
+        field.setAccessible(true);
+        return (Map<Object, Object>) field.get(platform);
+    }
+
+    private static int getIntField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getInt(target);
+    }
+
+    private static boolean getBooleanField(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getBoolean(target);
+    }
+
+    private static void setIntField(Object target, String fieldName, int value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(target, value);
+    }
+
+    private static void setBooleanField(Object target, String fieldName, boolean value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
     }
 }
