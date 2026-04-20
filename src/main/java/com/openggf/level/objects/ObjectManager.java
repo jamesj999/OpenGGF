@@ -3518,6 +3518,14 @@ public class ObjectManager {
             return state != null ? state.object : null;
         }
 
+        private boolean blocksSolidContacts(PlayableEntity player) {
+            if (!player.isObjectControlled()) {
+                return false;
+            }
+            return !(player instanceof AbstractPlayableSprite sprite)
+                    || !sprite.allowsSolidContactsWhileObjectControlled();
+        }
+
         /** Get the piece index this player is riding, or -1 if not riding a multi-piece object. */
         int getRidingPieceIndex(PlayableEntity player) {
             if (player == null) return -1;
@@ -3716,7 +3724,7 @@ public class ObjectManager {
             if (!provider.isSolidFor(player)) {
                 return null;
             }
-            if (player.isObjectControlled()) {
+            if (blocksSolidContacts(player)) {
                 return null;
             }
             if (instance.isSkipSolidContactThisFrame()) {
@@ -3805,7 +3813,7 @@ public class ObjectManager {
             int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
             boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
-            if (inBounds && provider.isSolidFor(player) && !player.isObjectControlled()) {
+            if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player)) {
                 int deltaX = currentX - ridingX;
                 if (deltaX != 0) {
                     player.shiftX(deltaX);
@@ -4169,7 +4177,7 @@ public class ObjectManager {
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
                 // ROM: s2.asm:35387 — skip repositioning if obj_control bit 7 set
-                if (inBounds && provider.isSolidFor(player) && !player.isObjectControlled()) {
+                if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player)) {
                     // ROM: s2.asm:35377-35401 — X uses delta tracking, Y uses absolute positioning
                     int deltaX = currentX - ridingX;
                     if (deltaX != 0) {
@@ -4270,7 +4278,7 @@ public class ObjectManager {
                 // is set, SolidObject returns "no collision". This prevents captured/spring-locked
                 // players from interacting with other solid objects (avoids crush death, position
                 // shifts, and state corruption while the controlling object manages the player).
-                if (player.isObjectControlled()) {
+                if (blocksSolidContacts(player)) {
                     continue;
                 }
 

@@ -1901,6 +1901,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
         }
 
+        /**
+         * Returns whether solid-object contacts should still be evaluated while
+         * object-controlled. MGZ top platform carry uses object control for ownership
+         * but still depends on ROM wall-cling side/top feedback from SolidObjectFull.
+         */
+        public boolean allowsSolidContactsWhileObjectControlled() {
+                return isWallCling();
+        }
+
         public boolean isSuppressAirCollision() {
                 return suppressAirCollision;
         }
