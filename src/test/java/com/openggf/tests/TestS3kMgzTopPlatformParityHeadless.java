@@ -14,14 +14,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 class TestS3kMgzTopPlatformParityHeadless {
+    private static final int START_PIXEL_X = 10612;
+    private static final int START_PIXEL_Y = 2036;
 
     private static SharedLevel sharedLevel;
     private static Object oldSkipIntros;
@@ -62,8 +62,13 @@ class TestS3kMgzTopPlatformParityHeadless {
     void setUp() {
         fixture = HeadlessTestFixture.builder().withSharedLevel(sharedLevel).build();
         sprite = (Sonic) fixture.sprite();
-        sprite.setX((short) 10612);
-        sprite.setY((short) 2036);
+        sprite.setCentreX((short) (START_PIXEL_X + (sprite.getWidth() / 2)));
+        sprite.setCentreY((short) (START_PIXEL_Y + (sprite.getHeight() / 2)));
+        sprite.setPushing(false);
+        sprite.setRolling(false);
+        sprite.setJumping(false);
+        sprite.setDirection(com.openggf.physics.Direction.LEFT);
+        sprite.clearWallClingState();
         teleportToReproArea();
         fixture.stepIdleFrames(1);
     }
@@ -82,10 +87,9 @@ class TestS3kMgzTopPlatformParityHeadless {
     }
 
     private MGZTopPlatformObjectInstance runUntilGrabbedHoldingLeft() {
-        MGZTopPlatformObjectInstance platform = null;
         for (int frame = 0; frame < 120; frame++) {
             fixture.stepFrame(false, false, true, false, false);
-            platform = findGrabbedPlatform();
+            MGZTopPlatformObjectInstance platform = findGrabbedPlatform();
             if (platform != null) {
                 return platform;
             }
@@ -95,7 +99,7 @@ class TestS3kMgzTopPlatformParityHeadless {
 
     private MGZTopPlatformObjectInstance findGrabbedPlatform() {
         for (ObjectInstance obj : GameServices.level().getObjectManager().getActiveObjects()) {
-            if (obj instanceof MGZTopPlatformObjectInstance platform && isGrabbed(platform, sprite)) {
+            if (obj instanceof MGZTopPlatformObjectInstance platform && platform.isPlayerGrabbed(sprite)) {
                 return platform;
             }
         }
@@ -104,24 +108,7 @@ class TestS3kMgzTopPlatformParityHeadless {
 
     private void teleportToReproArea() {
         fixture.camera().updatePosition(true);
+        GameServices.level().postCameraObjectPlacementSync();
         GameServices.level().getObjectManager().reset(fixture.camera().getX());
-    }
-
-    private static boolean isGrabbed(MGZTopPlatformObjectInstance platform, Sonic sprite) {
-        try {
-            Field field = MGZTopPlatformObjectInstance.class.getDeclaredField("playerStates");
-            field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            var map = (java.util.Map<Object, Object>) field.get(platform);
-            Object state = map.get(sprite);
-            if (state == null) {
-                return false;
-            }
-            Field routineField = state.getClass().getDeclaredField("routine");
-            routineField.setAccessible(true);
-            return routineField.getInt(state) == 4;
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError("Failed to inspect MGZ top platform grab state", e);
-        }
     }
 }
