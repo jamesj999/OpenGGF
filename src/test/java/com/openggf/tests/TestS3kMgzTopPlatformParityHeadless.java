@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -80,6 +81,34 @@ class TestS3kMgzTopPlatformParityHeadless {
         assertNotNull(platform, "Expected Sonic to grab the MGZ top platform");
         assertTrue(sprite.isObjectControlled(),
                 "MGZ top platform should own the player via objectControlled while grabbed");
+        assertTrue(sprite.isWallCling(),
+                "MGZ top platform should keep the ROM wall-cling/status-tertiary state while grabbed");
+        assertFalse(sprite.isOnObject(),
+                "Grabbed player should not remain in ordinary on-object standing state");
+    }
+
+    @Test
+    void jumpRelease_clearsObjectControlledAndWallCling() {
+        MGZTopPlatformObjectInstance platform = runUntilGrabbedHoldingLeft();
+        assertNotNull(platform, "Expected Sonic to grab the MGZ top platform before jump release");
+        assertTrue(sprite.isObjectControlled(),
+                "Release regression requires MGZ top platform to start from true object-controlled ownership");
+        assertTrue(sprite.isWallCling(),
+                "Release regression requires MGZ wall-cling status to be armed before jump release");
+
+        boolean released = false;
+        for (int frame = 0; frame < 60; frame++) {
+            fixture.stepFrame(false, false, false, false, true);
+            if (!sprite.isObjectControlled()) {
+                released = true;
+                break;
+            }
+        }
+
+        assertTrue(released, "Expected jump input to release Sonic from the MGZ top platform");
+        assertFalse(sprite.isObjectControlled(), "Jump release should clear object-controlled ownership");
+        assertFalse(sprite.isWallCling(), "Jump release should clear MGZ wall-cling bits");
+        assertTrue(sprite.getAir(), "Released player should return to airborne movement");
     }
 
     private MGZTopPlatformObjectInstance runUntilGrabbedHoldingLeft() {

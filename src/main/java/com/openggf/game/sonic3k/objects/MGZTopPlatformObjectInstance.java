@@ -545,11 +545,10 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
      */
     private void grabPlayer(AbstractPlayableSprite player, PlayerGrabState state) {
         player.setCentreX((short) posX);
-        // ROM sets obj_control bit 0 here, which skips Sonic_Modes until release.
-        // Input lockout is enough for our engine: movePlatform/snapGrabbedPlayer
-        // overwrite the player's position every frame, and zeroing the player's
-        // speeds below prevents modeAirborne from drifting between frames.
-        player.setControlLocked(true);
+        // ROM sets object_control bit 7 during MGZ carry, so normal movement/collision
+        // paths stop entirely while the platform owns the player.
+        player.setObjectControlled(true);
+        player.setControlLocked(false);
         player.setOnObject(false);
         player.setAir(true);
         player.setXSpeed((short) 0);
@@ -773,8 +772,15 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         nextCarryLatched = false;
         for (Map.Entry<PlayableEntity, PlayerGrabState> entry : playerStates.entrySet()) {
             PlayerGrabState ps = entry.getValue();
-            if (entry.getKey() instanceof AbstractPlayableSprite player && ps.routine == 4) {
-                releasePlayer(player, ps, true);
+            if (entry.getKey() instanceof AbstractPlayableSprite player) {
+                if (ps.routine == 4) {
+                    releasePlayer(player, ps, true);
+                } else if (ps.routine != 0) {
+                    player.setOnObject(false);
+                    ps.routine = 6;
+                    ps.grabbed = false;
+                    ps.entrySideBias = 0;
+                }
             } else {
                 ps.routine = 6;
                 ps.grabbed = false;
@@ -791,6 +797,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void releasePlayer(AbstractPlayableSprite player, PlayerGrabState state, boolean airborneRelease) {
+        player.setObjectControlled(false);
         player.setControlLocked(false);
         player.setOnObject(false);
         player.setForcedAnimationId(-1);
@@ -1430,6 +1437,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             state.routine = 0;
             state.entrySideBias = 0;
             if (entry.getKey() instanceof AbstractPlayableSprite player) {
+                player.setObjectControlled(false);
                 player.setControlLocked(false);
                 player.setOnObject(false);
                 player.setForcedAnimationId(-1);
