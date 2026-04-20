@@ -30,6 +30,8 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
+import com.openggf.level.objects.ObjectControlledSolidContactController;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
@@ -431,9 +433,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean objectControlled = false;
         /**
          * Narrow seam for MGZ top-platform carry. That object uses object control for
-         * ownership but still needs SolidObject side/top feedback while the carry is active.
+         * ownership but still needs SolidObject side/top feedback from its controlling
+         * platform instance while the carry is active.
          */
-        protected boolean mgzTopPlatformCarrySolidContacts = false;
+        protected ObjectInstance mgzTopPlatformCarrySolidContactObject;
         /**
          * When true, airborne terrain collision is suppressed for this frame.
          * Set by zone feature providers (e.g., HCZ vertical water tunnels) to
@@ -638,7 +641,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.controlLocked = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
-                this.mgzTopPlatformCarrySolidContacts = false;
+                this.mgzTopPlatformCarrySolidContactObject = null;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
                 this.jumpInputPressed = false;
@@ -1905,7 +1908,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (objectControlled) {
                         this.deferredObjectControlRelease = false;
                 } else {
-                        this.mgzTopPlatformCarrySolidContacts = false;
+                        this.mgzTopPlatformCarrySolidContactObject = null;
                 }
         }
 
@@ -1914,12 +1917,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * object-controlled. This is an explicit MGZ top-platform carry seam, not a
          * generic wall-cling rule.
          */
-        public boolean allowsSolidContactsWhileObjectControlled() {
-                return mgzTopPlatformCarrySolidContacts;
+        public boolean allowsSolidContactsWhileObjectControlled(ObjectInstance candidate) {
+                if (candidate == null || mgzTopPlatformCarrySolidContactObject == null) {
+                        return false;
+                }
+                if (candidate == mgzTopPlatformCarrySolidContactObject) {
+                        return true;
+                }
+                return mgzTopPlatformCarrySolidContactObject instanceof ObjectControlledSolidContactController controller
+                        && controller.allowsObjectControlledSolidContact(this, candidate);
         }
 
-        public void setMgzTopPlatformCarrySolidContacts(boolean active) {
-                this.mgzTopPlatformCarrySolidContacts = active;
+        public void setMgzTopPlatformCarrySolidContactObject(ObjectInstance instance) {
+                this.mgzTopPlatformCarrySolidContactObject = instance;
         }
 
         public boolean isSuppressAirCollision() {
@@ -1954,7 +1964,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void releaseFromObjectControl(int frameCounter) {
                 this.objectControlled = false;
-                this.mgzTopPlatformCarrySolidContacts = false;
+                this.mgzTopPlatformCarrySolidContactObject = null;
                 this.objectControlReleasedFrame = frameCounter;
         }
 
@@ -2435,7 +2445,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 pinballMode = false;
                 pinballSpeedLock = false;
                 objectControlled = false;
-                mgzTopPlatformCarrySolidContacts = false;
+                mgzTopPlatformCarrySolidContactObject = null;
                 onObject = false;           // Clear "standing on object" flag
                 stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
         }
@@ -3047,7 +3057,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public void endOfTick() {
                 if (deferredObjectControlRelease) {
                         objectControlled = false;
-                        mgzTopPlatformCarrySolidContacts = false;
+                        mgzTopPlatformCarrySolidContactObject = null;
                         deferredObjectControlRelease = false;
                 }
                 // ROM: Sonic_Pos_Record_Index wraps at 256 bytes (64 entries * 4 bytes per entry)

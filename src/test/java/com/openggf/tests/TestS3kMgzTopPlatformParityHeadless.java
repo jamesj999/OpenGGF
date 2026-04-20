@@ -4,6 +4,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.BreakableWallObjectInstance;
 import com.openggf.game.sonic3k.objects.MGZTopPlatformObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -122,11 +123,33 @@ class TestS3kMgzTopPlatformParityHeadless {
     @Test
     void wallClingAlone_doesNotOptIntoObjectControlledSolidContacts() {
         Sonic isolated = new Sonic("sonic", (short) 0, (short) 0);
+        MGZTopPlatformObjectInstance candidate = new MGZTopPlatformObjectInstance(
+                new ObjectSpawn(0, 0, 0x5B, 0, 0, false, 0));
         isolated.setObjectControlled(true);
         isolated.setWallCling(true);
 
-        assertFalse(isolated.allowsSolidContactsWhileObjectControlled(),
+        assertFalse(isolated.allowsSolidContactsWhileObjectControlled(candidate),
                 "Generic wall-cling state should not re-enable solid contacts while object-controlled");
+    }
+
+    @Test
+    void mgzCarryController_onlyAllowsMgzPlatformAndWallCandidates() {
+        Sonic isolated = new Sonic("sonic", (short) 0, (short) 0);
+        MGZTopPlatformObjectInstance controllingPlatform = new MGZTopPlatformObjectInstance(
+                new ObjectSpawn(0, 0, 0x5B, 0, 0, false, 0));
+        MGZTopPlatformObjectInstance otherPlatform = new MGZTopPlatformObjectInstance(
+                new ObjectSpawn(32, 0, 0x5B, 0, 0, false, 1));
+        BreakableWallObjectInstance mgzWall = new BreakableWallObjectInstance(
+                new ObjectSpawn(0, 0, 0x0D, 0, 0, false, 0));
+        isolated.setObjectControlled(true);
+        isolated.setMgzTopPlatformCarrySolidContactObject(controllingPlatform);
+
+        assertTrue(isolated.allowsSolidContactsWhileObjectControlled(controllingPlatform),
+                "MGZ carry should allow solid contacts against the controlling platform instance");
+        assertTrue(isolated.allowsSolidContactsWhileObjectControlled(mgzWall),
+                "MGZ carry should still allow the MGZ wall checkpoint contact the controller depends on");
+        assertFalse(isolated.allowsSolidContactsWhileObjectControlled(otherPlatform),
+                "MGZ carry should not opt the player back into every other solid while object-controlled");
     }
 
     @Test
@@ -136,7 +159,7 @@ class TestS3kMgzTopPlatformParityHeadless {
         Sonic mainPlayer = new Sonic("sonic", (short) 0, (short) 0);
         Tails sidekick = new Tails("tails", (short) 0, (short) 0);
         mainPlayer.setObjectControlled(true);
-        mainPlayer.setMgzTopPlatformCarrySolidContacts(true);
+        mainPlayer.setMgzTopPlatformCarrySolidContactObject(platform);
         mainPlayer.setWallCling(true);
         sidekick.setOnObject(true);
 
@@ -163,7 +186,7 @@ class TestS3kMgzTopPlatformParityHeadless {
                 "Released-flight handoff should drop main-player object control");
         assertFalse(mainPlayer.isWallCling(),
                 "Released-flight handoff should clear the MGZ wall-cling bits");
-        assertFalse(mainPlayer.allowsSolidContactsWhileObjectControlled(),
+        assertFalse(mainPlayer.allowsSolidContactsWhileObjectControlled(platform),
                 "Released-flight handoff should clear the explicit MGZ carry solid-contact seam");
         assertFalse(sidekick.isOnObject(),
                 "Occupied secondary riders should be detached from ordinary standing state");

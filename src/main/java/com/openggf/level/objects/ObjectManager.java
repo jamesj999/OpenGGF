@@ -3518,15 +3518,15 @@ public class ObjectManager {
             return state != null ? state.object : null;
         }
 
-        private boolean blocksSolidContacts(PlayableEntity player) {
+        private boolean blocksSolidContacts(PlayableEntity player, ObjectInstance candidate) {
             if (!player.isObjectControlled()) {
                 return false;
             }
             // Most object-controlled states skip SolidObject entirely. MGZ top-platform
-            // carry is the narrow exception: it still consumes side/top feedback while
-            // the platform owns the player.
+            // carry is the narrow exception: it still consumes side/top feedback from
+            // its controlling platform instance while the platform owns the player.
             return !(player instanceof AbstractPlayableSprite sprite)
-                    || !sprite.allowsSolidContactsWhileObjectControlled();
+                    || !sprite.allowsSolidContactsWhileObjectControlled(candidate);
         }
 
         /** Get the piece index this player is riding, or -1 if not riding a multi-piece object. */
@@ -3727,7 +3727,7 @@ public class ObjectManager {
             if (!provider.isSolidFor(player)) {
                 return null;
             }
-            if (blocksSolidContacts(player)) {
+            if (blocksSolidContacts(player, instance)) {
                 return null;
             }
             if (instance.isSkipSolidContactThisFrame()) {
@@ -3816,7 +3816,7 @@ public class ObjectManager {
             int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
             boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
-            if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player)) {
+            if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player, instance)) {
                 int deltaX = currentX - ridingX;
                 if (deltaX != 0) {
                     player.shiftX(deltaX);
@@ -4180,7 +4180,7 @@ public class ObjectManager {
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
 
                 // ROM: s2.asm:35387 — skip repositioning if obj_control bit 7 set
-                if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player)) {
+                if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player, ridingObject)) {
                     // ROM: s2.asm:35377-35401 — X uses delta tracking, Y uses absolute positioning
                     int deltaX = currentX - ridingX;
                     if (deltaX != 0) {
@@ -4281,7 +4281,7 @@ public class ObjectManager {
                 // is set, SolidObject returns "no collision". This prevents captured/spring-locked
                 // players from interacting with other solid objects (avoids crush death, position
                 // shifts, and state corruption while the controlling object manages the player).
-                if (blocksSolidContacts(player)) {
+                if (blocksSolidContacts(player, instance)) {
                     continue;
                 }
 
