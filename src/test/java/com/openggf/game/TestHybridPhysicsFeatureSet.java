@@ -53,7 +53,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // groundWallCollisionEnabled - S1
                 false,  // airSuperspeedPreserved - S1
                 false,  // slopeRepelChecksOnObject - S1
-                PhysicsFeatureSet.FAST_SCROLL_CAP_S2  // fastScrollCap - S1 (same as S2)
+                PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
+                true    // stageRingsUseObjectTouchCollection - S1
         );
 
         // Verify spindash is enabled (donor contribution)

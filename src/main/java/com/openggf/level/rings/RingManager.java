@@ -3,7 +3,6 @@ package com.openggf.level.rings;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameModule;
-import com.openggf.game.GameId;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -66,9 +65,14 @@ public class RingManager {
                 : null;
         this.audioManager = audioManager;
         this.lostRings = new LostRingPool(levelManager, this.renderer, touchResponseTable, audioManager);
+        // Feature-flag: ROM parity sources this from the current game's physics feature set.
+        // S1 routes stage rings through Obj25's touch-response pipeline (Touch_Rings);
+        // S2/S3K collect them via the bounding-box sweep (Touch_Rings_Test).
         GameModule module = RuntimeManager.resolveCurrentOrBootstrapGameModule();
+        PhysicsProvider physProvider = module != null ? module.getPhysicsProvider() : null;
+        PhysicsFeatureSet featureSet = physProvider != null ? physProvider.getFeatureSet() : null;
         this.stageRingsUseObjectTouchCollection =
-                module != null && module.getGameId() == GameId.S1;
+                featureSet != null && featureSet.stageRingsUseObjectTouchCollection();
         this.attractedRings = new AttractedRing[MAX_ATTRACTED_RINGS];
         for (int i = 0; i < MAX_ATTRACTED_RINGS; i++) {
             attractedRings[i] = new AttractedRing();
