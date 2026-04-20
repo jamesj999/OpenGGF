@@ -55,6 +55,17 @@ public class PatternRenderCommand implements GLCommandable {
     private static int lastAtlasTextureId = -1;
     private static int lastPaletteTextureId = -1;
     private static int lastPaletteIndex = -1;
+    private static int lastPriorityShaderProgramId = -1;
+    private static int lastPriorityTileTextureId = -1;
+    private static int lastPriorityUnderwaterPaletteId = -1;
+    private static int lastPriorityViewportX = Integer.MIN_VALUE;
+    private static int lastPriorityViewportY = Integer.MIN_VALUE;
+    private static int lastPriorityViewportWidth = Integer.MIN_VALUE;
+    private static int lastPriorityViewportHeight = Integer.MIN_VALUE;
+    private static boolean lastPriorityWaterEnabled;
+    private static float lastPriorityWaterlineScreenY = Float.NaN;
+    private static float lastPriorityWindowHeight = Float.NaN;
+    private static float lastPriorityScreenHeight = Float.NaN;
     private static boolean stateInitialized = false;
 
     // Pre-allocated vertex buffers for transformed coordinates
@@ -154,6 +165,17 @@ public class PatternRenderCommand implements GLCommandable {
         lastAtlasTextureId = -1;
         lastPaletteTextureId = -1;
         lastPaletteIndex = -1;
+        lastPriorityShaderProgramId = -1;
+        lastPriorityTileTextureId = -1;
+        lastPriorityUnderwaterPaletteId = -1;
+        lastPriorityViewportX = Integer.MIN_VALUE;
+        lastPriorityViewportY = Integer.MIN_VALUE;
+        lastPriorityViewportWidth = Integer.MIN_VALUE;
+        lastPriorityViewportHeight = Integer.MIN_VALUE;
+        lastPriorityWaterEnabled = false;
+        lastPriorityWaterlineScreenY = Float.NaN;
+        lastPriorityWindowHeight = Float.NaN;
+        lastPriorityScreenHeight = Float.NaN;
         stateInitialized = false;
     }
 
@@ -222,34 +244,71 @@ public class PatternRenderCommand implements GLCommandable {
         }
 
         if (shaderProgram instanceof SpritePriorityShaderProgram priorityShader) {
+            int programId = shaderProgram.getProgramId();
             TilePriorityFBO fbo = graphicsManager.getTilePriorityFBO();
-            if (fbo != null && fbo.isInitialized()) {
-                glActiveTexture(GL_TEXTURE5);
-                glBindTexture(GL_TEXTURE_2D, fbo.getTextureId());
-                priorityShader.setTilePriorityTexture(5);
-                glActiveTexture(GL_TEXTURE0);
+            int tilePriorityTextureId =
+                    fbo != null && fbo.isInitialized() ? fbo.getTextureId() : -1;
+            int viewportX = graphicsManager.getViewportX();
+            int viewportY = graphicsManager.getViewportY();
+            int viewportWidth = graphicsManager.getViewportWidth();
+            int viewportHeight = graphicsManager.getViewportHeight();
+            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
+            int underwaterPaletteTextureId = underwaterPaletteId != null ? underwaterPaletteId : -1;
+            boolean waterEnabled = graphicsManager.isWaterEnabled();
+            float waterlineScreenY = graphicsManager.getWaterlineScreenY();
+            float windowHeight = graphicsManager.getWindowHeight();
+            float screenHeight = graphicsManager.getScreenHeight();
+
+            if (lastPriorityShaderProgramId != programId
+                    || lastPriorityTileTextureId != tilePriorityTextureId
+                    || lastPriorityViewportX != viewportX
+                    || lastPriorityViewportY != viewportY
+                    || lastPriorityViewportWidth != viewportWidth
+                    || lastPriorityViewportHeight != viewportHeight
+                    || lastPriorityUnderwaterPaletteId != underwaterPaletteTextureId
+                    || lastPriorityWaterEnabled != waterEnabled
+                    || lastPriorityWaterlineScreenY != waterlineScreenY
+                    || lastPriorityWindowHeight != windowHeight
+                    || lastPriorityScreenHeight != screenHeight) {
+                if (tilePriorityTextureId >= 0) {
+                    glActiveTexture(GL_TEXTURE5);
+                    glBindTexture(GL_TEXTURE_2D, tilePriorityTextureId);
+                    priorityShader.setTilePriorityTexture(5);
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setScreenSize(viewportWidth, viewportHeight);
+                priorityShader.setViewportOffset(viewportX, viewportY);
+
+                if (underwaterPaletteTextureId >= 0) {
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_2D, underwaterPaletteTextureId);
+                    int loc = priorityShader.getUnderwaterPaletteLocation();
+                    if (loc != -1) {
+                        glUniform1i(loc, 2);
+                    }
+                    glActiveTexture(GL_TEXTURE0);
+                }
+
+                priorityShader.setWaterEnabled(waterEnabled);
+                priorityShader.setWaterlineScreenY(waterlineScreenY);
+                priorityShader.setWindowHeight(windowHeight);
+                priorityShader.setScreenHeight(screenHeight);
+                lastPriorityShaderProgramId = programId;
+                lastPriorityTileTextureId = tilePriorityTextureId;
+                lastPriorityUnderwaterPaletteId = underwaterPaletteTextureId;
+                lastPriorityViewportX = viewportX;
+                lastPriorityViewportY = viewportY;
+                lastPriorityViewportWidth = viewportWidth;
+                lastPriorityViewportHeight = viewportHeight;
+                lastPriorityWaterEnabled = waterEnabled;
+                lastPriorityWaterlineScreenY = waterlineScreenY;
+                lastPriorityWindowHeight = windowHeight;
+                lastPriorityScreenHeight = screenHeight;
             }
 
             // Per-piece VDP priority: use ROM per-tile bit OR'd with global override
             priorityShader.setSpriteHighPriority(piecePriority || capturedGlobalHighPriority);
-            priorityShader.setScreenSize(graphicsManager.getViewportWidth(), graphicsManager.getViewportHeight());
-            priorityShader.setViewportOffset(graphicsManager.getViewportX(), graphicsManager.getViewportY());
-
-            Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-            if (underwaterPaletteId != null) {
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, underwaterPaletteId);
-                int loc = priorityShader.getUnderwaterPaletteLocation();
-                if (loc != -1) {
-                    glUniform1i(loc, 2);
-                }
-                glActiveTexture(GL_TEXTURE0);
-            }
-
-            priorityShader.setWaterEnabled(graphicsManager.isWaterEnabled());
-            priorityShader.setWaterlineScreenY(graphicsManager.getWaterlineScreenY());
-            priorityShader.setWindowHeight(graphicsManager.getWindowHeight());
-            priorityShader.setScreenHeight(graphicsManager.getScreenHeight());
         }
 
         // Only bind palette texture if it changed

@@ -236,6 +236,23 @@ further S3K parity work.
 - **Runtime-owned frameworks:** `PaletteOwnershipRegistry` for multi-writer palette arbitration,
   `ZoneRuntimeRegistry` for typed per-zone state adapters, and related shared registries that
   normalize zone-specific behavior across games.
+- **Performance parity pass:** trimmed hot-path render and runtime churn with atlas bulk-copy
+  cleanup, object-manager active-list and solid/touch provider caches, direct scroll-buffer copy
+  helpers, profiler gating behind the debug overlay, and direct-buffer SMPS block rendering.
+- **Trace replay v3 execution counters:** physics CSVs and the replay harness now understand
+  `gameplay_frame_counter`, `vblank_counter`, and `lag_counter`, with a one-shot notice when a
+  pre-v3 fixture falls back to the legacy lag heuristic. The BizHawk v3 recorder upgrade is
+  landed for Sonic 1; Sonic 2 and Sonic 3 & Knuckles recorder migration is planned and deferred.
+- **Sonic 1 object-lifecycle parity:** explosion-item slot routing, lost-ring SST slot
+  reservation, bounded `CHUNK_STEP` advancement, push-block two-stage out-of-range logic, and
+  counter-based object-placement catch-up after large camera jumps all realigned with the ROM.
+- **Cross-game monitor-sidekick guard:** donated S1 content now blocks AI sidekicks from breaking
+  Sonic 1 monitors, matching the S2/S3K shared rule and keeping donated ownership semantics
+  consistent. Documented as an intentional divergence in `docs/KNOWN_DISCREPANCIES.md`.
+- **Feature-flag discipline:** per-game behavioural differences are gated by `PhysicsFeatureSet`
+  flags rather than game-name `if/else` chains; `stageRingsUseObjectTouchCollection` replaces the
+  last `getGameId() == GameId.S1` check in `RingManager`, and the rule is now documented in both
+  `AGENTS.md` and `CLAUDE.md`.
 
 See CHANGELOG.md for the running list of unreleased changes.
 

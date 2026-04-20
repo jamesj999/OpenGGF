@@ -30,13 +30,18 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
     // dc.b 1, 3, 6, 3, 6, 4, 6, 4, 6, 4, 6, 5, afRoutine
     // Speed 1 = each frame displayed for 2 ticks
     private static final int[] SMOKE_FRAMES = {3, 6, 3, 6, 4, 6, 4, 6, 4, 6, 5};
-    private static final int SMOKE_SPEED = 2; // speed byte 1 = duration of 2 ticks per frame
+    // ROM script speed byte 1 means: show the loaded frame immediately, then hold
+    // it for one more update before advancing on the following AnimateSprite call.
+    private static final int FRAME_HOLD_TICKS = 1;
 
     private final int posX;
     private final int posY;
     private final boolean facingLeft;
-    private int animTimer;
-    private int animStep;
+    private int scriptIndex;
+    private int frameHoldRemaining;
+    private int renderedFrame;
+    private boolean initialized;
+    private boolean deletePending;
     private boolean finished;
 
     public Sonic1MotobugSmokeInstance(int x, int y, boolean facingLeft) {
@@ -44,29 +49,45 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
         this.posX = x;
         this.posY = y;
         this.facingLeft = facingLeft;
-        
-        this.animTimer = 0;
-        this.animStep = 0;
+
+        this.scriptIndex = 0;
+        this.frameHoldRemaining = 0;
+        this.renderedFrame = SMOKE_FRAMES[0];
+        this.initialized = false;
+        this.deletePending = false;
         this.finished = false;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (finished) {
             return;
         }
 
-        animTimer++;
-        if (animTimer >= SMOKE_SPEED) {
-            animTimer = 0;
-            animStep++;
-            if (animStep >= SMOKE_FRAMES.length) {
-                // afRoutine: advance routine → Moto_Delete
-                finished = true;
-                setDestroyed(true);
-            }
+        // ROM: smoke enters Moto_Main first, then immediately branches to
+        // Moto_Animate on that same update. Only the following tick runs Moto_Delete.
+        if (deletePending) {
+            finished = true;
+            setDestroyed(true);
+            return;
         }
+
+        if (!initialized) {
+            initialized = true;
+        }
+
+        if (frameHoldRemaining > 0) {
+            frameHoldRemaining--;
+            return;
+        }
+
+        if (scriptIndex >= SMOKE_FRAMES.length) {
+            deletePending = true;
+            return;
+        }
+
+        renderedFrame = SMOKE_FRAMES[scriptIndex++];
+        frameHoldRemaining = FRAME_HOLD_TICKS;
     }
 
     @Override
@@ -91,15 +112,14 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (finished || animStep >= SMOKE_FRAMES.length) {
+        if (finished) {
             return;
         }
 
         PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MOTOBUG);
         if (renderer == null) return;
 
-        int frame = SMOKE_FRAMES[animStep];
         // S1 convention: default sprite art faces left, hFlip = true when facing right
-        renderer.drawFrameIndex(frame, posX, posY, !facingLeft, false);
+        renderer.drawFrameIndex(renderedFrame, posX, posY, !facingLeft, false);
     }
 }

@@ -2,8 +2,10 @@ package com.openggf.level.objects;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -148,6 +150,25 @@ public class TestObjectPlacementManager {
         // Returning camera into range should allow respawn.
         manager.update(200);
         assertTrue(manager.getActiveSpawns().contains(spawn));
+    }
+
+    @Test
+    public void testBackwardCounteredNonTrackedSpawnCreatesInlineDuringUpdateAndLoad() {
+        ObjectSpawn spawn = new ObjectSpawn(0x0AD0, 0, 0x32, 0, 0, false, 0);
+        ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
+        manager.enableCounterBasedRespawn();
+        manager.reset(0x0B82);
+
+        List<ObjectSpawn> created = new ArrayList<>();
+        manager.updateAndLoad(0x0B7E, (newSpawn, counterValue) -> {
+            created.add(newSpawn);
+            return true;
+        });
+
+        assertTrue(manager.getActiveSpawns().contains(spawn),
+                "Backward scan should add the non-tracked spawn to the active window");
+        assertEquals(List.of(spawn), created,
+                "Backward counter-based post-camera scan should inline-create non-tracked spawns");
     }
 }
 

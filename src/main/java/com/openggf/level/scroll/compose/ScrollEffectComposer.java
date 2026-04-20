@@ -156,12 +156,20 @@ public final class ScrollEffectComposer {
         return copyOrNull(perLineVScrollBG);
     }
 
+    public void copyPerLineVScrollBGTo(short[] target) {
+        copyToTarget(perLineVScrollBG, target);
+    }
+
     public void setPerLineVScrollBG(short[] perLineVScrollBG) {
         this.perLineVScrollBG = copyOrNull(perLineVScrollBG);
     }
 
     public short[] getPerColumnVScrollBG() {
         return hasPerColumnVScrollBG ? perColumnVScrollBG : null;
+    }
+
+    public void copyPerColumnVScrollBGTo(short[] target) {
+        copyToTarget(hasPerColumnVScrollBG ? perColumnVScrollBG : null, target);
     }
 
     public void setPerColumnVScrollBG(short[] perColumnVScrollBG) {
@@ -196,6 +204,10 @@ public final class ScrollEffectComposer {
         return copyOrNull(perColumnVScrollFG);
     }
 
+    public void copyPerColumnVScrollFGTo(short[] target) {
+        copyToTarget(perColumnVScrollFG, target);
+    }
+
     public void setPerColumnVScrollFG(short[] perColumnVScrollFG) {
         this.perColumnVScrollFG = copyOrNull(perColumnVScrollFG);
     }
@@ -218,5 +230,15 @@ public final class ScrollEffectComposer {
 
     private short[] copyOrNull(short[] values) {
         return values == null ? null : Arrays.copyOf(values, values.length);
+    }
+
+    private void copyToTarget(short[] values, short[] target) {
+        if (values == null) {
+            throw new IllegalStateException("No scroll values are available to copy");
+        }
+        if (target.length < values.length) {
+            throw new IllegalArgumentException("target length must be at least " + values.length);
+        }
+        System.arraycopy(values, 0, target, 0, values.length);
     }
 }

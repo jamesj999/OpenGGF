@@ -6,7 +6,10 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchCategory;
+import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.rings.RingManager;
 import com.openggf.level.rings.RingSpawn;
 
@@ -24,7 +27,8 @@ import java.util.List;
  *   <li>Sparkle countdown and self-destruction</li>
  * </ul>
  */
-public class Sonic1RingInstance extends AbstractObjectInstance implements TouchResponseProvider {
+public class Sonic1RingInstance extends AbstractObjectInstance
+        implements TouchResponseProvider, TouchResponseListener {
 
     /** S1 ring collision type: $47 = powerup category ($40) + size index 7. */
     public static final int RING_COLLISION_FLAGS = 0x47;
@@ -33,6 +37,7 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
 
     private final RingSpawn ringSpawn;
     private final List<RingSpawn> childRingSpawns;
+    private final int outOfRangeAnchorX;
 
     private State state;
 
@@ -48,6 +53,7 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
         this.childRingSpawns = allRingSpawns.size() > 1
                 ? allRingSpawns.subList(1, allRingSpawns.size())
                 : List.of();
+        this.outOfRangeAnchorX = spawn.x();
         this.state = State.INIT;
     }
 
@@ -57,21 +63,17 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
      * @param spawn     dynamically built spawn at child position
      * @param ringSpawn the child's RingSpawn reference in RingManager
      */
-    Sonic1RingInstance(ObjectSpawn spawn, RingSpawn ringSpawn) {
+    Sonic1RingInstance(ObjectSpawn spawn, RingSpawn ringSpawn, int outOfRangeAnchorX) {
         super(spawn, "Ring");
         this.ringSpawn = ringSpawn;
         this.childRingSpawns = List.of();
+        this.outOfRangeAnchorX = outOfRangeAnchorX;
         this.state = State.ANIMATE;
     }
 
     @Override
     public int getReservedChildSlotCount() {
         return childRingSpawns.size();
-    }
-
-    @Override
-    public boolean needsPreAllocatedChildSlots() {
-        return !childRingSpawns.isEmpty();
     }
 
     @Override
@@ -89,8 +91,18 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
             }
             case SPARKLE -> {
                 RingManager ringManager = services().ringManager();
+                int gameplayFrameCounter = frameCounter;
+                ObjectManager objectManager = services().objectManager();
+                if (objectManager != null) {
+                    // ROM parity: Ring_Sparkle advances only when ExecuteObjects runs.
+                    // Lag frames still bump v_vbla_byte, but they do not run the ring
+                    // object's AnimateSprite/DeleteObject path. Use gameplay-frame
+                    // time here so collected ring slots persist through lag exactly
+                    // as long as the ROM object routine does.
+                    gameplayFrameCounter = objectManager.getFrameCounter();
+                }
                 if (ringManager == null || ringManager.isCollectedAndSparkleDone(
-                        ringSpawn, frameCounter)) {
+                        ringSpawn, gameplayFrameCounter)) {
                     setDestroyed(true);
                 }
             }
@@ -109,24 +121,35 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
         int baseY = spawn.y();
 
         ObjectManager om = services().objectManager();
+        if (om != null) {
+            // ROM parity: Ring_Main calls FindFreeObj during this object's own
+            // ExecuteObjects slot, after lower-numbered slots have already had a
+            // chance to delete themselves.
+            om.allocateChildSlots(spawn, childRingSpawns.size());
+        }
         for (int i = 0; i < childRingSpawns.size(); i++) {
             int childX = baseX + (i + 1) * dx;
             int childY = baseY + (i + 1) * dy;
             RingSpawn childRing = childRingSpawns.get(i);
             if (om != null) {
-                // ROM parity: ring children must occupy pre-allocated slot numbers
-                // (lower than ObjPosLoad objects loaded in the same frame).
-                // Use addDynamicObjectToReservedSlot() to place the child into the
-                // slot reserved by preAllocateReservedChildSlots().
+                // Use the slots allocated above from the live SST state of this
+                // exec sweep so child numbers match the ROM's FindFreeObj order.
                 // The child constructor doesn't need services() — ring children only
                 // use services() after construction, so it's safe to construct without
                 // CONSTRUCTION_CONTEXT. setServices() is called by addDynamicObjectToReservedSlot.
-                Sonic1RingInstance child = new Sonic1RingInstance(buildSpawnAt(childX, childY), childRing);
+                Sonic1RingInstance child = new Sonic1RingInstance(
+                        buildSpawnAt(childX, childY), childRing, outOfRangeAnchorX);
                 om.addDynamicObjectToReservedSlot(child, spawn, i);
             } else {
-                spawnChild(() -> new Sonic1RingInstance(buildSpawnAt(childX, childY), childRing));
+                spawnChild(() -> new Sonic1RingInstance(
+                        buildSpawnAt(childX, childY), childRing, outOfRangeAnchorX));
             }
         }
+    }
+
+    @Override
+    public int getOutOfRangeReferenceX() {
+        return outOfRangeAnchorX;
     }
 
     // ── TouchResponseProvider ─────────────────────────────────────────────
@@ -139,6 +162,24 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
     @Override
     public int getCollisionProperty() {
         return 0;
+    }
+
+    @Override
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        if (state != State.ANIMATE || result.category() != TouchCategory.SPECIAL) {
+            return;
+        }
+        if (!(playerEntity instanceof com.openggf.sprites.playable.AbstractPlayableSprite player)) {
+            return;
+        }
+        RingManager ringManager = services().ringManager();
+        if (ringManager == null || !ringManager.collectPlacedRing(ringSpawn, player, frameCounter)) {
+            return;
+        }
+        // ROM: ReactToItem advances routine immediately on touch, so the ring
+        // stops colliding in the same frame even though this engine runs the
+        // ring object's normal update before the player touch pass.
+        state = State.SPARKLE;
     }
 
     @Override

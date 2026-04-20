@@ -79,6 +79,10 @@ public final class LevelFrameStep {
 
         boolean inlineSolidResolution = levelManager.usesInlineObjectSolidResolution();
         if (inlineSolidResolution) {
+            // 2. Inline-order modules need a frame-start snapshot of object touch
+            //    state because player-slot ReactToItem runs before ExecuteObjects.
+            levelManager.prepareTouchResponseSnapshots();
+
             // 2. Inline solid-resolution path: player physics first. Touch responses
             //    run per-player inside tickPlayablePhysics after movement, matching
             //    the player-slot-first ROM ordering.

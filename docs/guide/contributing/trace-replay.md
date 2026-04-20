@@ -20,6 +20,12 @@ Each trace directory contains:
 - `aux_state.jsonl` for richer diagnostic events
 - a `.bk2` movie used to drive the engine replay
 
+Replay phase is derived from recorded ROM counters:
+
+- `gameplay_frame_counter` changes only when the level main loop completed
+- `vblank_counter` changes on every VBlank
+- `lag_counter` is diagnostic where the ROM exposes it
+
 ## When To Use It
 
 Use trace replay when:
@@ -219,7 +225,9 @@ themselves, but greatly narrow investigation:
 - camera position
 - ring count
 - status byte
-- ROM frame counter
+- gameplay frame counter
+- VBlank counter
+- lag counter
 - ridden object slot
 - ObjPosLoad cursor state
 

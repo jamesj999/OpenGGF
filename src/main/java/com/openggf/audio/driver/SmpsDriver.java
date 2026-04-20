@@ -408,16 +408,7 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     }
 
     private void renderChunk(short[] target, int frameOffset, int frames) {
-        int sampleCount = frames * 2;
-        if (chunkScratch.length < sampleCount) {
-            chunkScratch = new short[sampleCount];
-        }
-
-        short[] renderScratch = (chunkScratch.length == sampleCount)
-                ? chunkScratch
-                : new short[sampleCount];
-        super.render(renderScratch);
-        System.arraycopy(renderScratch, 0, target, frameOffset * 2, sampleCount);
+        super.renderFrames(target, frameOffset, frames);
     }
 
     private void removeCompletedSequencers() {
