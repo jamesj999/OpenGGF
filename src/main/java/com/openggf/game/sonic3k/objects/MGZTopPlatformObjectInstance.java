@@ -210,12 +210,8 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
      * routine-4 grabbed state.
      */
     public boolean isPlayerGrabbed(PlayableEntity player) {
-        return isPlayerInGrabRoutine(player);
-    }
-
-    boolean isPlayerInGrabRoutine(PlayableEntity player) {
         PlayerGrabState state = playerStates.get(player);
-        return state != null && state.routine == 4;
+        return state != null && state.grabbed;
     }
 
     @Override
