@@ -37,7 +37,8 @@ class TestSolidExecutionRegistry {
                         false,
                         false,
                         new PreContactState((short) 0x180, (short) 0x40, true),
-                        new PostContactState((short) 0, (short) 0, false, true, false)))));
+                        new PostContactState((short) 0, (short) 0, false, true, false),
+                        0))));
         registry.currentObject().resolveSolidNow(player);
         registry.endObject(object);
         registry.finishFrame();
@@ -81,7 +82,8 @@ class TestSolidExecutionRegistry {
                             false,
                             false,
                             new PreContactState((short) pass, (short) 0, false),
-                            new PostContactState((short) 0, (short) 0, false, pass == 1, false))));
+                            new PostContactState((short) 0, (short) 0, false, pass == 1, false),
+                            0)));
         });
 
         ObjectSolidExecutionContext context = registry.currentObject();
@@ -134,7 +136,8 @@ class TestSolidExecutionRegistry {
                         true,
                         false,
                         PreContactState.ZERO,
-                        new PostContactState((short) 0, (short) 0, false, false, true)))));
+                        new PostContactState((short) 0, (short) 0, false, false, true),
+                        0))));
         registry.currentObject().resolveSolidNow(player);
         registry.endObject(object);
         registry.finishFrame();
@@ -149,6 +152,32 @@ class TestSolidExecutionRegistry {
         assertFalse(result.standingLastFrame());
         assertFalse(result.pushingNow());
         assertTrue(result.pushingLastFrame());
+    }
+
+    @Test
+    void resolveSolidNowPreservesSideDisplacementForManualCheckpointConsumers() {
+        DefaultSolidExecutionRegistry registry = new DefaultSolidExecutionRegistry();
+        PlayableEntity player = playableEntity("player");
+        ObjectInstance object = new RegistryTestObject();
+
+        registry.beginFrame(12, List.of(player));
+        registry.beginObject(object, () -> new SolidCheckpointBatch(object, Map.of(
+                player, new PlayerSolidContactResult(
+                        ContactKind.SIDE,
+                        false,
+                        false,
+                        true,
+                        false,
+                        new PreContactState((short) 0, (short) 0, false),
+                        new PostContactState((short) 0, (short) 0, false, false, true),
+                        0))));
+
+        PlayerSolidContactResult result = registry.currentObject().resolveSolidNow(player);
+
+        assertEquals(ContactKind.SIDE, result.kind());
+        assertEquals(0, result.sideDistX(),
+                "Manual-checkpoint objects need the preserved Solid_ChkEnter displacement "
+                        + "to distinguish real pushes from zero-displacement side contacts");
     }
 
     @Test

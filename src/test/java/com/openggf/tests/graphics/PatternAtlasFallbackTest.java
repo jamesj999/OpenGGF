@@ -59,6 +59,31 @@ public class PatternAtlasFallbackTest {
         assertEquals(0, page[1 * 8 + 6] & 0xFF,
                 "pattern upload must not transpose x and y");
     }
+
+    @Test
+    public void batchUploadPreservesTwoDistinctPixelsWithoutTranspose() throws Exception {
+        PatternAtlas atlas = new PatternAtlas(8, 8);
+        atlas.beginBatch();
+
+        Pattern pattern = new Pattern();
+        pattern.setPixel(0, 7, (byte) 3);
+        pattern.setPixel(7, 0, (byte) 9);
+
+        PatternAtlas.Entry entry = atlas.cachePatternHeadless(pattern, 0x99);
+        assertNotNull(entry);
+
+        Method uploadPattern = PatternAtlas.class.getDeclaredMethod("uploadPattern", Pattern.class, PatternAtlas.Entry.class);
+        uploadPattern.setAccessible(true);
+        uploadPattern.invoke(atlas, pattern, entry);
+
+        Field cpuPixelsField = PatternAtlas.class.getDeclaredField("cpuPixels");
+        cpuPixelsField.setAccessible(true);
+        byte[][] cpuPixels = (byte[][]) cpuPixelsField.get(atlas);
+        byte[] page = cpuPixels[entry.atlasIndex()];
+
+        assertEquals(3, page[7 * 8] & 0xFF);
+        assertEquals(9, page[7] & 0xFF);
+    }
 }
 
 

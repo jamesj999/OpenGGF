@@ -298,6 +298,8 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
             case Sonic1ObjectIds.MISSILE_DISSOLVE -> "MissileDissolve";
             case Sonic1ObjectIds.RING -> "Ring";
             case Sonic1ObjectIds.MONITOR -> "Monitor";
+            case Sonic1ObjectIds.POWER_UP -> "PowerUp";
+            case Sonic1ObjectIds.EXPLOSION_ITEM -> "ExplosionItem";
             case Sonic1ObjectIds.ANIMALS -> "Animals";
             case Sonic1ObjectIds.CHOPPER -> "Chopper";
             case Sonic1ObjectIds.JAWS -> "Jaws";

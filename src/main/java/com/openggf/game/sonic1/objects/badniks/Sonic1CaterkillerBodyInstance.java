@@ -71,8 +71,10 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     int currentY;
     private int xSubpixel;
     private boolean facingLeft;
+    private boolean deleting;
     private boolean destroyed;
     private boolean fragmenting;
+    private int deleteFrame = -1;
 
     // Body segment type: true if this is a BodySeg2 (has independent animation)
     private final boolean isAnimatedSegment;
@@ -130,7 +132,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
         this.facingLeft = facingLeft;
         this.isAnimatedSegment = isAnimated;
         this.ringBufferIndex = ringBufferStart;
-        
+        this.deleting = false;
         this.destroyed = false;
         this.fragmenting = false;
         this.xSubpixel = 0;
@@ -154,6 +156,13 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             return;
         }
 
+        if (deleting) {
+            if (frameCounter > deleteFrame) {
+                markDestroyed();
+            }
+            return;
+        }
+
         if (fragmenting) {
             updateFragment();
             return;
@@ -166,8 +175,9 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             startFragmenting();
             return;
         }
-        if (head.isDeleting() || head.isDestroyed()) {
-            markDestroyed();
+        if (head.shouldDeleteBodySegments(frameCounter)) {
+            deleting = true;
+            deleteFrame = frameCounter;
             return;
         }
 
@@ -373,7 +383,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
 
     @Override
     public int getCollisionFlags() {
-        if (destroyed || fragmenting) {
+        if (destroyed || deleting || fragmenting) {
             return 0; // No collision when destroyed or fragmenting
         }
         // S1 React_Caterkiller behavior: body contact hurts Sonic even while rolling.
@@ -416,6 +426,9 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     public boolean isPersistent() {
         if (destroyed) {
             return false;
+        }
+        if (deleting) {
+            return true;
         }
         if (fragmenting) {
             // tst.b obRender(a0) / bpl.w Cat_ChkGone

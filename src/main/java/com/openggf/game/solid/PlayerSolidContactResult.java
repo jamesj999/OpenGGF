@@ -7,7 +7,8 @@ public record PlayerSolidContactResult(
         boolean pushingNow,
         boolean pushingLastFrame,
         PreContactState preContact,
-        PostContactState postContact) {
+        PostContactState postContact,
+        int sideDistX) {
 
     public static PlayerSolidContactResult noContact(
             PlayerStandingState previous,
@@ -20,6 +21,7 @@ public record PlayerSolidContactResult(
                 false,
                 previous.pushing(),
                 preContact,
-                postContact);
+                postContact,
+                0);
     }
 }

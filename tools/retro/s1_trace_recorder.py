@@ -54,9 +54,6 @@ from trace_core import (
 )
 
 GAME_NAME = 'SonicTheHedgehog-Genesis-v0'
-MOVIE_SAFETY_MARGIN = 30
-
-
 def parse_args():
     p = argparse.ArgumentParser(
         description="Record Sonic 1 physics trace using stable-retro")
@@ -192,7 +189,7 @@ def main():
 
         if bk2_input:
             bk2_idx = bizhawk_gameplay_start + recorder.trace_frame
-            if bk2_idx >= bk2_input.frame_count + MOVIE_SAFETY_MARGIN:
+            if bk2_idx >= bk2_input.frame_count:
                 print(f"BK2 input exhausted at trace frame {recorder.trace_frame}.")
                 break
 

@@ -22,6 +22,7 @@ public record TraceMetadata(
     @JsonProperty("start_y") String startYHex,
     @JsonProperty("recording_date") String recordingDate,
     @JsonProperty("lua_script_version") String luaScriptVersion,
+    @JsonProperty("trace_schema") Integer traceSchema,
     @JsonProperty("rom_checksum") String romChecksum,
     @JsonProperty("notes") String notes,
     @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames,

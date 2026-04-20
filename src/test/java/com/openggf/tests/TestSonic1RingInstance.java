@@ -2,12 +2,19 @@ package com.openggf.tests;
 
 import com.openggf.game.sonic1.objects.Sonic1RingInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.StubObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.rings.RingManager;
+import com.openggf.level.rings.RingFrame;
+import com.openggf.level.rings.RingFramePiece;
 import com.openggf.level.rings.RingSpawn;
+import com.openggf.level.rings.RingSpriteSheet;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Pattern;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -16,6 +23,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestSonic1RingInstance {
 
@@ -135,6 +144,41 @@ public class TestSonic1RingInstance {
         assertEquals(0, ring.getCollisionFlags(), "SPARKLE state should return 0 collision flags");
     }
 
+    @Test
+    public void testSparkleDeletionUsesGameplayFrameCounterNotAdvancedVblankCounter() {
+        TestEnvironment.resetAll();
+
+        RingSpawn ringSpawn = new RingSpawn(100, 100);
+        RingManager ringManager = buildRenderCapableRingManager(List.of(ringSpawn));
+        ringManager.reset(0);
+
+        AbstractPlayableSprite player = mock(AbstractPlayableSprite.class);
+        when(player.getCentreX()).thenReturn((short) 100);
+        when(player.getCentreY()).thenReturn((short) 100);
+        when(player.getRolling()).thenReturn(false);
+        when(player.getYRadius()).thenReturn((short) 19);
+        when(player.getCrouching()).thenReturn(false);
+        when(player.getDead()).thenReturn(false);
+        ringManager.update(0, player, 350);
+
+        Sonic1RingInstance ring = buildParentRingFromSpawns(100, 100, List.of(ringSpawn));
+        forceState(ring, "SPARKLE");
+
+        ObjectManager objectManager = mock(ObjectManager.class);
+        when(objectManager.getFrameCounter()).thenReturn(351);
+
+        ObjectServices svc = new StubObjectServices() {
+            @Override public RingManager ringManager() { return ringManager; }
+            @Override public ObjectManager objectManager() { return objectManager; }
+        };
+        ring.setServices(svc);
+
+        withContext(svc, () -> ring.update(353, null));
+
+        assertFalse(ring.isDestroyed(),
+                "Lagged VBlank time must not end Ring_Sparkle before gameplay time does");
+    }
+
     // ── Helper methods ─────────────────────────────────────────────────────
 
     private static void withContext(ObjectServices svc, Runnable action) {
@@ -159,6 +203,23 @@ public class TestSonic1RingInstance {
             holder[0].setServices(new StubObjectServices());
         });
         return holder[0];
+    }
+
+    private static RingManager buildRenderCapableRingManager(List<RingSpawn> spawns) {
+        Pattern pattern = new Pattern();
+        pattern.setPixel(0, 0, (byte) 1);
+
+        RingFrame frame = new RingFrame(List.of(new RingFramePiece(0, 0, 1, 1, 0, false, false, 0)));
+        Pattern[] patterns = new Pattern[16];
+        for (int i = 0; i < patterns.length; i++) {
+            patterns[i] = pattern;
+        }
+
+        RingSpriteSheet spriteSheet = new RingSpriteSheet(patterns, List.of(frame, frame, frame), 1, 1, 1, 2);
+        RingManager ringManager = new RingManager(spawns, spriteSheet, null, null);
+        GraphicsManager.getInstance().initHeadless();
+        ringManager.ensurePatternsCached(GraphicsManager.getInstance(), 0);
+        return ringManager;
     }
 
     @SuppressWarnings("unchecked")

@@ -97,6 +97,9 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        // ObjPosLoad instantiates S1 placement objects after the exec loop, so the
+        // constructor already mirrors LavaM_Main. The first update must therefore run
+        // LavaM_MakeLava immediately or the countdown drifts one frame late.
         // ROM: LavaM_MakeLava (Routine 2)
         // subq.b #1,obTimeFrame(a0) ; subtract 1 from time delay
         timer--;
@@ -109,7 +112,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
 
         // bsr.w ChkObjectVisible
         // bne.s LavaM_Wait
-        if (!isOnScreen(64)) {
+        if (!isChkObjectVisible()) {
             return;
         }
 
@@ -128,7 +131,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
                 0x14,  // id_LavaBall
                 ballSubtype,
                 0, false, 0);
-        spawnChild(() -> new Sonic1LavaBallObjectInstance(ballSpawn));
+        spawnFreeChild(() -> new Sonic1LavaBallObjectInstance(ballSpawn));
     }
 
     // ========================================================================

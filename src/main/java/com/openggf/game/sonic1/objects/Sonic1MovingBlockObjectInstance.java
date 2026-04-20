@@ -213,16 +213,17 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        SolidCheckpointBatch batch = checkpointAll();
-        playerStanding = hasStandingContact(batch);
-
-        // MBlock_StandOn (routine 4): ExitPlatform, save X, move, MvSonicOnPtfm2
-        // MBlock_Platform (routine 2): move, PlatformObject
-        // Both call MBlock_Move then check deletion.
+        // ROM order:
+        // - routine 2: MBlock_Move, then PlatformObject
+        // - routine 4: ExitPlatform, save X, MBlock_Move, then MvSonicOnPtfm2
+        // So the platform moves first, and the standing latch that gates
+        // type 02/04/09 advancement is effectively the prior frame's state.
         applyMovement();
 
         updateDynamicSpawn(x, y);
+
+        SolidCheckpointBatch batch = checkpointAll();
+        playerStanding = hasStandingContact(batch);
     }
 
     @Override
@@ -268,6 +269,11 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     public boolean isPersistent() {
         // out_of_range.w DeleteObject,mblock_origX(a0)
         return !isDestroyed() && isInRange(origX);
+    }
+
+    @Override
+    public int getOutOfRangeReferenceX() {
+        return origX;
     }
 
     // ========================================

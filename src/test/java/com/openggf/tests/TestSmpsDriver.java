@@ -1,6 +1,8 @@
 package com.openggf.tests;
 import com.openggf.game.sonic2.audio.Sonic2SmpsSequencerConfig;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.openggf.audio.driver.SmpsDriver;
@@ -8,6 +10,7 @@ import com.openggf.audio.smps.AbstractSmpsData;
 import com.openggf.game.sonic2.audio.smps.Sonic2SmpsData;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.smps.DacData;
+import com.openggf.game.RuntimeManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +20,16 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestSmpsDriver {
+
+    @BeforeEach
+    void setUp() {
+        TestEnvironment.resetAll();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     // A spy driver that records writes
     static class SpyDriver extends SmpsDriver {
@@ -240,6 +253,26 @@ public class TestSmpsDriver {
         // ROM lines 2221-2228: replacing PSG3 SFX should silence both tone2 and noise
         assertTrue(driver.rawPsgWrites.contains(0xDF), "Should silence PSG3 (0xDF)");
         assertTrue(driver.rawPsgWrites.contains(0xFF), "Should silence noise channel (0xFF)");
+    }
+
+    @Test
+    public void testReadMatchesSingleFrameChunkingForSilentDriver() {
+        SmpsDriver bulkDriver = new SmpsDriver();
+        SmpsDriver singleFrameDriver = new SmpsDriver();
+
+        short[] actual = new short[512];
+        short[] expected = new short[512];
+        short[] frame = new short[2];
+
+        bulkDriver.read(actual);
+        for (int i = 0; i < expected.length / 2; i++) {
+            singleFrameDriver.read(frame);
+            expected[i * 2] = frame[0];
+            expected[i * 2 + 1] = frame[1];
+        }
+
+        assertArrayEquals(expected, actual,
+                "Driver output should not depend on whether audio is read a frame at a time or in one block");
     }
 }
 
