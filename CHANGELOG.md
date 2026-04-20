@@ -4,6 +4,22 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Performance, Parity, and Trace Replay
+
+- Reduced hot-path render and runtime churn with atlas bulk-copy cleanup,
+  object-manager active-list caches, direct scroll-buffer copy helpers,
+  profiler gating behind the debug overlay, and direct-buffer SMPS block
+  rendering parity.
+- Fixed several Sonic 1 parity regressions in object lifecycle handling,
+  including explosion-item slot routing, lost-ring SST slot reservation,
+  bounded `CHUNK_STEP` advancement, push-block two-stage out-of-range logic,
+  and counter-based object-placement catch-up after large camera jumps.
+- Trace replay now supports schema v3 execution counters
+  (`gameplay_frame_counter`, `vblank_counter`, `lag_counter`) and logs a
+  one-shot notice when a pre-v3 fixture falls back to the legacy lag
+  heuristic. The BizHawk v3 recorder upgrade is currently landed for Sonic 1;
+  Sonic 2 and Sonic 3K recorder migration remains deferred.
+
 ### Experimental Level Editor Overlay
 
 - Added an experimental, config-gated editor overlay and playtest loop. Set
