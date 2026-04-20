@@ -6,6 +6,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.LostRing;
 import com.openggf.level.rings.RingManager;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
@@ -24,6 +25,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,6 +34,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @RequiresRom(SonicGame.SONIC_1)
 class TestS1Mz1SlotLayoutRegression {
@@ -110,6 +114,7 @@ class TestS1Mz1SlotLayoutRegression {
             String reservedChildSlots = describeReservedChildSlots(GameServices.level().getObjectManager(), 0x0280, 0x0500, 0x25);
             String childCollectedStates = describeChildCollectedStates(GameServices.level().getObjectManager(), 0x0280, 0x0500);
             String ringSparkleState = describeRingSparkleState(GameServices.level().getObjectManager(), 0x0200, 0x0500);
+            String animalStates = describeAnimalStates(GameServices.level().getObjectManager());
 
             assertEquals(expectedLowSlots, actualLowSlots,
                     () -> "Live low-slot layout diverged at hurt frame " + HURT_FRAME
@@ -124,7 +129,8 @@ class TestS1Mz1SlotLayoutRegression {
                             + " liveRingInstanceStates=" + liveRingInstanceStates
                             + " reservedChildSlots=" + reservedChildSlots
                             + " childCollectedStates=" + childCollectedStates
-                            + " ringSparkleState=" + ringSparkleState);
+                            + " ringSparkleState=" + ringSparkleState
+                            + " animalStates=" + animalStates);
         } finally {
             sharedLevel.dispose();
         }
@@ -269,7 +275,994 @@ class TestS1Mz1SlotLayoutRegression {
             int objectId = instance.getSpawn() != null ? instance.getSpawn().objectId() & 0xFF : 0;
             slots.put(slot, String.format("0x%02X", objectId));
         }
+        appendLostRingSlots(slots);
         return slots;
+    }
+
+    @Test
+    void badnikAnimalStillTransitionsToRecordedRoutineAtLandingFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int landingFrame = 481;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= landingFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectInstance animal = findLiveObjectAtSlot(GameServices.level().getObjectManager(), 51);
+            assertNotNull(animal,
+                    () -> "Expected S1 animal in slot 51 at frame " + landingFrame
+                            + " details=" + collectLiveSlotDetails(GameServices.level().getObjectManager()));
+            assertEquals("Sonic1AnimalsObjectInstance", animal.getClass().getSimpleName());
+            assertEquals(0x0360, animal.getX() & 0xFFFF);
+            assertEquals(0x0293, animal.getY() & 0xFFFF);
+            assertEquals(0x0A, reflectAnimalRoutine(animal),
+                    () -> "Animal state diverged at frame " + landingFrame + ": "
+                            + reflectAnimalState(animal));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void lavaBallMakerSpawnsSlot33BallAtFrame1204() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= 1204; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance liveSlot33 = findLiveObjectAtSlot(liveManager, 33);
+            assertNotNull(liveSlot33,
+                    () -> "Expected frame-1204 lava ball in slot 33"
+                            + " actualSlots=" + collectLiveSlotMap(liveManager)
+                            + " actualDetails=" + collectLiveSlotDetails(liveManager)
+                            + " makers=" + describeLavaBallMakerStates(liveManager));
+            assertEquals(0x14, liveSlot33.getSpawn().objectId() & 0xFF,
+                    () -> "Expected lava ball id at slot 33 on frame 1204"
+                            + " actualSlots=" + collectLiveSlotMap(liveManager)
+                            + " actualDetails=" + collectLiveSlotDetails(liveManager)
+                            + " makers=" + describeLavaBallMakerStates(liveManager));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void ringPairNear0798AppearsAtRecordedFrames() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int first0798 = -1;
+            int first07b0 = -1;
+            int first07b0Slot = -1;
+            String liveSlotsAtFirst07b0 = null;
+            for (int i = 0; i <= 1210; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                if (first0798 < 0 && hasLiveObjectAt(GameServices.level().getObjectManager(), 0x25, 0x0798, 0x0150)) {
+                    first0798 = i;
+                }
+                ObjectInstance ring07b0 = findLiveObjectAt(GameServices.level().getObjectManager(), 0x25, 0x07B0, 0x0150);
+                if (first07b0 < 0 && ring07b0 != null) {
+                    first07b0 = i;
+                    first07b0Slot = ((AbstractObjectInstance) ring07b0).getSlotIndex();
+                    liveSlotsAtFirst07b0 = String.valueOf(collectLiveSlotDetails(GameServices.level().getObjectManager()));
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            String liveSlots = String.valueOf(collectLiveSlotDetails(liveManager));
+            String reservedRingSlots = describeReservedChildSlots(liveManager, 0x0700, 0x0900, 0x25);
+            String ringMappings = describeRingMappingSizes(liveManager, 0x0700, 0x0900);
+            assertEquals(1149, first0798,
+                    "Ring at x=0x0798 first appeared on frame " + first0798
+                            + " liveSlots=" + liveSlots
+                            + " reservedRingSlots=" + reservedRingSlots
+                            + " ringMappings=" + ringMappings);
+            assertEquals(1150, first07b0,
+                    "Ring at x=0x07B0 first appeared on frame " + first07b0
+                            + " slot=" + first07b0Slot
+                            + " liveSlots=" + liveSlots
+                            + " liveSlotsAtFirst07b0=" + liveSlotsAtFirst07b0
+                            + " reservedRingSlots=" + reservedRingSlots
+                            + " ringMappings=" + ringMappings);
+            assertEquals(35, first07b0Slot,
+                    "Ring at x=0x07B0 first used slot " + first07b0Slot
+                            + " liveSlots=" + liveSlots
+                            + " liveSlotsAtFirst07b0=" + liveSlotsAtFirst07b0
+                            + " reservedRingSlots=" + reservedRingSlots
+                            + " ringMappings=" + ringMappings);
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void usedSlotBitmapMatchesLiveOccupancyWhen07b0RingAppears() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int frameWith07b0Ring = -1;
+            for (int i = 0; i <= 1210; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                if (hasLiveObjectAt(GameServices.level().getObjectManager(), 0x25, 0x07B0, 0x0150)) {
+                    frameWith07b0Ring = i;
+                    break;
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            assertEquals(1150, frameWith07b0Ring,
+                    "Expected x=0x07B0 ring to appear at frame 1150"
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager));
+
+            String occupancy = describeUsedSlotOccupancyMismatch(liveManager);
+            assertEquals("<none>", occupancy,
+                    "usedSlots diverged from live slot occupancy at frame " + frameWith07b0Ring
+                            + " mismatch=" + occupancy
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " allStates=" + describeAllObjectStates(liveManager));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void buttonAt0ad0FirstAppearsAtRecordedFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int firstButtonFrame = -1;
+            int firstButtonSlot = -1;
+            for (int i = 0; i <= TARGET_FRAME; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                ObjectInstance button = findLiveObjectAt(GameServices.level().getObjectManager(), 0x32, 0x0AD0, 0x03FB);
+                if (firstButtonFrame < 0 && button != null) {
+                    firstButtonFrame = i;
+                    firstButtonSlot = ((AbstractObjectInstance) button).getSlotIndex();
+                    break;
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            int observedFirstButtonFrame = firstButtonFrame;
+            int observedFirstButtonSlot = firstButtonSlot;
+            assertEquals(1464, firstButtonFrame,
+                    () -> "Button at x=0x0AD0 first appeared on frame " + observedFirstButtonFrame
+                            + " slot=" + observedFirstButtonSlot
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager));
+            assertEquals(43, firstButtonSlot,
+                    () -> "Button at x=0x0AD0 first used slot " + observedFirstButtonSlot
+                            + " firstFrame=" + observedFirstButtonFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void buttonAt0ad0UnloadsAtRecordedRemovalFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int removalFrame = 1774;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= removalFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance button = findLiveObjectAt(liveManager, 0x32, 0x0AD0, 0x03FB);
+            assertEquals(null, button,
+                    () -> "Button at x=0x0AD0 should be unloaded by frame " + removalFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager)
+                            + " buttonState=" + describeSpawnState(liveManager, 0x0AD0, 0x32)
+                            + " buttonInstance=" + describeLiveInstance(liveManager, 0x0AD0, 0x32)
+                            + " buttonMapState=" + describePrivateMapState(liveManager, 0x0AD0, 0x32));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void buttonAt0ad0ReappearsAtRecordedFrameAndSlot() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int respawnFrame = 3101;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int firstRespawnFrame = -1;
+            int firstRespawnSlot = -1;
+            String liveSlotsAtRespawn = null;
+            String buttonStateAt3100 = null;
+            String buttonInstanceAt3100 = null;
+            String liveSlotsAt3100 = null;
+            String cursorStateAt3100 = null;
+            String cursorStateAt3101 = null;
+            for (int i = 0; i <= respawnFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                if (i <= 1774) {
+                    continue;
+                }
+
+                if (i == 3100) {
+                    ObjectManager manager3100 = GameServices.level().getObjectManager();
+                    buttonStateAt3100 = describeSpawnState(manager3100, 0x0AD0, 0x32);
+                    buttonInstanceAt3100 = describeLiveInstance(manager3100, 0x0AD0, 0x32);
+                    liveSlotsAt3100 = String.valueOf(collectLiveSlotDetails(manager3100));
+                    cursorStateAt3100 = describeCursorState(manager3100);
+                }
+                if (i == 3101) {
+                    ObjectManager manager3101 = GameServices.level().getObjectManager();
+                    cursorStateAt3101 = describeCursorState(manager3101);
+                }
+
+                ObjectInstance liveButton = findLiveObjectAt(GameServices.level().getObjectManager(),
+                        0x32, 0x0AD0, 0x03FB);
+                if (firstRespawnFrame < 0 && liveButton != null) {
+                    firstRespawnFrame = i;
+                    firstRespawnSlot = ((AbstractObjectInstance) liveButton).getSlotIndex();
+                    liveSlotsAtRespawn = String.valueOf(
+                            collectLiveSlotDetails(GameServices.level().getObjectManager()));
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance button = findLiveObjectAt(liveManager, 0x32, 0x0AD0, 0x03FB);
+            assertNotNull(button,
+                    () -> "Expected button at x=0x0AD0 to be alive at frame " + respawnFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager)
+                            + " buttonState=" + describeSpawnState(liveManager, 0x0AD0, 0x32)
+                            + " buttonInstance=" + describeLiveInstance(liveManager, 0x0AD0, 0x32)
+                            + " buttonMapState=" + describePrivateMapState(liveManager, 0x0AD0, 0x32));
+            int observedFirstRespawnFrame = firstRespawnFrame;
+            int observedFirstRespawnSlot = firstRespawnSlot;
+            String observedLiveSlotsAtRespawn = liveSlotsAtRespawn;
+            String observedButtonStateAt3100 = buttonStateAt3100;
+            String observedButtonInstanceAt3100 = buttonInstanceAt3100;
+            String observedLiveSlotsAt3100 = liveSlotsAt3100;
+            String observedCursorStateAt3100 = cursorStateAt3100;
+            String observedCursorStateAt3101 = cursorStateAt3101;
+            assertEquals(respawnFrame, firstRespawnFrame,
+                    () -> "Button at x=0x0AD0 first reappeared on frame " + observedFirstRespawnFrame
+                            + " slot=" + observedFirstRespawnSlot
+                            + " liveSlotsAtRespawn=" + observedLiveSlotsAtRespawn
+                            + " liveSlotsAt3100=" + observedLiveSlotsAt3100
+                            + " buttonStateAt3100=" + observedButtonStateAt3100
+                            + " buttonInstanceAt3100=" + observedButtonInstanceAt3100
+                            + " cursorStateAt3100=" + observedCursorStateAt3100
+                            + " cursorStateAt3101=" + observedCursorStateAt3101
+                            + " placementRegion=" + describePlacementRegion(liveManager)
+                            + " buttonState=" + describeSpawnState(liveManager, 0x0AD0, 0x32)
+                            + " buttonInstance=" + describeLiveInstance(liveManager, 0x0AD0, 0x32)
+                            + " buttonMapState=" + describePrivateMapState(liveManager, 0x0AD0, 0x32));
+            assertEquals(65, ((AbstractObjectInstance) button).getSlotIndex(),
+                    () -> "Button at x=0x0AD0 used wrong slot at frame " + respawnFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " liveSlotsAt3100=" + observedLiveSlotsAt3100
+                            + " buttonStateAt3100=" + observedButtonStateAt3100
+                            + " buttonInstanceAt3100=" + observedButtonInstanceAt3100
+                            + " cursorStateAt3100=" + observedCursorStateAt3100
+                            + " cursorStateAt3101=" + observedCursorStateAt3101
+                            + " placementRegion=" + describePlacementRegion(liveManager)
+                            + " buttonState=" + describeSpawnState(liveManager, 0x0AD0, 0x32)
+                            + " buttonInstance=" + describeLiveInstance(liveManager, 0x0AD0, 0x32)
+                            + " buttonMapState=" + describePrivateMapState(liveManager, 0x0AD0, 0x32));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void chainedStomperAt10c0UnloadsByRecordedFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int removalFrame = 2493;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= removalFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance stomper = findLiveObjectAt(liveManager, 0x31, 0x10C0, 0x033C);
+            assertEquals(null, stomper,
+                    () -> "Chained stomper at x=0x10C0 should be unloaded by frame " + removalFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0D00, 0x1140)
+                            + " stomperState=" + describeSpawnState(liveManager, 0x10C0, 0x31)
+                            + " stomperInstance=" + describeLiveInstance(liveManager, 0x10C0, 0x31)
+                            + " stomperMapState=" + describePrivateMapState(liveManager, 0x10C0, 0x31));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void lavaTagAt0d80AppearsAtRecordedFrameAndSlot() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int respawnFrame = 2538;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= respawnFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance lavaTag = findLiveObjectAt(liveManager, 0x54, 0x0D80, 0x05E8);
+            assertNotNull(lavaTag,
+                    () -> "Expected lava tag at x=0x0D80 to be alive at frame " + respawnFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0C80, 0x0E20)
+                            + " cursorState=" + describeCursorState(liveManager)
+                            + " lavaState=" + describeSpawnState(liveManager, 0x0D80, 0x54)
+                            + " lavaInstance=" + describeLiveInstance(liveManager, 0x0D80, 0x54)
+                            + " slot44=" + describeSlotOccupant(liveManager, 44)
+                            + " slot49=" + describeSlotOccupant(liveManager, 49));
+            assertEquals(44, ((AbstractObjectInstance) lavaTag).getSlotIndex(),
+                    () -> "Lava tag at x=0x0D80 used wrong slot at frame " + respawnFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0C80, 0x0E20)
+                            + " cursorState=" + describeCursorState(liveManager)
+                            + " lavaState=" + describeSpawnState(liveManager, 0x0D80, 0x54)
+                            + " lavaInstance=" + describeLiveInstance(liveManager, 0x0D80, 0x54)
+                            + " slot44=" + describeSlotOccupant(liveManager, 44)
+                            + " slot49=" + describeSlotOccupant(liveManager, 49));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void burningGrassWalkerAt0bc1AppearsAtRecordedFrameAndSlot() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int appearFrame = 1772;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int firstFrame = -1;
+            int firstSlot = -1;
+            for (int i = 0; i <= appearFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                ObjectInstance grassFire = findLiveObjectAt(GameServices.level().getObjectManager(),
+                        0x35, 0x0BC1, 0x02D7);
+                if (firstFrame < 0 && grassFire != null) {
+                    firstFrame = i;
+                    firstSlot = ((AbstractObjectInstance) grassFire).getSlotIndex();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance grassFire = findLiveObjectAt(liveManager, 0x35, 0x0BC1, 0x02D7);
+            int observedFirstFrame = firstFrame;
+            int observedFirstSlot = firstSlot;
+            assertNotNull(grassFire,
+                    () -> "Expected burning grass walker at x=0x0BC1 to be alive at frame " + appearFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0B00, 0x0D00)
+                            + " platformState=" + describeSpawnState(liveManager, 0x0C00, 0x2F)
+                            + " grassInstance=" + describeLiveInstance(liveManager, 0x0BC1, 0x35)
+                            + " slot44=" + describeSlotOccupant(liveManager, 44)
+                            + " slot51=" + describeSlotOccupant(liveManager, 51));
+            assertEquals(appearFrame, firstFrame,
+                    () -> "Burning grass walker at x=0x0BC1 first appeared on frame " + observedFirstFrame
+                            + " slot=" + observedFirstSlot
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0B00, 0x0D00)
+                            + " platformState=" + describeSpawnState(liveManager, 0x0C00, 0x2F)
+                            + " grassInstance=" + describeLiveInstance(liveManager, 0x0BC1, 0x35)
+                            + " slot44=" + describeSlotOccupant(liveManager, 44)
+                            + " slot51=" + describeSlotOccupant(liveManager, 51));
+            assertEquals(44, ((AbstractObjectInstance) grassFire).getSlotIndex(),
+                    () -> "Burning grass walker at x=0x0BC1 used wrong slot at frame " + appearFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0B00, 0x0D00)
+                            + " platformState=" + describeSpawnState(liveManager, 0x0C00, 0x2F)
+                            + " grassInstance=" + describeLiveInstance(liveManager, 0x0BC1, 0x35)
+                            + " slot44=" + describeSlotOccupant(liveManager, 44)
+                            + " slot51=" + describeSlotOccupant(liveManager, 51));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void mzBrickAt0e30FirstAppearsAtRecordedFrameAndSlot() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int appearFrame = 1815;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            int firstFrame = -1;
+            int firstSlot = -1;
+            for (int i = 0; i <= appearFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                ObjectInstance brick = findLiveObjectAt(GameServices.level().getObjectManager(),
+                        0x46, 0x0E30, 0x0530);
+                if (firstFrame < 0 && brick != null) {
+                    firstFrame = i;
+                    firstSlot = ((AbstractObjectInstance) brick).getSlotIndex();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            ObjectInstance brick = findLiveObjectAt(liveManager, 0x46, 0x0E30, 0x0530);
+            int observedFirstFrame = firstFrame;
+            int observedFirstSlot = firstSlot;
+            assertNotNull(brick,
+                    () -> "Expected MZ brick at x=0x0E30 to be alive at frame " + appearFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0D80, 0x0F20)
+                            + " brickState=" + describeSpawnState(liveManager, 0x0E30, 0x46)
+                            + " brickInstance=" + describeLiveInstance(liveManager, 0x0E30, 0x46));
+            assertEquals(appearFrame, firstFrame,
+                    () -> "MZ brick at x=0x0E30 first appeared on frame " + observedFirstFrame
+                            + " slot=" + observedFirstSlot
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0D80, 0x0F20)
+                            + " brickState=" + describeSpawnState(liveManager, 0x0E30, 0x46)
+                            + " brickInstance=" + describeLiveInstance(liveManager, 0x0E30, 0x46));
+            assertEquals(85, ((AbstractObjectInstance) brick).getSlotIndex(),
+                    () -> "MZ brick at x=0x0E30 used wrong slot at frame " + appearFrame
+                            + " liveSlots=" + collectLiveSlotDetails(liveManager)
+                            + " placementRegion=" + describePlacementRegion(liveManager, 0x0D80, 0x0F20)
+                            + " brickState=" + describeSpawnState(liveManager, 0x0E30, 0x46)
+                            + " brickInstance=" + describeLiveInstance(liveManager, 0x0E30, 0x46));
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void caterkillerBodySegmentsStillOccupySlotsDuringDeleteRoutineFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int deleteRoutineFrame = 1040;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= deleteRoutineFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            assertLiveObjectIdAtSlot(liveManager, 36, 0x78, deleteRoutineFrame);
+            assertLiveObjectIdAtSlot(liveManager, 39, 0x78, deleteRoutineFrame);
+            assertLiveObjectIdAtSlot(liveManager, 41, 0x78, deleteRoutineFrame);
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    @Test
+    void slotSuffixStillMatchesMissileAnimalPointsSequenceDuringDeleteRoutineFrame() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        int deleteRoutineFrame = 1040;
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            for (int i = 0; i <= deleteRoutineFrame; i++) {
+                TraceFrame expectedFrame = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expectedFrame);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            ObjectManager liveManager = GameServices.level().getObjectManager();
+            assertLiveObjectIdAtSlot(liveManager, 45, 0x23, deleteRoutineFrame);
+            assertLiveObjectIdAtSlot(liveManager, 46, 0x28, deleteRoutineFrame);
+            assertLiveObjectIdAtSlot(liveManager, 47, 0x29, deleteRoutineFrame);
+        } finally {
+            sharedLevel.dispose();
+        }
     }
 
     private static Map<Integer, String> collectLiveSlotDetails(ObjectManager objectManager) {
@@ -297,7 +1290,32 @@ class TestS1Mz1SlotLayoutRegression {
                     Integer.parseInt(x, 16),
                     Integer.parseInt(y, 16)));
         }
+        appendLostRingDetails(slots);
         return slots;
+    }
+
+    private static void appendLostRingSlots(Map<Integer, String> slots) {
+        for (LostRing ring : getActiveLostRings()) {
+            if (ring.getSlotIndex() >= 0) {
+                slots.put(ring.getSlotIndex(), "0x37");
+            }
+        }
+    }
+
+    private static void appendLostRingDetails(Map<Integer, String> slots) {
+        for (LostRing ring : getActiveLostRings()) {
+            if (ring.getSlotIndex() < 0) {
+                continue;
+            }
+            slots.put(ring.getSlotIndex(), String.format("LostRing id=0x37 x=0x%04X y=0x%04X",
+                    ring.getX() & 0xFFFF,
+                    ring.getY() & 0xFFFF));
+        }
+    }
+
+    private static List<LostRing> getActiveLostRings() {
+        RingManager ringManager = GameServices.level() != null ? GameServices.level().getRingManager() : null;
+        return ringManager != null ? ringManager.getActiveLostRings() : List.of();
     }
 
     private static String safeHexCoord(ObjectInstance instance, boolean xAxis) {
@@ -324,6 +1342,185 @@ class TestS1Mz1SlotLayoutRegression {
                         spawn.objectId() & 0xFF))
                 .reduce((left, right) -> left + " " + right)
                 .orElse("<none>");
+    }
+
+    private static String describeCursorState(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        int[] state = objectManager.getPlacementCursorState();
+        if (state == null) {
+            return "<not counter-based>";
+        }
+        return String.format("cursor=%d left=%d fwd=%d bwd=%d opl=0x%04X",
+                state[0], state[1], state[2], state[3], state[4] & 0xFFFF);
+    }
+
+    private static String describeAnimalStates(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        return objectManager.getActiveObjects().stream()
+                .filter(instance -> !instance.isDestroyed())
+                .filter(instance -> instance instanceof com.openggf.game.sonic1.objects.Sonic1AnimalsObjectInstance)
+                .map(instance -> {
+                    int slot = instance instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+                    return String.format("slot=%d x=0x%04X y=0x%04X %s",
+                            slot,
+                            instance.getX() & 0xFFFF,
+                            instance.getY() & 0xFFFF,
+                            reflectAnimalState(instance));
+                })
+                .reduce((left, right) -> left + " | " + right)
+                .orElse("<none>");
+    }
+
+    private static ObjectInstance findLiveObjectAtSlot(ObjectManager objectManager, int slotIndex) {
+        if (objectManager == null) {
+            return null;
+        }
+        return objectManager.getActiveObjects().stream()
+                .filter(instance -> !instance.isDestroyed())
+                .filter(AbstractObjectInstance.class::isInstance)
+                .filter(instance -> ((AbstractObjectInstance) instance).getSlotIndex() == slotIndex)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String describeSlotOccupant(ObjectManager objectManager, int slotIndex) {
+        ObjectInstance instance = findLiveObjectAtSlot(objectManager, slotIndex);
+        if (instance == null) {
+            return "<empty>";
+        }
+        int objectId = instance.getSpawn() != null ? instance.getSpawn().objectId() & 0xFF : -1;
+        return String.format("slot=%d id=0x%02X x=0x%04X y=0x%04X class=%s",
+                slotIndex,
+                objectId,
+                instance.getX() & 0xFFFF,
+                instance.getY() & 0xFFFF,
+                instance.getClass().getSimpleName());
+    }
+
+    private static ObjectInstance findLiveObjectAt(ObjectManager objectManager,
+            int expectedObjectId, int expectedX, int expectedY) {
+        if (objectManager == null) {
+            return null;
+        }
+        return objectManager.getActiveObjects().stream()
+                .filter(instance -> !instance.isDestroyed())
+                .filter(AbstractObjectInstance.class::isInstance)
+                .filter(instance -> instance.getSpawn() != null)
+                .filter(instance -> (instance.getSpawn().objectId() & 0xFF) == expectedObjectId)
+                .filter(instance -> safeHexCoord(instance, true).equals(String.format("%04X", expectedX)))
+                .filter(instance -> safeHexCoord(instance, false).equals(String.format("%04X", expectedY)))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static boolean hasLiveObjectAt(ObjectManager objectManager,
+            int expectedObjectId, int expectedX, int expectedY) {
+        return findLiveObjectAt(objectManager, expectedObjectId, expectedX, expectedY) != null;
+    }
+
+    private static void assertLiveObjectIdAtSlot(ObjectManager objectManager,
+            int slotIndex, int expectedObjectId, int frame) {
+        ObjectInstance instance = findLiveObjectAtSlot(objectManager, slotIndex);
+        assertNotNull(instance,
+                () -> "Expected live object at slot " + slotIndex + " during frame " + frame
+                        + " liveSlots=" + collectLiveSlotDetails(objectManager)
+                        + " allStates=" + describeAllObjectStates(objectManager));
+        int actualObjectId = instance.getSpawn() != null ? instance.getSpawn().objectId() & 0xFF : -1;
+        assertEquals(expectedObjectId, actualObjectId,
+                () -> "Unexpected object id at slot " + slotIndex + " during frame " + frame
+                        + " liveSlots=" + collectLiveSlotDetails(objectManager)
+                        + " allStates=" + describeAllObjectStates(objectManager));
+    }
+
+    private static String describeAllObjectStates(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        return objectManager.getActiveObjects().stream()
+                .map(instance -> {
+                    int slot = instance instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+                    int objectId = instance.getSpawn() != null ? instance.getSpawn().objectId() & 0xFF : -1;
+                    return String.format("slot=%d id=0x%02X type=%s destroyed=%s x=0x%04X y=0x%04X",
+                            slot,
+                            objectId,
+                            instance.getClass().getSimpleName(),
+                            instance.isDestroyed(),
+                            instance.getX() & 0xFFFF,
+                            instance.getY() & 0xFFFF);
+                })
+                .reduce((left, right) -> left + " | " + right)
+                .orElse("<none>");
+    }
+
+    private static String describeUsedSlotOccupancyMismatch(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        BitSet used = reflectUsedSlots(objectManager);
+        Map<Integer, String> liveSlots = collectLiveSlotDetails(objectManager);
+        List<Integer> stale = new ArrayList<>();
+        List<Integer> missing = new ArrayList<>();
+        for (int slot = 32; slot <= 127; slot++) {
+            boolean usedBit = used.get(slot - 32);
+            boolean live = liveSlots.containsKey(slot);
+            if (usedBit && !live) {
+                stale.add(slot);
+            } else if (!usedBit && live) {
+                missing.add(slot);
+            }
+        }
+        if (stale.isEmpty() && missing.isEmpty()) {
+            return "<none>";
+        }
+        return "stale=" + stale + " missing=" + missing;
+    }
+
+    private static BitSet reflectUsedSlots(ObjectManager objectManager) {
+        try {
+            Field field = ObjectManager.class.getDeclaredField("usedSlots");
+            field.setAccessible(true);
+            return (BitSet) ((BitSet) field.get(objectManager)).clone();
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect usedSlots", e);
+        }
+    }
+
+    private static int reflectAnimalRoutine(ObjectInstance instance) {
+        try {
+            Field routine = instance.getClass().getDeclaredField("routine");
+            routine.setAccessible(true);
+            return routine.getInt(instance) & 0xFF;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect animal routine", e);
+        }
+    }
+
+    private static String reflectAnimalState(ObjectInstance instance) {
+        try {
+            Class<?> type = instance.getClass();
+            Field routine = type.getDeclaredField("routine");
+            Field variant = type.getDeclaredField("fromEnemyVariantIndex");
+            Field xVelocity = type.getDeclaredField("xVelocity");
+            Field yVelocity = type.getDeclaredField("yVelocity");
+            Field subtype = type.getDeclaredField("subtype");
+            routine.setAccessible(true);
+            variant.setAccessible(true);
+            xVelocity.setAccessible(true);
+            yVelocity.setAccessible(true);
+            subtype.setAccessible(true);
+            return String.format("routine=0x%02X variant=%d subtype=0x%02X xVel=0x%04X yVel=0x%04X",
+                    routine.getInt(instance) & 0xFF,
+                    variant.getInt(instance),
+                    subtype.getInt(instance) & 0xFF,
+                    xVelocity.getInt(instance) & 0xFFFF,
+                    yVelocity.getInt(instance) & 0xFFFF);
+        } catch (ReflectiveOperationException e) {
+            return "<reflection failed: " + e.getClass().getSimpleName() + ">";
+        }
     }
 
     private static String describeSpawnState(ObjectManager objectManager, int x, int objectId) {
@@ -423,6 +1620,32 @@ class TestS1Mz1SlotLayoutRegression {
                         objectManager.isDormant(spawn),
                         objectManager.getSpawnCounter(spawn),
                         spawn.subtype() & 0xFF))
+                .reduce((left, right) -> left + " " + right)
+                .orElse("<none>");
+    }
+
+    private static String describeLavaBallMakerStates(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        return objectManager.getActiveObjects().stream()
+                .filter(instance -> instance.getClass().getSimpleName().equals("Sonic1LavaBallMakerObjectInstance"))
+                .map(instance -> {
+                    try {
+                        Field timerField = instance.getClass().getDeclaredField("timer");
+                        timerField.setAccessible(true);
+                        Field delayField = instance.getClass().getDeclaredField("spawnDelay");
+                        delayField.setAccessible(true);
+                        return String.format("slot=%d x=0x%04X y=0x%04X timer=%d delay=%d",
+                                ((AbstractObjectInstance) instance).getSlotIndex(),
+                                ((AbstractObjectInstance) instance).getX() & 0xFFFF,
+                                ((AbstractObjectInstance) instance).getY() & 0xFFFF,
+                                timerField.getInt(instance),
+                                delayField.getInt(instance));
+                    } catch (ReflectiveOperationException e) {
+                        return "reflect-failed:" + e.getClass().getSimpleName();
+                    }
+                })
                 .reduce((left, right) -> left + " " + right)
                 .orElse("<none>");
     }

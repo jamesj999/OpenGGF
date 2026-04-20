@@ -61,6 +61,43 @@ public class TestObjectManagerChildSlotAllocation {
     }
 
     @Test
+    public void childSpawnedWithFindFreeObj_usesLowestFreeSlotAndWaitsUntilNextFrame() {
+        ObjectManager[] holder = new ObjectManager[1];
+        ObjectServices services = new StubObjectServices() {
+            @Override
+            public ObjectManager objectManager() {
+                return holder[0];
+            }
+        };
+        Camera camera = mock(Camera.class);
+        when(camera.getX()).thenReturn((short) 0);
+        when(camera.getY()).thenReturn((short) 0);
+        when(camera.getWidth()).thenReturn((short) 320);
+        when(camera.getHeight()).thenReturn((short) 224);
+        when(camera.isVerticalWrapEnabled()).thenReturn(false);
+        ObjectManager manager = new ObjectManager(
+                List.of(), null, 0, null, null,
+                GraphicsManager.getInstance(), camera, services);
+        holder[0] = manager;
+
+        FindFreeParentObject parent =
+                new FindFreeParentObject(new ObjectSpawn(0, 0, 0, 0, 0, false, 0));
+        manager.addDynamicObjectAtSlot(parent, 40);
+
+        manager.update(0, null, null, 1);
+
+        assertNotNull(parent.child);
+        assertEquals(32, parent.child.getSlotIndex());
+        assertTrue(parent.child.getSlotIndex() < parent.getSlotIndex());
+        assertEquals(0, parent.child.updateCount,
+                "FindFreeObj child in an earlier slot should not run again this frame");
+
+        manager.update(0, null, null, 2);
+
+        assertEquals(1, parent.child.updateCount);
+    }
+
+    @Test
     public void reservedSlotChildrenPersistAfterParentInit() {
         ObjectManager[] holder = new ObjectManager[1];
         ObjectServices services = new StubObjectServices() {
@@ -132,6 +169,42 @@ public class TestObjectManagerChildSlotAllocation {
 
         private ChildObject(ObjectSpawn spawn) {
             super(spawn, "Child");
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            updateCount++;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+        }
+    }
+
+    private static final class FindFreeParentObject extends AbstractObjectInstance {
+        private FindFreeChildObject child;
+
+        private FindFreeParentObject(ObjectSpawn spawn) {
+            super(spawn, "FindFreeParent");
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            if (child == null) {
+                child = spawnFreeChild(() -> new FindFreeChildObject(buildSpawnAt(spawn.x(), spawn.y())));
+            }
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+        }
+    }
+
+    private static final class FindFreeChildObject extends AbstractObjectInstance {
+        private int updateCount;
+
+        private FindFreeChildObject(ObjectSpawn spawn) {
+            super(spawn, "FindFreeChild");
         }
 
         @Override

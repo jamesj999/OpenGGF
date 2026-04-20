@@ -167,6 +167,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Last X position where a geyser maker was spawned (prevents repeated spawns)
     private int lastGeyserSpawnX = Integer.MIN_VALUE;
 
+    // Set when the ROM's second out_of_range check falls through to DeleteObject.
+    // ObjectManager then performs the actual unload so counter-based respawn state
+    // is cleared through the normal manager path.
+    private boolean deletePending;
+
     private boolean initialized;
 
     public Sonic1PushBlockObjectInstance(ObjectSpawn spawn) {
@@ -198,6 +203,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // frame (bclr then conditional bset), so the init value is overwritten.
         // In all other acts/zones bit 7 retains its spawn value.
         this.chainedToStomper = (subtype & 0x80) != 0;
+        this.deletePending = false;
 
         updateDynamicSpawn(x, y);
     }
@@ -227,6 +233,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
+        deletePending = false;
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateActive(frameCounter, player);
@@ -285,9 +292,15 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             applyPushContacts(batch, frameCounter);
         }
 
-        // loc_BFC6: out_of_range check
-        if (!isOnScreen(128)) {
-            handleOutOfRange();
+        // loc_BFC6 / loc_BFE6: first check current obX; if that fails, the ROM
+        // runs a second out_of_range against objoff_34 (spawn X) to decide
+        // between DeleteObject and routine-4 reset.
+        if (isOutOfRangeCurrentX()) {
+            if (isOutOfRangeSpawnX()) {
+                deletePending = true;
+            } else {
+                handleOutOfRange();
+            }
         }
     }
 
@@ -883,8 +896,14 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isPersistent() {
-        // Keep alive while spawn position is within extended range
-        return !isDestroyed() && isOnScreenX(320);
+        // Allow ObjectManager's counter-based unload path to delete the block
+        // when the ROM's second out_of_range check has failed on spawn X.
+        return !isDestroyed() && !deletePending && isOnScreenX(320);
+    }
+
+    @Override
+    public int getOutOfRangeReferenceX() {
+        return deletePending ? spawnX : x;
     }
 
     @Override
@@ -935,5 +954,23 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             stateLabel = "PushBlk:IDLE";
         }
         ctx.drawWorldLabel(x, y, -2, stateLabel, DebugColor.ORANGE);
+    }
+
+    private boolean isOutOfRangeCurrentX() {
+        return isOutOfRangeS1(x);
+    }
+
+    private boolean isOutOfRangeSpawnX() {
+        return isOutOfRangeS1(spawnX);
+    }
+
+    private boolean isOutOfRangeS1(int referenceX) {
+        if (services().camera() == null) {
+            return false;
+        }
+        int objRounded = referenceX & 0xFF80;
+        int screenRounded = (services().camera().getX() - 128) & 0xFF80;
+        int distance = (objRounded - screenRounded) & 0xFFFF;
+        return distance > 640;
     }
 }

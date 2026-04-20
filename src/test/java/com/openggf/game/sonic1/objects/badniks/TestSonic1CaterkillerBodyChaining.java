@@ -4,24 +4,50 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectRegistry;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.StubObjectServices;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseResult;
+
+import java.lang.reflect.Field;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSonic1CaterkillerBodyChaining {
+    private ObjectManager objectManager;
+    private ObjectServices objectServices;
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
+        objectServices = new StubObjectServices() {
+            @Override
+            public ObjectManager objectManager() {
+                return objectManager;
+            }
+
+            @Override
+            public com.openggf.camera.Camera camera() {
+                return GameServices.camera();
+            }
+        };
+        objectManager = new ObjectManager(List.of(), new TestNoOpObjectRegistry(), 0, null, null,
+                null, GameServices.camera(), objectServices);
     }
 
     @AfterEach
@@ -96,10 +122,16 @@ public class TestSonic1CaterkillerBodyChaining {
                 head, parentState, 32, 32, true, false, 0, 4);
 
         head.onUnload();
-        body.update(0, null);
+        body.update(100, null);
 
-        assertTrue(body.isDestroyed(), "Body should delete when parent head enters delete/unload path");
+        assertFalse(body.isDestroyed(),
+                "Body should survive the first post-unload update while entering delete state");
         assertFalse(body.isFragmenting(), "Body should not enter fragment mode when head is unloading");
+
+        body.update(101, null);
+
+        assertTrue(body.isDestroyed(),
+                "Body should delete on its next update after the head unload path starts");
     }
 
     @Test
@@ -118,6 +150,51 @@ public class TestSonic1CaterkillerBodyChaining {
         body.update(1, null); // fragment physics + off-screen delete check
 
         assertTrue(body.isDestroyed(), "Fragmenting body segments should self-delete once off-screen");
+    }
+
+    @Test
+    public void normalHeadDestructionLeavesBodySegmentsUntilTheirNextUpdate() throws Exception {
+        TestableCaterkillerHead head = new TestableCaterkillerHead(
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
+        head.setServices(objectServices);
+        head.setSlotIndex(32);
+
+        FakeParentState parentState = new FakeParentState();
+        Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
+                head, parentState, 16, 0, true, false, 0, 4);
+        addBodySegment(head, body);
+
+        head.destroyForTest();
+
+        assertFalse(body.isDestroyed(),
+                "Destroying the Caterkiller head should leave body slots alive until the next exec pass");
+        assertEquals(32, objectManager.getActiveObjects().stream()
+                        .filter(ExplosionObjectInstance.class::isInstance)
+                        .map(ExplosionObjectInstance.class::cast)
+                        .mapToInt(ExplosionObjectInstance::getSlotIndex)
+                        .findFirst()
+                        .orElse(-1),
+                "The replacement explosion should inherit the head slot immediately");
+
+        // Body segments compare against the VBlank-style frame counter passed by
+        // ObjectManager, not a small synthetic step index.
+        body.update(100, null);
+
+        assertFalse(body.isDestroyed(),
+                "Body segments should survive the same gameplay frame's later object exec");
+
+        body.update(101, null);
+
+        assertTrue(body.isDestroyed(),
+                "Body segments should delete themselves once they execute after the head destruction frame");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void addBodySegment(Sonic1CaterkillerBadnikInstance head, Sonic1CaterkillerBodyInstance body)
+            throws Exception {
+        Field field = Sonic1CaterkillerBadnikInstance.class.getDeclaredField("bodySegments");
+        field.setAccessible(true);
+        ((List<Sonic1CaterkillerBodyInstance>) field.get(head)).add(body);
     }
 
     private static final class FakeParentState implements CaterkillerParentState {
@@ -155,6 +232,32 @@ public class TestSonic1CaterkillerBodyChaining {
         @Override
         public void writeRingBuffer(int index, int value) {
             ringBuffer[index & 0x0F] = (byte) value;
+        }
+    }
+
+    private static final class TestableCaterkillerHead extends Sonic1CaterkillerBadnikInstance {
+        private TestableCaterkillerHead(ObjectSpawn spawn) {
+            super(spawn);
+        }
+
+        private void destroyForTest() {
+            super.destroyBadnik(null);
+        }
+    }
+
+    private static final class TestNoOpObjectRegistry implements ObjectRegistry {
+        @Override
+        public ObjectInstance create(ObjectSpawn spawn) {
+            return null;
+        }
+
+        @Override
+        public void reportCoverage(List<ObjectSpawn> spawns) {
+        }
+
+        @Override
+        public String getPrimaryName(int objectId) {
+            return "noop";
         }
     }
 }
