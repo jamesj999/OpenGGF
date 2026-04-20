@@ -3522,6 +3522,9 @@ public class ObjectManager {
             if (!player.isObjectControlled()) {
                 return false;
             }
+            // Most object-controlled states skip SolidObject entirely. MGZ top-platform
+            // carry is the narrow exception: it still consumes side/top feedback while
+            // the platform owns the player.
             return !(player instanceof AbstractPlayableSprite sprite)
                     || !sprite.allowsSolidContactsWhileObjectControlled();
         }
