@@ -205,6 +205,19 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         return s == null || !s.grabbed;
     }
 
+    /**
+     * Returns whether this platform currently owns the given player in the
+     * routine-4 grabbed state.
+     */
+    public boolean isPlayerGrabbed(PlayableEntity player) {
+        return isPlayerInGrabRoutine(player);
+    }
+
+    boolean isPlayerInGrabRoutine(PlayableEntity player) {
+        PlayerGrabState state = playerStates.get(player);
+        return state != null && state.routine == 4;
+    }
+
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         if (playerEntity == null) {
