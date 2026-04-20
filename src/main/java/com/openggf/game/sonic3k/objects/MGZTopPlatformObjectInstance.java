@@ -11,6 +11,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectControlledSolidContactController;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -55,7 +56,7 @@ import java.util.Map;
  * solid collision + standing state machine but no autonomous motion.
  */
 public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
-        implements SolidObjectProvider, SolidObjectListener {
+        implements SolidObjectProvider, SolidObjectListener, ObjectControlledSolidContactController {
     private static final String ART_KEY = Sonic3kObjectArtKeys.MGZ_TOP_PLATFORM;
 
     // ROM: move.w #$280, priority(a0)
@@ -245,6 +246,11 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         if (contact.touchBottom()) {
             sprite.setWallClingTopContact(true);
         }
+    }
+
+    @Override
+    public boolean allowsObjectControlledSolidContact(PlayableEntity player, ObjectInstance candidate) {
+        return candidate instanceof BreakableWallObjectInstance;
     }
 
     // =============================================================
@@ -548,7 +554,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         // ROM sets object_control bit 7 during MGZ carry, so normal movement/collision
         // paths stop entirely while the platform owns the player.
         player.setObjectControlled(true);
-        player.setMgzTopPlatformCarrySolidContacts(true);
+        player.setMgzTopPlatformCarrySolidContactObject(this);
         player.setControlLocked(false);
         player.setOnObject(false);
         player.setAir(true);
@@ -777,7 +783,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
                 if (ps.routine == 4) {
                     releasePlayer(player, ps, true);
                 } else if (ps.routine != 0) {
-                    player.setMgzTopPlatformCarrySolidContacts(false);
+                    player.setMgzTopPlatformCarrySolidContactObject(null);
                     player.setOnObject(false);
                     ps.routine = 6;
                     ps.grabbed = false;
@@ -800,7 +806,7 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     private void releasePlayer(AbstractPlayableSprite player, PlayerGrabState state, boolean airborneRelease) {
         player.setObjectControlled(false);
-        player.setMgzTopPlatformCarrySolidContacts(false);
+        player.setMgzTopPlatformCarrySolidContactObject(null);
         player.setControlLocked(false);
         player.setOnObject(false);
         player.setForcedAnimationId(-1);
