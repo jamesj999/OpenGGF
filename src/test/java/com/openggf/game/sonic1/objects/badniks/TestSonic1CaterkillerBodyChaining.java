@@ -153,11 +153,12 @@ public class TestSonic1CaterkillerBodyChaining {
     }
 
     @Test
-    public void normalHeadDestructionLeavesBodySegmentsUntilTheirNextUpdate() throws Exception {
+    public void normalHeadDestructionKeepsBodySegmentsCollidableThroughNextVblank() throws Exception {
         TestableCaterkillerHead head = new TestableCaterkillerHead(
                 new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         head.setServices(objectServices);
         head.setSlotIndex(32);
+        objectManager.initVblaCounter(0x2000);
 
         FakeParentState parentState = new FakeParentState();
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
@@ -176,17 +177,29 @@ public class TestSonic1CaterkillerBodyChaining {
                         .orElse(-1),
                 "The replacement explosion should inherit the head slot immediately");
 
-        // Body segments compare against the VBlank-style frame counter passed by
-        // ObjectManager, not a small synthetic step index.
-        body.update(100, null);
+        // Destroying the head in Sonic's slot should not make the body vanish
+        // before the next VBlank touch pass. The ROM's lingering body bug relies
+        // on the body still being collidable on the next frame.
+        body.update(0x2000, null);
 
         assertFalse(body.isDestroyed(),
-                "Body segments should survive the same gameplay frame's later object exec");
+                "Body segments should survive the same VBlank's later object exec");
+        assertEquals(0x8B, body.getCollisionFlags(),
+                "Body segments must stay harmful after the head becomes ExplosionItem");
 
-        body.update(101, null);
+        body.update(0x2001, null);
 
-        assertTrue(body.isDestroyed(),
-                "Body segments should delete themselves once they execute after the head destruction frame");
+        assertFalse(body.isDestroyed(),
+                "Body segments should still exist for the following VBlank's touch pass");
+        assertEquals(0x8B, body.getCollisionFlags(),
+                "The next VBlank must still see the Caterkiller body as a hurt object");
+
+        body.update(0x2002, null);
+
+        assertFalse(body.isDestroyed(),
+                "Entering delete state should not destroy the body until its later exec pass");
+        assertEquals(0, body.getCollisionFlags(),
+                "Once the linger window ends, the body should stop participating in touch");
     }
 
     @SuppressWarnings("unchecked")

@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -309,33 +310,40 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
 
             List<EngineNearbyObject> nearbyObjects = new ArrayList<>();
             for (ObjectInstance instance : om.getActiveObjects()) {
-                if (!(instance instanceof AbstractObjectInstance aoi)
-                        || !(instance instanceof TouchResponseProvider provider)) {
+                if (!(instance instanceof AbstractObjectInstance aoi)) {
                     continue;
                 }
                 ObjectSpawn spawn = aoi.getSpawn();
                 if (spawn == null || spawn.objectId() == 0) {
                     continue;
                 }
-                int dx = Math.abs(spawn.x() - sprite.getCentreX());
-                int dy = Math.abs(spawn.y() - sprite.getCentreY());
+                int currentX = aoi.getX();
+                int currentY = aoi.getY();
+                int dx = Math.abs(currentX - sprite.getCentreX());
+                int dy = Math.abs(currentY - sprite.getCentreY());
                 if (dx > 160 || dy > 160) {
                     continue;
                 }
+                TouchResponseProvider provider =
+                        instance instanceof TouchResponseProvider trp ? trp : null;
                 nearbyObjects.add(new EngineNearbyObject(
                         aoi.getSlotIndex(),
                         spawn.objectId(),
                         aoi.getName(),
+                        currentX,
+                        currentY,
                         spawn.x(),
                         spawn.y(),
-                        provider.getCollisionFlags(),
-                        aoi.getPreUpdateCollisionFlags(),
+                        provider != null,
+                        provider != null ? provider.getCollisionFlags() : -1,
+                        provider != null ? aoi.getPreUpdateCollisionFlags() : -1,
                         aoi.getPreUpdateX(),
                         aoi.getPreUpdateY(),
                         aoi.isSkipTouchThisFrame(),
                         aoi.isSkipSolidContactThisFrame(),
                         aoi.isOnScreenForTouch()));
             }
+            nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
                     EngineNearbyObjectFormatter.summarise(nearbyObjects));
         }

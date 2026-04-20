@@ -537,7 +537,11 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         deleting = true;
         ObjectServices objectServices = tryServices();
         int currentFrame = objectServices != null && objectServices.objectManager() != null
-                ? objectServices.objectManager().getFrameCounter()
+                // Body segments compare their deletion latch against the VBlank
+                // counter passed into update(...). Using the gameplay frame
+                // counter here causes lag-frame traces to delete the body chain
+                // too early because frameCounter and vblaCounter diverge.
+                ? objectServices.objectManager().getVblaCounter()
                 : 0;
         bodyDeletionEarliestFrame = currentFrame + 2;
         // ROM parity: explosion inherits our slot (in-place obID change).

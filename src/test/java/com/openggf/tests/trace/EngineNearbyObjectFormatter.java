@@ -18,18 +18,28 @@ final class EngineNearbyObjectFormatter {
             if (shown > 0) {
                 sb.append(" | ");
             }
-            sb.append(String.format("eng-near s%d 0x%02X %s @%04X,%04X col=%02X",
+            sb.append(String.format("eng-near s%d 0x%02X %s @%04X,%04X",
                     object.slot(),
                     object.objectId() & 0xFF,
                     object.name(),
-                    object.x() & 0xFFFF,
-                    object.y() & 0xFFFF,
-                    object.collisionFlags() & 0xFF));
-            if (object.preUpdateCollisionFlags() >= 0
+                    object.currentX() & 0xFFFF,
+                    object.currentY() & 0xFFFF));
+            if (object.touchResponseProvider()) {
+                sb.append(String.format(" col=%02X", object.collisionFlags() & 0xFF));
+            } else {
+                sb.append(" no-touch");
+            }
+            if (object.spawnX() != object.currentX() || object.spawnY() != object.currentY()) {
+                sb.append(String.format(" spawn=@%04X,%04X",
+                        object.spawnX() & 0xFFFF,
+                        object.spawnY() & 0xFFFF));
+            }
+            if (object.touchResponseProvider()
+                    && object.preUpdateCollisionFlags() >= 0
                     && object.preUpdateCollisionFlags() != object.collisionFlags()) {
                 sb.append(String.format(" preCol=%02X", object.preUpdateCollisionFlags() & 0xFF));
             }
-            if (object.preUpdateX() != object.x() || object.preUpdateY() != object.y()) {
+            if (object.preUpdateX() != object.currentX() || object.preUpdateY() != object.currentY()) {
                 sb.append(String.format(" pre=@%04X,%04X",
                         object.preUpdateX() & 0xFFFF,
                         object.preUpdateY() & 0xFFFF));
@@ -39,7 +49,7 @@ final class EngineNearbyObjectFormatter {
                 sb.append(" gate=").append(gateSummary);
             }
             shown++;
-            if (shown >= 6) {
+            if (shown >= 12) {
                 break;
             }
         }
@@ -47,6 +57,9 @@ final class EngineNearbyObjectFormatter {
     }
 
     private static String buildGateSummary(EngineNearbyObject object) {
+        if (!object.touchResponseProvider()) {
+            return "";
+        }
         StringBuilder sb = new StringBuilder();
         if (object.skipTouchThisFrame()) {
             sb.append("skipTouch");
