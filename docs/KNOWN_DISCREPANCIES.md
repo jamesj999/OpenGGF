@@ -10,9 +10,10 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 4. [HTZ Cloud Scroll Precision Fix](#htz-cloud-scroll-precision-fix)
 5. [MCZ Rotating Platforms Child Cleanup](#mcz-rotating-platforms-child-cleanup)
 6. [Multi-Sidekick Daisy Chain](#multi-sidekick-daisy-chain)
-7. [Bonus Stage Game Mode](#bonus-stage-game-mode)
-8. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
-9. [Trace Replay Recorder Coverage](#trace-replay-recorder-coverage)
+7. [Sonic 1 Monitor Sidekick Guard](#sonic-1-monitor-sidekick-guard)
+8. [Bonus Stage Game Mode](#bonus-stage-game-mode)
+9. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
+10. [Trace Replay Recorder Coverage](#trace-replay-recorder-coverage)
 
 ---
 
@@ -325,6 +326,31 @@ Practical limits before title card pattern corruption:
 ```
 
 Empty string disables sidekicks (default). Single value preserves ROM-accurate single-sidekick behavior.
+
+---
+
+## Sonic 1 Monitor Sidekick Guard
+
+**Location:** `Sonic1MonitorObjectInstance.java`
+**ROM Reference:** `docs/s1disasm/_incObj/26 Monitor.asm`
+
+### Original Implementation
+
+Sonic 1 has no CPU sidekick actor. `Touch_Monitor` only ever runs with the single main player object in `a1`, so the ROM does not need a sidekick-specific monitor-break guard.
+
+### Our Implementation
+
+When cross-game sidekicks are donated into Sonic 1, `Sonic1MonitorObjectInstance.onTouchResponse(...)` now returns early for `player.isCpuControlled()`. This matches the engine's shared monitor rule already used by the Sonic 2 and Sonic 3K monitor implementations.
+
+### Rationale
+
+1. **Cross-game donation introduces a new actor class** - Sonic 1 content can now run with AI sidekicks that the ROM never had to consider.
+2. **Protects intended ownership rules** - Sidekicks should not be able to break monitors or claim their rewards in donated-content scenarios.
+3. **Keeps behavior aligned across games** - Sonic 2 and S3K already block CPU sidekicks from monitor breaks, so the donated S1 path should not be the odd exception.
+
+### Verification
+
+`TestSonic1MonitorObjectInstance.cpuSidekickCannotBreakSonic1Monitor` covers the donated-sidekick path. The local S1 disassembly also confirms that the static monitor icon mapping (`Map_Monitor` frame `2`) is real art, so no icon-suppression discrepancy entry is needed.
 
 ---
 

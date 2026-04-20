@@ -146,6 +146,12 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             return;
         }
 
+        // Sonic 1 never had a CPU sidekick. When cross-game sidekicks are donated into
+        // S1, match the shared monitor rule used by S2/S3K and block sidekick breaks.
+        if (player.isCpuControlled()) {
+            return;
+        }
+
         // Hit from below: player moving upward
         // ROM: Touch_Monitor - checks player y_pos - $10 >= monitor y_pos
         if (player.getYSpeed() < 0) {
