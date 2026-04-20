@@ -5,6 +5,7 @@ import com.openggf.game.sonic3k.objects.badniks.BuggernautBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
 import com.openggf.game.sonic3k.objects.badniks.JawzBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.MegaChopperBadnikInstance;
+import com.openggf.game.sonic3k.objects.badniks.MantisBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.BubblesBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.PoindexterBadnikInstance;
@@ -199,6 +200,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new MGZDashTriggerObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.MGZ_PULLEY,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MGZPulleyObjectInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.MGZ_TOP_PLATFORM,
                 (spawn, registry) -> {
@@ -557,6 +566,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new BubblesBadnikInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.MANTIS,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MantisBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.TUNNELBOT,
                 (spawn, registry) -> {

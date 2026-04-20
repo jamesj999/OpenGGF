@@ -169,6 +169,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String MGZ_TRIGGER_PLATFORM = "mgz_trigger_platform";
     public static final String MGZ_SWINGING_SPIKE_BALL = "mgz_swinging_spike_ball";
     public static final String MGZ_DASH_TRIGGER = "mgz_dash_trigger";
+    public static final String MGZ_PULLEY = "mgz_pulley";
     public static final String MGZ_TOP_PLATFORM = "mgz_top_platform";
     public static final String MGZ_TOP_LAUNCHER = "mgz_top_launcher";
     public static final String MGZ_SPIKER = "mgz_spiker";
@@ -180,6 +181,10 @@ public final class Sonic3kObjectArtKeys {
     /** Tunnelbot shares art with MGZ Miniboss (same ObjDat_Tunnelbot → Map_MGZMiniboss). */
     public static final String MGZ_TUNNELBOT = MGZ_MINIBOSS;
     public static final String MGZ_TUNNELBOT_DEBRIS = MGZ_MINIBOSS_DEBRIS;
+    /** MGZ Act 2 Drilling Robotnik (mini-event + shared with future end-of-act boss). */
+    public static final String MGZ_ENDBOSS = "mgz_endboss";
+    /** Shared MGZ end-boss debris (chunks flung during drill-drop + arm damage). */
+    public static final String MGZ_ENDBOSS_DEBRIS = "mgz_endboss_debris";
 
     // CNZ badniks
     public static final String CNZ_SPARKLE = "cnz_sparkle";
