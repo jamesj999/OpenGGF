@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
 class TestS3kMgzTopPlatformParityHeadless {
+    // Captured from the MGZ Act 1 debug-overlay repro used by the launcher regression.
     private static final int START_PIXEL_X = 10612;
     private static final int START_PIXEL_Y = 2036;
 
