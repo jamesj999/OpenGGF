@@ -3843,7 +3843,8 @@ public class ObjectManager {
                         contact.pushing(),
                         previousStanding.pushing(),
                         preContact,
-                        postContact);
+                        postContact,
+                        contact.sideDistX());
                 perPlayer.put(player, result);
                 cacheStandingSnapshot(player, new PlayerStandingState(
                         result.kind(), result.standingNow(), result.pushingNow()));

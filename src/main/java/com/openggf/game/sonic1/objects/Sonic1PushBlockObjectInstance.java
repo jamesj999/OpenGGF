@@ -746,8 +746,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             if (result == null || result.kind() != ContactKind.SIDE) {
                 continue;
             }
-            int d0 = player.getCentreX() < x ? 1 : -1;
-            handlePush(player, d0, frameCounter);
+            handlePush(player, result.sideDistX(), frameCounter);
         }
     }
 
