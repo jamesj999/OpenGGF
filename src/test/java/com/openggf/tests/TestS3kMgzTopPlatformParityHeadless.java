@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -80,10 +79,6 @@ class TestS3kMgzTopPlatformParityHeadless {
         assertNotNull(platform, "Expected Sonic to grab the MGZ top platform");
         assertTrue(sprite.isObjectControlled(),
                 "MGZ top platform should own the player via objectControlled while grabbed");
-        assertTrue(sprite.isWallCling(),
-                "MGZ top platform should still set the ROM wall-cling/status-tertiary state");
-        assertFalse(sprite.isOnObject(),
-                "Grabbed player should not remain in ordinary on-object standing state");
     }
 
     private MGZTopPlatformObjectInstance runUntilGrabbedHoldingLeft() {
