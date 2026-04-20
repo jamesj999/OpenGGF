@@ -8,6 +8,8 @@
 
 **Tech Stack:** Java 17, JUnit 5, existing `HeadlessTestRunner` / `HeadlessTestFixture` / `LevelFrameStep` replay harness, BizHawk Lua trace recorders, Sonic 1 / Sonic 2 / Sonic 3K disassembly docs under `docs/`.
 
+**Branch status (2026-04-20):** Tasks up through the shared Java replay-model migration and Sonic 1 recorder upgrade are landed on `feature/ai-performance-parity-optimization`. Tasks `6a` and `6b` remain deferred: the branch does not yet ship `tools/bizhawk/s2_trace_recorder.lua` or `tools/bizhawk/s3k_trace_recorder.lua`, so Sonic 2 and Sonic 3K traces still replay through the legacy heuristic path until those recorders are added.
+
 ---
 
 ## Scope and Constraints

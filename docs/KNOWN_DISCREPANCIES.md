@@ -12,6 +12,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 6. [Multi-Sidekick Daisy Chain](#multi-sidekick-daisy-chain)
 7. [Bonus Stage Game Mode](#bonus-stage-game-mode)
 8. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
+9. [Trace Replay Recorder Coverage](#trace-replay-recorder-coverage)
 
 ---
 
@@ -411,3 +412,37 @@ private void capturePlayer(AbstractPlayableSprite player, PlayerBeltState state,
 ### Verification
 
 With the fix, the player is vulnerable to enemy touch responses while on the conveyor belt, matching original hardware behavior. The release path still unconditionally sets `Status_Roll`, so belt exit behavior is unaffected.
+
+---
+
+## Trace Replay Recorder Coverage
+
+**Location:** `src/test/java/com/openggf/tests/trace/*`, `tools/bizhawk/*`
+**Reference:** BizHawk trace-replay tooling rather than original ROM runtime
+
+### Current Implementation
+
+The shared replay harness now understands schema v3 execution counters and uses
+`gameplay_frame_counter` plus `vblank_counter` when those columns are present.
+At the moment, only the Sonic 1 BizHawk recorder emits schema v3. Sonic 2 and
+Sonic 3K traces remain on the legacy fixture format, so replay falls back to
+the historical heuristic when those fixtures are loaded.
+
+`TraceData` now logs a one-shot notice when a pre-v3 trace directory is loaded
+so the fallback is visible during test runs.
+
+### Rationale
+
+1. **Backward compatibility first** - Existing checked-in fixtures continue to
+   parse and replay while the schema migration is still in progress.
+2. **S2/S3K recorder work is not finished** - The branch intentionally defers
+   `tools/bizhawk/s2_trace_recorder.lua` and `tools/bizhawk/s3k_trace_recorder.lua`
+   until their address research and recorder bring-up land.
+3. **Visibility over silent fallback** - The replay harness now reports when it
+   is using the legacy heuristic so remaining migration work is explicit.
+
+### Removal Condition
+
+Remove this discrepancy entry after the Sonic 2 and Sonic 3K BizHawk recorders
+emit schema v3 and the remaining checked-in fixtures are regenerated with
+authoritative execution counters.

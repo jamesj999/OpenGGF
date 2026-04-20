@@ -8,9 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Set;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 /**
  * Reads and holds the contents of a trace directory:
@@ -20,6 +23,9 @@ import java.util.Map;
  * Auxiliary events are lazy-loaded and indexed by frame number.
  */
 public class TraceData {
+
+    private static final Logger LOGGER = Logger.getLogger(TraceData.class.getName());
+    private static final Set<Path> LEGACY_TRACE_WARNINGS = ConcurrentHashMap.newKeySet();
 
     private final TraceMetadata metadata;
     private final List<TraceFrame> frames;
@@ -42,6 +48,8 @@ public class TraceData {
         Map<Integer, List<TraceEvent>> events = Files.exists(auxPath)
             ? loadAuxEvents(auxPath)
             : Collections.emptyMap();
+
+        warnIfLegacyExecutionCounters(traceDirectory, metadata, frames);
 
         return new TraceData(metadata, frames, events);
     }
@@ -118,5 +126,21 @@ public class TraceData {
             }
         }
         return map;
+    }
+
+    private static void warnIfLegacyExecutionCounters(Path traceDirectory,
+            TraceMetadata metadata, List<TraceFrame> frames) {
+        Integer traceSchema = metadata.traceSchema();
+        if (traceSchema != null && traceSchema >= 3) {
+            return;
+        }
+        if (!frames.isEmpty() && frames.get(0).vblankCounter() >= 0) {
+            return;
+        }
+        Path normalized = traceDirectory.toAbsolutePath().normalize();
+        if (LEGACY_TRACE_WARNINGS.add(normalized)) {
+            LOGGER.info(() -> "Trace " + normalized
+                    + " is pre-v3; replay is using the legacy lag heuristic.");
+        }
     }
 }
