@@ -17,7 +17,7 @@ This note resolves the Sonic 2 REV01 RAM labels the v3 trace recorder needs beyo
 | Current act byte | `Current_Act` | `$FFFFFE11` | `docs/s2disasm/s2.constants.asm:1674-1678` | Byte immediately after `Current_Zone`. |
 | Ring count | `Ring_count` | `$FFFFFE20` | `docs/s2disasm/s2.constants.asm:1688-1703` | The comment after `Score` fixes the later unused range at `$FFFFFE2A-$FFFFFE2F`, which places `Ring_count` at `$FFFFFE20`. |
 | Held input P1 | `Ctrl_1_Held` | `$FFFFF604` | `docs/s2disasm/s2.constants.asm:1382-1393` | `Ctrl_1` is the 2-byte pair at `$FFFFF604-$FFFFF605`; the held byte is the first byte of that pair. |
-| Held-logical input P1 | `Ctrl_1_Held_Logical` | `$FFFFF602` | `docs/s2disasm/s2.constants.asm:1382-1389` | The REV01 label for the held logical byte is `Ctrl_1_Held_Logical`; `Ctrl_1_Logical` is the 2-byte pair spanning `$FFFFF602-$FFFFF603`. |
+| Held-logical input P1 | `Ctrl_1_Logical` | `$FFFFF602` | `docs/s2disasm/s2.constants.asm:1384-1386` | `Ctrl_1_Logical` is the requested 2-byte base pair spanning `$FFFFF602-$FFFFF603`; its held-logical byte is `Ctrl_1_Held_Logical` at the first byte of that pair. |
 | Player primary status offset | `status` | `$22` | `docs/s2disasm/s2.constants.asm:36` | Offset inside `MainCharacter`. |
 | Player secondary status offset | `status_secondary` | `$2B` | `docs/s2disasm/s2.constants.asm:53-54` | Offset inside `MainCharacter`. |
 | Player routine offset | `routine` | `$24` | `docs/s2disasm/s2.constants.asm:37` | Offset inside `MainCharacter`. |
