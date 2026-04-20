@@ -206,8 +206,8 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Returns whether this platform currently owns the given player in the
-     * routine-4 grabbed state.
+     * Read-only seam for headless parity tests to detect MGZ carried-player ownership
+     * without reflective access to {@code playerStates}.
      */
     public boolean isPlayerGrabbed(PlayableEntity player) {
         PlayerGrabState state = playerStates.get(player);
