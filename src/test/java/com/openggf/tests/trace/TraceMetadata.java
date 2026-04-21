@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Metadata for a trace recording directory, parsed from metadata.json.
@@ -25,6 +27,9 @@ public record TraceMetadata(
     @JsonProperty("trace_schema") Integer traceSchema,
     @JsonProperty("rom_checksum") String romChecksum,
     @JsonProperty("notes") String notes,
+    @JsonProperty("characters") List<String> characters,
+    @JsonProperty("main_character") String mainCharacter,
+    @JsonProperty("sidekicks") List<String> sidekicks,
     @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames,
     @JsonProperty("trace_type") String traceType,
     @JsonProperty("input_source") String inputSource,
@@ -50,6 +55,38 @@ public record TraceMetadata(
     /** Parse start_y hex string to short. */
     public short startY() {
         return (short) Integer.parseInt(startYHex.replace("0x", ""), 16);
+    }
+
+    /** Returns the recorded sidekick list, or an empty list when absent. */
+    public List<String> recordedSidekicks() {
+        if (characters != null && characters.size() > 1) {
+            return List.copyOf(characters.subList(1, characters.size()));
+        }
+        return sidekicks != null ? List.copyOf(sidekicks) : List.of();
+    }
+
+    /** Returns the recorded playable character list in order. */
+    public List<String> recordedCharacters() {
+        if (characters != null && !characters.isEmpty()) {
+            return List.copyOf(characters);
+        }
+        List<String> result = new ArrayList<>();
+        if (mainCharacter != null && !mainCharacter.isBlank()) {
+            result.add(mainCharacter);
+        }
+        result.addAll(recordedSidekicks());
+        return List.copyOf(result);
+    }
+
+    /** Returns the primary recorded playable character, if present. */
+    public String recordedMainCharacter() {
+        List<String> recorded = recordedCharacters();
+        return recorded.isEmpty() ? null : recorded.getFirst();
+    }
+
+    /** Returns whether this trace metadata explicitly records a gameplay team. */
+    public boolean hasRecordedTeam() {
+        return !recordedCharacters().isEmpty();
     }
 
     /** Load metadata from a metadata.json file. */

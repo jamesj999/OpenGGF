@@ -72,4 +72,21 @@ public class TestTraceEventFormatting {
         assertEquals("slot_dump", snapshot.fields().get("event"));
         assertEquals("[[32,\"0x46\"],[75,\"0x55\"]]", snapshot.fields().get("slots"));
     }
+
+    @Test
+    void parsesCheckpointAndZoneActStateIntoCompactSummary() {
+        TraceEvent checkpoint = TraceEvent.parseJsonLine(
+                """
+                {"frame":1200,"event":"checkpoint","name":"aiz2_main_gameplay","actual_zone_id":0,"actual_act":1,"apparent_act":0,"game_mode":12,"notes":"resume strict replay"}
+                """.trim(),
+                mapper);
+        TraceEvent zoneActState = TraceEvent.parseJsonLine(
+                """
+                {"frame":1200,"event":"zone_act_state","actual_zone_id":0,"actual_act":1,"apparent_act":0,"game_mode":12}
+                """.trim(),
+                mapper);
+
+        assertEquals("cp aiz2_main_gameplay z=0 a=1 ap=0 gm=12 | zoneact z=0 a=1 ap=0 gm=12",
+                TraceEventFormatter.summariseFrameEvents(List.of(checkpoint, zoneActState)));
+    }
 }
