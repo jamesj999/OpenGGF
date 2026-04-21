@@ -1,0 +1,3 @@
+frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+0000,0008,0080,03A0,000C,0000,000C,00,0,0,0,0000,0000,02,0000,0000,0000,00,2000,00,0100,0000
+0001,0008,0080,03A0,000C,0000,000C,00,0,0,0,0000,0000,02,0000,0000,0000,00,2000,00,0101,0001

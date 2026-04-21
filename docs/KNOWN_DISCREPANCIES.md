@@ -450,9 +450,16 @@ With the fix, the player is vulnerable to enemy touch responses while on the con
 
 The shared replay harness now understands schema v3 execution counters and uses
 `gameplay_frame_counter` plus `vblank_counter` when those columns are present.
-At the moment, only the Sonic 1 BizHawk recorder emits schema v3. Sonic 2 and
-Sonic 3K traces remain on the legacy fixture format, so replay falls back to
-the historical heuristic when those fixtures are loaded.
+The Sonic 1, Sonic 2, and Sonic 3&K BizHawk recorders all emit schema v3, and
+committed synthetic v3 fixtures exercise the per-game metadata acceptance
+paths.
+
+BK2-derived fixture coverage is still incomplete across the full replay suite.
+Sonic 1 ships with established v3-native BK2 traces, and this branch also
+contains a Sonic 2 BK2-derived trace directory, but there is still no committed
+Sonic 3&K BK2-derived gameplay fixture driving replay parity in CI. Older or
+pre-v3 traces can therefore still reach the legacy heuristic path when they are
+loaded.
 
 `TraceData` now logs a one-shot notice when a pre-v3 trace directory is loaded
 so the fallback is visible during test runs.
@@ -461,14 +468,16 @@ so the fallback is visible during test runs.
 
 1. **Backward compatibility first** - Existing checked-in fixtures continue to
    parse and replay while the schema migration is still in progress.
-2. **S2/S3K recorder work is not finished** - The branch intentionally defers
-   `tools/bizhawk/s2_trace_recorder.lua` and `tools/bizhawk/s3k_trace_recorder.lua`
-   until their address research and recorder bring-up land.
+2. **Real fixture coverage is still uneven** - Synthetic fixtures prove the
+   parser contract, but they do not replace a real BK2-derived Sonic 3&K trace,
+   and the branch-local Sonic 2 replay trace is still parity work rather than a
+   settled baseline.
 3. **Visibility over silent fallback** - The replay harness now reports when it
    is using the legacy heuristic so remaining migration work is explicit.
 
 ### Removal Condition
 
-Remove this discrepancy entry after the Sonic 2 and Sonic 3K BizHawk recorders
-emit schema v3 and the remaining checked-in fixtures are regenerated with
-authoritative execution counters.
+Remove this discrepancy entry once at least one real BK2-derived Sonic 3&K
+fixture is checked in alongside the existing S1/S2 coverage, a replay test
+parses it as schema v3, and the legacy fallback path in
+`TraceExecutionModel` / `TraceData` is deleted.
