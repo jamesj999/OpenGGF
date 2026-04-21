@@ -1,18 +1,31 @@
 package com.openggf.tests.trace;
 
 import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.objects.Aiz2BossEndSequenceState;
+import com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance;
+import com.openggf.game.sonic3k.objects.S3kSignpostInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.objects.TouchResponseDebugHit;
 import com.openggf.level.objects.TouchResponseDebugState;
 import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.SonicGame;
+import com.openggf.tests.trace.s3k.S3kCheckpointProbe;
+import com.openggf.tests.trace.s3k.S3kElasticWindowController;
+import com.openggf.tests.trace.s3k.S3kRequiredCheckpointGuard;
+import com.openggf.tests.trace.s3k.S3kReplayCheckpointDetector;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -75,17 +90,21 @@ public abstract class AbstractTraceReplayTest {
 
         // 3. Validate test configuration matches metadata
         validateMetadata(meta);
+        applyRecordedTeamConfig(meta);
 
         // 4. Load level and create fixture
         SharedLevel sharedLevel = SharedLevel.load(game(), zone(), act());
         try {
-            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+            HeadlessTestFixture.Builder fixtureBuilder = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
-                .startPosition(meta.startX(), meta.startY())
-                .startPositionIsCentre()
                 .withRecording(bk2Path)
-                .withRecordingStartFrame(meta.bk2FrameOffset())
-                .build();
+                .withRecordingStartFrame(meta.bk2FrameOffset());
+            if (shouldApplyMetadataStartPosition(trace, meta)) {
+                fixtureBuilder
+                        .startPosition(meta.startX(), meta.startY())
+                        .startPositionIsCentre();
+            }
+            HeadlessTestFixture fixture = fixtureBuilder.build();
 
             // 4a. ROM parity: Initialize ObjectManager's frame counter to match
             //     v_vbla_byte at trace start. Schema v3 traces record the ROM
@@ -127,12 +146,10 @@ public abstract class AbstractTraceReplayTest {
             //     For S2/S3K, ObjectManager defers spawn→instance conversion
             //     until the first update() tick. Preload them now so the binder
             //     has real engine instances to match against.
-            List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots =
-                    trace.preTraceObjectSnapshots();
+            List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots = trace.preTraceObjectSnapshots();
+            TraceObjectSnapshotBinder.Result hydration =
+                    TraceReplayBootstrap.applyPreTraceState(trace, fixture);
             if (!preTraceSnapshots.isEmpty() && om != null) {
-                om.preloadInitialSpawnsForHydration();
-                TraceObjectSnapshotBinder.Result hydration =
-                        TraceObjectSnapshotBinder.apply(om, preTraceSnapshots);
                 System.out.printf(
                         "Hydrated %d/%d pre-trace object snapshots (%d warnings)%n",
                         hydration.matched(), hydration.attempted(),
@@ -146,71 +163,86 @@ public abstract class AbstractTraceReplayTest {
             TraceBinder binder = new TraceBinder(tolerances());
             int firstSubDivFrame = -1;
 
-            for (int i = 0; i < trace.frameCount(); i++) {
-                TraceFrame expected = trace.getFrame(i);
+            if ("s3k".equals(meta.game())) {
+                replayS3kTrace(trace, meta, fixture, binder);
+            } else {
+                for (int i = 0; i < trace.frameCount(); i++) {
+                    TraceFrame expected = trace.getFrame(i);
 
-                // Drive replay from recorded ROM counters instead of inferring
-                // lag from unchanged physics state.
-                int bk2Input;
-                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
-                TraceExecutionPhase phase =
-                    TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
-                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
-                    bk2Input = fixture.skipFrameFromRecording();
-                } else {
-                    bk2Input = fixture.stepFrameFromRecording();
-                }
+                    // Drive replay from recorded ROM counters instead of inferring
+                    // lag from unchanged physics state.
+                    int bk2Input;
+                    TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                    TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                    if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                        bk2Input = fixture.skipFrameFromRecording();
+                    } else {
+                        bk2Input = fixture.stepFrameFromRecording();
+                    }
 
-                if (!binder.validateInput(expected, bk2Input)) {
-                    fail(String.format(
-                        "Input alignment error at trace frame %d: " +
-                        "BK2 input=0x%04X, trace input=0x%04X. " +
-                        "Check bk2_frame_offset in metadata.json.",
-                        i, bk2Input, expected.input()));
-                }
+                    if (!binder.validateInput(expected, bk2Input)) {
+                        fail(String.format(
+                            "Input alignment error at trace frame %d: " +
+                            "BK2 input=0x%04X, trace input=0x%04X. " +
+                            "Check bk2_frame_offset in metadata.json.",
+                            i, bk2Input, expected.input()));
+                    }
 
-                // ROM stores centre coordinates at $D008/$D00C. With startPositionIsCentre(),
-                // the sprite's xPixel/yPixel are set to the correct top-left position,
-                // so getCentreX()/getCentreY() now return the actual ROM centre values.
-                var sprite = fixture.sprite();
+                    // ROM stores centre coordinates at $D008/$D00C. With startPositionIsCentre(),
+                    // the sprite's xPixel/yPixel are set to the correct top-left position,
+                    // so getCentreX()/getCentreY() now return the actual ROM centre values.
+                    var sprite = fixture.sprite();
 
-                // Capture engine-side diagnostic state for context window
-                EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
-                String romDiag = combineDiagnostics(
-                        expected.hasExtendedData() ? expected.formatDiagnostics() : "",
-                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(i)));
+                    // Capture engine-side diagnostic state for context window
+                    EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
+                    TraceCharacterState actualSidekick = captureFirstSidekickState();
+                    String secondaryCharacterLabel = meta.recordedSidekicks().isEmpty()
+                            ? "sidekick"
+                            : meta.recordedSidekicks().getFirst();
+                    String romDiag = combineDiagnostics(
+                            expected.hasExtendedData() ? expected.formatDiagnostics() : "",
+                            formatCharacterDiagnostics(secondaryCharacterLabel, expected.sidekick()));
+                    romDiag = combineDiagnostics(
+                            romDiag,
+                            TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(i)));
+                    String engineDiagText = combineDiagnostics(
+                            engineDiag.format(),
+                            formatCharacterDiagnostics(secondaryCharacterLabel, actualSidekick));
 
-                var frameResult = binder.compareFrame(expected,
-                    sprite.getCentreX(), sprite.getCentreY(),
-                    sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
-                    sprite.getAngle(),
-                    sprite.getAir(), sprite.getRolling(),
-                    sprite.getGroundMode().ordinal(), romDiag,
-                    engineDiag);
+                    binder.compareFrame(expected,
+                        sprite.getCentreX(), sprite.getCentreY(),
+                        sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
+                        sprite.getAngle(),
+                        sprite.getAir(), sprite.getRolling(),
+                        sprite.getGroundMode().ordinal(), romDiag,
+                        EngineDiagnostics.formattedOnly(engineDiagText),
+                        secondaryCharacterLabel, actualSidekick);
 
-                // Track first subpixel divergence (before it becomes pixel-level)
-                if (firstSubDivFrame < 0 && expected.xSub() > 0) {
-                    int engXSub = sprite.getXSubpixelRaw();
-                    int romXSub = expected.xSub();
-                    int engYSub = sprite.getYSubpixelRaw();
-                    int romYSub = expected.ySub();
-                    if (engXSub != romXSub || engYSub != romYSub) {
-                        firstSubDivFrame = expected.frame();
-                        System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
-                            "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
-                            expected.frame(), romXSub, engXSub, romYSub, engYSub,
-                            sprite.getCentreX(), sprite.getCentreY(),
-                            sprite.getXSpeed(), expected.xSpeed(),
-                            sprite.getYSpeed(), expected.ySpeed(),
-                            sprite.getAir(), expected.air());
+                    // Track first subpixel divergence (before it becomes pixel-level)
+                    if (firstSubDivFrame < 0 && expected.xSub() > 0) {
+                        int engXSub = sprite.getXSubpixelRaw();
+                        int romXSub = expected.xSub();
+                        int engYSub = sprite.getYSubpixelRaw();
+                        int romYSub = expected.ySub();
+                        if (engXSub != romXSub || engYSub != romYSub) {
+                            firstSubDivFrame = expected.frame();
+                            System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
+                                "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
+                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
+                                sprite.getCentreX(), sprite.getCentreY(),
+                                sprite.getXSpeed(), expected.xSpeed(),
+                                sprite.getYSpeed(), expected.ySpeed(),
+                                sprite.getAir(), expected.air());
+                        }
                     }
                 }
-
-
             }
 
             // 6. Build report
-            DivergenceReport report = binder.buildReport();
+            DivergenceReport report = "s3k".equals(meta.game())
+                    ? binder.buildReport(trace)
+                    : binder.buildReport();
 
             // 7. Write report if there are any divergences
             if (report.hasErrors() || report.hasWarnings()) {
@@ -242,6 +274,186 @@ public abstract class AbstractTraceReplayTest {
             + " but metadata says " + meta.game() + ")");
     }
 
+    private void applyRecordedTeamConfig(TraceMetadata meta) {
+        if (!meta.hasRecordedTeam()) {
+            return;
+        }
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, meta.mainCharacter());
+        config.setConfigValue(
+                SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                String.join(",", meta.recordedSidekicks()));
+    }
+
+    private boolean shouldApplyMetadataStartPosition(TraceData trace, TraceMetadata meta) {
+        if (!"s3k".equals(meta.game())) {
+            return true;
+        }
+        return trace.getEventsForFrame(0).stream()
+                .filter(TraceEvent.Checkpoint.class::isInstance)
+                .map(TraceEvent.Checkpoint.class::cast)
+                .noneMatch(checkpoint -> "intro_begin".equals(checkpoint.name()));
+    }
+
+    private void replayS3kTrace(TraceData trace, TraceMetadata meta,
+                                HeadlessTestFixture fixture, TraceBinder binder) {
+        int driveTraceIndex = 0;
+        TraceFrame previousDriveFrame = null;
+        S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
+        S3kElasticWindowController controller =
+                new S3kElasticWindowController(loadCheckpointFrames(trace));
+        S3kRequiredCheckpointGuard checkpointGuard = new S3kRequiredCheckpointGuard();
+        int firstSubDivFrame = -1;
+        Boolean lastEventsFg5 = null;
+
+        while (driveTraceIndex < trace.frameCount()) {
+            TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
+            TraceExecutionPhase phase =
+                    TraceExecutionModel.forGame(meta.game()).phaseFor(previousDriveFrame, driveFrame);
+            int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
+                    ? fixture.skipFrameFromRecording()
+                    : fixture.stepFrameFromRecording();
+
+            S3kCheckpointProbe probe = captureS3kProbe(driveFrame.frame(), fixture.sprite());
+            var titleCardProvider = GameServices.module().getTitleCardProvider();
+            boolean titleCardOverlayActive = titleCardProvider != null && titleCardProvider.isOverlayActive();
+            boolean titleCardReleaseControl = titleCardProvider != null && titleCardProvider.shouldReleaseControl();
+            if (lastEventsFg5 == null || lastEventsFg5 != probe.eventsFg5()) {
+                System.out.printf("S3K probe frame=%d levelStarted=%b eventsFg5=%b fire=%b zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b tcOverlay=%b tcRelease=%b%n",
+                        driveFrame.frame(),
+                        probe.levelStarted(),
+                        probe.eventsFg5(),
+                        probe.fireTransitionActive(),
+                        probe.actualZoneId(),
+                        probe.actualAct(),
+                        probe.apparentAct(),
+                        probe.moveLock(),
+                        probe.ctrlLocked(),
+                        titleCardOverlayActive,
+                        titleCardReleaseControl);
+                lastEventsFg5 = probe.eventsFg5();
+            }
+            TraceEvent.Checkpoint engineCheckpoint = detector.observe(probe);
+            if (engineCheckpoint != null) {
+                System.out.printf("S3K engine checkpoint frame=%d name=%s zone=%s act=%s apparent=%s levelStarted=%b moveLock=%d ctrlLocked=%b eventsFg5=%b tcOverlay=%b tcRelease=%b%n",
+                        driveFrame.frame(),
+                        engineCheckpoint.name(),
+                        probe.actualZoneId(),
+                        probe.actualAct(),
+                        probe.apparentAct(),
+                        probe.levelStarted(),
+                        probe.moveLock(),
+                        probe.ctrlLocked(),
+                        probe.eventsFg5(),
+                        titleCardOverlayActive,
+                        titleCardReleaseControl);
+            }
+            controller.onEngineTick();
+            controller.assertWithinDriftBudget();
+
+            if (controller.isStrictComparisonEnabled()) {
+                int strictTraceIndex = controller.strictTraceIndex();
+                TraceFrame expected = trace.getFrame(strictTraceIndex);
+                EngineDiagnostics engineDiag = captureEngineDiagnostics(fixture.sprite());
+                String romDiag = combineDiagnostics(
+                        expected.hasExtendedData() ? expected.formatDiagnostics() : "",
+                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(strictTraceIndex)));
+
+                binder.compareFrame(expected,
+                        fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                        fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getGSpeed(),
+                        fixture.sprite().getAngle(),
+                        fixture.sprite().getAir(), fixture.sprite().getRolling(),
+                        fixture.sprite().getGroundMode().ordinal(), romDiag,
+                        engineDiag);
+
+                TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
+                if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
+                    checkpointGuard.validateStrictEntry(strictTraceIndex, traceCheckpoint, engineCheckpoint);
+                    controller.onEntryFrameValidated(traceCheckpoint);
+                }
+
+                if (firstSubDivFrame < 0 && expected.xSub() > 0) {
+                    int engXSub = fixture.sprite().getXSubpixelRaw();
+                    int romXSub = expected.xSub();
+                    int engYSub = fixture.sprite().getYSubpixelRaw();
+                    int romYSub = expected.ySub();
+                    if (engXSub != romXSub || engYSub != romYSub) {
+                        firstSubDivFrame = expected.frame();
+                        System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
+                                        "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
+                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
+                                fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                                fixture.sprite().getXSpeed(), expected.xSpeed(),
+                                fixture.sprite().getYSpeed(), expected.ySpeed(),
+                                fixture.sprite().getAir(), expected.air());
+                    }
+                }
+            }
+
+            boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
+            if (engineCheckpoint != null) {
+                controller.onEngineCheckpoint(engineCheckpoint);
+            }
+
+            if (engineCheckpoint != null
+                    && !strictBeforeCheckpoint
+                    && controller.isStrictComparisonEnabled()) {
+                driveTraceIndex = controller.driveTraceIndex();
+                previousDriveFrame = driveFrame;
+                continue;
+            }
+
+            controller.advanceDriveCursor();
+            driveTraceIndex = controller.driveTraceIndex();
+            previousDriveFrame = driveFrame;
+        }
+    }
+
+    private Map<String, Integer> loadCheckpointFrames(TraceData trace) {
+        Map<String, Integer> frames = new LinkedHashMap<>();
+        for (int frame = 0; frame < trace.frameCount(); frame++) {
+            for (TraceEvent event : trace.getEventsForFrame(frame)) {
+                if (event instanceof TraceEvent.Checkpoint checkpoint) {
+                    frames.putIfAbsent(checkpoint.name(), checkpoint.frame());
+                }
+            }
+        }
+        return frames;
+    }
+
+    private S3kCheckpointProbe captureS3kProbe(int replayFrame, AbstractPlayableSprite sprite) {
+        boolean resultsActive = GameServices.level().getObjectManager().getActiveObjects().stream()
+                .anyMatch(S3kResultsScreenObjectInstance.class::isInstance);
+        boolean signpostActive = S3kSignpostInstance.getActiveSignpost() != null;
+        boolean eventsFg5 =
+                GameServices.module().getLevelEventProvider() instanceof Sonic3kLevelEventManager manager
+                        && manager.isEventsFg5();
+        boolean fireTransitionActive =
+                GameServices.module().getLevelEventProvider() instanceof Sonic3kLevelEventManager manager
+                        && manager.isFireTransitionActive();
+        boolean hczTransitionActive =
+                Aiz2BossEndSequenceState.isCutsceneOverrideObjectsActive() && !resultsActive;
+        var titleCardProvider = GameServices.module().getTitleCardProvider();
+        boolean titleCardOverlayActive = titleCardProvider != null && titleCardProvider.isOverlayActive();
+
+        return new S3kCheckpointProbe(
+                replayFrame,
+                GameServices.level().getCurrentZone(),
+                GameServices.level().getCurrentAct(),
+                GameServices.level().getApparentAct(),
+                0x0C,
+                sprite.getMoveLockTimer(),
+                sprite.isControlLocked(),
+                eventsFg5,
+                fireTransitionActive,
+                hczTransitionActive,
+                signpostActive,
+                resultsActive,
+                GameServices.camera().isLevelStarted(),
+                titleCardOverlayActive);
+    }
+
     private Path findBk2File(Path dir) throws IOException {
         try (var files = Files.list(dir)) {
             return files
@@ -259,6 +471,121 @@ public abstract class AbstractTraceReplayTest {
             return base;
         }
         return base + " | " + extra;
+    }
+
+    private static String formatCharacterDiagnostics(String label, TraceCharacterState state) {
+        if (state == null) {
+            return "";
+        }
+        return state.formatDiagnostics(label);
+    }
+
+    private void applyPreTracePlayerHistory(TraceEvent.PlayerHistorySnapshot snapshot,
+            AbstractPlayableSprite sprite) {
+        if (snapshot == null || sprite == null) {
+            return;
+        }
+        sprite.hydrateRecordedHistory(
+                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.xHistory(), sprite.getWidth()),
+                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.yHistory(), sprite.getHeight()),
+                snapshot.inputHistory(),
+                snapshot.statusHistory(),
+                TraceHistoryHydration.romHistoryPosToEngineLatestSlot(snapshot.historyPos()));
+    }
+
+    private void applyPreTraceSidekickSnapshot(List<TraceEvent.ObjectStateSnapshot> snapshots) {
+        TraceEvent.ObjectStateSnapshot sidekickSnapshot = snapshots.stream()
+                .filter(snapshot -> snapshot.slot() == 1)
+                .findFirst()
+                .orElse(null);
+        if (sidekickSnapshot == null) {
+            return;
+        }
+
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return;
+        }
+
+        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
+        hydrateSidekickFromSnapshot(sidekick, sidekickSnapshot.fields());
+    }
+
+    private TraceCharacterState captureFirstSidekickState() {
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return null;
+        }
+        return captureCharacterState(spriteManager.getSidekicks().getFirst());
+    }
+
+    private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {
+        ObjectManager om = GameServices.level() != null
+                ? GameServices.level().getObjectManager() : null;
+        int standOnSlot = -1;
+        if (om != null) {
+            ObjectInstance ridingObj = om.getRidingObject(sprite);
+            if (ridingObj instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= 0) {
+                standOnSlot = aoi.getSlotIndex();
+            }
+        }
+
+        int statusByte = 0;
+        if (sprite.getDirection() == com.openggf.physics.Direction.LEFT) {
+            statusByte |= 0x01;
+        }
+        if (sprite.getAir()) statusByte |= 0x02;
+        if (sprite.getRolling()) statusByte |= 0x04;
+        if (sprite.isOnObject()) statusByte |= 0x08;
+
+        int routine = sprite.isHurt() ? 0x04 : 0x02;
+
+        return new TraceCharacterState(true,
+                sprite.getCentreX(),
+                sprite.getCentreY(),
+                sprite.getXSpeed(),
+                sprite.getYSpeed(),
+                sprite.getGSpeed(),
+                sprite.getAngle(),
+                sprite.getAir(),
+                sprite.getRolling(),
+                sprite.getGroundMode().ordinal(),
+                sprite.getXSubpixelRaw(),
+                sprite.getYSubpixelRaw(),
+                routine,
+                statusByte,
+                standOnSlot);
+    }
+
+    private void hydrateSidekickFromSnapshot(AbstractPlayableSprite sidekick,
+            RomObjectSnapshot snapshot) {
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setHurt(false);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setXSpeed((short) snapshot.xVel());
+        sidekick.setYSpeed((short) snapshot.yVel());
+        sidekick.setGSpeed((short) snapshot.signedWordAt(0x14));
+        sidekick.setAngle((byte) snapshot.angle());
+        sidekick.setDirection((snapshot.status() & 0x01) != 0
+                ? com.openggf.physics.Direction.LEFT
+                : com.openggf.physics.Direction.RIGHT);
+        sidekick.setAir((snapshot.status() & 0x02) != 0);
+        sidekick.setRolling((snapshot.status() & 0x04) != 0);
+        sidekick.setOnObject((snapshot.status() & 0x08) != 0);
+        sidekick.setCentreX((short) snapshot.xPos());
+        sidekick.setCentreY((short) snapshot.yPos());
+        sidekick.setSubpixelRaw(snapshot.xSub(), snapshot.ySub());
+        sidekick.resetPositionHistory();
+
+        SidekickCpuController controller = sidekick.getCpuController();
+        if (controller != null) {
+            controller.setInitialState(SidekickCpuController.State.NORMAL);
+        }
     }
 
 
