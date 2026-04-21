@@ -22,16 +22,26 @@ The branch already contains a real BK2-backed end-to-end S3K fixture:
   - `aiz2_reload_resume` at trace frame `5610`
   - `aiz2_main_gameplay` at trace frame `5610`
 
-The most recent saved replay failure is structural, not a gameplay-field
-divergence:
+A recent local replay run, captured in non-committed output at
+`target/surefire-reports/TEST-com.openggf.tests.trace.s3k.TestS3kAizTraceReplay.xml`,
+failed structurally, not with a gameplay-field divergence:
 
 - `Elastic window drift budget exhausted for gameplay_start`
-- saved engine checkpoints show:
+- the same local output shows engine checkpoints at:
   - `intro_begin` at replay frame `0`
   - `gameplay_start` at replay frame `1528`
 
-That means the current gate is failing inside the first elastic window before
-normal post-intro gameplay becomes a reliable sync target.
+This local output is useful for diagnosis, but it is not a committed branch
+artifact. The durable branch evidence is the recorded checkpoint stream plus the
+current controller and detector code.
+
+By the controller budget formula
+`maxEngineSpan = span + max(180, span)`, the first window
+`intro_begin -> gameplay_start` has a budget of `3000` engine ticks for a trace
+span of `1500`. A replay `gameplay_start` at frame `1528` therefore does not
+support the claim that the first window exhausted its budget. Combined with the
+controller's current chained-window map, that local failure is more consistent
+with the wrong second elastic window opening at `gameplay_start`.
 
 There is also a spec/implementation mismatch in the replay harness:
 
@@ -41,6 +51,8 @@ There is also a spec/implementation mismatch in the replay harness:
 - the current controller implementation uses:
   - `intro_begin -> gameplay_start`
   - `gameplay_start -> aiz2_main_gameplay`
+- the current detector emits `aiz1_fire_transition_begin`, but omits it from
+  `REQUIRED_ORDER` and the current detector tests treat it as diagnostics-only
 
 This mismatch must be resolved before using the replay result to make claims
 about intro parity or later-run parity.
@@ -65,27 +77,41 @@ The replay harness must follow these rules:
 
 - elastic window 1 opens on recorded `intro_begin` and closes on
   `gameplay_start`
+- frames after `gameplay_start` and before `aiz1_fire_transition_begin` are
+  strict-comparison frames, not part of either elastic window
 - elastic window 2 opens on recorded `aiz1_fire_transition_begin` and closes on
   `aiz2_main_gameplay`
-- `aiz1_fire_transition_begin` is a real semantic checkpoint
+- `aiz1_fire_transition_begin` must be treated as a required checkpoint by both
+  the trace contract and the replay detector contract; it is not
+  diagnostics-only
 - optional checkpoints remain diagnostics-only and never act as elastic-window
   anchors
 - replay remains strict outside elastic windows
 - a structural failure inside a window is valid, but it must reflect the
   correct checkpoint pairing
+- the drift-budget rule remains
+  `maxEngineSpan = span + max(180, span)` from
+  `S3kElasticWindowController`
 
 ## Investigation Scope After Harness Alignment
 
 Once the window contract matches the design, the next parity loop is:
 
 1. Run the authoritative S3K replay test.
-2. If it fails before or at `gameplay_start`, treat AIZ intro parity as the
+2. Verify that the replay no longer opens a chained second elastic window at
+   `gameplay_start`.
+3. If it fails before or at `gameplay_start`, treat AIZ intro parity as the
    immediate engine task.
-3. Use BK2 playback, trace checkpoints, probe output, and disassembly to find
-   the first real divergence inside the intro window.
-4. Fix only the root cause needed to move the first red point forward.
-5. Re-run the replay and repeat until the test gets past `gameplay_start` or
-   produces a new first divergence after that checkpoint.
+4. If it closes the intro window and then fails in the strict span
+   `[gameplay_start, aiz1_fire_transition_begin)`, treat that strict region as
+   the next active parity target rather than folding it back into intro work.
+5. If it reaches `aiz1_fire_transition_begin` and then fails structurally or
+   semantically in the second window, treat that as second-window parity work,
+   not intro parity work.
+6. Use BK2 playback, trace checkpoints, probe output, and disassembly to find
+   the first real divergence in the earliest failing region.
+7. Fix only the root cause needed to move the first red point forward.
+8. Re-run the replay and repeat.
 
 ## Out Of Scope
 
@@ -115,10 +141,13 @@ understood.
 
 This gate is complete only when one of these is true:
 
-- the authoritative replay gets past `gameplay_start` without structural window
-  failure, or
-- the authoritative replay fails with a concrete first divergence report tied to
-  the intro window rather than a controller-budget error
+- the controller no longer opens a second elastic window at `gameplay_start`,
+  and `aiz1_fire_transition_begin` is the second required window anchor
+- the authoritative replay gets beyond `gameplay_start` without a
+  controller-budget error attributed to `gameplay_start`
+- after that harness alignment, the first remaining red point, if any, is a
+  concrete divergence or semantic checkpoint failure at or after
+  `gameplay_start`
 
 Implementation planning may begin after this spec is approved. The first plan
 must treat replay-window alignment as part of the gate, not as optional cleanup.
