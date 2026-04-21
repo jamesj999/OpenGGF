@@ -3,7 +3,7 @@
 ## Goal
 
 Add a real Sonic 3&K trace fixture and replay test built from the BK2 movie
-`s3-aiz1&2-sonictails.bk2`, covering the continuous path from the Angel Island
+`s3k-aiz1-aiz2-sonictails.bk2`, covering the continuous path from the Angel Island
 intro cutscene through AIZ1 gameplay, the seamless fire-curtain transition into
 AIZ2, the rest of Angel Island, and the outro handoff into Hydrocity.
 
@@ -18,7 +18,7 @@ S3K AIZ is not a simple zone/act replay:
 - The run begins in intro/cutscene state before normal gameplay.
 - The AIZ1 fire sequence reloads AIZ2 art and progression state mid-run.
 - During that transition, the engine and ROM intentionally distinguish current
-  zone/act from apparent zone/act.
+  gameplay progression state from the apparent act presentation state.
 - The fixture should continue past the player-controlled section and through
   the HCZ handoff/cutscene frames, because the zone transition logic is part of
   what we are validating.
@@ -31,7 +31,7 @@ test still fails on first divergence.
 
 Use one authoritative fixture directory containing:
 
-- `s3-aiz1&2-sonictails.bk2`
+- `s3k-aiz1-aiz2-sonictails.bk2`
 - `metadata.json`
 - `physics.csv`
 - `aux_state.jsonl`
@@ -59,21 +59,45 @@ Add a new aux event type for S3K:
   "zone": "aiz",
   "actual_zone_id": 0,
   "actual_act": 0,
-  "apparent_zone_id": 0,
   "apparent_act": 0,
-  "game_mode": "...",
+  "game_mode": "0x10",
   "notes": "optional short recorder note"
 }
 ```
 
 The important rule is that checkpoint payloads must carry both:
 
-- `actual_*`: ROM current zone/act state used for gameplay/runtime state
-- `apparent_*`: title-card / presentation-side zone/act state
+- `actual_*`: current gameplay zone/act state
+- `apparent_act`: title-card / presentation-side act state
 
-This is required for the AIZ fire transition, where AIZ2 tiles and progression
-state can be active while the apparent act presentation has not fully advanced
-the same way.
+In the current engine, only the act has a distinct "apparent" surface:
+`LevelManager.getApparentAct()`. There is no separate engine-side apparent zone
+value today, so checkpoint and audit events track:
+
+- `actual_zone_id`
+- `actual_act`
+- `apparent_act`
+
+For this fixture, `actual_zone_id` is authoritative for zone progression. The
+important divergence window is AIZ's fire transition, where `currentAct` has
+advanced to AIZ2 continuation state while `apparentAct` intentionally remains
+at the prior act presentation value. Outside transition/signpost/results
+windows, `actual_act` and `apparent_act` are expected to be equal.
+
+For intro frames that occur before the level state is observable, these fields
+must be emitted as `null`, not guessed defaults.
+
+### Why A New Event Type
+
+`routine_change` and `mode_change` already exist, but they are too low-level to
+act as stable replay milestones:
+
+- they do not carry zone/act progression state
+- they are tied to object/control behavior, not test-phase meaning
+- they are not named in terms a replay report can surface directly
+
+`checkpoint` is therefore a separate semantic event type whose job is to mark
+human-meaningful milestones in the end-to-end run.
 
 ### Required Checkpoints
 
@@ -87,8 +111,8 @@ The initial implementation should emit these named checkpoints:
 - `hcz_handoff_begin`
 - `hcz_handoff_complete`
 
-Optional checkpoints may be added if the movie cleanly covers them and they are
-easy to detect without fragile heuristics:
+Optional checkpoints may be added only when they can be detected from explicit
+ROM/runtime state that would be present in future runs too:
 
 - `aiz2_signpost_begin`
 - `aiz2_results_begin`
@@ -105,6 +129,24 @@ Checkpoint emission must be sparse and deterministic:
 - Prefer explicit state transitions already represented by S3K event logic over
   camera-position guesses when both are available.
 
+### Required Checkpoint Signals
+
+Each required checkpoint must be keyed from a concrete source signal:
+
+| Checkpoint | Source signal |
+| --- | --- |
+| `intro_begin` | First recorded frame of the BK2. This fixture records from movie start, not from gameplay unlock. |
+| `gameplay_start` | First frame where S3K is in level gameplay and the player control-lock timer reaches zero. |
+| `aiz1_fire_transition_begin` | Rising edge of the dedicated AIZ fire-transition state becoming active. This must be keyed from the same ROM-visible/event-driven transition state the engine models, not from camera position. |
+| `aiz2_reload_resume` | First frame after the seamless reload where `actual_act == 1` while `apparent_act == 0`. This is the main act-divergence checkpoint. |
+| `aiz2_main_gameplay` | First post-reload frame where `actual_act == 1` and normal gameplay control is restored (`move_lock == 0`). |
+| `hcz_handoff_begin` | First frame where the AIZ-to-HCZ transition path becomes active, keyed from actual zone progression / transition state rather than cutscene timing constants. |
+| `hcz_handoff_complete` | First frame where HCZ is the actual zone and the seamless handoff has completed enough that the run is stably inside HCZ state. |
+
+The exact RAM labels/addresses behind these signals are a required research
+deliverable before implementation. The implementation plan must freeze them in
+a companion research note before recorder code is finalized.
+
 ## Recorder Design
 
 ### Fixture Scope
@@ -119,6 +161,11 @@ fixture format stays the same v3 contract:
 No physics.csv schema expansion is allowed for this work. All S3K-specific
 phase/checkpoint data lives in `aux_state.jsonl`.
 
+For a fixture that starts before gameplay, the recorder must support recording
+from BK2 frame 0 instead of waiting for the gameplay-unlock trigger used by the
+normal act-level recorders. `gameplay_start` becomes a checkpoint inside the
+trace, not the recording start condition.
+
 ### State Tracking
 
 The S3K recorder must track enough state to emit meaningful checkpoints:
@@ -127,13 +174,21 @@ The S3K recorder must track enough state to emit meaningful checkpoints:
 - vblank counter
 - lag counter
 - actual zone/act
-- apparent zone/act
+- apparent act
 - game mode / cutscene state if available
 
-The recorder should also emit a zone/act-state diagnostic event whenever either
-actual or apparent zone/act changes, even if that change does not map to a
-named checkpoint. This gives a low-level audit trail beneath the semantic
-checkpoint events.
+In concrete engine terms, this means:
+
+- `actual_zone_id` / `actual_act`: the current zone/act progression state
+- `apparent_act`: `LevelManager`'s apparent act equivalent
+
+There is no distinct apparent zone surface in the engine today, so the trace
+does not invent one.
+
+The recorder should also emit a `zone_act_state` diagnostic event whenever any
+of these values changes, even if that change does not map to a named
+checkpoint. This gives a low-level audit trail beneath the semantic checkpoint
+events without spamming every frame.
 
 Suggested payload:
 
@@ -143,10 +198,24 @@ Suggested payload:
   "event": "zone_act_state",
   "actual_zone_id": 0,
   "actual_act": 1,
-  "apparent_zone_id": 0,
   "apparent_act": 0
 }
 ```
+
+`game_mode` should be encoded as a hex byte string such as `"0x10"`. If a
+field is not yet observable at the start of the intro recording, emit `null`.
+
+### Determinism Requirement
+
+The recorder path must be deterministic on repeated runs of the same BK2:
+
+- re-recording the same BK2 twice with the same BizHawk/core version must
+  produce byte-identical `physics.csv`
+- metadata must record the BizHawk version and Genesis core used for capture
+  via additive metadata fields or explicit metadata notes
+
+This is required because the fixture spans seamless reload behavior and needs a
+replayable emulator baseline.
 
 ## Replay Test Design
 
@@ -162,6 +231,23 @@ Add one real replay test for the full fixture:
 The test should not stop at the AIZ1/AIZ2 boundary or at loss of control. It
 must continue through the entire recorded HCZ handoff.
 
+### CI Stance
+
+The first real S3K end-to-end replay test is expected to be diagnostic-only
+until parity is good enough for green CI. It must not make default `mvn test`
+red.
+
+Initial merge stance:
+
+- the fixture itself may land immediately
+- the real replay test lands as manual / opt-in coverage, following the
+  existing replay-suite pattern rather than the default green test set
+
+The implementation plan must state the exact mechanism used (`pom.xml`
+exclusion, explicit manual test naming, or equivalent), but the outcome is
+fixed: this fixture may not degrade default CI status while it is still
+expected to diverge.
+
 ### Reporting Behavior
 
 When a replay fails, the report should include:
@@ -169,6 +255,21 @@ When a replay fails, the report should include:
 - the first failing frame as it already does
 - the latest checkpoint reached at or before that frame
 - the most recent `zone_act_state` event at or before that frame
+
+This should be implemented by scanning aux events backward from the first error
+frame at report-render time. It does not require changing the core
+`TraceBinder` comparison contract or stuffing checkpoint state into every
+`FrameComparison`.
+
+Visible contract:
+
+- `DivergenceReport.toSummary()` appends the latest checkpoint before the first
+  error when one exists
+- `DivergenceReport.toJson()` adds top-level fields for
+  `latest_checkpoint_before_first_error` and
+  `latest_zone_act_state_before_first_error`
+- `getContextWindow(...)` includes those same values near the first-error
+  diagnostics when available
 
 This is enough to answer:
 
@@ -184,6 +285,8 @@ The end-to-end fixture is considered structurally valid when:
 - `TraceData.load(...)` accepts the generated files as schema v3 S3K data
 - the replay harness can consume the full fixture directory and produce
   checkpoint-aware diagnostics
+- the fixture can be re-recorded deterministically under the pinned BizHawk/core
+  environment
 
 Physics parity is a separate question. The first version of this test may fail
 on gameplay divergence; that is acceptable as long as the fixture and
@@ -198,6 +301,12 @@ Expected implementation files:
 - `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
 - `src/test/java/com/openggf/tests/trace/s3k/...`
 - trace-report formatting/parsing code under `src/test/java/com/openggf/tests/trace/`
+
+Multi-zone end-to-end fixture directories should use the convention:
+
+- `<start-zone><start-act>_to_<end-zone>_fullrun/`
+
+For this fixture: `aiz1_to_hcz_fullrun/`
 
 The implementation should reuse the current trace parser and replay structure
 where possible. This design does not require a new file format or a new replay
