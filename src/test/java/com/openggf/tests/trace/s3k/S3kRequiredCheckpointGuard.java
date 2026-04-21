@@ -11,7 +11,16 @@ public final class S3kRequiredCheckpointGuard {
 
     public void validateStrictEntry(int traceFrame, TraceEvent.Checkpoint traceCheckpoint,
                                     TraceEvent.Checkpoint engineCheckpoint) {
+        validateStrictEntry(traceFrame, traceCheckpoint, engineCheckpoint, Set.of());
+    }
+
+    public void validateStrictEntry(int traceFrame, TraceEvent.Checkpoint traceCheckpoint,
+                                    TraceEvent.Checkpoint engineCheckpoint,
+                                    Set<String> reachedRequiredCheckpointNames) {
         if (traceCheckpoint == null || !STRICT_ENTRY_CHECKPOINTS.contains(traceCheckpoint.name())) {
+            return;
+        }
+        if (reachedRequiredCheckpointNames.contains(traceCheckpoint.name())) {
             return;
         }
         if (engineCheckpoint == null) {

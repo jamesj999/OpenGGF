@@ -369,7 +369,11 @@ public abstract class AbstractTraceReplayTest {
 
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
                 if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
-                    checkpointGuard.validateStrictEntry(strictTraceIndex, traceCheckpoint, engineCheckpoint);
+                    checkpointGuard.validateStrictEntry(
+                            strictTraceIndex,
+                            traceCheckpoint,
+                            engineCheckpoint,
+                            detector.requiredCheckpointNamesReached());
                     controller.onEntryFrameValidated(traceCheckpoint);
                 }
 
