@@ -200,6 +200,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean introSpawned;
     /** One-shot guard: once AIZ intro minX is locked at $1308, stop rewriting minX each frame. */
     private boolean introMinXLocked;
+    /** True while the intro->main-level refresh is holding raw Events_fg_5 high. */
+    private boolean introNormalRefreshPending;
     private boolean paletteSwapped;
     private boolean boundariesUnlocked;
     // Tracks one-shot application of AIZ1SE_ChangeChunk4/3/2/1.
@@ -405,6 +407,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         super.init(act);
         introSpawned = false;
         introMinXLocked = false;
+        introNormalRefreshPending = false;
         paletteSwapped = false;
         boundariesUnlocked = false;
         appliedTreeRevealChunkCopiesMask = 0;
@@ -448,6 +451,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (shouldSpawnIntro(act)) {
             // Suppress Tails sidekick immediately so he doesn't appear before
             // the intro object's first update(). ROM: Tails_CPU_routine = $20.
+            // ROM: SpawnLevelMainSprites clears Level_started_flag as part of the
+            // intro bootstrap, before Obj_intPlane executes its first update.
+            camera().setLevelStarted(false);
             AizPlaneIntroInstance.setSidekickSuppressed(true);
             LOG.info("AIZ1 intro: will spawn intro object");
         } else if (act == 0) {
@@ -522,6 +528,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // For skip-intro bootstrap, camera starts past this point and still requires
         // the same main-level overlay activation before tree reveal chunk staging.
         AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(cameraX, shouldSpawnIntro(0));
+        updateIntroNormalRefreshFlag(cameraX);
         if (cameraX >= FIRE_OVERLAY_STAGE_X) {
             // Keep the fire overlay staging after the intro/main-level terrain swap.
             // Both paths patch shared level-art VRAM ranges in this engine, and
@@ -1535,7 +1542,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     private void updateFireTransition() {
         if (fireSequencePhase == FireSequencePhase.INACTIVE) {
-            if (eventsFg5) {
+            if (eventsFg5 && !introNormalRefreshPending) {
                 beginFireTransition();
             }
             return;
@@ -1579,6 +1586,23 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             default -> {
                 // Act 2 continuation is advanced by updateAct2Continuation().
             }
+        }
+    }
+
+    private void updateIntroNormalRefreshFlag(int cameraX) {
+        if (!shouldSpawnIntro(0)) {
+            return;
+        }
+        if (!introNormalRefreshPending && !AizPlaneIntroInstance.isMainLevelPhaseActive() && cameraX >= TERRAIN_SWAP_X) {
+            eventsFg5 = true;
+            introNormalRefreshPending = true;
+            LOG.info("AIZ1 intro: Events_fg_5 set for main-level refresh at cameraX=0x"
+                    + Integer.toHexString(cameraX));
+        }
+        if (introNormalRefreshPending && AizPlaneIntroInstance.isMainLevelPhaseActive()) {
+            eventsFg5 = false;
+            introNormalRefreshPending = false;
+            LOG.info("AIZ1 intro: Events_fg_5 cleared after main-level refresh");
         }
     }
 
