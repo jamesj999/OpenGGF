@@ -20,6 +20,9 @@
 -- state + interacting object context (critical for hurt/bounce diagnosis).
 -- v3.0-s2 changes: rename v_framecount to gameplay_frame_counter and add
 -- vblank_counter plus lag_counter for counter-driven replay phase selection.
+-- v4.0-s2 changes: emit per-slot object_state_snapshot events at frame -1
+-- (pre-trace) so the engine can hydrate badnik/object state machines to
+-- match what the ROM advanced during title-card/level-init iterations.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -243,8 +246,8 @@ local function write_metadata()
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
     meta_file:write('  "start_y": "0x' .. hex(start_y) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "3.0-s2",\n')
-    meta_file:write('  "trace_schema": 3,\n')
+    meta_file:write('  "lua_script_version": "4.0-s2",\n')
+    meta_file:write('  "trace_schema": 4,\n')
     meta_file:write('  "csv_version": 4,\n')
     meta_file:write('  "rom_checksum": "",\n')
     meta_file:write('  "notes": ""\n')
@@ -277,6 +280,84 @@ local function build_slot_dump()
         end
     end
     return "[" .. table.concat(entries, ",") .. "]"
+end
+
+-- Dump the 64-byte SST slot at `addr` as a JSON object of byte fields,
+-- keyed by raw offset ("off_00".."off_3F"), plus a handful of semantic
+-- word aliases for readability. The engine side composes any word it
+-- needs from the consecutive byte entries, so every per-object variable
+-- at $2A-$3F is recoverable without per-object Lua knowledge.
+local function build_object_fields(addr)
+    local parts = {}
+    -- Raw bytes 0x00..0x3F (64 bytes). The Java parser composes big-endian
+    -- words on demand from consecutive byte offsets.
+    for off = 0, OBJ_SLOT_SIZE - 1 do
+        local val = mainmemory.read_u8(addr + off)
+        parts[#parts + 1] = string.format('"off_%02X":"0x%02X"', off, val)
+    end
+    -- Semantic word aliases for the universal SST header (helps humans
+    -- reading the aux file; also lets the engine skip byte composition
+    -- for hot fields).
+    parts[#parts + 1] = string.format('"x_pos":"0x%04X"',
+        mainmemory.read_u16_be(addr + OFF_X_POS))
+    parts[#parts + 1] = string.format('"x_sub":"0x%04X"',
+        mainmemory.read_u16_be(addr + OFF_X_SUB))
+    parts[#parts + 1] = string.format('"y_pos":"0x%04X"',
+        mainmemory.read_u16_be(addr + OFF_Y_POS))
+    parts[#parts + 1] = string.format('"y_sub":"0x%04X"',
+        mainmemory.read_u16_be(addr + OFF_Y_SUB))
+    local x_vel_raw = mainmemory.read_s16_be(addr + OFF_X_VEL)
+    if x_vel_raw < 0 then x_vel_raw = x_vel_raw + 0x10000 end
+    parts[#parts + 1] = string.format('"x_vel":"0x%04X"', x_vel_raw)
+    local y_vel_raw = mainmemory.read_s16_be(addr + OFF_Y_VEL)
+    if y_vel_raw < 0 then y_vel_raw = y_vel_raw + 0x10000 end
+    parts[#parts + 1] = string.format('"y_vel":"0x%04X"', y_vel_raw)
+    -- Semantic byte aliases (duplicate with off_XX but readable).
+    parts[#parts + 1] = string.format('"id":"0x%02X"',
+        mainmemory.read_u8(addr))
+    parts[#parts + 1] = string.format('"render_flags":"0x%02X"',
+        mainmemory.read_u8(addr + 0x01))
+    parts[#parts + 1] = string.format('"status":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_STATUS))
+    parts[#parts + 1] = string.format('"routine":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_ROUTINE))
+    parts[#parts + 1] = string.format('"routine_secondary":"0x%02X"',
+        mainmemory.read_u8(addr + 0x25))
+    parts[#parts + 1] = string.format('"mapping_frame":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_ANIM_FRAME_DISP))
+    parts[#parts + 1] = string.format('"anim":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_ANIM_ID))
+    parts[#parts + 1] = string.format('"anim_frame":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_ANIM_FRAME))
+    parts[#parts + 1] = string.format('"anim_frame_timer":"0x%02X"',
+        mainmemory.read_u8(addr + OFF_ANIM_TIMER))
+    parts[#parts + 1] = string.format('"subtype":"0x%02X"',
+        mainmemory.read_u8(addr + 0x28))
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+
+-- Emit one object_state_snapshot event per occupied SST slot at
+-- detection time (before trace frame 0). The engine uses these during
+-- trace replay to hydrate spawned object state machines so they match
+-- the ROM's pre-trace progress (e.g. Coconuts mid-climb).
+local function write_object_snapshots()
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local count = 0
+    -- Scan slots 2-127. Skip 0 (Sonic) and 1 (Tails/sidekick) since the
+    -- engine hydrates the player from metadata.start_x/start_y directly.
+    for slot = 2, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local obj_id = mainmemory.read_u8(addr)
+        if obj_id ~= 0 then
+            write_aux(string.format(
+                '{"frame":-1,"vfc":%d,"event":"object_state_snapshot",'
+                .. '"slot":%d,"object_type":"0x%02X","fields":%s}',
+                vfc, slot, obj_id, build_object_fields(addr)))
+            count = count + 1
+        end
+    end
+    print(string.format("Wrote %d pre-trace object_state_snapshot events.", count))
 end
 
 -- Scan all object slots (1-127). Log appearances, disappearances, proximity,
@@ -482,6 +563,11 @@ local function on_frame_end()
             open_files()
             -- Write metadata immediately so it exists even if the process is killed
             write_metadata()
+            -- Schema v4: capture full SST state at the instant gameplay begins
+            -- but before trace frame 0 is recorded. The engine hydrates object
+            -- state machines from these snapshots so they mirror the ROM's
+            -- pre-trace progress (title-card + level-init iterations).
+            write_object_snapshots()
             print(string.format("Trace recording started at BizHawk frame %d, zone %s act %d, pos (%04X, %04X)",
                 bk2_frame_offset, start_zone_name, start_act + 1, start_x, start_y))
             if movie.isloaded() then

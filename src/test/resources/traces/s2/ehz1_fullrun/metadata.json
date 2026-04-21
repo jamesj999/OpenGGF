@@ -8,8 +8,8 @@
   "start_x": "0x0060",
   "start_y": "0x0290",
   "recording_date": "2026-04-21",
-  "lua_script_version": "3.0-s2",
-  "trace_schema": 3,
+  "lua_script_version": "4.0-s2",
+  "trace_schema": 4,
   "csv_version": 4,
   "rom_checksum": "",
   "notes": ""

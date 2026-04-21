@@ -118,6 +118,30 @@ public abstract class AbstractTraceReplayTest {
                 }
             }
 
+            // 4c. Hydrate object state machines from pre-trace ROM SST snapshots.
+            //     Schema v4+ aux files include one object_state_snapshot event
+            //     per occupied SST slot at frame -1. This restores routine/timer
+            //     state that the ROM accumulated during title-card and level-init
+            //     iterations before the Lua recorder began emitting trace frames.
+            //
+            //     For S2/S3K, ObjectManager defers spawn→instance conversion
+            //     until the first update() tick. Preload them now so the binder
+            //     has real engine instances to match against.
+            List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots =
+                    trace.preTraceObjectSnapshots();
+            if (!preTraceSnapshots.isEmpty() && om != null) {
+                om.preloadInitialSpawnsForHydration();
+                TraceObjectSnapshotBinder.Result hydration =
+                        TraceObjectSnapshotBinder.apply(om, preTraceSnapshots);
+                System.out.printf(
+                        "Hydrated %d/%d pre-trace object snapshots (%d warnings)%n",
+                        hydration.matched(), hydration.attempted(),
+                        hydration.warnings().size());
+                for (String warning : hydration.warnings()) {
+                    System.out.println("  WARN: " + warning);
+                }
+            }
+
             // 5. Run frame-by-frame comparison
             TraceBinder binder = new TraceBinder(tolerances());
             int firstSubDivFrame = -1;

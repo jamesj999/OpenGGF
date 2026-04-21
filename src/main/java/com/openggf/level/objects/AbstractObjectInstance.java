@@ -406,6 +406,30 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         // Default no-op.
     }
 
+    /**
+     * Hydrates this instance from a pre-trace ROM SST slot snapshot.
+     * <p>
+     * Used by the trace replay test harness to restore state-machine progress that
+     * the ROM accumulates during title card / level-init iterations before the
+     * Lua recorder begins emitting trace frames. Invoked once per slot, immediately
+     * after the object is constructed and registered with the ObjectManager, and
+     * before trace frame 0 is driven.
+     * <p>
+     * Default implementation is a no-op for objects that either hold no significant
+     * pre-trace state or that have not yet been wired for snapshot hydration.
+     * Subclasses override to read canonical fields (position, velocity, routine,
+     * status, per-object state variables) and copy them onto their engine-side state.
+     * <p>
+     * <b>Must not spawn children, play audio, or emit render commands</b> — this is
+     * a pure data copy. Any derived state (animation timers, render caches) should
+     * be rebuilt lazily on the next {@link #update} / render call.
+     *
+     * @param snapshot immutable snapshot of SST bytes/words for this slot
+     */
+    public void hydrateFromRomSnapshot(RomObjectSnapshot snapshot) {
+        // Default: no hydration. Subclasses override.
+    }
+
     @Override
     public abstract void appendRenderCommands(List<GLCommand> commands);
 

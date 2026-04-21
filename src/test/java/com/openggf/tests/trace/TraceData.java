@@ -95,6 +95,25 @@ public class TraceData {
         return result;
     }
 
+    /**
+     * Returns the pre-trace ROM object snapshots emitted by the Lua recorder
+     * at the moment gameplay begins but before trace frame 0 is written.
+     *
+     * <p>Schema v4+ aux files include one {@code object_state_snapshot} event
+     * per occupied SST slot, stored at frame {@code -1}. Older schemas return
+     * an empty list.
+     */
+    public List<TraceEvent.ObjectStateSnapshot> preTraceObjectSnapshots() {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(-1, Collections.emptyList());
+        List<TraceEvent.ObjectStateSnapshot> snapshots = new ArrayList<>();
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.ObjectStateSnapshot snapshot) {
+                snapshots.add(snapshot);
+            }
+        }
+        return snapshots;
+    }
+
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)
             throws IOException {
         List<TraceFrame> frames = new ArrayList<>();
