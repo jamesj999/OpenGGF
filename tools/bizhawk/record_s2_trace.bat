@@ -37,8 +37,8 @@ if "%~2"=="" (
     exit /b 1
 )
 
-set "ROM_PATH=%~1"
-set "BK2_PATH=%~2"
+for %%I in ("%~1") do set "ROM_PATH=%%~fI"
+for %%I in ("%~2") do set "BK2_PATH=%%~fI"
 
 echo === BizHawk Sonic 2 Trace Recorder ===
 echo ROM:    %ROM_PATH%
@@ -48,7 +48,23 @@ echo Output: %OUTPUT_DIR%\
 echo.
 echo Starting BizHawk in headless mode...
 
-"%BIZHAWK_EXE%" --chromeless --lua "%LUA_SCRIPT%" --movie "%BK2_PATH%" "%ROM_PATH%"
+set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+
+"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$psi = New-Object System.Diagnostics.ProcessStartInfo;" ^
+  "$psi.FileName = $env:BIZHAWK_EXE;" ^
+  "$psi.WorkingDirectory = [System.IO.Path]::GetDirectoryName($env:BIZHAWK_EXE);" ^
+  "$psi.UseShellExecute = $false;" ^
+  "$psi.RedirectStandardOutput = $true;" ^
+  "$psi.RedirectStandardError = $true;" ^
+  "$psi.Arguments = ('--chromeless --lua \"' + $env:LUA_SCRIPT + '\" --movie \"' + $env:BK2_PATH + '\" \"' + $env:ROM_PATH + '\"');" ^
+  "$proc = [System.Diagnostics.Process]::Start($psi);" ^
+  "$stdout = $proc.StandardOutput.ReadToEnd();" ^
+  "$stderr = $proc.StandardError.ReadToEnd();" ^
+  "$proc.WaitForExit();" ^
+  "if ($stdout) { [Console]::Out.Write($stdout) }" ^
+  "if ($stderr) { [Console]::Error.Write($stderr) }" ^
+  "exit $proc.ExitCode"
 
 if %ERRORLEVEL% neq 0 (
     echo BizHawk exited with error code %ERRORLEVEL%
