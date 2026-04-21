@@ -195,6 +195,24 @@ public class ObjectManager {
     }
 
     /**
+     * Instantiates all spawns currently in the placement window. Intended for
+     * trace replay and editor state restoration that need engine object
+     * instances to exist before the first {@link #update} call, so external
+     * state (ROM SST snapshots, editor bookmarks) can be hydrated onto them.
+     *
+     * <p>For S1 (counter-based respawn, {@code UNIFIED} collision model) this
+     * work is already done inside {@link #reset(int)}. For S2/S3K
+     * ({@code DUAL_PATH}) spawn→instance conversion is normally deferred until
+     * the first {@link #update} tick; calling this method brings S2/S3K in
+     * line with that ROM behavior ahead of time.
+     *
+     * <p>Idempotent: objects that already exist are not re-created.
+     */
+    public void preloadInitialSpawnsForHydration() {
+        syncActiveSpawnsLoad();
+    }
+
+    /**
      * Replaces the spawn list with a new one from the editor.
      * Clears remembered/destroyed state so edited spawns can respawn.
      * Existing active objects are cleared — {@code syncActiveSpawns()} on

@@ -2,6 +2,7 @@ package com.openggf.tests.trace;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openggf.level.objects.RomObjectSnapshot;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,6 +35,16 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     record RoutineChange(int frame, String from, String to, short sonicX, short sonicY)
+        implements TraceEvent {}
+
+    /**
+     * Pre-trace snapshot of a single ROM SST slot emitted by the Lua recorder
+     * at the instant gameplay begins (before trace frame 0 is written).
+     * The {@link #frame()} is -1 to keep it out of the frame-0 event bucket,
+     * and {@link #slot()} is the ROM SST slot index (not the engine slot).
+     */
+    record ObjectStateSnapshot(int frame, int slot, int objectType,
+                               RomObjectSnapshot fields)
         implements TraceEvent {}
 
     /**
@@ -87,6 +98,14 @@ public sealed interface TraceEvent {
                     node.has("to") ? stripHexPrefix(node.get("to").asText()) : "",
                     parseHexShort(node, "sonic_x"),
                     parseHexShort(node, "sonic_y")
+                );
+                case "object_state_snapshot" -> new ObjectStateSnapshot(
+                    frame,
+                    node.has("slot") ? node.get("slot").asInt() : -1,
+                    node.has("object_type")
+                        ? Integer.parseInt(stripHexPrefix(node.get("object_type").asText()), 16)
+                        : 0,
+                    RomObjectSnapshot.fromJsonNode(node.get("fields"))
                 );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
