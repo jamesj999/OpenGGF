@@ -8,6 +8,10 @@ Use this folder for the recorder scripts and local BizHawk assets:
 
 - `record_trace.bat` launches headless recording
 - `s1_trace_recorder.lua` captures the ROM-side trace data using schema v3
+- `record_s2_trace.bat` launches the Sonic 2 headless recorder
+- `s2_trace_recorder.lua` captures Sonic 2 ROM-side trace data using schema v3
+- `record_s3k_trace.bat` launches the Sonic 3&K headless recorder
+- `s3k_trace_recorder.lua` captures Sonic 3&K ROM-side trace data using schema v3
 - `record_s1_credits_traces.bat` launches forced Sonic 1 credits-demo capture
 - `s1_credits_trace_recorder.lua` records the built-in ending replays without a BK2
 

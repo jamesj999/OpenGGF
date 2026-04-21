@@ -15,10 +15,12 @@ All notable changes to the OpenGGF project are documented in this file.
   bounded `CHUNK_STEP` advancement, push-block two-stage out-of-range logic,
   and counter-based object-placement catch-up after large camera jumps.
 - Trace replay now supports schema v3 execution counters
-  (`gameplay_frame_counter`, `vblank_counter`, `lag_counter`) and logs a
-  one-shot notice when a pre-v3 fixture falls back to the legacy lag
-  heuristic. The BizHawk v3 recorder upgrade is currently landed for Sonic 1;
-  Sonic 2 and Sonic 3K recorder migration remains deferred.
+  (`gameplay_frame_counter`, `vblank_counter`, `lag_counter`). Sonic 1,
+  Sonic 2, and Sonic 3&K BizHawk recorders all emit the v3 schema, and
+  synthetic v3 fixtures cover the per-game parser contract. Real
+  BK2-derived S3K fixture coverage remains follow-up work; until it lands,
+  the legacy-heuristic fallback in `TraceExecutionModel` remains reachable
+  for older or pre-v3 traces.
 
 ### Experimental Level Editor Overlay
 
