@@ -3,6 +3,8 @@ package com.openggf.tests.trace.s3k;
 import com.openggf.tests.trace.TraceEvent;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +40,15 @@ class TestS3kRequiredCheckpointGuard {
                 0,
                 new TraceEvent.Checkpoint(0, "intro_begin", null, null, null, 12, null),
                 new TraceEvent.Checkpoint(0, "intro_begin", null, null, null, 12, null)));
+    }
+
+    @Test
+    void acceptsEarlierReachedFireTransitionCheckpoint() {
+        assertDoesNotThrow(() -> guard.validateStrictEntry(
+                1651,
+                new TraceEvent.Checkpoint(1651, "aiz1_fire_transition_begin", 0, 0, 0, 12, null),
+                null,
+                Set.of("intro_begin", "gameplay_start", "aiz1_fire_transition_begin")));
     }
 
     @Test
