@@ -37,6 +37,27 @@ public sealed interface TraceEvent {
     record RoutineChange(int frame, String from, String to, short sonicX, short sonicY)
         implements TraceEvent {}
 
+    record Checkpoint(int frame, String name, Integer actualZoneId, Integer actualAct,
+                      Integer apparentAct, Integer gameMode, String notes)
+        implements TraceEvent {}
+
+    record ZoneActState(int frame, Integer actualZoneId, Integer actualAct,
+                        Integer apparentAct, Integer gameMode)
+        implements TraceEvent {}
+
+    record PlayerHistorySnapshot(int frame, int historyPos, short[] xHistory,
+                                 short[] yHistory, short[] inputHistory, byte[] statusHistory)
+        implements TraceEvent {}
+
+    /**
+     * Pre-trace snapshot of CPU-side sidekick globals emitted by the Lua recorder
+     * at the instant gameplay begins (before trace frame 0 is written).
+     */
+    record CpuStateSnapshot(int frame, String character, int controlCounter,
+                            int respawnCounter, int cpuRoutine, short targetX,
+                            short targetY, int interactId, boolean jumping)
+        implements TraceEvent {}
+
     /**
      * Pre-trace snapshot of a single ROM SST slot emitted by the Lua recorder
      * at the instant gameplay begins (before trace frame 0 is written).
@@ -99,6 +120,43 @@ public sealed interface TraceEvent {
                     parseHexShort(node, "sonic_x"),
                     parseHexShort(node, "sonic_y")
                 );
+                case "checkpoint" -> new Checkpoint(
+                    frame,
+                    node.has("name") ? node.get("name").asText() : "",
+                    parseNullableInt(node, "actual_zone_id"),
+                    parseNullableInt(node, "actual_act"),
+                    parseNullableInt(node, "apparent_act"),
+                    parseNullableInt(node, "game_mode"),
+                    node.has("notes") && !node.get("notes").isNull()
+                        ? node.get("notes").asText()
+                        : null
+                );
+                case "zone_act_state" -> new ZoneActState(
+                    frame,
+                    parseNullableInt(node, "actual_zone_id"),
+                    parseNullableInt(node, "actual_act"),
+                    parseNullableInt(node, "apparent_act"),
+                    parseNullableInt(node, "game_mode")
+                );
+                case "player_history_snapshot" -> new PlayerHistorySnapshot(
+                    frame,
+                    node.has("history_pos") ? node.get("history_pos").asInt() : 0,
+                    parseShortArray(node.get("x_history")),
+                    parseShortArray(node.get("y_history")),
+                    parseShortArray(node.get("input_history")),
+                    parseByteArray(node.get("status_history"))
+                );
+                case "cpu_state_snapshot" -> new CpuStateSnapshot(
+                    frame,
+                    node.has("character") ? node.get("character").asText() : "",
+                    node.has("control_counter") ? node.get("control_counter").asInt() : 0,
+                    node.has("respawn_counter") ? node.get("respawn_counter").asInt() : 0,
+                    node.has("cpu_routine") ? node.get("cpu_routine").asInt() : 0,
+                    parseHexShort(node, "target_x"),
+                    parseHexShort(node, "target_y"),
+                    parseHexInt(node, "interact_id"),
+                    node.has("jumping") && node.get("jumping").asInt() != 0
+                );
                 case "object_state_snapshot" -> new ObjectStateSnapshot(
                     frame,
                     node.has("slot") ? node.get("slot").asInt() : -1,
@@ -127,6 +185,21 @@ public sealed interface TraceEvent {
         return (short) Integer.parseInt(hex, 16);
     }
 
+    private static Integer parseNullableInt(JsonNode node, String field) {
+        if (!node.has(field) || node.get(field).isNull()) {
+            return null;
+        }
+        return node.get(field).asInt();
+    }
+
+    private static int parseHexInt(JsonNode node, String field) {
+        if (!node.has(field)) {
+            return 0;
+        }
+        String hex = stripHexPrefix(node.get(field).asText());
+        return Integer.parseInt(hex, 16);
+    }
+
     private static String stripHexPrefix(String value) {
         return value.replace("0x", "");
     }
@@ -138,6 +211,28 @@ public sealed interface TraceEvent {
         if (node.isDouble()) return node.asDouble();
         if (node.isArray() || node.isObject()) return node.toString();
         return node.asText();
+    }
+
+    private static short[] parseShortArray(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return new short[0];
+        }
+        short[] values = new short[node.size()];
+        for (int i = 0; i < node.size(); i++) {
+            values[i] = (short) node.get(i).asInt();
+        }
+        return values;
+    }
+
+    private static byte[] parseByteArray(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return new byte[0];
+        }
+        byte[] values = new byte[node.size()];
+        for (int i = 0; i < node.size(); i++) {
+            values[i] = (byte) node.get(i).asInt();
+        }
+        return values;
     }
 }
 

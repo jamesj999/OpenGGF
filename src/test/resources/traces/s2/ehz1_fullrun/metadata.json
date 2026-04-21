@@ -1,16 +1,24 @@
 {
-  "game": "s2",
-  "zone": "ehz",
-  "zone_id": 0,
-  "act": 1,
-  "bk2_frame_offset": 899,
-  "trace_frame_count": 5852,
-  "start_x": "0x0060",
-  "start_y": "0x0290",
-  "recording_date": "2026-04-21",
-  "lua_script_version": "4.0-s2",
-  "trace_schema": 4,
-  "csv_version": 4,
-  "rom_checksum": "",
-  "notes": ""
+    "game":  "s2",
+    "zone":  "ehz",
+    "zone_id":  0,
+    "act":  1,
+    "bk2_frame_offset":  899,
+    "trace_frame_count":  5852,
+    "start_x":  "0x0060",
+    "start_y":  "0x0290",
+    "main_character":  "sonic",
+    "sidekicks":  [
+                      "tails"
+                  ],
+    "recording_date":  "2026-04-21",
+    "lua_script_version":  "6.0-s2",
+    "trace_schema":  6,
+    "csv_version":  6,
+    "rom_checksum":  "",
+    "notes":  "",
+    "characters":  [
+                       "sonic",
+                       "tails"
+                   ]
 }

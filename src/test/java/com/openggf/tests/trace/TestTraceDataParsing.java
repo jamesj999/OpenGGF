@@ -3,6 +3,7 @@ package com.openggf.tests.trace;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -27,6 +28,211 @@ public class TestTraceDataParsing {
         assertEquals(3, meta.traceFrameCount());
         assertEquals((short) 0x0050, meta.startX());
         assertEquals((short) 0x03B0, meta.startY());
+    }
+
+    @Test
+    void metadataParsesRecordedTeamWhenPresent() throws IOException {
+        Path dir = Files.createTempDirectory("trace-meta-team");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s2",
+              "zone": "ehz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 899,
+              "trace_frame_count": 1,
+              "start_x": "0x0060",
+              "start_y": "0x0290",
+              "recording_date": "2026-04-21",
+              "lua_script_version": "4.0-s2",
+              "trace_schema": 4,
+              "csv_version": 4,
+              "rom_checksum": "",
+              "notes": "",
+              "main_character": "sonic",
+              "sidekicks": ["tails"]
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0060,0290,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0230,0000,00,0001,00,0001,0000
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+        TraceMetadata meta = data.metadata();
+
+        assertTrue(meta.hasRecordedTeam());
+        assertEquals("sonic", meta.mainCharacter());
+        assertEquals(List.of("tails"), meta.recordedSidekicks());
+    }
+
+    @Test
+    void parsesPlayerHistorySnapshot() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+            """
+            {"frame":-1,"event":"player_history_snapshot","history_pos":62,"x_history":[96,96,97],"y_history":[656,656,656],"input_history":[0,8,8],"status_history":[0,0,0]}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+
+        assertInstanceOf(TraceEvent.PlayerHistorySnapshot.class, event);
+        TraceEvent.PlayerHistorySnapshot snapshot = (TraceEvent.PlayerHistorySnapshot) event;
+        assertEquals(62, snapshot.historyPos());
+        assertArrayEquals(new short[]{96, 96, 97}, snapshot.xHistory());
+        assertArrayEquals(new short[]{656, 656, 656}, snapshot.yHistory());
+        assertArrayEquals(new short[]{0, 8, 8}, snapshot.inputHistory());
+        assertArrayEquals(new byte[]{0, 0, 0}, snapshot.statusHistory());
+    }
+
+    @Test
+    void v5TraceParsesRecordedSidekickState() throws IOException {
+        Path dir = Files.createTempDirectory("trace-v5-sidekick");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s2",
+              "zone": "ehz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 899,
+              "trace_frame_count": 1,
+              "start_x": "0x0060",
+              "start_y": "0x0290",
+              "recording_date": "2026-04-21",
+              "lua_script_version": "5.0-s2",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "rom_checksum": "",
+              "notes": "",
+              "main_character": "sonic",
+              "sidekicks": ["tails"]
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0008,0060,0290,000C,0000,000C,00,0,0,0,0C00,0000,02,0000,0230,0000,00,0001,00,02AC,0000,1,0050,0288,0010,FFF0,0010,08,1,0,0,8000,4000,02,0A,03
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+        TraceFrame frame = data.getFrame(0);
+
+        assertNotNull(frame.sidekick());
+        assertTrue(frame.sidekick().present());
+        assertEquals((short) 0x0050, frame.sidekick().x());
+        assertEquals((short) 0x0288, frame.sidekick().y());
+        assertEquals((short) 0x0010, frame.sidekick().xSpeed());
+        assertEquals((short) -0x0010, frame.sidekick().ySpeed());
+        assertEquals((byte) 0x08, frame.sidekick().angle());
+        assertTrue(frame.sidekick().air());
+        assertEquals(0x8000, frame.sidekick().xSub());
+        assertEquals(0x4000, frame.sidekick().ySub());
+        assertEquals(0x02, frame.sidekick().routine());
+        assertEquals(0x0A, frame.sidekick().statusByte());
+        assertEquals(0x03, frame.sidekick().standOnObj());
+    }
+
+    @Test
+    void v5TraceExposesTrackedCharactersByName() throws IOException {
+        Path dir = Files.createTempDirectory("trace-v5-characters");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s2",
+              "zone": "ehz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 899,
+              "trace_frame_count": 1,
+              "start_x": "0x0060",
+              "start_y": "0x0290",
+              "recording_date": "2026-04-21",
+              "lua_script_version": "5.0-s2",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "rom_checksum": "",
+              "notes": "",
+              "main_character": "sonic",
+              "sidekicks": ["tails"]
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0008,0060,0290,000C,0000,000C,00,0,0,0,0C00,0000,02,0000,0230,0000,00,0001,04,02AC,0000,1,0050,0288,0010,FFF0,0010,08,1,0,0,8000,4000,02,0A,03
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("sonic", "tails"), data.recordedCharacters());
+
+        TraceCharacterState sonic = data.characterState(0, "sonic");
+        TraceCharacterState tails = data.characterState(0, "tails");
+
+        assertNotNull(sonic);
+        assertNotNull(tails);
+        assertEquals((short) 0x0060, sonic.x());
+        assertEquals((short) 0x0290, sonic.y());
+        assertEquals((short) 0x000C, sonic.xSpeed());
+        assertEquals(0x0C00, sonic.xSub());
+        assertEquals(0x04, sonic.standOnObj());
+        assertEquals((short) 0x0050, tails.x());
+        assertEquals((short) 0x0288, tails.y());
+        assertEquals((short) 0x0010, tails.xSpeed());
+        assertEquals(0x03, tails.standOnObj());
+        assertNull(data.characterState(0, "knuckles"));
+    }
+
+    @Test
+    void v6TraceParsesExplicitSonicAndTailsBlocks() throws IOException {
+        Path dir = Files.createTempDirectory("trace-v6-characters");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s2",
+              "zone": "ehz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 899,
+              "trace_frame_count": 1,
+              "start_x": "0x0060",
+              "start_y": "0x0290",
+              "recording_date": "2026-04-21",
+              "lua_script_version": "6.0-s2",
+              "trace_schema": 6,
+              "csv_version": 6,
+              "rom_checksum": "",
+              "notes": "",
+              "characters": ["sonic", "tails"]
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,camera_x,camera_y,rings,gameplay_frame_counter,vblank_counter,lag_counter,sonic_present,sonic_x,sonic_y,sonic_x_speed,sonic_y_speed,sonic_g_speed,sonic_angle,sonic_air,sonic_rolling,sonic_ground_mode,sonic_x_sub,sonic_y_sub,sonic_routine,sonic_status_byte,sonic_stand_on_obj,tails_present,tails_x,tails_y,tails_x_speed,tails_y_speed,tails_g_speed,tails_angle,tails_air,tails_rolling,tails_ground_mode,tails_x_sub,tails_y_sub,tails_routine,tails_status_byte,tails_stand_on_obj
+            0000,0008,0000,0230,0000,0001,02AC,0000,1,0060,0290,000C,0000,000C,00,0,0,0,0C00,0000,02,00,04,1,0050,0288,0010,FFF0,0010,08,1,0,0,8000,4000,02,0A,03
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+        TraceMetadata meta = data.metadata();
+        TraceFrame frame = data.getFrame(0);
+
+        assertTrue(meta.hasRecordedTeam());
+        assertEquals(List.of("sonic", "tails"), meta.recordedCharacters());
+        assertEquals(List.of("tails"), meta.recordedSidekicks());
+
+        TraceCharacterState sonic = data.characterState(0, "sonic");
+        TraceCharacterState tails = data.characterState(0, "tails");
+
+        assertNotNull(sonic);
+        assertNotNull(tails);
+        assertEquals((short) 0x0060, frame.x());
+        assertEquals((short) 0x0290, frame.y());
+        assertEquals((short) 0x000C, frame.xSpeed());
+        assertEquals(0x0C00, frame.xSub());
+        assertEquals(0x04, frame.standOnObj());
+        assertEquals((short) 0x0060, sonic.x());
+        assertEquals((short) 0x0290, sonic.y());
+        assertEquals((short) 0x0050, tails.x());
+        assertEquals((short) 0x0288, tails.y());
+        assertEquals((short) 0x0010, tails.xSpeed());
+        assertEquals(0x03, tails.standOnObj());
     }
 
     @Test
@@ -114,6 +320,66 @@ public class TestTraceDataParsing {
         assertEquals(0x0121, frame1.vblankCounter());
         assertEquals(0, frame1.lagCounter());
         assertEquals(0x0120, data.initialVblankCounter());
+    }
+
+    @Test
+    void parsesCheckpointEvent() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+            """
+            {"frame":1200,"event":"checkpoint","name":"aiz2_main_gameplay","actual_zone_id":0,"actual_act":1,"apparent_act":0,"game_mode":12,"notes":"resume strict replay"}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+
+        assertInstanceOf(TraceEvent.Checkpoint.class, event);
+        TraceEvent.Checkpoint checkpoint = (TraceEvent.Checkpoint) event;
+        assertEquals("aiz2_main_gameplay", checkpoint.name());
+        assertEquals(0, checkpoint.actualZoneId());
+        assertEquals(1, checkpoint.actualAct());
+        assertEquals(0, checkpoint.apparentAct());
+        assertEquals(12, checkpoint.gameMode());
+        assertEquals("resume strict replay", checkpoint.notes());
+    }
+
+    @Test
+    void latestCheckpointLookupReturnsNearestEarlierCheckpoint() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-trace");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 3,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-21",
+              "lua_script_version": "3.1-s3k",
+              "trace_schema": 3,
+              "csv_version": 4,
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000
+            0001,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0002,00,0002,0000
+            0002,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0003,00,0003,0000
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"event":"checkpoint","name":"intro_begin","actual_zone_id":null,"actual_act":null,"apparent_act":null,"game_mode":12}
+            {"frame":1,"event":"zone_act_state","actual_zone_id":0,"actual_act":0,"apparent_act":0,"game_mode":12}
+            {"frame":2,"event":"checkpoint","name":"gameplay_start","actual_zone_id":0,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+
+        TraceData data = TraceData.load(dir);
+        TraceEvent.Checkpoint checkpoint = data.latestCheckpointAtOrBefore(2);
+        TraceEvent.ZoneActState state = data.latestZoneActStateAtOrBefore(2);
+
+        assertEquals("gameplay_start", checkpoint.name());
+        assertEquals(0, state.actualZoneId());
+        assertEquals(0, state.actualAct());
+        assertEquals(0, state.apparentAct());
     }
 }
 

@@ -48,8 +48,25 @@ final class TraceEventFormatter {
                             routine.to(),
                             routine.sonicX() & 0xFFFF,
                             routine.sonicY() & 0xFFFF);
+            case TraceEvent.Checkpoint checkpoint ->
+                    String.format("cp %s z=%s a=%s ap=%s gm=%s",
+                            checkpoint.name(),
+                            nullableInt(checkpoint.actualZoneId()),
+                            nullableInt(checkpoint.actualAct()),
+                            nullableInt(checkpoint.apparentAct()),
+                            nullableInt(checkpoint.gameMode()));
+            case TraceEvent.ZoneActState state ->
+                    String.format("zoneact z=%s a=%s ap=%s gm=%s",
+                            nullableInt(state.actualZoneId()),
+                            nullableInt(state.actualAct()),
+                            nullableInt(state.apparentAct()),
+                            nullableInt(state.gameMode()));
             default -> "";
         };
+    }
+
+    private static String nullableInt(Integer value) {
+        return value == null ? "null" : Integer.toString(value);
     }
 
     private static String stripHexPrefix(String value) {
