@@ -95,7 +95,8 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int ROM_COLLISION_PROPERTY = 0xFF;
     /** I-frames after a hit (matches AbstractBossInstance default). */
     private static final int INVULNERABILITY_TIME = 0x20;
-    private static final int PRIORITY_BUCKET = 5;
+    /** ROM: ObjDat_MGZDrillBoss priority word = $300 → render bucket 6. */
+    private static final int PRIORITY_BUCKET = 6;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int MGZ_BOSS_PALETTE_LINE = 1;
     private static final int ROBOTNIK_SHIP_PALETTE_LINE = 0;
@@ -734,7 +735,9 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     @Override
     public boolean isHighPriority() {
-        return true;
+        // ROM: ObjDat_MGZDrillBoss uses make_art_tile(ArtTile_MGZEndBoss,1,0),
+        // so the encounter renders behind high-priority FG tiles.
+        return false;
     }
 
     @Override
