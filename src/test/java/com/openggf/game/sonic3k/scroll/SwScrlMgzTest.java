@@ -1,7 +1,14 @@
 package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.data.Rom;
+import com.openggf.game.EngineServices;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.scroll.ZoneScrollHandler;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -14,6 +21,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SwScrlMgzTest {
+
+    @BeforeEach
+    void setUpRuntime() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+        RuntimeManager.createGameplay();
+    }
+
+    @AfterEach
+    void tearDownRuntime() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void act1MatchesExactPackedScrollAndOffsetBounds() {
@@ -135,6 +154,20 @@ public class SwScrlMgzTest {
         assertEquals(0x0853, handler.getVscrollFactorFG() & 0xFFFF);
         assertEquals(0x0163, handler.getVscrollFactorBG() & 0xFFFF,
                 "MGZ state 8 BG should pick up the same shake offset as the foreground so the cloud/fake-floor plane moves with the camera rumble");
+    }
+
+    @Test
+    public void setBgRiseStatePrimesLiveBgCollisionStateBeforeParallaxUpdate() {
+        SwScrlMgz handler = new SwScrlMgz();
+        GameServices.camera().setX((short) 0x3500);
+        GameServices.camera().setY((short) 0x0850);
+
+        handler.setBgRiseState(8, 0x20);
+
+        assertEquals(0x300, handler.getBgCameraX(),
+                "state 8 should prime the BG camera X immediately so pre-physics collision sees the locked terrain band");
+        assertEquals((short) -0x80, handler.getVscrollFactorBG(),
+                "state 8 should prime BG VScroll immediately so pre-physics collision uses the lifted BG plane");
     }
 
     @Test

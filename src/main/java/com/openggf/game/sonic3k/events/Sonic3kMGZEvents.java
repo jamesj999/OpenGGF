@@ -633,7 +633,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
 
     private void setGenericBossFlag(boolean active) {
         try {
-            if (GameServices.module().getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
+            if (module().getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
                 manager.setBossActive(active);
             }
         } catch (Exception e) {
@@ -679,10 +679,14 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         if (scrollHandler == null) {
             return;
         }
-        int offset = screenShakeActive
+        int offset = isVisualShakeActive()
                 ? SCREEN_SHAKE_CONTINUOUS[frameCounter & 0x3F]
                 : 0;
         scrollHandler.setScreenShakeOffset(offset);
+    }
+
+    private boolean isVisualShakeActive() {
+        return screenShakeActive || bgRiseFinalShakeTimer > 0;
     }
 
     private SwScrlMgz resolveMgzScrollHandler() {
@@ -722,7 +726,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
      * (continuous) or while the BG-rise final timed shake ($E frames) is counting down.
      */
     public boolean isScreenShakeActive() {
-        return screenShakeActive || bgRiseFinalShakeTimer > 0;
+        return isVisualShakeActive();
     }
 
     public int getBgRiseRoutine() {
@@ -1064,8 +1068,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         LayoutMutationContext context = new LayoutMutationContext(
                 LevelMutationSurface.forLevel(level),
                 levelManager::applyMutationEffects);
-        if (GameServices.hasRuntime()) {
-            GameServices.zoneLayoutMutationPipeline().applyImmediately(intent, context);
+        if (hasRuntime()) {
+            zoneLayoutMutationPipeline().applyImmediately(intent, context);
             return;
         }
         levelManager.applyMutationEffects(intent.apply(context));

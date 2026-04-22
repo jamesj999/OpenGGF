@@ -1,13 +1,12 @@
 package com.openggf.game.sonic3k.scroll;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.compose.DeformationPlan;
 import com.openggf.level.scroll.compose.PersistentAccumulator;
 import com.openggf.level.scroll.compose.ScatterFillPlan;
 import com.openggf.level.scroll.compose.ScrollEffectComposer;
 import com.openggf.level.scroll.compose.ScrollValueTable;
-
-import java.util.logging.Logger;
 
 import static com.openggf.level.scroll.M68KMath.negWord;
 
@@ -18,8 +17,6 @@ import static com.openggf.level.scroll.M68KMath.negWord;
  * produce real per-line parallax rather than a flat fallback ratio.
  */
 public class SwScrlMgz extends AbstractZoneScrollHandler {
-    private static final Logger LOG = Logger.getLogger(SwScrlMgz.class.getName());
-    private int lastLoggedRoutine = -1;
     // Screen shake support (ROM: Screen_shake_flag, used by Tunnelbot / MGZ Miniboss).
     // Applied to FG and BG VScroll, while getShakeOffsetY() propagates the same
     // vertical delta to sprites. MGZ2_BGDeform compensates BG parallax math so
@@ -35,13 +32,9 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     // State C shifts the parallax origin by $500.
     private static final int BG_RISE_NORMAL_STATE = 0;
     private static final int BG_RISE_SONIC_STATE = 8;
-    private static final int BG_RISE_AFTER_MOVE_STATE = 0xC;
-
     /** ROM: loc_23D1EA — d1 = $8F0, d2 = $3200 for Sonic rise. */
     private static final int MGZ2_SONIC_RISE_Y_BASE = 0x8F0;
     private static final int MGZ2_SONIC_RISE_X_BASE = 0x3200;
-    /** ROM: state C — d1 = $500 subtracted before 3/16 parallax. */
-    private static final int MGZ2_AFTER_MOVE_Y_BASE = 0x500;
 
     private int bgRiseRoutine;
     private int bgRiseOffset;
@@ -61,6 +54,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     public void setBgRiseState(int routine, int offset) {
         this.bgRiseRoutine = routine;
         this.bgRiseOffset = offset;
+        primeBgCollisionStateFromCurrentCamera();
     }
 
     @Override
@@ -163,12 +157,6 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     MGZ2_BG_DEFORM,
                     4,
                     NEGATE_WORD);
-            if (lastLoggedRoutine != BG_RISE_SONIC_STATE) {
-                LOG.info(String.format(
-                        "SwScrlMgz: state 8 active — bgY=%d bgScrollBaseX=%d (cam %d,%d)",
-                        bgY, bgScrollBaseX, cameraX, cameraY));
-                lastLoggedRoutine = BG_RISE_SONIC_STATE;
-            }
         } else {
             // State 0 (normal MGZ2 play) and state C (after-move) use the
             // unchanged cloud-parallax formula so cloud rendering stays correct.
@@ -184,10 +172,6 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     MGZ2_BG_DEFORM,
                     4,
                     NEGATE_WORD);
-            if (lastLoggedRoutine == BG_RISE_SONIC_STATE) {
-                LOG.info("SwScrlMgz: state 8 exited, back to normal parallax");
-                lastLoggedRoutine = 0;
-            }
         }
 
         // Screen shake: apply the same camera rumble offset to both planes so the
@@ -312,5 +296,19 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         d0 += d0;
         d0 += d1;
         return (short) (d0 >> 16);
+    }
+
+    private void primeBgCollisionStateFromCurrentCamera() {
+        var camera = GameServices.cameraOrNull();
+        if (camera == null) {
+            return;
+        }
+        if (bgRiseRoutine == BG_RISE_SONIC_STATE) {
+            lastBgCameraX = ((short) camera.getX()) - MGZ2_SONIC_RISE_X_BASE;
+            vscrollFactorBG = (short) ((((short) camera.getY()) - MGZ2_SONIC_RISE_Y_BASE) + bgRiseOffset);
+            return;
+        }
+        lastBgCameraX = Integer.MIN_VALUE;
+        vscrollFactorBG = (short) computeMgz2BgY(camera.getY());
     }
 }

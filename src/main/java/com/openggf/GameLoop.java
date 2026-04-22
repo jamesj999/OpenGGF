@@ -97,12 +97,6 @@ public class GameLoop {
                     | (1 << STATUS_BUBBLE_SHIELD_BIT);
 
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
-    // MGZ2 BG-rise trigger box: X >= $34C0, Y in [$800, $900). Placing the
-    // player just inside the trigger arms Events_bg+$00 = 8; running right
-    // past ($36D0, $A80) then starts Obj_MGZ2BGMoveSonic motion.
-    private static final int MGZ2_TELEPORT_X = 13678;
-    private static final int MGZ2_TELEPORT_Y = 1725;
-
     private final EngineServices engineServices;
     private final SonicConfigurationService configService;
     private final AudioManager audioManager;
@@ -741,15 +735,6 @@ public class GameLoop {
                 teleportToLastCheckpoint();
             }
 
-            // Temporary MGZ2 debug teleport: press L in MGZ Act 2 to move Sonic.
-            if (currentGameMode == GameMode.LEVEL
-                    && levelManager != null
-                    && levelManager.getRomZoneId() == Sonic3kZoneIds.ZONE_MGZ
-                    && levelManager.getCurrentAct() == 1
-                    && isUnmodifiedDebugKeyPressed(GLFW_KEY_L)) {
-                teleportPlayerTo(MGZ2_TELEPORT_X, MGZ2_TELEPORT_Y);
-            }
-
             // Level select key (F9 by default)
             if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
                 enterLevelSelect();
@@ -980,25 +965,6 @@ public class GameLoop {
         } else {
             LOGGER.info("DEBUG: No checkpoints found in this level");
         }
-    }
-
-    private void teleportPlayerTo(int x, int y) {
-        var sprite = getMainPlayableSprite();
-        if (!(sprite instanceof AbstractPlayableSprite player)) {
-            return;
-        }
-
-        player.setCentreX((short) x);
-        player.setCentreY((short) y);
-        player.setXSpeed((short) 0);
-        player.setYSpeed((short) 0);
-        player.setGSpeed((short) 0);
-        player.setAir(false);
-        player.setDead(false);
-        player.setHurt(false);
-        player.setDeathCountdown(0);
-        player.setInvulnerableFrames(0);
-        camera.updatePosition(true);
     }
 
     private void logCurrentPreviewCaptureOverride() {

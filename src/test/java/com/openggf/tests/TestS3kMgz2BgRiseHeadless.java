@@ -229,7 +229,6 @@ class TestS3kMgz2BgRiseHeadless {
      * which would fully explain the user's "no terrain visible" report
      * regardless of how correctly the scroll formula places the view.
      */
-    @Test
     void reportLoadedMgzBlockCountAndTerrainBlockValidity() {
         com.openggf.level.Level level = sharedLevel.level();
         int blockCount = level.getBlockCount();
@@ -367,7 +366,6 @@ class TestS3kMgz2BgRiseHeadless {
                 "state 8 MUST produce different bgY from state 0 for the formula switch to be reaching the renderer");
     }
 
-    @Test
     void reportLoadedPatternCountAndCheckTerrainPatternRange() throws Exception {
         var lm = GameServices.level();
         com.openggf.level.Level level = lm.getCurrentLevel();
@@ -415,7 +413,6 @@ class TestS3kMgz2BgRiseHeadless {
         }
     }
 
-    @Test
     void inspectTerrainRowTilePaletteUsage() throws Exception {
         var lm = GameServices.level();
         java.lang.reflect.Method m = lm.getClass()
@@ -463,7 +460,6 @@ class TestS3kMgz2BgRiseHeadless {
                 cloudPaletteCounts[0], cloudPaletteCounts[1], cloudPaletteCounts[2], cloudPaletteCounts[3]);
     }
 
-    @Test
     void forceBuildBgTilemapAndDumpRiseRegion() throws Exception {
         var lm = GameServices.level();
         java.lang.reflect.Method m = lm.getClass()
@@ -511,7 +507,6 @@ class TestS3kMgz2BgRiseHeadless {
         }
     }
 
-    @Test
     void reportBgBlockCoverageForRiseTerrain() {
         com.openggf.level.Level level = sharedLevel.level();
         com.openggf.level.Map map = level.getMap();
@@ -562,7 +557,6 @@ class TestS3kMgz2BgRiseHeadless {
         System.out.print(sb);
     }
 
-    @Test
     void printBgPlaneContentAtRiseZone() {
         com.openggf.level.Level level = sharedLevel.level();
         com.openggf.level.Map map = level.getMap();
