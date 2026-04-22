@@ -144,6 +144,8 @@ local prev_player_mode = nil
 local known_objects = {}
 local emitted_checkpoints = {}
 local last_zone_act_state_key = nil
+local prev_zone_id_for_transition = nil
+local prev_act_for_transition = nil
 
 local physics_file = nil
 local aux_file = nil
@@ -232,6 +234,22 @@ local function is_level_gated_reset_aware_profile()
     return TRACE_PROFILE == "level_gated_reset_aware"
 end
 
+local function should_discard_and_reset(game_mode)
+    if not is_level_gated_reset_aware_profile() then
+        return false
+    end
+    if not started then
+        return false
+    end
+    -- The only transitions that legitimately pull the player out of
+    -- Game_Mode 0x0C mid-recording without a normal level-completion
+    -- path are (a) pause + A back to title, or (b) soft power-on
+    -- loop. Both surface as Game_Mode in {SEGA, TITLE, LEVEL_SEL}.
+    return game_mode == GAMEMODE_SEGA
+        or game_mode == GAMEMODE_TITLE
+        or game_mode == GAMEMODE_LEVEL_SEL
+end
+
 local function should_start_recording(game_mode)
     if is_aiz_end_to_end_profile() then
         local player_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
@@ -293,6 +311,31 @@ local function emit_s3k_semantic_events(frame)
 
     emit_zone_act_state(frame, actual_zone_id, actual_act, apparent_act, game_mode)
 
+    if is_level_gated_reset_aware_profile() then
+        -- CNZ end-to-end aux checkpoints. Minimum-viable set:
+        -- gameplay_start (first armed frame in CNZ gameplay),
+        -- act_transition_to_cnz2 (edge from CNZ1 -> CNZ2), and
+        -- gameplay_end (emitted from the finalisation path; see main loop).
+        -- Deferred until we add MaxX / Knuckles routine RAM constants:
+        -- cnz1_miniboss_arena_lock, cnz2_knuckles_cutscene_start,
+        -- cnz2_endboss_arena_lock.
+        if actual_zone_id == 3
+            and game_mode == GAMEMODE_LEVEL
+            and level_started ~= 0
+            and move_lock == 0
+            and ctrl_locked == 0 then
+            emit_checkpoint_once(frame, "gameplay_start", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+        end
+        if prev_zone_id_for_transition == 3
+            and prev_act_for_transition == 0
+            and actual_zone_id == 3
+            and actual_act == 1 then
+            emit_checkpoint_once(frame, "act_transition_to_cnz2", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+        end
+        prev_zone_id_for_transition = actual_zone_id
+        prev_act_for_transition = actual_act
+    end
+
     if not is_aiz_end_to_end_profile() then
         return
     end
@@ -320,6 +363,35 @@ end
 -----------------
 --- Recording ---
 -----------------
+
+local function reset_recording_state()
+    -- Abandon any in-progress recording buffers and reset all frame
+    -- counters so the next level-gameplay entry starts fresh.
+    if physics_file then physics_file:close() end
+    if aux_file then aux_file:close() end
+    physics_file = nil
+    aux_file = nil
+    started = false
+    trace_frame = 0
+    bk2_frame_offset = 0
+    start_x = 0
+    start_y = 0
+    start_zone_id = 0
+    start_zone_name = "unknown"
+    start_act = 0
+    prev_status = 0
+    prev_routine = 0
+    prev_ctrl_lock = 0
+    prev_player_mode = nil
+    known_objects = {}
+    emitted_checkpoints = {}
+    last_zone_act_state_key = nil
+    prev_zone_id_for_transition = nil
+    prev_act_for_transition = nil
+    os.remove(OUTPUT_DIR .. "physics.csv")
+    os.remove(OUTPUT_DIR .. "aux_state.jsonl")
+    os.remove(OUTPUT_DIR .. "metadata.json")
+end
 
 local function open_files()
     physics_file = io.open(OUTPUT_DIR .. "physics.csv", "w")
@@ -352,6 +424,7 @@ local function write_metadata()
     meta_file:write('  "lua_script_version": "3.1-s3k",\n')
     meta_file:write('  "trace_schema": 3,\n')
     meta_file:write('  "csv_version": 4,\n')
+    meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
     meta_file:write('  "rom_checksum": "' .. rom_checksum .. '",\n')
@@ -578,6 +651,16 @@ local function on_frame_end()
 
     local game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
 
+    if should_discard_and_reset(game_mode) then
+        print(string.format(
+            "level_gated_reset_aware: detected soft-reset (Game_Mode=0x%02X) at trace frame %d. Discarding recording and re-arming.",
+            game_mode, trace_frame))
+        reset_recording_state()
+        -- Fall through so the same frame can immediately re-arm if
+        -- the player is somehow back in gameplay (shouldn't happen
+        -- but is harmless).
+    end
+
     if not started then
         if should_start_recording(game_mode) then
             started = true
@@ -611,7 +694,9 @@ local function on_frame_end()
         end
     end
 
-    if not is_aiz_end_to_end_profile() and game_mode ~= GAMEMODE_LEVEL then
+    if not is_aiz_end_to_end_profile()
+        and not is_level_gated_reset_aware_profile()
+        and game_mode ~= GAMEMODE_LEVEL then
         print("Left level gameplay at trace frame " .. trace_frame .. ". Finalising.")
         finished = true
         return
@@ -738,6 +823,10 @@ while true do
 
     if finished then
         print("Recording complete. Writing final output...")
+        if is_level_gated_reset_aware_profile() and aux_file then
+            emit_checkpoint_once(trace_frame, "gameplay_end",
+                start_zone_id, start_act, start_act, GAMEMODE_LEVEL, nil)
+        end
         if physics_file then physics_file:flush() end
         write_metadata()
         close_files()
