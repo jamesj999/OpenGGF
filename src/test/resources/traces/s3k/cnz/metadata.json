@@ -7,6 +7,9 @@
   "trace_frame_count": 42253,
   "start_x": "0x0018",
   "start_y": "0x0600",
+  "characters": ["sonic", "tails"],
+  "main_character": "sonic",
+  "sidekicks": ["tails"],
   "recording_date": "2026-04-22",
   "lua_script_version": "3.1-s3k",
   "trace_schema": 3,
@@ -14,6 +17,6 @@
   "trace_profile": "level_gated_reset_aware",
   "bizhawk_version": "2.11",
   "genesis_core": "Genplus-gx",
-  "rom_checksum": "",
-  "notes": ""
+  "rom_checksum": "C5B1C655C19F462ADE0AC4E17A844D10",
+  "notes": "CNZ1+CNZ2 Sonic+Tails playthrough from level-select BK2 (pause+A reset from AIZ)"
 }
