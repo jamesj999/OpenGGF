@@ -12,7 +12,10 @@ import com.openggf.physics.Direction;
  */
 public class SidekickCpuController {
 
-    private static final int FOLLOW_DELAY_FRAMES = 17;
+    // ROM subtracts $44 bytes from Sonic_Pos_Record_Index in TailsCPU_Normal/Flying.
+    // That index points at the next free 4-byte slot, while engine historyPos points
+    // at the latest written slot, so the equivalent engine lookback is 16 frames.
+    static final int ROM_FOLLOW_DELAY_FRAMES = 16;
     private static final int HORIZONTAL_SNAP_THRESHOLD = 16;
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
@@ -53,11 +56,12 @@ public class SidekickCpuController {
     private boolean inputLeft;
     private boolean inputRight;
     private boolean inputJump;
+    private boolean inputJumpPress;
     private boolean jumpingFlag;
     private int minXBound = Integer.MIN_VALUE;
     private int maxXBound = Integer.MIN_VALUE;
     private int maxYBound = Integer.MIN_VALUE;
-    private ObjectInstance lastRidingObject;
+    private int lastInteractObjectId;
     private int normalFrameCount;
     private int sidekickCount = 1;
 
@@ -106,7 +110,7 @@ public class SidekickCpuController {
         despawnCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        lastRidingObject = null;
+        lastInteractObjectId = 0;
         sidekick.setForcedAnimationId(-1);
         sidekick.setControlLocked(false);
         sidekick.setObjectControlled(false);
@@ -161,6 +165,7 @@ public class SidekickCpuController {
             return;
         }
         if (respawnStrategy.updateApproaching(sidekick, effectiveLeader, frameCounter)) {
+            respawnStrategy.onApproachComplete(sidekick, effectiveLeader);
             sidekick.setForcedAnimationId(-1);
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
@@ -205,10 +210,10 @@ public class SidekickCpuController {
         if (effectiveLeader == null) {
             return;
         }
-        short recordedInput = effectiveLeader.getInputHistory(FOLLOW_DELAY_FRAMES);
-        byte recordedStatus = effectiveLeader.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        int targetX = effectiveLeader.getCentreX(FOLLOW_DELAY_FRAMES);
-        int targetY = effectiveLeader.getCentreY(FOLLOW_DELAY_FRAMES);
+        short recordedInput = effectiveLeader.getInputHistory(ROM_FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = effectiveLeader.getStatusHistory(ROM_FOLLOW_DELAY_FRAMES);
+        int targetX = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES);
+        int targetY = effectiveLeader.getCentreY(ROM_FOLLOW_DELAY_FRAMES);
         int dx = targetX - sidekick.getCentreX();
         int dy = targetY - sidekick.getCentreY();
 
@@ -218,27 +223,33 @@ public class SidekickCpuController {
         inputDown = (recordedInput & AbstractPlayableSprite.INPUT_DOWN) != 0;
         inputJump = (recordedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
-        if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
-            sidekick.setDirection(Direction.LEFT);
-        } else {
-            sidekick.setDirection(Direction.RIGHT);
-        }
-
         boolean skipFollowSteering = sidekick.getPushing()
                 && (recordedStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         if (!skipFollowSteering) {
-            if (dx <= -HORIZONTAL_SNAP_THRESHOLD) {
-                inputLeft = true;
-                inputRight = false;
+            // ROM enters FollowLeft/FollowRight for any nonzero dx; the 16px gate only
+            // decides whether Tails overrides left/right input, not whether the +/-1 x_pos
+            // nudge runs.
+            if (dx < 0) {
+                int absDx = -dx;
+                if (absDx >= HORIZONTAL_SNAP_THRESHOLD) {
+                    inputLeft = true;
+                    inputRight = false;
+                }
                 if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.LEFT) {
-                    sidekick.setX((short) (sidekick.getX() - 1));
+                    sidekick.shiftX(-1);
                 }
-            } else if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
-                inputRight = true;
-                inputLeft = false;
+            } else if (dx > 0) {
+                if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
+                    inputRight = true;
+                    inputLeft = false;
+                }
                 if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.RIGHT) {
-                    sidekick.setX((short) (sidekick.getX() + 1));
+                    sidekick.shiftX(1);
                 }
+            } else if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
+                sidekick.setDirection(Direction.LEFT);
+            } else {
+                sidekick.setDirection(Direction.RIGHT);
             }
         }
 
@@ -256,6 +267,7 @@ public class SidekickCpuController {
                     && (frameCounter & 0x3F) == 0
                     && sidekick.getAnimationId() != duckAnimId) {
                 inputJump = true;
+                inputJumpPress = true;
                 jumpingFlag = true;
             }
         }
@@ -273,14 +285,13 @@ public class SidekickCpuController {
             return;
         }
 
-        sidekick.setDirection(leader.getCentreX() < sidekick.getCentreX() ? Direction.LEFT : Direction.RIGHT);
-        inputDown = true;
-
-        int phase = frameCounter & 0x7F;
         if (!sidekick.getSpindash()) {
             if (sidekick.getGSpeed() != 0) {
                 return;
             }
+            sidekick.setDirection(leader.getCentreX() < sidekick.getCentreX() ? Direction.LEFT : Direction.RIGHT);
+            inputDown = true;
+            int phase = frameCounter & 0x7F;
             if (phase == 0) {
                 clearInputs();
                 state = State.NORMAL;
@@ -289,10 +300,13 @@ public class SidekickCpuController {
             }
             if (sidekick.getAnimationId() == duckAnimId) {
                 inputJump = true;
+                inputJumpPress = true;
             }
             return;
         }
 
+        inputDown = true;
+        int phase = frameCounter & 0x7F;
         if (phase == 0) {
             clearInputs();
             state = State.NORMAL;
@@ -301,15 +315,17 @@ public class SidekickCpuController {
         }
         if ((phase & 0x1F) == 0) {
             inputJump = true;
+            inputJumpPress = true;
         }
     }
 
     private void applyManualControl() {
-        inputUp = (controller2Logical & AbstractPlayableSprite.INPUT_UP) != 0;
-        inputDown = (controller2Logical & AbstractPlayableSprite.INPUT_DOWN) != 0;
-        inputLeft = (controller2Logical & AbstractPlayableSprite.INPUT_LEFT) != 0;
-        inputRight = (controller2Logical & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        inputJump = (controller2Logical & AbstractPlayableSprite.INPUT_JUMP) != 0;
+        inputUp = (controller2Held & AbstractPlayableSprite.INPUT_UP) != 0;
+        inputDown = (controller2Held & AbstractPlayableSprite.INPUT_DOWN) != 0;
+        inputLeft = (controller2Held & AbstractPlayableSprite.INPUT_LEFT) != 0;
+        inputRight = (controller2Held & AbstractPlayableSprite.INPUT_RIGHT) != 0;
+        inputJump = (controller2Held & AbstractPlayableSprite.INPUT_JUMP) != 0;
+        inputJumpPress = (controller2Logical & AbstractPlayableSprite.INPUT_JUMP) != 0;
         controlCounter--;
     }
 
@@ -346,33 +362,37 @@ public class SidekickCpuController {
     }
 
     private boolean checkDespawn() {
-        Camera camera = sidekick.currentCamera();
-        ObjectInstance ridingObject = null;
-        LevelManager levelManager = sidekick.currentLevelManager();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
-            ridingObject = levelManager.getObjectManager().getRidingObject(sidekick);
-        }
-
-        boolean onScreen = camera != null && camera.isOnScreen(sidekick);
-        boolean keepAliveOnObject = ridingObject != null && ridingObject == lastRidingObject;
-        if (!onScreen && lastRidingObject != null && ridingObject != null && ridingObject != lastRidingObject) {
-            lastRidingObject = ridingObject;
-            triggerDespawn();
-            return true;
-        }
-        lastRidingObject = ridingObject;
-
-        if (onScreen || keepAliveOnObject) {
+        boolean onScreen = sidekick.hasRenderFlagOnScreenState()
+                ? sidekick.isRenderFlagOnScreen()
+                : isCurrentlyVisible();
+        int currentInteractObjectId = sidekick.getLatchedSolidObjectId() & 0xFF;
+        if (onScreen) {
+            lastInteractObjectId = currentInteractObjectId;
             despawnCounter = 0;
             return false;
         }
 
+        if (sidekick.isOnObject()
+                && currentInteractObjectId != 0
+                && lastInteractObjectId != 0
+                && currentInteractObjectId != lastInteractObjectId) {
+            lastInteractObjectId = currentInteractObjectId;
+            triggerDespawn();
+            return true;
+        }
+
         despawnCounter++;
+        lastInteractObjectId = currentInteractObjectId;
         if (despawnCounter >= DESPAWN_TIMEOUT) {
             triggerDespawn();
             return true;
         }
         return false;
+    }
+
+    private boolean isCurrentlyVisible() {
+        Camera camera = sidekick.currentCamera();
+        return camera != null && camera.isOnScreen(sidekick);
     }
 
     public void despawn() {
@@ -387,13 +407,16 @@ public class SidekickCpuController {
         controlCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        sidekick.setX((short) 0x4000);
-        sidekick.setY((short) 0);
-        sidekick.setXSpeed((short) 0);
-        sidekick.setYSpeed((short) 0);
-        sidekick.setGSpeed((short) 0);
         sidekick.setHurt(false);
+        sidekick.setRolling(false);
+        sidekick.setRollingJump(false);
+        sidekick.setOnObject(false);
+        sidekick.setPushing(false);
+        sidekick.setLatchedSolidObjectId(0);
+        sidekick.setDirection(Direction.RIGHT);
         sidekick.setAir(true);
+        sidekick.setCentreXPreserveSubpixel((short) 0x4000);
+        sidekick.setCentreYPreserveSubpixel((short) 0);
         sidekick.setDead(false);
         sidekick.setDeathCountdown(0);
         sidekick.setSpindash(false);
@@ -401,7 +424,7 @@ public class SidekickCpuController {
         sidekick.setForcedAnimationId(flyAnimId);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
-        lastRidingObject = null;
+        lastInteractObjectId = 0;
     }
 
     private void clearInputs() {
@@ -410,6 +433,7 @@ public class SidekickCpuController {
         inputLeft = false;
         inputRight = false;
         inputJump = false;
+        inputJumpPress = false;
     }
 
     public void setRespawnStrategy(SidekickRespawnStrategy strategy) {
@@ -469,9 +493,25 @@ public class SidekickCpuController {
      */
     public void setInitialState(State state) {
         this.state = state;
-        if (state != State.NORMAL) {
-            normalFrameCount = 0;
-        }
+        normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
+    }
+
+    /**
+     * Restores the ROM Tails CPU globals captured by the trace recorder.
+     * Used by trace replay bootstrap so sidekick AI decisions continue from the
+     * exact pre-trace state instead of restarting from a generic NORMAL state.
+     */
+    public void hydrateFromRomCpuState(int cpuRoutine, int controlCounter,
+                                       int respawnCounter, int interactId,
+                                       boolean jumping) {
+        state = mapRomCpuRoutine(cpuRoutine);
+        this.controlCounter = Math.max(0, controlCounter);
+        this.despawnCounter = Math.max(0, respawnCounter);
+        this.lastInteractObjectId = interactId & 0xFF;
+        sidekick.setLatchedSolidObjectId(interactId);
+        this.jumpingFlag = jumping;
+        this.normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
+        clearInputs();
     }
 
     /**
@@ -482,10 +522,23 @@ public class SidekickCpuController {
         this.normalFrameCount = normalFrames;
     }
 
+    private static State mapRomCpuRoutine(int cpuRoutine) {
+        return switch (cpuRoutine) {
+            case 0 -> State.INIT;
+            case 2 -> State.SPAWNING;
+            case 4 -> State.APPROACHING;
+            case 6 -> State.NORMAL;
+            case 8 -> State.PANIC;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported ROM Tails CPU routine: " + cpuRoutine);
+        };
+    }
+
     public boolean getInputUp() { return inputUp; }
     public boolean getInputDown() { return inputDown; }
     public boolean getInputLeft() { return inputLeft; }
     public boolean getInputRight() { return inputRight; }
+    public boolean getInputJumpPress() { return inputJumpPress; }
 
     /** Package-private: allows respawn strategies to set directional input toward the leader. */
     void setApproachInput(boolean left, boolean right) {
@@ -535,7 +588,7 @@ public class SidekickCpuController {
         // Note: leader is NOT cleared — it's a structural chain relationship set at
         // construction time, not per-level state. Clearing it would break the sidekick
         // permanently since findLeader() scanning was removed in favor of explicit assignment.
-        lastRidingObject = null;
+        lastInteractObjectId = 0;
         minXBound = Integer.MIN_VALUE;
         maxXBound = Integer.MIN_VALUE;
         maxYBound = Integer.MIN_VALUE;
