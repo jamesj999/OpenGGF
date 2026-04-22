@@ -2,6 +2,7 @@ package com.openggf.tests.rules;
 
 import com.openggf.data.Rom;
 import com.openggf.tests.TestEnvironment;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ConditionEvaluationResult;
 import org.junit.jupiter.api.extension.ExecutionCondition;
@@ -23,7 +24,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * }
  * </pre>
  */
-public class RequiresRomCondition implements ExecutionCondition, BeforeEachCallback {
+public class RequiresRomCondition implements ExecutionCondition, BeforeAllCallback, BeforeEachCallback {
 
     private static final ExtensionContext.Namespace NS =
             ExtensionContext.Namespace.create(RequiresRomCondition.class);
@@ -46,7 +47,16 @@ public class RequiresRomCondition implements ExecutionCondition, BeforeEachCallb
     }
 
     @Override
+    public void beforeAll(ExtensionContext context) {
+        configureRomFixture(context);
+    }
+
+    @Override
     public void beforeEach(ExtensionContext context) {
+        configureRomFixture(context);
+    }
+
+    private void configureRomFixture(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
         if (testClass.isAnnotationPresent(RequiresGameModule.class)) {
             throw new IllegalStateException(
