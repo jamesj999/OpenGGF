@@ -229,55 +229,10 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         checkSwitch();
         SolidCheckpointBatch batch = checkpointAll();
         PlayerSolidContactResult mainResult = player != null ? batch.perPlayer().get(player) : null;
-        if (Boolean.getBoolean("s1.junction.debug") && player != null) {
-            int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
-            if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
-                System.out.printf(
-                        "junction-debug frame=%d map=%d timer=%d pushNow=%s pushLast=%s player=(%04X,%04X) routine=%s%n",
-                        frame,
-                        mappingFrame,
-                        frameTimer,
-                        mainResult != null && mainResult.pushingNow(),
-                        mainResult != null && mainResult.pushingLastFrame(),
-                        player.getCentreX() & 0xFFFF,
-                        player.getCentreY() & 0xFFFF,
-                        routine);
-            }
-        }
         if (player != null && mainResult != null
                 && (mainResult.pushingNow() || mainResult.pushingLastFrame())) {
             int gapCheckFrame = player.getCentreX() < getX() ? GAP_FRAME_LEFT : GAP_FRAME_RIGHT;
-            if (Boolean.getBoolean("s1.junction.debug")) {
-                int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
-                if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
-                    System.out.printf(
-                            "junction-grab-check frame=%d map=%d gap=%d obj=(%04X,%04X) player=(%04X,%04X)%n",
-                            frame,
-                            mappingFrame,
-                            gapCheckFrame,
-                            getX() & 0xFFFF,
-                            getY() & 0xFFFF,
-                            player.getCentreX() & 0xFFFF,
-                            player.getCentreY() & 0xFFFF);
-                }
-            }
             if (mappingFrame == gapCheckFrame) {
-                if (Boolean.getBoolean("s1.junction.debug")) {
-                    int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
-                    if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
-                        System.out.printf(
-                                "junction-grab frame=%d playerId=%d state=(x=%04X y=%04X g=%04X air=%s roll=%s ctl=%s obj=%s)%n",
-                                frame,
-                                System.identityHashCode(player),
-                                player.getCentreX() & 0xFFFF,
-                                player.getCentreY() & 0xFFFF,
-                                player.getGSpeed() & 0xFFFF,
-                                player.getAir(),
-                                player.getRolling(),
-                                player.isControlLocked(),
-                                player.isObjectControlled());
-                    }
-                }
                 beginGrab(player, gapCheckFrame);
             }
         }
@@ -485,7 +440,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         routine = Routine.RELEASE;
         player.setObjectControlled(true);
         player.setControlLocked(true);
-        player.setRolling(true);
+        player.setRolling(false);
         player.setAnimationId(Sonic1AnimationIds.ROLL);
         player.setForcedAnimationId(Sonic1AnimationIds.ROLL);
         player.setGSpeed((short) GRAB_INERTIA);
