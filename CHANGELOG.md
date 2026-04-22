@@ -22,6 +22,30 @@ All notable changes to the OpenGGF project are documented in this file.
   the legacy-heuristic fallback in `TraceExecutionModel` remains reachable
   for older or pre-v3 traces.
 
+### Sonic 3&K CNZ1 Tails-Carry Intro (Workstream C)
+
+- Implemented the CNZ Act 1 Tails-carry intro (`Tails_CPU_routine` 0x0C /
+  0x0E / 0x20 in the S3K disassembly). The sidekick CPU driver now enters
+  `CARRY_INIT` on the first gameplay tick of CNZ1 when the active team is
+  Sonic + Tails, copies Tails's velocity onto Sonic each frame, and
+  releases through any of the three ROM-accurate paths: ground contact,
+  jump press (with the 0x12-frame cooldown), or external-velocity latch
+  mismatch (with the 0x3C-frame cooldown).
+- Added the `SidekickCarryTrigger` game-agnostic hook
+  (`GameModule.getSidekickCarryTrigger()`), the S3K-specific
+  `Sonic3kCnzCarryTrigger`, and new `SidekickCpuController` states
+  `CARRY_INIT` / `CARRYING` plus `CanonicalAnimation.TAILS_CARRIED`.
+  `PlayableSpriteMovement.applyGravity` now short-circuits when the sprite
+  is object-controlled so the carried cargo no longer accumulates free-fall.
+- `TestS3kCnzTraceReplay` first-divergence frame remains at 0 and total
+  errors rose from 1635 to 2547 (delta: +912). The carry trigger fires one
+  frame early (frame 0 instead of frame 1), reversing the mismatch direction
+  for `x_speed` at frame 0 and cascading through the carry arc. A C-patch
+  workstream should shift `CARRY_INIT` entry to frame 1. The
+  `TestS3kAizTraceReplay` pre-existing regression is orthogonal and stays
+  owned by workstream H (see
+  `docs/s3k-zones/cnz-task7-regression-note.md`).
+
 ### Experimental Level Editor Overlay
 
 - Added an experimental, config-gated editor overlay and playtest loop. Set
