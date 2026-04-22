@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -61,6 +62,8 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     // Platform surface height (thin platform for solid contact)
     private static final int HALF_HEIGHT = 0x08;
+    // MvSonicOnPtfm2 uses a 9px standing snap for continued riding.
+    private static final int GROUND_HALF_HEIGHT = 0x09;
 
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
@@ -217,6 +220,8 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             updateSpawner();
             return;
         }
+
+        checkpointAll();
 
         // Routine 2 (Elev_Platform): just runs PlatformObject check via SolidObjectProvider.
         // Standing detection is automatic via ObjectManager.
@@ -453,7 +458,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        return new SolidObjectParams(halfWidth, HALF_HEIGHT, HALF_HEIGHT);
+        return new SolidObjectParams(halfWidth, HALF_HEIGHT, GROUND_HALF_HEIGHT);
     }
 
     @Override
@@ -465,6 +470,11 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed() && !isSpawner;
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override
