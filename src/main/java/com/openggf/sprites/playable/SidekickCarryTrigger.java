@@ -1,0 +1,63 @@
+package com.openggf.sprites.playable;
+
+import com.openggf.game.PlayerCharacter;
+
+/**
+ * Game-agnostic hook for the S3K-style Tails-carry-Sonic intro mechanic.
+ *
+ * <p>When supplied to {@link SidekickCpuController#setCarryTrigger}, the driver
+ * polls {@link #shouldEnterCarry} on each INIT tick and, on a true return,
+ * transitions to its CARRY_INIT state after calling {@link #applyInitialPlacement}.
+ *
+ * <p>All ROM references are {@code sonic3k.asm} (S&K-side, address < 0x200000).
+ * Games that do not use the Tails-carry mechanic (S1, S2) return {@code null}
+ * from {@code GameModule.getSidekickCarryTrigger()} and the driver's behaviour
+ * is unchanged.
+ *
+ * <p>Interface uses primitives + {@link PlayerCharacter} + types already in
+ * {@code com.openggf.sprites.playable} — no new dependency types are introduced.
+ */
+public interface SidekickCarryTrigger {
+
+    /**
+     * Invoked each INIT tick. If this returns {@code true} the driver transitions
+     * to CARRY_INIT on the current frame.
+     *
+     * @param zoneId     canonical zone id (S3K: 0=AIZ, 1=HCZ, 2=MGZ, 3=CNZ, ...)
+     * @param actId      zero-based act id
+     * @param playerMode main player's character; ROM CNZ trigger gates on SONIC_AND_TAILS
+     */
+    boolean shouldEnterCarry(int zoneId, int actId, PlayerCharacter playerMode);
+
+    /**
+     * Positions the carrier (sidekick, typically Tails) and cargo (leader,
+     * typically Sonic) for the first CARRY_INIT tick. The driver will then
+     * clamp velocities via {@link #carryInitXVel()} etc.
+     */
+    void applyInitialPlacement(AbstractPlayableSprite carrier, AbstractPlayableSprite cargo);
+
+    /** Cargo's descend offset below carrier's centre, in pixels. ROM CNZ: {@code 0x1C}. */
+    int carryDescendOffsetY();
+
+    /** Constant horizontal velocity held while carrying, in subpixel units.
+     *  ROM CNZ: {@code 0x0100}. */
+    short carryInitXVel();
+
+    /** Level_frame_counter cadence mask for synthetic-right-press injection.
+     *  Engine injects when {@code (frameCounter & mask) == 0}. ROM CNZ: {@code 0x1F}. */
+    int carryInputInjectMask();
+
+    /** Cooldown frames after A/B/C jump release. ROM CNZ: {@code 0x12} (~18 frames). */
+    int carryJumpReleaseCooldownFrames();
+
+    /** Cooldown frames after external-vel (latch mismatch) release.
+     *  ROM CNZ: {@code 0x3C} (~60 frames). */
+    int carryLatchReleaseCooldownFrames();
+
+    /** Post-A/B/C-release y_vel (jump impulse). ROM CNZ: {@code -0x0380}. */
+    short carryReleaseJumpYVel();
+
+    /** Post-A/B/C-release x_vel magnitude; sign applied by driver from cargo face direction.
+     *  ROM CNZ: {@code 0x0200}. */
+    short carryReleaseJumpXVel();
+}
