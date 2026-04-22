@@ -17,7 +17,7 @@ This plan executes inside `.worktrees/feature/ai-s2-s3k-trace-recorder-v3`, whic
 1. **Before every task: `git status` and `git log --oneline -5`.** Know which files are dirty and which commits have landed since the last task.
 2. **All edits to the recorder must be additive.** Never delete or alter an existing profile's behaviour. Always add a new branch / new profile.
 3. **Never modify files that are only touched in C-G** except as directed. This plan is A+B only. No pre-emptive boss/cutscene/object edits.
-4. **Shared files at risk of conflict:** `tools/bizhawk/s3k_trace_recorder.lua`, `tools/bizhawk/record_s3k_trace.bat`, `src/test/java/com/openggf/tests/trace/AbstractTraceReplayTest.java`, `src/test/java/com/openggf/tests/HeadlessTestFixture.java`, `src/test/java/com/openggf/tests/HeadlessTestRunner.java`, `src/test/java/com/openggf/tests/trace/TraceReplayBootstrap.java`.
+4. **Shared files at risk of conflict:** `tools/bizhawk/s3k_trace_recorder.lua` (this plan modifies it), `tools/bizhawk/record_s3k_trace.bat` (watchlist only), `src/test/java/com/openggf/tests/trace/AbstractTraceReplayTest.java` (watchlist: this plan does NOT modify it, but if the AIZ agent adds a new `protected abstract` method, CNZ's subclass will fail to compile), `src/test/java/com/openggf/tests/HeadlessTestFixture.java` (watchlist), `src/test/java/com/openggf/tests/HeadlessTestRunner.java` (watchlist), `src/test/java/com/openggf/tests/trace/TraceReplayBootstrap.java` (watchlist), `src/test/java/com/openggf/tests/trace/s3k/S3kElasticWindowController.java` (watchlist: semantic merge conflicts if both agents add phase definitions), `src/test/java/com/openggf/tests/trace/s3k/S3kReplayCheckpointDetector.java` (watchlist: same).
 5. **If another agent has already added the same profile or the same helper, reuse it.** Check the current file contents before writing a fresh edit.
 6. **One commit per task.** Never batch multiple tasks into one commit - the other agents may rebase or cherry-pick around you.
 7. **Commit trailers: the repo's `prepare-commit-msg` hook appends the required block; fill in `updated` / `n/a` per the CLAUDE.md trailer/file mapping rule.**
@@ -64,9 +64,9 @@ Goal: pin down the exact value the Game_Mode byte holds on the title screen in S
 
 - [ ] **Step 2:** Read the GameModeArray and list each entry with its comment.
 
-  Expected values (verify, do not assume):
-  - `0x00` -> Sega / pre-title screen
-  - `0x04` -> Title screen
+  Working hypothesis (the existing recorder only defines `GAMEMODE_LEVEL = 0x0C` at line 100 and `AbstractTraceReplayTest.resolveS3kTraceGameMode` at lines 507-527 knows `0x00` as an "unknown/title" fallback). Values commonly seen in S3K:
+  - `0x00` -> Sega / pre-title (or title, depending on build)
+  - `0x04` -> Title (or level-demo - VERIFY)
   - `0x08` -> Level select
   - `0x0C` -> Level (gameplay)
   - `0x10` -> Special Stage
@@ -75,7 +75,7 @@ Goal: pin down the exact value the Game_Mode byte holds on the title screen in S
   - `0x1C` -> Ending / credits
   - higher values -> end-of-game modes
 
-  If a value differs, use the actual value from the disassembly.
+  **Do not assume.** Read the GameModeArray entry-by-entry from the disassembly and confirm the label each value routes to. The specific value the recorder listens for is whatever the pause-plus-A reset path writes to `Game_Mode` - see Step 3.
 
 - [ ] **Step 3:** Verify the "soft reset via pause+A" behaviour in the disassembly.
 
@@ -91,6 +91,14 @@ Goal: pin down the exact value the Game_Mode byte holds on the title screen in S
   - A table of the GameModeArray values and their routines (label + approximate ROM address).
   - A short paragraph describing the "pause + A soft reset" path, noting which Game_Mode value it transitions to.
   - The specific invariant the recorder uses: "When recording and Game_Mode transitions from 0x0C to the title-screen value without passing through GM_LevelSelect (0x08), discard."
+  - **A Lua code block ready for copy-paste into Task 2 Step 2**, of the exact form:
+    ```lua
+    local GAMEMODE_SEGA       = 0xNN  -- verified from GameModeArray entry 0 label <GM_Sega>
+    local GAMEMODE_TITLE      = 0xNN  -- verified from GameModeArray entry N label <GM_Title>
+    local GAMEMODE_LEVEL_SEL  = 0xNN  -- verified from GameModeArray entry N label <GM_LevelSelect>
+    local GAMEMODE_LEVEL      = 0x0C  -- already defined in recorder; re-stated here for doc cross-ref
+    ```
+    **Task 2 Step 2 will copy this block verbatim**, so the hex values MUST be correct. If any assumed value is wrong, this doc is the single source of truth that propagates to the recorder.
 
 - [ ] **Step 5:** Commit.
 
@@ -136,18 +144,12 @@ Goal: introduce the constants identified in Task 1 and a new profile name that d
 
 - [ ] **Step 2:** Add new constants and profile-name helper near the existing `GAMEMODE_LEVEL` definition (around line 100).
 
-  Replace this block:
+  **Open `docs/s3k/game-mode-constants.md` (Task 1 output) and copy the verified Lua block verbatim** — do not retype the hex values from this plan. Locate this line in the recorder:
   ```lua
   local GAMEMODE_LEVEL = 0x0C
   ```
 
-  With (using values confirmed in Task 1 - below assumes 0x04 title, 0x08 level select; adjust if Task 1 revealed different values):
-  ```lua
-  local GAMEMODE_SEGA       = 0x00
-  local GAMEMODE_TITLE      = 0x04
-  local GAMEMODE_LEVEL_SEL  = 0x08
-  local GAMEMODE_LEVEL      = 0x0C
-  ```
+  Replace it with the entire block from the Task 1 doc (comments included). If Task 1 was skipped or produced a malformed block, stop and re-run Task 1 first.
 
 - [ ] **Step 3:** Add a profile-name helper near `is_aiz_end_to_end_profile` (around line 224).
 
@@ -158,21 +160,13 @@ Goal: introduce the constants identified in Task 1 and a new profile name that d
   end
   ```
 
-- [ ] **Step 4:** Update `should_start_recording` so the new profile uses the same condition as `gameplay_unlock` (Task 4 will add the reset path).
+- [ ] **Step 4:** Read the current body of `should_start_recording` and confirm the new profile falls through to the same return branch. No edit needed here if the existing return condition (`game_mode == GAMEMODE_LEVEL and ctrl_lock_timer == 0 and ctrl_locked == 0`) already applies to any profile that isn't `aiz_end_to_end`. If the AIZ agent has restructured this function since the plan was written, re-read the file and adapt - don't blindly paste. Verify with:
 
-  Modify:
-  ```lua
-  local function should_start_recording(game_mode)
-      if is_aiz_end_to_end_profile() then
-          ...
-      end
-      local ctrl_lock_timer = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
-      local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
-      return game_mode == GAMEMODE_LEVEL and ctrl_lock_timer == 0 and ctrl_locked == 0
-  end
+  ```bash
+  git log --oneline -5 -- tools/bizhawk/s3k_trace_recorder.lua
   ```
 
-  The body stays identical; no behaviour change yet. Confirm the function works for both `gameplay_unlock` and the new `level_gated_reset_aware` value (both fall through to the same return).
+  If any recent commits touched `should_start_recording`, read the current function body before proceeding. The new `level_gated_reset_aware` profile must behave identically to `gameplay_unlock` at arming time - it differs only in the discard path added by Task 3.
 
 - [ ] **Step 5:** Update the load banner (around line 719) to announce the new profile name when selected.
 
@@ -197,16 +191,27 @@ Goal: introduce the constants identified in Task 1 and a new profile name that d
   print(string.format("S3K Trace Recorder v3.1-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
   ```
 
-- [ ] **Step 6:** Smoke-test: run the existing AIZ BK2 with the default `gameplay_unlock` profile and verify unchanged output.
+- [ ] **Step 6:** Smoke-test: re-run the AIZ BK2 with `aiz_end_to_end` and verify unchanged output. This repo is Windows-first but works under Git Bash / WSL; the commands below are portable via Python:
 
   ```bash
   rm -rf tools/bizhawk/trace_output/
+  mkdir -p tools/bizhawk/trace_output/
   tools/bizhawk/record_s3k_trace.bat "Sonic and Knuckles & Sonic 3 (W) [!].gen" "src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/s3-aiz1-2-sonictails.bk2" aiz_end_to_end
-  diff <(cut -d, -f1-22 src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv) <(cut -d, -f1-22 tools/bizhawk/trace_output/physics.csv) | head
-  diff src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/metadata.json tools/bizhawk/trace_output/metadata.json
+  python -c "
+  from pathlib import Path
+  ref = Path('src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv').read_text()
+  new = Path('tools/bizhawk/trace_output/physics.csv').read_text()
+  print('csv_match:', ref == new)
+  import json
+  ref_m = json.loads(Path('src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/metadata.json').read_text())
+  new_m = json.loads(Path('tools/bizhawk/trace_output/metadata.json').read_text())
+  for k in sorted(set(ref_m) | set(new_m)):
+      if ref_m.get(k) != new_m.get(k):
+          print('diff:', k, ref_m.get(k), '!=', new_m.get(k))
+  "
   ```
 
-  Expected: the diff is empty or shows only recording_date differences. If the CSV content differs materially, stop and investigate - the constants change should be purely additive.
+  Expected: `csv_match: True` and the only `diff:` lines are `recording_date` and (optionally) the new `trace_profile` field (if Task 3 has been applied first). If the CSV differs, stop and investigate - the constants change should be purely additive.
 
 - [ ] **Step 7:** Commit.
 
@@ -340,34 +345,107 @@ Goal: when the new profile is active and a reset to title is detected, drop all 
   end
   ```
 
-  For `level_gated_reset_aware`, the profile finalises only via the existing BK2-end / movie-end guards further down.
+  For `level_gated_reset_aware`, the profile finalises only via the existing BK2-end / movie-end guards further down. **Sanity note:** when `reset_recording_state()` fires, `bk2_frame_offset` is cleared and then re-latched on the next arm (the existing `bk2_frame_offset = emu.framecount()` assignment at the arm site runs again). So the BK2-end guard `bk2_frame_offset + trace_frame >= BK2_FRAME_COUNT` continues to compute correctly across a reset-and-rearm cycle.
 
-- [ ] **Step 6:** Smoke-test again with the default profile to confirm no regression.
+- [ ] **Step 6:** Add `trace_profile` to the emitted metadata so downstream loaders can identify which profile produced the fixture.
+
+  In `write_metadata()` (around line 327), add the new field alongside the existing `trace_schema` / `csv_version` / `bizhawk_version` set:
+  ```lua
+      "  \"trace_schema\": 3,\n" ..
+      "  \"csv_version\": 4,\n" ..
+      "  \"trace_profile\": \"" .. TRACE_PROFILE .. "\",\n" ..
+      "  \"bizhawk_version\": \"2.11\",\n" ..
+  ```
+
+  (Insert the `trace_profile` line; do not remove any existing lines.) Confirm the output JSON validates by running the recorder once and cat'ing `tools/bizhawk/trace_output/metadata.json`.
+
+- [ ] **Step 7:** Add minimum CNZ aux-stream checkpoints required for `S3kElasticWindowController`.
+
+  In `emit_s3k_semantic_events()` (around lines 289-311), the existing AIZ-only branch is gated behind `is_aiz_end_to_end_profile()`. Add a parallel branch gated on `is_level_gated_reset_aware_profile()` that emits at least these checkpoints (emit each exactly once, tracked via the existing `emitted_checkpoints` table):
+
+  | Checkpoint name | Trigger condition |
+  | --- | --- |
+  | `gameplay_start` | First frame after arming where `game_mode == GAMEMODE_LEVEL` and `zone_id == 3`. |
+  | `cnz1_miniboss_arena_lock` | Zone id 3, act 0, camera MaxX drop >= 0x400 within one frame (miniboss Dynamic_Resize narrows the arena). |
+  | `act_transition_to_cnz2` | Zone id stays 3, act flips from 0 to 1, player X snaps back to act-2 start. |
+  | `cnz2_knuckles_cutscene_start` | Zone 3 act 1, Knuckles object routine secondary transitions from 0 to 2 (cutscene init). |
+  | `cnz2_endboss_arena_lock` | Zone 3 act 1, camera MaxX drop >= 0x400 within one frame. |
+  | `gameplay_end` | First frame where `finished == true` and we're flushing. |
+
+  Only `gameplay_start` and `gameplay_end` are strictly required for the elastic controller to function at all; the others let it tolerate small drifts at phase boundaries. Keep each check cheap (no RAM reads beyond what the recorder already does) and fail-soft (if a condition can't be evaluated, skip the checkpoint for that frame - don't crash).
+
+  If you cannot safely read the camera MaxX or the Knuckles routine byte without new RAM address constants, emit only `gameplay_start` and `gameplay_end` in this task and note the missing checkpoints in the commit message. The follow-up C-G workstreams can add them.
+
+- [ ] **Step 8:** Isolated reset smoke test (does NOT record a real BK2; fakes a reset via debug profile).
+
+  Manually stage: write a tiny helper script at `tools/bizhawk/dev/reset_selftest.lua` (dev-only, not committed):
+  ```lua
+  -- Dev-only: synthesise a Game_Mode=0x0C -> TITLE transition and confirm
+  -- reset_recording_state clears files. Run manually in BizHawk Lua console.
+  OGGF_S3K_TRACE_PROFILE = "level_gated_reset_aware"
+  dofile("s3k_trace_recorder.lua")
+  -- (left as an exercise: trigger on_frame_end twice with forced game_mode values)
+  ```
+
+  Alternative cheap sanity check: run the recorder against the existing AIZ end-to-end BK2 with `level_gated_reset_aware` (instead of `aiz_end_to_end`). The AIZ BK2 never returns to title, so the reset path must NOT fire; the output should match `gameplay_unlock` behaviour (record from first level entry through level end). Any "detected soft-reset" print in the BizHawk console is a bug.
 
   ```bash
   rm -rf tools/bizhawk/trace_output/
-  tools/bizhawk/record_s3k_trace.bat "Sonic and Knuckles & Sonic 3 (W) [!].gen" "src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/s3-aiz1-2-sonictails.bk2" aiz_end_to_end
-  diff <(head -100 src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv) <(head -100 tools/bizhawk/trace_output/physics.csv)
+  mkdir -p tools/bizhawk/trace_output/
+  tools/bizhawk/record_s3k_trace.bat "Sonic and Knuckles & Sonic 3 (W) [!].gen" "src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/s3-aiz1-2-sonictails.bk2" level_gated_reset_aware
+  grep -c "detected soft-reset" tools/bizhawk/trace_output/*.log 2>/dev/null; echo "exit=$?"
+  python -c "import json; m=json.load(open('tools/bizhawk/trace_output/metadata.json')); assert m['zone']=='aiz', m; assert m['trace_profile']=='level_gated_reset_aware', m; print('metadata ok')"
   ```
 
-  Expected: no diff. If there is a diff, the changes are not additive - revert and reassess.
+  Expected: zero reset prints; metadata has `zone=aiz` and `trace_profile=level_gated_reset_aware`; printable `metadata ok`.
 
-- [ ] **Step 7:** Commit.
+- [ ] **Step 9:** Regression smoke-test `aiz_end_to_end` still produces byte-identical CSV output.
+
+  ```bash
+  rm -rf tools/bizhawk/trace_output/
+  mkdir -p tools/bizhawk/trace_output/
+  tools/bizhawk/record_s3k_trace.bat "Sonic and Knuckles & Sonic 3 (W) [!].gen" "src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/s3-aiz1-2-sonictails.bk2" aiz_end_to_end
+  python -c "
+  from pathlib import Path
+  ref = Path('src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv').read_text()
+  new = Path('tools/bizhawk/trace_output/physics.csv').read_text()
+  print('csv_match:', ref == new)
+  ref_a = Path('src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl').read_text()
+  new_a = Path('tools/bizhawk/trace_output/aux_state.jsonl').read_text()
+  print('jsonl_match:', ref_a == new_a)
+  "
+  ```
+
+  Expected: both `True`. If not, the checkpoint additions leaked into the AIZ profile or the reset path fired incorrectly - revert Steps 6-7 and diagnose.
+
+- [ ] **Step 10:** Commit.
 
   ```bash
   git add tools/bizhawk/s3k_trace_recorder.lua
   git commit -m "$(cat <<'EOF'
-feat: discard-on-reset behaviour for level_gated_reset_aware profile
+feat: discard-on-reset + CNZ checkpoints + trace_profile metadata
 
-When the profile is active and the game transitions back to Sega,
-title, or level-select mode mid-recording, drop all in-progress
-buffers and re-arm the recorder. Handles the CNZ BK2 flow where the
-player enters AIZ1 to activate the vine level-select cheat, resets
-to title via pause+A, then selects CNZ from the now-visible level
-select.
+Three additive changes to level_gated_reset_aware profile:
+
+1. Discard-on-reset. When the profile is active and the game
+   transitions back to Sega, title, or level-select mode
+   mid-recording, drop all in-progress buffers and re-arm. Handles
+   the CNZ BK2 flow where the player enters AIZ1 to activate the
+   vine level-select cheat, resets to title via pause+A, then
+   selects CNZ from the now-visible level select.
+
+2. trace_profile metadata field. write_metadata now emits
+   "trace_profile": "<TRACE_PROFILE>" so the Java replay framework
+   can identify which profile produced a fixture.
+
+3. Minimum CNZ aux-stream checkpoints. emit_s3k_semantic_events
+   now emits at least gameplay_start / gameplay_end for the new
+   profile, plus act_transition and boss arena locks where the
+   trigger conditions are cheap to evaluate. This is required for
+   S3kElasticWindowController to function at phase boundaries.
 
 gameplay_unlock and aiz_end_to_end profiles unchanged; AIZ fixture
-still byte-identical locally.
+still byte-identical locally (physics.csv + aux_state.jsonl).
 
 Changelog: n/a
 Guide: n/a
@@ -412,15 +490,36 @@ Goal: run the new profile against the existing CNZ BK2 and commit the produced t
   5. `Reached BK2 input end at trace frame <N4> ... Finalising.`
   6. `Metadata written. Zone: cnz Act 1, Trace frames: <N4>`
 
-- [ ] **Step 3:** Inspect the generated metadata.
+- [ ] **Step 3:** Inspect the generated metadata and verify both the first and last recorded frames are in CNZ.
 
   ```bash
   type tools\bizhawk\trace_output\metadata.json
+  python -c "
+  import json
+  m = json.load(open('tools/bizhawk/trace_output/metadata.json'))
+  assert m['zone'] == 'cnz', m
+  assert m['zone_id'] == 3, m
+  assert m['trace_profile'] == 'level_gated_reset_aware', m
+  assert m['trace_frame_count'] > 1000, m
+  # Sanity: both the first and last emitted zone_act_state events must be CNZ.
+  zone_acts = []
+  with open('tools/bizhawk/trace_output/aux_state.jsonl') as f:
+      for line in f:
+          ev = json.loads(line)
+          if ev.get('type') == 'zone_act_state':
+              zone_acts.append((ev['frame'], ev['zone'], ev['act']))
+  assert zone_acts, 'no zone_act_state events found'
+  first_z = zone_acts[0][1]
+  last_z  = zone_acts[-1][1]
+  assert first_z == 'cnz', f'first zone_act_state is {first_z}, expected cnz - the AIZ prefix was not discarded'
+  assert last_z  == 'cnz', f'last zone_act_state is {last_z}, expected cnz - recording extended past CNZ2'
+  print(f'ok: {len(zone_acts)} zone_act_state events, first={zone_acts[0]}, last={zone_acts[-1]}')
+  "
   ```
 
-  Expected: `"zone": "cnz"`, `"zone_id": 3`, `"act": 1`, `trace_frame_count` > 1000 (CNZ1 alone is substantial).
+  Expected: `"zone": "cnz"`, `"zone_id": 3`, `"act": 1` (metadata writes 1-based act), `trace_profile` matches, `trace_frame_count` > 1000, and the python assertions all pass.
 
-  If `zone` is `aiz` or `unknown`, the discard did not fire - go back to Task 3 and diagnose.
+  If `zone` is `aiz` or `unknown`, the discard did not fire - go back to Task 3 and diagnose. If the last zone is not CNZ, the recording extended past CNZ2 and the BK2-end guard is misbehaving.
 
 - [ ] **Step 4:** Copy output files to the test resource directory.
 
@@ -509,7 +608,11 @@ Goal: a trace replay test that consumes the CNZ fixture.
 
       @Override
       protected int act() {
-          return 0x00; // CNZ1 (Act 1 start)
+          // 0-based: 0 = Act 1. The recorder's metadata.json writes "act": 1
+          // (1-based). AbstractTraceReplayTest.validateMetadata does not
+          // cross-check the act, so the asymmetry is harmless; documenting
+          // here so the next reader doesn't chase the off-by-one.
+          return 0x00;
       }
 
       @Override
@@ -571,12 +674,21 @@ Goal: run `TestS3kCnzTraceReplay` once, archive whatever divergence report it pr
   - Possible PASS if the engine is already frame-accurate (unlikely given the open boss / Knuckles / intro parity gaps).
   - Possible CRASH if the engine throws an exception (e.g., an unimplemented ROM offset, a missing object factory). Crashes are bugs and must be filed as sub-issues before C-G proceeds.
 
-- [ ] **Step 2:** Copy the divergence report into the docs tree, quoting the first 100 frames of divergences verbatim so the baseline is human-readable and grep-able. Use the Read tool to view the context file, then compose a doc that summarises:
+- [ ] **Step 2a:** Archive the raw report files unchanged so the baseline is reproducible.
+
+  ```bash
+  mkdir -p docs/s3k-zones/cnz-trace-divergence-baseline.d/
+  cp target/trace-reports/s3k_0300_report.json  docs/s3k-zones/cnz-trace-divergence-baseline.d/
+  cp target/trace-reports/s3k_0300_context.txt  docs/s3k-zones/cnz-trace-divergence-baseline.d/
+  ```
+
+- [ ] **Step 2b:** Compose the human-readable summary doc at `docs/s3k-zones/cnz-trace-divergence-baseline.md`. Fields required:
   - First diverging frame
   - First-divergence field (x / x_speed / g_speed / angle / etc.)
   - Total error count
   - Total warning count
   - First 20 divergence events (frame + field + expected + actual)
+  - A "likely cause" column keyed to the workstream (C / D / E / F / G)
 
   Example document skeleton:
   ```markdown
@@ -617,10 +729,11 @@ Goal: run `TestS3kCnzTraceReplay` once, archive whatever divergence report it pr
   Dispatch workstream agents per the top-level spec's section 7.
   ```
 
-- [ ] **Step 3:** Commit the baseline doc.
+- [ ] **Step 3:** Commit the baseline doc + archived raw reports.
 
   ```bash
-  git add docs/s3k-zones/cnz-trace-divergence-baseline.md
+  git add docs/s3k-zones/cnz-trace-divergence-baseline.md \
+          docs/s3k-zones/cnz-trace-divergence-baseline.d/
   git commit -m "$(cat <<'EOF'
 docs: capture CNZ trace replay baseline divergence report
 
@@ -628,6 +741,14 @@ TestS3kCnzTraceReplay's first run produces this baseline. Summary:
 N total frames, first divergence at frame F on field X, E errors,
 W warnings. Drives workstreams C-G (Tails-carry intro, mini-boss,
 end-boss, Knuckles cutscenes, stragglers).
+
+Raw report and context files archived under
+docs/s3k-zones/cnz-trace-divergence-baseline.d/ for reproducibility.
+
+If the baseline surfaces a class of divergence that we have decided
+NOT to fix (e.g. a documented ROM variance), update this commit's
+S3K-Known-Discrepancies trailer to "updated" and stage a matching
+edit to docs/S3K_KNOWN_DISCREPANCIES.md in the same commit.
 
 Changelog: n/a
 Guide: n/a
@@ -686,21 +807,25 @@ Goal: cleanly close A+B and kick off the lazy sub-specs.
 
 ## Self-Review Notes (for the plan author)
 
-Sanity checks performed when drafting this plan:
+Sanity checks performed when drafting this plan (and updated after reviewer feedback):
 
 1. **Spec coverage:**
-   - Workstream A (recorder profile) -> Tasks 1-3.
+   - Workstream A (recorder profile + metadata parity + minimum checkpoints) -> Tasks 1-3.
    - Workstream B (fixture + test + baseline) -> Tasks 4-7.
    - Workstreams C-G -> intentionally deferred, Task 8 hands off.
 
-2. **Placeholder scan:** All tasks contain concrete code / concrete commands. The only deliberate blank is the Game_Mode enum values in Task 1 (the task literally exists to fill them in; Task 2's code block uses the canonical values and instructs the executor to override if Task 1 found different ones).
+2. **Placeholder scan:** Task 1 produces a verified Lua code block that Task 2 copies verbatim. Task 2 no longer contains a plan-level "assumes 0x04 title" hard-code; the Task 1 doc is the single source of truth. The only remaining blank is the divergence summary in Task 6, which is populated from actual test output.
 
-3. **Type consistency:** Lua function names used consistently (`is_level_gated_reset_aware_profile`, `should_discard_and_reset`, `reset_recording_state`). The Java test only defines abstract overrides; no type surface to drift.
+3. **Type consistency:** Lua function names used consistently (`is_level_gated_reset_aware_profile`, `should_discard_and_reset`, `reset_recording_state`). The Java test only defines abstract overrides; no type surface to drift. Metadata field `trace_profile` added in Task 3 Step 6 and asserted in Task 4 Step 3.
 
-4. **Busy-worktree coordination:** Called out up front, and each Task 2+ step starts with a `git pull / git status` instruction.
+4. **Busy-worktree coordination:** Called out up front with nine rules. Shared-file list split into "this plan modifies" vs "watchlist only". Each Task 2+ step starts with a `git pull / git status` instruction. Rule 2 ("additive-only") softened to reflect that Task 2 Step 4 may legitimately read/adapt the current function body if another agent has reshaped it.
 
 5. **Risk coverage:**
-   - AIZ agent conflict -> additive edits + byte-identical regression test.
-   - Unknown title Game_Mode value -> Task 1 pins it before code is written.
-   - CNZ fixture huge -> wc-l sanity check in Task 4 Step 5.
+   - AIZ agent conflict -> additive edits + byte-identical regression test in Task 3 Step 9 + Task 2 Step 6.
+   - Unknown title Game_Mode value -> Task 1 pins it and produces the Lua constants doc; Task 2 copies verbatim.
+   - CNZ fixture huge -> Task 4 Step 5 wc-l sanity check; spec section 6.1 notes 50 MB / 100 MB thresholds.
    - Crash instead of diverge -> explicit CRASH branch in Task 6 Step 1.
+   - First-or-last-frame zone drift -> Task 4 Step 3 asserts both.
+   - Reset path firing incorrectly on AIZ BK2 -> Task 3 Step 8 isolated smoke test.
+   - Elastic controller with zero CNZ checkpoints -> Task 3 Step 7 emits `gameplay_start` / `gameplay_end` at minimum.
+   - S3K_Known_Discrepancies bookkeeping -> Task 6 Step 3 commit message flags the obligation.
