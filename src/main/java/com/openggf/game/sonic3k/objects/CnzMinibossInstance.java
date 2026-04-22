@@ -208,6 +208,17 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     private boolean statusBit6TopHit;
 
     /**
+     * ROM: bit 1 of {@code $38(a0)} — top-piece "Move" signal.
+     * Set by {@code Obj_CNZMinibossGo2} (sonic3k.asm:144906,
+     * {@code bset #1,$38(a0)}) when the base finishes its Lower routine
+     * and drops into the Move/Swing body. The top-piece child polls this
+     * bit inside {@code Obj_CNZMinibossTopWait} (sonic3k.asm:145027) and
+     * only advances to {@code Wait2}/{@code Main} once the parent has
+     * flagged it.
+     */
+    private boolean parentSignalBit1;
+
+    /**
      * ROM: {@code $43(a0)} — {@code Obj_CNZMinibossLower2} countdown
      * (sonic3k.asm:144974). {@code -1} indicates "no Lower2 run in
      * progress", since the ROM normally writes a fresh counter on entry.
@@ -715,8 +726,10 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // SetUp_CNZMinibossSwing, but we match the ROM write order so future
         // trace-replay of the $38 bit1 flag (T5/T6) lines up frame-for-frame.
         yVel = 0;
-        // ROM sonic3k.asm:144906 — bset #1,$38(a0). $38 bits stay in T5/T6
-        // (the coil/hit flags); leaving the comment here so T5 can wire it.
+        // ROM sonic3k.asm:144906 — bset #1,$38(a0). Top-piece "Move" signal
+        // polled by Obj_CNZMinibossTopWait (sonic3k.asm:145027). Top-piece
+        // Wait routine stalls on Refresh_ChildPosition until this latches.
+        parentSignalBit1 = true;
         // ROM sonic3k.asm:144907-144908 — move.w #$90,$2E(a0) +
         //                                 move.l #Obj_CNZMinibossGo3,$34(a0).
         setWait(Sonic3kConstants.CNZ_MINIBOSS_GO2_WAIT, this::onGo3);
@@ -944,6 +957,20 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      */
     public int getRemainingHits() {
         return state.hitCount;
+    }
+
+    /**
+     * ROM: bit 1 of {@code $38(a0)} — top-piece "Move" signal.
+     *
+     * <p>Consumed by {@link CnzMinibossTopInstance#update(int,
+     * com.openggf.game.PlayableEntity)} inside the {@code Wait} routine
+     * ({@code Obj_CNZMinibossTopWait}, sonic3k.asm:145027) to decide
+     * whether to fall through to {@code Wait2}/{@code Main} or stay in
+     * {@code Refresh_ChildPosition}. Set by {@link #onGo2()} mirroring
+     * {@code bset #1,$38(a0)} at sonic3k.asm:144906.
+     */
+    public boolean isParentSignalBit1Set() {
+        return parentSignalBit1;
     }
 
     // ---- Test-only accessors for the Task 4/5 state machine ----
