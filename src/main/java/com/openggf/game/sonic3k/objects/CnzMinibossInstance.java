@@ -1,8 +1,13 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -103,8 +108,12 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     private static final int ROUTINE_MOVE_DUP = 6; // Obj_CNZMinibossMove     (144912, duplicate slot)
     private static final int ROUTINE_OPENING = 8;  // Obj_CNZMinibossOpening  (144941)
     private static final int ROUTINE_WAIT_HIT = 0xA; // Obj_CNZMinibossWaitHit (144954)
-    private static final int ROUTINE_CLOSING = 0xC;  // Obj_CNZMinibossClosing (144968) — T6
-    // Routine E (Lower2, 144972) and End (144984) land in T6.
+    private static final int ROUTINE_CLOSING = 0xC;  // Obj_CNZMinibossClosing (144968)
+    private static final int ROUTINE_LOWER2 = 0xE;   // Obj_CNZMinibossLower2  (144972)
+    // Note: Obj_CNZMinibossEnd (sonic3k.asm:144984) is NOT a dispatch-table
+    // routine — it is installed via $34(a0) by CNZMiniboss_BossDefeated
+    // (sonic3k.asm:145467) after routine (a0) has been replaced with
+    // Wait_FadeToLevelMusic. See onDefeatStarted() / onEndGo().
 
     /**
      * ROM: Swing_UpAndDown uses {@code $3E(a0)} as the peak |y_vel|.
@@ -125,6 +134,33 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * full {@code Animate_RawMultiDelay} script engine.
      */
     private static final int CNZ_MINIBOSS_OPENING_WAIT = 0x7F;
+
+    /**
+     * Approximate duration of the Closing animation (sonic3k.asm:144968 —
+     * {@code Obj_CNZMinibossClosing}) before its $34 callback
+     * ({@link #onCloseGo}) fires to restart the swing cycle.
+     *
+     * <p>The ROM body is {@code jmp (Animate_RawMultiDelay).l}, whose
+     * exact frame count comes from the {@code AniRaw_CNZMinibossClosing}
+     * script. Without the full animation engine we seed a conservative
+     * {@code $40} (64-frame) wait matching the opening duration order of
+     * magnitude. The value only matters for the forced-entry test seam —
+     * natural entry from {@link #handleWaitHitHandoff()} does not write a
+     * timer, and the ROM's AniRaw engine drives the transition there.
+     */
+    private static final int CNZ_MINIBOSS_CLOSING_WAIT = 0x40;
+
+    /**
+     * Post-defeat wait before {@code Obj_CNZMinibossEndGo} fires.
+     *
+     * <p>ROM: {@code CNZMiniboss_BossDefeated} (sonic3k.asm:145464)
+     * replaces the object entry with {@code Wait_FadeToLevelMusic} and
+     * installs {@code Obj_CNZMinibossEnd} at {@code $34(a0)}. The fade
+     * loop runs for approximately {@code $60} frames before yielding to
+     * the {@code $34} callback. The engine models this with a single
+     * wait timer since the fade itself is orthogonal to workstream-D.
+     */
+    private static final int CNZ_MINIBOSS_DEFEAT_WAIT = 0x60;
 
     // ---- Scratch state for the ROM's $2E(a0) wait + $34(a0) post-wait handler. ----
     /**
@@ -171,6 +207,32 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      */
     private boolean statusBit6TopHit;
 
+    /**
+     * ROM: {@code $43(a0)} — {@code Obj_CNZMinibossLower2} countdown
+     * (sonic3k.asm:144974). {@code -1} indicates "no Lower2 run in
+     * progress", since the ROM normally writes a fresh counter on entry.
+     */
+    private int lower2Counter = -1;
+
+    /**
+     * ROM: {@code $42(a0)} — routine value to restore when the Lower2
+     * counter expires (sonic3k.asm:144980,
+     * {@code move.b $42(a0),routine(a0)}).
+     */
+    private int lower2PreviousRoutine;
+
+    /**
+     * Tracks whether {@link #onDefeatStarted()} has already fired.
+     *
+     * <p>ROM: {@code CNZMiniboss_CheckTopHit} only reaches
+     * {@code CNZMiniboss_BossDefeated} on the hit that decrements
+     * {@code $45(a0)} from 1 to 0 — subsequent top-piece hits are
+     * ignored because the routine has already been replaced with
+     * {@code Wait_FadeToLevelMusic}. This guard mirrors that once-only
+     * semantic for the engine's {@code simulateHitForTest} path.
+     */
+    private boolean defeatInitiated;
+
     public CnzMinibossInstance(ObjectSpawn spawn) {
         super(spawn, "CNZMiniboss");
     }
@@ -194,24 +256,40 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
 
     @Override
     protected void updateBossLogic(int frameCounter, PlayableEntity player) {
-        // CNZMiniboss_Index dispatch (sonic3k.asm:144874). Routines 0/2/4/6/8/A
-        // are implemented; C/E (Closing / Lower2) are T6 territory. Each routine
-        // body that matches the ROM's `Obj_Wait` tail (Lower, Move, Opening)
-        // calls tickWait() itself at the end — Init / WaitHit / one-shot $34
-        // callbacks have no Obj_Wait in ROM and therefore don't tick here.
+        // After CNZMiniboss_BossDefeated (sonic3k.asm:145464), the ROM writes
+        // Wait_FadeToLevelMusic into (a0) so the normal CNZMiniboss_Index
+        // dispatcher stops running. The object simply ticks its $2E timer
+        // until Obj_CNZMinibossEnd ($34 callback) fires. This mirrors that
+        // behaviour: when defeated we skip routine dispatch entirely and
+        // only advance the wait timer so onEndGo() eventually runs.
+        if (state.defeated) {
+            tickWait();
+            return;
+        }
+
+        // CNZMiniboss_Index dispatch (sonic3k.asm:144874). All eight routines
+        // in the ROM dispatch table (0/2/4/6/8/A/C/E) are handled. Each routine
+        // body that matches the ROM's `Obj_Wait` tail (Lower, Move, Opening,
+        // Closing) calls tickWait() itself at the end — Init / WaitHit /
+        // Lower2 / one-shot $34 callbacks have no Obj_Wait in ROM and
+        // therefore don't tick here.
         switch (state.routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_LOWER -> updateLower();
             case ROUTINE_MOVE, ROUTINE_MOVE_DUP -> updateMove();
             case ROUTINE_OPENING -> updateOpening();
             case ROUTINE_WAIT_HIT -> updateWaitHit();
+            case ROUTINE_CLOSING -> updateClosing();
+            case ROUTINE_LOWER2 -> updateLower2();
             default -> {
-                // Routines C/E are T6 territory. A log at FINE level gives
-                // downstream tasks a signal if a routine counter lands here
-                // unexpectedly (e.g. a future typo writes an out-of-range
-                // index). No-op in production; visible via Logger config.
+                // With every ROM dispatch-table slot (0/2/4/6/8/A/C/E) now
+                // covered above, this branch is unreachable during normal
+                // boss life. A log at FINE level preserves the belt-and-
+                // suspenders signal for a future out-of-range routine write
+                // (e.g. a typo or a T12 trace-replay regression) without
+                // spamming normal runs. Visible via Logger configuration.
                 final int routine = state.routine;
-                LOG.warning(() -> "CNZ miniboss: unhandled routine "
+                LOG.fine(() -> "CNZ miniboss: unhandled routine "
                         + Integer.toHexString(routine));
             }
         }
@@ -219,8 +297,40 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
 
     @Override
     protected void onHitTaken(int remainingHits) {
-        // T6 will implement the palette-flash SFX and per-hit coil behaviour
-        // from CNZMiniboss_CheckPlayerHit. Task 3 only establishes the seam.
+        // ROM: CNZMiniboss_CheckTopHit at sonic3k.asm:145435.
+        //   subq.b #1,$45(a0)
+        //   beq.s CNZMiniboss_BossDefeated
+        //   bset #6,status(a0)          ; top-hit latch — handled separately
+        //                                 by simulateHitForTest / the natural
+        //                                 top-piece collision path.
+        //   move.b #$20,$20(a0)         ; 32-frame stun — AbstractBossInstance
+        //                                 handles invulnerability timing.
+        //   Play_SFX sfx_BossHit        ; routed through getBossHitSfxId().
+        //
+        // ROM note: the real defeat counter is $45(a0) (= 4 at Init, line
+        // 144889). The engine currently collapses this with collision_property
+        // ($45 and the 6-entry counter at line 144888) into a single shared
+        // state.hitCount seeded from CNZ_MINIBOSS_HIT_COUNT. Exact hit-count
+        // parity is a T12 / post-D trace-replay concern; leaving this note
+        // here for follow-up.
+        if (remainingHits == 0 && !defeatInitiated) {
+            defeatInitiated = true;
+            onDefeatStarted();
+        }
+    }
+
+    @Override
+    protected boolean usesDefeatSequencer() {
+        // ROM: CNZMiniboss_BossDefeated (sonic3k.asm:145464) replaces the
+        // object routine with Wait_FadeToLevelMusic and installs
+        // Obj_CNZMinibossEnd at $34(a0). That path is orthogonal to the
+        // generic 179-frame exploding/fleeing/spawn-prison sequencer used by
+        // Sonic 2 bosses — the CNZ miniboss has no flee-then-spawn phase,
+        // only the fade-and-cleanup handoff. Returning false here routes
+        // defeat through our onDefeatStarted() / onEndGo() pair and lets
+        // updateBossLogic() keep ticking the $2E wait timer (via the
+        // state.defeated early-return branch) until the $34 callback fires.
+        return false;
     }
 
     @Override
@@ -363,6 +473,197 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         }
         // ROM sonic3k.asm:144960 — loc_6DB4E.
         handleWaitHitHandoff();
+    }
+
+    /**
+     * ROM: Obj_CNZMinibossClosing (sonic3k.asm:144968):
+     * <pre>
+     *   jmp (Animate_RawMultiDelay).l
+     * </pre>
+     *
+     * <p>A pure animation body — the ROM defers the routine transition to the
+     * animation script's terminator, which fires the {@code $34(a0)} callback
+     * installed by {@link #handleWaitHitHandoff()} ({@link #onCloseGo()}).
+     *
+     * <p>Without a full {@code Animate_RawMultiDelay} pipeline the engine
+     * models this as a wait-timer tick. In the natural flow,
+     * {@code handleWaitHitHandoff} already armed {@link #waitCallback} =
+     * {@link #onCloseGo} with {@link #waitTimer} = {@code -1}; the first
+     * frame in this body seeds a conservative
+     * {@link #CNZ_MINIBOSS_CLOSING_WAIT} countdown so subsequent frames can
+     * tick it down and eventually fire the callback. When the routine is
+     * forced by {@link #forceRoutineForTest(int)} the timer is seeded there
+     * instead, skipping the self-seeding branch below.
+     */
+    private void updateClosing() {
+        if (waitTimer < 0) {
+            waitTimer = CNZ_MINIBOSS_CLOSING_WAIT;
+            if (waitCallback == null) {
+                waitCallback = this::onCloseGo;
+            }
+        }
+        tickWait();
+    }
+
+    /**
+     * ROM: Obj_CNZMinibossLower2 (sonic3k.asm:144972):
+     * <pre>
+     *   addq.w #1,y_pos(a0)
+     *   subq.b #1,$43(a0)
+     *   bmi.s loc_6DB7E
+     *   rts
+     * loc_6DB7E:
+     *   move.b $42(a0),routine(a0)
+     *   rts
+     * </pre>
+     *
+     * <p>Drives the base's per-frame downward drift after each top-piece
+     * impact snaps a fresh counter into {@code $43}. Counter underflow
+     * ({@code bmi}) restores the saved routine from {@code $42(a0)} and
+     * disarms the counter so the boss returns to its pre-Lower2 state.
+     */
+    private void updateLower2() {
+        // ROM sonic3k.asm:144973 — addq.w #1,y_pos(a0). The ROM writes the
+        // integer y_pos word directly without touching the fractional part.
+        // Mirror that by nudging state.y AND state.yFixed so a subsequent
+        // routine's MoveSprite2 (state.applyVelocity) accumulates from the
+        // new pixel position, not the stale pre-Lower2 yFixed value.
+        state.y += 1;
+        state.yFixed += (1 << 16);
+        // ROM sonic3k.asm:144974 — subq.b #1,$43(a0).
+        lower2Counter--;
+        if (lower2Counter < 0) {
+            // ROM sonic3k.asm:144975-144976 — bmi.s loc_6DB7E.
+            // ROM sonic3k.asm:144979-144981 — move.b $42(a0),routine(a0); rts.
+            state.routine = lower2PreviousRoutine;
+            // Disarm the counter so a future re-entry via forceRoutineForTest
+            // re-seeds it cleanly rather than underflowing further on a stale
+            // value.
+            lower2Counter = -1;
+        }
+    }
+
+    /**
+     * ROM: CNZMiniboss_BossDefeated (sonic3k.asm:145464) +
+     *       Obj_CNZMinibossEnd (sonic3k.asm:144984) +
+     *       Obj_CNZMinibossEndGo (sonic3k.asm:144996).
+     *
+     * <pre>
+     *   ; CNZMiniboss_BossDefeated (145465-145472)
+     *   move.l #Wait_FadeToLevelMusic,(a0)
+     *   bset   #7,status(a0)
+     *   move.l #Obj_CNZMinibossEnd,$34(a0)
+     *   st     (Events_fg_5).w
+     *   jsr    (CreateChild1_Normal).l        ; a2 = coil-debris spawner
+     *   jmp    (BossDefeated_StopTimer).l
+     *
+     *   ; Obj_CNZMinibossEnd (144984-144990)
+     *   move.l #Obj_Wait,(a0)
+     *   st     (_unkFAA8).w                   ; end-of-boss-level flag
+     *   bset   #4,$38(a0)
+     *   move.l #Obj_CNZMinibossEndGo,$34(a0)
+     *   lea    Child6_CNZMinibossMakeDebris(pc),a2
+     *   jmp    (CreateChild6_Simple).l
+     *
+     *   ; Obj_CNZMinibossEndGo (144996-145001)
+     *   move.l #Obj_EndSignControlAwaitStart,(a0)
+     *   clr.b  (Boss_flag).w
+     *   jsr    (AfterBoss_Cleanup).l
+     *   lea    (PLC_EndSignStuff).l,a1
+     *   jmp    (Load_PLC_Raw).l
+     * </pre>
+     *
+     * <p>The engine collapses the three ROM stages into two callbacks: this
+     * method performs the combined BossDefeated / Obj_CNZMinibossEnd work
+     * (flag writes + $34 arming), and {@link #onEndGo()} handles
+     * Obj_CNZMinibossEndGo. The intermediate {@code Obj_Wait} stage between
+     * them is modelled by the {@link #CNZ_MINIBOSS_DEFEAT_WAIT} timer
+     * because the ROM's actual intermediate fade / debris spawn is
+     * orthogonal to workstream-D.
+     *
+     * <p>Debris child spawn ({@code Child6_CNZMinibossMakeDebris}, ROM
+     * line 144989) is deferred per workstream-D spec §9 — the headless
+     * tests only assert on the Boss_flag clear / wall-grab release at
+     * the end of the chain, not on the debris particles.
+     */
+    @Override
+    protected void onDefeatStarted() {
+        // ROM sonic3k.asm:145465 — move.l #Wait_FadeToLevelMusic,(a0).
+        // ROM sonic3k.asm:145466 — bset #7,status(a0).
+        // ROM sonic3k.asm:144987 — bset #4,$38(a0).
+        // The engine doesn't model Wait_FadeToLevelMusic, status bit 7, or
+        // $38 bit 4 separately; state.defeated + the wait-timer early-return
+        // in updateBossLogic() cover the observable "routine dispatch is
+        // paused while the post-fade callback counts down" contract.
+        state.defeated = true;
+
+        // ROM sonic3k.asm:145469 — st (Events_fg_5).w. This is the BG signal
+        // that drives the post-boss arena-reveal chain in Sonic3kCNZEvents
+        // (updateAct1Bg -> handleAct1Entry -> BG_FG_REFRESH).
+        Sonic3kCNZEvents cnz = getCnzEvents();
+        if (cnz != null) {
+            cnz.setEventsFg5(true);
+        }
+
+        // ROM sonic3k.asm:145467 + 144988 — the combined BossDefeated /
+        // Obj_CNZMinibossEnd chain installs Obj_CNZMinibossEndGo at $34(a0)
+        // and relies on the fade/wait loop to tick it. Arm that here with a
+        // conservative fade-shaped wait.
+        setWait(CNZ_MINIBOSS_DEFEAT_WAIT, this::onEndGo);
+    }
+
+    /**
+     * ROM: Obj_CNZMinibossEndGo (sonic3k.asm:144996):
+     * <pre>
+     *   move.l #Obj_EndSignControlAwaitStart,(a0)
+     *   clr.b  (Boss_flag).w
+     *   jsr    (AfterBoss_Cleanup).l
+     *   lea    (PLC_EndSignStuff).l,a1
+     *   jmp    (Load_PLC_Raw).l
+     * </pre>
+     *
+     * <p>Final defeat step: clears the global {@code Boss_flag}, kicks off
+     * the post-boss cleanup pass, and loads the end-sign PLC. The engine
+     * only mirrors the {@code Boss_flag} clear here (plus the
+     * wall-grab release which is the inverse of the arena-entry
+     * {@code setWallGrabSuppressed(true)}) — {@code AfterBoss_Cleanup} and
+     * {@code PLC_EndSignStuff} are owned by the wider CNZ event / PLC
+     * systems and land in T10/T11.
+     */
+    private void onEndGo() {
+        Sonic3kCNZEvents cnz = getCnzEvents();
+        if (cnz != null) {
+            // ROM sonic3k.asm:144998 — clr.b (Boss_flag).w.
+            cnz.setBossFlag(false);
+            // Inverse of the arena-entry setWallGrabSuppressed(true) in
+            // Sonic3kCNZEvents#handleAct1Entry; re-enables wall-grab now
+            // that the boss fight is over and the post-boss transition
+            // will be driven by the existing Events_fg_5 / BG_FG_REFRESH
+            // chain.
+            cnz.setWallGrabSuppressed(false);
+        }
+        // ROM sonic3k.asm:144999 — jsr (AfterBoss_Cleanup).l — deferred to
+        // the post-boss zone event flow (T10/T11 — music restart, camera
+        // unlock handled by Sonic3kCNZEvents).
+        // ROM sonic3k.asm:145000-145001 — PLC_EndSignStuff load — deferred
+        // to the PLC slice (T10/T11).
+    }
+
+    /**
+     * Resolves the active CNZ zone-events adapter, or {@code null} if the
+     * level event manager isn't the expected Sonic3k type (e.g. during a
+     * test fixture that hasn't finished CNZ bootstrap).
+     */
+    private static Sonic3kCNZEvents getCnzEvents() {
+        GameModule module = GameServices.module();
+        if (module == null) {
+            return null;
+        }
+        LevelEventProvider provider = module.getLevelEventProvider();
+        if (provider instanceof Sonic3kLevelEventManager events) {
+            return events.getCnzEvents();
+        }
+        return null;
     }
 
     /**
@@ -705,6 +1006,24 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
                 waitTimer = -1;
                 waitCallback = null;
             }
+            case ROUTINE_LOWER2 -> {
+                // ROM: Lower2 has no Obj_Wait tail (subq.b $43 directly in
+                // the body). Clear any stale wait state so it can't fire a
+                // stray callback during the per-frame y++/$43 dance. Tests
+                // that force Lower2 must follow up with
+                // setLower2CounterForTest() to seed the $43 value.
+                waitTimer = -1;
+                waitCallback = null;
+            }
+            case ROUTINE_CLOSING -> {
+                // ROM: Closing is normally entered from handleWaitHitHandoff
+                // which writes $34 = onCloseGo with $2E = -1 (the AniRaw
+                // engine drives the timing). When forced from a test, seed
+                // a known wait length so updateClosing's first tick runs
+                // against a deterministic counter.
+                waitTimer = CNZ_MINIBOSS_CLOSING_WAIT;
+                waitCallback = this::onCloseGo;
+            }
             default -> {
                 // Leave timer/callback untouched for routines that don't
                 // require a specific callback to drive their body.
@@ -728,15 +1047,50 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * {@code bset #6,status(a0)} at {@code CNZMiniboss_CheckTopHit}
      * (sonic3k.asm:145442). Package-private — test-only.
      *
-     * <p>Deliberately bypasses {@link AbstractBossInstance#onPlayerAttack} /
-     * {@code BossHitHandler.processHit}: those would decrement the shared
-     * hit counter and set invulnerability, which is T6's territory. For
-     * T5 we only need to prove that WaitHit transitions to Closing when
-     * {@link #statusBit6TopHit} flips, so this helper writes that bit
-     * directly without touching collision/invulnerability state.
+     * <p>T5 behaviour preserved: flipping {@link #statusBit6TopHit} is
+     * what lets {@link #updateWaitHit()} transition into Closing via
+     * {@link #handleWaitHitHandoff()} on the next dispatch.
+     *
+     * <p>T6 addition: also advances the shared boss hit counter and fires
+     * {@link #onHitTaken(int)}, mirroring the full {@code subq.b #1,$45(a0)}
+     * + {@code beq.s CNZMiniboss_BossDefeated} fallthrough from
+     * {@code CNZMiniboss_CheckTopHit}. Still bypasses {@code BossHitHandler}
+     * — invulnerability / palette-flash timing is orthogonal to the state
+     * machine these tests exercise, and running the real hit handler here
+     * would tangle palette-flash side effects into every defeat-path test.
      */
     void simulateHitForTest() {
         statusBit6TopHit = true;
+        if (state.hitCount > 0) {
+            state.hitCount--;
+            onHitTaken(state.hitCount);
+        }
+    }
+
+    /**
+     * Arms the {@link #ROUTINE_LOWER2} countdown ({@code $43(a0)}) and
+     * captures the current routine so {@code loc_6DB7E}
+     * (sonic3k.asm:144979) has a value to restore. Package-private —
+     * test-only.
+     *
+     * <p>The ROM normally writes {@code $43} from {@code $45(a0)} (the
+     * defeat counter) just before switching the routine to Lower2, so the
+     * previous routine written to {@code $42} is whichever slot was
+     * active at the moment of the top-piece hit. For deterministic tests
+     * the helper captures whatever {@code state.routine} happens to hold
+     * at call time; callers that force Lower2 first can follow up with
+     * a direct {@code state.routine} assignment if they need a specific
+     * restore target.
+     */
+    void setLower2CounterForTest(int frames) {
+        lower2Counter = frames;
+        // If we're already in Lower2 from a forceRoutineForTest call, fall
+        // back to the duplicate-Move slot (the ROM-typical "Lower2 is
+        // entered from Move", i.e. $42 = 6). Otherwise capture whatever
+        // was there.
+        lower2PreviousRoutine = state.routine == ROUTINE_LOWER2
+                ? ROUTINE_MOVE_DUP
+                : state.routine;
     }
 
     @Override
