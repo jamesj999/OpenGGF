@@ -16,12 +16,13 @@ Recorder: lua v3.1-s3k, profile `level_gated_reset_aware`
 Latest checkpoint at failure: `gameplay_start z=3 a=0 ap=0 gm=12`
 Latest zone/act state: `zoneact z=3 a=0 ap=0 gm=12`
 
-The test fails almost immediately: at frame 0 the engine's Sonic is placed at the
-recorder's start position `(0x0018, 0x0600)` with `x_speed=0, y_speed=0`, but the
-ROM trace shows Sonic being carried eastward by Tails with `x_speed=0x0100` and
-`y_speed` ramping up through the carry drop. The engine never applies the
-Tails-carry intro, so the player immediately falls on its own trajectory and
-cascades divergences through the rest of CNZ1.
+The test fails almost immediately: at frame 0 the engine spawns Sonic free-standing
+at the recorder's start position `(0x0018, 0x0600)`, but the ROM trace shows Sonic
+being carried eastward by Tails - starting with `x_speed=0x0100` at frame 1 and a
+small `y_speed=0x0010` at frame 2 as the carry descends. Because the engine never
+applies the Tails-carry intro, the player immediately falls on its own trajectory
+(actual `y_speed` overshoots to `0x00A8` by frame 2) and cascades divergences
+through the rest of CNZ1.
 
 Report filenames produced by the runtime are `s3k_cnz1_*` (derived from
 `metadata.zone="cnz"` and `metadata.act=1`); they are archived here under the
@@ -54,7 +55,9 @@ the plan's filenames match.
 | 20 | 280 | 363 | `y_speed` | `0x0000` | `0x00A8` | true | C |
 
 Workstream-cause legend:
-- **C** - Tails-carry intro (first ~300-600 frames of CNZ1)
+- **C** - Tails-carry intro (the intro arc / carry-drop window, roughly the first
+  ~600 frames of CNZ1 while Sonic is riding Tails and bouncing into the first
+  set of bumpers)
 - **D** - CNZ1 mini-boss
 - **E** - CNZ2 end-boss
 - **F** - Knuckles cutscenes
@@ -67,21 +70,25 @@ Workstream-cause legend:
 
 ## Likely causes (hypothesis - verify during C-G workstreams)
 
-- **Frames 1-~300: Tails-carry intro -> workstream C.** Frame 1's `x_speed`
+- **Frames 1-~600: Tails-carry intro -> workstream C.** Frame 1's `x_speed`
   mismatch (`0x0100` expected, `0x0000` actual) is the dead give-away: the ROM
   starts with Sonic riding Tails's grasp, moving right at constant speed while
   Tails descends. The engine spawns Sonic free-standing at
   `(0x0018, 0x0600)` instead of being carried, so every field that depends on
-  the intro arc diverges. All 20 first divergences live inside this window and
-  are flagged `C`.
-- **Remaining ~1615 errors:** will need triage after workstream C fixes the
-  intro. Early evidence (from the broader JSON) suggests large spans of cascaded
-  divergences extending into at least frame 654 (`x_speed` span 292-654,
-  363 frames). The test only reached a portion of the 42253 trace frames before
-  hitting its error threshold, so later divergences (CNZ1 mini-boss around
-  camera X ~0x3000, CNZ2 arena post-act-transition ~16669-17276, Knuckles
-  cutscenes, stragglers) are still unrecorded in this baseline - the report
-  cuts off after the engine starts diverging in the first second of play.
+  the intro arc diverges. All 20 first divergences *start* in the first 280
+  frames (row #20 starts at frame 280) and are flagged `C`; several of them
+  extend past the 300-frame mark (for example, row #20 runs to frame 363),
+  consistent with the broader carry-intro window used by workstream C.
+- **Remaining ~1615 errors:** the JSON report actually runs through to
+  frame 41937 (out of 42253), so divergences from across the whole playthrough
+  are captured - it is the *first-20 summary* that stops early, not the report
+  itself. After workstream C fixes the intro, re-run the test and re-triage:
+  the top-20 window should shift into CNZ1 proper (post-carry physics,
+  first-act objects), then into the CNZ1 mini-boss (around camera X ~0x3000),
+  the CNZ2 arena post-act-transition (~frames 16669-17276), Knuckles
+  cutscenes, and stragglers. Cascading ripples from the intro currently mask
+  those later workstreams in the top-20, which is why a clean post-C re-capture
+  is the next hand-off.
 
 ## Next step
 
