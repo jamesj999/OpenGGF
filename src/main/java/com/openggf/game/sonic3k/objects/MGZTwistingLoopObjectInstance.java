@@ -22,12 +22,16 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
     private static final int CAPTURE_X_BIAS = 0x24;
     private static final int CAPTURE_Y_RANGE = 0x20;
     private static final int ACTIVE_RELEASE_COOLDOWN = 8;
+    private static final int CONVEX_RELEASE_FRAMES = 3;
     private static final int JUMP_RELEASE_FRAMES = 8;
     private static final int JUMP_RELEASE_X_VEL = 0x800;
     private static final int JUMP_RELEASE_Y_VEL = -0x200;
     private static final int JUMP_RELEASE_GRAVITY = 0x38;
     private static final int MIN_GROUND_SPEED = 0x400;
     private static final int MAX_GROUND_SPEED = 0x0C00;
+    // OpenGGF updates objects before player physics; keep one extra spiral pitch
+    // so the visible exit matches the ROM traversal window on live routes.
+    private static final int RELEASE_TURN_PITCH = 0x10;
     private static final int DESCENT_PROGRESS_SCALE = 0xC0;
     private static final int ANGLE_PROGRESS_SCALE = 0x155;
     private static final int CAPTURE_ANIMATION = 0;
@@ -43,6 +47,7 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int sidePhaseOffset;
         int releaseFrames;
         int cooldownFrames;
+        int convexReleaseFrames;
     }
 
     private final int centerX;
@@ -89,6 +94,12 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             updateReleasedPlayer(frameCounter, player, state);
             return;
         }
+        if (state.convexReleaseFrames > 0) {
+            state.convexReleaseFrames--;
+            if (state.convexReleaseFrames == 0 && player != null) {
+                player.setStickToConvex(false);
+            }
+        }
         if (state.cooldownFrames > 0) {
             state.cooldownFrames--;
         }
@@ -130,10 +141,11 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         }
 
         state.active = true;
-        state.progressFixed = dy << 16;
+        state.progressFixed = (dy << 16) | player.getYSubpixelRaw();
         state.sidePhaseOffset = dx < 0 ? 0x80 : 0x00;
         state.releaseFrames = 0;
         state.cooldownFrames = 0;
+        state.convexReleaseFrames = 0;
 
         if (player.isOnObject()) {
             ObjectServices svc = tryServices();
@@ -148,10 +160,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         player.setOnObject(true);
         player.setAir(false);
         player.setPushing(false);
-        player.setRolling(false);
-        player.setRollingJump(false);
-        player.setJumping(false);
-        player.restoreDefaultRadii();
         player.setAnimationId(CAPTURE_ANIMATION);
         player.setHighPriority(false);
         player.setXSpeed((short) 0);
@@ -179,26 +187,12 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         }
 
         int currentProgressPixels = state.progressFixed >> 16;
-        if (currentProgressPixels >= captureThreshold) {
+        if (currentProgressPixels >= (captureThreshold + RELEASE_TURN_PITCH)) {
             releaseCapturedPlayer(frameCounter, player, state, false);
             return;
         }
 
-        int groundSpeed = player.getGSpeed();
-        int speedSign = (groundSpeed < 0) ? -1 : 1;
-        int speedMagnitude = Math.abs(groundSpeed);
-        if (speedMagnitude < MIN_GROUND_SPEED) {
-            speedMagnitude = MIN_GROUND_SPEED;
-        } else if (speedMagnitude > MAX_GROUND_SPEED) {
-            speedMagnitude = MAX_GROUND_SPEED;
-        }
-        player.setGSpeed((short) (speedSign * speedMagnitude));
-
-        int ySpeed = Math.max(player.getYSpeed() & 0xFFFF, speedMagnitude);
-        if (ySpeed > MAX_GROUND_SPEED) {
-            ySpeed = MAX_GROUND_SPEED;
-        }
-        player.setYSpeed((short) ySpeed);
+        int ySpeed = updateCapturedGroundMotion(player);
 
         state.progressFixed += ySpeed * DESCENT_PROGRESS_SCALE;
         int progressPixels = state.progressFixed >> 16;
@@ -207,16 +201,43 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int cosine = TrigLookupTable.cosHex(phase);
         int horizontalOffset = (cosine >> 3) + ((player.getYRadius() * cosine) >> 8);
 
-        player.setCentreX((short) (centerX + horizontalOffset));
-        player.setCentreY((short) (centerY + progressPixels));
+        player.setX((short) (centerX + horizontalOffset - (player.getWidth() / 2)));
+        player.setY((short) (centerY + progressPixels - (player.getHeight() / 2)));
         player.setAnimationId(CAPTURE_ANIMATION);
-        player.setRolling(false);
         player.setOnObject(true);
         player.setAir(false);
-        player.restoreDefaultRadii();
         player.setHighPriority(phaseBase < 0x80);
         applyTwistFrame(player, phaseBase);
-        player.setAngle((byte) ((flipped ? 0x80 : 0x00) + phase));
+    }
+
+    private int updateCapturedGroundMotion(AbstractPlayableSprite player) {
+        int groundSpeed = player.getGSpeed();
+        // The ROM still runs the roll-speed ground-velocity step while this
+        // object owns bit 6 of object_control, so decay inertia locally here.
+        if (!player.isLeftPressed() && !player.isRightPressed()) {
+            int friction = player.getFriction() & 0xFFFF;
+            if (groundSpeed > 0) {
+                groundSpeed = Math.max(0, groundSpeed - friction);
+            } else if (groundSpeed < 0) {
+                groundSpeed = Math.min(0, groundSpeed + friction);
+            }
+        }
+
+        int speedSign = (groundSpeed < 0) ? -1 : 1;
+        int speedMagnitude = Math.abs(groundSpeed);
+        if (speedMagnitude < MIN_GROUND_SPEED) {
+            speedMagnitude = MIN_GROUND_SPEED;
+        }
+        if (speedMagnitude > MAX_GROUND_SPEED) {
+            speedMagnitude = MAX_GROUND_SPEED;
+        }
+
+        int adjustedGroundSpeed = speedSign * speedMagnitude;
+        int adjustedYSpeed = speedMagnitude;
+        player.setGSpeed((short) adjustedGroundSpeed);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) adjustedYSpeed);
+        return adjustedYSpeed;
     }
 
     private void applyTwistFrame(AbstractPlayableSprite player, int phaseBase) {
@@ -233,6 +254,7 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         state.active = false;
         state.cooldownFrames = ACTIVE_RELEASE_COOLDOWN;
         state.releaseFrames = jumpedOut ? JUMP_RELEASE_FRAMES : 0;
+        state.convexReleaseFrames = jumpedOut ? 0 : CONVEX_RELEASE_FRAMES;
 
         if (player == null) {
             return;
@@ -243,11 +265,19 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         if (jumpedOut) {
             player.setObjectControlled(true);
         } else {
-            player.releaseFromObjectControl(frameCounter);
+            player.deferObjectControlRelease();
         }
+        short centreXBeforeRelease = player.getCentreX();
+        short centreYBeforeRelease = player.getCentreY();
+
         player.setPushing(false);
+        if (flipped) {
+            player.setAngle((byte) (player.getAngle() + 0x80));
+        }
         player.setRolling(false);
         player.restoreDefaultRadii();
+        player.setX((short) (centreXBeforeRelease - (player.getWidth() / 2)));
+        player.setY((short) (centreYBeforeRelease - (player.getHeight() / 2)));
         player.setAnimationId(RELEASE_ANIMATION);
         player.setHighPriority(false);
         player.setOnObject(false);
@@ -263,9 +293,11 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             player.setXSpeed((short) xVel);
             player.setYSpeed((short) JUMP_RELEASE_Y_VEL);
             player.setDirection(xVel < 0 ? Direction.LEFT : Direction.RIGHT);
+            player.setStickToConvex(false);
             player.suppressNextJumpPress();
         } else {
             player.setAir(false);
+            player.setStickToConvex(true);
         }
     }
 
