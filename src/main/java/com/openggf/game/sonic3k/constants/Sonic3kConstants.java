@@ -1647,6 +1647,47 @@ public class Sonic3kConstants {
     // ROM: s3.asm:118453, 325 compressed bytes -> 512 bytes (8 tiles).
     public static final int ART_NEM_VERTICAL_SPRING_ADDR = 0x35C988;
 
+    // =====================================================================
+    // Tails-carry-Sonic intro (CNZ1 and future zones)
+    // ROM refs: sonic3k.asm loc_13A32 (CNZ trigger), loc_13FC2/loc_13FFA
+    // (carry init + body), sub_1459E (Sonic pickup), Tails_Carry_Sonic
+    // (per-frame parentage). All addresses < 0x200000 (S&K-side only).
+    // =====================================================================
+
+    /** Zone-and-act word value that triggers the CNZ1 Tails-carry intro. */
+    public static final int CARRY_TRIGGER_ZONE_ACT_WORD = 0x0300;
+
+    /** Tails's spawn X after the CNZ1 trigger. ROM: loc_13A32. */
+    public static final int CARRY_INIT_TAILS_X = 0x0018;
+
+    /** Tails's spawn Y after the CNZ1 trigger. ROM: loc_13A32. */
+    public static final int CARRY_INIT_TAILS_Y = 0x0600;
+
+    /** Constant horizontal flight velocity while carrying. ROM: loc_13FC2 x_vel write. */
+    public static final short CARRY_INIT_TAILS_X_VEL = (short) 0x0100;
+
+    /** Sonic hangs this many pixels below Tails's centre. ROM: sub_1459E y_pos + 0x1C. */
+    public static final int CARRY_DESCEND_OFFSET_Y = 0x1C;
+
+    /** Level_frame_counter mask that gates synthetic right-press injection.
+     *  Every 32 frames: (Level_frame_counter + 1) & 0x1F == 0. ROM: loc_13FFA. */
+    public static final int CARRY_INPUT_INJECT_MASK = 0x1F;
+
+    /** Cooldown frames after A/B/C jump release. ROM: Tails_Carry_Sonic line 27241. */
+    public static final int CARRY_COOLDOWN_JUMP_RELEASE = 0x12;
+
+    /** Cooldown frames after external-vel latch-mismatch release. ROM: loc_14466. */
+    public static final int CARRY_COOLDOWN_LATCH_RELEASE = 0x3C;
+
+    /** Post-A/B/C-release y_vel (jump impulse). ROM: Tails_Carry_Sonic line ~27248. */
+    public static final short CARRY_RELEASE_JUMP_Y_VEL = (short) -0x0380;
+
+    /** Post-A/B/C-release x_vel magnitude (sign applied from face direction). */
+    public static final short CARRY_RELEASE_JUMP_X_VEL = (short) 0x0200;
+
+    /** Sonic's `anim` byte while carried. ROM: sub_1459E writes 0x2200 word (high byte 0x22). */
+    public static final int CARRY_SONIC_ANIM_BYTE = 0x22;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {
