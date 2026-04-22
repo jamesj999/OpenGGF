@@ -221,21 +221,19 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        checkpointAll();
-
-        // Routine 2 (Elev_Platform): just runs PlatformObject check via SolidObjectProvider.
-        // Standing detection is automatic via ObjectManager.
-        // When player stands, ObjectManager sets routine to 4.
-
         if (routine == 4) {
-            // Routine 4 (Elev_Action): execute movement types
+            // ROM Elev_Action runs ExitPlatform, then movement, then MvSonicOnPtfm2.
+            // Resolve the solid contact after movement so the riding player is
+            // snapped to the platform's moved position in the same frame.
             executeActionTypes(player);
+            updateDynamicSpawn(x, y);
+            checkpointAll();
         } else if (routine == 2) {
-            // Routine 2 (Elev_Platform): runs Elev_Types for movement
+            // Routine 2 (Elev_Platform): PlatformObject runs before Elev_Types.
+            checkpointAll();
             executeWaitingTypes(player);
+            updateDynamicSpawn(x, y);
         }
-
-        updateDynamicSpawn(x, y);
     }
 
     /**
