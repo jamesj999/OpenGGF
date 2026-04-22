@@ -5,6 +5,7 @@ import com.openggf.game.BonusStageProvider;
 import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.level.LevelManager;
+import com.openggf.sprites.managers.SpriteManager;
 
 /**
  * Canonical level-mode frame update sequence.
@@ -142,5 +143,11 @@ public final class LevelFrameStep {
 
         // 6. Level scroll / parallax / animation update.
         wrapper.wrap("level", levelManager::update);
+
+        // 7. Cache BuildSprites on-screen results for next frame's logic.
+        SpriteManager spriteManager = GameServices.spritesOrNull();
+        if (spriteManager != null) {
+            spriteManager.refreshPlayableRenderFlags(camera);
+        }
     }
 }

@@ -105,6 +105,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         // Entry format matches ROM: word 0 = Ctrl_1_Logical (input), word 1 = status
         private short[] inputHistory = new short[64];
         private byte[] statusHistory = new byte[64];
+        /** Current frame logical controller state (ROM: Ctrl_1_Logical). */
+        private short logicalInputState = 0;
 
         // Input bitmask constants (matching Mega Drive controller layout)
         public static final int INPUT_UP    = 0x01;
@@ -211,6 +213,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * When true, AnglePos skips terrain collision - the object handles positioning.
          */
         protected boolean onObject = false;
+
+        /**
+         * ROM-style latched solid interaction object id.
+         * Mirrors the object id resolved from the player's SST {@code interact} slot,
+         * which persists even after {@code status.on_object} is cleared.
+         */
+        protected int latchedSolidObjectId = 0;
 
         /**
          * Whether to stick to convex surfaces even at low speeds.
@@ -342,6 +351,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         private PlayerSpriteRenderer spriteRenderer;
         private int mappingFrame = 0;
+        private int renderFlagWidthPixels = 0x18;
+        private boolean renderFlagOnScreen = true;
+        private boolean renderFlagOnScreenValid = false;
         private int animationFrameCount = 0;
         private SpriteAnimationProfile animationProfile;
         private SpriteAnimationSet animationSet;
@@ -417,6 +429,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * When true, user inputs are ignored (Control_Locked in ROM).
          */
         protected boolean controlLocked = false;
+        private boolean hasQueuedControlLockedState = false;
+        private boolean queuedControlLocked = false;
+        private boolean hasQueuedForceInputRightState = false;
+        private boolean queuedForceInputRight = false;
         /**
          * Movement lock timer (ROM: move_lock). When > 0, player input is ignored
          * and the player cannot move. Decremented each frame.
@@ -603,6 +619,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.objectMappingFrameControl = false;
                 this.forcedAnimationId = -1;
                 this.onObject = false;
+                this.latchedSolidObjectId = 0;
                 this.sliding = false;
                 this.stickToConvex = false;
                 // Reset ground mode to GROUND - critical for sensor direction on level load.
@@ -631,6 +648,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.forcedInputMask = 0;
                 this.forcedAnimationId = -1;
                 this.controlLocked = false;
+                this.hasQueuedControlLockedState = false;
+                this.queuedControlLocked = false;
+                this.hasQueuedForceInputRightState = false;
+                this.queuedForceInputRight = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
                 this.hidden = false;
@@ -638,6 +659,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.jumpInputPressed = false;
                 this.jumpInputJustPressed = false;
                 this.jumpInputPressedPreviousFrame = false;
+                this.upInputPressed = false;
+                this.downInputPressed = false;
+                this.leftInputPressed = false;
+                this.rightInputPressed = false;
+                this.logicalInputState = 0;
+                this.renderFlagWidthPixels = 0x18;
+                this.renderFlagOnScreen = true;
+                this.renderFlagOnScreenValid = false;
                 this.movementInputActive = false;
                 this.spiralActiveFrame = Integer.MIN_VALUE;
                 this.flipAngle = 0;
@@ -912,6 +941,31 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.mappingFrame = Math.max(0, mappingFrame);
         }
 
+        /**
+         * ROM parity helper for BuildSprites / render_flags.on_screen culling.
+         * Sonic 2 Obj01/Obj02 init both set width_pixels(a0) = $18.
+         */
+        public int getRenderFlagWidthPixels() {
+                return renderFlagWidthPixels;
+        }
+
+        public void setRenderFlagWidthPixels(int renderFlagWidthPixels) {
+                this.renderFlagWidthPixels = Math.max(0, renderFlagWidthPixels);
+        }
+
+        public boolean isRenderFlagOnScreen() {
+                return renderFlagOnScreen;
+        }
+
+        public boolean hasRenderFlagOnScreenState() {
+                return renderFlagOnScreenValid;
+        }
+
+        public void setRenderFlagOnScreen(boolean renderFlagOnScreen) {
+                this.renderFlagOnScreen = renderFlagOnScreen;
+                this.renderFlagOnScreenValid = true;
+        }
+
         public int getAnimationFrameCount() {
                 return animationFrameCount;
         }
@@ -1131,6 +1185,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setOnObject(boolean onObject) {
                 this.onObject = onObject;
+        }
+
+        public int getLatchedSolidObjectId() {
+                return latchedSolidObjectId;
+        }
+
+        public void setLatchedSolidObjectId(int latchedSolidObjectId) {
+                this.latchedSolidObjectId = latchedSolidObjectId & 0xFF;
         }
 
         public boolean isSliding() {
@@ -1858,6 +1920,48 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
+         * Queues a Control_Locked state change for the next playable frame.
+         * Use this for ROM globals written by later SST slots after Sonic's
+         * own control routine has already run this frame.
+         */
+        public void queueControlLockedForNextFrame(boolean controlLocked) {
+                this.hasQueuedControlLockedState = true;
+                this.queuedControlLocked = controlLocked;
+        }
+
+        /**
+         * Queues the signpost-style forced-right latch for the next playable frame.
+         * This mirrors scripts that overwrite Ctrl_1_Logical after Sonic has
+         * already consumed input for the current frame.
+         */
+        public void queueForceInputRightForNextFrame(boolean forceInputRight) {
+                this.hasQueuedForceInputRightState = true;
+                this.queuedForceInputRight = forceInputRight;
+        }
+
+        /**
+         * Applies any queued control/input latch changes at the start of the
+         * current playable frame.
+         */
+        public void applyQueuedControlStateForFrameStart() {
+                if (hasQueuedControlLockedState) {
+                        this.controlLocked = queuedControlLocked;
+                        hasQueuedControlLockedState = false;
+                }
+                if (hasQueuedForceInputRightState) {
+                        setForceInputRight(queuedForceInputRight);
+                        hasQueuedForceInputRightState = false;
+                }
+        }
+
+        public void clearQueuedControlState() {
+                hasQueuedControlLockedState = false;
+                queuedControlLocked = false;
+                hasQueuedForceInputRightState = false;
+                queuedForceInputRight = false;
+        }
+
+        /**
          * Gets the movement lock timer (ROM: move_lock).
          * When > 0, player input is ignored.
          */
@@ -2027,6 +2131,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.downInputPressed = down;
                 this.leftInputPressed = left;
                 this.rightInputPressed = right;
+        }
+
+        /**
+         * Publishes the logical pad state used by movement this frame.
+         * ROM ref: Sonic_RecordPos stores Ctrl_1_Logical, not the raw held-button state.
+         */
+        public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump) {
+                short input = 0;
+                if (up) input |= INPUT_UP;
+                if (down) input |= INPUT_DOWN;
+                if (left) input |= INPUT_LEFT;
+                if (right) input |= INPUT_RIGHT;
+                if (jump) input |= INPUT_JUMP;
+                this.logicalInputState = input;
+        }
+
+        public void clearLogicalInputState() {
+                this.logicalInputState = 0;
         }
 
         /**
@@ -2204,12 +2326,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
                 applyStandingRadii(false);
 
-                // Set our entire history for x and y to be the starting position so if
-                // the player spindashes immediately the camera effect won't be b0rked.
-                // ROM: Sonic_Pos_Record_Buf has 64 entries
+                // ROM stores delayed player history in centre coordinates. Keeping the
+                // engine buffer in the same space avoids replay drift when the current
+                // hitbox size differs from the historical one (for example after rolling).
                 for (short i = 0; i < 64; i++) {
-                        xHistory[i] = x;
-                        yHistory[i] = y;
+                        xHistory[i] = getCentreX();
+                        yHistory[i] = getCentreY();
                         inputHistory[i] = 0;
                         statusHistory[i] = 0;
                 }
@@ -2414,6 +2536,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 pinballSpeedLock = false;
                 objectControlled = false;
                 onObject = false;           // Clear "standing on object" flag
+                latchedSolidObjectId = 0;
                 stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
         }
 
@@ -2549,6 +2672,31 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return yHistory;
         }
 
+        /**
+         * Restores the ROM-style follower history buffers directly.
+         * Used by trace replay bootstrap so CPU sidekicks can read the same
+         * delayed player history window the original game had at frame 0.
+         */
+        public void hydrateRecordedHistory(short[] xHistory, short[] yHistory,
+                                          short[] inputHistory, byte[] statusHistory,
+                                          int historyPos) {
+                if (xHistory == null || yHistory == null || inputHistory == null || statusHistory == null) {
+                        throw new IllegalArgumentException("History buffers must be non-null");
+                }
+                if (xHistory.length != this.xHistory.length
+                        || yHistory.length != this.yHistory.length
+                        || inputHistory.length != this.inputHistory.length
+                        || statusHistory.length != this.statusHistory.length) {
+                        throw new IllegalArgumentException("History buffers must all have length "
+                                + this.xHistory.length);
+                }
+                System.arraycopy(xHistory, 0, this.xHistory, 0, this.xHistory.length);
+                System.arraycopy(yHistory, 0, this.yHistory, 0, this.yHistory.length);
+                System.arraycopy(inputHistory, 0, this.inputHistory, 0, this.inputHistory.length);
+                System.arraycopy(statusHistory, 0, this.statusHistory, 0, this.statusHistory.length);
+                this.historyPos = (byte) historyPos;
+        }
+
         public boolean isCpuControlled() {
                 return cpuControlled;
         }
@@ -2613,6 +2761,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         return;
                 }
 
+                boolean oldRolling = this.rolling;
+                int beforeCentreX = getCentreX() & 0xFFFF;
+                int beforeCentreY = getCentreY() & 0xFFFF;
+                int beforeY = getY() & 0xFFFF;
+                int beforeHeight = getHeight();
+                int beforeXRadius = getXRadius();
+                int beforeYRadius = getYRadius();
+
                 // Update visual dimensions (no position adjustment)
                 if (GroundMode.CEILING.equals(runningMode) || GroundMode.GROUND.equals(runningMode)) {
                         int newHeight = rolling ? rollHeight : runHeight;
@@ -2630,6 +2786,70 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
 
                 this.rolling = rolling;
+                traceS3kAizRollProbe(
+                        oldRolling,
+                        rolling,
+                        beforeCentreX,
+                        beforeCentreY,
+                        beforeY,
+                        beforeHeight,
+                        beforeXRadius,
+                        beforeYRadius);
+        }
+
+        private void traceS3kAizRollProbe(boolean oldRolling,
+                                          boolean newRolling,
+                                          int beforeCentreX,
+                                          int beforeCentreY,
+                                          int beforeY,
+                                          int beforeHeight,
+                                          int beforeXRadius,
+                                          int beforeYRadius) {
+                if (!Boolean.getBoolean("s3k.aiz.rollprobe")) {
+                        return;
+                }
+                LevelManager levelManager = GameServices.level();
+                if (levelManager == null || levelManager.getObjectManager() == null) {
+                        return;
+                }
+                int frameCounter = levelManager.getObjectManager().getFrameCounter();
+                int centreX = getCentreX() & 0xFFFF;
+                int centreY = getCentreY() & 0xFFFF;
+                if (centreX < 0x1900 || centreX > 0x1990 || centreY < 0x0380 || centreY > 0x03E0) {
+                        return;
+                }
+                StackTraceElement caller = null;
+                StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+                for (StackTraceElement element : stack) {
+                        if (!element.getClassName().equals(AbstractPlayableSprite.class.getName())
+                                        && !element.getClassName().equals(Thread.class.getName())) {
+                                caller = element;
+                                break;
+                        }
+                }
+                String callerSummary = caller == null
+                                ? "<unknown>"
+                                : caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
+                System.out.printf(
+                                "s3k-aiz-rollprobe frame=%d caller=%s roll=%s->%s centre=(%04X,%04X)->(%04X,%04X) y=%04X->%04X h=%d->%d rad=(%d,%d)->(%d,%d) air=%s angle=%02X%n",
+                                frameCounter,
+                                callerSummary,
+                                oldRolling ? "1" : "0",
+                                newRolling ? "1" : "0",
+                                beforeCentreX,
+                                beforeCentreY,
+                                getCentreX() & 0xFFFF,
+                                centreY,
+                                beforeY,
+                                getY() & 0xFFFF,
+                                beforeHeight,
+                                getHeight(),
+                                beforeXRadius,
+                                beforeYRadius,
+                                getXRadius(),
+                                getYRadius(),
+                                getAir(),
+                                getAngle() & 0xFF);
         }
 
         public boolean getRollingJump() {
@@ -2848,7 +3068,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (desired < 0) {
                         desired += xHistory.length;
                 }
-                return (short) (xHistory[desired] + (width / 2));
+                return xHistory[desired];
         }
 
         public final short getCentreY(int framesBehind) {
@@ -2856,7 +3076,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (desired < 0) {
                         desired += yHistory.length;
                 }
-                return (short) (yHistory[desired] + (height / 2));
+                return yHistory[desired];
         }
 
         /**
@@ -2865,8 +3085,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * so the camera delay looks back to "right here" instead of stale positions.
          */
         public void resetPositionHistory() {
-                short currentX = getX();
-                short currentY = getY();
+                short currentX = getCentreX();
+                short currentY = getCentreY();
                 for (int i = 0; i < xHistory.length; i++) {
                         xHistory[i] = currentX;
                         yHistory[i] = currentY;
@@ -3032,17 +3252,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 } else {
                         historyPos++;
                 }
-                xHistory[historyPos] = xPixel;
-                yHistory[historyPos] = yPixel;
+                xHistory[historyPos] = getCentreX();
+                yHistory[historyPos] = getCentreY();
 
-                // ROM: Sonic_Stat_Record_Buf records input buttons and status each frame
-                short input = 0;
-                if (upInputPressed) input |= INPUT_UP;
-                if (downInputPressed) input |= INPUT_DOWN;
-                if (leftInputPressed) input |= INPUT_LEFT;
-                if (rightInputPressed) input |= INPUT_RIGHT;
-                if (jumpInputPressed) input |= INPUT_JUMP;
-                inputHistory[historyPos] = input;
+                // ROM: Sonic_Stat_Record_Buf records Ctrl_1_Logical each frame.
+                inputHistory[historyPos] = logicalInputState;
 
                 byte status = 0;
                 if (getDirection() == Direction.LEFT) status |= STATUS_FACING_LEFT;
