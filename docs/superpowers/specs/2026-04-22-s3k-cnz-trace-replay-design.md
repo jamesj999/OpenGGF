@@ -73,29 +73,41 @@ Each of C-G, when dispatched, operates inside a git worktree to avoid colliding 
 
 ### 5.2 Detection
 
-Soft-reset to title is visible as a Game_Mode transition from `0x0C` (level) to the title-screen mode in short order, without passing through the usual level-complete / signpost / score tally game modes. The exact title-screen Game_Mode must be confirmed from the disassembly (likely `0x00` or `0x04`). Identification checklist:
+Soft-reset to title is visible as a Game_Mode transition from `0x0C` (level) to the title-screen mode in short order, without passing through the usual level-complete / signpost / score tally game modes. `GAMEMODE_LEVEL = 0x0C` is already defined in the recorder (`s3k_trace_recorder.lua:100`) and `AbstractTraceReplayTest.resolveS3kTraceGameMode` already knows title-screen mode `0x00` (`AbstractTraceReplayTest.java:507-527`). Working hypothesis: title = `0x00`, level-select = `0x08`, level = `0x0C`. Identification checklist:
 
-- Confirm the title-screen Game_Mode constant via `RomOffsetFinder --game s3k search GameMode` and/or reading `sonic3k.asm` near `MainGameLoop` dispatch.
-- Add constants for: level gameplay mode (0x0C, known), title screen mode (to confirm), level-select mode (0x08, known).
+- Confirm the title-screen Game_Mode constant via `RomOffsetFinder --game s3k search GameModeArray` and/or `search MainGameLoop`, cross-referenced with `AbstractTraceReplayTest.resolveS3kTraceGameMode`. Don't assume - check.
+- Add constants for: `GAMEMODE_TITLE`, `GAMEMODE_LEVEL_SEL` (and re-use existing `GAMEMODE_LEVEL`).
 - Reset trigger: we were recording (in gameplay), then Game_Mode transitions to title-screen-mode directly within <= some small frame window without passing through level-complete indicators. Simpler formulation: "Game_Mode was 0x0C, is now title-screen-mode" AND the Sonic death/results/score-tally flags were not set before the transition. The heuristic does not have to be perfect - the reference recording is deterministic, so once it works on this BK2 we pin it.
 
 ### 5.3 File implementation
 
 - Edit `tools/bizhawk/s3k_trace_recorder.lua`. All edits additive: new profile table entry, new helper functions for reset detection, conditional branches that only run when the new profile is active. Do not change the behaviour of `gameplay_unlock` or `aiz_end_to_end`.
-- Discarding the in-progress recording means truncating the in-memory buffers, resetting frame counters, re-opening (or just overwriting) the output files. Easiest approach: buffer all frames in memory until finalisation, then write once at the end; a reset clears the buffer. Safer for partial runs: write to a temp file while recording, rename on finalise, delete on reset. Given typical CNZ recording size is <50 MB, in-memory buffering is acceptable.
+- Discarding the in-progress recording means truncating the in-memory buffers, resetting frame counters, re-opening (or just overwriting) the output files. Easiest approach: buffer all frames in memory until finalisation, then write once at the end; a reset clears the buffer. Safer for partial runs: write to a temp file while recording, rename on finalise, delete on reset. Given typical CNZ recording size is <50 MB CSV, <150 MB JSONL, on-disk-with-delete-on-reset is the safer option (in-memory buffering of 150 MB is wasteful for a Lua script inside the BizHawk process). Use `os.remove()` on the three outputs at reset, then overwrite normally once re-armed.
+- **Metadata parity:** the new profile must write the same metadata fields the `aiz_end_to_end` profile does (`rom_checksum`, `notes`, `characters`, `main_character`, `sidekicks`) so Java-side loaders get a consistent schema. Add a single new top-level metadata field `trace_profile` (string) equal to `OGGF_S3K_TRACE_PROFILE` so downstream code can identify which profile produced the fixture. This is a backwards-compatible addition (existing loaders ignore unknown fields).
+- **Recorder is read-only during the armed window.** The recorder must not poke RAM, load savestates, issue resets, or otherwise alter emulator state during a recording. Doing so would invalidate every other agent's fixture that shares the recorder.
 
-### 5.4 Coordination risk with AIZ trace agent
+### 5.4 Considered alternatives
+
+An earlier iteration considered a `OGGF_S3K_TRACE_START_ZONE=3` gate (don't start recording until the player enters CNZ) instead of the discard-on-reset heuristic. Rejected because:
+- The user explicitly asked for a "detect reset to title and discard" mechanism so agents reviewing the recording behaviour see the intent in the control flow.
+- The reset mechanism is more robust to BK2 retiming (a one-second shift in the level-select cheat timing doesn't require updating an environment variable).
+- Both mechanisms end up with the same fixture, but the reset mechanism lets us verify the actual reset path is exercised in the recording (useful signal for future multi-level trace work).
+
+If the reset heuristic proves flaky, we fall back to `OGGF_S3K_TRACE_START_BK2_FRAME=N` as an escape hatch. The Lua should support both; the test profile defaults to reset-detection and sets no start frame.
+
+### 5.5 Coordination risk with AIZ trace agent
 
 The AIZ agent is actively iterating on `s3k_trace_recorder.lua`. Mitigations:
 - Keep our additions inside clearly-marked blocks at the bottom of the file where possible.
 - Do the edit in one commit, push immediately, tell the user so they can inform the AIZ agent.
 - If a merge conflict arises, prefer additive resolution (keep both agents' additions).
 - If the AIZ agent has already added a `level_gated_reset_aware` or similar named profile, reuse their machinery rather than duplicating.
+- **Additive-only is best-effort.** If another agent has rewritten `should_start_recording()` so that an additive replace-block fails, do *not* overwrite their changes; rebase the new branch on top of theirs, re-apply minimally, and re-commit.
 
-### 5.5 Validation
+### 5.6 Validation
 
-- Run the new profile against the CNZ BK2 and confirm the AIZ1-then-reset prefix is discarded, CNZ frames are captured, metadata `zone_id = 3`.
-- Run the existing AIZ end-to-end BK2 with `aiz_end_to_end` profile and confirm output is byte-identical to the current fixture (no behavioural regression).
+- Run the new profile against the CNZ BK2 and confirm the AIZ1-then-reset prefix is discarded, CNZ frames are captured, metadata `zone_id = 3` and `trace_profile = "level_gated_reset_aware"`.
+- Run the existing AIZ end-to-end BK2 with `aiz_end_to_end` profile and confirm output is byte-identical to the current fixture (no behavioural regression). "Byte-identical" means `physics.csv` and `aux_state.jsonl` diff clean against `HEAD~1`; `metadata.json` may gain the new `trace_profile` field and a `recording_date` bump, which we accept.
 
 ## 6. Workstream B: Trace fixture + test scaffold
 
@@ -111,9 +123,22 @@ Copy outputs to `src/test/resources/traces/s3k/cnz/`:
 - `aux_state.jsonl`
 - `metadata.json`
 
-Commit all four files (BK2 already present + three recorder outputs). CSV and JSONL are not huge and are test fixtures, so they belong in the repo like the AIZ fixture does.
+Commit all four files (BK2 already present + three recorder outputs). CSV typically stays under 10 MB, JSONL can approach 150 MB for a two-act run - above GitHub's 50 MB large-file warning but below the 100 MB hard cap (confirm post-recording; if a single file exceeds 100 MB, use Git LFS or truncate the frame range).
 
-### 6.2 Test scaffold
+### 6.2 Minimum checkpoint skeleton (required for elastic window)
+
+`S3kElasticWindowController` synchronises on named aux-stream checkpoints; with zero CNZ checkpoints emitted, strict mode runs for the entire trace and the test has no way to tolerate tiny frame-offset drift between recorder and replay. The recorder's `emit_s3k_semantic_events()` must emit at least:
+
+- `gameplay_start` - first frame where `Game_Mode == 0x0C` and zone == CNZ.
+- `cnz1_miniboss_arena_lock` - camera bounds narrow to miniboss arena (detect via `Dynamic_Resize` state or camera MaxX drop).
+- `act_transition_to_cnz2` - zone stays CNZ, act flips to 1, player position snaps to act-2 spawn.
+- `cnz2_knuckles_cutscene_start` - Knuckles cutscene routine routine secondary transitions.
+- `cnz2_endboss_arena_lock` - end-boss camera bounds engage.
+- `gameplay_end` - last recorded frame (emit when finalising).
+
+These are the minimum set the test needs to engage elastic windows at the right phase boundaries. Additional fine-grained checkpoints (e.g. individual boss-hit frames) can be added later, driven by the divergence report.
+
+### 6.3 Test scaffold
 
 New file `src/test/java/com/openggf/tests/trace/s3k/TestS3kCnzTraceReplay.java`, modelled on `TestS3kAizTraceReplay`:
 
@@ -122,18 +147,20 @@ New file `src/test/java/com/openggf/tests/trace/s3k/TestS3kCnzTraceReplay.java`,
 public class TestS3kCnzTraceReplay extends AbstractTraceReplayTest {
     @Override protected SonicGame game() { return SonicGame.SONIC_3K; }
     @Override protected int zone() { return 0x03; }   // CNZ
-    @Override protected int act()  { return 0x00; }   // CNZ1 start
+    @Override protected int act()  { return 0x00; }   // CNZ1 start - 0-based
     @Override protected Path traceDirectory() {
         return Path.of("src/test/resources/traces/s3k/cnz");
     }
 }
 ```
 
+Note the metadata file writes `"act": 1` (1-based) while `act()` returns `0` (0-based). `AbstractTraceReplayTest.validateMetadata` currently validates `game` but not `act`, so this asymmetry is harmless - document it in a comment on the `act()` override.
+
 If `AbstractTraceReplayTest` grows CNZ-specific hooks during iteration (elastic windows around bosses, cutscene tolerance), those hooks should be exposed as `protected` overrides rather than hard-coded CNZ branches. If the AIZ agent has introduced a more general hook surface already, we reuse it.
 
-### 6.3 Baseline run
+### 6.4 Baseline run
 
-First test run will almost certainly fail. We capture the divergence report (`target/trace-reports/s3k_0300_report.json` and `_context.txt`), copy it into `docs/s3k-zones/cnz-trace-divergence-baseline.md`, and commit it as the ground truth for what C-G need to fix.
+First test run will almost certainly fail. We capture the divergence report (`target/trace-reports/s3k_0300_report.json` and `_context.txt`), copy it into `docs/s3k-zones/cnz-trace-divergence-baseline.md`, and commit it as the ground truth for what C-G need to fix. **Archiving the baseline report is a required deliverable, not optional** - without it there is no audit trail for C-G dispatch decisions.
 
 ## 7. Workstreams C-G (lazy)
 
@@ -141,11 +168,11 @@ Specs are written only when a divergence report surfaces the need. Each gets its
 
 ### 7.1 C - Tails-carry entry (Sonic & Tails, level-select launched)
 
-When a team is launched from level select with Tails as sidekick in a two-player session, Tails flies in from off-screen carrying Sonic until a drop-off frame, then separates. This is a generic S3K level-entry sidekick behaviour (not CNZ-specific), so the implementation lives under `game/sonic3k/` shared code rather than CNZ-specific. Disassembly entry point: search `sonic3k.asm` for `Tails_LoadData`, `Carry_Sonic`, or the player-sidekick init inside `Level`. To be located and verified during execution, not now.
+When a team is launched from level select with Tails as sidekick in a two-player session, Tails *may* fly in carrying Sonic. Level-select entry sometimes skips the sidekick-carry routine entirely and spawns both characters in-place; verify the actual behaviour from the BK2 before implementing. Disassembly entry point: start from `RomOffsetFinder --game s3k search Tails_LoadData` and `search LevelEntryTails`, cross-reference `Level` init in `sonic3k.asm`. Implementation lives under `game/sonic3k/` shared code rather than CNZ-specific. **Do not implement speculatively** - dispatch only if the divergence report shows sidekick position drift in the first ~60 frames.
 
 ### 7.2 D - CNZ Act 1 mini-boss (`Obj_CNZMiniboss`)
 
-Existing `CnzMinibossInstance` handles arena lowering and is promoted in the registry. The full state machine (swing up-down, coil retract / extend, player hit windows, hit count, defeat sequence, capsule spawn) is missing. Uses `Sonic3kBossInstance` base class, follows the `s3k-implement-boss` skill.
+Existing `CnzMinibossInstance` + `CnzMinibossScrollControlInstance` + `CnzMinibossTopInstance` live under `game/sonic3k/objects/`. **Verify first** that these factories are actually registered in `Sonic3kObjectRegistry` before claiming they are "promoted" - check via `Grep` for `CnzMinibossInstance` in the registry file. The full state machine (swing up-down, coil retract / extend, player hit windows, hit count, defeat sequence, capsule spawn) is missing. Uses `Sonic3kBossInstance` base class, follows the `s3k-implement-boss` skill.
 
 ### 7.3 E - CNZ Act 2 end-boss (`Obj_CNZEndBoss`)
 
@@ -153,7 +180,7 @@ Existing `CnzEndBossInstance` handles startup presence and defeat handoff only. 
 
 ### 7.4 F - Knuckles cutscene encounters
 
-Search `sonic3k.asm` for `Obj_KnucklesCutscene` / `Obj_Knuckles_CNZ` / `CutsceneKnuckles`. S3K usually has a Knuckles-interferes routine per zone that sets up trap doors, drops rocks, or similar. For CNZ the teleporter route switch already exists (`Sonic3kCNZEvents` handles camera clamping), but if the trace shows a Knuckles object spawn that is not currently spawning, a dedicated cutscene instance is needed.
+Use `RomOffsetFinder --game s3k search KnuxCNZ` and `RomOffsetFinder --game s3k search CutsceneKnuckles` to find the real labels - do NOT guess names like `Obj_KnucklesCutscene`. S3K usually has a Knuckles-interferes routine per zone that sets up trap doors, drops rocks, or similar. For CNZ the teleporter route switch already exists (`Sonic3kCNZEvents` handles camera clamping), but if the trace shows a Knuckles object spawn that is not currently spawning, a dedicated cutscene instance is needed.
 
 ### 7.5 G - Stragglers
 
@@ -168,16 +195,18 @@ Anything the divergence report surfaces that is not covered by C-F: missing badn
 
 ## 9. Risks and unknowns
 
-- **Reset-detection heuristic fragility.** If the title-screen Game_Mode transition looks identical to other transitions in certain edge cases, false discards could happen. Mitigated by keeping the reference recording deterministic and verifying the exact frame ranges against the BK2's Input Log.
-- **Simultaneous edits with AIZ trace agent.** High risk on `s3k_trace_recorder.lua` and `AbstractTraceReplayTest.java`. Mitigated by additive editing, early commits, and handing conflicts to the user to broker.
-- **Trace size.** CNZ1+CNZ2 full run is longer than AIZ1; CSV could approach 5-10 MB, JSONL could approach 50-100 MB. Within repo-acceptable limits but worth verifying.
-- **Boss choreography ROM divergences.** The S3K ROM has subtle RNG sources (player-position-dependent timers) that can cause tiny but compounding divergences. The existing `S3kElasticWindowController` exists for exactly this - we use it if needed for boss phases, documenting usage in `docs/S3K_KNOWN_DISCREPANCIES.md`.
+- **Reset-detection heuristic fragility.** If the title-screen Game_Mode transition looks identical to other transitions in certain edge cases, false discards could happen. Mitigated by keeping the reference recording deterministic and verifying the exact frame ranges against the BK2's Input Log. Escape hatch: `OGGF_S3K_TRACE_START_BK2_FRAME=N` (see §5.4).
+- **Simultaneous edits with AIZ trace agent.** High risk on `s3k_trace_recorder.lua`, `AbstractTraceReplayTest.java`, `S3kElasticWindowController.java`, and `S3kReplayCheckpointDetector.java`. The latter two will have *semantic* merge conflicts as both agents add checkpoints and phase definitions - textual conflicts are the easy case. Mitigate by additive editing, early commits, and running both `TestS3kAizTraceReplay` and `TestS3kCnzTraceReplay` on merge.
+- **Trace size.** CNZ1+CNZ2 full run is longer than AIZ1; CSV could approach 5-10 MB, JSONL could approach 80-150 MB - above GitHub's 50 MB large-file warning. Measure post-recording; if a single file exceeds 100 MB, evaluate Git LFS vs frame-range truncation before committing.
+- **Boss choreography ROM divergences.** The S3K ROM has subtle RNG sources (player-position-dependent timers) that can cause tiny but compounding divergences. `S3kElasticWindowController` handles *frame-offset tolerance between named checkpoints* - it does NOT paper over per-frame RNG drift during a continuous boss fight. If a boss phase drifts mid-phase, the fix is an engine-side parity fix (ROM-accurate RNG source, cycle-accurate frame order), not a widened window. If we genuinely need per-frame elasticity, that is a separate design doc and a user decision - it is not an implementation choice for C-G.
 - **Art loading for bosses.** Visuals are out of scope per user; attempting art loading but not gating tests on it. If art loading crashes the headless test, we catch and log; if it throws unchecked, we patch.
+- **Level-select entry bootstrap path.** CNZ1 starts from the level-select screen, not from a natural level-entry flow. `Sonic3k.loadLevel` / `Sonic3kLevelEventManager` may have untested "came from level select with mid-zone team init" code paths. First divergence surfacing as "player position wrong at frame 0" is this. Diagnose before dispatching C.
+- **`S3K_SKIP_INTROS` config interaction.** The config flag controls whether the engine's title sequence is skipped. It must be disabled (or handled) for the CNZ test, because the trace starts mid-game mode transitions. Confirm at test bootstrap time.
 
 ## 10. Success criteria
 
-- `mvn test -Dtest=TestS3kCnzTraceReplay` passes with zero errors.
-- Divergence report archived as a "before" artifact; after the iteration loop, no report file is produced (0 errors => empty report).
-- `TestS3kAizTraceReplay` still passes.
+- `mvn test -Dtest=TestS3kCnzTraceReplay` passes with 0 errors and <= 200 warnings on first green run (tightened iteratively toward <= 50 before merge).
+- `docs/s3k-zones/cnz-trace-divergence-baseline.md` exists, committed as the first iteration artefact. Without this the audit trail for C-G dispatch is broken.
+- `TestS3kAizTraceReplay` still passes, with `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv` and `aux_state.jsonl` unchanged byte-for-byte against HEAD~N (N = commit count since the start of this workstream). Metadata may gain the new `trace_profile` field and a `recording_date` bump; other fields must be identical.
 - No regressions in the full `mvn test` run.
 - All ROM addresses referenced by new code are verified against the S&K-side disassembly and documented (source label + address + the `RomOffsetFinder` command that produced them).
