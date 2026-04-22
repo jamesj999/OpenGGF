@@ -140,7 +140,8 @@ public class TestTornadoObjectInstance {
                         false,
                         false,
                         PreContactState.ZERO,
-                        PostContactState.ZERO))));
+                        PostContactState.ZERO,
+                        0))));
 
         tornado.setServices(new CheckpointServices(registry.currentObject()));
         invokePrivate(tornado, "updateSczMain",

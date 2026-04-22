@@ -305,7 +305,7 @@ The setters `setTopSolidBit()`/`setLrbSolidBit()` on `AbstractPlayableSprite` si
 3. Gate behavior at call site - S2 behavior is always the fallback when `physicsFeatureSet` is null
 4. Add tests following `TestSpindashGating`/`TestCollisionModel` pattern (TestableSprite inner class, no ROM/OpenGL required)
 
-**Rules:** Always verify against disassembly. Never use game-name `if/else` chains - always use feature flags.
+**Rules:** Always verify against disassembly. Never use game-name `if/else` chains - always use feature flags. Per-game behavioral differences must be gated by feature flags (usually on `PhysicsFeatureSet`), never by code like `if (module.getGameId() == GameId.S1)`. When a ROM-level divergence is discovered, add a flag to `PhysicsFeatureSet`, set the correct value on each game's `SONIC_1` / `SONIC_2` / `SONIC_3K` constant, and branch on the flag at the call site.
 
 ### Physics Tests
 

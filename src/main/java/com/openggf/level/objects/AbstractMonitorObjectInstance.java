@@ -32,6 +32,7 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
     protected int iconWaitFrames;
     protected boolean effectApplied;
     protected PlayableEntity effectTarget;
+    protected boolean iconPendingInit;
 
     protected AbstractMonitorObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -51,6 +52,9 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
         iconWaitFrames = 0;
         effectApplied = false;
         effectTarget = player;
+        // ROM parity: the spawned PowerUp object spends one frame in Pow_Main
+        // before Pow_Move starts advancing the icon upward.
+        iconPendingInit = true;
     }
 
     /**
@@ -62,6 +66,10 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
      */
     protected void updateIcon() {
         if (!iconActive) {
+            return;
+        }
+        if (iconPendingInit) {
+            iconPendingInit = false;
             return;
         }
         if (iconVelY < 0) {

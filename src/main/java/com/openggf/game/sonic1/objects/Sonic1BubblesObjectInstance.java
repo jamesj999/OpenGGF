@@ -478,7 +478,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
                 Sonic1ObjectIds.BUBBLES,
                 bubbleSubtype,
                 0, false, 0);
-        spawnChild(() -> new Sonic1BubblesObjectInstance(childSpawn));
+        spawnFreeChild(() -> new Sonic1BubblesObjectInstance(childSpawn));
     }
 
     /**

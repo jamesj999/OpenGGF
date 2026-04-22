@@ -19,10 +19,7 @@ import com.openggf.graphics.ScreenshotCapture;
 
 import org.joml.Matrix4f;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
@@ -61,6 +58,9 @@ public class TestS3kSpecialStageResultsVisual {
     @BeforeAll
     public static void setUpClass() {
         try {
+            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.destroyCurrent();
+
             // Check for S3K ROM
             String romPath = System.getProperty("s3k.rom.path",
                     "Sonic and Knuckles & Sonic 3 (W) [!].gen");
@@ -122,6 +122,7 @@ public class TestS3kSpecialStageResultsVisual {
             assertTrue(rom.open(romFile.getAbsolutePath()), "Failed to open S3K ROM");
             GameModuleRegistry.detectAndSetModule(rom);
             RomManager.getInstance().setRom(rom);
+            RuntimeManager.createGameplay();
 
             // Re-capture EngineServices now that GraphicsManager has been re-created by
             // destroyForReinit() + getInstance() above. The earlier bootstrap captured

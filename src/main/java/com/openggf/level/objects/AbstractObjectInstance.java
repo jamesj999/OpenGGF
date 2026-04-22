@@ -180,6 +180,17 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     @Override
+    public void snapshotTouchResponseState() {
+        if (getSpawn() == null) return;
+        preUpdateX = getX();
+        preUpdateY = getY();
+        preUpdateValid = true;
+        if (this instanceof TouchResponseProvider trp) {
+            preUpdateCollisionFlags = trp.getCollisionFlags();
+        }
+    }
+
+    @Override
     public int getPreUpdateX() {
         return preUpdateValid ? preUpdateX : getX();
     }
@@ -494,11 +505,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Adds an already-constructed object to the level's object manager.
+     * Adds an already-constructed object using FindNextFreeObj semantics.
      * <p>
      * <b>Does NOT set {@link #CONSTRUCTION_CONTEXT}.</b> If the object's constructor
      * needs {@link #services()}, use {@link #spawnChild(java.util.function.Supplier)}
-     * instead, which wraps construction with the ThreadLocal context.
+     * or {@link #spawnFreeChild(java.util.function.Supplier)} instead.
      * <p>
      * Safe to call in test environments where LevelManager may not be initialized.
      *
@@ -524,14 +535,12 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Creates a dynamic child object with services available during construction.
+     * Creates a dynamic child object with FindNextFreeObj semantics.
      * The supplier is called with the {@link #CONSTRUCTION_CONTEXT} set, so the
      * child's constructor can safely call {@link #services()}.
      * <p>
-     * Example usage:
-     * <pre>{@code
-     * ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
-     * }</pre>
+     * Use this when the ROM object calls FindNextFreeObj and expects the child to
+     * allocate from the current slot forward.
      *
      * @param factory supplier that constructs the child object
      * @return the constructed child, already added to the object manager
@@ -545,6 +554,33 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
             ObjectManager om = svc.objectManager();
             if (om != null) {
                 om.addDynamicObjectAfterCurrent(child);
+            }
+            return child;
+        } finally {
+            CONSTRUCTION_CONTEXT.remove();
+        }
+    }
+
+    /**
+     * Creates a dynamic child object with FindFreeObj semantics.
+     * The supplier is called with the {@link #CONSTRUCTION_CONTEXT} set, so the
+     * child's constructor can safely call {@link #services()}.
+     * <p>
+     * Use this when the ROM object calls FindFreeObj and expects the child to
+     * take the lowest free SST slot, even if that slot is below the parent.
+     *
+     * @param factory supplier that constructs the child object
+     * @return the constructed child, already added to the object manager
+     * @param <T> the child type
+     */
+    protected <T extends AbstractObjectInstance> T spawnFreeChild(java.util.function.Supplier<T> factory) {
+        ObjectServices svc = services();
+        CONSTRUCTION_CONTEXT.set(svc);
+        try {
+            T child = factory.get();
+            ObjectManager om = svc.objectManager();
+            if (om != null) {
+                om.addDynamicObject(child);
             }
             return child;
         } finally {

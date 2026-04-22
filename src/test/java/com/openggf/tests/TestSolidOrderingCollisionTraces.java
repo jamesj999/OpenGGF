@@ -117,6 +117,11 @@ class TestSolidOrderingCollisionTraces {
                 .collect(Collectors.toList());
         assertFalse(trace.compareWith(traceWithEvents(alteredCheckpointEvents)).isEmpty(),
                 "Checkpoint descriptions should affect trace comparison");
+
+        trace.clear();
+        fixture.stepIdleFrames(2);
+        assertFalse(trace.getEvents().isEmpty(),
+                "Checkpoint events should still exist after bookkeeping refactors");
     }
 
     private AbstractPlayableSprite createSidekick() {
