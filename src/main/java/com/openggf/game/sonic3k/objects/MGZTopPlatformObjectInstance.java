@@ -970,13 +970,13 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         int probeMode = anglePosQuadrant(rotatedAngle);
         return switch (probeMode) {
             case 0x00 -> toProbeResult(
-                    ObjectTerrainUtils.checkFloorDist(predictedX, predictedY, WALL_X_RADIUS), 0x00);
+                    ObjectTerrainUtils.checkFloorDistWithFlipAwareAngle(predictedX, predictedY, WALL_X_RADIUS), 0x00);
             case 0x40 -> toProbeResult(
-                    ObjectTerrainUtils.checkLeftWallDist(predictedX - WALL_X_RADIUS, predictedY), 0x40);
+                    ObjectTerrainUtils.checkLeftWallDistWithFlipAwareAngle(predictedX - WALL_X_RADIUS, predictedY), 0x40);
             case 0x80 -> toProbeResult(
-                    ObjectTerrainUtils.checkCeilingDist(predictedX, predictedY, WALL_X_RADIUS), 0x80);
+                    ObjectTerrainUtils.checkCeilingDistWithFlipAwareAngle(predictedX, predictedY, WALL_X_RADIUS), 0x80);
             default -> toProbeResult(
-                    ObjectTerrainUtils.checkRightWallDist(predictedX + WALL_X_RADIUS, predictedY), 0xC0);
+                    ObjectTerrainUtils.checkRightWallDistWithFlipAwareAngle(predictedX + WALL_X_RADIUS, predictedY), 0xC0);
         };
     }
 
@@ -1274,30 +1274,32 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     private ProbeResult probeAirborneRightWall() {
         int midY = posY - AIRBORNE_Y_OFFSET;
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkRightWallDist(posX + WALL_X_RADIUS, midY - WALL_Y_OFFSET),
-                ObjectTerrainUtils.checkRightWallDist(posX + WALL_X_RADIUS, midY + WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkRightWallDistWithFlipAwareAngle(posX + WALL_X_RADIUS, midY - WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkRightWallDistWithFlipAwareAngle(posX + WALL_X_RADIUS, midY + WALL_Y_OFFSET),
                 0xC0);
     }
 
     private ProbeResult probeAirborneLeftWall() {
         int midY = posY - AIRBORNE_Y_OFFSET;
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkLeftWallDist(posX - WALL_X_RADIUS, midY - WALL_Y_OFFSET),
-                ObjectTerrainUtils.checkLeftWallDist(posX - WALL_X_RADIUS, midY + WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkLeftWallDistWithFlipAwareAngle(posX - WALL_X_RADIUS, midY - WALL_Y_OFFSET),
+                ObjectTerrainUtils.checkLeftWallDistWithFlipAwareAngle(posX - WALL_X_RADIUS, midY + WALL_Y_OFFSET),
                 0x40);
     }
 
     private ProbeResult probeGroundFloor() {
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkFloorDist(posX + GROUND_X_RADIUS, posY, GROUND_Y_RADIUS),
-                ObjectTerrainUtils.checkFloorDist(posX - GROUND_X_RADIUS, posY, GROUND_Y_RADIUS),
+                ObjectTerrainUtils.checkFloorDistWithFlipAwareAngle(posX + GROUND_X_RADIUS, posY, GROUND_Y_RADIUS),
+                ObjectTerrainUtils.checkFloorDistWithFlipAwareAngle(posX - GROUND_X_RADIUS, posY, GROUND_Y_RADIUS),
                 0x00);
     }
 
     private ProbeResult probeAirborneFloor() {
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkFloorDist(posX + GROUND_X_RADIUS, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
-                ObjectTerrainUtils.checkFloorDist(posX - GROUND_X_RADIUS, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkFloorDistWithFlipAwareAngle(
+                        posX + GROUND_X_RADIUS, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkFloorDistWithFlipAwareAngle(
+                        posX - GROUND_X_RADIUS, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
                 0x00);
     }
 
@@ -1307,8 +1309,10 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     private ProbeResult probeAirborneCeiling() {
         int cornerX = GROUND_X_RADIUS - 2;
         return chooseDeeperProbe(
-                ObjectTerrainUtils.checkCeilingDist(posX + cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
-                ObjectTerrainUtils.checkCeilingDist(posX - cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkCeilingDistWithFlipAwareAngle(
+                        posX + cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
+                ObjectTerrainUtils.checkCeilingDistWithFlipAwareAngle(
+                        posX - cornerX, posY - AIRBORNE_Y_OFFSET, AIRBORNE_Y_RADIUS),
                 0x80);
     }
 

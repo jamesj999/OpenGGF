@@ -2,9 +2,11 @@ package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.data.Rom;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.scroll.ZoneScrollHandler;
 import org.junit.jupiter.api.AfterEach;
@@ -21,9 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SwScrlMgzTest {
+    private GameModule previousModule;
 
     @BeforeEach
     void setUpRuntime() {
+        previousModule = GameModuleRegistry.getCurrent();
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.createGameplay();
@@ -32,6 +38,12 @@ public class SwScrlMgzTest {
     @AfterEach
     void tearDownRuntime() {
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        if (previousModule != null) {
+            GameModuleRegistry.setCurrent(previousModule);
+        } else {
+            GameModuleRegistry.reset();
+        }
     }
 
     @Test
