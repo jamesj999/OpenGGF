@@ -5,6 +5,7 @@ import com.openggf.level.ChunkDesc;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.SolidTile;
+import com.openggf.level.scroll.ZoneScrollHandler;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -167,11 +168,28 @@ public class GroundSensor extends Sensor {
         int bgCameraY = cameraY;
         ParallaxManager pm = GameServices.parallaxOrNull();
         if (pm != null) {
-            int bgX = pm.getBgCameraX();
-            if (bgX != Integer.MIN_VALUE) {
-                bgCameraX = bgX;
+            boolean useLiveHandlerState = false;
+            ZoneScrollHandler handler = pm.getHandler(lm.getFeatureZoneId());
+            if (handler != null) {
+                int handlerBgX = handler.getBgCameraX();
+                short handlerBgY = handler.getVscrollFactorBG();
+                if (handlerBgX != Integer.MIN_VALUE
+                        || handlerBgY != 0
+                        || GameServices.gameState().isBackgroundCollisionFlag()) {
+                    if (handlerBgX != Integer.MIN_VALUE) {
+                        bgCameraX = handlerBgX;
+                    }
+                    bgCameraY = handlerBgY;
+                    useLiveHandlerState = true;
+                }
             }
-            bgCameraY = pm.getVscrollFactorBG();
+            if (!useLiveHandlerState) {
+                int cachedBgX = pm.getBgCameraX();
+                if (cachedBgX != Integer.MIN_VALUE) {
+                    bgCameraX = cachedBgX;
+                }
+                bgCameraY = pm.getVscrollFactorBG();
+            }
         }
 
         int cameraDiffX = cameraX - bgCameraX;
@@ -232,23 +250,95 @@ public class GroundSensor extends Sensor {
      * Horizontal scan against BG layer tiles.
      */
     private SensorResult scanHorizontalBg(short x, short y, int solidityBit, Direction direction) {
+        WallScanResult result = evaluateWallTileBg(x, y, solidityBit, direction);
+
+        switch (result.state) {
+            case FOUND:
+                return createResultWithDistance(result.tile, result.desc, (byte) result.distance, direction);
+
+            case REGRESS: {
+                int prevX = x + (direction == Direction.LEFT ? 16 : -16);
+                WallScanResult prev = scanWallTileSimpleBg(prevX, y, solidityBit, direction);
+                SolidTile prevTile = prev.tile != null ? prev.tile : result.tile;
+                ChunkDesc prevDesc = prev.tile != null ? prev.desc : result.desc;
+                return createResultWithDistance(prevTile, prevDesc, (byte) (prev.distance - 16), direction);
+            }
+
+            case EXTEND:
+            default: {
+                int nextX = x + (direction == Direction.LEFT ? -16 : 16);
+                WallScanResult next = scanWallTileSimpleBg(nextX, y, solidityBit, direction);
+                SolidTile nextTile = next.tile != null ? next.tile : result.tile;
+                ChunkDesc nextDesc = next.tile != null ? next.desc : result.desc;
+                return createResultWithDistance(nextTile, nextDesc, (byte) (next.distance + 16), direction);
+            }
+        }
+    }
+
+    private WallScanResult evaluateWallTileBg(int x, int y, int solidityBit, Direction direction) {
         LevelManager lm = getLevelManager();
         ChunkDesc desc = lm.getChunkDescAt((byte) 1, x, y, false);
         SolidTile tile = getSolidTileDirect(desc, solidityBit, lm);
-        if (tile != null) {
-            int metric = getWallMetric(tile, desc, y, direction);
-            if (metric != 0 && metric != FULL_TILE) {
-                int xInTile = x & 0x0F;
-                int distance = (direction == Direction.LEFT)
-                        ? (xInTile - metric)
-                        : (15 - metric - xInTile);
-                return bgScanResult.set(tile.getAngle(
-                        desc != null && desc.getHFlip(),
-                        desc != null && desc.getVFlip()),
-                        (byte) distance, tile.getIndex(), direction);
-            }
+
+        if (tile == null) {
+            return wallResult1.set(WallScanState.EXTEND, 0, null, null);
         }
-        return null;
+
+        int metric = getWallMetric(tile, desc, y, direction);
+        if (metric == 0) {
+            return wallResult1.set(WallScanState.EXTEND, 0, tile, desc);
+        }
+
+        int xInTile = x & 0x0F;
+        int xAdjusted = (direction == Direction.LEFT) ? (15 - xInTile) : xInTile;
+        if (metric < 0) {
+            boolean extend = (metric + xAdjusted >= 0);
+            return extend
+                    ? wallResult1.set(WallScanState.EXTEND, 0, tile, desc)
+                    : wallResult1.set(WallScanState.REGRESS, 0, tile, desc);
+        }
+
+        if (metric == FULL_TILE) {
+            return wallResult1.set(WallScanState.REGRESS, 0, tile, desc);
+        }
+
+        int distance = (direction == Direction.LEFT)
+                ? (xInTile - metric)
+                : (15 - metric - xInTile);
+        return wallResult1.set(WallScanState.FOUND, distance, tile, desc);
+    }
+
+    private WallScanResult scanWallTileSimpleBg(int x, int y, int solidityBit, Direction direction) {
+        LevelManager lm = getLevelManager();
+        ChunkDesc desc = lm.getChunkDescAt((byte) 1, x, y, false);
+        SolidTile tile = getSolidTileDirect(desc, solidityBit, lm);
+        int xInTile = x & 0x0F;
+        int xAdjusted = (direction == Direction.LEFT) ? (15 - xInTile) : xInTile;
+
+        if (tile == null) {
+            int dist = 15 - xAdjusted;
+            return wallResult2.set(WallScanState.FOUND, dist, null, null);
+        }
+
+        int metric = getWallMetric(tile, desc, y, direction);
+        if (metric == 0) {
+            int dist = 15 - xAdjusted;
+            return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
+        }
+
+        if (metric < 0) {
+            if (metric + xAdjusted >= 0) {
+                int dist = 15 - xAdjusted;
+                return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
+            }
+            int dist = -1 - xAdjusted;
+            return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
+        }
+
+        int distance = (direction == Direction.LEFT)
+                ? (xInTile - metric)
+                : (15 - metric - xInTile);
+        return wallResult2.set(WallScanState.FOUND, distance, tile, desc);
     }
 
     /**

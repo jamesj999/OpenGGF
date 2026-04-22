@@ -3,6 +3,9 @@ package com.openggf.physics;
 import com.openggf.game.GameServices;
 import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.ScrollHandlerProvider;
+import com.openggf.level.scroll.ZoneScrollHandler;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.level.ChunkDesc;
@@ -125,6 +128,12 @@ public class TestGroundSensor {
         // Tile 3: Empty but valid object (Height 0)
         byte[] emptyHeights = new byte[16];
         tiles[3] = new SolidTile(3, emptyHeights, fullWidths, (byte) 0);
+    }
+
+    @AfterEach
+    void tearDown() {
+        GroundSensor.setLevelManager(null);
+        RuntimeManager.destroyCurrent();
     }
 
     private void setTileAt(int x, int y, int tileIndex) {
@@ -500,11 +509,82 @@ public class TestGroundSensor {
                 "Result should come from the BG floor tile, not the empty FG path");
     }
 
+    @Test
+    public void backgroundCollisionUsesLiveHandlerStateWhenParallaxCacheIsStale() throws Exception {
+        setTileAt((byte) 0, 100, 112, 0, CollisionMode.NO_COLLISION);
+        setTileAt((byte) 0, 100, 128, 0, CollisionMode.NO_COLLISION);
+        setTileAt((byte) 1, 4, 112, 1);
+
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GameServices.gameState().setBackgroundCollisionFlag(true);
+        GameServices.camera().setX((short) 0);
+        GameServices.camera().setY((short) 0);
+        when(mockLevelManager.getFeatureZoneId()).thenReturn(7);
+        setParallaxField("cachedBgCameraX", Integer.MIN_VALUE);
+        setParallaxField("vscrollFactorBG", (short) 0);
+        installParallaxHandler(7, new TestZoneScrollHandler(-96, (short) 0));
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
+        SensorResult result = invokeBackgroundScan(sensor, (short) 100, (short) 100, mockSprite.getTopSolidBit(),
+                Direction.DOWN, true);
+
+        assertNotNull(result, "background scan should consult live handler state before stale parallax cache");
+        assertEquals(11, result.distance(),
+                "live handler bgCameraX should translate the probe onto the populated BG tile");
+    }
+
+    @Test
+    public void backgroundCollisionExtendsHorizontalWallScanOnBgLayer() throws Exception {
+        setTileAt((byte) 1, 100, 100, 0, CollisionMode.NO_COLLISION);
+        setTileAt((byte) 1, 116, 100, 1);
+
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GameServices.gameState().setBackgroundCollisionFlag(true);
+        GameServices.camera().setX((short) 0);
+        GameServices.camera().setY((short) 0);
+        setParallaxField("cachedBgCameraX", Integer.MIN_VALUE);
+        setParallaxField("vscrollFactorBG", (short) 0);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.RIGHT, (byte) 0, (byte) 0, true);
+        SensorResult result = invokeBackgroundScan(sensor, (short) 100, (short) 100, mockSprite.getLrbSolidBit(),
+                Direction.RIGHT, false);
+
+        assertNotNull(result, "background wall scan should extend into the next BG tile");
+        assertEquals(11, result.distance(),
+                "BG wall extension should mirror the foreground wall-scan distance");
+    }
+
     private void setParallaxField(String fieldName, Object value) throws Exception {
         ParallaxManager parallaxManager = GameServices.parallax();
         Field field = ParallaxManager.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(parallaxManager, value);
+    }
+
+    private void installParallaxHandler(int zoneId, ZoneScrollHandler handler) throws Exception {
+        ScrollHandlerProvider provider = new ScrollHandlerProvider() {
+            @Override
+            public void load(com.openggf.data.Rom rom) {
+            }
+
+            @Override
+            public ZoneScrollHandler getHandler(int zoneIndex) {
+                return zoneIndex == zoneId ? handler : null;
+            }
+
+            @Override
+            public ZoneConstants getZoneConstants() {
+                return mock(ZoneConstants.class);
+            }
+        };
+        ParallaxManager parallaxManager = GameServices.parallax();
+        Field field = ParallaxManager.class.getDeclaredField("scrollProvider");
+        field.setAccessible(true);
+        field.set(parallaxManager, provider);
     }
 
     private SensorResult invokeBackgroundScan(GroundSensor sensor,
@@ -517,5 +597,31 @@ public class TestGroundSensor {
                 "scanBackgroundCollision", short.class, short.class, int.class, Direction.class, boolean.class);
         method.setAccessible(true);
         return (SensorResult) method.invoke(sensor, fgX, fgY, solidityBit, direction, vertical);
+    }
+
+    private record TestZoneScrollHandler(int bgCameraX, short bgVscroll) implements ZoneScrollHandler {
+        @Override
+        public void update(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter, int actId) {
+        }
+
+        @Override
+        public short getVscrollFactorBG() {
+            return bgVscroll;
+        }
+
+        @Override
+        public int getMinScrollOffset() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxScrollOffset() {
+            return 0;
+        }
+
+        @Override
+        public int getBgCameraX() {
+            return bgCameraX;
+        }
     }
 }
