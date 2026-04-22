@@ -10,6 +10,7 @@ This document tracks intentional deviations from the original Sonic 3 & Knuckles
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
 5. [Save System](#save-system)
 6. [Tails Flying-With-Cargo Physics](#tails-flying-with-cargo-physics)
+7. [CNZ1 Miniboss Arena Entry — Audio Handoff](#cnz1-miniboss-arena-entry--audio-handoff)
 
 ---
 
@@ -243,3 +244,28 @@ The engine currently runs Tails on normal airborne physics (gravity applies, no 
 ### Follow-Up
 
 Implementing Tails flying-with-cargo lift is a separate workstream tracked under S3K trace-replay follow-ups. Gap first recorded as part of CNZ workstream-C (Tails-carry-Sonic intro implementation).
+
+---
+
+## CNZ1 Miniboss Arena Entry — Audio Handoff
+
+**Location:** `Sonic3kCNZEvents.enterMinibossArena()`
+**ROM Reference:** `sonic3k.asm:144841` (`moveq #cmd_FadeOut,d0; jsr Play_Music`) plus the boss-music play-in that follows when `Obj_CNZMiniboss` becomes active.
+
+### Original Implementation
+
+When `Obj_CNZMiniboss` crosses its camera-X gate (`$31E0`), `loc_6D9A8` first issues a music fade-out via `Play_Music` and then the engine queues the miniboss theme as part of the regular boss-music handoff.
+
+### Our Implementation
+
+`Sonic3kCNZEvents.enterMinibossArena()` mirrors the fade-out (`audio().fadeOutMusic()`), but the miniboss-music play-in is intentionally deferred to workstream T12 ("CNZ miniboss audio handoff"). The site is marked with an inline `TODO(T12)` comment so the replacement is easy to find.
+
+### Impact
+
+- Audio drops to silence between the fade-out and boss defeat instead of switching to the miniboss theme.
+- All other arena-entry effects (camera lock, PLC `0x5D`, `Pal_CNZMiniboss` install, `Boss_flag`, wall-grab suppression) match the ROM bit-for-bit, so visual/gameplay parity is unaffected.
+- No tests assert on music selection during the miniboss fight, so this gap does not block T8/T6/T7 coverage.
+
+### Follow-Up
+
+Workstream T12 owns wiring `Sonic3kMusic.MINIBOSS` (or the equivalent S3K music ID) into the existing `audio()` boss-music handoff once the miniboss audio routing lands.

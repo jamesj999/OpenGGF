@@ -22,6 +22,35 @@ All notable changes to the OpenGGF project are documented in this file.
   the legacy-heuristic fallback in `TraceExecutionModel` remains reachable
   for older or pre-v3 traces.
 
+### Sonic 3&K CNZ1 Miniboss Arena Entry (Workstream D, Task 8)
+
+- Wired the CNZ Act 1 miniboss arena trigger in `Sonic3kCNZEvents`. When
+  the camera reaches `Camera_X_pos = $31E0`
+  (`Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X`), the engine now mirrors
+  ROM `loc_6D9A8` (sonic3k.asm:144830): stash the prior camera clamp
+  rectangle, lock the camera to the arena box ($31E0..$3260,
+  $01C0..$02B8), fade out the music, set `Boss_flag` and the
+  wall-grab-suppression bit, run PLC `0x5D`, and install
+  `Pal_CNZMiniboss` into palette line 1 via the shared palette
+  ownership registry.
+- Added a falling-edge release path: when `CnzMinibossInstance.onEndGo`
+  clears `Boss_flag` after the defeat sequence, the saved camera clamps
+  are restored and the wall-grab suppression bit is released so the
+  post-boss camera-pan + signpost sequence can resume.
+- Added the `S3kPaletteOwners.CNZ_MINIBOSS` owner ID
+  (`s3k.cnz.miniboss`) and the `Sonic3kConstants.PAL_CNZ_MINIBOSS_ADDR`
+  ROM offset (`0x06E370`, S&K-side). The S&K offset was confirmed via
+  `RomOffsetFinder search-rom` against the
+  `Levels/CNZ/Palettes/Miniboss.bin` byte signature; the S3-half
+  sibling (`0x24BF70`) is documented but explicitly not referenced.
+- Replaced the placeholder local threshold `MINIBOSS_CAM_X_THRESHOLD =
+  0x3000` with a reference to `Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X`
+  so the trigger and the camera-min clamp share a single source of
+  truth. Audio fade-in for the miniboss music is reserved for T12.
+- Added `TestCnzMinibossArenaEntry` covering the threshold-crossing
+  behaviour (Boss_flag set, wall-grab suppressed, BG routine =
+  `BG_BOSS_START`) and pinning `CNZ_MINIBOSS_ARENA_MIN_X` to `$31E0`.
+
 ### Sonic 3&K CNZ1 Tails-Carry Intro (Workstream C)
 
 - Implemented the CNZ Act 1 Tails-carry intro (`Tails_CPU_routine` 0x0C /
