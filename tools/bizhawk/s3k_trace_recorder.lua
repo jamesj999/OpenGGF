@@ -660,6 +660,17 @@ local function on_frame_end()
         return
     end
 
+    if is_level_gated_reset_aware_profile() and started then
+        local current_zone_id = mainmemory.read_u8(ADDR_ZONE)
+        if current_zone_id ~= start_zone_id then
+            print(string.format(
+                "level_gated_reset_aware: zone-leave detected (zone %d -> %d) at trace frame %d. Finalising.",
+                start_zone_id, current_zone_id, trace_frame))
+            finished = true
+            return
+        end
+    end
+
     if not started then
         if should_start_recording(game_mode) then
             started = true
