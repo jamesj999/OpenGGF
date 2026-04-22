@@ -85,6 +85,11 @@ public final class GameplayTeamBootstrap {
                 }
                 sidekick.setCpuController(controller);
 
+                // Wire any game-specific sidekick carry trigger (S3K CNZ1 Tails carry).
+                // S1/S2 modules return null from getSidekickCarryTrigger(), so this is
+                // a no-op branch for those games and for S3K zones outside CNZ1.
+                controller.setCarryTrigger(module.getSidekickCarryTrigger());
+
                 spriteManager.addSprite(sidekick, characterName);
                 sidekicks.add(sidekick);
                 previousLeader = sidekick;
