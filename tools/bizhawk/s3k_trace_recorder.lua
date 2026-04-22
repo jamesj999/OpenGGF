@@ -332,9 +332,10 @@ local function emit_s3k_semantic_events(frame)
             and actual_act == 1 then
             emit_checkpoint_once(frame, "act_transition_to_cnz2", actual_zone_id, actual_act, apparent_act, game_mode, nil)
         end
-        prev_zone_id_for_transition = actual_zone_id
-        prev_act_for_transition = actual_act
     end
+
+    prev_zone_id_for_transition = actual_zone_id
+    prev_act_for_transition = actual_act
 
     if not is_aiz_end_to_end_profile() then
         return
@@ -656,9 +657,7 @@ local function on_frame_end()
             "level_gated_reset_aware: detected soft-reset (Game_Mode=0x%02X) at trace frame %d. Discarding recording and re-arming.",
             game_mode, trace_frame))
         reset_recording_state()
-        -- Fall through so the same frame can immediately re-arm if
-        -- the player is somehow back in gameplay (shouldn't happen
-        -- but is harmless).
+        return
     end
 
     if not started then
@@ -824,8 +823,12 @@ while true do
     if finished then
         print("Recording complete. Writing final output...")
         if is_level_gated_reset_aware_profile() and aux_file then
+            local end_zone = mainmemory.read_u8(ADDR_ZONE)
+            local end_act = mainmemory.read_u8(ADDR_ACT)
+            local end_apparent_act = mainmemory.read_u8(ADDR_APPARENT_ACT)
+            local end_game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
             emit_checkpoint_once(trace_frame, "gameplay_end",
-                start_zone_id, start_act, start_act, GAMEMODE_LEVEL, nil)
+                end_zone, end_act, end_apparent_act, end_game_mode, nil)
         end
         if physics_file then physics_file:flush() end
         write_metadata()
