@@ -117,6 +117,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int DEFAULT_CAMERA_MAX_X = 0x6000;
     /** ROM: loc_51656 resets Camera_min_X to $6000 high (open left bound). */
     private static final int DEFAULT_CAMERA_MIN_X = 0x0000;
+    /** Match the standard player right-boundary margin against the live viewport while quake locks are active. */
+    private static final int SCREEN_WIDTH = 320;
+    private static final int PLAYER_RIGHT_SCREEN_MARGIN = 24;
 
     // ========================================================================
     // Act 2 chunk-event state machine (MGZ2_ChunkEvent)
@@ -372,6 +375,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             default -> {
             }
         }
+
+        clampPlayerToCurrentViewportRightEdge(player);
     }
 
     /**
@@ -421,6 +426,28 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             case 2 -> appearance3Complete;
             default -> false;
         };
+    }
+
+    private void clampPlayerToCurrentViewportRightEdge(AbstractPlayableSprite player) {
+        if (!isQuakeSequenceActive() || player.isObjectControlled()) {
+            return;
+        }
+        int rightBoundary = (camera().getX() & 0xFFFF) + SCREEN_WIDTH - PLAYER_RIGHT_SCREEN_MARGIN;
+        if ((player.getCentreX() & 0xFFFF) < rightBoundary) {
+            return;
+        }
+        player.setCentreX((short) rightBoundary);
+        player.setXSpeed((short) 0);
+        player.setGSpeed((short) 0);
+    }
+
+    private boolean isQuakeSequenceActive() {
+        return quakeEventRoutine == QUAKE_EVENT_1
+                || quakeEventRoutine == QUAKE_EVENT_2
+                || quakeEventRoutine == QUAKE_EVENT_3
+                || quakeEventRoutine == QUAKE_EVENT_1_CONT
+                || quakeEventRoutine == QUAKE_EVENT_2_CONT
+                || quakeEventRoutine == QUAKE_EVENT_3_CONT;
     }
 
     /**

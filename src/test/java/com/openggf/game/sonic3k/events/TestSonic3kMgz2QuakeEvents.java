@@ -215,6 +215,35 @@ class TestSonic3kMgz2QuakeEvents {
     }
 
     @Test
+    void activeQuakeSequence_clampsPlayerToCurrentViewportRightEdge() {
+        AbstractPlayableSprite player = placePlayer(0, 0);
+        player.setWidth(20);
+        player.setHeight(38);
+        player.setCentreX((short) 0x31E0);
+        player.setCentreY((short) 0x0200);
+        player.setXSpeed((short) 0x0400);
+        player.setGSpeed((short) 0x0400);
+
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.update(1, 0);
+        assertEquals(8, events.getQuakeEventRoutine(), "precondition: state 8");
+
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x2F80);
+        player.setCentreX((short) 0x30C8);
+
+        events.update(1, 1);
+
+        assertEquals((short) (0x2F80 + 320 - 24), player.getCentreX(),
+                "quake screen lock should clamp Sonic against the current camera viewport, not the future lock bound");
+        assertEquals(0, player.getXSpeed(),
+                "right-edge quake clamp should cancel forward x speed");
+        assertEquals(0, player.getGSpeed(),
+                "right-edge quake clamp should cancel forward ground speed");
+    }
+
+    @Test
     void quakeEvent3_advancesToFlee_whenCameraReachesLock() {
         AbstractPlayableSprite player = placePlayer(0x3460, 0x6A0);
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
