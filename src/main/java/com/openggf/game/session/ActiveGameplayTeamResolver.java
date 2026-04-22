@@ -67,12 +67,22 @@ public final class ActiveGameplayTeamResolver {
         if (worldSession != null
                 && worldSession.getSaveSessionContext() != null
                 && worldSession.getSaveSessionContext().selectedTeam() != null) {
-            return worldSession.getSaveSessionContext().selectedTeam().sidekicks();
+            return List.copyOf(worldSession.getSaveSessionContext().selectedTeam().sidekicks());
         }
         String sidekickCode = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-        if (sidekickCode == null || sidekickCode.isBlank()) {
+        return parseConfiguredSidekicks(sidekickCode);
+    }
+
+    /**
+     * Parses the comma-separated sidekick configuration used by gameplay startup.
+     */
+    public static List<String> parseConfiguredSidekicks(String value) {
+        if (value == null || value.isBlank()) {
             return List.of();
         }
-        return List.of(sidekickCode);
+        return java.util.Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }
