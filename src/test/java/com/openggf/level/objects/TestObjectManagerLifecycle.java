@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.EngineServices;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ public class TestObjectManagerLifecycle {
 
     @BeforeEach
     public void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 
@@ -51,6 +53,26 @@ public class TestObjectManagerLifecycle {
         assertTrue(registry.unloadedInstances.contains(registry.instances.get(tempSpawn)));
     }
 
+    @Test
+    public void postCameraPlacementCreatesNonCounterGapSpawnImmediatelyWithoutUpdatingIt() {
+        ObjectSpawn gapSpawn = new ObjectSpawn(0x02C0, 0, 0x03, 0, 0, false, 0);
+        TrackingRegistry registry = new TrackingRegistry();
+        ObjectManager manager = new ObjectManager(List.of(gapSpawn), registry, 0, null, null);
+
+        manager.reset(0);
+        assertEquals(0, registry.createCount,
+                "Gap spawn should start outside the initial [0x0000,0x0280) window");
+
+        manager.postCameraPlacementUpdate(0x0080);
+
+        assertEquals(1, registry.createCount,
+                "S2/S3K post-camera placement should materialize gap spawns in the current frame");
+        assertTrue(manager.getActiveObjects().contains(registry.instances.get(gapSpawn)),
+                "Gap spawn instance should exist immediately after post-camera placement");
+        assertEquals(0, registry.instances.get(gapSpawn).updateCount,
+                "Post-camera placement should not execute the newly created object until next frame");
+    }
+
     private static final class TestRegistry implements ObjectRegistry {
         private final Set<ObjectSpawn> persistentSpawns;
         private final Map<ObjectSpawn, ObjectInstance> instances = new IdentityHashMap<>();
@@ -75,6 +97,33 @@ public class TestObjectManagerLifecycle {
         @Override
         public String getPrimaryName(int objectId) {
             return "Test";
+        }
+    }
+
+    private static final class TrackingRegistry implements ObjectRegistry {
+        private final Map<ObjectSpawn, TrackingObjectInstance> instances = new IdentityHashMap<>();
+        private int createCount;
+
+        @Override
+        public ObjectInstance create(ObjectSpawn spawn) {
+            createCount++;
+            TrackingObjectInstance instance = new TrackingObjectInstance(spawn);
+            instances.put(spawn, instance);
+            return instance;
+        }
+
+        @Override
+        public void reportCoverage(List<ObjectSpawn> spawns) {
+        }
+
+        @Override
+        public String getPrimaryName(int objectId) {
+            return "Tracking";
+        }
+
+        @Override
+        public ObjectSlotLayout objectSlotLayout() {
+            return ObjectSlotLayout.SONIC_2;
         }
     }
 
@@ -120,6 +169,23 @@ public class TestObjectManagerLifecycle {
         @Override
         public void onUnload() {
             unloadedInstances.add(this);
+        }
+    }
+
+    private static final class TrackingObjectInstance extends AbstractObjectInstance {
+        private int updateCount;
+
+        private TrackingObjectInstance(ObjectSpawn spawn) {
+            super(spawn, "TrackingObject");
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            updateCount++;
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
         }
     }
 }

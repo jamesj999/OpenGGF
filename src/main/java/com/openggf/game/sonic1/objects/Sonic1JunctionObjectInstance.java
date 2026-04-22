@@ -8,6 +8,8 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.solid.PlayerSolidContactResult;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
@@ -17,6 +19,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -160,9 +163,6 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     /** Frame at which Sonic entered the gap (objoff_32). */
     private int grabFrame;
 
-    /** Whether the player is pushing against this object (obStatus bit 5). */
-    private boolean playerPushing;
-
     /** Child display object. */
     private Sonic1JunctionChildInstance childInstance;
 
@@ -174,9 +174,11 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         this.frameDirection = INITIAL_FRAME_DIRECTION;
         // move.b obSubtype(a0),jun_switch(a0) — switch index from subtype
         this.switchIndex = spawn.subtype() & 0xFF;
-        // Start at frame 0
-        this.mappingFrame = 0;
-        // move.b #7,obTimeFrame(a0) (set in Jun_ChkSwitch .animate path first time)
+        // In practice the ROM object reaches gameplay already one tick into its
+        // animation cycle: the first visible Jun_Action pass presents frame 1 with
+        // a freshly reloaded 7-frame timer. Seeding that state keeps the disc gap
+        // phase aligned with the trace suite's SBZ junction timings.
+        this.mappingFrame = 1;
         this.frameTimer = FRAME_TIMER_PERIOD;
     }
 
@@ -225,86 +227,60 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
      */
     private void updateAction(AbstractPlayableSprite player) {
         checkSwitch();
-
-        // Solid object interaction is handled by the SolidObjectProvider/Listener interface.
-        // The ObjectManager calls SolidObject logic and notifies us via onSolidContact().
-        // We check the pushing state that was set during the previous frame's contact resolution.
-
-        if (!playerPushing || player == null) {
-            // Not pushing or no player — reset pushing for next frame
-            playerPushing = false;
-            return;
+        SolidCheckpointBatch batch = checkpointAll();
+        PlayerSolidContactResult mainResult = player != null ? batch.perPlayer().get(player) : null;
+        if (Boolean.getBoolean("s1.junction.debug") && player != null) {
+            int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
+            if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
+                System.out.printf(
+                        "junction-debug frame=%d map=%d timer=%d pushNow=%s pushLast=%s player=(%04X,%04X) routine=%s%n",
+                        frame,
+                        mappingFrame,
+                        frameTimer,
+                        mainResult != null && mainResult.pushingNow(),
+                        mainResult != null && mainResult.pushingLastFrame(),
+                        player.getCentreX() & 0xFFFF,
+                        player.getCentreY() & 0xFFFF,
+                        routine);
+            }
         }
-
-        // btst #5,obStatus(a0) — player is pushing
-        // Check if the gap is next to Sonic
-        int gapCheckFrame;
-        if (player.getCentreX() < getX()) {
-            // Sonic is to the left: moveq #$E,d1
-            gapCheckFrame = GAP_FRAME_LEFT;
-        } else {
-            // Sonic is to the right: moveq #7,d1
-            gapCheckFrame = GAP_FRAME_RIGHT;
+        if (player != null && mainResult != null
+                && (mainResult.pushingNow() || mainResult.pushingLastFrame())) {
+            int gapCheckFrame = player.getCentreX() < getX() ? GAP_FRAME_LEFT : GAP_FRAME_RIGHT;
+            if (Boolean.getBoolean("s1.junction.debug")) {
+                int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
+                if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
+                    System.out.printf(
+                            "junction-grab-check frame=%d map=%d gap=%d obj=(%04X,%04X) player=(%04X,%04X)%n",
+                            frame,
+                            mappingFrame,
+                            gapCheckFrame,
+                            getX() & 0xFFFF,
+                            getY() & 0xFFFF,
+                            player.getCentreX() & 0xFFFF,
+                            player.getCentreY() & 0xFFFF);
+                }
+            }
+            if (mappingFrame == gapCheckFrame) {
+                if (Boolean.getBoolean("s1.junction.debug")) {
+                    int frame = services().objectManager() != null ? services().objectManager().getFrameCounter() : -1;
+                    if (frame >= 176 && frame <= 178 && getX() == 0x1490 && getY() == 0x0170) {
+                        System.out.printf(
+                                "junction-grab frame=%d playerId=%d state=(x=%04X y=%04X g=%04X air=%s roll=%s ctl=%s obj=%s)%n",
+                                frame,
+                                System.identityHashCode(player),
+                                player.getCentreX() & 0xFFFF,
+                                player.getCentreY() & 0xFFFF,
+                                player.getGSpeed() & 0xFFFF,
+                                player.getAir(),
+                                player.getRolling(),
+                                player.isControlLocked(),
+                                player.isObjectControlled());
+                    }
+                }
+                beginGrab(player, gapCheckFrame);
+            }
         }
-
-        // cmp.b obFrame(a0),d1 — is the gap next to Sonic?
-        if (mappingFrame != gapCheckFrame) {
-            // Gap not aligned, reset pushing for next frame
-            playerPushing = false;
-            return;
-        }
-
-        // Gap is aligned — grab Sonic!
-        // move.b d1,objoff_32(a0) — remember entry frame
-        grabFrame = gapCheckFrame;
-
-        // addq.b #4,obRoutine(a0) — goto Jun_Release
-        routine = Routine.RELEASE;
-
-        // move.b #1,(f_playerctrl).w — lock controls
-        // S1 ROM: f_playerctrl=$01 (bit 0) causes Sonic_Modes to be skipped entirely.
-        // Engine: isObjectControlled() gates the movement-skip at PlayableSpriteMovement line 124.
-        player.setObjectControlled(true);
-        player.setControlLocked(true);
-
-        // move.b #id_Roll,obAnim(a1) — make Sonic use "rolling" animation
-        player.setRolling(true);
-        player.setAnimationId(Sonic1AnimationIds.ROLL);
-        player.setForcedAnimationId(Sonic1AnimationIds.ROLL);
-
-        // move.w #$800,obInertia(a1)
-        player.setGSpeed((short) GRAB_INERTIA);
-
-        // move.w #0,obVelX(a1) / move.w #0,obVelY(a1)
-        player.setXSpeed((short) 0);
-        player.setYSpeed((short) 0);
-
-        // bclr #5,obStatus(a0) — clear object pushing status
-        playerPushing = false;
-
-        // bclr #5,obStatus(a1) — clear Sonic pushing status
-        player.setPushing(false);
-
-        // bset #1,obStatus(a1) — set Sonic airborne
-        player.setAir(true);
-
-        // Smooth snap: save player position, compute target, average
-        // move.w obX(a1),d2 / move.w obY(a1),d3
-        int savedX = player.getCentreX();
-        int savedY = player.getCentreY();
-
-        // bsr.w Jun_ChgPos — sets player to target position
-        changePlayerPosition(player);
-
-        // add.w d2,obX(a1) / add.w d3,obY(a1) — add saved position
-        // asr obX(a1) / asr obY(a1) — halve (average)
-        int targetX = player.getCentreX();
-        int targetY = player.getCentreY();
-        player.setCentreX((short) ((targetX + savedX) >> 1));
-        player.setCentreY((short) ((targetY + savedY) >> 1));
-
-        // Reset pushing for next frame
-        playerPushing = false;
     }
 
     // ========================================================================
@@ -496,13 +472,35 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Track whether the player is pushing against the disc.
-        // In the ROM: btst #5,obStatus(a0) checks if player is pushing.
-        // The SolidObject routine sets this bit, and our engine reports it via contact.pushing().
-        if (contact.pushing()) {
-            playerPushing = true;
-        }
+        // Manual checkpoints drive current-frame push/grab handling from update().
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
+    }
+
+    private void beginGrab(AbstractPlayableSprite player, int gapFrame) {
+        grabFrame = gapFrame;
+        routine = Routine.RELEASE;
+        player.setObjectControlled(true);
+        player.setControlLocked(true);
+        player.setRolling(true);
+        player.setAnimationId(Sonic1AnimationIds.ROLL);
+        player.setForcedAnimationId(Sonic1AnimationIds.ROLL);
+        player.setGSpeed((short) GRAB_INERTIA);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setPushing(false);
+        player.setAir(true);
+
+        int savedX = player.getCentreX();
+        int savedY = player.getCentreY();
+        changePlayerPosition(player);
+        int targetX = player.getCentreX();
+        int targetY = player.getCentreY();
+        player.setCentreX((short) ((targetX + savedX) >> 1));
+        player.setCentreY((short) ((targetY + savedY) >> 1));
     }
 
     // ========================================================================

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic1.Sonic1GameModule;
@@ -338,6 +339,42 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void unifiedRideExitClearsOnObjectWithoutForcingAirSameFrame() {
+        GameModule previous = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        try {
+            SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+            TestSolidObject object = new TestSolidObject(100, 100, params, true);
+            ObjectManager manager = buildManager(object);
+
+            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+            player.useFeatureSet(PhysicsFeatureSet.SONIC_1);
+            player.setWidth(20);
+            player.setHeight(20);
+            player.setAir(false);
+            player.setOnObject(true);
+            player.setYSpeed((short) 0);
+            player.setCentreX((short) 100);
+            player.setCentreY((short) (100 - params.groundHalfHeight() - player.getYRadius()));
+
+            manager.update(0, player, List.of(), 0, false, true, true);
+
+            assertTrue(manager.isRidingObject(player));
+            assertTrue(player.isOnObject());
+            assertFalse(player.getAir());
+
+            player.setCentreX((short) (100 + params.halfWidth() + 12));
+            manager.update(0, player, List.of(), 1, false, true, true);
+
+            assertFalse(manager.isRidingObject(player));
+            assertFalse(player.isOnObject());
+            assertFalse(player.getAir());
+        } finally {
+            GameModuleRegistry.setCurrent(previous);
+        }
+    }
+
+    @Test
     public void testLandingFromAirRollOnObjectAdjustsYWhenUnrolling() {
         GameModule previous = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
@@ -646,6 +683,10 @@ public class TestSolidObjectManager {
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
         private TestPlayableSprite(short x, short y) {
             super("TEST", x, y);
+        }
+
+        private void useFeatureSet(PhysicsFeatureSet fs) {
+            setPhysicsFeatureSet(fs);
         }
 
         @Override

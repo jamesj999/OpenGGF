@@ -80,4 +80,18 @@ public interface SolidObjectProvider {
     default boolean dropOnFloor() {
         return false;
     }
+
+    /**
+     * Whether losing ride contact through the inline carrying path should force the
+     * player airborne.
+     * <p>
+     * Generic platform helpers in the original games typically clear
+     * {@code status.player.on_object} and set {@code status.player.in_air} when the
+     * player walks off the ride bounds. Some bespoke solids, such as the EHZ/HPZ log
+     * bridge helper ({@code PlatformObject11_cont}), clear only the on-object flag and
+     * allow immediate terrain handoff without an airborne frame.
+     */
+    default boolean forceAirOnRideExit() {
+        return true;
+    }
 }
