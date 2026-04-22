@@ -18,6 +18,13 @@ public final class S3kReplayCheckpointDetector {
 
     private final Set<String> emitted = new LinkedHashSet<>();
 
+    public void seedCheckpoint(String checkpointName) {
+        if (checkpointName == null || checkpointName.isBlank()) {
+            return;
+        }
+        emitted.add(checkpointName);
+    }
+
     public TraceEvent.Checkpoint observe(S3kCheckpointProbe probe) {
         if (!emitted.contains("intro_begin") && probe.replayFrame() == 0) {
             return emit(probe, "intro_begin");

@@ -149,6 +149,8 @@ public abstract class AbstractTraceReplayTest {
             List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots = trace.preTraceObjectSnapshots();
             TraceObjectSnapshotBinder.Result hydration =
                     TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
             if (!preTraceSnapshots.isEmpty() && om != null) {
                 System.out.printf(
                         "Hydrated %d/%d pre-trace object snapshots (%d warnings)%n",
@@ -164,9 +166,10 @@ public abstract class AbstractTraceReplayTest {
             int firstSubDivFrame = -1;
 
             if ("s3k".equals(meta.game())) {
-                replayS3kTrace(trace, meta, fixture, binder);
+                replayS3kTrace(trace, meta, fixture, binder, replayStart);
             } else {
-                for (int i = 0; i < trace.frameCount(); i++) {
+                int startTraceIndex = replayStart.startingTraceIndex();
+                for (int i = startTraceIndex; i < trace.frameCount(); i++) {
                     TraceFrame expected = trace.getFrame(i);
 
                     // Drive replay from recorded ROM counters instead of inferring
@@ -174,7 +177,7 @@ public abstract class AbstractTraceReplayTest {
                     int bk2Input;
                     TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
                     TraceExecutionPhase phase =
-                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                        TraceReplayBootstrap.phaseForReplay(trace, previous, expected);
                     if (phase == TraceExecutionPhase.VBLANK_ONLY) {
                         bk2Input = fixture.skipFrameFromRecording();
                     } else {
@@ -286,19 +289,21 @@ public abstract class AbstractTraceReplayTest {
     }
 
     private boolean shouldApplyMetadataStartPosition(TraceData trace, TraceMetadata meta) {
-        if (!"s3k".equals(meta.game())) {
-            return true;
-        }
-        return trace.getEventsForFrame(0).stream()
-                .filter(TraceEvent.Checkpoint.class::isInstance)
-                .map(TraceEvent.Checkpoint.class::cast)
-                .noneMatch(checkpoint -> "intro_begin".equals(checkpoint.name()));
+        // start_x/start_y are written from the live ROM player position at the
+        // exact frame where recording begins. For S3K end-to-end traces,
+        // frame 0 may still carry the unconditional "intro_begin" anchor even
+        // when the BK2 was armed after the production intro bootstrap. Treat
+        // the recorded start position as authoritative for all replay tests.
+        return true;
     }
 
     private void replayS3kTrace(TraceData trace, TraceMetadata meta,
-                                HeadlessTestFixture fixture, TraceBinder binder) {
-        int driveTraceIndex = 0;
-        TraceFrame previousDriveFrame = null;
+                                HeadlessTestFixture fixture, TraceBinder binder,
+                                TraceReplayBootstrap.ReplayStartState replayStart) {
+        int driveTraceIndex = replayStart.startingTraceIndex();
+        TraceFrame previousDriveFrame = replayStart.hasSeededTraceState()
+                ? trace.getFrame(replayStart.seededTraceIndex())
+                : null;
         S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
         S3kElasticWindowController controller =
                 new S3kElasticWindowController(loadCheckpointFrames(trace));
@@ -306,10 +311,37 @@ public abstract class AbstractTraceReplayTest {
         int firstSubDivFrame = -1;
         Boolean lastEventsFg5 = null;
 
+        if (replayStart.hasSeededTraceState()) {
+            TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
+            EngineDiagnostics engineDiag = captureEngineDiagnostics(fixture.sprite());
+            String romDiag = combineDiagnostics(
+                    seededFrame.hasExtendedData() ? seededFrame.formatDiagnostics() : "",
+                    TraceEventFormatter.summariseFrameEvents(
+                            trace.getEventsForFrame(replayStart.seededTraceIndex())));
+
+            binder.compareFrame(seededFrame,
+                    fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
+                    fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getGSpeed(),
+                    fixture.sprite().getAngle(),
+                    fixture.sprite().getAir(), fixture.sprite().getRolling(),
+                    fixture.sprite().getGroundMode().ordinal(), romDiag,
+                    engineDiag);
+
+            for (int frame = 0; frame <= replayStart.seededTraceIndex(); frame++) {
+                for (TraceEvent event : trace.getEventsForFrame(frame)) {
+                    if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
+                        detector.seedCheckpoint(traceCheckpoint.name());
+                        controller.onEntryFrameValidated(traceCheckpoint);
+                        controller.onEngineCheckpoint(traceCheckpoint);
+                    }
+                }
+            }
+        }
+
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
             TraceExecutionPhase phase =
-                    TraceExecutionModel.forGame(meta.game()).phaseFor(previousDriveFrame, driveFrame);
+                    TraceReplayBootstrap.phaseForReplay(trace, previousDriveFrame, driveFrame);
             int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
                     ? fixture.skipFrameFromRecording()
                     : fixture.stepFrameFromRecording();
