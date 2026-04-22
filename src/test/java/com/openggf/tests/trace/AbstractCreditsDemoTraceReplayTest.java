@@ -104,6 +104,7 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             if (idx == 3) {
                 setupLzDemoState(fixture);
             }
+            resetStreamingWindows(fixture);
 
             // 4. Determine frame limit: min of trace frames and demo timer
             int frameLimit = Math.min(trace.frameCount(),
@@ -232,6 +233,16 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         // Without this, the first frame runs with inWater=false and uses
         // normal (non-underwater) acceleration, causing physics divergence.
         player.updateWaterState(Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+    }
+
+    private void resetStreamingWindows(HeadlessTestFixture fixture) {
+        int cameraX = fixture.camera().getX();
+        if (GameServices.level().getObjectManager() != null) {
+            GameServices.level().getObjectManager().reset(cameraX);
+        }
+        if (GameServices.level().getRingManager() != null) {
+            GameServices.level().getRingManager().reset(cameraX);
+        }
     }
 
     /**
