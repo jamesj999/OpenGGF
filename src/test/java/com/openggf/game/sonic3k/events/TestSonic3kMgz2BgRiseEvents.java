@@ -3,9 +3,11 @@ package com.openggf.game.sonic3k.events;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -44,9 +46,13 @@ class TestSonic3kMgz2BgRiseEvents {
     private static final int BG_RISE_SONIC = 8;
     private static final int BG_RISE_AFTER_MOVE = 0xC;
     private static final int BG_RISE_TARGET_SONIC = 0x1D0;
+    private GameModule previousModule;
 
     @BeforeEach
     void setUp() {
+        previousModule = GameModuleRegistry.getCurrent();
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.createGameplay();
@@ -55,6 +61,12 @@ class TestSonic3kMgz2BgRiseEvents {
     @AfterEach
     void tearDown() {
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        if (previousModule != null) {
+            GameModuleRegistry.setCurrent(previousModule);
+        } else {
+            GameModuleRegistry.reset();
+        }
     }
 
     private static AbstractPlayableSprite placePlayer(int x, int y) {
