@@ -1373,14 +1373,67 @@ public class Sonic3kConstants {
     // 22 bytes earlier at 0x046B3C.
     public static final int MAP_SSZ_HPZ_TELEPORTER_ADDR = 0x046B3C;
 
-    // PLC 0x5C/0x5D (shared across both CNZ acts) loads the CNZ miniboss body art
-    // plus shared boss-explosion art. The object code references Map_CNZMiniboss
-    // with ArtTile_CNZMiniboss after this PLC has populated VRAM.
-    public static final int PLC_CNZ_MINIBOSS = 0x5C;
+    /**
+     * CNZ Act 1 miniboss PLC id.
+     *
+     * <p>ROM: {@code sonic3k.asm:144844} — {@code moveq #$5D,d0} then
+     * {@code jsr (Load_PLC).l}. The engine previously held {@code 0x5C}
+     * (off-by-one); corrected in workstream D.
+     */
+    public static final int PLC_CNZ_MINIBOSS = 0x5D;
 
     // Map_CNZMiniboss - CNZ miniboss mappings. The include file has 22 dc.w entries
     // before Frame_362F00, so the table base is 44 bytes earlier at 0x362ED4.
     public static final int MAP_CNZ_MINIBOSS_ADDR = 0x362ED4;
+
+    // =====================================================================
+    // CNZ Act 1 miniboss state machine
+    // ROM refs (all sonic3k.asm, S&K-side):
+    //   Obj_CNZMiniboss        line 144823  outer gate
+    //   loc_6D9A8              line 144830  arena setup
+    //   Obj_CNZMinibossInit    line 144885  routine 0
+    //   Obj_CNZMinibossLower   line 144898  routine 2
+    //   Obj_CNZMinibossMove    line 144912  routine 4
+    //   Obj_CNZMinibossOpening line 144941  routine 6
+    //   Obj_CNZMinibossWaitHit line 144954  routine 8
+    //   Obj_CNZMinibossClosing line 144968  routine A
+    //   Obj_CNZMinibossLower2  line 144972  routine C
+    //   Obj_CNZMinibossEnd     line 144984  routine E (defeat)
+    // =====================================================================
+
+    /** Arena camera X minimum. ROM: loc_6D9A8 `move.w d0,(Camera_min_X_pos).w`
+     *  after `move.w #$31E0,d0`. */
+    public static final int CNZ_MINIBOSS_ARENA_MIN_X = 0x31E0;
+
+    /** Arena camera X maximum. ROM: loc_6D9A8 `addi.w #$80,d0`. */
+    public static final int CNZ_MINIBOSS_ARENA_MAX_X = 0x3260;
+
+    /** Arena camera Y minimum. ROM: loc_6D9A8 `move.w #$1C0,(Camera_min_Y_pos).w`. */
+    public static final int CNZ_MINIBOSS_ARENA_MIN_Y = 0x01C0;
+
+    /** Arena camera Y maximum / target max Y. ROM: loc_6D9A8 `move.w #$2B8,...`. */
+    public static final int CNZ_MINIBOSS_ARENA_MAX_Y = 0x02B8;
+
+    /** Boss hit count. ROM: Obj_CNZMinibossInit `move.b #6,collision_property(a0)`. */
+    public static final int CNZ_MINIBOSS_HIT_COUNT = 0x06;
+
+    /** Initial descent y_vel. ROM: Obj_CNZMinibossInit `move.w #$80,y_vel(a0)`. */
+    public static final short CNZ_MINIBOSS_INIT_Y_VEL = (short) 0x0080;
+
+    /** Swing x_vel magnitude. ROM: Obj_CNZMinibossGo3 `move.w #$100,x_vel(a0)`. */
+    public static final short CNZ_MINIBOSS_SWING_X_VEL = (short) 0x0100;
+
+    /** Init wait timer. ROM: Obj_CNZMinibossInit `move.w #$11F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_INIT_WAIT = 0x11F;
+
+    /** Go2 wait timer. ROM: Obj_CNZMinibossGo2 `move.w #$90,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_GO2_WAIT = 0x90;
+
+    /** Swing (Go3) wait timer. ROM: Obj_CNZMinibossGo3 `move.w #$9F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_SWING_WAIT = 0x9F;
+
+    /** Direction-change wait. ROM: Obj_CNZMinibossChangeDir `move.w #$13F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_CHANGEDIR_WAIT = 0x13F;
 
     // PLC 0x6E loads ArtNem_CNZEndBoss, ArtNem_RobotnikShip, ArtNem_BossExplosion,
     // and ArtNem_EggCapsule for Obj_CNZEndBoss. Task 6 only needs the body sheet and
