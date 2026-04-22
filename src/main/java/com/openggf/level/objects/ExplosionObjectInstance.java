@@ -71,6 +71,9 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed() || animFrame > MAX_FRAME)
             return;
+        if (renderManager == null || renderManager.getExplosionRenderer() == null) {
+            return;
+        }
         renderManager.getExplosionRenderer().drawFrameIndex(animFrame, spawn.x(), spawn.y(), false, false);
     }
 }

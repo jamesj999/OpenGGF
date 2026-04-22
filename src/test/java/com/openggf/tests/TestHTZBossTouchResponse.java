@@ -41,7 +41,7 @@ public class TestHTZBossTouchResponse {
 
     @BeforeEach
     public void setUp() throws Exception {
-        RuntimeManager.createGameplay();
+        TestEnvironment.resetAll();
         // Position camera at boss arena so isOnScreenForTouch() passes for the boss.
         // The default camera bounds (x=0, width=320) exclude HTZ_BOSS_X=0x3040.
         GameServices.camera().setX((short) HTZ_BOSS_X);
@@ -123,6 +123,25 @@ public class TestHTZBossTouchResponse {
         rolling.set(true);
         objectManager.update(0, dynamicPlayer, List.of(), 2);
         assertEquals(7, boss.getState().hitCount);
+    }
+
+    @Test
+    public void removedBossDoesNotRemainAsATouchCandidateAfterReplacement() {
+        objectManager.addDynamicObject(boss);
+        objectManager.update(0, player, List.of(), 1);
+        assertEquals(7, boss.getState().hitCount);
+
+        objectManager.removeDynamicObject(boss);
+
+        Sonic2HTZBossInstance replacement = new Sonic2HTZBossInstance(
+                new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
+        objectManager.addDynamicObject(replacement);
+        objectManager.update(0, player, List.of(), 2);
+
+        assertEquals(7, boss.getState().hitCount,
+                "Removed boss should not remain in the touch candidate set");
+        assertEquals(7, replacement.getState().hitCount,
+                "Replacement boss should still be touch-damageable after add/remove cycles");
     }
 
     private static final class NoOpObjectRegistry implements ObjectRegistry {

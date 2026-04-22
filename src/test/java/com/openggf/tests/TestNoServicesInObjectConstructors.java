@@ -92,7 +92,7 @@ public class TestNoServicesInObjectConstructors {
                                     if (!SAFE_FOR_SPAWN_DYNAMIC.contains(className)) {
                                         String fileName = path.getFileName().toString();
                                         violations.add(fileName + ": spawnDynamicObject(new "
-                                                + className + "(...)) â€” use spawnChild() instead, "
+                                                + className + "(...)) â€” use spawnChild()/spawnFreeChild() instead, "
                                                 + "or add to SAFE_FOR_SPAWN_DYNAMIC if constructor "
                                                 + "does not call services()");
                                     }
@@ -107,7 +107,7 @@ public class TestNoServicesInObjectConstructors {
             fail("Unsafe spawnDynamicObject(new ...) patterns found.\n"
                     + "If the constructor calls services(), this will throw "
                     + "IllegalStateException at runtime.\n"
-                    + "Use spawnChild(() -> new X(...)) instead:\n\n  "
+                    + "Use spawnChild(() -> new X(...)) or spawnFreeChild(() -> new X(...)) instead:\n\n  "
                     + String.join("\n  ", violations));
         }
     }
@@ -117,7 +117,7 @@ public class TestNoServicesInObjectConstructors {
      * <p>
      * Constructors run BEFORE {@code addDynamicObject()} or
      * {@code spawnDynamicObject()} can inject {@code ObjectServices}.
-     * The only safe patterns are {@code spawnChild()} or
+     * The only safe patterns are {@code spawnChild()}, {@code spawnFreeChild()}, or
      * {@code setConstructionContext()}, but both are easy to forget at
      * call sites. The simplest universal rule: defer {@code services()}
      * to lazy init or the first {@code update()} call.
@@ -248,7 +248,7 @@ public class TestNoServicesInObjectConstructors {
                                             + className + "(...)) â€” " + className
                                             + " calls services() in constructor. "
                                             + "Remove services() from the constructor "
-                                            + "(use lazy init) or use spawnChild()");
+                                            + "(use lazy init) or use spawnChild()/spawnFreeChild()");
                                 }
                             }
                         } catch (IOException ignored) {
@@ -544,7 +544,7 @@ public class TestNoServicesInObjectConstructors {
     }
 
     private static boolean isContextWrapped(String[] lines, int lineIndex) {
-        if (Pattern.compile("\\b(?:setConstructionContext|spawnChild|spawnObject|createDynamicObject)\\s*\\(")
+        if (Pattern.compile("\\b(?:setConstructionContext|spawnChild|spawnFreeChild|spawnObject|createDynamicObject)\\s*\\(")
                 .matcher(lines[lineIndex]).find()) {
             return true;
         }
@@ -552,7 +552,7 @@ public class TestNoServicesInObjectConstructors {
         int searchStart = Math.max(0, lineIndex - 20);
         int searchEnd = Math.min(lines.length, lineIndex + 20);
         for (int i = lineIndex - 1; i >= searchStart; i--) {
-            if (Pattern.compile("\\b(?:spawnChild|spawnObject|createDynamicObject)\\s*\\(")
+            if (Pattern.compile("\\b(?:spawnChild|spawnFreeChild|spawnObject|createDynamicObject)\\s*\\(")
                     .matcher(lines[i]).find()) {
                 return true;
             }

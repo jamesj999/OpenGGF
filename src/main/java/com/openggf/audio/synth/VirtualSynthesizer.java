@@ -57,9 +57,13 @@ public class VirtualSynthesizer implements Synthesizer {
     }
 
     public void render(short[] buffer) {
-        // Assume buffer is stereo interleaved (L, R, L, R...).
-        int frames = buffer.length / 2;
+        renderFrames(buffer, 0, buffer.length / 2);
+    }
 
+    public void renderFrames(short[] buffer, int frameOffset, int frames) {
+        if (buffer == null || frames <= 0) {
+            return;
+        }
         // Reuse scratch buffers, resize only when needed.
         if (scratchLeft.length < frames) {
             scratchLeft = new int[frames];
@@ -76,6 +80,7 @@ public class VirtualSynthesizer implements Synthesizer {
         // No output gain is applied here; volume issues are in EG/feedback.
         psg.renderStereo(scratchLeft, scratchRight, frames);
 
+        int sampleOffset = frameOffset * 2;
         for (int i = 0; i < frames; i++) {
             int l = scratchLeft[i];
             int r = scratchRight[i];
@@ -88,8 +93,9 @@ public class VirtualSynthesizer implements Synthesizer {
             if (l > 32767) l = 32767; else if (l < -32768) l = -32768;
             if (r > 32767) r = 32767; else if (r < -32768) r = -32768;
 
-            buffer[i * 2] = (short) l;
-            buffer[i * 2 + 1] = (short) r;
+            int sampleIndex = sampleOffset + (i * 2);
+            buffer[sampleIndex] = (short) l;
+            buffer[sampleIndex + 1] = (short) r;
         }
     }
 

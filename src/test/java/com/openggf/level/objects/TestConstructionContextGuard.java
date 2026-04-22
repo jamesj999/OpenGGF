@@ -54,9 +54,11 @@ class TestConstructionContextGuard {
     private static final Pattern NEW_OBJECT = Pattern.compile(
             "\\bnew\\s+([A-Z][\\w.]*(?:ObjectInstance|Instance|Fireball))\\s*\\(");
 
-    // Matches: setConstructionContext( or spawnChild( (which sets context internally)
-    private static final Pattern SET_CONTEXT = Pattern.compile("\\b(?:setConstructionContext|spawnChild)\\(");
-    private static final Pattern CLEAR_CONTEXT = Pattern.compile("\\b(?:clearConstructionContext|spawnChild)\\(");
+    // Matches: setConstructionContext( or spawn*Child( (which sets context internally)
+    private static final Pattern SET_CONTEXT =
+            Pattern.compile("\\b(?:setConstructionContext|spawnChild|spawnFreeChild)\\(");
+    private static final Pattern CLEAR_CONTEXT =
+            Pattern.compile("\\b(?:clearConstructionContext|spawnChild|spawnFreeChild)\\(");
 
     // Matches constructor declaration: [access] ClassName(
     private static final Pattern CONSTRUCTOR_DECL = Pattern.compile(
