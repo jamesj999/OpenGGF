@@ -77,3 +77,8 @@ tools/bizhawk/trace_output/
 /tmp_*.asm
 /docs/BizHawk-2.11-win-x64/*
 /.lwjgl/
+
+# Scratch files at repo root (ad-hoc diagnostic probes, BizHawk movies)
+/.cp
+/.tmp_*
+/*.bk2
