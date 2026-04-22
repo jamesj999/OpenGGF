@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -131,8 +132,12 @@ class TestS3kCnzCarryHeadless {
             }
         }
 
-        assertTrue(releasedAtFrame > 0 && releasedAtFrame < 200,
-                "Carry must release within the first 200 frames; got " + releasedAtFrame);
+        assertNotEquals(-1, releasedAtFrame,
+                "Carry never transitioned to NORMAL within 200 frames");
+        assertTrue(releasedAtFrame > 0,
+                "Carry released on frame 0 — carry must engage for at least 1 frame before releasing");
+        assertTrue(releasedAtFrame < 200,
+                "Carry released outside the 200-frame window at frame " + releasedAtFrame);
         assertFalse(sonic.isObjectControlled(),
                 "After release Sonic is no longer object-controlled");
     }
