@@ -251,6 +251,25 @@ public class TestLevelEntryPathsHeadless {
         assertSame(beforeOM, lm.getObjectManager(), "Null request should be a no-op");
     }
 
+    @Test
+    public void headlessRunnerConsumesPendingSeamlessTransitionBeforeFrameTick() {
+        LevelManager lm = GameServices.level();
+        ObjectManager beforeOM = lm.getObjectManager();
+
+        lm.requestSeamlessTransition(SeamlessLevelTransitionRequest
+                .builder(TransitionType.RELOAD_TARGET_LEVEL)
+                .targetZoneAct(ZONE_EHZ, ACT_2)
+                .preserveMusic(true)
+                .build());
+
+        fixture.stepIdleFrames(1);
+
+        assertEquals(ZONE_EHZ, lm.getCurrentZone(), "Zone should remain EHZ after transition");
+        assertEquals(ACT_2, lm.getCurrentAct(), "Headless runner should apply pending seamless transition");
+        assertNotSame(beforeOM, lm.getObjectManager(),
+                "Headless runner should rebuild managers when consuming seamless transitions");
+    }
+
     // ========== respawnPlayer() ==========
 
     @Test
