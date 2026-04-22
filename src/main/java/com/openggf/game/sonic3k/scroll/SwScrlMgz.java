@@ -7,6 +7,8 @@ import com.openggf.level.scroll.compose.ScatterFillPlan;
 import com.openggf.level.scroll.compose.ScrollEffectComposer;
 import com.openggf.level.scroll.compose.ScrollValueTable;
 
+import java.util.logging.Logger;
+
 import static com.openggf.level.scroll.M68KMath.negWord;
 
 /**
@@ -16,15 +18,49 @@ import static com.openggf.level.scroll.M68KMath.negWord;
  * produce real per-line parallax rather than a flat fallback ratio.
  */
 public class SwScrlMgz extends AbstractZoneScrollHandler {
-
+    private static final Logger LOG = Logger.getLogger(SwScrlMgz.class.getName());
+    private int lastLoggedRoutine = -1;
     // Screen shake support (ROM: Screen_shake_flag, used by Tunnelbot / MGZ Miniboss).
-    // Applied to FG VScroll (tiles) AND propagated via getShakeOffsetY() (sprites),
-    // matching the HCZ2 pattern: composer.setVscrollFactorFG(cameraY + offset).
+    // Applied to FG and BG VScroll, while getShakeOffsetY() propagates the same
+    // vertical delta to sprites. MGZ2_BGDeform compensates BG parallax math so
+    // the shake lands 1:1 on the plane instead of being scaled away.
     private int screenShakeOffset;
     private short vscrollFactorFG;
 
+    // ROM: MGZ2_BGDeform (Lockon S3/Screen Events.asm:1090-1145) switches the BG
+    // scroll formula per Events_bg+$00 state. State 0 uses 3/16 parallax (cloud
+    // layer); state 8 (Sonic rise) locks the BG 1:1 to the FG at a fixed
+    // ROM-defined offset so the pre-placed terrain rows in the BG layout line
+    // up with the pit and become standable via Background_collision_flag.
+    // State C shifts the parallax origin by $500.
+    private static final int BG_RISE_NORMAL_STATE = 0;
+    private static final int BG_RISE_SONIC_STATE = 8;
+    private static final int BG_RISE_AFTER_MOVE_STATE = 0xC;
+
+    /** ROM: loc_23D1EA — d1 = $8F0, d2 = $3200 for Sonic rise. */
+    private static final int MGZ2_SONIC_RISE_Y_BASE = 0x8F0;
+    private static final int MGZ2_SONIC_RISE_X_BASE = 0x3200;
+    /** ROM: state C — d1 = $500 subtracted before 3/16 parallax. */
+    private static final int MGZ2_AFTER_MOVE_Y_BASE = 0x500;
+
+    private int bgRiseRoutine;
+    private int bgRiseOffset;
+    /**
+     * Cached BG camera X for {@link #getBgCameraX()}. {@link Integer#MIN_VALUE}
+     * means "no override" — the dual-path collision uses the FG cameraX as the
+     * BG reference, which is the correct default for normal MGZ play. During
+     * state 8 this is set to {@code cameraX - $3200} so ground collision probes
+     * land inside the 24-col BG layout.
+     */
+    private int lastBgCameraX = Integer.MIN_VALUE;
+
     public void setScreenShakeOffset(int offset) {
         this.screenShakeOffset = offset;
+    }
+
+    public void setBgRiseState(int routine, int offset) {
+        this.bgRiseRoutine = routine;
+        this.bgRiseOffset = offset;
     }
 
     @Override
@@ -35,6 +71,11 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     @Override
     public short getVscrollFactorFG() {
         return vscrollFactorFG;
+    }
+
+    @Override
+    public int getBgCameraX() {
+        return lastBgCameraX;
     }
 
     private static final int HSCROLL_WORD_COUNT = 32;
@@ -90,6 +131,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         short fgScroll = negWord(cameraX);
 
         if (actId == 0) {
+            lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) 0);
             buildMgz1HScrollTable(cameraX, mgz1HScrollTable);
             DeformationPlan.applyTableBands(
@@ -100,8 +142,38 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     MGZ1_BG_DEFORM,
                     0,
                     NEGATE_WORD);
+        } else if (bgRiseRoutine == BG_RISE_SONIC_STATE) {
+            // State 8 (Sonic rise): MGZ2_BGDeform still runs the cloud/scatter
+            // parallax builder, but it seeds the final deform slot with the
+            // 1:1 terrain lock value (Camera_X_pos_BG_copy = cameraX - $3200).
+            // That keeps the clouds drifting while the terrain band scrolls
+            // 1:1 with the lift.
+            int bgY = ((short) cameraY) - MGZ2_SONIC_RISE_Y_BASE + bgRiseOffset;
+            int bgScrollBaseX = ((short) cameraX) - MGZ2_SONIC_RISE_X_BASE;
+            // Expose to dual-path collision so probes at world X≈$3800
+            // translate into the BG layout's populated 0..23 range.
+            lastBgCameraX = bgScrollBaseX;
+            composer.setVscrollFactorBG((short) bgY);
+            buildMgz2StateEightHScrollTable(cameraX, bgScrollBaseX, mgz2HScrollTable, mgz2ScatterSource);
+            DeformationPlan.applyTableBands(
+                    composer,
+                    bgY,
+                    fgScroll,
+                    mgz2HScrollTable,
+                    MGZ2_BG_DEFORM,
+                    4,
+                    NEGATE_WORD);
+            if (lastLoggedRoutine != BG_RISE_SONIC_STATE) {
+                LOG.info(String.format(
+                        "SwScrlMgz: state 8 active — bgY=%d bgScrollBaseX=%d (cam %d,%d)",
+                        bgY, bgScrollBaseX, cameraX, cameraY));
+                lastLoggedRoutine = BG_RISE_SONIC_STATE;
+            }
         } else {
+            // State 0 (normal MGZ2 play) and state C (after-move) use the
+            // unchanged cloud-parallax formula so cloud rendering stays correct.
             int bgY = computeMgz2BgY(cameraY);
+            lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) bgY);
             buildMgz2HScrollTable(cameraX, true, mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
@@ -112,11 +184,16 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     MGZ2_BG_DEFORM,
                     4,
                     NEGATE_WORD);
+            if (lastLoggedRoutine == BG_RISE_SONIC_STATE) {
+                LOG.info("SwScrlMgz: state 8 exited, back to normal parallax");
+                lastLoggedRoutine = 0;
+            }
         }
 
-        // Screen shake: apply to FG VScroll (tiles shake), matching HCZ2 pattern.
-        // ROM: ShakeScreen modifies Camera_Y_pos_copy which affects FG scroll.
+        // Screen shake: apply the same camera rumble offset to both planes so the
+        // BG cloud/floor strip tracks the shaken viewport instead of staying fixed.
         if (screenShakeOffset != 0) {
+            composer.setVscrollFactorBG((short) (composer.getVscrollFactorBG() + screenShakeOffset));
             composer.setVscrollFactorFG((short) (cameraY + screenShakeOffset));
         }
 
@@ -213,6 +290,21 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         }
     }
 
+    /**
+     * ROM: MGZ2_BGDeform state 8 still executes the cloud/scatter fill from
+     * {@code loc_23D24C..loc_23D2B4}, but the state-8 prelude seeds
+     * {@code HScroll_table+$036} with {@code Camera_X_pos_BG_copy}. That final
+     * slot feeds the locked terrain band while the earlier slots retain the
+     * normal cloud parallax.
+     */
+    private void buildMgz2StateEightHScrollTable(int cameraX,
+                                                 int bgScrollBaseX,
+                                                 ScrollValueTable table,
+                                                 ScrollValueTable scatterSource) {
+        buildMgz2HScrollTable(cameraX, true, table, scatterSource);
+        table.set(27, (short) bgScrollBaseX);
+    }
+
     private int computeMgz2BgY(int cameraY) {
         int d0 = ((short) cameraY) << 16;
         d0 >>= 4;
@@ -221,5 +313,4 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         d0 += d1;
         return (short) (d0 >> 16);
     }
-
 }

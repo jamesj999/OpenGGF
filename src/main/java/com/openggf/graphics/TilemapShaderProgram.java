@@ -42,6 +42,8 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int vdpWrapWidthLocation = -1;
     private int vdpWrapHeightLocation = -1;
     private int nametableBaseLocation = -1;
+    private int upperBandWrapHeightPxLocation = -1;
+    private int upperBandWrapWidthTilesLocation = -1;
     private int frameCounterLocation = -1;
     private int shimmerStyleLocation = -1;
 
@@ -84,6 +86,8 @@ public class TilemapShaderProgram extends ShaderProgram {
         vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
         vdpWrapHeightLocation = glGetUniformLocation(programId, "VDPWrapHeight");
         nametableBaseLocation = glGetUniformLocation(programId, "NametableBase");
+        upperBandWrapHeightPxLocation = glGetUniformLocation(programId, "UpperBandWrapHeightPx");
+        upperBandWrapWidthTilesLocation = glGetUniformLocation(programId, "UpperBandWrapWidthTiles");
         frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
         shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
     }
@@ -231,6 +235,15 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setNametableBase(float base) {
         if (nametableBaseLocation >= 0) {
             glUniform1f(nametableBaseLocation, base);
+        }
+    }
+
+    public void setUpperBandWrap(float heightPx, float widthTiles) {
+        if (upperBandWrapHeightPxLocation >= 0) {
+            glUniform1f(upperBandWrapHeightPxLocation, heightPx);
+        }
+        if (upperBandWrapWidthTilesLocation >= 0) {
+            glUniform1f(upperBandWrapWidthTilesLocation, widthTiles);
         }
     }
 

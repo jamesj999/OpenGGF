@@ -312,10 +312,11 @@ public class LevelTilemapManager {
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
                 && (gameState == null || !gameState.isHtzScreenShakeActive());
-        // Use the scroll handler's required period width (may be wider than 512px
-        // for zones with multi-speed parallax like GHZ).
-        int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()
-                : VDP_BG_PLANE_WIDTH_PX;
+        // Use the currently selected BG period width. LevelManager may widen this
+        // beyond the scroll handler's nominal period when the renderer needs the
+        // full BG strip instead of a 64-cell wrapped cache (for example MGZ2
+        // state 8's per-line rebuild path).
+        int bgPeriodWidth = currentBgPeriodWidth;
         int levelWidth = bgWrap ? bgPeriodWidth : layerLevelWidth;
 
         // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap

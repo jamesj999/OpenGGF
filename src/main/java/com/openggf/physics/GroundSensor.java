@@ -89,12 +89,12 @@ public class GroundSensor extends Sensor {
         if (isBackgroundCollisionEnabled()) {
             SensorResult bgResult = scanBackgroundCollision(
                     originalX, originalY, solidityBit, globalDirection, config.vertical());
-            if (bgResult != null && fgResult != null
-                    && bgResult.distance() > fgResult.distance()) {
-                // BG result is more lenient — use FG angle but BG distance
-                // ROM: move.b Primary_Angle_save,(a4) restores FG angle
-                return bgScanResult.set(fgResult.angle(), bgResult.distance(),
-                        fgResult.tileId(), fgResult.direction());
+            // ROM: FindFloor/FindWall keep the BG result unless the FG distance is
+            // strictly smaller. When FG wins, the angle register is restored from
+            // Primary_Angle_save; when BG wins, both distance and angle come from
+            // the BG scan.
+            if (bgResult != null && (fgResult == null || bgResult.distance() <= fgResult.distance())) {
+                return bgResult;
             }
         }
 
@@ -181,19 +181,9 @@ public class GroundSensor extends Sensor {
         short bgX = (short) (fgX - cameraDiffX);
         short bgY = (short) (fgY - cameraDiffY);
 
-        // Scan BG layer (layer 1)
-        ChunkDesc desc = lm.getChunkDescAt((byte) 1, bgX, bgY, false);
-        if (desc == null) return null;
-
-        SolidTile tile = getSolidTile(desc, solidityBit);
-        if (tile == null) return null;
-
-        // Perform the scan using the BG-adjusted coordinates but return
-        // distance relative to the original FG coordinates.
-        // The simplest approach: do a full scan at the BG coordinates and
-        // return the result. The distance is relative to the probe position
-        // which is now in BG space, but since both FG and BG use the same
-        // tile grid system, the distance values are directly comparable.
+        // Perform the scan using the BG-adjusted coordinates. Do not bail out
+        // early on an empty first tile: the ROM still runs the extension pass
+        // against BG collision data exactly like the FG path.
         if (vertical) {
             return scanVerticalBg(bgX, bgY, solidityBit, globalDirection);
         } else {
@@ -226,7 +216,7 @@ public class GroundSensor extends Sensor {
         tile = getSolidTileDirect(desc, solidityBit, lm);
         if (tile != null) {
             byte metric = getHeightMetric(tile, desc, x, direction);
-            if (metric != 0 && metric != FULL_TILE) {
+            if (metric != 0) {
                 byte distance = calculateVerticalDistance(metric, y, nextY, direction);
                 return bgScanResult.set(tile.getAngle(
                         desc != null && desc.getHFlip(),

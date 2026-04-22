@@ -107,7 +107,7 @@ public final class ObjectTerrainUtils {
             if (adjusted < 0) {
                 // ROM FindFloor2: not.w d1 where d1 = yInTile
                 int dist = ~yInTile + 16; // +16 for extension tile offset
-                return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+                return new TerrainCheckResult(dist, getAngle(tile, desc), getTileIndex(desc));
             }
         }
         return TerrainCheckResult.noCollision();
@@ -126,7 +126,7 @@ public final class ObjectTerrainUtils {
             if (metric < 0) {
                 int yInTile = y & 0x0F;
                 int dist = ~yInTile - 16;
-                return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+                return new TerrainCheckResult(dist, getAngle(tile, desc), getTileIndex(desc));
             }
             TerrainCheckResult result = createFloorResult(tile, desc, metric, y, prevY);
             return new TerrainCheckResult(result.distance() - 16, result.angle(), result.tileIndex());
@@ -134,7 +134,7 @@ public final class ObjectTerrainUtils {
         // Empty previous tile - use yInTile-based distance
         int yInTile = y & 0x0F;
         int dist = ~yInTile - 16;
-        return new TerrainCheckResult(dist, getAngle(origTile), getTileIndex(origDesc));
+        return new TerrainCheckResult(dist, getAngle(origTile, origDesc), getTileIndex(origDesc));
     }
 
     private static TerrainCheckResult checkFloorEdge(LevelManager lm, int x, int y) {
@@ -155,7 +155,7 @@ public final class ObjectTerrainUtils {
         // dist = 15 - (metric + (tileY & 0xF)) + (tileY - checkY)
         int yInTile = tileY & 0x0F;
         int dist = 15 - (metric + yInTile) + (tileY - checkY);
-        return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+        return new TerrainCheckResult(dist, getAngle(tile, desc), getTileIndex(desc));
     }
 
     // ========================================
@@ -211,7 +211,7 @@ public final class ObjectTerrainUtils {
         int tileTop = tileY & ~0x0F;
         int surfaceY = tileTop + metric - 1;
         int dist = checkY - surfaceY;
-        return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+        return new TerrainCheckResult(dist, getAngle(tile, desc), getTileIndex(desc));
     }
 
     // ========================================
@@ -271,7 +271,7 @@ public final class ObjectTerrainUtils {
         int dist = checkingLeft
                 ? (xInTile - metric) + tileOffset
                 : (15 - (metric + xInTile)) + tileOffset;
-        return new TerrainCheckResult(dist, getAngle(tile), getTileIndex(desc));
+        return new TerrainCheckResult(dist, getAngle(tile, desc), getTileIndex(desc));
     }
 
     // ========================================
@@ -334,8 +334,13 @@ public final class ObjectTerrainUtils {
         return metric;
     }
 
-    private static byte getAngle(SolidTile tile) {
-        return tile != null ? tile.getAngle() : 0;
+    private static byte getAngle(SolidTile tile, ChunkDesc desc) {
+        if (tile == null) {
+            return 0;
+        }
+        boolean hFlip = desc != null && desc.getHFlip();
+        boolean vFlip = desc != null && desc.getVFlip();
+        return tile.getAngle(hFlip, vFlip);
     }
 
     private static int getTileIndex(ChunkDesc desc) {

@@ -33,6 +33,8 @@ uniform float ScreenHeight;          // Visible scanline count (224.0)
 uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
 uniform float VDPWrapHeight;         // VDP nametable height in tiles, 0 = disabled
 uniform float NametableBase;         // Starting tilemap column for VDP-style wrapping
+uniform float UpperBandWrapHeightPx; // If >0, rows above this BG-local Y wrap within UpperBandWrapWidthTiles
+uniform float UpperBandWrapWidthTiles;
 uniform int FrameCounter;            // For shimmer animation
 uniform int ShimmerStyle;            // 0 = none, 1 = S1 integer-snapped shimmer
 
@@ -125,8 +127,17 @@ void main()
 
     float tileXf = floor(worldX / 8.0);
     float tileYf = floor(worldY / 8.0);
+    float localBandY = worldY;
+    if (WrapY == 1) {
+        float wrapHeightPx = TilemapHeight * 8.0;
+        localBandY = mod(localBandY, wrapHeightPx);
+        if (localBandY < 0.0) localBandY += wrapHeightPx;
+    }
 
-    if (VDPWrapWidth > 0.0) {
+    if (UpperBandWrapWidthTiles > 0.0 && UpperBandWrapHeightPx > 0.0 && localBandY < UpperBandWrapHeightPx) {
+        tileXf = mod(tileXf, UpperBandWrapWidthTiles);
+        if (tileXf < 0.0) tileXf += UpperBandWrapWidthTiles;
+    } else if (VDPWrapWidth > 0.0) {
         // VDP nametable simulation for AIZ ocean-to-beach transition.
         // Two modes based on whether the camera has started revealing beach tiles:
         //

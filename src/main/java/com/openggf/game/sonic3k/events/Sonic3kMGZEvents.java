@@ -176,6 +176,43 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int COLLAPSE_SCROLL_ACCEL = 0x500;
     private static final int[] COLLAPSE_SCROLL_DELAYS = {0x0A, 0x10, 0x02, 0x08, 0x0E, 0x06, 0x00, 0x0C, 0x12, 0x04};
 
+    // ========================================================================
+    // Act 2 BG-rise state machine (MGZ2_BGEventTrigger + Obj_MGZ2BGMoveSonic)
+    // ROM: sonic3k.asm:107117-107323. This is the "outrun the terrain as it
+    // scrolls up" sequence. HCZ2 parallel: uses Background_collision_flag +
+    // dual-path FindFloor in GroundSensor; BG plane Y offset drives the visual.
+    // ========================================================================
+
+    /** ROM: Events_bg+$00 == 0 — trigger check, BG collision off. */
+    private static final int BG_RISE_NORMAL = 0;
+    /** ROM: Events_bg+$00 == 8 — BG plane rising, BG collision on, player lifted in lockstep. */
+    private static final int BG_RISE_SONIC = 8;
+    /** ROM: Events_bg+$00 == 0xC — after BG rise completes, collision off, can re-enter. */
+    private static final int BG_RISE_AFTER_MOVE = 0xC;
+
+    /** ROM: loc_51A8A — BG_RISE_NORMAL trigger box for Sonic path (Y in [$800,$900), X >= $34C0). */
+    private static final int BG_RISE_TRIGGER_Y_MIN = 0x0800;
+    private static final int BG_RISE_TRIGGER_Y_MAX = 0x0900;
+    private static final int BG_RISE_TRIGGER_X_MIN = 0x34C0;
+    /** ROM: Obj_MGZ2BGMoveSonic — d1=$A80, d2=$36D0 thresholds to actually begin rising. */
+    private static final int BG_RISE_MOTION_X_MIN = 0x36D0;
+    private static final int BG_RISE_MOTION_Y_MIN = 0x0A80;
+    /** ROM: loc_51B6C — accel latch kicks in at X >= $3D50. */
+    private static final int BG_RISE_ACCEL_X_MIN = 0x3D50;
+    /** ROM: Obj_MGZ2BGMoveSonic — d3=$1D0 target offset. */
+    private static final int BG_RISE_TARGET_SONIC = 0x01D0;
+    /** ROM: Obj_MGZ2BGMoveSonic — d4=$6000 subpixel velocity per frame (16:16 fixed-point). */
+    private static final int BG_RISE_SUBPIXEL_VELOCITY = 0x6000;
+    /** ROM: state 8 exit to state 0 — BG_RISE_SONIC Y still in [$800,$900) but X dropped below $34C0. */
+    private static final int BG_RISE_EXIT_BACKWARD_X_MAX = 0x34C0;
+    /** ROM: loc_51A04 — BG_RISE_SONIC Y below $800 AND X >= $3900: transition to AFTER_MOVE. */
+    private static final int BG_RISE_EXIT_FORWARD_X_MIN = 0x3900;
+    /** ROM: state C jump-table — AFTER_MOVE Y >= $800 AND X >= $3A40: return to SONIC_RISE. */
+    private static final int BG_RISE_REENTRY_Y_MIN = 0x0800;
+    private static final int BG_RISE_REENTRY_X_MIN = 0x3A40;
+    /** ROM: loc_51B1C — target reached: Screen_shake_flag = $E (timed countdown). */
+    private static final int BG_RISE_FINAL_SHAKE_FRAMES = 0x0E;
+
     private int bgRoutine;
 
     /** ROM: Events_fg_5 — set by Obj_LevelResultsCreate to trigger BG act transition. */
@@ -201,6 +238,19 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int collapseFrameCounter;
     private final int[] collapseScrollVelocity = new int[COLLAPSE_COLUMN_COUNT];
     private final int[] collapseScrollPosition = new int[COLLAPSE_COLUMN_COUNT];
+
+    /** ROM: Events_bg+$00 — MGZ2 BG-rise state (0 / 8 / 0xC). */
+    private int bgRiseRoutine;
+    /** ROM: Events_bg+$02 — current BG Y offset, clamped to BG_RISE_TARGET_SONIC. */
+    private int bgRiseOffset;
+    /** ROM: Obj_MGZ2BGMoveSonic $34(a0) — subpixel accumulator (16:16 fixed-point). */
+    private int bgRiseSubpixelAccum;
+    /** ROM: Obj_MGZ2BGMoveSonic control-flow latch — motion only starts once player passes both thresholds. */
+    private boolean bgRiseMotionStarted;
+    /** ROM: Obj_MGZ2BGMoveSonic $39(a0) — accel latch; once true, +1 pixel/frame. */
+    private boolean bgRiseAccelLatched;
+    /** ROM: Screen_shake_flag timed countdown ($E frames) armed when target reached. */
+    private int bgRiseFinalShakeTimer;
 
     /** ROM: Events_bg+$12, +$13, +$14 — one-shot flags per appearance. */
     private boolean appearance1Complete;
@@ -261,6 +311,12 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             collapseScrollVelocity[i] = 0;
             collapseScrollPosition[i] = 0;
         }
+        bgRiseRoutine = BG_RISE_NORMAL;
+        bgRiseOffset = 0;
+        bgRiseSubpixelAccum = 0;
+        bgRiseMotionStarted = false;
+        bgRiseAccelLatched = false;
+        bgRiseFinalShakeTimer = 0;
         savedCameraMinX = 0;
         savedCameraMaxX = 0;
         savedCameraBoundsValid = false;
@@ -661,9 +717,172 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         return appearance3Complete;
     }
 
-    /** ROM: Events_fg_0 / Screen_shake_flag — true while Robotnik is on-screen. */
+    /**
+     * ROM: Events_fg_0 / Screen_shake_flag — true while Robotnik is on-screen
+     * (continuous) or while the BG-rise final timed shake ($E frames) is counting down.
+     */
     public boolean isScreenShakeActive() {
-        return screenShakeActive;
+        return screenShakeActive || bgRiseFinalShakeTimer > 0;
+    }
+
+    public int getBgRiseRoutine() {
+        return bgRiseRoutine;
+    }
+
+    public int getBgRiseOffset() {
+        return bgRiseOffset;
+    }
+
+    /**
+     * ROM: MGZ2_BGEventTrigger (sonic3k.asm:107117-107222) + Obj_MGZ2BGMoveSonic
+     * (sonic3k.asm:107241-107323). Runs before player physics so that
+     * {@code Background_collision_flag} and the player lift land before
+     * {@code FindFloor}. The ROM runs this in the object phase (before
+     * ExecuteObjects resolves physics), same as {@code HCZWaterTunnelHandler}.
+     */
+    public void updatePrePhysics(int act) {
+        if (act != 1) {
+            return;
+        }
+        AbstractPlayableSprite player = camera().getFocusedSprite();
+        if (player == null) {
+            return;
+        }
+        if (bgRiseFinalShakeTimer > 0) {
+            bgRiseFinalShakeTimer--;
+        }
+        int playerX = player.getCentreX();
+        int playerY = player.getCentreY();
+        switch (bgRiseRoutine) {
+            case BG_RISE_NORMAL -> bgRiseNormal(playerX, playerY);
+            case BG_RISE_SONIC -> bgRiseSonic(player, playerX, playerY);
+            case BG_RISE_AFTER_MOVE -> bgRiseAfterMove(playerX, playerY);
+            default -> {
+            }
+        }
+        SwScrlMgz scrollHandler = resolveMgzScrollHandler();
+        if (scrollHandler == null) {
+            if (bgRiseRoutine == BG_RISE_SONIC) {
+                LOG.warning("MGZ BG-rise: state SONIC armed but scroll handler is null — "
+                        + "BG formula will NOT shift in-game");
+            }
+        } else {
+            scrollHandler.setBgRiseState(bgRiseRoutine, bgRiseOffset);
+        }
+    }
+
+    /**
+     * ROM: loc_51A6A — BG collision off; Sonic trigger box is Y in [$800,$900)
+     * AND X >= $34C0. Knuckles variant (Y in [$80,$180)) is not ported; the
+     * engine currently runs the Sonic/Tails route here.
+     */
+    private void bgRiseNormal(int playerX, int playerY) {
+        gameState().setBackgroundCollisionFlag(false);
+        if (playerY >= BG_RISE_TRIGGER_Y_MIN && playerY < BG_RISE_TRIGGER_Y_MAX
+                && playerX >= BG_RISE_TRIGGER_X_MIN) {
+            bgRiseRoutine = BG_RISE_SONIC;
+            bgRiseOffset = 0;
+            bgRiseSubpixelAccum = 0;
+            bgRiseMotionStarted = false;
+            bgRiseAccelLatched = false;
+            gameState().setBackgroundCollisionFlag(true);
+            LOG.info(String.format(
+                    "MGZ BG-rise: state 0 -> SONIC at player (0x%04X, 0x%04X)",
+                    playerX, playerY));
+        }
+    }
+
+    /**
+     * ROM: loc_51A04 ({@code MGZ2_BGEventTrigger} state 8) + {@code Obj_MGZ2BGMoveSonic}
+     * per-frame body. The trigger unconditionally sets
+     * {@code Background_collision_flag}=ON, then decides state transitions.
+     * The object runs its motion body regardless of the trigger's return:
+     * once motion has started (player past X>$36D0 AND Y>$A80) it advances
+     * every frame until the offset reaches {@code $1D0}. Accel latch fires
+     * at X>=$3D50 (ROM: loc_51B6C) and flips from subpixel accumulator to
+     * integer +1 pixel/frame.
+     */
+    private void bgRiseSonic(AbstractPlayableSprite player, int playerX, int playerY) {
+        gameState().setBackgroundCollisionFlag(true);
+        // MGZ2_BGEventTrigger state-8 transition logic:
+        //   Y < $800 AND X >= $3900 → state C
+        //   Y in [$800,$900) AND X < $34C0 → state 0
+        //   otherwise: stay in state 8 (motion keeps running via the object)
+        if (playerY < BG_RISE_TRIGGER_Y_MIN) {
+            if (playerX >= BG_RISE_EXIT_FORWARD_X_MIN) {
+                bgRiseRoutine = BG_RISE_AFTER_MOVE;
+                gameState().setBackgroundCollisionFlag(false);
+                return;
+            }
+        } else if (playerY < BG_RISE_TRIGGER_Y_MAX
+                && playerX < BG_RISE_EXIT_BACKWARD_X_MAX) {
+            bgRiseRoutine = BG_RISE_NORMAL;
+            gameState().setBackgroundCollisionFlag(false);
+            return;
+        }
+        // Obj_MGZ2BGMoveSonic body runs while state remains 8, decoupled from
+        // the trigger's transition check. Motion start requires crossing both
+        // BG_RISE_MOTION_X_MIN and BG_RISE_MOTION_Y_MIN (ROM: loc_51AF2).
+        if (!bgRiseMotionStarted) {
+            if (playerX <= BG_RISE_MOTION_X_MIN || playerY <= BG_RISE_MOTION_Y_MIN) {
+                return;
+            }
+            bgRiseMotionStarted = true;
+        }
+        advanceBgRise(player, playerX);
+    }
+
+    /**
+     * ROM: MGZ2_BGEventTrigger_Index state C — clear
+     * {@code Background_collision_flag}; re-enter state 8 when the player
+     * drops back into Y >= $800 AND X >= $3A40.
+     */
+    private void bgRiseAfterMove(int playerX, int playerY) {
+        gameState().setBackgroundCollisionFlag(false);
+        if (playerY >= BG_RISE_REENTRY_Y_MIN && playerX >= BG_RISE_REENTRY_X_MIN) {
+            bgRiseRoutine = BG_RISE_SONIC;
+            gameState().setBackgroundCollisionFlag(true);
+        }
+    }
+
+    /**
+     * ROM: Obj_MGZ2BGMoveSonic loc_51B1C-loc_51B84.
+     *
+     * <p>Per-frame: if accel latch active, newOffset = current + 1. Otherwise
+     * add $6000 to the 16:16 subpixel accumulator and take its upper word.
+     * If the new offset crosses the target, clamp at $1D0, play CRASH, arm the
+     * $E-frame timed shake. Lift the focused player by the exact delta
+     * (ROM: {@code sub.w d1,(Player_1+y_pos).w}).
+     */
+    private void advanceBgRise(AbstractPlayableSprite player, int playerX) {
+        if (bgRiseOffset >= BG_RISE_TARGET_SONIC) {
+            return;
+        }
+        if (!bgRiseAccelLatched && playerX >= BG_RISE_ACCEL_X_MIN) {
+            bgRiseAccelLatched = true;
+        }
+        int newOffset;
+        if (bgRiseAccelLatched) {
+            newOffset = bgRiseOffset + 1;
+        } else {
+            bgRiseSubpixelAccum += BG_RISE_SUBPIXEL_VELOCITY;
+            newOffset = bgRiseSubpixelAccum >>> 16;
+        }
+        if (newOffset >= BG_RISE_TARGET_SONIC) {
+            newOffset = BG_RISE_TARGET_SONIC;
+            var audioManager = audio();
+            if (audioManager != null) {
+                audioManager.playSfx(Sonic3kSfx.CRASH.id);
+            }
+            bgRiseFinalShakeTimer = BG_RISE_FINAL_SHAKE_FRAMES;
+            screenShakeActive = false;
+        }
+        int delta = newOffset - bgRiseOffset;
+        if (delta <= 0) {
+            return;
+        }
+        bgRiseOffset = newOffset;
+        player.setCentreY((short) (player.getCentreY() - delta));
     }
 
     public int getChunkEventRoutine() {

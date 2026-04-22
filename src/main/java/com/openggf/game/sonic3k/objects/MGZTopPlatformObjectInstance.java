@@ -21,6 +21,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -250,7 +251,9 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean allowsObjectControlledSolidContact(PlayableEntity player, ObjectInstance candidate) {
-        return candidate instanceof BreakableWallObjectInstance;
+        return candidate instanceof BreakableWallObjectInstance
+                || candidate instanceof CollapsingBridgeObjectInstance bridge && bridge.isMgzStompMode()
+                || candidate instanceof Sonic3kSpringObjectInstance;
     }
 
     // =============================================================
@@ -492,8 +495,17 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
 
         // ROM loc_34FBC safety-release: if player is dead/hurt/in debug mode, fall
         // through to loc_3500A which releases the grab and, for P1, invokes sub_3519A
-        // (flip platform to released-flight drift). Same exit path as a jump-launch.
-        if (state.routine == 4 && (player.getDead() || player.isHurt() || player.isDebugMode())) {
+        // (flip platform to released-flight drift). Hurt uses an explicit helper so
+        // MGZ carry ownership is cleared from the affected player state before the
+        // shared hurt routine continues on subsequent frames.
+        if (state.routine == 4 && player.isHurt()) {
+            releaseForExternalHurt(player, state);
+            if (isPrimary) {
+                enterReleasedFlight();
+            }
+            return;
+        }
+        if (state.routine == 4 && (player.getDead() || player.isDebugMode())) {
             releasePlayer(player, state, false);
             if (isPrimary) {
                 enterReleasedFlight();
@@ -606,9 +618,25 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         }
 
         // ROM loc_3505C: P1-only motion path.
-        // sub_35504 (mini ground motion: accumulate ground_vel from input).
-        runPlayerGroundMotion(player);
-        moveGrabbedPlayer(player, state);
+        // ROM loc_35064: skip sub_35504 entirely when the player is already in
+        // spring animation. The spring handoff below must read the spring's
+        // x_vel/y_vel untouched on the next grabbed-state frame.
+        boolean springAnim = player.getAnimationId() == Sonic3kAnimationIds.SPRING.id();
+        boolean springCarryActive = airborne && player.getSpringing();
+        if (!springAnim && !springCarryActive) {
+            runPlayerGroundMotion(player);
+        }
+        moveGrabbedPlayer(player, state, !(springAnim || springCarryActive));
+
+        if (player.hasMgzTopPlatformSpringHandoffPending()) {
+            xVel = player.getMgzTopPlatformSpringHandoffXVel();
+            yVel = player.getMgzTopPlatformSpringHandoffYVel();
+            player.clearMgzTopPlatformSpringHandoff();
+            player.setYSpeed((short) (player.getYSpeed() + RELEASE_GRAVITY));
+            airborne = true;
+            rolling = 0;
+            return;
+        }
 
         if (player.getAnimationId() == Sonic3kAnimationIds.SPRING.id()) {
             xVel = player.getXSpeed();
@@ -616,6 +644,15 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             player.setYSpeed((short) (player.getYSpeed() + RELEASE_GRAVITY));
             airborne = true;
             rolling = 0;
+            return;
+        }
+
+        if (springCarryActive) {
+            // Keep the carried spring launch in its dedicated path while the spring lock
+            // is still active. Re-entering centering here flattens the route spring into
+            // the wrong mostly-horizontal motion.
+            player.setXSpeed((short) xVel);
+            player.setYSpeed((short) yVel);
             return;
         }
 
@@ -825,6 +862,14 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         state.ySub = 0;
         state.routine = 6;
         state.grabbed = false;
+    }
+
+    /**
+     * External hurt keeps the player in the hurt routine, but MGZ carry ownership must
+     * still be dropped immediately so the next frame does not re-enter attached logic.
+     */
+    private void releaseForExternalHurt(AbstractPlayableSprite player, PlayerGrabState state) {
+        releasePlayer(player, state, false);
     }
 
     // =============================================================
@@ -1424,6 +1469,12 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void moveGrabbedPlayer(AbstractPlayableSprite player, PlayerGrabState state) {
+        moveGrabbedPlayer(player, state, true);
+    }
+
+    private void moveGrabbedPlayer(AbstractPlayableSprite player,
+                                   PlayerGrabState state,
+                                   boolean resolveTerrainAfterMove) {
         SubpixelMotion.State playerMotion = new SubpixelMotion.State(
                 player.getCentreX(),
                 player.getCentreY(),
@@ -1436,7 +1487,24 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
         state.ySub = playerMotion.ySub;
         player.setCentreX((short) playerMotion.x);
         player.setCentreY((short) playerMotion.y);
+        if (resolveTerrainAfterMove) {
+            resolveGrabbedPlayerTerrain(player);
+        }
         clampGrabbedPlayerToLevel(player);
+    }
+
+    private void resolveGrabbedPlayerTerrain(AbstractPlayableSprite player) {
+        if (player == null) {
+            return;
+        }
+        CollisionSystem collisionSystem = player.currentCollisionSystemOrNull();
+        if (collisionSystem == null) {
+            return;
+        }
+        collisionSystem.resolveAirCollision(player, landed -> landed.setYSpeed((short) 0));
+        // ROM MGZ carry does not feed terrain angle back into Sonic's walk/run
+        // presentation; the captured state keeps flat-surface animation semantics.
+        player.setAngle((byte) 0);
     }
 
     private void releaseAllPlayers() {
@@ -1446,18 +1514,21 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             state.routine = 0;
             state.entrySideBias = 0;
             if (entry.getKey() instanceof AbstractPlayableSprite player) {
-                player.setObjectControlled(false);
-                player.setControlLocked(false);
-                player.setOnObject(false);
-                player.setForcedAnimationId(-1);
-                player.restoreDefaultRadii();
-                player.clearWallClingState();
-                ObjectServices svc = tryServices();
-                if (svc != null && svc.objectManager() != null) {
-                    svc.objectManager().clearRidingObject(player);
+                if (player.isMgzTopPlatformCarryOwnedBy(this)) {
+                    player.setObjectControlled(false);
+                    player.setControlLocked(false);
+                    player.setOnObject(false);
+                    player.setForcedAnimationId(-1);
+                    player.restoreDefaultRadii();
+                    player.clearWallClingState();
+                    ObjectServices svc = tryServices();
+                    if (svc != null && svc.objectManager() != null) {
+                        svc.objectManager().clearRidingObject(player);
+                    }
                 }
             }
         }
+        playerStates.clear();
     }
 
     void syncFromLauncher(int newX, int newY) {
@@ -1478,6 +1549,10 @@ public class MGZTopPlatformObjectInstance extends AbstractObjectInstance
             }
         }
         return false;
+    }
+
+    boolean isBodyDriven() {
+        return bodyDriven;
     }
 
     void activateFromLauncher(int launchVelocity) {

@@ -501,6 +501,10 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     /** Returns the HCZ zone events handler, or null if not in HCZ. */
+    public Sonic3kMGZEvents getMgzEvents() {
+        return mgzEvents;
+    }
+
     public Sonic3kHCZEvents getHczEvents() {
         return hczEvents;
     }

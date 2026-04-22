@@ -12,6 +12,7 @@ import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
@@ -472,6 +473,8 @@ public class LevelManager {
     private int[] pendingBgTilePassHScrollData;
     private float pendingBgTilePassVdpWrapWidth;
     private float pendingBgTilePassNametableBase;
+    private float pendingBgTilePassUpperBandWrapHeightPx;
+    private float pendingBgTilePassUpperBandWrapWidthTiles;
     private final GLCommand bgTilePassCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         BackgroundRenderer bgRenderer = graphics().getBackgroundRenderer();
         if (bgRenderer == null) {
@@ -494,6 +497,9 @@ public class LevelManager {
                             bgRenderer.getHScrollTextureId(), 224.0f,
                             pendingBgTilePassVdpWrapWidth, pendingBgTilePassNametableBase);
                 }
+                tilemapRenderer.setUpperBandWrap(
+                        pendingBgTilePassUpperBandWrapHeightPx,
+                        pendingBgTilePassUpperBandWrapWidthTiles);
                 if (pendingBgTilePassPerColumnVScroll != null && pendingBgTilePassPerColumnVScroll.length > 0) {
                     tilemapRenderer.enablePerColumnVScroll(pendingBgTilePassPerColumnVScroll);
                 }
@@ -2050,34 +2056,9 @@ public class LevelManager {
         short[] vScrollData = parallaxManager.getVScrollPerLineBGForShader();
         short[] vScrollColumnData = parallaxManager.getVScrollPerColumnBGForShader();
 
-        // For zones with BG maps wider than 512px (e.g., SBZ/FZ with 15360px BG),
-        // the 512px tilemap must contain tiles from the correct BG map region.
-        // Use the scroll handler's BG camera X (v_bgscreenposx equivalent) to
-        // determine which tiles to load, then pass the offset to the shader so
-        // it can correctly index into the tilemap via fboWorldOffsetX.
         int bgCameraX = parallaxManager.getBgCameraX();
-        if (bgCameraX != Integer.MIN_VALUE
-                && zoneFeatureProvider != null && zoneFeatureProvider.bgWrapsHorizontally()) {
-            // 16px-aligned base offset. The tilemap is 512px wide, viewport is 320px.
-            // This leaves 192px of headroom for the viewport within the tilemap.
-            int newBase = Math.floorDiv(bgCameraX, 16) * 16;
-            if (newBase != tilemapManager.getBgTilemapBaseX()) {
-                tilemapManager.setBgTilemapBaseX(newBase);
-                tilemapManager.setBackgroundTilemapDirty(true);
-            }
-        } else if (tilemapManager.getBgTilemapBaseX() != 0) {
-            // Zone doesn't need offset - reset to 0 if previously set
-            tilemapManager.setBgTilemapBaseX(0);
-            tilemapManager.setBackgroundTilemapDirty(true);
-        }
-
-        // Track BG period width changes (e.g., GHZ parallax spread grows with cameraX).
-        // When the period widens, the tilemap must be rebuilt at the larger size.
-        int newBgPeriodWidth = parallaxManager.getBgPeriodWidth();
-        if (newBgPeriodWidth != tilemapManager.getCurrentBgPeriodWidth()) {
-            tilemapManager.setCurrentBgPeriodWidth(newBgPeriodWidth);
-            tilemapManager.setBackgroundTilemapDirty(true);
-        }
+        boolean mgzStateEightPerLineTilemap = applyBackgroundTilemapWindowSelection(bgCameraX);
+        int newBgPeriodWidth = tilemapManager.getCurrentBgPeriodWidth();
 
         ensureBackgroundTilemapData();
 
@@ -2091,6 +2072,8 @@ public class LevelManager {
         boolean perLineScrollActive = false;
         float vdpWrapWidthTiles = 0.0f;
         float nametableBaseTile = 0.0f;
+        float upperBandWrapHeightPx = 0.0f;
+        float upperBandWrapWidthTiles = 0.0f;
         if (zoneFeatureProvider != null && zoneFeatureProvider.isIntroOceanPhaseActive(currentZone, currentAct)) {
             // Per-scanline HScroll in the tilemap shader, matching VDP behavior.
             // Each pixel computes worldX = pixelX - hScroll[scanline] directly,
@@ -2108,6 +2091,24 @@ public class LevelManager {
             vdpWrapWidthTiles = 64.0f;
             nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
                     currentZone, currentAct, camera.getX(), tilemapManager.getBackgroundTilemapWidthTiles());
+        } else if (mgzStateEightPerLineTilemap) {
+            // MGZ2 state 8 still uses Draw_BG on hardware, but the 64-cell plane is
+            // refreshed incrementally as the camera advances. Our rebuild-from-scratch
+            // renderer cannot represent that with a single wrapped 512px cache window.
+            // Instead, render the full contiguous MGZ BG strip with per-line HScroll
+            // applied during the tile pass so clouds and the locked floor band can
+            // coexist without cache-window seams.
+            bgPeriodWidthPixels = cachedScreenWidth;
+            bgTilemapWorldOffsetX = 0;
+            shaderScrollMidpoint = 0;
+            shaderExtraBuffer = 0;
+            perLineScrollActive = true;
+            // MGZ2 BG layout rows 0-3 only populate cols 0-7 with the "real"
+            // cloud background; rows 4-6 hold the wider fake-floor strip. Wrapping
+            // the upper rows inside their populated cloud span avoids exposing empty
+            // high-X layout columns while preserving the floor rows below.
+            upperBandWrapHeightPx = 4.0f * blockPixelSize;
+            upperBandWrapWidthTiles = (8.0f * blockPixelSize) / Pattern.PATTERN_WIDTH;
         }
         // Cap BG period at the scroll handler's required width.
         // Zones with a single BG scroll speed cap at VDP nametable width (512px).
@@ -2173,6 +2174,8 @@ public class LevelManager {
         pendingBgTilePassHScrollData = hScrollData;
         pendingBgTilePassVdpWrapWidth = vdpWrapWidthTiles;
         pendingBgTilePassNametableBase = nametableBaseTile;
+        pendingBgTilePassUpperBandWrapHeightPx = upperBandWrapHeightPx;
+        pendingBgTilePassUpperBandWrapWidthTiles = upperBandWrapWidthTiles;
         graphicsManager.registerCommand(bgTilePassCommand);
 
         // 5. Set shimmer state on BG renderer for parallax compositing pass
@@ -2554,7 +2557,6 @@ public class LevelManager {
         if (renderer == null) {
             return;
         }
-
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
         if (atlasId == null || paletteId == null) {
@@ -2651,9 +2653,54 @@ public class LevelManager {
 
     private void ensureBackgroundTilemapData() {
         if (tilemapManager != null) {
+            int bgCameraX = parallaxManager != null ? parallaxManager.getBgCameraX() : Integer.MIN_VALUE;
+            applyBackgroundTilemapWindowSelection(bgCameraX);
             tilemapManager.ensureBackgroundTilemapData(this::getBlockAtPosition,
                     zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
+    }
+
+    /**
+     * Selects the BG tilemap cache window used by wrapped-background zones.
+     * This must run before both render-driven and ad-hoc tilemap builds so they
+     * see the same MGZ state-8 cache configuration.
+     *
+     * @return true when MGZ state 8 should use the full-width per-line BG tilemap path
+     */
+    private boolean applyBackgroundTilemapWindowSelection(int bgCameraX) {
+        if (tilemapManager == null) {
+            return false;
+        }
+        boolean mgzStateEightPerLineTilemap = currentZone == Sonic3kZoneIds.ZONE_MGZ
+                && currentAct == 1
+                && bgCameraX != Integer.MIN_VALUE
+                && cachedBgContiguousWidthPx > LevelTilemapManager.VDP_BG_PLANE_WIDTH_PX;
+        int newBgPeriodWidth = parallaxManager != null
+                ? parallaxManager.getBgPeriodWidth()
+                : LevelTilemapManager.VDP_BG_PLANE_WIDTH_PX;
+        if (mgzStateEightPerLineTilemap) {
+            if (tilemapManager.getBgTilemapBaseX() != 0) {
+                tilemapManager.setBgTilemapBaseX(0);
+                tilemapManager.setBackgroundTilemapDirty(true);
+            }
+            newBgPeriodWidth = cachedBgContiguousWidthPx;
+        } else if (bgCameraX != Integer.MIN_VALUE
+                && zoneFeatureProvider != null && zoneFeatureProvider.bgWrapsHorizontally()) {
+            int newBase = Math.floorDiv(bgCameraX, 16) * 16;
+            if (newBase != tilemapManager.getBgTilemapBaseX()) {
+                tilemapManager.setBgTilemapBaseX(newBase);
+                tilemapManager.setBackgroundTilemapDirty(true);
+            }
+        } else if (tilemapManager.getBgTilemapBaseX() != 0) {
+            tilemapManager.setBgTilemapBaseX(0);
+            tilemapManager.setBackgroundTilemapDirty(true);
+        }
+
+        if (newBgPeriodWidth != tilemapManager.getCurrentBgPeriodWidth()) {
+            tilemapManager.setCurrentBgPeriodWidth(newBgPeriodWidth);
+            tilemapManager.setBackgroundTilemapDirty(true);
+        }
+        return mgzStateEightPerLineTilemap;
     }
 
     private void ensureForegroundTilemapData() {
