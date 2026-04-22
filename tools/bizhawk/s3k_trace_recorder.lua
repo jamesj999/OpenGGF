@@ -97,7 +97,10 @@ local INPUT_LEFT  = 0x04
 local INPUT_RIGHT = 0x08
 local INPUT_JUMP  = 0x10
 
-local GAMEMODE_LEVEL = 0x0C
+local GAMEMODE_SEGA       = 0x00  -- verified from GameModes entry 0 label <Sega_Screen>       (sonic3k.asm:431)
+local GAMEMODE_TITLE      = 0x04  -- verified from GameModes entry 1 label <Title_Screen>      (sonic3k.asm:432)
+local GAMEMODE_LEVEL_SEL  = 0x28  -- verified from GameModes entry 10 label <LevelSelect_S2Options> (sonic3k.asm:441; reached from title via sonic3k.asm:6617)
+local GAMEMODE_LEVEL      = 0x0C  -- already defined in recorder; re-stated here for doc cross-ref (sonic3k.asm:434)
 
 local ZONE_NAMES = {
     [0x00] = "aiz",
@@ -223,6 +226,10 @@ end
 
 local function is_aiz_end_to_end_profile()
     return TRACE_PROFILE == "aiz_end_to_end"
+end
+
+local function is_level_gated_reset_aware_profile()
+    return TRACE_PROFILE == "level_gated_reset_aware"
 end
 
 local function should_start_recording(game_mode)
@@ -716,10 +723,15 @@ if HEADLESS then
     end
 end
 
-print(string.format(
-    "S3K Trace Recorder v3.1-s3k loaded. Profile=%s. Waiting for %s...",
-    TRACE_PROFILE,
-    is_aiz_end_to_end_profile() and "BK2 frame 0" or "level gameplay (Game_Mode=0x0C, controls unlocked)"))
+local wait_desc
+if is_aiz_end_to_end_profile() then
+    wait_desc = "BK2 frame 0"
+elseif is_level_gated_reset_aware_profile() then
+    wait_desc = "level gameplay (Game_Mode=0x0C, reset-aware discards on soft-reset to title)"
+else
+    wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
+end
+print(string.format("S3K Trace Recorder v3.1-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 while true do
     on_frame_end()
