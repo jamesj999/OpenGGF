@@ -1068,29 +1068,32 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     }
 
     /**
-     * Arms the {@link #ROUTINE_LOWER2} countdown ({@code $43(a0)}) and
-     * captures the current routine so {@code loc_6DB7E}
-     * (sonic3k.asm:144979) has a value to restore. Package-private —
-     * test-only.
+     * Test seam: arm {@link #ROUTINE_LOWER2} with an explicit countdown
+     * ({@code $43(a0)}) and an explicit restore target for
+     * {@code loc_6DB7E} (sonic3k.asm:144979 — {@code move.b $42(a0),routine(a0)}).
+     * Package-private — test-only.
      *
-     * <p>The ROM normally writes {@code $43} from {@code $45(a0)} (the
-     * defeat counter) just before switching the routine to Lower2, so the
-     * previous routine written to {@code $42} is whichever slot was
-     * active at the moment of the top-piece hit. For deterministic tests
-     * the helper captures whatever {@code state.routine} happens to hold
-     * at call time; callers that force Lower2 first can follow up with
-     * a direct {@code state.routine} assignment if they need a specific
-     * restore target.
+     * <p>Tests must pass the routine they want restored when the counter
+     * underflows so there is no ambiguity when the routine has already
+     * been forced to {@link #ROUTINE_LOWER2} by
+     * {@link #forceRoutineForTest(int)} beforehand.
      */
-    void setLower2CounterForTest(int frames) {
+    void armLower2CounterForTest(int frames, int restoreRoutine) {
+        state.routine = ROUTINE_LOWER2;
         lower2Counter = frames;
-        // If we're already in Lower2 from a forceRoutineForTest call, fall
-        // back to the duplicate-Move slot (the ROM-typical "Lower2 is
-        // entered from Move", i.e. $42 = 6). Otherwise capture whatever
-        // was there.
-        lower2PreviousRoutine = state.routine == ROUTINE_LOWER2
-                ? ROUTINE_MOVE_DUP
-                : state.routine;
+        lower2PreviousRoutine = restoreRoutine;
+    }
+
+    /**
+     * @deprecated Use {@link #armLower2CounterForTest(int, int)} — the
+     *     previous-routine inference is counterintuitive once the test
+     *     has already forced the routine to {@link #ROUTINE_LOWER2}.
+     *     This shim preserves the historical MOVE_DUP restore target
+     *     so existing callers keep passing.
+     */
+    @Deprecated
+    void setLower2CounterForTest(int frames) {
+        armLower2CounterForTest(frames, ROUTINE_MOVE_DUP);
     }
 
     @Override

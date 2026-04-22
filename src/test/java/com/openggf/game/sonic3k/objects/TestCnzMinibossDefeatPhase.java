@@ -71,10 +71,24 @@ class TestCnzMinibossDefeatPhase {
                 new ObjectSpawn(0x3240, 0x0200, Sonic3kObjectIds.CNZ_MINIBOSS, 0, 0, false, 0));
         boss.setServices(services);
 
+        // Capture intermediate counter values to prove monotonic decrement.
+        // A buggy impl that slammed hitCount to 0 on the first hit would pass
+        // the endpoint-only assertion, so sample at hits 1/3/5 explicitly.
+        int counterAfter1 = -1;
+        int counterAfter3 = -1;
+        int counterAfter5 = -1;
         for (int i = 0; i < Sonic3kConstants.CNZ_MINIBOSS_HIT_COUNT; i++) {
             boss.simulateHitForTest();
+            int remaining = boss.getRemainingHits();
+            if (i == 0) counterAfter1 = remaining;
+            if (i == 2) counterAfter3 = remaining;
+            if (i == 4) counterAfter5 = remaining;
         }
-        assertEquals(0, boss.getRemainingHits());
+        assertEquals(5, counterAfter1, "After 1 hit, hitCount should be 5");
+        assertEquals(3, counterAfter3, "After 3 hits, hitCount should be 3");
+        assertEquals(1, counterAfter5, "After 5 hits, hitCount should be 1");
+        assertEquals(0, boss.getRemainingHits(),
+                "After 6 hits, hitCount must be 0");
         assertTrue(boss.isDefeated(),
                 "After the 6th hit the boss must be in defeat state");
     }
@@ -103,6 +117,8 @@ class TestCnzMinibossDefeatPhase {
 
         assertFalse(cnz.isBossFlag(),
                 "Obj_CNZMinibossEndGo must clr.b Boss_flag (sonic3k.asm:144998)");
+        assertFalse(cnz.isWallGrabSuppressed(),
+                "Post-defeat wall-grab suppression must be released (ROM sonic3k.asm:144998 mirror)");
     }
 
     private static Sonic3kCNZEvents getCnzEvents() {
