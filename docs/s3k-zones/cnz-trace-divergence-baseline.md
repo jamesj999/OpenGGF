@@ -5,6 +5,23 @@ Test: `TestS3kCnzTraceReplay`
 Trace: `src/test/resources/traces/s3k/cnz/`
 Recorder: lua v3.1-s3k, profile `level_gated_reset_aware`
 
+## Pre-existing AIZ regression caveat (read first)
+
+`TestS3kAizTraceReplay` is currently red with
+`IllegalStateException: Required engine checkpoint missing at trace frame 1651:
+expected aiz1_fire_transition_begin` (from `S3kRequiredCheckpointGuard`). This
+failure predates the CNZ workstreams and is **not** caused by the Task 1-6
+A+B commits - see `docs/s3k-zones/cnz-task7-regression-note.md` for the full
+bisect.
+
+If you are a workstream C/D/E/F/G agent: treat the AIZ test as expected-red,
+do not try to fix it from within your workstream, and do not let it block
+commits. Your responsibility is the other four members of the design-spec
+section 8.2 guard (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+`TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`) plus any
+regressions you introduce. Workstream H (tracked separately) owns the AIZ
+recovery.
+
 ## Summary
 
 - Total frames in trace: 42253
@@ -67,6 +84,11 @@ Workstream-cause legend:
 
 - `docs/s3k-zones/cnz-trace-divergence-baseline.d/s3k_0300_report.json`
 - `docs/s3k-zones/cnz-trace-divergence-baseline.d/s3k_0300_context.txt`
+
+## Related notes
+
+- `docs/s3k-zones/cnz-task7-regression-note.md` - Task 7 regression-check outcome
+  (A+B clean vs. pre-existing AIZ failure; dispatch guidance for C-G agents).
 
 ## Likely causes (hypothesis - verify during C-G workstreams)
 
