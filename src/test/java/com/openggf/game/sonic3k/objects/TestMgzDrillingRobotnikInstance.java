@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -190,6 +191,24 @@ class TestMgzDrillingRobotnikInstance {
 
         verify(services.debrisRenderer, times(10))
                 .drawFrameIndex(anyInt(), anyInt(), anyInt(), anyBoolean(), eq(false));
+    }
+
+    @Test
+    void usesLowTilePrioritySoForegroundTilesCanCoverEncounter() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzDrillingRobotnikInstance boss = createBoss(services);
+
+        assertFalse(boss.isHighPriority(),
+                "ObjDat_MGZDrillBoss uses make_art_tile(...,1,0), so MGZ drilling Robotnik must render behind high-priority FG tiles");
+    }
+
+    @Test
+    void usesBucketSixFromObjDatPriorityWord() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzDrillingRobotnikInstance boss = createBoss(services);
+
+        assertEquals(6, boss.getPriorityBucket(),
+                "ObjDat_MGZDrillBoss priority word is $300, which maps to render bucket 6");
     }
 
     private static MgzDrillingRobotnikInstance createBoss(RecordingServices services) {
