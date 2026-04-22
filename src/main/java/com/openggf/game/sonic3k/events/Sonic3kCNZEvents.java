@@ -1,5 +1,11 @@
 package com.openggf.game.sonic3k.events;
 
+import com.openggf.camera.Camera;
+import com.openggf.game.sonic3k.S3kPaletteOwners;
+import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.level.Level;
+
 import java.util.logging.Logger;
 
 /**
@@ -38,9 +44,37 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     /** CNZ2_ScreenEvent stage 8. */
     public static final int FG_ACT2_NORMAL = 0x08;
 
-    private static final int MINIBOSS_CAM_X_THRESHOLD = 0x3000;
+    /**
+     * Camera X threshold that triggers the miniboss arena gate.
+     *
+     * <p>ROM: {@code Obj_CNZMiniboss} (sonic3k.asm:144824) reads
+     * {@code move.w #$31E0,d0} then {@code cmp.w (Camera_X_pos).w,d0} and
+     * branches to {@code loc_6D9A8} when the camera reaches the threshold.
+     * The scaffold previously held {@code 0x3000}; workstream D corrects it
+     * to {@link Sonic3kConstants#CNZ_MINIBOSS_ARENA_MIN_X} so the camera lock
+     * lines up with the same coordinate the ROM uses for
+     * {@code Camera_min_X_pos}.
+     */
+    private static final int MINIBOSS_CAM_X_THRESHOLD =
+            Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X;
     private static final int KNUCKLES_ROUTE_MIN_X = 0x4750;
     private static final int KNUCKLES_ROUTE_MAX_X = 0x48E0;
+
+    /**
+     * Saved {@code Camera_max_X_pos} captured when the arena lock fires.
+     *
+     * <p>ROM: {@code loc_6D9A8} (sonic3k.asm:144831) writes
+     * {@code Camera_max_X_pos} into {@code Camera_stored_max_X_pos}; we mirror
+     * that here so the falling-edge release can restore the natural camera
+     * extent when {@link CnzMinibossInstance#onEndGo} clears
+     * {@link #bossFlag}.
+     */
+    private short cameraStoredMaxXPos;
+    private short cameraStoredMinXPos;
+    private short cameraStoredMinYPos;
+    private short cameraStoredMaxYPos;
+    private boolean cameraClampsActive;
+    private boolean bossFlagPrev;
 
     /**
      * CNZ-local foreground routine mirror.
@@ -151,6 +185,12 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         waterTargetY = 0;
         waterButtonArmed = false;
         bossFlag = false;
+        bossFlagPrev = false;
+        cameraStoredMaxXPos = 0;
+        cameraStoredMinXPos = 0;
+        cameraStoredMinYPos = 0;
+        cameraStoredMaxYPos = 0;
+        cameraClampsActive = false;
         knucklesTeleporterRouteActive = false;
         teleporterBeamSpawned = false;
         act2TransitionRequested = false;
@@ -173,6 +213,15 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         } else {
             updateAct2Fg();
         }
+        // Falling-edge: when the boss object clears Boss_flag (via
+        // CnzMinibossInstance.onEndGo, ROM sonic3k.asm:144998), release the
+        // arena camera clamp and wall-grab suppression so the post-boss
+        // refresh chain can pan the camera forward toward the signpost.
+        if (bossFlagPrev && !bossFlag) {
+            releaseArenaCameraClamps();
+            wallGrabSuppressed = false;
+        }
+        bossFlagPrev = bossFlag;
     }
 
     private void updateAct1Bg() {
@@ -192,10 +241,7 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         switch (bossBackgroundMode) {
             case NORMAL -> {
                 if (camera().getX() >= MINIBOSS_CAM_X_THRESHOLD) {
-                    bossBackgroundMode = BossBackgroundMode.ACT1_MINIBOSS_PATH;
-                    bgRoutine = BG_BOSS_START;
-                    wallGrabSuppressed = true;
-                    LOG.info("CNZ: camera reached miniboss threshold");
+                    enterMinibossArena();
                 }
             }
             case ACT1_MINIBOSS_PATH -> {
@@ -209,6 +255,101 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
             case ACT1_POST_BOSS -> handleAfterBossStage();
             case ACT2_KNUCKLES_TELEPORTER -> updateAct2Fg();
         }
+    }
+
+    /**
+     * ROM: {@code loc_6D9A8} (sonic3k.asm:144830) — arena setup invoked
+     * when {@code Obj_CNZMiniboss}'s outer gate succeeds.
+     *
+     * <p>Mirrors the ROM sequence: stash {@code Camera_max_X_pos}, clamp the
+     * camera to the arena rectangle, fade the music, set
+     * {@code Boss_flag}, suppress wall-grab, load PLC {@code 0x5D}, and
+     * install {@code Pal_CNZMiniboss} into palette line 1.
+     */
+    private void enterMinibossArena() {
+        Camera camera = camera();
+        cameraStoredMaxXPos = camera.getMaxX();
+        cameraStoredMinXPos = camera.getMinX();
+        cameraStoredMinYPos = camera.getMinY();
+        cameraStoredMaxYPos = camera.getMaxY();
+        cameraClampsActive = true;
+
+        camera.setMinX((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X);
+        camera.setMaxX((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_X);
+        camera.setMinY((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_Y);
+        camera.setMaxY((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_Y);
+        camera.setMaxYTarget((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_Y);
+
+        bossBackgroundMode = BossBackgroundMode.ACT1_MINIBOSS_PATH;
+        bgRoutine = BG_BOSS_START;
+        wallGrabSuppressed = true;
+        // ROM sonic3k.asm:144843 — `move.b #1,(Boss_flag).w`. Setting the
+        // mirrored event-state bit lets CnzMinibossInstance and downstream
+        // CNZ scripts observe the lock without a separate global flag.
+        bossFlag = true;
+        bossFlagPrev = true;
+
+        // ROM sonic3k.asm:144841 — `moveq #cmd_FadeOut,d0; jsr Play_Music`.
+        // Mirror the music fade through the engine's helper. Sequencing the
+        // miniboss theme that follows is wired up in T12, hence the marker.
+        if (audio() != null) {
+            audio().fadeOutMusic();
+        }
+        // TODO(T12): wire miniboss audio fade-in (Sonic3kMusic.MINIBOSS) once
+        // the boss music handoff lands; the fade-out above already mirrors
+        // sonic3k.asm:144841.
+
+        // ROM sonic3k.asm:144844 — `moveq #$5D,d0; jsr Load_PLC`.
+        applyPlc(Sonic3kConstants.PLC_CNZ_MINIBOSS);
+
+        // ROM sonic3k.asm:144846-144847 — `lea Pal_CNZMiniboss(pc),a1; jmp
+        // (PalLoad_Line1).l`. PalLoad_Line1 writes one VDP palette line
+        // (32 bytes) into line 1.
+        installMinibossPalette();
+
+        LOG.info("CNZ: camera reached miniboss threshold; arena lock + Boss_flag set");
+    }
+
+    private void installMinibossPalette() {
+        try {
+            byte[] line = rom().readBytes(Sonic3kConstants.PAL_CNZ_MINIBOSS_ADDR, 32);
+            Level level = levelManager() != null ? levelManager().getCurrentLevel() : null;
+            if (level == null) {
+                return;
+            }
+            S3kPaletteWriteSupport.applyLine(
+                    paletteRegistryOrNull(),
+                    level,
+                    graphics(),
+                    S3kPaletteOwners.CNZ_MINIBOSS,
+                    S3kPaletteOwners.PRIORITY_ZONE_EVENT,
+                    1,
+                    line);
+        } catch (Exception e) {
+            LOG.warning("CNZ: failed to install Pal_CNZMiniboss: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Falling-edge release of the arena camera lock.
+     *
+     * <p>ROM: the post-boss path restores the natural camera extents after
+     * {@code Obj_CNZMinibossEnd} completes. The engine snapshots the prior
+     * clamp values in {@link #enterMinibossArena()} and restores them here
+     * once the boss object clears {@link #bossFlag} via
+     * {@code CnzMinibossInstance.onEndGo}.
+     */
+    private void releaseArenaCameraClamps() {
+        if (!cameraClampsActive) {
+            return;
+        }
+        Camera camera = camera();
+        camera.setMinX(cameraStoredMinXPos);
+        camera.setMaxX(cameraStoredMaxXPos);
+        camera.setMinY(cameraStoredMinYPos);
+        camera.setMaxY(cameraStoredMaxYPos);
+        camera.setMaxYTarget(cameraStoredMaxYPos);
+        cameraClampsActive = false;
     }
 
     /**

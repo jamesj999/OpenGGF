@@ -1382,6 +1382,20 @@ public class Sonic3kConstants {
      */
     public static final int PLC_CNZ_MINIBOSS = 0x5D;
 
+    /**
+     * CNZ Act 1 miniboss palette ROM offset (S&K-side).
+     *
+     * <p>ROM: {@code sonic3k.asm:144846} — {@code lea Pal_CNZMiniboss(pc),a1}
+     * then {@code jmp (PalLoad_Line1).l}, loading 32 bytes (one VDP palette
+     * line) into palette line 1. Verified via {@code RomOffsetFinder
+     * search-rom} on the binary signature
+     * {@code 00 00 0E EE 06 E0 02 80 00 40} from
+     * {@code Levels/CNZ/Palettes/Miniboss.bin}: the S&K-side match is
+     * {@code 0x06E370}; the {@code 0x24BF70} sibling lives in the S3 half and
+     * must not be referenced from the engine.
+     */
+    public static final int PAL_CNZ_MINIBOSS_ADDR = 0x06E370;
+
     // Map_CNZMiniboss - CNZ miniboss mappings. The include file has 22 dc.w entries
     // before Frame_362F00, so the table base is 44 bytes earlier at 0x362ED4.
     public static final int MAP_CNZ_MINIBOSS_ADDR = 0x362ED4;
