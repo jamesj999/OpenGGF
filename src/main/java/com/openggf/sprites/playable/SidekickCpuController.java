@@ -5,11 +5,13 @@ import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 
 /**
@@ -428,6 +430,10 @@ public class SidekickCpuController {
 
         // 4. Ground release (release path A): Sonic in-air bit clear
         if (!leader.getAir()) {
+            // ROM loc_1445A (sonic3k.asm:27268): move.w #-$100,y_vel(a1)
+            // Small upward impulse on the ground-release path before clearing
+            // object_control, matching ROM fall-through into loc_14460/loc_14466.
+            leader.setYSpeed((short) -0x100);
             releaseCarry(0);
             return;
         }
@@ -453,8 +459,48 @@ public class SidekickCpuController {
         leader.setXSpeed(sidekick.getXSpeed());
         leader.setYSpeed(sidekick.getYSpeed());
 
+        // ROM Tails_Carry_Sonic loc_144F8 (sonic3k.asm:27328-27331):
+        //   movem.l d0-a6,-(sp)
+        //   lea     (Player_1).w,a0
+        //   bsr.w   SonicKnux_DoLevelCollision
+        //   movem.l (sp)+,d0-a6
+        //
+        // After parentage writes the ROM explicitly runs the full airborne
+        // collision on Sonic (Player_1).  That probe's Player_TouchFloor tail
+        // (sonic3k.asm:24366) clears Status_InAir when Tails's descended
+        // position puts Sonic on ground.  Next frame's in-air check at
+        // sonic3k.asm:27227 then branches to loc_1445A (release path A).
+        //
+        // Without this probe, the engine leaves Sonic's air flag set forever
+        // while object_control holds him to Tails, so the ground-release path
+        // is unreachable once Tails lands.
+        //
+        // NOTE: the normal landing handler (PlayableSpriteMovement.calculateLanding)
+        // calls resetOnFloor(), which early-returns when isObjectControlled() is
+        // true — meaning it would NOT clear the air bit in this carry scenario.
+        // We supply a minimal inline landing handler that mirrors the subset of
+        // Player_TouchFloor (sonic3k.asm:24366-24369) needed for the
+        // next-frame release check to trip.
+        CollisionSystem collision = GameServices.collision();
+        if (collision != null) {
+            collision.resolveAirCollision(leader, sprite -> {
+                // ROM Player_TouchFloor (sonic3k.asm:24366-24369):
+                //   bclr #Status_InAir,status(a0)
+                //   bclr #Status_Push,status(a0)
+                //   bclr #Status_RollJump,status(a0)
+                //   move.b #0,jumping(a0)
+                sprite.setAir(false);
+                sprite.setPushing(false);
+                sprite.setRollingJump(false);
+                sprite.setJumping(false);
+            });
+        }
+
         // Refresh the latch AFTER our writes so the next frame's compare is
-        // against what we just wrote, not stale values.
+        // against what we just wrote, not stale values.  The probe above may
+        // have cleared the leader's y_vel via the collision adjustment, so
+        // the latch captures the post-probe values to avoid a false latch
+        // mismatch on the next frame.
         carryLatchX = leader.getXSpeed();
         carryLatchY = leader.getYSpeed();
     }
