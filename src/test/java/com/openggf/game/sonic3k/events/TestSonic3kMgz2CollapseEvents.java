@@ -85,7 +85,6 @@ class TestSonic3kMgz2CollapseEvents {
             }
         }
     }
-
     private static final class SyntheticMgzCollapseLevel extends AbstractLevel {
 
         private SyntheticMgzCollapseLevel() {

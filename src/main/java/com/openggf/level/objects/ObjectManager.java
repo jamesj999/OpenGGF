@@ -3382,7 +3382,9 @@ public class ObjectManager {
                     : DamageCause.NORMAL;
 
             boolean hadRings = player.getRingCount() > 0;
-            if (hadRings && !player.hasShield()) {
+            boolean suppressLostRingSpawn = player instanceof AbstractPlayableSprite aps
+                    && aps.suppressesLostRingSpawnOnHurt();
+            if (hadRings && !player.hasShield() && !suppressLostRingSpawn) {
                 // Requires the concrete playable type, but still goes through ObjectServices.
                 if (player instanceof AbstractPlayableSprite aps) {
                     objectManager.services().spawnLostRings(aps, currentFrameCounter);

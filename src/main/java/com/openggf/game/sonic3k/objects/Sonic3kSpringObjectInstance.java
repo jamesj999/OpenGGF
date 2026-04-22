@@ -161,6 +161,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
+        player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -188,6 +189,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
+        player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -225,6 +227,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setYSpeed((short) 0);
         }
 
+        player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         // ROM: control lock 16 frames
         player.setSpringing(16);
 
@@ -257,6 +260,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
+        player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);

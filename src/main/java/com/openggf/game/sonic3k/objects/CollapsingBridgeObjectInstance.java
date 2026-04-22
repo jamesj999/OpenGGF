@@ -602,6 +602,10 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
         }
     }
 
+    public boolean isMgzStompMode() {
+        return mode == CollapseMode.MGZ_STOMP;
+    }
+
     // ===== Update =====
 
     @Override

@@ -437,6 +437,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * platform instance while the carry is active.
          */
         protected ObjectInstance mgzTopPlatformCarrySolidContactObject;
+        protected boolean mgzTopPlatformSpringHandoffPending;
+        protected int mgzTopPlatformSpringHandoffXVel;
+        protected int mgzTopPlatformSpringHandoffYVel;
         /**
          * When true, airborne terrain collision is suppressed for this frame.
          * Set by zone feature providers (e.g., HCZ vertical water tunnels) to
@@ -1909,6 +1912,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         this.deferredObjectControlRelease = false;
                 } else {
                         this.mgzTopPlatformCarrySolidContactObject = null;
+                        clearMgzTopPlatformSpringHandoff();
                 }
         }
 
@@ -1930,6 +1934,50 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setMgzTopPlatformCarrySolidContactObject(ObjectInstance instance) {
                 this.mgzTopPlatformCarrySolidContactObject = instance;
+                if (instance == null) {
+                        clearMgzTopPlatformSpringHandoff();
+                }
+        }
+
+        public boolean isMgzTopPlatformCarryOwnedBy(ObjectInstance instance) {
+                return mgzTopPlatformCarrySolidContactObject == instance;
+        }
+
+        public void recordMgzTopPlatformSpringHandoff(int xVel, int yVel) {
+                if (mgzTopPlatformCarrySolidContactObject == null) {
+                        return;
+                }
+                mgzTopPlatformSpringHandoffPending = true;
+                mgzTopPlatformSpringHandoffXVel = xVel;
+                mgzTopPlatformSpringHandoffYVel = yVel;
+        }
+
+        public boolean hasMgzTopPlatformSpringHandoffPending() {
+                return mgzTopPlatformSpringHandoffPending;
+        }
+
+        public int getMgzTopPlatformSpringHandoffXVel() {
+                return mgzTopPlatformSpringHandoffXVel;
+        }
+
+        public int getMgzTopPlatformSpringHandoffYVel() {
+                return mgzTopPlatformSpringHandoffYVel;
+        }
+
+        public void clearMgzTopPlatformSpringHandoff() {
+                mgzTopPlatformSpringHandoffPending = false;
+                mgzTopPlatformSpringHandoffXVel = 0;
+                mgzTopPlatformSpringHandoffYVel = 0;
+        }
+
+        /**
+         * Returns whether the current hurt path should suppress generic lost-ring
+         * spawning for the active MGZ top-platform carry state. This stays tied to
+         * the explicit MGZ ownership seam instead of the generic wall-cling bit so
+         * future status_tertiary users do not inherit the exception accidentally.
+         */
+        public boolean suppressesLostRingSpawnOnHurt() {
+                return isWallCling() && mgzTopPlatformCarrySolidContactObject != null;
         }
 
         public boolean isSuppressAirCollision() {

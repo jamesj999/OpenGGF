@@ -63,6 +63,28 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     private final Set<AbstractPlayableSprite> forcedAizForestFrontPrioritySprites = new HashSet<>();
     private S3kSlotMachinePanelAnimator slotMachinePanelAnimator;
 
+    /**
+     * S3K default is full-width BG (a single big tilemap copy of the layout's
+     * BG layer). That works for zones whose BG interesting content lives in
+     * the first 4 blocks (512px), but MGZ2's BG layout stores the "outrun the
+     * rising terrain" blocks in cols 4-23 (world X >= $200), which never
+     * enter the 512px FBO window at base=0.
+     *
+     * <p>Flipping MGZ to the S2 wrap model (512px tilemap, rebuilt when
+     * {@code bgTilemapBaseX} shifts) lets {@link SwScrlMgz#getBgCameraX()}
+     * during state 8 relocate the 512px window so terrain cols come into
+     * view. Normal MGZ play ({@code getBgCameraX()} returns MIN_VALUE) keeps
+     * base=0 and renders cloud cols 0-3 as before.
+     */
+    @Override
+    public boolean bgWrapsHorizontally() {
+        var levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            return false;
+        }
+        return levelManager.getFeatureZoneId() == Sonic3kZoneIds.ZONE_MGZ;
+    }
+
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
         aizTransitionRenderFeature.onZoneInit(zoneIndex, actIndex);
@@ -115,6 +137,16 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             // Water skim runs after tunnels (ROM: Obj_HCZWaterSplash runs in ExecuteObjects
             // which is after sub_6F4A/water tunnels)
             HCZWaterSkimHandler.update();
+        }
+        if (zoneIndex == Sonic3kZoneIds.ZONE_MGZ && player != null && !player.getDead()) {
+            int act = levelManager != null ? levelManager.getFeatureActId() : 0;
+            if (GameServices.module().getLevelEventProvider()
+                    instanceof Sonic3kLevelEventManager mgr) {
+                var events = mgr.getMgzEvents();
+                if (events != null) {
+                    events.updatePrePhysics(act);
+                }
+            }
         }
     }
 

@@ -644,4 +644,3 @@ public class GameStateManager {
      */
     public void setEndOfLevelFlag(boolean flag) { this.endOfLevelFlag = flag; }
 }
-

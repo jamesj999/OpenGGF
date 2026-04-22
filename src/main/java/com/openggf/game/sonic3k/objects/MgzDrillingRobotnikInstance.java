@@ -201,7 +201,6 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private final int[] fallingDebrisVx = new int[10];
     private final int[] fallingDebrisVy = new int[10];
     private final boolean[] fallingDebrisAlive = new boolean[10];
-
     public MgzDrillingRobotnikInstance(ObjectSpawn spawn, boolean flipX) {
         super(spawn, "MGZ2DrillingRobotnik");
         this.flipX = flipX;

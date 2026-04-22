@@ -1,13 +1,19 @@
 package com.openggf.physics;
 
+import com.openggf.game.GameServices;
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.CollisionMode;
 import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
 import com.openggf.level.SolidTile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GroundMode;
+
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -23,33 +29,41 @@ public class TestGroundSensor {
     private LevelManager mockLevelManager;
     private AbstractPlayableSprite mockSprite;
 
-    private ChunkDesc[][] chunkMap;
+    private ChunkDesc[][] fgChunkMap;
+    private ChunkDesc[][] bgChunkMap;
     private SolidTile[] tiles;
 
     @BeforeEach
     public void setUp() {
-        chunkMap = new ChunkDesc[20][20];
+        fgChunkMap = new ChunkDesc[20][20];
+        bgChunkMap = new ChunkDesc[20][20];
+
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.createGameplay();
 
         mockLevelManager = mock(LevelManager.class);
         when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt()))
                 .thenAnswer(invocation -> {
+                    byte layer = invocation.getArgument(0);
                     int x = invocation.getArgument(1);
                     int y = invocation.getArgument(2);
                     int gridX = x / 16;
                     int gridY = y / 16;
                     if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
-                        return chunkMap[gridX][gridY];
+                        return chunkMapForLayer(layer)[gridX][gridY];
                     }
                     return null;
                 });
         when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt(), anyBoolean()))
                 .thenAnswer(invocation -> {
+                    byte layer = invocation.getArgument(0);
                     int x = invocation.getArgument(1);
                     int y = invocation.getArgument(2);
                     int gridX = x / 16;
                     int gridY = y / 16;
                     if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
-                        return chunkMap[gridX][gridY];
+                        return chunkMapForLayer(layer)[gridX][gridY];
                     }
                     return null;
                 });
@@ -114,10 +128,18 @@ public class TestGroundSensor {
     }
 
     private void setTileAt(int x, int y, int tileIndex) {
-        setTileAt(x, y, tileIndex, CollisionMode.ALL_SOLID);
+        setTileAt((byte) 0, x, y, tileIndex, CollisionMode.ALL_SOLID);
     }
 
     private void setTileAt(int x, int y, int tileIndex, CollisionMode mode) {
+        setTileAt((byte) 0, x, y, tileIndex, mode);
+    }
+
+    private void setTileAt(byte layer, int x, int y, int tileIndex) {
+        setTileAt(layer, x, y, tileIndex, CollisionMode.ALL_SOLID);
+    }
+
+    private void setTileAt(byte layer, int x, int y, int tileIndex, CollisionMode mode) {
         int gridX = x / 16;
         int gridY = y / 16;
         ChunkDesc desc = new ChunkDesc(tileIndex);
@@ -127,7 +149,11 @@ public class TestGroundSensor {
         int modeBits = mode.getValue() << 12;
         desc.set(tileIndex | modeBits);
 
-        chunkMap[gridX][gridY] = desc;
+        chunkMapForLayer(layer)[gridX][gridY] = desc;
+    }
+
+    private ChunkDesc[][] chunkMapForLayer(byte layer) {
+        return layer == 1 ? bgChunkMap : fgChunkMap;
     }
 
     @Test
@@ -443,6 +469,53 @@ public class TestGroundSensor {
         SensorResult upResult = upSensor.scan();
         assertEquals(4, upResult.distance(), "UP sensor should detect L_R_B_SOLID");
     }
+
+    @Test
+    public void backgroundCollisionPrefersCloserBgFloorOverEmptyFgFallback() throws Exception {
+        setTileAt((byte) 0, 100, 112, 0, CollisionMode.NO_COLLISION);
+        setTileAt((byte) 0, 100, 128, 0, CollisionMode.NO_COLLISION);
+        setTileAt((byte) 1, 100, 112, 1);
+
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GameServices.gameState().setBackgroundCollisionFlag(true);
+        GameServices.camera().setX((short) 0);
+        GameServices.camera().setY((short) 0);
+        setParallaxField("cachedBgCameraX", Integer.MIN_VALUE);
+        setParallaxField("vscrollFactorBG", (short) 0);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.DOWN, (byte) 0, (byte) 0, true);
+        SensorResult bgOnly = invokeBackgroundScan(sensor, (short) 100, (short) 100, mockSprite.getTopSolidBit(),
+                Direction.DOWN, true);
+        assertNotNull(bgOnly, "background scan should find the BG floor tile");
+        assertEquals(11, bgOnly.distance(),
+                "background scan alone should report the closer BG floor tile from the extension pass");
+        SensorResult result = sensor.scan();
+
+        assertNotNull(result);
+        assertEquals(11, result.distance(),
+                "BG floor should beat the empty FG fallback when it is closer to the probe");
+        assertEquals(1, result.tileId(),
+                "Result should come from the BG floor tile, not the empty FG path");
+    }
+
+    private void setParallaxField(String fieldName, Object value) throws Exception {
+        ParallaxManager parallaxManager = GameServices.parallax();
+        Field field = ParallaxManager.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(parallaxManager, value);
+    }
+
+    private SensorResult invokeBackgroundScan(GroundSensor sensor,
+                                              short fgX,
+                                              short fgY,
+                                              int solidityBit,
+                                              Direction direction,
+                                              boolean vertical) throws Exception {
+        var method = GroundSensor.class.getDeclaredMethod(
+                "scanBackgroundCollision", short.class, short.class, int.class, Direction.class, boolean.class);
+        method.setAccessible(true);
+        return (SensorResult) method.invoke(sensor, fgX, fgY, solidityBit, direction, vertical);
+    }
 }
-
-

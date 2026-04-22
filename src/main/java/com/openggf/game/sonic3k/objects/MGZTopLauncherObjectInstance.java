@@ -121,4 +121,13 @@ public class MGZTopLauncherObjectInstance extends AbstractObjectInstance {
         child.syncFromLauncher(posX, posY);
         child.advanceAnimationTimer(4);
     }
+
+    @Override
+    public void onUnload() {
+        if (child != null && !child.isDestroyed() && !child.isBodyDriven()) {
+            child.setDestroyed(true);
+        }
+        child = null;
+        childSpawned = false;
+    }
 }
