@@ -91,7 +91,11 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
      * Test seam used to make the parent/base dependency explicit without
      * requiring the full child-object spawn chain from the real boss.
      *
-     * <p>Preserved verbatim from the Task-7 scaffold.
+     * <p>Preserved verbatim from the Task-7 scaffold. Kept {@code public}
+     * because {@code TestS3kCnzMinibossArenaHeadless} (in
+     * {@code com.openggf.tests}) consumes it cross-package; the
+     * within-package physics tests go through the package-private
+     * variants below.
      */
     public void attachBossForTest(CnzMinibossInstance boss) {
         this.boss = boss;
@@ -103,7 +107,8 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
      * <p>Preserved verbatim from the Task-7 scaffold. Inputs are
      * already expected to be world coordinates aligned to the same block
      * grid {@code CNZMiniboss_BlockExplosion} uses after masking with
-     * {@code $FFE0} and adding {@code $10}.
+     * {@code $FFE0} and adding {@code $10}. Kept {@code public} for the
+     * same cross-package reason as {@link #attachBossForTest}.
      */
     public void forceArenaCollisionForTest(int chunkWorldX, int chunkWorldY) {
         arenaCollisionPending = true;
@@ -119,15 +124,21 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
      * <p>Mirrors the ROM state right after {@link #onTopGo()} fires —
      * routine 6 with {@code x_vel = y_vel = 0x200}. Tests that call this
      * skip routines 0/2/4 and observe only the bouncing body.
+     *
+     * <p>Package-private — only consumed by within-package physics tests
+     * (e.g. {@code TestCnzMinibossTopPhysics}).
      */
-    public void forceTopMainForTest() {
+    void forceTopMainForTest() {
         routine = ROUTINE_MAIN;
         motion.xVel = Sonic3kConstants.CNZ_MINIBOSS_TOP_INIT_X_VEL;
         motion.yVel = Sonic3kConstants.CNZ_MINIBOSS_TOP_INIT_Y_VEL;
     }
 
-    /** Test seam: returns the current routine byte. */
-    public int getCurrentRoutineForTest() {
+    /**
+     * Test seam: returns the current routine byte. Package-private — only
+     * consumed by within-package physics tests.
+     */
+    int getCurrentRoutineForTest() {
         return routine;
     }
 
@@ -239,14 +250,13 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
      * {@link #wait2Counter} and fires {@link #onTopGo()} directly.
      */
     private void updateWait2() {
-        if (wait2Counter < 0) {
-            // No pending timer — shouldn't happen via updateWait(), but the
-            // shape is defensive so a forced-state test can still progress.
-            onTopGo();
-            return;
-        }
-        wait2Counter--;
-        if (wait2Counter < 0) {
+        // updateWait() always seeds wait2Counter = WAIT2_FRAMES (>= 0)
+        // before transitioning, so the only way to land here with the
+        // counter already negative is a forced-state test — collapse both
+        // paths into a single decrement-and-test. The decrement-then-check
+        // order matches Animate_RawGetFaster's behaviour where the script
+        // terminator fires on the tick that drives the counter past 0.
+        if (--wait2Counter < 0) {
             onTopGo();
         }
     }
@@ -316,10 +326,15 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
      * without inventing side effects the ROM doesn't emit.
      */
     private void updateMain() {
-        // ROM sonic3k.asm:145057 — move.w x_pos(a0),-(sp). Captures the
-        // pre-movement X so the side-collision branch (loc_6DD4C) knows
-        // which wall the ball just crossed. The engine keeps the same
-        // snapshot so the horizontal bounce path can re-use it.
+        // ROM sonic3k.asm:145057 — move.w x_pos(a0),-(sp). The ROM pushes
+        // the pre-movement X so the future real-tile side-collision branch
+        // (loc_6DD4C, sonic3k.asm:145062 — `move.w (sp)+,d4`) can recover it
+        // when ObjCheckRightWallDist / ObjCheckLeftWallDist fires. The cheap
+        // arena-edge bounce (loc_6DD8E, sonic3k.asm:145160) does NOT consume
+        // this stack value — it is just `neg.w x_vel; rts`. We keep the
+        // snapshot here to reserve the slot for the wall-tile slice; nothing
+        // in the current arena-edge path reads it.
+        @SuppressWarnings("unused")
         int preMoveX = motion.x;
         // ROM sonic3k.asm:145058 — jsr (MoveSprite2).l (no gravity).
         SubpixelMotion.moveSprite2(motion);
@@ -333,20 +348,19 @@ public final class CnzMinibossTopInstance extends AbstractObjectInstance {
         if (motion.xVel >= 0) {
             int d0 = motion.x + Sonic3kConstants.CNZ_MINIBOSS_TOP_WALL_PROBE_DX;
             if (d0 >= Sonic3kConstants.CNZ_MINIBOSS_TOP_ARENA_RIGHT) {
-                // ROM sonic3k.asm:145160-145162 — loc_6DD8E: simple neg.w x_vel.
+                // ROM sonic3k.asm:145160-145162 — loc_6DD8E: simple neg.w x_vel; rts.
+                // The ROM intentionally lets the ball overshoot the arena edge by
+                // one frame's motion; the negated x_vel walks it back next tick.
+                // Do NOT restore motion.x — that would diverge the bounce
+                // signature on the impact frame (failing future trace replay).
                 motion.xVel = (short) -motion.xVel;
-                // Undo the X advance so a stuck ball at the arena edge can't
-                // keep accumulating position past the wall on successive
-                // frames; the ROM handles this by re-running MoveSprite2
-                // next frame from the restored pre-move X.
-                motion.x = preMoveX;
             }
         } else {
             int d0 = motion.x - Sonic3kConstants.CNZ_MINIBOSS_TOP_WALL_PROBE_DX;
             if (d0 < Sonic3kConstants.CNZ_MINIBOSS_TOP_ARENA_LEFT) {
-                // ROM sonic3k.asm:145160-145162 — loc_6DD8E.
+                // ROM sonic3k.asm:145160-145162 — loc_6DD8E (mirrored for left wall).
+                // Same overshoot semantics as the right-wall branch above.
                 motion.xVel = (short) -motion.xVel;
-                motion.x = preMoveX;
             }
         }
 

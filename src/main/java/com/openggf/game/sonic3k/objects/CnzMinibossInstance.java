@@ -607,6 +607,11 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
         // in updateBossLogic() cover the observable "routine dispatch is
         // paused while the post-fade callback counts down" contract.
         state.defeated = true;
+        // Forward-looking insurance for a future T8 in-place respawn: clear
+        // the top-piece "Move" signal so a fresh CnzMinibossTopInstance won't
+        // observe a stale `bset #1,$38(a0)` from this object's previous life
+        // before its own onGo2() latches it again.
+        parentSignalBit1 = false;
 
         // ROM sonic3k.asm:145469 — st (Events_fg_5).w. This is the BG signal
         // that drives the post-boss arena-reveal chain in Sonic3kCNZEvents
@@ -1116,9 +1121,12 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      *     previous-routine inference is counterintuitive once the test
      *     has already forced the routine to {@link #ROUTINE_LOWER2}.
      *     This shim preserves the historical MOVE_DUP restore target
-     *     so existing callers keep passing.
+     *     so existing callers keep passing. Marked {@code forRemoval}
+     *     so the next test-cleanup pass can drop the shim once the
+     *     remaining caller in {@code TestCnzMinibossDefeatPhase}
+     *     migrates to the explicit two-arg form.
      */
-    @Deprecated
+    @Deprecated(forRemoval = true)
     void setLower2CounterForTest(int frames) {
         armLower2CounterForTest(frames, ROUTINE_MOVE_DUP);
     }

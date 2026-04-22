@@ -52,7 +52,9 @@ class TestCnzMinibossDefeatPhase {
                 new ObjectSpawn(0x3240, 0x0200, Sonic3kObjectIds.CNZ_MINIBOSS, 0, 0, false, 0));
         boss.setServices(services);
         boss.forceRoutineForTest(0x0E);  // Lower2 is slot E (ROM: 144972), not C
-        boss.setLower2CounterForTest(4); // $43(a0) = 4, decremented per frame
+        // $43(a0) = 4 (decremented per frame); restore $42(a0) = ROUTINE_MOVE_DUP
+        // (0x06) on counter expiry. Migrated off the deprecated single-arg shim.
+        boss.armLower2CounterForTest(4, 0x06);
         int startY = boss.getCentreY();
 
         for (int i = 0; i < 6; i++) boss.update(i, fixture.sprite());
