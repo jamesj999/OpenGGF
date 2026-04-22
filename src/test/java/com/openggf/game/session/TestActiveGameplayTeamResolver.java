@@ -125,4 +125,12 @@ class TestActiveGameplayTeamResolver {
         assertEquals(PlayerCharacter.SONIC_ALONE,
                 ActiveGameplayTeamResolver.resolvePlayerCharacter(config));
     }
+
+    @Test
+    void resolveSidekicks_noSession_parsesCommaSeparatedConfig() {
+        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails, knuckles, sonic");
+
+        assertEquals(List.of("tails", "knuckles", "sonic"),
+                ActiveGameplayTeamResolver.resolveSidekicks(config));
+    }
 }
