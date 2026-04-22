@@ -500,6 +500,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
 
         int cameraX = camera().getX();
+        int frameEndCameraX = camera().previewNextX() & 0xFFFF;
         applyHollowTreeScreenEvent(cameraX);
 
         // --- Routine 0→1: MinX tracking during intro panning ---
@@ -527,9 +528,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // --- Routine 2: Terrain swap at camera X >= $1400 ---
         // For skip-intro bootstrap, camera starts past this point and still requires
         // the same main-level overlay activation before tree reveal chunk staging.
-        AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(cameraX, shouldSpawnIntro(0));
-        updateIntroNormalRefreshFlag(cameraX);
-        if (cameraX >= FIRE_OVERLAY_STAGE_X) {
+        // The trace recorder samples checkpoints from end-of-frame state after the
+        // camera step, so use the current frame's predicted camera X for these
+        // threshold-triggered intro transition checks.
+        AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(frameEndCameraX, shouldSpawnIntro(0));
+        updateIntroNormalRefreshFlag(frameEndCameraX);
+        if (frameEndCameraX >= FIRE_OVERLAY_STAGE_X) {
             // Keep the fire overlay staging after the intro/main-level terrain swap.
             // Both paths patch shared level-art VRAM ranges in this engine, and
             // staging flames first lets the terrain swap clobber the curtain bank.
