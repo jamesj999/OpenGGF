@@ -37,8 +37,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -344,6 +347,27 @@ class TestEditorToggleIntegration {
         inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
 
         engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertNotSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isEmpty());
+    }
+
+    @Test
+    void gameLoop_f5InEditorModeIgnoresLeakedGarbageRomState() throws Exception {
+        enableEditor();
+        Engine engine = new Engine();
+        injectLeakedGarbageRom();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1), 100, 200);
+        inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+        assertDoesNotThrow(() -> engine.getGameLoop().step());
 
         assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
         assertNotSame(runtime, RuntimeManager.getCurrent());
@@ -706,6 +730,7 @@ class TestEditorToggleIntegration {
     }
 
     private static GameRuntime createGameplayRuntime(Engine engine, short playerX, short playerY) {
+        RomManager.getInstance().setRom(null);
         SessionManager.openGameplaySession(new Sonic2GameModule());
         GameRuntime runtime = RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode());
         SpriteManager spriteManager = runtime.getSpriteManager();
@@ -714,6 +739,15 @@ class TestEditorToggleIntegration {
         runtime.getCamera().setFocusedSprite(player);
         engine.getGameLoop().setRuntime(runtime);
         return runtime;
+    }
+
+    private static void injectLeakedGarbageRom() throws IOException {
+        Path romPath = Files.createTempFile("editor-toggle-garbage-rom", ".bin");
+        Files.write(romPath, new byte[512 * 1024]);
+        romPath.toFile().deleteOnExit();
+        Rom rom = new Rom();
+        assertTrue(rom.open(romPath.toString()), "Expected garbage ROM temp file to open");
+        RomManager.getInstance().setRom(rom);
     }
 
     private static void releaseAndAdvance(InputHandler inputHandler, int key) {
@@ -928,5 +962,4 @@ class TestEditorToggleIntegration {
     }
 
 }
-
 
