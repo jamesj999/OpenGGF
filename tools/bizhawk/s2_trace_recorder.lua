@@ -23,6 +23,17 @@
 -- v4.0-s2 changes: emit per-slot object_state_snapshot events at frame -1
 -- (pre-trace) so the engine can hydrate badnik/object state machines to
 -- match what the ROM advanced during title-card/level-init iterations.
+-- v5.0-s2 changes: append first-sidekick (Tails) state to each physics row so
+-- replay can detect world-state drift caused by the sidekick before Sonic
+-- diverges downstream.
+-- v6.0-s2 changes: record explicit named character blocks for both Sonic and
+-- Tails. Shared frame counters remain top-level, while per-character physics
+-- fields become symmetric in the CSV.
+-- v7.0-s2 changes: emit a pre-trace tails cpu_state_snapshot so replay can
+-- hydrate the sidekick AI counters/state accumulated before frame 0.
+-- v8.0-s2 changes: add character-scoped aux events and nearby-object scans
+-- for both Sonic and Tails so replay debugging can see which character first
+-- interacted with the world.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -98,6 +109,16 @@ local ADDR_OPL_DATA_FWD    = 0xF770   -- long: v_opl_data (forward cursor ROM po
 local ADDR_OPL_DATA_BWD    = 0xF774   -- long: v_opl_data+4 (backward cursor ROM pointer)
 local ADDR_OBJSTATE         = 0xFC00   -- byte[192]: v_objstate array (verified from ROM lea instruction)
 -- v_objstate[0] = forward counter, v_objstate[1] = backward counter
+local ADDR_SONIC_STAT_RECORD_BUF = 0xE400
+local ADDR_SONIC_POS_RECORD_BUF  = 0xE500
+local ADDR_SONIC_POS_RECORD_INDEX = 0xEED2
+local ADDR_TAILS_CONTROL_COUNTER = 0xF702
+local ADDR_TAILS_RESPAWN_COUNTER = 0xF704
+local ADDR_TAILS_CPU_ROUTINE     = 0xF708
+local ADDR_TAILS_CPU_TARGET_X    = 0xF70A
+local ADDR_TAILS_CPU_TARGET_Y    = 0xF70C
+local ADDR_TAILS_INTERACT_ID     = 0xF70E
+local ADDR_TAILS_CPU_JUMPING     = 0xF70F
 
 -- Object table (S2 SST: 128 slots of $40 bytes at $FFFFB000)
 local OBJ_TABLE_START      = 0xB000
@@ -105,6 +126,7 @@ local OBJ_SLOT_SIZE        = 0x40
 local OBJ_TOTAL_SLOTS      = 128  -- total SST slots (0-127)
 local OBJ_DYNAMIC_START    = 16   -- first dynamic slot (Dynamic_Object_RAM)
 local OBJ_DYNAMIC_COUNT    = 112  -- dynamic slots 16-127
+local SIDEKICK_BASE        = OBJ_TABLE_START + OBJ_SLOT_SIZE  -- slot 1 = Tails/sidekick
 
 -- Frame counter (v_framecount at $FFFE04, word — increments each Level_MainLoop)
 -- NOTE: 0xFE0C is v_vbla_count (longword, VBlank interrupt counter — different!)
@@ -162,9 +184,10 @@ local start_zone_id = 0
 local start_zone_name = "unknown"
 local start_act = 0
 
-local prev_status = 0
-local prev_routine = 0
-local prev_ctrl_lock = 0
+local prev_character_state = {
+    sonic = { status = 0, routine = 0, ctrl_lock = 0 },
+    tails = { status = 0, routine = 0, ctrl_lock = 0 },
+}
 local prev_opl_screen = -1  -- track OPL chunk transitions
 
 -- Object tracking: slot -> last known type ID
@@ -226,10 +249,15 @@ local function open_files()
     physics_file = io.open(OUTPUT_DIR .. "physics.csv", "w")
     aux_file = io.open(OUTPUT_DIR .. "aux_state.jsonl", "w")
 
-    -- v3 header: gameplay/VBlank execution counters plus stand_on_obj.
-    physics_file:write("frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,"
-        .. "x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,"
-        .. "vblank_counter,lag_counter\n")
+    -- v6 header: shared execution counters plus explicit Sonic/Tails state blocks.
+    physics_file:write("frame,input,camera_x,camera_y,rings,gameplay_frame_counter,"
+        .. "vblank_counter,lag_counter,sonic_present,sonic_x,sonic_y,sonic_x_speed,"
+        .. "sonic_y_speed,sonic_g_speed,sonic_angle,sonic_air,sonic_rolling,"
+        .. "sonic_ground_mode,sonic_x_sub,sonic_y_sub,sonic_routine,sonic_status_byte,"
+        .. "sonic_stand_on_obj,tails_present,tails_x,tails_y,tails_x_speed,"
+        .. "tails_y_speed,tails_g_speed,tails_angle,tails_air,tails_rolling,"
+        .. "tails_ground_mode,tails_x_sub,tails_y_sub,tails_routine,"
+        .. "tails_status_byte,tails_stand_on_obj\n")
     physics_file:flush()
 end
 
@@ -245,16 +273,65 @@ local function write_metadata()
     meta_file:write('  "trace_frame_count": ' .. trace_frame .. ',\n')
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
     meta_file:write('  "start_y": "0x' .. hex(start_y) .. '",\n')
+    meta_file:write('  "characters": ["sonic", "tails"],\n')
+    meta_file:write('  "main_character": "sonic",\n')
+    meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "4.0-s2",\n')
-    meta_file:write('  "trace_schema": 4,\n')
-    meta_file:write('  "csv_version": 4,\n')
+    meta_file:write('  "lua_script_version": "8.0-s2",\n')
+    meta_file:write('  "trace_schema": 8,\n')
+    meta_file:write('  "csv_version": 6,\n')
     meta_file:write('  "rom_checksum": "",\n')
     meta_file:write('  "notes": ""\n')
     meta_file:write("}\n")
     meta_file:close()
     print(string.format("Metadata written. Zone: %s Act %d, Trace frames: %d",
         start_zone_name, start_act + 1, trace_frame))
+end
+
+local function read_character_trace_state(base)
+    local present = mainmemory.read_u8(base) ~= 0
+    if not present then
+        return {
+            present = 0,
+            x = 0,
+            y = 0,
+            x_speed = 0,
+            y_speed = 0,
+            g_speed = 0,
+            angle = 0,
+            air = 0,
+            rolling = 0,
+            ground_mode = 0,
+            x_sub = 0,
+            y_sub = 0,
+            routine = 0,
+            status = 0,
+            stand_on_obj = 0,
+        }
+    end
+
+    local status = mainmemory.read_u8(base + OFF_STATUS)
+    local angle = mainmemory.read_u8(base + OFF_ANGLE)
+    local air = (status & STATUS_IN_AIR) ~= 0
+    local rolling = (status & STATUS_ROLLING) ~= 0
+
+    return {
+        present = 1,
+        x = mainmemory.read_u16_be(base + OFF_X_POS),
+        y = mainmemory.read_u16_be(base + OFF_Y_POS),
+        x_speed = read_speed(base, OFF_X_VEL),
+        y_speed = read_speed(base, OFF_Y_VEL),
+        g_speed = read_speed(base, OFF_INERTIA),
+        angle = angle,
+        air = air and 1 or 0,
+        rolling = rolling and 1 or 0,
+        ground_mode = air and 0 or angle_to_ground_mode(angle),
+        x_sub = mainmemory.read_u16_be(base + OFF_X_SUB),
+        y_sub = mainmemory.read_u16_be(base + OFF_Y_SUB),
+        routine = mainmemory.read_u8(base + OFF_ROUTINE),
+        status = status,
+        stand_on_obj = mainmemory.read_u8(base + OFF_STAND_ON_OBJ),
+    }
 end
 
 local function close_files()
@@ -344,9 +421,10 @@ local function write_object_snapshots()
     if not aux_file then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local count = 0
-    -- Scan slots 2-127. Skip 0 (Sonic) and 1 (Tails/sidekick) since the
-    -- engine hydrates the player from metadata.start_x/start_y directly.
-    for slot = 2, OBJ_TOTAL_SLOTS - 1 do
+    -- Scan slots 1-127. Skip 0 (Sonic) since the engine hydrates the main
+    -- player from metadata.start_x/start_y directly. Slot 1 (Tails/sidekick)
+    -- is included so replay can restore the sidekick's pre-trace SST state.
+    for slot = 1, OBJ_TOTAL_SLOTS - 1 do
         local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
         local obj_id = mainmemory.read_u8(addr)
         if obj_id ~= 0 then
@@ -360,9 +438,51 @@ local function write_object_snapshots()
     print(string.format("Wrote %d pre-trace object_state_snapshot events.", count))
 end
 
+local function write_player_history_snapshot()
+    if not aux_file then return end
+    local x_entries = {}
+    local y_entries = {}
+    local input_entries = {}
+    local status_entries = {}
+    for i = 0, 63 do
+        local offset = i * 4
+        x_entries[#x_entries + 1] = tostring(mainmemory.read_u16_be(ADDR_SONIC_POS_RECORD_BUF + offset))
+        y_entries[#y_entries + 1] = tostring(mainmemory.read_u16_be(ADDR_SONIC_POS_RECORD_BUF + offset + 2))
+        input_entries[#input_entries + 1] = tostring(mainmemory.read_u16_be(ADDR_SONIC_STAT_RECORD_BUF + offset))
+        status_entries[#status_entries + 1] = tostring(mainmemory.read_u8(ADDR_SONIC_STAT_RECORD_BUF + offset + 2))
+    end
+
+    write_aux(string.format(
+        '{"frame":-1,"vfc":%d,"event":"player_history_snapshot","history_pos":%d,'
+            .. '"x_history":[%s],"y_history":[%s],"input_history":[%s],"status_history":[%s]}',
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_SONIC_POS_RECORD_INDEX) & 0xFF,
+        table.concat(x_entries, ","),
+        table.concat(y_entries, ","),
+        table.concat(input_entries, ","),
+        table.concat(status_entries, ",")))
+end
+
+local function write_tails_cpu_snapshot()
+    if not aux_file then return end
+
+    write_aux(string.format(
+        '{"frame":-1,"vfc":%d,"event":"cpu_state_snapshot","character":"tails",'
+            .. '"control_counter":%d,"respawn_counter":%d,"cpu_routine":%d,'
+            .. '"target_x":"0x%04X","target_y":"0x%04X","interact_id":"0x%02X","jumping":%d}',
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_TAILS_CONTROL_COUNTER),
+        mainmemory.read_u16_be(ADDR_TAILS_RESPAWN_COUNTER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_ROUTINE),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_X),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
+        mainmemory.read_u8(ADDR_TAILS_INTERACT_ID),
+        mainmemory.read_u8(ADDR_TAILS_CPU_JUMPING)))
+end
+
 -- Scan all object slots (1-127). Log appearances, disappearances, proximity,
 -- and emit a full slot_dump when any dynamic object appears.
-local function scan_objects(player_x, player_y)
+local function scan_objects(subjects)
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local any_appeared = false
 
@@ -389,21 +509,25 @@ local function scan_objects(player_x, player_y)
                 trace_frame, vfc, slot, prev_id))
         end
 
-        -- Proximity check: log active objects near the player every frame.
-        -- This captures the exact position of objects involved in collisions
-        -- without needing to add temporary diagnostic code to the engine.
+        -- Proximity check: log active objects near Sonic and Tails every frame.
+        -- Skip the subject's own SST slot so Tails doesn't spam near-self events.
         if obj_id ~= 0 then
             local obj_x = mainmemory.read_u16_be(addr + OFF_X_POS)
             local obj_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
-            local dx = math.abs(obj_x - player_x)
-            local dy = math.abs(obj_y - player_y)
-            if dx <= OBJECT_PROXIMITY and dy <= OBJECT_PROXIMITY then
-                local obj_status = mainmemory.read_u8(addr + OFF_STATUS)
-                local obj_routine = mainmemory.read_u8(addr + OFF_ROUTINE)
-                write_aux(string.format(
-                    '{"frame":%d,"vfc":%d,"event":"object_near","slot":%d,"type":"0x%02X",'
-                    .. '"x":"0x%04X","y":"0x%04X","routine":"0x%02X","status":"0x%02X"}',
-                    trace_frame, vfc, slot, obj_id, obj_x, obj_y, obj_routine, obj_status))
+            local obj_status = mainmemory.read_u8(addr + OFF_STATUS)
+            local obj_routine = mainmemory.read_u8(addr + OFF_ROUTINE)
+            for _, subject in ipairs(subjects) do
+                if subject.present ~= 0 and slot ~= subject.slot then
+                    local dx = math.abs(obj_x - subject.x)
+                    local dy = math.abs(obj_y - subject.y)
+                    if dx <= OBJECT_PROXIMITY and dy <= OBJECT_PROXIMITY then
+                        write_aux(string.format(
+                            '{"frame":%d,"vfc":%d,"event":"object_near","character":"%s","slot":%d,"type":"0x%02X",'
+                            .. '"x":"0x%04X","y":"0x%04X","routine":"0x%02X","status":"0x%02X"}',
+                            trace_frame, vfc, subject.character, slot, obj_id, obj_x, obj_y,
+                            obj_routine, obj_status))
+                    end
+                end
             end
         end
 
@@ -420,28 +544,40 @@ local function scan_objects(player_x, player_y)
     end
 end
 
-local function write_state_snapshot()
-    local ctrl_lock = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
-    local anim_id = mainmemory.read_u8(PLAYER_BASE + OFF_ANIM_ID)
-    local status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
-    local routine = mainmemory.read_u8(PLAYER_BASE + OFF_ROUTINE)
-    local y_radius = mainmemory.read_s8(PLAYER_BASE + OFF_RADIUS_Y)
-    local x_radius = mainmemory.read_s8(PLAYER_BASE + OFF_RADIUS_X)
+local function write_state_snapshot(character, base)
+    if mainmemory.read_u8(base) == 0 then
+        return
+    end
+
+    local ctrl_lock = mainmemory.read_u16_be(base + OFF_CTRL_LOCK)
+    local anim_id = mainmemory.read_u8(base + OFF_ANIM_ID)
+    local status = mainmemory.read_u8(base + OFF_STATUS)
+    local routine = mainmemory.read_u8(base + OFF_ROUTINE)
+    local y_radius = mainmemory.read_s8(base + OFF_RADIUS_Y)
+    local x_radius = mainmemory.read_s8(base + OFF_RADIUS_X)
+    local raw_input = mainmemory.read_u8(ADDR_CTRL1)
+    local logical_input = mainmemory.read_u8(ADDR_CTRL1_DUP)
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
 
     write_aux(string.format(
-        '{"frame":%d,"vfc":%d,"event":"state_snapshot","control_locked":%s,"anim_id":%d,'
+        '{"frame":%d,"vfc":%d,"event":"state_snapshot","character":"%s","control_locked":%s,"anim_id":%d,'
         .. '"status_byte":"0x%02X","routine":"0x%02X","y_radius":%d,"x_radius":%d,'
+        .. '"raw_input":"0x%02X","raw_input_mask":"0x%02X","logical_input":"0x%02X","logical_input_mask":"0x%02X",'
         .. '"on_object":%s,"pushing":%s,"underwater":%s,'
         .. '"roll_jumping":%s}',
         trace_frame,
         vfc,
+        character,
         ctrl_lock > 0 and "true" or "false",
         anim_id,
         status,
         routine,
         y_radius,
         x_radius,
+        raw_input,
+        rom_joypad_to_mask(raw_input),
+        logical_input,
+        rom_joypad_to_mask(logical_input),
         ((status & STATUS_ON_OBJECT) ~= 0) and "true" or "false",
         ((status & STATUS_PUSHING) ~= 0) and "true" or "false",
         ((status & STATUS_UNDERWATER) ~= 0) and "true" or "false",
@@ -449,55 +585,62 @@ local function write_state_snapshot()
     ))
 end
 
-local function check_mode_changes(status, routine)
+local function check_mode_changes(character, base, state, status, routine)
+    if mainmemory.read_u8(base) == 0 then
+        state.status = 0
+        state.routine = 0
+        state.ctrl_lock = 0
+        return
+    end
+
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
 
-    local was_air = (prev_status & STATUS_IN_AIR) ~= 0
+    local was_air = (state.status & STATUS_IN_AIR) ~= 0
     local is_air = (status & STATUS_IN_AIR) ~= 0
     if was_air ~= is_air then
         write_aux(string.format(
-            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"air","from":%d,"to":%d}',
-            trace_frame, vfc, was_air and 1 or 0, is_air and 1 or 0))
-        write_state_snapshot()
+            '{"frame":%d,"vfc":%d,"event":"mode_change","character":"%s","field":"air","from":%d,"to":%d}',
+            trace_frame, vfc, character, was_air and 1 or 0, is_air and 1 or 0))
+        write_state_snapshot(character, base)
     end
 
-    local was_rolling = (prev_status & STATUS_ROLLING) ~= 0
+    local was_rolling = (state.status & STATUS_ROLLING) ~= 0
     local is_rolling = (status & STATUS_ROLLING) ~= 0
     if was_rolling ~= is_rolling then
         write_aux(string.format(
-            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"rolling","from":%d,"to":%d}',
-            trace_frame, vfc, was_rolling and 1 or 0, is_rolling and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","character":"%s","field":"rolling","from":%d,"to":%d}',
+            trace_frame, vfc, character, was_rolling and 1 or 0, is_rolling and 1 or 0))
     end
 
-    local was_on_obj = (prev_status & STATUS_ON_OBJECT) ~= 0
+    local was_on_obj = (state.status & STATUS_ON_OBJECT) ~= 0
     local is_on_obj = (status & STATUS_ON_OBJECT) ~= 0
     if was_on_obj ~= is_on_obj then
         write_aux(string.format(
-            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"on_object","from":%d,"to":%d}',
-            trace_frame, vfc, was_on_obj and 1 or 0, is_on_obj and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","character":"%s","field":"on_object","from":%d,"to":%d}',
+            trace_frame, vfc, character, was_on_obj and 1 or 0, is_on_obj and 1 or 0))
     end
 
-    local ctrl_lock = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
-    local was_locked = prev_ctrl_lock > 0
+    local ctrl_lock = mainmemory.read_u16_be(base + OFF_CTRL_LOCK)
+    local was_locked = state.ctrl_lock > 0
     local is_locked = ctrl_lock > 0
     if was_locked ~= is_locked then
         write_aux(string.format(
-            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"control_locked","from":%d,"to":%d}',
-            trace_frame, vfc, was_locked and 1 or 0, is_locked and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","character":"%s","field":"control_locked","from":%d,"to":%d}',
+            trace_frame, vfc, character, was_locked and 1 or 0, is_locked and 1 or 0))
     end
-    prev_ctrl_lock = ctrl_lock
+    state.ctrl_lock = ctrl_lock
 
     -- Routine transition detection (S2 obRoutine raw values: 0=init, 2=control,
     -- 4=hurt, 6=death).
     -- Emit a rich event with full Sonic state and the object Sonic is standing on
     -- (if any). Especially valuable for hurt transitions (2→4).
-    if routine ~= prev_routine then
-        local stand_on_obj = mainmemory.read_u8(PLAYER_BASE + OFF_STAND_ON_OBJ)
-        local sonic_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
-        local sonic_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
-        local sonic_xvel = mainmemory.read_s16_be(PLAYER_BASE + OFF_X_VEL)
-        local sonic_yvel = mainmemory.read_s16_be(PLAYER_BASE + OFF_Y_VEL)
-        local sonic_inertia = mainmemory.read_s16_be(PLAYER_BASE + OFF_INERTIA)
+    if routine ~= state.routine then
+        local stand_on_obj = mainmemory.read_u8(base + OFF_STAND_ON_OBJ)
+        local sonic_x = mainmemory.read_u16_be(base + OFF_X_POS)
+        local sonic_y = mainmemory.read_u16_be(base + OFF_Y_POS)
+        local sonic_xvel = mainmemory.read_s16_be(base + OFF_X_VEL)
+        local sonic_yvel = mainmemory.read_s16_be(base + OFF_Y_VEL)
+        local sonic_inertia = mainmemory.read_s16_be(base + OFF_INERTIA)
 
         -- If Sonic is standing on an object, read that object's type and position
         local obj_context = ""
@@ -514,19 +657,20 @@ local function check_mode_changes(status, routine)
         end
 
         write_aux(string.format(
-            '{"frame":%d,"vfc":%d,"event":"routine_change","from":"0x%02X","to":"0x%02X",'
-            .. '"sonic_x":"0x%04X","sonic_y":"0x%04X","x_vel":%d,"y_vel":%d,"inertia":%d,'
+            '{"frame":%d,"vfc":%d,"event":"routine_change","character":"%s","from":"0x%02X","to":"0x%02X",'
+            .. '"x":"0x%04X","y":"0x%04X","x_vel":%d,"y_vel":%d,"inertia":%d,'
             .. '"status":"0x%02X","stand_on_obj":%d%s}',
-            trace_frame, vfc, prev_routine, routine,
+            trace_frame, vfc, character, state.routine, routine,
             sonic_x, sonic_y, sonic_xvel, sonic_yvel, sonic_inertia,
             status, stand_on_obj, obj_context))
 
         -- On hurt/death transitions, also emit a full state snapshot for maximum context.
         if routine == ROUTINE_HURT or routine == ROUTINE_DEATH then
-            write_state_snapshot()
+            write_state_snapshot(character, base)
         end
     end
-    prev_routine = routine
+    state.routine = routine
+    state.status = status
 end
 
 -----------------
@@ -567,6 +711,8 @@ local function on_frame_end()
             -- but before trace frame 0 is recorded. The engine hydrates object
             -- state machines from these snapshots so they mirror the ROM's
             -- pre-trace progress (title-card + level-init iterations).
+            write_player_history_snapshot()
+            write_tails_cpu_snapshot()
             write_object_snapshots()
             print(string.format("Trace recording started at BizHawk frame %d, zone %s act %d, pos (%04X, %04X)",
                 bk2_frame_offset, start_zone_name, start_act + 1, start_x, start_y))
@@ -654,25 +800,48 @@ local function on_frame_end()
     -- lag counter, so write 0 as a diagnostic placeholder in schema v3.
     local vblank_counter = mainmemory.read_u16_be(ADDR_VBLA_WORD)
     local lag_counter = 0
+    local sidekick = read_character_trace_state(SIDEKICK_BASE)
 
-    -- v3 CSV: execution counters plus stand_on_obj.
+    -- v6 CSV: shared execution counters plus explicit Sonic/Tails state blocks.
     physics_file:write(string.format(
-        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%04X,%04X,%04X,%02X,%04X,%02X,%04X,%04X\n",
-        trace_frame, input_mask, x, y,
-        uhex(x_speed), uhex(y_speed), uhex(g_speed),
+        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%d,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%02X,%02X,"
+            .. "%d,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%02X,%02X\n",
+        trace_frame, input_mask,
+        camera_x, camera_y,
+        rings,
+        gameplay_frame_counter,
+        vblank_counter,
+        lag_counter,
+        1,
+        x,
+        y,
+        uhex(x_speed),
+        uhex(y_speed),
+        uhex(g_speed),
         angle,
         air and 1 or 0,
         rolling and 1 or 0,
         ground_mode,
-        x_sub, y_sub,
+        x_sub,
+        y_sub,
         routine,
-        camera_x, camera_y,
-        rings,
         status,
-        gameplay_frame_counter,
         stand_on_obj,
-        vblank_counter,
-        lag_counter))
+        sidekick.present,
+        sidekick.x,
+        sidekick.y,
+        uhex(sidekick.x_speed),
+        uhex(sidekick.y_speed),
+        uhex(sidekick.g_speed),
+        sidekick.angle,
+        sidekick.air,
+        sidekick.rolling,
+        sidekick.ground_mode,
+        sidekick.x_sub,
+        sidekick.y_sub,
+        sidekick.routine,
+        sidekick.status,
+        sidekick.stand_on_obj))
     -- Flush periodically instead of every frame to reduce I/O overhead.
     -- Also update metadata every 300 frames (~5 sec) so a killed process
     -- still has a valid (if slightly stale) metadata.json.
@@ -683,16 +852,22 @@ local function on_frame_end()
         write_metadata()
     end
 
-    check_mode_changes(status, routine)
-    prev_status = status
+    check_mode_changes("sonic", PLAYER_BASE, prev_character_state.sonic, status, routine)
+    check_mode_changes("tails", SIDEKICK_BASE, prev_character_state.tails,
+        sidekick.status, sidekick.routine)
 
-    if trace_frame % SNAPSHOT_INTERVAL == 0 then
-        write_state_snapshot()
+    if trace_frame % SNAPSHOT_INTERVAL == 0
+            or (trace_frame >= 5104 and trace_frame <= 5106) then
+        write_state_snapshot("sonic", PLAYER_BASE)
+        write_state_snapshot("tails", SIDEKICK_BASE)
     end
 
     -- Object scanning: every frame for proximity, every 4 frames for full scan
     -- Proximity logging runs every frame so we never miss collision-relevant objects.
-    scan_objects(x, y)
+    scan_objects({
+        { character = "sonic", slot = 0, present = 1, x = x, y = y },
+        { character = "tails", slot = 1, present = sidekick.present, x = sidekick.x, y = sidekick.y },
+    })
 
     -- OPL cursor state: emit event on chunk transitions for ROM↔engine comparison.
     -- v_opl_screen changes only when OPL_Next processes a new chunk.

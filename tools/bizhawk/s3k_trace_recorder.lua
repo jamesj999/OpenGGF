@@ -29,21 +29,29 @@
 local OUTPUT_DIR = "trace_output/"
 local HEADLESS = true
 local MOVIE_FRAME_SAFETY_MARGIN = 30
+local TRACE_PROFILE = os.getenv("OGGF_S3K_TRACE_PROFILE") or "gameplay_unlock"
+local BK2_FRAME_COUNT = tonumber(os.getenv("OGGF_BK2_FRAME_COUNT") or "")
+local BIZHAWK_VERSION = "2.11"
+local GENESIS_CORE = "Genplus-gx"
+local AIZ_END_TO_END_ROM_CHECKSUM = "C5B1C655C19F462ADE0AC4E17A844D10"
 
 -- Sonic 3 & Knuckles 68K RAM addresses (BizHawk mainmemory strips $FF0000)
 local ADDR_GAME_MODE        = 0xF600
 local ADDR_CTRL1            = 0xF604
 local ADDR_CTRL1_DUP        = 0xF602
 local ADDR_CTRL1_LOCKED     = 0xF7CA
-local ADDR_RING_COUNT       = 0xFE24
-local ADDR_CAMERA_X         = 0xEE7A
-local ADDR_CAMERA_Y         = 0xEE7E
-local ADDR_ZONE             = 0xFE14
-local ADDR_ACT              = 0xFE15
+local ADDR_RING_COUNT       = 0xFE20
+local ADDR_CAMERA_X         = 0xEE78
+local ADDR_CAMERA_Y         = 0xEE7C
+local ADDR_ZONE             = 0xFE10
+local ADDR_ACT              = 0xFE11
 local ADDR_PLAYER_MODE      = 0xFF08
+local ADDR_APPARENT_ACT     = 0xEE4F
+local ADDR_EVENTS_FG_5      = 0xEEC6
+local ADDR_LEVEL_STARTED_FLAG = 0xF711
 
--- Player_1 ($FFFFB400) uses 32-bit positions: high word = pixel, low word = subpixel.
-local PLAYER_BASE           = 0xB400
+-- Player_1 ($FFFFB000) uses 32-bit positions: high word = pixel, low word = subpixel.
+local PLAYER_BASE           = 0xB000
 local OFF_X_POS             = 0x10
 local OFF_X_SUB             = 0x12
 local OFF_Y_POS             = 0x14
@@ -73,14 +81,14 @@ local STATUS_PUSHING        = 0x20
 local STATUS_UNDERWATER     = 0x40
 
 -- Object table: S3K OST starts at Player_1 and uses $4A-byte entries.
-local OBJ_TABLE_START       = 0xB400
+local OBJ_TABLE_START       = 0xB000
 local OBJ_SLOT_SIZE         = 0x4A
 local OBJ_TOTAL_SLOTS       = 110
 local OBJ_DYNAMIC_START     = 3
 local OBJ_DYNAMIC_COUNT     = 90
 
-local ADDR_FRAMECOUNT       = 0xFE08
-local ADDR_VBLA_WORD        = 0xFE12
+local ADDR_FRAMECOUNT       = 0xFE04
+local ADDR_VBLA_WORD        = 0xFE0E
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 
 local INPUT_UP    = 0x01
@@ -131,6 +139,8 @@ local prev_ctrl_lock = 0
 local prev_player_mode = nil
 
 local known_objects = {}
+local emitted_checkpoints = {}
+local last_zone_act_state_key = nil
 
 local physics_file = nil
 local aux_file = nil
@@ -173,6 +183,19 @@ local function write_aux(json_str)
     end
 end
 
+local function json_quote(value)
+    return '"' .. tostring(value)
+        :gsub("\\", "\\\\")
+        :gsub('"', '\\"') .. '"'
+end
+
+local function json_int_or_null(value)
+    if value == nil then
+        return "null"
+    end
+    return tostring(value)
+end
+
 local function read_object_code(slot)
     local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
     return mainmemory.read_u32_be(addr)
@@ -198,6 +221,95 @@ local function read_stand_on_slot()
     return interact_addr_to_slot(interact_addr)
 end
 
+local function is_aiz_end_to_end_profile()
+    return TRACE_PROFILE == "aiz_end_to_end"
+end
+
+local function should_start_recording(game_mode)
+    if is_aiz_end_to_end_profile() then
+        local player_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
+        local player_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
+        return movie.isloaded() and (game_mode == GAMEMODE_LEVEL or player_x ~= 0 or player_y ~= 0)
+    end
+    local ctrl_lock_timer = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
+    local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
+    return game_mode == GAMEMODE_LEVEL and ctrl_lock_timer == 0 and ctrl_locked == 0
+end
+
+local function emit_zone_act_state(frame, actual_zone_id, actual_act, apparent_act, game_mode)
+    local key = table.concat({
+        tostring(actual_zone_id),
+        tostring(actual_act),
+        tostring(apparent_act),
+        tostring(game_mode)
+    }, "|")
+    if key == last_zone_act_state_key then
+        return
+    end
+    last_zone_act_state_key = key
+    write_aux(string.format(
+        '{"frame":%d,"event":"zone_act_state","actual_zone_id":%s,"actual_act":%s,"apparent_act":%s,"game_mode":%s}',
+        frame,
+        json_int_or_null(actual_zone_id),
+        json_int_or_null(actual_act),
+        json_int_or_null(apparent_act),
+        json_int_or_null(game_mode)))
+end
+
+local function emit_checkpoint_once(frame, name, actual_zone_id, actual_act, apparent_act, game_mode, notes)
+    if emitted_checkpoints[name] then
+        return false
+    end
+    emitted_checkpoints[name] = true
+    local notes_field = notes ~= nil and (',"notes":' .. json_quote(notes)) or ""
+    write_aux(string.format(
+        '{"frame":%d,"event":"checkpoint","name":"%s","actual_zone_id":%s,"actual_act":%s,"apparent_act":%s,"game_mode":%s%s}',
+        frame,
+        name,
+        json_int_or_null(actual_zone_id),
+        json_int_or_null(actual_act),
+        json_int_or_null(apparent_act),
+        json_int_or_null(game_mode),
+        notes_field))
+    return true
+end
+
+local function emit_s3k_semantic_events(frame)
+    local actual_zone_id = mainmemory.read_u8(ADDR_ZONE)
+    local actual_act = mainmemory.read_u8(ADDR_ACT)
+    local apparent_act = mainmemory.read_u8(ADDR_APPARENT_ACT)
+    local game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
+    local move_lock = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
+    local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
+    local events_fg_5 = mainmemory.read_u16_be(ADDR_EVENTS_FG_5)
+    local level_started = mainmemory.read_u8(ADDR_LEVEL_STARTED_FLAG)
+
+    emit_zone_act_state(frame, actual_zone_id, actual_act, apparent_act, game_mode)
+
+    if not is_aiz_end_to_end_profile() then
+        return
+    end
+
+    if frame == 0 then
+        emit_checkpoint_once(frame, "intro_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+    if level_started ~= 0 and game_mode == GAMEMODE_LEVEL and move_lock == 0 and ctrl_locked == 0 then
+        emit_checkpoint_once(frame, "gameplay_start", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 then
+        emit_checkpoint_once(frame, "aiz1_fire_transition_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+    if actual_zone_id == 0 and actual_act == 1 and apparent_act == 0 then
+        emit_checkpoint_once(frame, "aiz2_reload_resume", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+    if actual_zone_id == 0 and actual_act == 1 and move_lock == 0 and ctrl_locked == 0 then
+        emit_checkpoint_once(frame, "aiz2_main_gameplay", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+    if actual_zone_id == 1 and actual_act == 0 and move_lock == 0 and ctrl_locked == 0 then
+        emit_checkpoint_once(frame, "hcz_handoff_complete", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    end
+end
+
 -----------------
 --- Recording ---
 -----------------
@@ -214,6 +326,12 @@ end
 
 local function write_metadata()
     local meta_file = io.open(OUTPUT_DIR .. "metadata.json", "w")
+    local fixture_notes = ""
+    local rom_checksum = ""
+    if is_aiz_end_to_end_profile() then
+        fixture_notes = "AIZ intro through HCZ handoff end-to-end fixture"
+        rom_checksum = AIZ_END_TO_END_ROM_CHECKSUM
+    end
     meta_file:write("{\n")
     meta_file:write('  "game": "s3k",\n')
     meta_file:write('  "zone": "' .. start_zone_name .. '",\n')
@@ -224,11 +342,13 @@ local function write_metadata()
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
     meta_file:write('  "start_y": "0x' .. hex(start_y) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "3.0-s3k",\n')
+    meta_file:write('  "lua_script_version": "3.1-s3k",\n')
     meta_file:write('  "trace_schema": 3,\n')
     meta_file:write('  "csv_version": 4,\n')
-    meta_file:write('  "rom_checksum": "",\n')
-    meta_file:write('  "notes": ""\n')
+    meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
+    meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
+    meta_file:write('  "rom_checksum": "' .. rom_checksum .. '",\n')
+    meta_file:write('  "notes": ' .. json_quote(fixture_notes) .. '\n')
     meta_file:write("}\n")
     meta_file:close()
     print(string.format("Metadata written. Zone: %s Act %d, Trace frames: %d",
@@ -427,13 +547,32 @@ end
 -----------------
 
 local function on_frame_end()
+    if finished then
+        return
+    end
+
+    if HEADLESS and started then
+        if BK2_FRAME_COUNT ~= nil and BK2_FRAME_COUNT > 0
+            and (bk2_frame_offset + trace_frame) >= BK2_FRAME_COUNT then
+            print(string.format(
+                "Reached BK2 input end at trace frame %d (bk2 offset %d, input frames %d). Finalising.",
+                trace_frame, bk2_frame_offset, BK2_FRAME_COUNT))
+            finished = true
+            return
+        end
+        if not movie.isloaded() then
+            print(string.format(
+                "Movie unloaded at trace frame %d (emu frame %d). Finalising before memory access.",
+                trace_frame, emu.framecount()))
+            finished = true
+            return
+        end
+    end
+
     local game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
 
     if not started then
-        if finished then return end
-        local ctrl_lock_timer = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
-        local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
-        if game_mode == GAMEMODE_LEVEL and ctrl_lock_timer == 0 and ctrl_locked == 0 then
+        if should_start_recording(game_mode) then
             started = true
             bk2_frame_offset = emu.framecount()
             start_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
@@ -446,14 +585,26 @@ local function on_frame_end()
             write_metadata()
             print(string.format("Trace recording started at BizHawk frame %d, zone %s act %d, pos (%04X, %04X)",
                 bk2_frame_offset, start_zone_name, start_act + 1, start_x, start_y))
+            if is_aiz_end_to_end_profile() and bk2_frame_offset > 0 then
+                local prefix = bk2_frame_offset > MOVIE_FRAME_SAFETY_MARGIN and "WARNING" or "Note"
+                print(string.format(
+                    "%s: aiz_end_to_end recording armed after movie frame 0 (offset %d); metadata preserves bk2_frame_offset.",
+                    prefix,
+                    bk2_frame_offset))
+            end
             if movie.isloaded() then
                 print(string.format("Movie length: %d frames", movie.length()))
             end
+            if not is_aiz_end_to_end_profile() then
+                return
+            end
         end
-        return
+        if not started then
+            return
+        end
     end
 
-    if game_mode ~= GAMEMODE_LEVEL then
+    if not is_aiz_end_to_end_profile() and game_mode ~= GAMEMODE_LEVEL then
         print("Left level gameplay at trace frame " .. trace_frame .. ". Finalising.")
         finished = true
         return
@@ -461,14 +612,20 @@ local function on_frame_end()
 
     if HEADLESS and movie.isloaded() then
         local movie_length = movie.length()
-        if movie_length > 0 and (bk2_frame_offset + trace_frame) >= movie_length then
+        local end_frame_limit = movie_length
+        local allow_post_movie_tail = false
+        if BK2_FRAME_COUNT ~= nil and BK2_FRAME_COUNT > end_frame_limit then
+            end_frame_limit = BK2_FRAME_COUNT
+            allow_post_movie_tail = true
+        end
+        if end_frame_limit > 0 and (bk2_frame_offset + trace_frame) >= end_frame_limit then
             print(string.format(
-                "Reached BK2 end at trace frame %d (bk2 offset %d, movie length %d). Finalising.",
-                trace_frame, bk2_frame_offset, movie_length))
+                "Reached configured movie end at trace frame %d (bk2 offset %d, limit %d). Finalising.",
+                trace_frame, bk2_frame_offset, end_frame_limit))
             finished = true
             return
         end
-        if movie.mode() == "FINISHED" then
+        if not allow_post_movie_tail and movie.mode() == "FINISHED" then
             print(string.format(
                 "Movie playback finished at trace frame %d (emu frame %d). Finalising.",
                 trace_frame, emu.framecount()))
@@ -534,6 +691,7 @@ local function on_frame_end()
         write_metadata()
     end
 
+    emit_s3k_semantic_events(trace_frame)
     emit_player_mode_event()
     check_mode_changes(status, routine)
     prev_status = status
@@ -558,7 +716,10 @@ if HEADLESS then
     end
 end
 
-print("S3K Trace Recorder v3.0-s3k loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
+print(string.format(
+    "S3K Trace Recorder v3.1-s3k loaded. Profile=%s. Waiting for %s...",
+    TRACE_PROFILE,
+    is_aiz_end_to_end_profile() and "BK2 frame 0" or "level gameplay (Game_Mode=0x0C, controls unlocked)"))
 
 while true do
     on_frame_end()
