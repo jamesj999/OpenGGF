@@ -21,7 +21,7 @@ public sealed interface TraceEvent {
     record ObjectRemoved(int frame, int slot, String objectType)
         implements TraceEvent {}
 
-    record ObjectNear(int frame, int slot, String objectType, short x, short y,
+    record ObjectNear(int frame, String character, int slot, String objectType, short x, short y,
                       String routine, String status)
         implements TraceEvent {}
 
@@ -31,10 +31,10 @@ public sealed interface TraceEvent {
     record CollisionEvent(int frame, String type, String objectType, short x, short y)
         implements TraceEvent {}
 
-    record ModeChange(int frame, String field, int from, int to)
+    record ModeChange(int frame, String character, String field, int from, int to)
         implements TraceEvent {}
 
-    record RoutineChange(int frame, String from, String to, short sonicX, short sonicY)
+    record RoutineChange(int frame, String character, String from, String to, short x, short y)
         implements TraceEvent {}
 
     record Checkpoint(int frame, String name, Integer actualZoneId, Integer actualAct,
@@ -93,6 +93,7 @@ public sealed interface TraceEvent {
                 );
                 case "object_near" -> new ObjectNear(
                     frame,
+                    parseCharacter(node),
                     node.get("slot").asInt(),
                     node.has("type") ? node.get("type").asText() : "",
                     parseHexShort(node, "x"),
@@ -109,16 +110,18 @@ public sealed interface TraceEvent {
                 );
                 case "mode_change" -> new ModeChange(
                     frame,
+                    parseCharacter(node),
                     node.get("field").asText(),
                     node.get("from").asInt(),
                     node.get("to").asInt()
                 );
                 case "routine_change" -> new RoutineChange(
                     frame,
+                    parseCharacter(node),
                     node.has("from") ? stripHexPrefix(node.get("from").asText()) : "",
                     node.has("to") ? stripHexPrefix(node.get("to").asText()) : "",
-                    parseHexShort(node, "sonic_x"),
-                    parseHexShort(node, "sonic_y")
+                    parseHexShort(node, "x", "sonic_x", "tails_x"),
+                    parseHexShort(node, "y", "sonic_y", "tails_y")
                 );
                 case "checkpoint" -> new Checkpoint(
                     frame,
@@ -179,10 +182,23 @@ public sealed interface TraceEvent {
         }
     }
 
-    private static short parseHexShort(JsonNode node, String field) {
-        if (!node.has(field)) return 0;
-        String hex = stripHexPrefix(node.get(field).asText());
-        return (short) Integer.parseInt(hex, 16);
+    private static short parseHexShort(JsonNode node, String... fields) {
+        for (String field : fields) {
+            if (!node.has(field)) {
+                continue;
+            }
+            String hex = stripHexPrefix(node.get(field).asText());
+            return (short) Integer.parseInt(hex, 16);
+        }
+        return 0;
+    }
+
+    private static String parseCharacter(JsonNode node) {
+        if (!node.has("character") || node.get("character").isNull()) {
+            return null;
+        }
+        String value = node.get("character").asText();
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static Integer parseNullableInt(JsonNode node, String field) {

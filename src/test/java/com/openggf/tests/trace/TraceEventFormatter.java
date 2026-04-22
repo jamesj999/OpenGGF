@@ -33,7 +33,8 @@ final class TraceEventFormatter {
             case TraceEvent.ObjectRemoved removed ->
                     String.format("obj- s%d %s", removed.slot(), removed.objectType());
             case TraceEvent.ObjectNear near -> {
-                String base = String.format("near s%d %s @%04X,%04X",
+                String base = String.format("near %ss%d %s @%04X,%04X",
+                        characterPrefix(near.character()),
                         near.slot(),
                         near.objectType(),
                         near.x() & 0xFFFF,
@@ -41,13 +42,18 @@ final class TraceEventFormatter {
                 yield near.routine().isEmpty() ? base : base + " rtn=" + stripHexPrefix(near.routine());
             }
             case TraceEvent.ModeChange mode ->
-                    String.format("mode %s %d->%d", mode.field(), mode.from(), mode.to());
+                    String.format("%smode %s %d->%d",
+                            characterPrefix(mode.character()),
+                            mode.field(),
+                            mode.from(),
+                            mode.to());
             case TraceEvent.RoutineChange routine ->
-                    String.format("routine %s->%s @%04X,%04X",
+                    String.format("%sroutine %s->%s @%04X,%04X",
+                            characterPrefix(routine.character()),
                             routine.from(),
                             routine.to(),
-                            routine.sonicX() & 0xFFFF,
-                            routine.sonicY() & 0xFFFF);
+                            routine.x() & 0xFFFF,
+                            routine.y() & 0xFFFF);
             case TraceEvent.Checkpoint checkpoint ->
                     String.format("cp %s z=%s a=%s ap=%s gm=%s",
                             checkpoint.name(),
@@ -71,5 +77,12 @@ final class TraceEventFormatter {
 
     private static String stripHexPrefix(String value) {
         return value.replace("0x", "");
+    }
+
+    private static String characterPrefix(String character) {
+        if (character == null || character.isBlank() || "sonic".equalsIgnoreCase(character)) {
+            return "";
+        }
+        return character + " ";
     }
 }
