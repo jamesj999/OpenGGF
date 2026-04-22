@@ -1,7 +1,12 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.GameModule;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.LevelEventProvider;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
@@ -91,6 +96,11 @@ public class SidekickCpuController {
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
+        // Decrement release cooldown every frame regardless of state (applies after carry).
+        if (releaseCooldown > 0) {
+            releaseCooldown--;
+        }
+
         if (leader == null) {
             clearInputs();
             return;
@@ -102,11 +112,13 @@ public class SidekickCpuController {
         }
 
         switch (state) {
-            case INIT -> updateInit();
-            case SPAWNING -> updateSpawning();
+            case INIT        -> updateInit();
+            case SPAWNING    -> updateSpawning();
             case APPROACHING -> updateApproaching();
-            case NORMAL -> updateNormal();
-            case PANIC -> updatePanic();
+            case NORMAL      -> updateNormal();
+            case PANIC       -> updatePanic();
+            case CARRY_INIT  -> updateCarryInit();
+            case CARRYING    -> updateCarrying();
         }
     }
 
@@ -116,6 +128,23 @@ public class SidekickCpuController {
     }
 
     private void updateInit() {
+        // S3K Tails-carry hook (null trigger = no-op, keeps S1/S2 behaviour).
+        if (carryTrigger != null && leader != null) {
+            LevelManager lm = sidekick.currentLevelManager();
+            if (lm != null) {
+                int zone = lm.getCurrentZone();
+                int act = lm.getCurrentAct();
+                PlayerCharacter pc = resolvePlayerCharacter();
+                if (carryTrigger.shouldEnterCarry(zone, act, pc)) {
+                    carryTrigger.applyInitialPlacement(sidekick, leader);
+                    state = State.CARRY_INIT;
+                    updateCarryInit();  // Same-frame fall-through per ROM (0x0C -> 0x20)
+                    return;
+                }
+            }
+        }
+
+        // ---- existing INIT body (preserved verbatim from the pre-carry implementation) ----
         state = State.NORMAL;
         controlCounter = 0;
         despawnCounter = 0;
@@ -128,6 +157,17 @@ public class SidekickCpuController {
         sidekick.setXSpeed((short) 0);
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
+    }
+
+    private static PlayerCharacter resolvePlayerCharacter() {
+        GameModule gameModule = GameModuleRegistry.getCurrent();
+        if (gameModule != null) {
+            LevelEventProvider lep = gameModule.getLevelEventProvider();
+            if (lep instanceof AbstractLevelEventManager alem) {
+                return alem.getPlayerCharacter();
+            }
+        }
+        return PlayerCharacter.SONIC_AND_TAILS;
     }
 
     private void updateSpawning() {
@@ -328,6 +368,118 @@ public class SidekickCpuController {
             inputJump = true;
             inputJumpPress = true;
         }
+    }
+
+    /** ROM routine 0x0C. Mirrors sub_1459E (pickup) then falls through to 0x20. */
+    private void updateCarryInit() {
+        // sub_1459E semantics on Sonic (leader = cargo)
+        leader.setObjectControlled(true);
+        leader.setAir(true);
+        leader.setRolling(false);
+        leader.setRollingJump(false);
+        leader.setGSpeed((short) 0);
+        leader.setXSpeed(carryTrigger.carryInitXVel());
+        leader.setYSpeed((short) 0);
+        // Forced animation id: high-byte 0x22 per ROM sub_1459E; the sprite's
+        // animation table maps the "carried" id. If the mapping is not yet wired
+        // (see risk 9.2), this is a no-op for physics parity.
+        leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.TAILS_CARRIED));
+
+        // Tails's per-carry state
+        sidekick.setAir(true);
+        sidekick.setXSpeed(carryTrigger.carryInitXVel());
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setControlLocked(true);
+        sidekick.setForcedAnimationId(flyAnimId);
+
+        // Initialize the latch
+        carryLatchX = carryTrigger.carryInitXVel();
+        carryLatchY = 0;
+        flyingCarryingFlag = true;
+        releaseCooldown = 0;
+
+        state = State.CARRYING;
+        // ROM 0x0C -> 0x20 fall-through: one tick of the body this same frame.
+        updateCarrying();
+    }
+
+    /** ROM routines 0x0E / 0x20 body. Runs each carry frame. */
+    private void updateCarrying() {
+        // ROM order inside Tails_Carry_Sonic:
+
+        // 1. Hurt/dead (Sonic routine >= 4)
+        if (leader.isHurt() || leader.getDead()) {
+            releaseCarry(carryTrigger.carryLatchReleaseCooldownFrames());
+            return;
+        }
+
+        // 2. External velocity change (release path C: latch mismatch)
+        if (leader.getXSpeed() != carryLatchX || leader.getYSpeed() != carryLatchY) {
+            releaseCarry(carryTrigger.carryLatchReleaseCooldownFrames());
+            return;
+        }
+
+        // 3. A/B/C just-pressed (release path B)
+        if (leader.isJumpJustPressed()) {
+            performJumpRelease();
+            return;
+        }
+
+        // 4. Ground release (release path A): Sonic in-air bit clear
+        if (!leader.getAir()) {
+            releaseCarry(0);
+            return;
+        }
+
+        // --- No release this frame; re-apply parentage ---
+
+        // Synthetic right-press injection every 32 frames (ROM: Level_frame_counter cadence)
+        if ((frameCounter & carryTrigger.carryInputInjectMask()) == 0) {
+            inputRight = true;
+        }
+
+        // Clamp Tails's x_vel to the carry velocity
+        sidekick.setXSpeed(carryTrigger.carryInitXVel());
+
+        // Sonic parentage (Tails_Carry_Sonic steps 5 + 8):
+        //   x_pos = Tails.x_pos
+        //   y_pos = Tails.y_pos + carryDescendOffsetY()
+        //   x_vel = Tails.x_vel
+        //   y_vel = Tails.y_vel
+        leader.setCentreXPreserveSubpixel(sidekick.getCentreX());
+        leader.setCentreYPreserveSubpixel(
+                (short) (sidekick.getCentreY() + carryTrigger.carryDescendOffsetY()));
+        leader.setXSpeed(sidekick.getXSpeed());
+        leader.setYSpeed(sidekick.getYSpeed());
+
+        // Refresh the latch AFTER our writes so the next frame's compare is
+        // against what we just wrote, not stale values.
+        carryLatchX = leader.getXSpeed();
+        carryLatchY = leader.getYSpeed();
+    }
+
+    private void performJumpRelease() {
+        short xMag = carryTrigger.carryReleaseJumpXVel();
+        short xVel = leader.getDirection() == Direction.LEFT
+                ? (short) -xMag
+                : xMag;
+        leader.setXSpeed(xVel);
+        leader.setYSpeed(carryTrigger.carryReleaseJumpYVel());
+        leader.setRollingJump(true);
+        leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.ROLL));
+        releaseCarry(carryTrigger.carryJumpReleaseCooldownFrames());
+    }
+
+    private void releaseCarry(int cooldownFrames) {
+        leader.setObjectControlled(false);
+        leader.setForcedAnimationId(-1);
+        sidekick.setControlLocked(false);
+        sidekick.setForcedAnimationId(-1);
+        flyingCarryingFlag = false;
+        releaseCooldown = cooldownFrames;
+        state = State.NORMAL;
+        normalFrameCount = 0;
     }
 
     private void applyManualControl() {
