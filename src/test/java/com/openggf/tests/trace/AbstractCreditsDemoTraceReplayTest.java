@@ -1,6 +1,7 @@
 package com.openggf.tests.trace;
 
 import com.openggf.data.Rom;
+import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
@@ -9,6 +10,10 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseDebugHit;
+import com.openggf.level.objects.TouchResponseDebugState;
+import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
@@ -19,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -88,6 +96,9 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 .startPosition(startX, startY)
                 .startPositionIsCentre()
                 .build();
+            if (GameServices.debugOverlay() != null) {
+                GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
+            }
 
             // 3a. Demo-specific state: LZ (credit 3) needs lamppost/water setup
             if (idx == 3) {
@@ -103,22 +114,28 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
 
             for (int i = 0; i < frameLimit; i++) {
                 TraceFrame expected = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                    TraceExecutionModel.forGame("s1").phaseFor(previous, expected);
 
-                // On lag frames, the ROM's main loop didn't complete, so
+                // On VBlank-only frames, the ROM's main loop didn't complete, so
                 // neither physics nor demo input advanced. Skip both to
                 // keep the engine and demo-input cursor aligned with the
-                // ROM's cursor across the lag.
-                if (trace.isLagFrame(i)) {
+                // ROM's cursor across the replay.
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
                     // Still compare â€” engine state should match previous
                     // trace frame since neither side advanced.
                     var sprite = fixture.sprite();
                     EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
+                    String romDiag = combineDiagnostics(
+                        expected.hasExtendedData() ? expected.formatDiagnostics() : "",
+                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(i)));
                     binder.compareFrame(expected,
                         sprite.getCentreX(), sprite.getCentreY(),
                         sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                         sprite.getAngle(),
                         sprite.getAir(), sprite.getRolling(),
-                        sprite.getGroundMode().ordinal(),
+                        sprite.getGroundMode().ordinal(), romDiag,
                         engineDiag);
                     continue;
                 }
@@ -149,13 +166,16 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 // Capture engine-side diagnostic state for context window
                 var sprite = fixture.sprite();
                 EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
+                String romDiag = combineDiagnostics(
+                    expected.hasExtendedData() ? expected.formatDiagnostics() : "",
+                    TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(i)));
 
                 binder.compareFrame(expected,
                     sprite.getCentreX(), sprite.getCentreY(),
                     sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                     sprite.getAngle(),
                     sprite.getAir(), sprite.getRolling(),
-                    sprite.getGroundMode().ordinal(),
+                    sprite.getGroundMode().ordinal(), romDiag,
                     engineDiag);
             }
 
@@ -266,8 +286,70 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         int xSub = sprite.getXSubpixelRaw();
         int ySub = sprite.getYSubpixelRaw();
 
+        String solidEvent = "";
+        if (om != null) {
+            TouchResponseDebugState touchState = om.getTouchResponseDebugState();
+            if (touchState != null) {
+                solidEvent = combineDiagnostics(solidEvent, String.format(
+                        "touchBox @%04X,%04X h=%d yr=%d crouch=%d",
+                        touchState.getPlayerX() & 0xFFFF,
+                        touchState.getPlayerY() & 0xFFFF,
+                        touchState.getPlayerHeight(),
+                        touchState.getPlayerYRadius(),
+                        touchState.isCrouching() ? 1 : 0));
+            }
+            if (touchState != null && !touchState.getHits().isEmpty()) {
+                solidEvent = combineDiagnostics(solidEvent,
+                        TouchResponseDebugHitFormatter.summariseOverlaps(touchState.getHits()));
+                solidEvent = combineDiagnostics(solidEvent,
+                        TouchResponseDebugHitFormatter.summariseNearbyScans(
+                                touchState.getHits(),
+                                sprite.getCentreX(),
+                                sprite.getCentreY()));
+            }
+
+            List<EngineNearbyObject> nearbyObjects = new ArrayList<>();
+            for (ObjectInstance instance : om.getActiveObjects()) {
+                if (!(instance instanceof AbstractObjectInstance aoi)) {
+                    continue;
+                }
+                ObjectSpawn spawn = aoi.getSpawn();
+                if (spawn == null || spawn.objectId() == 0) {
+                    continue;
+                }
+                int currentX = aoi.getX();
+                int currentY = aoi.getY();
+                int dx = Math.abs(currentX - sprite.getCentreX());
+                int dy = Math.abs(currentY - sprite.getCentreY());
+                if (dx > 160 || dy > 160) {
+                    continue;
+                }
+                TouchResponseProvider provider =
+                        instance instanceof TouchResponseProvider trp ? trp : null;
+                nearbyObjects.add(new EngineNearbyObject(
+                        aoi.getSlotIndex(),
+                        spawn.objectId(),
+                        aoi.getName(),
+                        currentX,
+                        currentY,
+                        spawn.x(),
+                        spawn.y(),
+                        provider != null,
+                        provider != null ? provider.getCollisionFlags() : -1,
+                        provider != null ? aoi.getPreUpdateCollisionFlags() : -1,
+                        aoi.getPreUpdateX(),
+                        aoi.getPreUpdateY(),
+                        aoi.isSkipTouchThisFrame(),
+                        aoi.isSkipSolidContactThisFrame(),
+                        aoi.isOnScreenForTouch()));
+            }
+            nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
+            solidEvent = combineDiagnostics(solidEvent,
+                    EngineNearbyObjectFormatter.summarise(nearbyObjects));
+        }
+
         return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
-                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, "", xSub, ySub);
+                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
     }
 
     private void writeReport(DivergenceReport report, int demoIndex) {
@@ -292,6 +374,16 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         } catch (IOException e) {
             System.err.println("Warning: failed to write report: " + e.getMessage());
         }
+    }
+
+    private static String combineDiagnostics(String base, String extra) {
+        if (base == null || base.isEmpty()) {
+            return extra == null ? "" : extra;
+        }
+        if (extra == null || extra.isEmpty()) {
+            return base;
+        }
+        return base + " | " + extra;
     }
 
     /**

@@ -1,0 +1,89 @@
+package com.openggf.game.sonic1.objects;
+
+import com.openggf.camera.Camera;
+import com.openggf.game.OscillationManager;
+import com.openggf.game.solid.SolidCheckpointBatch;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.StubObjectServices;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+class TestSonic1GlassBlockObjectInstance {
+
+    @BeforeEach
+    void setUp() {
+        OscillationManager.resetForSonic1();
+    }
+
+    @Test
+    void movingGlassBlockResolvesCheckpointAgainstUpdatedY() throws Exception {
+        ProbeGlassBlock block = new ProbeGlassBlock(new ObjectSpawn(0x0B60, 0x0630, 0x30, 0x01, 0, false, 0));
+        ObjectManager manager = buildManager(block);
+        TestPlayableSprite player = new TestPlayableSprite();
+
+        setPrivateInt(block, "glassDist", 0x20);
+        setPrivateInt(block, "y", 0x0610);
+
+        int expectedUpdatedY = 0x0630;
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertEquals(expectedUpdatedY, block.checkpointY,
+                "Glass block should run checkpoint collision against the post-Glass_Types Y");
+        assertEquals(expectedUpdatedY, block.getY(),
+                "Glass block update should still end at the moved Y");
+    }
+
+    private static void setPrivateInt(Object instance, String fieldName, int value) throws Exception {
+        Field field = instance.getClass().getSuperclass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(instance, value);
+    }
+
+    private static ObjectManager buildManager(ProbeGlassBlock block) {
+        ObjectManager[] holder = new ObjectManager[1];
+        ObjectServices services = new StubObjectServices() {
+            @Override
+            public ObjectManager objectManager() {
+                return holder[0];
+            }
+        };
+
+        Camera camera = mock(Camera.class);
+        when(camera.getX()).thenReturn((short) 0);
+        when(camera.getY()).thenReturn((short) 0);
+        when(camera.getWidth()).thenReturn((short) 320);
+        when(camera.getHeight()).thenReturn((short) 224);
+        when(camera.isVerticalWrapEnabled()).thenReturn(false);
+
+        ObjectManager manager = new ObjectManager(
+                List.of(), null, 0, null, null, null, camera, services);
+        holder[0] = manager;
+        manager.addDynamicObject(block);
+        return manager;
+    }
+
+    private static final class ProbeGlassBlock extends Sonic1GlassBlockObjectInstance {
+        private int checkpointY = Integer.MIN_VALUE;
+
+        private ProbeGlassBlock(ObjectSpawn spawn) {
+            super(spawn);
+        }
+
+        @Override
+        protected SolidCheckpointBatch checkpointAll() {
+            checkpointY = getY();
+            return new SolidCheckpointBatch(this, Map.of());
+        }
+    }
+}

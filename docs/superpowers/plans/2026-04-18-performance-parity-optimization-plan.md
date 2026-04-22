@@ -574,3 +574,64 @@ Plan complete and saved to `docs/superpowers/plans/2026-04-18-performance-parity
 **2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
 Which approach?
+
+## Post-Plan Scope (Landed On This Branch)
+
+The branch intentionally shipped two families of work beyond the original 5-patch plan. These
+were not originally scoped; they are documented here so reviewers and future archaeologists can
+see the boundary between "the plan" and "what the branch actually landed."
+
+### In-plan patches (Patches 1–5)
+
+| Commit | Summary |
+|---|---|
+| `3f4207c76` | `docs: add performance parity baseline matrix` (Task 1) |
+| `649e168c6` | `perf: bulk copy pattern data in atlas upload path` (Patch 1) |
+| `581d89680` | `perf: reuse object manager bookkeeping state` (Patch 2) |
+| `6255ac9f3` | `perf: index solid and touch providers in object manager` (Patch 3) |
+| `536420a09` | `perf: trim render state churn and gate profiler overhead` (Patch 4) |
+| `718e1c1ff` | `fix: preserve SMPS block render parity` (Patch 5 parity follow-up) |
+
+### Post-plan scope: trace lag model v3 (Task 5 of the adjacent plan)
+
+The trace replay schema was upgraded to v3 (`gameplay_frame_counter`, `vblank_counter`,
+`lag_counter`) under the separate `docs/superpowers/plans/2026-04-19-trace-lag-model.md` plan.
+Sonic 1 consumer-side support landed on this branch (commit `94b80d25c` — "wip: trace execution
+model and S1 slot parity probes"). Sonic 2 and Sonic 3&K recorder-side migration (Tasks 6a/6b)
+remain deferred and are tracked separately in
+`docs/superpowers/plans/2026-04-20-s2-s3k-trace-recorder-v3.md` and
+`docs/KNOWN_DISCREPANCIES.md` entry #9 ("Trace Replay Recorder Coverage").
+
+### Post-plan scope: S1 object-lifecycle parity (~900 LOC)
+
+While exercising the v3 trace-lag consumer against Sonic 1 GHZ1 and MZ1 fixtures, a cluster of
+pre-existing S1 object-lifecycle parity regressions surfaced. Two follow-up commits landed the
+fixes on this branch rather than being split off into a separate parity-only branch:
+
+- **`9959f9d69` — "Advance parity object lifecycle fixes"** (~672 lines, excluding trace
+  fixtures): Sonic 1 explosion-item slot routing, lost-ring SST slot reservation, bounded
+  `CHUNK_STEP` advancement during object placement catch-up after large camera jumps,
+  push-block two-stage out-of-range logic, `DestructionEffects` and `ObjectManager` refinements,
+  plus new tests (`TestObjectManagerChildSlotAllocation`,
+  `TestObjectManagerCounterBasedDynamicUnload`, `TestDestructionEffects`, extended
+  `TestSonic1CaterkillerBodyChaining` and `TestRingManager`).
+- **`a39650be4` — "Complete Sonic 1 trace replay parity fixes"** (~785 lines): S1 Monitor /
+  MonitorPowerUp split, GlassBlock / MovingBlock / PushBlock behavior fixes, Motobug smoke
+  lifecycle, solid execution registry extension, `AbstractTraceReplayTest` and
+  `EngineNearbyObjectFormatter` debugging aids, plus new parity tests
+  (`TestSonic1GlassBlockObjectInstance`, `TestSonic1MonitorObjectInstance`,
+  `TestSonic1MovingBlockObjectInstance`, `TestMotobugSmokeInstance`, `TestSolidExecutionRegistry`).
+
+These two commits together add roughly 900 LOC of production change plus test coverage. They are
+retained as a single linear chain on this branch (rather than retroactively split) so that
+`git bisect` remains useful for the parity fixes they introduce. Reviewers should treat them as
+an in-scope companion to the trace-lag v3 consumer work: the S1 trace fixtures cannot pass
+without them.
+
+### Boundary summary for reviewers
+
+- Patches 1–5 and the trace-lag v3 consumer are the "planned" surface area.
+- The S1 object-lifecycle commits (`9959f9d69`, `a39650be4`) are intentional scope extensions
+  needed to make the S1 v3 consumer parity-clean. They are not a separate unrelated refactor.
+- The S2/S3K recorder migration is explicitly deferred and tracked in its own plan document.
+

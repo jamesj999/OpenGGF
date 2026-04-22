@@ -26,19 +26,40 @@ public final class DestructionEffects {
     }
 
     /**
+     * Functional interface for game-specific animal creation.
+     * Sonic 1 uses the ROM-ported {@code Sonic1AnimalsObjectInstance}, while
+     * Sonic 2 and S3K use the shared generic animal object.
+     */
+    @FunctionalInterface
+    public interface AnimalFactory {
+        ObjectInstance create(ObjectSpawn spawn, ObjectServices services);
+    }
+
+    /**
+     * Functional interface for game-specific badnik replacement explosions.
+     * Sonic 1 uses a custom ExplosionItem object that later spawns the animal.
+     */
+    @FunctionalInterface
+    public interface ExplosionFactory {
+        ObjectInstance create(int x, int y, ObjectServices services, int pointsValue);
+    }
+
+    /**
      * Immutable configuration record capturing what varies between games.
      *
      * @param sfxId              explosion SFX ID (game-specific)
-     * @param spawnAnimal        whether to spawn an {@link AnimalObjectInstance}
+     * @param animalFactory      game-specific animal factory, or {@code null} to skip
      * @param useRespawnTracking if true, uses {@code markRemembered} for respawn-tracked spawns;
      *                           if false, always uses {@code removeFromActiveSpawns}
      * @param pointsFactory      factory for the floating points popup, or {@code null} to skip
+     * @param explosionFactory   factory for a custom replacement explosion object, or {@code null}
      */
     public record DestructionConfig(
             int sfxId,
-            boolean spawnAnimal,
+            AnimalFactory animalFactory,
             boolean useRespawnTracking,
-            PointsFactory pointsFactory
+            PointsFactory pointsFactory,
+            ExplosionFactory explosionFactory
     ) {
     }
 
@@ -77,29 +98,6 @@ public final class DestructionEffects {
             }
         }
 
-        // --- Spawn explosion ---
-        // ROM parity: the ROM changes the badnik's obID to ExplosionItem (0x27)
-        // in-place, keeping the same SST slot. We replicate this by spawning
-        // the explosion at the badnik's slot via addDynamicObjectAtSlot.
-        ObjectRenderManager renderManager = services != null
-                ? services.renderManager() : null;
-        if (objectManager != null && renderManager != null) {
-            ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                    0x27, x, y, renderManager);
-            if (badnikSlot >= 0) {
-                objectManager.addDynamicObjectAtSlot(explosion, badnikSlot);
-            } else {
-                objectManager.addDynamicObject(explosion);
-            }
-        }
-
-        // --- Optionally spawn animal ---
-        if (config.spawnAnimal() && objectManager != null) {
-            AnimalObjectInstance animal = new AnimalObjectInstance(
-                    new ObjectSpawn(x, y, 0x28, 0, 0, false, 0), services);
-            objectManager.addDynamicObject(animal);
-        }
-
         // --- Calculate and award chain score ---
         int pointsValue = 100;
         if (player != null) {
@@ -109,8 +107,37 @@ public final class DestructionEffects {
             }
         }
 
+        // --- Spawn explosion ---
+        // ROM parity: the ROM changes the badnik's obID to ExplosionItem (0x27)
+        // in-place, keeping the same SST slot. We replicate this by spawning
+        // the replacement explosion at the badnik's slot via addDynamicObjectAtSlot.
+        ObjectRenderManager renderManager = services != null ? services.renderManager() : null;
+        if (objectManager != null) {
+            ObjectInstance explosion = config.explosionFactory() != null
+                    ? config.explosionFactory().create(x, y, services, pointsValue)
+                    : new ExplosionObjectInstance(0x27, x, y, renderManager);
+            if (badnikSlot >= 0) {
+                objectManager.addDynamicObjectAtSlot(explosion, badnikSlot);
+            } else {
+                objectManager.addDynamicObject(explosion);
+            }
+        }
+
+        // --- Optionally spawn animal ---
+        if (config.explosionFactory() == null
+                && config.animalFactory() != null
+                && objectManager != null) {
+            ObjectInstance animal = config.animalFactory().create(
+                    new ObjectSpawn(x, y, 0x28, 0, 0, false, 0), services);
+            if (animal != null) {
+                objectManager.addDynamicObject(animal);
+            }
+        }
+
         // --- Optionally spawn points popup ---
-        if (config.pointsFactory() != null && objectManager != null) {
+        if (config.explosionFactory() == null
+                && config.pointsFactory() != null
+                && objectManager != null) {
             ObjectInstance points = config.pointsFactory().create(
                     new ObjectSpawn(x, y, 0x29, 0, 0, false, 0),
                     services, pointsValue);

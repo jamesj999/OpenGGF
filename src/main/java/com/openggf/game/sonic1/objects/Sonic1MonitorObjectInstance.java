@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -12,8 +13,8 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -22,8 +23,6 @@ import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.render.SpriteMappingFrame;
-import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -60,16 +59,10 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     // Standard object gravity
     private static final int FALLING_GRAVITY = 0x38;
 
-    // Icon frame = type.id + 2 (from disassembly: obFrame = obAnim + 2 in Pow_Main)
-    private static final int ICON_FRAME_OFFSET = 2;
-
     private final MonitorType type;
     private ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
-
-    // Player reference preserved for icon rendering (effectTarget is cleared after apply)
-    private AbstractPlayableSprite iconPlayer;
 
     // Falling state (ob2ndRout = 4 in disassembly)
     private boolean falling;
@@ -125,9 +118,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         if (!broken) {
             animationState.update();
             mappingFrame = animationState.getMappingFrame();
-            return;
         }
-        updateIcon();
     }
 
     /**
@@ -155,6 +146,12 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             return;
         }
 
+        // Sonic 1 never had a CPU sidekick. When cross-game sidekicks are donated into
+        // S1, match the shared monitor rule used by S2/S3K and block sidekick breaks.
+        if (player.isCpuControlled()) {
+            return;
+        }
+
         // Hit from below: player moving upward
         // ROM: Touch_Monitor - checks player y_pos - $10 >= monitor y_pos
         if (player.getYSpeed() < 0) {
@@ -162,9 +159,6 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             int monitorY = currentY;
 
             if (playerCenterY - 0x10 >= monitorY) {
-                // TEMPORARY DIAGNOSTIC
-                System.err.printf("[MON_BELOW] x=0x%04X y=0x%04X playerX=0x%04X playerY=0x%04X ySpd=%d slot=%d%n",
-                        spawn.x(), currentY, player.getCentreX(), player.getCentreY(), player.getYSpeed(), getSlotIndex());
                 // Bounce player down: neg.w y_vel(a0)
                 player.setYSpeed((short) -player.getYSpeed());
 
@@ -198,31 +192,23 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             objectManager.markRemembered(spawn);
         }
 
-        // TEMPORARY DIAGNOSTIC
-        System.err.printf("[MON_BREAK] x=0x%04X y=0x%04X playerX=0x%04X playerY=0x%04X ySpd=%d slot=%d%n",
-                spawn.x(), currentY, player.getCentreX(), player.getCentreY(), player.getYSpeed(), getSlotIndex());
         // Bounce player: neg.w obVelY(a0)
         player.setYSpeed((short) -player.getYSpeed());
 
         mappingFrame = BROKEN_FRAME;
-
-        // Initialize icon rising (PowerUp object)
-        startIconRise(currentY, player);
-        iconPlayer = player;
+        if (objectManager != null) {
+            objectManager.addDynamicObject(
+                    new Sonic1MonitorPowerUpObjectInstance(spawn.x(), currentY, type.id, player));
+        }
 
         // Spawn explosion (id_ExplosionItem = $27) - only if explosion art is loaded
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
-                    new ExplosionObjectInstance(0x27, spawn.x(), currentY, renderManager));
+                    new ExplosionObjectInstance(Sonic1ObjectIds.EXPLOSION_ITEM, spawn.x(), currentY, renderManager));
         }
         services().playSfx(Sonic1Sfx.BREAK_ITEM.id);
-    }
-
-    @Override
-    protected void onIconDeactivated() {
-        iconPlayer = null;
     }
 
     /**
@@ -231,35 +217,39 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
      */
     @Override
     protected void applyPowerup(PlayableEntity playerEntity) {
+        applyMonitorPowerup(type.id, playerEntity, services());
+    }
+
+    static void applyMonitorPowerup(int subtype, PlayableEntity playerEntity, ObjectServices services) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        switch (type) {
+        switch (subtype & 0xF) {
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
-            case RINGS -> {
+            case 6 -> {
                 player.addRings(RING_MONITOR_REWARD);
-                services().playSfx(GameSound.RING);
+                services.playSfx(GameSound.RING);
             }
             // Pow_ChkShield: v_shield = 1, play sfx_Shield
-            case SHIELD -> {
+            case 4 -> {
                 player.giveShield();
-                services().playSfx(Sonic1Sfx.SHIELD.id);
+                services.playSfx(Sonic1Sfx.SHIELD.id);
             }
             // Pow_ChkShoes: speed shoes on, play bgm_Speedup (CMD_SPEED_UP = $E2)
-            case SHOES -> {
+            case 3 -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = services().audioManager().getAudioProfile();
+                GameAudioProfile audioProfile = services.audioManager().getAudioProfile();
                 if (audioProfile != null) {
-                    services().playMusic(audioProfile.getSpeedShoesOnCommandId());
+                    services.playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
             }
             // Pow_ChkInvinc: invincibility on, play bgm_Invincible
-            case INVINCIBILITY -> {
+            case 5 -> {
                 player.giveInvincibility();
-                services().playMusic(Sonic1Music.INVINCIBILITY.id);
+                services.playMusic(Sonic1Music.INVINCIBILITY.id);
             }
             // Pow_ChkSonic: v_lives++, play bgm_ExtraLife
-            case SONIC -> {
-                services().playMusic(Sonic1Music.EXTRA_LIFE.id);
-                services().gameState().addLife();
+            case 2 -> {
+                services.playMusic(Sonic1Music.EXTRA_LIFE.id);
+                services.gameState().addLife();
             }
             // Pow_ChkEggman, Pow_ChkS, Pow_ChkGoggles: no effect
             default -> { }
@@ -282,31 +272,6 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         // Draw monitor body (broken shell or animated frame)
         int frameIndex = broken ? BROKEN_FRAME : mappingFrame;
         renderer.drawFrameIndex(frameIndex, spawn.x(), currentY, false, false);
-
-        // Draw rising icon
-        if (iconActive) {
-            int iconFrame = resolveIconFrame();
-            ObjectSpriteSheet sheet = renderManager.getMonitorSheet();
-            if (iconFrame >= 0 && sheet != null && iconFrame < sheet.getFrameCount()) {
-                SpriteMappingFrame frame = sheet.getFrame(iconFrame);
-                if (frame != null && !frame.pieces().isEmpty()) {
-                    // Draw only the first piece (the icon overlay, not the box base)
-                    SpriteMappingPiece iconPiece = frame.pieces().get(0);
-                    renderer.drawPieces(List.of(iconPiece), spawn.x(), iconSubY >> 8, false, false);
-                }
-            }
-        }
-    }
-
-    /**
-     * Resolve the mapping frame index for the rising icon.
-     * ROM: Pow_Main sets obFrame = obAnim + 2
-     */
-    private int resolveIconFrame() {
-        if (type == MonitorType.STATIC || type == MonitorType.BROKEN) {
-            return -1;
-        }
-        return type.id + ICON_FRAME_OFFSET;
     }
 
     /**
@@ -401,7 +366,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
      * Mapping: 0=static, 1=eggman, 2=sonic/1-up, 3=shoes, 4=shield,
      * 5=invincibility, 6=rings, 7=S, 8=goggles, 9=broken shell.
      */
-    private enum MonitorType {
+    enum MonitorType {
         STATIC(0),
         EGGMAN(1),
         SONIC(2),

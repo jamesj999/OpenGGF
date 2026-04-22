@@ -35,6 +35,21 @@ public class ProfileSnapshot {
         this.frameHistory = new float[120];
     }
 
+    public void clear() {
+        sections.clear();
+        totalFrameTimeMs = 0;
+        fps = 0;
+        historyIndex = 0;
+        frameCount = 0;
+        for (int i = 0; i < frameHistory.length; i++) {
+            frameHistory[i] = 0;
+        }
+        sortedByTimeCache.clear();
+        sortedByNameCache.clear();
+        sortedByTimeDirty = true;
+        sortedByNameDirty = true;
+    }
+
     /**
      * Updates this snapshot in-place with new profiling data.
      * Avoids all map/array allocation after the first frame that establishes the section set.

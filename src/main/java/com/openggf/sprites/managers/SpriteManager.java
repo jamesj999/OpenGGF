@@ -768,7 +768,10 @@ public class SpriteManager {
 		// S1 (UNIFIED): Post-movement solid pass matches ROM timing — solid objects
 		// check Sonic's position after he has moved in the ROM's ExecuteObjects loop.
 		// postMovement=true disables velocity classification adjustment.
-		if (isUnified) {
+		// Skip this legacy batched pass when the active module resolves solids inline
+		// during the object execution loop (currently S1 trace-parity mode), otherwise
+		// S1 gets double-resolution (inline + post-movement) and the slot layout drifts.
+		if (isUnified && !usesInlineSolidResolution) {
 			applySolidContacts(levelManager, playable, true, false);
 		}
 		levelManager.applyPlaneSwitchers(playable);

@@ -159,6 +159,34 @@ public class TestScrollEffectComposer {
     }
 
     @Test
+    public void copyHelpersPreservePackedScrollAndVScrollBuffers() {
+        ScrollEffectComposer composer = new ScrollEffectComposer();
+        composer.writePackedScrollWord(0, (short) 10, (short) 13);
+        composer.writePackedScrollWord(1, (short) 10, (short) 2);
+        composer.writePackedScrollWord(2, (short) -1, (short) 5);
+        composer.setPerLineVScrollBG(new short[] {(short) 1, (short) 2, (short) 3});
+        composer.setPerColumnVScrollBG(new short[] {(short) 4, (short) 5});
+        composer.setPerColumnVScrollFG(new short[] {(short) 6, (short) 7});
+
+        int[] packed = new int[composer.visibleLineCount()];
+        short[] perLine = new short[3];
+        short[] perColumnBg = new short[2];
+        short[] perColumnFg = new short[2];
+
+        composer.copyPackedScrollWordsTo(packed);
+        composer.copyPerLineVScrollBGTo(perLine);
+        composer.copyPerColumnVScrollBGTo(perColumnBg);
+        composer.copyPerColumnVScrollFGTo(perColumnFg);
+
+        assertEquals(packScrollWords((short) 10, (short) 13), packed[0]);
+        assertEquals(packScrollWords((short) 10, (short) 2), packed[1]);
+        assertEquals(packScrollWords((short) -1, (short) 5), packed[2]);
+        assertArrayEquals(new short[] {(short) 1, (short) 2, (short) 3}, perLine);
+        assertArrayEquals(new short[] {(short) 4, (short) 5}, perColumnBg);
+        assertArrayEquals(new short[] {(short) 6, (short) 7}, perColumnFg);
+    }
+
+    @Test
     public void composerStoresShakeOffsets() {
         ScrollEffectComposer composer = new ScrollEffectComposer();
 

@@ -140,6 +140,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     private int fallVelocity;
     private boolean fragmenting;
     private boolean deleting;
+    private int bodyDeletionEarliestFrame;
 
     // Ring buffer for Y-deltas (objoff_2C through objoff_2C+15)
     private final byte[] ringBuffer = new byte[16];
@@ -169,6 +170,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         this.fallVelocity = 0;
         this.fragmenting = false;
         this.deleting = false;
+        this.bodyDeletionEarliestFrame = -1;
         this.ringBufferWriteIndex = 0;
     }
 
@@ -533,14 +535,21 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     protected void destroyBadnik(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         deleting = true;
+        ObjectServices objectServices = tryServices();
+        int currentFrame = objectServices != null && objectServices.objectManager() != null
+                // Body segments compare their deletion latch against the VBlank
+                // counter passed into update(...). Using the gameplay frame
+                // counter here causes lag-frame traces to delete the body chain
+                // too early because frameCounter and vblaCounter diverge.
+                ? objectServices.objectManager().getVblaCounter()
+                : 0;
+        bodyDeletionEarliestFrame = currentFrame + 2;
         // ROM parity: explosion inherits our slot (in-place obID change).
         int mySlot = getSlotIndex();
         setSlotIndex(-1);
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, mySlot,
                 player, services(), getDestructionConfig());
-        // Normal head destruction does not use fragment mode in S1; body segments delete.
-        markBodySegmentsForDeletion();
     }
 
     /**
@@ -585,7 +594,9 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     @Override
     public void onUnload() {
         deleting = true;
-        markBodySegmentsForDeletion();
+        if (bodyDeletionEarliestFrame < 0) {
+            markBodySegmentsForDeletion();
+        }
     }
 
     /**
@@ -674,6 +685,13 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
     boolean isFragmenting() {
         return fragmenting;
+    }
+
+    boolean shouldDeleteBodySegments(int frameCounter) {
+        if (!deleting && !isDestroyed()) {
+            return false;
+        }
+        return bodyDeletionEarliestFrame < 0 || frameCounter >= bodyDeletionEarliestFrame;
     }
 
     /**

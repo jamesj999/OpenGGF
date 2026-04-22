@@ -12,6 +12,8 @@ public class TestTraceDataParsing {
 
     private static final Path SYNTHETIC_3FRAMES =
         Path.of("src/test/resources/traces/synthetic/basic_3frames");
+    private static final Path SYNTHETIC_EXECUTION_V3 =
+        Path.of("src/test/resources/traces/synthetic/execution_v3_2frames");
 
     @Test
     public void testMetadataLoading() throws IOException {
@@ -85,6 +87,33 @@ public class TestTraceDataParsing {
         TraceData data = TraceData.load(SYNTHETIC_3FRAMES);
         List<TraceEvent> events = data.getEventsInRange(0, 2);
         assertEquals(2, events.size());
+    }
+
+    @Test
+    public void testV22TraceStillParsesWithMissingExecutionCounters() throws IOException {
+        TraceData data = TraceData.load(SYNTHETIC_3FRAMES);
+        TraceFrame frame0 = data.getFrame(0);
+
+        assertEquals(-1, frame0.vblankCounter());
+        assertEquals(-1, frame0.lagCounter());
+        assertEquals(100, data.initialVblankCounter());
+    }
+
+    @Test
+    public void testV3TraceParsesExecutionCounters() throws IOException {
+        TraceData data = TraceData.load(SYNTHETIC_EXECUTION_V3);
+        TraceMetadata meta = data.metadata();
+        TraceFrame frame0 = data.getFrame(0);
+        TraceFrame frame1 = data.getFrame(1);
+
+        assertEquals(3, meta.traceSchema());
+        assertEquals(0x3456, frame0.gameplayFrameCounter());
+        assertEquals(0x0120, frame0.vblankCounter());
+        assertEquals(0, frame0.lagCounter());
+        assertEquals(0x3456, frame1.gameplayFrameCounter());
+        assertEquals(0x0121, frame1.vblankCounter());
+        assertEquals(0, frame1.lagCounter());
+        assertEquals(0x0120, data.initialVblankCounter());
     }
 }
 
