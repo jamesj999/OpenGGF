@@ -113,14 +113,40 @@ public class MGZPulleyObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public void onUnload() {
+        cleanupForRemoval();
+    }
+
+    @Override
+    public void setDestroyed(boolean destroyed) {
+        if (destroyed && !isDestroyed()) {
+            cleanupForRemoval();
+        }
+        super.setDestroyed(destroyed);
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         // ROM capture/release is handled by the explicit proximity checks in update().
+    }
+
+    private void cleanupForRemoval() {
+        releaseAllGrabbedPlayers();
+        chainChild.setDestroyed(true);
     }
 
     private void tickReleaseCooldowns() {
         for (int i = 0; i < PLAYER_SLOT_COUNT; i++) {
             if (releaseCooldown[i] > 0) {
                 releaseCooldown[i]--;
+            }
+        }
+    }
+
+    private void releaseAllGrabbedPlayers() {
+        for (int i = 0; i < PLAYER_SLOT_COUNT; i++) {
+            if (grabbed[i] || grabbedPlayers[i] != null) {
+                releasePlayer(grabbedPlayers[i], i, 0, false);
             }
         }
     }
