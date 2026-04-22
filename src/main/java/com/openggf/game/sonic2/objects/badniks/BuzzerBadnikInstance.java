@@ -1,36 +1,41 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.level.objects.AbstractBadnikInstance;
-
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-
+import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
 /**
- * Buzzer (0x4B) - Flying wasp/bee Badnik from EHZ.
- * Flies horizontally, checks for player in firing range, fires projectiles.
- * Based on disassembly Obj4B.
+ * Buzzer (0x4B) - Flying wasp Badnik from Emerald Hill Zone.
+ *
+ * <p>ROM reference: {@code Obj4B} in {@code docs/s2disasm/s2.asm}.
+ * The parent body (routine 2) patrols horizontally, checks Sonic/Tails on
+ * alternating VBlank frames, and fires a stinger via {@code AllocateObjectAfterCurrent}.
+ * The init routine also spawns an exhaust flame child (routine 4) in the next slot.
  */
 public class BuzzerBadnikInstance extends AbstractBadnikInstance {
-    private static final int COLLISION_SIZE_INDEX = 0x0A; // collision_flags from disassembly
-
-    // Movement constants from disassembly
-    private static final int X_VEL = 0x100; // x_vel = -$100 or +$100
-    private static final int MOVE_TIMER_INIT = 0x100; // move_timer initial value
-    private static final int TURN_DELAY = 0x1E; // turn delay frames (30)
-
-    // Shooting constants
-    private static final int SHOOT_DISTANCE_MIN = 0x28; // ~40 pixels
-    private static final int SHOOT_DISTANCE_MAX = 0x30; // ~48 pixels
-    private static final int SHOT_TIMER_INIT = 0x32; // 50 frames total
-    private static final int SHOT_FIRE_FRAME = 0x14; // Fire at 20 frames remaining
+    private static final int COLLISION_SIZE_INDEX = 0x0A; // collision_flags = $0A
+    private static final int X_VEL = 0x100;
+    private static final int MOVE_TIMER_INIT = 0x100;
+    private static final int TURN_DELAY = 0x1E;
+    private static final int TURN_AROUND_TRIGGER = 0x0F;
+    private static final int SHOOT_DISTANCE_MIN = 0x28;
+    private static final int SHOOT_DISTANCE_MAX = 0x30;
+    private static final int SHOT_TIMER_INIT = 0x32;
+    private static final int SHOT_FIRE_FRAME = 0x14;
+    private static final int PROJECTILE_X_OFFSET = 0x0D;
+    private static final int PROJECTILE_Y_OFFSET = 0x18;
+    private static final int PROJECTILE_X_VEL = 0x180;
+    private static final int PROJECTILE_Y_VEL = 0x180;
 
     private enum State {
         ROAMING,
@@ -42,136 +47,162 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
     private int turnDelay;
     private int shotTimer;
     private boolean shootingDisabled;
+    private boolean initPending;
 
     public BuzzerBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Buzzer", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
-
-        // ROM: x_vel starts at -$100 and is negated when x_flip is set.
-        boolean xFlip = (spawn.renderFlags() & 0x01) != 0;
-        this.facingLeft = !xFlip;
-        this.xVelocity = facingLeft ? -X_VEL : X_VEL;
-
+        this.facingLeft = (spawn.renderFlags() & 0x01) == 0;
         this.state = State.ROAMING;
-        this.moveTimer = MOVE_TIMER_INIT;
-        this.turnDelay = -1; // Not turning
+        this.moveTimer = 0;
+        this.turnDelay = 0;
         this.shotTimer = 0;
         this.shootingDisabled = false;
+        this.initPending = true;
     }
 
     @Override
-    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+    public void hydrateFromRomSnapshot(RomObjectSnapshot snapshot) {
+        super.hydrateFromRomSnapshot(snapshot);
+
+        int routine = snapshot.routine() & 0xFF;
+        this.initPending = routine < 0x02;
+        this.state = (snapshot.routineSecondary() & 0xFF) == 0x02
+                ? State.SHOOTING
+                : State.ROAMING;
+        this.moveTimer = snapshot.wordAt(0x2E) & 0xFFFF;
+        this.turnDelay = snapshot.signedWordAt(0x30);
+        this.shootingDisabled = (snapshot.byteAt(0x32) & 0xFF) != 0;
+        this.shotTimer = snapshot.signedWordAt(0x34);
+    }
+
+    @Override
+    protected void updateMovement(int vblaFrame, PlayableEntity playerEntity) {
+        if (initPending) {
+            runInitRoutine();
+            return;
+        }
+
+        AbstractPlayableSprite player = playerEntity instanceof AbstractPlayableSprite sprite
+                ? sprite
+                : null;
         switch (state) {
-            case ROAMING:
-                updateRoaming(player);
-                break;
-            case SHOOTING:
-                updateShooting();
-                break;
+            case ROAMING -> updateRoaming(vblaFrame, player);
+            case SHOOTING -> updateShooting();
         }
     }
 
-    private void updateRoaming(AbstractPlayableSprite player) {
-        // Check if player is in shooting range
-        checkPlayerForShooting(player);
+    private void runInitRoutine() {
+        initPending = false;
+        state = State.ROAMING;
+        moveTimer = MOVE_TIMER_INIT;
+        turnDelay = 0;
+        shotTimer = 0;
+        shootingDisabled = false;
+        xVelocity = facingLeft ? -X_VEL : X_VEL;
 
-        // Handle turn delay
+        spawnChild(() -> new BuzzerFlameChild(buildSpawnAt(currentX, currentY), this));
+    }
+
+    private void updateRoaming(int vblaFrame, AbstractPlayableSprite player) {
+        checkPlayerForShooting(vblaFrame, player);
+
         turnDelay--;
-        if (turnDelay == 0x0F) {
-            // Turn around
+        int delay = turnDelay;
+        if (delay == TURN_AROUND_TRIGGER) {
             shootingDisabled = false;
             xVelocity = -xVelocity;
             facingLeft = !facingLeft;
             moveTimer = MOVE_TIMER_INIT;
-        } else if (turnDelay < 0) {
-            // Normal movement
+            return;
+        }
+
+        if (delay < 0) {
             moveTimer--;
             if (moveTimer > 0) {
-                // Move horizontally
                 currentX += (xVelocity >> 8);
             } else {
-                // Start turn delay
                 turnDelay = TURN_DELAY;
             }
         }
     }
 
-    private void checkPlayerForShooting(AbstractPlayableSprite player) {
-        if (shootingDisabled || player == null) {
+    private void checkPlayerForShooting(int vblaFrame, AbstractPlayableSprite mainPlayer) {
+        if (shootingDisabled) {
             return;
         }
 
-        int distance = currentX - player.getCentreX();
-        int absDistance = Math.abs(distance);
+        AbstractPlayableSprite target = selectTargetPlayer(vblaFrame, mainPlayer);
+        if (target == null) {
+            return;
+        }
 
-        // Player must be in narrow strip (40-48 pixels away)
+        int distance = currentX - target.getCentreX();
+        int absDistance = Math.abs(distance);
         if (absDistance < SHOOT_DISTANCE_MIN || absDistance > SHOOT_DISTANCE_MAX) {
             return;
         }
 
-        // Check if we're facing the player
-        // If distance > 0, player is to the left, so we need to be facing left
-        // If distance < 0, player is to the right, so we need to be facing right
-        boolean playerIsLeft = distance > 0;
+        boolean playerIsLeft = distance >= 0;
         if (playerIsLeft != facingLeft) {
-            return; // Not facing player, don't shoot
+            return;
         }
 
-        // Ready to shoot!
         shootingDisabled = true;
         state = State.SHOOTING;
         shotTimer = SHOT_TIMER_INIT;
     }
 
-    private void updateShooting() {
-        shotTimer--;
+    private AbstractPlayableSprite selectTargetPlayer(int vblaFrame, AbstractPlayableSprite mainPlayer) {
+        if ((vblaFrame & 1) == 0) {
+            return mainPlayer;
+        }
 
-        if (shotTimer < 0) {
-            // Done shooting, return to roaming
+        List<PlayableEntity> sidekicks = services().sidekicks();
+        if (sidekicks.isEmpty()) {
+            return mainPlayer;
+        }
+
+        PlayableEntity firstSidekick = sidekicks.getFirst();
+        if (firstSidekick instanceof AbstractPlayableSprite sidekick) {
+            return sidekick;
+        }
+        return mainPlayer;
+    }
+
+    private void updateShooting() {
+        int timer = shotTimer - 1;
+        if (timer < 0) {
             state = State.ROAMING;
-        } else if (shotTimer == SHOT_FIRE_FRAME) {
-            // Fire the projectile
+            shotTimer = timer;
+            return;
+        }
+
+        shotTimer = timer;
+        if (timer == SHOT_FIRE_FRAME) {
             fireProjectile();
         }
     }
 
     private void fireProjectile() {
-        // From disassembly: y_vel = $180, x_vel = -$180 (or +$180 if facing left)
-        // Y offset: +$18, X offset: +/-$0D
-        // ROM: offset is +$D, negated if x_flip is SET (facing right)
-        // facingLeft = !x_flip, so: facing left → +$D, facing right → -$D
-        int xOffset = facingLeft ? 0x0D : -0x0D;
-        int yOffset = 0x18;
+        int xOffset = facingLeft ? PROJECTILE_X_OFFSET : -PROJECTILE_X_OFFSET;
+        int xVel = facingLeft ? -PROJECTILE_X_VEL : PROJECTILE_X_VEL;
 
-        // Velocity in subpixels (shift left 8 for subpixel units)
-        int yVel = 0x180;
-        int xVel = facingLeft ? -0x180 : 0x180;
-
-        BadnikProjectileInstance projectile = new BadnikProjectileInstance(
-                spawn,
+        spawnChild(() -> new BadnikProjectileInstance(
+                buildSpawnAt(currentX + xOffset, currentY + PROJECTILE_Y_OFFSET),
                 BadnikProjectileInstance.ProjectileType.BUZZER_STINGER,
                 currentX + xOffset,
-                currentY + yOffset,
+                currentY + PROJECTILE_Y_OFFSET,
                 xVel,
-                yVel,
-                false, // No gravity for Buzzer stinger
-                !facingLeft);
-
-        services().objectManager().addDynamicObject(projectile);
+                PROJECTILE_Y_VEL,
+                false,
+                !facingLeft));
     }
 
     @Override
     protected void updateAnimation(int frameCounter) {
-        // Animation from disassembly:
-        // anim 0 = Flying (frame 0, slow)
-        // anim 3 = Shooting (frame 1 repeated)
-        if (state == State.SHOOTING) {
-            animFrame = 1; // Shooting frame
-        } else {
-            animFrame = 0; // Flying frame
-        }
+        animFrame = state == State.SHOOTING ? 1 : 0;
     }
 
     @Override
@@ -191,9 +222,94 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
         }
 
         PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BUZZER);
-        if (renderer == null) return;
+        if (renderer == null) {
+            return;
+        }
 
-        // Sprite art faces right by default, so flip when NOT facing left (inverted)
         renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);
+    }
+
+    private static final class BuzzerFlameChild extends AbstractObjectInstance {
+        private final BuzzerBadnikInstance parent;
+        private final int parentSlotIndex;
+        private int currentX;
+        private int currentY;
+        private boolean facingLeft;
+        private int animFrame;
+
+        private BuzzerFlameChild(ObjectSpawn spawn, BuzzerBadnikInstance parent) {
+            super(spawn, "Buzzer Flame");
+            this.parent = parent;
+            this.parentSlotIndex = parent.getSlotIndex();
+            this.currentX = parent.currentX;
+            this.currentY = parent.currentY;
+            this.facingLeft = parent.facingLeft;
+            this.animFrame = 3;
+        }
+
+        @Override
+        public int getX() {
+            return currentX;
+        }
+
+        @Override
+        public int getY() {
+            return currentY;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+            ObjectInstance slotOccupant = findParentSlotOccupant();
+            if (slotOccupant == null) {
+                setDestroyed(true);
+                return;
+            }
+
+            if (slotOccupant == parent && parent.turnDelay < 0) {
+                currentX = parent.currentX;
+                currentY = parent.currentY;
+                facingLeft = parent.facingLeft;
+            }
+
+            animFrame = 3 + ((frameCounter / 3) & 1);
+            updateDynamicSpawn(currentX, currentY);
+        }
+
+        private ObjectInstance findParentSlotOccupant() {
+            for (ObjectInstance instance : services().objectManager().getActiveObjects()) {
+                if (!(instance instanceof AbstractObjectInstance aoi)) {
+                    continue;
+                }
+                if (aoi == this || aoi.isDestroyed() || aoi.getSlotIndex() != parentSlotIndex) {
+                    continue;
+                }
+                return aoi;
+            }
+            return null;
+        }
+
+        @Override
+        public int getPriorityBucket() {
+            return RenderPriority.clamp(4);
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            if (isDestroyed()) {
+                return;
+            }
+
+            PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BUZZER);
+            if (renderer == null) {
+                return;
+            }
+
+            renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
     }
 }
