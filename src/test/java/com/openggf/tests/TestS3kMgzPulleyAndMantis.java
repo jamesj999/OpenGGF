@@ -24,6 +24,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kMgzPulleyAndMantis {
@@ -197,6 +198,37 @@ class TestS3kMgzPulleyAndMantis {
         mantis.update(6, player); // $F4 callback arms the jump, movement starts next frame
         assertEquals("LAUNCH", readMantisState(mantis));
         assertEquals(0x00E8, mantis.getY());
+    }
+
+    @Test
+    void mantisContinuesLaunchWhenOnlyVerticallyOffScreen() throws Exception {
+        MantisBadnikInstance mantis = new MantisBadnikInstance(
+                new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.MANTIS, 0x00, 0x00, false, 0));
+        mantis.setServices(new RecordingServices());
+
+        TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0x0210, (short) 0x0160);
+        player.setCentreX((short) 0x0210);
+        player.setCentreY((short) 0x0160);
+
+        mantis.update(0, player); // init
+        mantis.update(1, player); // detect player, enter prep
+        for (int frame = 2; frame <= 6; frame++) {
+            mantis.update(frame, player);
+        }
+
+        assertEquals("LAUNCH", readMantisState(mantis));
+        assertEquals(0x00E8, mantis.getY());
+
+        // Reproduce the MGZ2 regression: Sonic can stay low enough that the
+        // mantis leaves the top of the viewport during its leap. The ROM keeps
+        // updating the arc because Obj_WaitOffscreen / Sprite_CheckDeleteTouch
+        // only gate on X visibility.
+        AbstractObjectInstance.updateCameraBounds(0, 0x00E9, 1024, 0x0200, 0);
+
+        mantis.update(7, player);
+
+        assertNotEquals(0x00E8, mantis.getY(),
+                "Mantis should keep moving through its jump arc even when only vertically off-screen");
     }
 
     private static int readCurrentExtension(MGZPulleyObjectInstance pulley) throws Exception {

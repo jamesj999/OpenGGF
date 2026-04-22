@@ -68,7 +68,9 @@ public final class MantisBadnikInstance extends AbstractS3kBadnikInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (destroyed || !isOnScreen()) {
+        // ROM entry / delete flow only gates Mantis on X visibility, so the
+        // jump arc must continue even if it leaves the top of the viewport.
+        if (destroyed || !isOnScreenX()) {
             return;
         }
 
