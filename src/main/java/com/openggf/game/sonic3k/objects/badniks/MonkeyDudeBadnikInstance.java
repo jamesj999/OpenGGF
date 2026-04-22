@@ -111,7 +111,9 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (destroyed) {
+        // ROM entry point begins with Obj_WaitOffscreen, so the state machine,
+        // arm animation, and throw cadence must not advance until visible.
+        if (destroyed || !isOnScreenX()) {
             return;
         }
 
