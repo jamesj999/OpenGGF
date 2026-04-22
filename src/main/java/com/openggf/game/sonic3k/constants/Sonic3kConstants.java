@@ -1391,14 +1391,20 @@ public class Sonic3kConstants {
     // ROM refs (all sonic3k.asm, S&K-side):
     //   Obj_CNZMiniboss        line 144823  outer gate
     //   loc_6D9A8              line 144830  arena setup
-    //   Obj_CNZMinibossInit    line 144885  routine 0
-    //   Obj_CNZMinibossLower   line 144898  routine 2
-    //   Obj_CNZMinibossMove    line 144912  routine 4
-    //   Obj_CNZMinibossOpening line 144941  routine 6
-    //   Obj_CNZMinibossWaitHit line 144954  routine 8
-    //   Obj_CNZMinibossClosing line 144968  routine A
-    //   Obj_CNZMinibossLower2  line 144972  routine C
-    //   Obj_CNZMinibossEnd     line 144984  routine E (defeat)
+    //   CNZMiniboss_Index      line 144874  routine dispatch table:
+    //     Obj_CNZMinibossInit    line 144885  routine 0
+    //     Obj_CNZMinibossLower   line 144898  routine 2
+    //     Obj_CNZMinibossMove    line 144912  routine 4
+    //     Obj_CNZMinibossMove    line 144912  routine 6 (same handler as routine 4)
+    //     Obj_CNZMinibossOpening line 144941  routine 8
+    //     Obj_CNZMinibossWaitHit line 144954  routine A
+    //     Obj_CNZMinibossClosing line 144968  routine C
+    //     Obj_CNZMinibossLower2  line 144972  routine E
+    //   Obj_CNZMinibossEnd     line 144984  defeat handler — NOT in the dispatch
+    //                                       table; invoked via the $34(a0) "next
+    //                                       handler" pointer from
+    //                                       CNZMiniboss_CheckPlayerHit when the
+    //                                       hit counter reaches zero.
     // =====================================================================
 
     /** Arena camera X minimum. ROM: loc_6D9A8 `move.w d0,(Camera_min_X_pos).w`
