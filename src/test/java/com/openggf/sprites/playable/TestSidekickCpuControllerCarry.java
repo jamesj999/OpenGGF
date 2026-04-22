@@ -126,17 +126,31 @@ class TestSidekickCpuControllerCarry {
     // --- init transition --------------------------------------------------
 
     @Test
-    void initWithTriggerTransitionsToCarryingSameFrame() {
+    void initWithTriggerTransitionsToCarryInitThenCarryingAcrossTwoFrames() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
 
+        // First tick: ROM loc_13A10 (sonic3k.asm:26414) sets
+        // Tails_CPU_routine=$C and rts. Engine mirrors by entering
+        // CARRY_INIT and returning without executing the 0x0C body
+        // (which writes x_vel=$100).
         controller.update(1);
+        assertEquals(SidekickCpuController.State.CARRY_INIT, controller.getState(),
+                "Frame 1 state must be CARRY_INIT (ROM Tails_CPU_routine=$C just set, body not yet run)");
+        assertEquals((short) 0x0000, sonic.getXSpeed(),
+                "Frame 1 x_speed unchanged — ROM 0x0C body has not fired yet");
 
-        assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
+        // Second tick: ROM loc_13FC2 (the 0x0C body, sonic3k.asm:26903)
+        // sets x_vel=$100 and falls through (no rts) to loc_13FFA (the
+        // 0x0E body). Engine mirrors by transitioning CARRY_INIT ->
+        // CARRYING with the x_speed write.
+        controller.update(2);
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState(),
+                "Frame 2 state must be CARRYING (0x0C body ran; fell through to 0x0E)");
         assertTrue(sonic.isObjectControlled(),
                 "Sonic must be object-controlled while carried");
         assertEquals((short) 0x0100, sonic.getXSpeed(),
-                "Sonic.x_speed must match Tails's carry x_vel on frame 1");
+                "Frame 2 x_speed must match Tails's carry x_vel (loc_13FC2 write)");
         assertTrue(sonic.getAir(), "Sonic.air must be true while carried");
     }
 
@@ -146,12 +160,13 @@ class TestSidekickCpuControllerCarry {
     void carryingCopiesTailsVelocityToSonicEachFrame() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
-        controller.update(1);  // reach CARRYING
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING (with x_speed write)
 
         for (int i = 0; i < 10; i++) {
-            controller.update(2 + i);
+            controller.update(3 + i);
             assertEquals((short) 0x0100, sonic.getXSpeed(),
-                    "Sonic.x_speed must be clamped to carry x_vel on frame " + (i + 2));
+                    "Sonic.x_speed must be clamped to carry x_vel on frame " + (i + 3));
             assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
         }
     }
@@ -162,11 +177,12 @@ class TestSidekickCpuControllerCarry {
     void groundReleasesCarry() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
-        controller.update(1);
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING
         assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
 
         sonic.setAir(false);  // simulate landing
-        controller.update(2);
+        controller.update(3);
 
         assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
         assertFalse(sonic.isObjectControlled());
@@ -180,12 +196,13 @@ class TestSidekickCpuControllerCarry {
     void jumpPressReleasesCarryWithJumpVelocity() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
-        controller.update(1);
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING
 
         // Simulate rising-edge jump press: previous frame false, this frame true.
         sonic.setJumpInputPressed(false);
         sonic.setJumpInputPressed(true);
-        controller.update(2);
+        controller.update(3);
 
         assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
         assertEquals((short) -0x0380, sonic.getYSpeed(),
@@ -200,10 +217,11 @@ class TestSidekickCpuControllerCarry {
     void externalXSpeedChangeReleasesCarryWithLatchCooldown() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
-        controller.update(1);  // reach CARRYING with latchX = 0x100
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING with latchX = 0x100
         sonic.setXSpeed((short) 0x0500);  // external bumper-style write
 
-        controller.update(2);
+        controller.update(3);
 
         assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
         assertEquals(0x3C, controller.getReleaseCooldownForTest(),
@@ -216,17 +234,18 @@ class TestSidekickCpuControllerCarry {
     void cooldownDecrementsEveryFrame() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
-        controller.update(1);
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING
         sonic.setJumpInputPressed(false);
         sonic.setJumpInputPressed(true);
-        controller.update(2);
+        controller.update(3);
         int cooldownStart = controller.getReleaseCooldownForTest();
         assertEquals(0x12, cooldownStart);
 
         sonic.setJumpInputPressed(false);
-        controller.update(3);
         controller.update(4);
         controller.update(5);
+        controller.update(6);
 
         assertEquals(cooldownStart - 3, controller.getReleaseCooldownForTest(),
                 "Cooldown must decrement 1 per frame");
@@ -237,9 +256,10 @@ class TestSidekickCpuControllerCarry {
     @Test
     void carryInjectsSyntheticRightEvery32Frames() {
         prepareCarry();
-        controller.update(1);  // reach CARRYING
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING
         boolean sawInjection = false;
-        for (int i = 2; i < 66; i++) {
+        for (int i = 3; i < 67; i++) {
             controller.update(i);
             if (controller.getInputRight()) {
                 sawInjection = true;
