@@ -1138,6 +1138,21 @@ public class LevelManager {
     }
 
     /**
+     * Runs legacy post-player object hooks after the playable step has completed.
+     * This is for ROM behaviors where later SST slots read Sonic's current
+     * post-movement state and write globals for the following frame.
+     */
+    public void updateObjectPostPlayerHooks() {
+        if (objectManager == null) {
+            return;
+        }
+        Sprite player = spriteManager.getSprite(resolveMainCharacterCode());
+        AbstractPlayableSprite playable =
+                player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+        objectManager.runPostPlayerHooks(playable, frameCounter + 1);
+    }
+
+    /**
      * Runs object execution after player physics with inline solid resolution.
      * Used by inline-order modules, where the ROM executes the player slot first,
      * then processes solid objects in slot order against the player's already-moved state.
