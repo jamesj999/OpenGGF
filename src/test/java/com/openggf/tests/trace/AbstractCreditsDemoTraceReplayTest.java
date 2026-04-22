@@ -1,6 +1,8 @@
 package com.openggf.tests.trace;
 
 import com.openggf.data.Rom;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
@@ -88,6 +90,12 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         int act = Sonic1CreditsDemoData.DEMO_ACT[idx];
         short startX = (short) Sonic1CreditsDemoData.START_X[idx];
         short startY = (short) Sonic1CreditsDemoData.START_Y[idx];
+
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldMainCharacter = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Object oldSidekickCharacter = config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
 
         SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, zone, act);
         try {
@@ -200,6 +208,10 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             }
         } finally {
             sharedLevel.dispose();
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMainCharacter != null ? oldMainCharacter : "sonic");
+            config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                    oldSidekickCharacter != null ? oldSidekickCharacter : "tails");
         }
     }
 
