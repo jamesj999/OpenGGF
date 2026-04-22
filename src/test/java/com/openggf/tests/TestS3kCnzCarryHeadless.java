@@ -23,12 +23,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Mirrors the first ~200 frames of the {@code TestS3kCnzTraceReplay}
  * BK2 without running the full trace engine. Success criteria (per design
- * spec §10 row 1, 3 and §8.2):
+ * spec §10 row 1, 3 and §8.2, updated for the ROM 0x00 -> 0x0C
+ * non-same-frame fix):
  * <ul>
- *   <li>Frame 1: {@code Sonic.x_speed == 0x0100} and object-controlled/airborne</li>
- *   <li>Frame 20: {@code Sonic.air == 1} (still carried; ROM-parity frame is
- *       43 per trace row #3, but engine Tails lacks carry-aware lift and
- *       grounds early — see
+ *   <li>Frame 1: {@code Sonic.x_speed == 0x0000} (ROM {@code loc_13A10}
+ *       sets {@code Tails_CPU_routine=$C} and returns; the 0x0C body has
+ *       not run yet)</li>
+ *   <li>Frame 2: {@code Sonic.x_speed == 0x0100} and object-controlled/
+ *       airborne (ROM {@code loc_13FC2} body runs, falling through to
+ *       {@code loc_13FFA}; engine {@code CARRY_INIT -> CARRYING})</li>
+ *   <li>Frame 20: {@code Sonic.air == 1} (still carried; ROM-parity frame
+ *       is 43 per trace row #3, but engine Tails lacks carry-aware lift
+ *       and grounds early — see
  *       {@code docs/S3K_KNOWN_DISCREPANCIES.md} section
  *       "Tails Flying-With-Cargo Physics")</li>
  *   <li>By frame ~200: state back to {@code NORMAL}, {@code object_control} cleared</li>
@@ -83,19 +89,29 @@ class TestS3kCnzCarryHeadless {
     }
 
     @Test
-    void cnz1Frame1SonicXSpeedMatchesRom() {
+    void cnz1Frame2SonicXSpeedMatchesRom() {
         AbstractPlayableSprite sonic = fixture.sprite();
 
+        // Frame 1: ROM loc_13A10 (sonic3k.asm:26414) INIT handler sets
+        // Tails_CPU_routine=$C and rts. Engine enters CARRY_INIT; the
+        // 0x0C body that writes x_vel=$100 has NOT run yet.
         fixture.stepFrame(false, false, false, false, false);
+        assertEquals((short) 0x0000, sonic.getXSpeed(),
+                "Frame 1 Sonic.x_speed: 0x0C body has not run yet (INIT just set routine=$C)");
 
+        // Frame 2: ROM loc_13FC2 (the 0x0C body, sonic3k.asm:26903)
+        // writes x_vel=$100 and falls through (no rts) to loc_13FFA
+        // (the 0x0E body). Engine transitions CARRY_INIT -> CARRYING
+        // with the x_speed write.
+        fixture.stepFrame(false, false, false, false, false);
         assertEquals((short) 0x0100, sonic.getXSpeed(),
-                "Frame 1 Sonic.x_speed must match ROM carry velocity");
+                "Frame 2 Sonic.x_speed must match ROM carry velocity (loc_13FC2 write)");
         assertEquals((short) 0, sonic.getYSpeed(),
-                "Frame 1 Sonic.y_speed (carry init)");
+                "Frame 2 Sonic.y_speed (carry init)");
         assertTrue(sonic.isObjectControlled(),
-                "Frame 1: Sonic object-controlled by Tails");
+                "Frame 2: Sonic object-controlled by Tails");
         assertTrue(sonic.getAir(),
-                "Frame 1: Sonic airborne (being carried)");
+                "Frame 2: Sonic airborne (being carried)");
     }
 
     /**

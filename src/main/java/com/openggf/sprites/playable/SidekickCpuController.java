@@ -140,9 +140,18 @@ public class SidekickCpuController {
                 int act = lm.getCurrentAct();
                 PlayerCharacter pc = resolvePlayerCharacter();
                 if (carryTrigger.shouldEnterCarry(zone, act, pc)) {
+                    // ROM loc_13A10 (sonic3k.asm:26414) for CNZ act 0:
+                    //   move.w #$C,(Tails_CPU_routine).w
+                    //   rts
+                    // The INIT handler sets routine=0x0C and RETURNS. It does
+                    // NOT fall through into loc_13FC2 (the 0x0C body). That
+                    // body (which writes x_vel=$100) only runs on the NEXT
+                    // tick. The same-frame fall-through that DOES exist is
+                    // 0x0C -> 0x0E (loc_13FC2 -> loc_13FFA, no rts at the
+                    // end of loc_13FC2); see updateCarryInit() which mirrors
+                    // that fall-through by calling updateCarrying() directly.
                     carryTrigger.applyInitialPlacement(sidekick, leader);
                     state = State.CARRY_INIT;
-                    updateCarryInit();  // Same-frame fall-through per ROM (0x0C -> 0x20)
                     return;
                 }
             }
