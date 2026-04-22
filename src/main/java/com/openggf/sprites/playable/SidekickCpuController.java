@@ -36,7 +36,9 @@ public class SidekickCpuController {
         SPAWNING,
         APPROACHING,
         NORMAL,
-        PANIC
+        PANIC,
+        CARRY_INIT,   // ROM routine 0x0C - first tick after trigger (teleport + pickup)
+        CARRYING      // ROM routine 0x0E / 0x20 - per-frame carry body
     }
 
     private static final int SETTLED_FRAME_THRESHOLD = 15;
@@ -64,6 +66,15 @@ public class SidekickCpuController {
     private int lastInteractObjectId;
     private int normalFrameCount;
     private int sidekickCount = 1;
+
+    // =====================================================================
+    // Tails-carry-Sonic support (S3K-only; null trigger = feature disabled)
+    // =====================================================================
+    private SidekickCarryTrigger carryTrigger;
+    private short carryLatchX;
+    private short carryLatchY;
+    private boolean flyingCarryingFlag;
+    private int releaseCooldown;
 
     public SidekickCpuController(AbstractPlayableSprite sidekick) {
         this(sidekick, null);
@@ -524,13 +535,16 @@ public class SidekickCpuController {
 
     private static State mapRomCpuRoutine(int cpuRoutine) {
         return switch (cpuRoutine) {
-            case 0 -> State.INIT;
-            case 2 -> State.SPAWNING;
-            case 4 -> State.APPROACHING;
-            case 6 -> State.NORMAL;
-            case 8 -> State.PANIC;
+            case 0x00 -> State.INIT;
+            case 0x02 -> State.SPAWNING;
+            case 0x04 -> State.APPROACHING;
+            case 0x06 -> State.NORMAL;
+            case 0x08 -> State.PANIC;
+            case 0x0C -> State.CARRY_INIT;
+            case 0x0E, 0x20 -> State.CARRYING;
             default -> throw new IllegalArgumentException(
-                    "Unsupported ROM Tails CPU routine: " + cpuRoutine);
+                    "Unsupported ROM Tails CPU routine: 0x"
+                            + Integer.toHexString(cpuRoutine));
         };
     }
 
@@ -573,6 +587,18 @@ public class SidekickCpuController {
         }
     }
 
+    /**
+     * Installs the game-specific carry trigger. Null (default) disables the
+     * carry state machine; S1/S2 game modules pass null and the driver behaves
+     * as before.
+     */
+    public void setCarryTrigger(SidekickCarryTrigger trigger) {
+        this.carryTrigger = trigger;
+    }
+
+    /** Test/debug accessor for the release-cooldown byte (ROM Flying_carrying_Sonic_flag+1). */
+    int getReleaseCooldownForTest() { return releaseCooldown; }
+
     int resolveAnimationId(CanonicalAnimation animation) {
         return sidekick.resolveAnimationId(animation);
     }
@@ -596,5 +622,10 @@ public class SidekickCpuController {
         sidekick.setForcedAnimationId(-1);
         sidekick.setControlLocked(false);
         sidekick.setObjectControlled(false);
+        // Carry state (carryTrigger is intentionally NOT cleared — level-load-scoped)
+        carryLatchX = 0;
+        carryLatchY = 0;
+        flyingCarryingFlag = false;
+        releaseCooldown = 0;
     }
 }
