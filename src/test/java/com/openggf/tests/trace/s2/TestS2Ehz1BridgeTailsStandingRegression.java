@@ -1,0 +1,463 @@
+package com.openggf.tests.trace.s2;
+
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
+import com.openggf.game.sonic2.objects.BridgeObjectInstance;
+import com.openggf.game.sonic2.objects.ResultsScreenObjectInstance;
+import com.openggf.game.sonic2.objects.SignpostObjectInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.RomObjectSnapshot;
+import com.openggf.physics.Direction;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCpuController;
+import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.SharedLevel;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
+import com.openggf.tests.trace.TraceData;
+import com.openggf.tests.trace.TraceEvent;
+import com.openggf.tests.trace.TraceExecutionModel;
+import com.openggf.tests.trace.TraceExecutionPhase;
+import com.openggf.tests.trace.TraceFrame;
+import com.openggf.tests.trace.TraceMetadata;
+import com.openggf.tests.trace.TraceObjectSnapshotBinder;
+import com.openggf.tests.trace.TraceReplayBootstrap;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.lang.reflect.Field;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+@RequiresRom(SonicGame.SONIC_2)
+class TestS2Ehz1BridgeTailsStandingRegression {
+
+    private static final Path TRACE_DIR = Path.of("src/test/resources/traces/s2/ehz1_fullrun");
+    private static final int PROBE_FRAME = 875;
+    private static final int DESPAWN_FRAME = 1131;
+    private static final int SONIC_BRIDGE_JUMP_PREP_FRAME = 4564;
+    private static final int SIGNPOST_RESULTS_EDGE_FRAME = 5040;
+    private static final int SIGNPOST_RESULTS_FIRST_GROUNDED_DIVERGENCE_FRAME = 5105;
+
+    @Test
+    void tailsMatchesRecordedPlatformCarryStateAtProbeFrame() throws Exception {
+        BridgeProbe probe = replayToFrame(PROBE_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            assertNotNull(expected.sidekick(), "Trace frame does not contain recorded Tails state");
+            assertEquals(0x11, expected.sidekick().standOnObj(),
+                    "Probe frame changed; expected recorded interact slot 0x11");
+            assertEquals(0, expected.sidekick().statusByte() & 0x08,
+                    "Probe frame changed; expected latched interact slot without active on-object status");
+            assertEquals(-1, probe.actualStandOnSlot(),
+                    () -> "Tails should not have an active riding object once the recorded on-object bit is clear: "
+                            + probe.describeActual());
+            assertEquals(expected.sidekick().x(), probe.tails().getCentreX(),
+                    () -> "Tails platform carry X drifted at probe frame: " + probe.describeActual());
+            assertEquals(expected.sidekick().y(), probe.tails().getCentreY(),
+                    () -> "Tails platform carry Y drifted at probe frame: " + probe.describeActual());
+            assertEquals(expected.sidekick().xSpeed(), probe.tails().getXSpeed(),
+                    () -> "Tails platform carry X speed drifted: " + probe.describeActual());
+            assertEquals(expected.sidekick().gSpeed(), probe.tails().getGSpeed(),
+                    () -> "Tails platform carry ground speed drifted: " + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    @Test
+    void tailsDespawnsAtRecordedOffscreenBridgeTransition() throws Exception {
+        BridgeProbe probe = replayToFrame(DESPAWN_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            assertNotNull(expected.sidekick(), "Trace frame does not contain recorded Tails state");
+            assertEquals(expected.sidekick().x(), probe.tails().getCentreX(),
+                    () -> "Tails X diverged at off-screen despawn transition: " + probe.describeActual());
+            assertEquals(expected.sidekick().y(), probe.tails().getCentreY(),
+                    () -> "Tails Y diverged at off-screen despawn transition: " + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    @Test
+    void sonicMatchesRecordedBridgeSurfaceBeforeJumpOff() throws Exception {
+        BridgeProbe probe = replayToFrame(SONIC_BRIDGE_JUMP_PREP_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            AbstractPlayableSprite sonic = probe.sonic();
+            assertNotNull(sonic, "Sonic should be present at the bridge jump-off probe frame");
+            assertEquals(expected.x(), sonic.getCentreX(),
+                    () -> "Sonic X drifted on the bridge before jump-off: " + probe.describeActual());
+            assertEquals(expected.y(), sonic.getCentreY(),
+                    () -> "Sonic Y drifted on the bridge before jump-off: " + probe.describeActual());
+            assertEquals(expected.xSpeed(), sonic.getXSpeed(),
+                    () -> "Sonic X speed drifted on the bridge before jump-off: " + probe.describeActual());
+            assertEquals(expected.ySpeed(), sonic.getYSpeed(),
+                    () -> "Sonic Y speed drifted on the bridge before jump-off: " + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    @Test
+    void sonicDoesNotRetainWalkoffControlAfterResultsSpawnEdgeCase() throws Exception {
+        BridgeProbe probe = replayToFrame(SIGNPOST_RESULTS_EDGE_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            AbstractPlayableSprite sonic = probe.sonic();
+            assertNotNull(sonic, "Sonic should be present at the signpost results-edge probe frame");
+            assertEquals(expected.x(), sonic.getCentreX(),
+                    () -> "Sonic X drifted after end-of-act results spawn: " + probe.describeActual());
+            assertEquals(expected.y(), sonic.getCentreY(),
+                    () -> "Sonic Y drifted after end-of-act results spawn: " + probe.describeActual());
+            assertEquals(expected.xSpeed(), sonic.getXSpeed(),
+                    () -> "Sonic X speed drifted after end-of-act results spawn: " + probe.describeActual());
+            assertEquals(expected.gSpeed(), sonic.getGSpeed(),
+                    () -> "Sonic ground speed drifted after end-of-act results spawn: " + probe.describeActual());
+            assertEquals(false, sonic.isControlLocked(),
+                    () -> "Signpost walk-off control should not persist after results spawn: "
+                            + probe.describeActual());
+            assertEquals(false, sonic.isForceInputRight(),
+                    () -> "Signpost forced-right input should be cleared after results spawn: "
+                            + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    @Test
+    void sonicMatchesRecordedEndOfActLandingDecelerationAtFirstBadFrame() throws Exception {
+        BridgeProbe probe = replayToFrame(SIGNPOST_RESULTS_FIRST_GROUNDED_DIVERGENCE_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            AbstractPlayableSprite sonic = probe.sonic();
+            assertNotNull(sonic, "Sonic should be present at the end-of-act landing divergence frame");
+            assertEquals(expected.x(), sonic.getCentreX(),
+                    () -> "Sonic X drifted at the first grounded end-of-act divergence frame: "
+                            + probe.describeActual());
+            assertEquals(expected.y(), sonic.getCentreY(),
+                    () -> "Sonic Y drifted at the first grounded end-of-act divergence frame: "
+                            + probe.describeActual());
+            assertEquals(expected.xSpeed(), sonic.getXSpeed(),
+                    () -> "Sonic X speed drifted at the first grounded end-of-act divergence frame: "
+                            + probe.describeActual());
+            assertEquals(expected.gSpeed(), sonic.getGSpeed(),
+                    () -> "Sonic ground speed drifted at the first grounded end-of-act divergence frame: "
+                            + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    private static BridgeProbe replayToFrame(int targetFrame) throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+
+        Path bk2Path;
+        try (var files = Files.list(TRACE_DIR)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + TRACE_DIR);
+
+        TraceData trace = TraceData.load(TRACE_DIR);
+        TraceMetadata meta = trace.metadata();
+        applyRecordedTeamConfig(meta);
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_2, 0, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+
+            for (int i = 0; i <= targetFrame; i++) {
+                TraceFrame expected = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+            }
+
+            return new BridgeProbe(sharedLevel, trace.getFrame(targetFrame));
+        } catch (Throwable t) {
+            sharedLevel.dispose();
+            throw t;
+        }
+    }
+
+    private static void applyPreTraceState(TraceData trace, HeadlessTestFixture fixture) {
+        applyPreTracePlayerHistory(trace.preTracePlayerHistorySnapshot(), fixture.sprite());
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        List<TraceEvent.ObjectStateSnapshot> snapshots = trace.preTraceObjectSnapshots();
+        if (objectManager == null || snapshots.isEmpty()) {
+            return;
+        }
+
+        applyPreTraceSidekickSnapshot(snapshots);
+        objectManager.preloadInitialSpawnsForHydration();
+        TraceObjectSnapshotBinder.apply(
+                objectManager,
+                snapshots.stream()
+                        .filter(snapshot -> snapshot.slot() >= 2)
+                        .toList());
+    }
+
+    private static void applyPreTracePlayerHistory(TraceEvent.PlayerHistorySnapshot snapshot,
+                                                   AbstractPlayableSprite sprite) {
+        if (snapshot == null || sprite == null) {
+            return;
+        }
+        sprite.hydrateRecordedHistory(
+                centreHistoryToTopLeft(snapshot.xHistory(), sprite.getWidth()),
+                centreHistoryToTopLeft(snapshot.yHistory(), sprite.getHeight()),
+                snapshot.inputHistory(),
+                snapshot.statusHistory(),
+                romHistoryPosToEngineLatestSlot(snapshot.historyPos()));
+    }
+
+    private static short[] centreHistoryToTopLeft(short[] centreHistory, int spriteExtent) {
+        return centreHistory.clone();
+    }
+
+    private static int romHistoryPosToEngineLatestSlot(int romHistoryPosBytes) {
+        int nextFreeSlot = (romHistoryPosBytes >> 2) & 0x3F;
+        return (nextFreeSlot + 63) & 0x3F;
+    }
+
+    private static void applyPreTraceSidekickSnapshot(List<TraceEvent.ObjectStateSnapshot> snapshots) {
+        TraceEvent.ObjectStateSnapshot sidekickSnapshot = snapshots.stream()
+                .filter(snapshot -> snapshot.slot() == 1)
+                .findFirst()
+                .orElse(null);
+        if (sidekickSnapshot == null) {
+            return;
+        }
+
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return;
+        }
+
+        hydrateSidekickFromSnapshot(spriteManager.getSidekicks().getFirst(), sidekickSnapshot.fields());
+    }
+
+    private static void hydrateSidekickFromSnapshot(AbstractPlayableSprite sidekick,
+                                                    RomObjectSnapshot snapshot) {
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setHurt(false);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setXSpeed((short) snapshot.xVel());
+        sidekick.setYSpeed((short) snapshot.yVel());
+        sidekick.setGSpeed((short) snapshot.signedWordAt(0x14));
+        sidekick.setAngle((byte) snapshot.angle());
+        sidekick.setDirection((snapshot.status() & 0x01) != 0 ? Direction.LEFT : Direction.RIGHT);
+        sidekick.setAir((snapshot.status() & 0x02) != 0);
+        sidekick.setRolling((snapshot.status() & 0x04) != 0);
+        sidekick.setOnObject((snapshot.status() & 0x08) != 0);
+        sidekick.setCentreX((short) snapshot.xPos());
+        sidekick.setCentreY((short) snapshot.yPos());
+        sidekick.setSubpixelRaw(snapshot.xSub(), snapshot.ySub());
+        sidekick.resetPositionHistory();
+
+        SidekickCpuController controller = sidekick.getCpuController();
+        if (controller != null) {
+            controller.setInitialState(SidekickCpuController.State.NORMAL);
+        }
+    }
+
+    private static void applyRecordedTeamConfig(TraceMetadata meta) {
+        if (!meta.hasRecordedTeam()) {
+            return;
+        }
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, meta.mainCharacter());
+        config.setConfigValue(
+                SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                String.join(",", meta.recordedSidekicks()));
+    }
+
+    private record BridgeProbe(SharedLevel sharedLevel, TraceFrame expectedFrame) {
+        AbstractPlayableSprite sonic() {
+            SpriteManager spriteManager = GameServices.sprites();
+            if (spriteManager == null) {
+                return null;
+            }
+            return spriteManager.getSprite("sonic") instanceof AbstractPlayableSprite playable
+                    ? playable
+                    : null;
+        }
+
+        AbstractPlayableSprite tails() {
+            SpriteManager spriteManager = GameServices.sprites();
+            if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+                return null;
+            }
+            return spriteManager.getSidekicks().getFirst();
+        }
+
+        int actualMainStandOnSlot() {
+            AbstractPlayableSprite sonic = sonic();
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (sonic == null || objectManager == null) {
+                return -1;
+            }
+            ObjectInstance riding = objectManager.getRidingObject(sonic);
+            if (riding instanceof AbstractObjectInstance aoi) {
+                return aoi.getSlotIndex();
+            }
+            return -1;
+        }
+
+        int actualStandOnSlot() {
+            AbstractPlayableSprite tails = tails();
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (tails == null || objectManager == null) {
+                return -1;
+            }
+            ObjectInstance riding = objectManager.getRidingObject(tails);
+            if (riding instanceof AbstractObjectInstance aoi) {
+                return aoi.getSlotIndex();
+            }
+            return -1;
+        }
+
+        String describeActual() {
+            AbstractPlayableSprite sonic = sonic();
+            AbstractPlayableSprite tails = tails();
+            if (sonic == null || tails == null) {
+                return String.format("sonic=%s tails=%s",
+                        sonic == null ? "<missing>" : "<present>",
+                        tails == null ? "<missing>" : "<present>");
+            }
+            return String.format(
+                    "sonic=(x=0x%04X y=0x%04X xs=%d ys=%d gs=%d air=%s on=%d lock=%s forceR=%s) "
+                            + "tails=(x=0x%04X y=0x%04X xs=%d ys=%d gs=%d air=%s on=%d) "
+                            + "goal=%s results=%s bridges=%s",
+                    sonic.getCentreX() & 0xFFFF,
+                    sonic.getCentreY() & 0xFFFF,
+                    (int) sonic.getXSpeed(),
+                    (int) sonic.getYSpeed(),
+                    (int) sonic.getGSpeed(),
+                    sonic.getAir(),
+                    actualMainStandOnSlot(),
+                    sonic.isControlLocked(),
+                    sonic.isForceInputRight(),
+                    tails.getCentreX() & 0xFFFF,
+                    tails.getCentreY() & 0xFFFF,
+                    (int) tails.getXSpeed(),
+                    (int) tails.getYSpeed(),
+                    (int) tails.getGSpeed(),
+                    tails.getAir(),
+                    actualStandOnSlot(),
+                    goalDescription(),
+                    resultsDescription(),
+                    bridgeDescriptions());
+        }
+
+        private String goalDescription() {
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager == null) {
+                return "<no object manager>";
+            }
+            return objectManager.getActiveObjects().stream()
+                    .filter(SignpostObjectInstance.class::isInstance)
+                    .map(SignpostObjectInstance.class::cast)
+                    .map(this::describeGoalPlate)
+                    .reduce((left, right) -> left + " | " + right)
+                    .orElse("<none>");
+        }
+
+        private String describeGoalPlate(SignpostObjectInstance signpost) {
+            int slot = signpost instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+            return String.format("slot=%d@0x%04X,0x%04X state=%s spawned=%s walkFrame=%s",
+                    slot,
+                    signpost.getCenterX() & 0xFFFF,
+                    signpost.getCenterY() & 0xFFFF,
+                    reflectField(signpost, "routineState"),
+                    reflectField(signpost, "resultsSpawned"),
+                    reflectField(signpost, "walkOffEnteredFrame"));
+        }
+
+        private String resultsDescription() {
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager == null) {
+                return "<no object manager>";
+            }
+            return objectManager.getActiveObjects().stream()
+                    .filter(ResultsScreenObjectInstance.class::isInstance)
+                    .map(instance -> instance instanceof AbstractObjectInstance aoi
+                            ? String.format("slot=%d", aoi.getSlotIndex())
+                            : "<untracked>")
+                    .reduce((left, right) -> left + " | " + right)
+                    .orElse("<none>");
+        }
+
+        private Object reflectField(Object target, String fieldName) {
+            try {
+                Field field = target.getClass().getDeclaredField(fieldName);
+                field.setAccessible(true);
+                return field.get(target);
+            } catch (ReflectiveOperationException e) {
+                return "<" + fieldName + " unavailable>";
+            }
+        }
+
+        private String bridgeDescriptions() {
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager == null) {
+                return "<no object manager>";
+            }
+            return objectManager.getActiveObjects().stream()
+                    .filter(instance -> instance instanceof BridgeObjectInstance)
+                    .map(instance -> {
+                        int slot = instance instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+                        return String.format("slot=%d@0x%04X,0x%04X",
+                                slot,
+                                instance.getX() & 0xFFFF,
+                                instance.getY() & 0xFFFF);
+                    })
+                    .reduce((left, right) -> left + " | " + right)
+                    .orElse("<none>");
+        }
+
+        void dispose() {
+            sharedLevel.dispose();
+        }
+    }
+}
