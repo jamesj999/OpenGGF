@@ -117,6 +117,29 @@ class TestS3kMgzPulleyAndMantis {
     }
 
     @Test
+    void mgzPulleyOnUnloadDestroysChainChildAndReleasesGrabbedPlayer() throws Exception {
+        RecordingServices services = new RecordingServices();
+        MGZPulleyObjectInstance pulley = createPulley(services,
+                new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.MGZ_PULLEY, 0x04, 0x00, false, 0));
+        pulley.setServices(services);
+
+        TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0x01CA, (short) 0x014E);
+        player.setXSpeed((short) -0x100);
+
+        pulley.update(0, player);
+        assertTrue(player.isObjectControlled(), "Precondition: pulley should own the grabbed player");
+
+        AbstractObjectInstance chainChild = readChainChild(pulley);
+        assertFalse(chainChild.isDestroyed(), "Precondition: spawned chain child should still be active");
+
+        pulley.onUnload();
+
+        assertTrue(chainChild.isDestroyed(), "Unloading the parent pulley must destroy its chain child");
+        assertFalse(player.isObjectControlled(),
+                "Unloading the parent pulley must release the grabbed player from object control");
+    }
+
+    @Test
     void mantisNearbyPlayerTriggersLaunchCycle() throws Exception {
         MantisBadnikInstance mantis = new MantisBadnikInstance(
                 new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.MANTIS, 0x00, 0x00, false, 0));
@@ -180,6 +203,12 @@ class TestS3kMgzPulleyAndMantis {
         Field field = MGZPulleyObjectInstance.class.getDeclaredField("currentExtension");
         field.setAccessible(true);
         return field.getInt(pulley);
+    }
+
+    private static AbstractObjectInstance readChainChild(MGZPulleyObjectInstance pulley) throws Exception {
+        Field field = MGZPulleyObjectInstance.class.getDeclaredField("chainChild");
+        field.setAccessible(true);
+        return (AbstractObjectInstance) field.get(pulley);
     }
 
     private static MGZPulleyObjectInstance createPulley(ObjectServices services, ObjectSpawn spawn) {
