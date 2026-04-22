@@ -8,11 +8,11 @@ import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.Sonic;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -161,29 +161,24 @@ public final class HeadlessTestFixture {
                 config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, sharedLevel.sidekickCharCode());
             }
 
-            // 3. Determine character code before any reload path that needs a
-            // registered player sprite.
-            String charCode;
-            if (sharedLevel != null) {
-                charCode = sharedLevel.mainCharCode();
-            } else {
-                charCode = SonicConfigurationService.getInstance()
-                        .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-            }
-
-            // 4. Register the player before any load path that needs it.
-            // Fresh zone/act loads and shared-level reloads both expect the
-            // main sprite to exist before LevelManager.spawnPlayerAtStartPosition().
+            // 3. Register the active gameplay team before any load path that
+            // needs it. Fresh zone/act loads and shared-level reloads both
+            // expect the main sprite to exist before
+            // LevelManager.spawnPlayerAtStartPosition(), and Sonic 2 traces
+            // rely on Tails being present from the same bootstrap phase.
             boolean needsSharedLevelReload = sharedLevel != null
                     && GameServices.level().getCurrentLevel() == null;
 
-            Sonic sprite = null;
+            AbstractPlayableSprite sprite = null;
             if (sharedLevel == null || needsSharedLevelReload) {
-                sprite = new Sonic(charCode, startX, startY);
-                GameServices.sprites().addSprite(sprite);
+                sprite = GameplayTeamBootstrap.registerActiveTeam(
+                        GameServices.module(),
+                        GameServices.sprites(),
+                        SonicConfigurationService.getInstance())
+                        .mainSprite();
             }
 
-            // 5. Load or rewire the requested level.
+            // 4. Load or rewire the requested level.
             if (sharedLevel == null) {
                 try {
                     GameServices.level().loadZoneAndAct(zone, act);
@@ -209,14 +204,17 @@ public final class HeadlessTestFixture {
                 }
             }
 
-            // 6. Create/register the sprite if the shared-level reuse path did not
-            // already do it.
+            // 5. Create/register the active team if the shared-level reuse path
+            // skipped the normal load bootstrap.
             if (sprite == null) {
-                sprite = new Sonic(charCode, startX, startY);
-                GameServices.sprites().addSprite(sprite);
+                sprite = GameplayTeamBootstrap.registerActiveTeam(
+                        GameServices.module(),
+                        GameServices.sprites(),
+                        SonicConfigurationService.getInstance())
+                        .mainSprite();
             }
 
-            // 7. Preserve existing builder semantics for explicit custom starts by
+            // 6. Preserve existing builder semantics for explicit custom starts by
             // reapplying the requested coordinates after any level load.
             if (customStartPositionProvided) {
                 if (startPositionIsCentre) {
@@ -227,6 +225,11 @@ public final class HeadlessTestFixture {
                     sprite.setY(startY);
                 }
             }
+
+            // 7. Re-anchor registered sidekicks to the current player position.
+            GameplayTeamBootstrap.repositionRegisteredSidekicks(
+                    GameServices.module(),
+                    GameServices.level());
 
             // 8. Wire GroundSensor
             GroundSensor.setLevelManager(GameServices.level());
