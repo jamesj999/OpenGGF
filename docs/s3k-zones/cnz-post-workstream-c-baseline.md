@@ -2,83 +2,93 @@
 
 Captured: 2026-04-22
 Test: `TestS3kCnzTraceReplay`
-After: workstream C (Tails-carry intro) merge at 45747e3ec555cef52c82ee3febd2decb44232521
+After: workstream C (Tails-carry intro) merge + 0x00->0x0C same-frame fix at c627ba2bc35402dc1045fd23dc8a4966c6b8ff1d
 
 ## Summary
 
-- Previous baseline: 1635 errors, first divergence frame 1
-- Post-C baseline: 2547 errors, first divergence frame 0
-- Improvement: -912 errors (regression — count rose by 912), first-frame shift -1 (frame 0 is now first, not frame 1)
+- Previous baseline (pre-workstream-C): 1635 errors, first divergence frame 1
+- Post-C + fix baseline: 1954 errors, first divergence frame 4
+- Delta vs pre-C: +319 errors, first-divergence frame shifted +3 (frame 4 vs frame 1)
 
-## Notes on the regression
+## Notes on the 0x00->0x0C fix
 
-The carry trigger is applied **one frame too early**. In the ROM trace, frame 0 has
-`x_speed=0x0000` (Sonic is still spawning), and the carry velocity (`x_speed=0x0100`)
-only appears at frame 1. The engine's `Sonic3kCnzCarryTrigger` enters `CARRY_INIT`
-on the first gameplay tick (frame 0), which copies Tails's velocity onto Sonic at
-frame 0 — before ROM does. This reverses the frame-0 mismatch direction:
+The initial post-workstream-C trace showed 2547 errors with first-divergence
+frame 0 because `SidekickCpuController.updateInit()` invoked
+`updateCarryInit()` in the same tick it transitioned into `CARRY_INIT`.
+That wrote `x_speed=0x0100` one frame earlier than the ROM.
 
-- **Pre-C (frame 1):** ROM expected `x_speed=0x0100`, engine had `0x0000` (engine not carrying)
-- **Post-C (frame 0):** ROM expected `x_speed=0x0000`, engine has `0x0100` (engine carrying one frame early)
+ROM evidence (sonic3k.asm):
+- `loc_13A10` (line 26414, INIT handler for CNZ act 0) executes
+  `move.w #$C,(Tails_CPU_routine).w` then `rts`. No fall-through.
+- `loc_13FC2` (line 26903, 0x0C body) writes `x_vel=$100` and falls
+  through (no `rts`) into `loc_13FFA` (0x0E body).
 
-The off-by-one also cascades: the y-speed divergence at frame 3 (`0x0018` expected,
-`0x00A8` actual) reflects the engine accumulating free-fall gravity for one extra frame
-before the carry controller's gravity gate takes effect, producing a slightly different
-descent arc throughout the carry window. A follow-up workstream D or a C patch should
-investigate whether `Tails_CPU_routine` routine 0x0C fires after the first VBlank (i.e.,
-starting on the _second_ gameplay frame), not on the first tick.
+The same-frame fall-through is **0x0C -> 0x0E**, not **0x00 -> 0x0C**.
+Fix commit `c627ba2bc` removes the premature `updateCarryInit()` call.
+The 0x0C body now runs on the tick AFTER the INIT handler sets the
+state, matching the ROM's `rts` boundary.
 
-## First 20 divergences (post-C)
+First divergence now lands at frame 4 (`y_speed` mismatch), i.e. a few
+ticks into the carry arc rather than at frame 0. The residual error
+count (1954) is dominated by the Tails-flying-with-cargo physics gap
+tracked in `docs/S3K_KNOWN_DISCREPANCIES.md` ("Tails Flying-With-Cargo
+Physics") — Tails grounds around frame 42 instead of the ROM's frame
+106, cascading through the rest of the carry arc.
 
-| # | Frame (start) | Field | Expected | Actual | Likely workstream |
-|---|---------------|-------|----------|--------|-------------------|
-| 1 | 0 | `x_speed` | `0x0000` | `0x0100` | C |
-| 2 | 3 | `y_speed` | `0x0018` | `0x00A8` | C |
-| 3 | 41 | `air` | `1` | `0` | C |
-| 4 | 43 | `x_speed` | `0x0118` | `0x0000` | C |
-| 5 | 106 | `g_speed` | `0x0148` | `0x0000` | C |
-| 6 | 107 | `y_speed` | `-0100` | `0x0000` | C |
-| 7 | 193 | `y_speed` | `0x0000` | `0x0530` | C |
-| 8 | 193 | `air` | `0` | `1` | C |
-| 9 | 193 | `rolling` | `0` | `1` | C |
-| 10 | 198 | `angle` | `0x0000` | `0x00FA` | C |
-| 11 | 199 | `x_speed` | `0x05D1` | `0x0549` | C |
-| 12 | 199 | `y_speed` | `0x0000` | `-00C7` | C |
-| 13 | 201 | `g_speed` | `0x05E9` | `0x0564` | C |
-| 14 | 218 | `angle` | `0x0000` | `0x00FC` | C |
-| 15 | 219 | `y_speed` | `0x0000` | `-0090` | C |
-| 16 | 238 | `y_speed` | `-0568` | `-0700` | C |
-| 17 | 250 | `x_speed` | `0x0579` | `0x0600` | C |
-| 18 | 270 | `x_speed` | `0x0522` | `0x049F` | C |
-| 19 | 270 | `g_speed` | `0x0522` | `0x0600` | C |
-| 20 | 270 | `air` | `0` | `1` | C |
+## First 20 divergences (post-fix)
 
-All 20 first divergences remain in workstream C territory (carry window, frames 0–270).
-The carry trigger's off-by-one is responsible for the higher error count: the entire carry
-arc is shifted by one frame, so carry-derived divergences that the original baseline had
-at frames 1–196 (x_speed) now start at frames 0–43, with extra cascades introduced by
-the premature gravity gate activation.
+| # | Frame (start) | Frame (end) | Field | Expected | Actual | Cascading | Likely workstream |
+|---|---------------|-------------|-------|----------|--------|-----------|-------------------|
+| 1 | 4 | 105 | `y_speed` | `0x0020` | `0x00A8` | no | C (Tails-carry descent arc) |
+| 2 | 42 | 105 | `air` | `1` | `0` | yes | C (Tails-lands-early) |
+| 3 | 44 | 196 | `x_speed` | `0x0118` | `0x0000` | yes | C (post-release cascade) |
+| 4 | 106 | 197 | `g_speed` | `0x0148` | `0x0000` | yes | C (post-release cascade) |
+| 5 | 107 | 107 | `y_speed` | `-0100` | `0x0000` | no | C (ground-release impulse timing) |
+| 6 | 193 | 197 | `y_speed` | `0x0000` | `0x0530` | no | C/D boundary (pre-mini-boss land) |
+| 7 | 193 | 197 | `air` | `0` | `1` | yes | C/D boundary |
+| 8 | 193 | 197 | `rolling` | `0` | `1` | yes | C/D boundary |
+| 9 | 198 | 216 | `angle` | `0x0000` | `0x00FA` | yes | D (mini-boss window) |
+| 10 | 199 | 214 | `x_speed` | `0x05D1` | `0x0549` | yes | D (mini-boss window) |
+| 11 | 199 | 217 | `y_speed` | `0x0000` | `-00C7` | no | D (mini-boss window) |
+| 12 | 201 | 211 | `g_speed` | `0x05E9` | `0x0564` | yes | D (mini-boss window) |
+| 13 | 218 | 219 | `angle` | `0x0000` | `0x00FC` | yes | D (mini-boss window) |
+| 14 | 219 | 220 | `y_speed` | `0x0000` | `-0090` | no | D (mini-boss window) |
+| 15 | 238 | 269 | `y_speed` | `-0568` | `-0700` | no | D (mini-boss window) |
+| 16 | 250 | 257 | `x_speed` | `0x0579` | `0x0600` | yes | D (mini-boss window) |
+| 17 | 270 | 270 | `x_speed` | `0x0522` | `0x049F` | yes | D (mini-boss window) |
+| 18 | 270 | 277 | `g_speed` | `0x0522` | `0x0600` | yes | D (mini-boss window) |
+| 19 | 270 | 281 | `air` | `0` | `1` | yes | D (mini-boss window) |
+| 20 | 270 | 292 | `rolling` | `0` | `1` | yes | D (mini-boss window) |
+
+The first five errors (frames 4..107) remain in workstream C territory:
+they reflect the still-deferred Tails-flying-with-cargo physics gap
+(Tails lands at frame ~42 vs ROM frame 106). Errors 6..20 (frames 193+)
+all fall in the mini-boss window and are workstream D concerns.
 
 ## Next dispatch
 
-Based on the new first-20 distribution, workstreams applicable:
-- [ ] C-patch (off-by-one carry trigger): **DISPATCH FIRST**. All 20 entries are still in
-  C territory. The carry trigger fires one frame early. Suspect `Tails_CPU_routine` 0x0C
-  initializes on the second gameplay frame (frame 1), not the first (frame 0). Patch
-  `Sonic3kCnzCarryTrigger` to skip the first frame before entering `CARRY_INIT`.
-  Re-run trace after the patch to verify first-divergence frame moves past 400 and total
-  errors drop below 1000.
-- [ ] D (CNZ1 mini-boss): **DEFER** until C-patch clears the carry window and exposes
-  the mini-boss range in the first-20.
-- [ ] E (CNZ2 end-boss): **DEFER** — not visible in the current first-20 (carry cascade
-  dominates); dispatch after D.
-- [ ] F (Knuckles cutscenes): **DEFER** — not visible in the current first-20; dispatch
-  after C-patch.
-- [ ] G (Stragglers): **DEFER** — post-C cascade still dominates; dispatch last.
+Based on the updated first-20 distribution:
+- [ ] C-follow-up (Tails flying-with-cargo physics): **DEFER**. This is
+  the documented Tails carry-aware-lift gap (see
+  `docs/S3K_KNOWN_DISCREPANCIES.md` "Tails Flying-With-Cargo Physics").
+  The 0x00->0x0C fix landing here does not address it; addressing it
+  would likely knock errors 1..5 off the first-20 list but require a
+  separate investigation of `Tails_CPU_routine` 0x0C/0x0E/0x20's
+  per-frame y_vel/gravity handling. Left deferred per task scope.
+- [x] D (CNZ1 mini-boss): **DISPATCH**. All of errors 6..20 are now in
+  the D-owned window (frames 193..292). With carry-arc errors reduced
+  from 2547 to 1954, the mini-boss window is the next-highest-value
+  target; a D workstream should take the mini-boss from here.
+- [ ] E (CNZ2 end-boss): **DEFER** — not visible in the current first-20;
+  dispatch after D clears the mini-boss window.
+- [ ] F (Knuckles cutscenes): **DEFER** — not visible in the current
+  first-20; revisit after D.
+- [ ] G (Stragglers): **DEFER** — dispatch last, once C-follow-up and D
+  clear.
 
 ## Wider guard status
 
-Ran against commit 45747e3ec:
+Ran against commit c627ba2bc (same tests as the prior baseline):
 
 ```
 Tests run: 115, Failures: 0, Errors: 0, Skipped: 0

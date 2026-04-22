@@ -37,13 +37,18 @@ All notable changes to the OpenGGF project are documented in this file.
   `CARRY_INIT` / `CARRYING` plus `CanonicalAnimation.TAILS_CARRIED`.
   `PlayableSpriteMovement.applyGravity` now short-circuits when the sprite
   is object-controlled so the carried cargo no longer accumulates free-fall.
-- `TestS3kCnzTraceReplay` first-divergence frame remains at 0 and total
-  errors rose from 1635 to 2547 (delta: +912). The carry trigger fires one
-  frame early (frame 0 instead of frame 1), reversing the mismatch direction
-  for `x_speed` at frame 0 and cascading through the carry arc. A C-patch
-  workstream should shift `CARRY_INIT` entry to frame 1. The
-  `TestS3kAizTraceReplay` pre-existing regression is orthogonal and stays
-  owned by workstream H (see
+- `TestS3kCnzTraceReplay` first-divergence frame is now 4 (was frame 0
+  on the initial workstream-C landing, frame 1 pre-workstream-C) and
+  total errors are 1954 (down from 2547 on the initial landing, up 319
+  from the 1635 pre-workstream-C baseline). The residual delta
+  (frames 4..107) tracks the deferred Tails-flying-with-cargo physics
+  gap. The subsequent follow-up fix (`c627ba2bc`) removed the premature
+  `updateCarryInit()` call from `updateInit()` after the S3K ROM was
+  re-verified: `loc_13A10` (sonic3k.asm:26414) sets
+  `Tails_CPU_routine=$C` and `rts` — no same-frame fall-through into
+  `loc_13FC2` — so the carry body now runs on the tick after the INIT
+  handler. The `TestS3kAizTraceReplay` pre-existing regression is
+  orthogonal and stays owned by workstream H (see
   `docs/s3k-zones/cnz-task7-regression-note.md`).
 
 ### Experimental Level Editor Overlay
