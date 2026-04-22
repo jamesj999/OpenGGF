@@ -2,6 +2,8 @@ package com.openggf.tests.trace;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -32,6 +34,18 @@ class TestTraceExecutionModel {
 
         assertEquals(TraceExecutionPhase.VBLANK_ONLY,
                 TraceExecutionModel.forGame("s3k").phaseFor(previous, current));
+    }
+
+    @Test
+    void legacyS3kAizIntroFramesReplayAsFullFramesBeforeGameplayStart() throws Exception {
+        TraceData trace = TraceData.load(
+                Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
+        TraceFrame previous = trace.getFrame(0);
+        TraceFrame current = trace.getFrame(1);
+
+        assertEquals(previous.gameplayFrameCounter(), current.gameplayFrameCounter());
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceReplayBootstrap.phaseForReplay(trace, previous, current));
     }
 
     @Test

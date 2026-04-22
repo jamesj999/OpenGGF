@@ -85,6 +85,26 @@ public class TestTraceDataParsing {
     }
 
     @Test
+    void parsesCpuStateSnapshot() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+            """
+            {"frame":-1,"event":"cpu_state_snapshot","character":"tails","control_counter":0,"respawn_counter":299,"cpu_routine":6,"target_x":"0x0613","target_y":"0x0264","interact_id":"0x10","jumping":1}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+
+        assertInstanceOf(TraceEvent.CpuStateSnapshot.class, event);
+        TraceEvent.CpuStateSnapshot snapshot = (TraceEvent.CpuStateSnapshot) event;
+        assertEquals("tails", snapshot.character());
+        assertEquals(0, snapshot.controlCounter());
+        assertEquals(299, snapshot.respawnCounter());
+        assertEquals(6, snapshot.cpuRoutine());
+        assertEquals((short) 0x0613, snapshot.targetX());
+        assertEquals((short) 0x0264, snapshot.targetY());
+        assertEquals(0x10, snapshot.interactId());
+        assertTrue(snapshot.jumping());
+    }
+
+    @Test
     void v5TraceParsesRecordedSidekickState() throws IOException {
         Path dir = Files.createTempDirectory("trace-v5-sidekick");
         Files.writeString(dir.resolve("metadata.json"), """
@@ -338,6 +358,41 @@ public class TestTraceDataParsing {
         assertEquals(0, checkpoint.apparentAct());
         assertEquals(12, checkpoint.gameMode());
         assertEquals("resume strict replay", checkpoint.notes());
+    }
+
+    @Test
+    void parsesCharacterScopedAuxEvents() {
+        TraceEvent modeEvent = TraceEvent.parseJsonLine(
+            """
+            {"frame":4325,"event":"mode_change","character":"tails","field":"on_object","from":0,"to":1}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+        TraceEvent routineEvent = TraceEvent.parseJsonLine(
+            """
+            {"frame":4325,"event":"routine_change","character":"tails","from":"0x02","to":"0x04","x":"0x2360","y":"0x0318"}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+        TraceEvent nearEvent = TraceEvent.parseJsonLine(
+            """
+            {"frame":4325,"event":"object_near","character":"tails","slot":24,"type":"0x06","x":"0x236E","y":"0x0320","routine":"0x04","status":"0x00"}
+            """.trim(),
+            new com.fasterxml.jackson.databind.ObjectMapper());
+
+        assertInstanceOf(TraceEvent.ModeChange.class, modeEvent);
+        assertInstanceOf(TraceEvent.RoutineChange.class, routineEvent);
+        assertInstanceOf(TraceEvent.ObjectNear.class, nearEvent);
+
+        TraceEvent.ModeChange mode = (TraceEvent.ModeChange) modeEvent;
+        TraceEvent.RoutineChange routine = (TraceEvent.RoutineChange) routineEvent;
+        TraceEvent.ObjectNear near = (TraceEvent.ObjectNear) nearEvent;
+
+        assertEquals("tails", mode.character());
+        assertEquals("on_object", mode.field());
+        assertEquals("tails", routine.character());
+        assertEquals((short) 0x2360, routine.x());
+        assertEquals((short) 0x0318, routine.y());
+        assertEquals("tails", near.character());
+        assertEquals(24, near.slot());
     }
 
     @Test

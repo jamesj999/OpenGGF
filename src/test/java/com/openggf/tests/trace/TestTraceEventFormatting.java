@@ -43,6 +43,28 @@ public class TestTraceEventFormatting {
     }
 
     @Test
+    void parsesCharacterScopedEventsIntoCompactSummary() {
+        TraceEvent near = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"object_near","character":"tails","slot":44,"type":"0x23","x":"0x024A","y":"0x0386","routine":"0x04","status":"0x00"}
+                """.trim(),
+                mapper);
+        TraceEvent mode = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"mode_change","character":"tails","field":"rolling","from":1,"to":0}
+                """.trim(),
+                mapper);
+        TraceEvent routine = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"routine_change","character":"tails","from":"0x02","to":"0x04","x":"0x0241","y":"0x038F"}
+                """.trim(),
+                mapper);
+
+        assertEquals("near tails s44 0x23 @024A,0386 rtn=04 | tails mode rolling 1->0 | tails routine 02->04 @0241,038F",
+                TraceEventFormatter.summariseFrameEvents(List.of(near, mode, routine)));
+    }
+
+    @Test
     void parsesObjectLifecycleEvents() {
         TraceEvent appeared = TraceEvent.parseJsonLine(
                 """
