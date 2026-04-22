@@ -110,7 +110,12 @@ class TestSidekickCpuControllerCarry {
     private AbstractPlayableSprite[] prepareCarry() {
         AbstractPlayableSprite sonic = fixture.sprite();
         AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().get(0);
-        // Position both high in the air so terrain doesn't interfere with carry tick.
+        // Position both high above any AIZ1 terrain so the post-parentage
+        // collision probe (ROM Tails_Carry_Sonic:27330) finds no ground and
+        // the carry tick exercises pure state-machine logic.  AIZ1's spawn
+        // ground is near Y=1052; Y=580/600 is well clear.
+        sonic.setCentreY((short) 600);
+        tails.setCentreY((short) 580);
         sonic.setAir(true);
         tails.setAir(true);
         controller.setCarryTrigger(alwaysOnTrigger());

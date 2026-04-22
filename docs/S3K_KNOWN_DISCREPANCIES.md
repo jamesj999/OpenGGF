@@ -9,6 +9,7 @@ This document tracks intentional deviations from the original Sonic 3 & Knuckles
 3. [Immediate Art Loading](#immediate-art-loading)
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
 5. [Save System](#save-system)
+6. [Tails Flying-With-Cargo Physics](#tails-flying-with-cargo-physics)
 
 ---
 
@@ -216,3 +217,28 @@ OpenGGF now keeps the native S3K save-screen flow but stores saves as JSON envel
 ### Manual Validation
 
 - `2026-04-13`: native S3K parity pass captured via `com.openggf.game.sonic3k.dataselect.S3kDataSelectVisualCapture`, which renders the live native S3K Data Select frontend with real ROM assets into `target/s3k-dataselect-visual/native_s3k_dataselect_slot1.png` for inspection.
+
+---
+
+## Tails Flying-With-Cargo Physics
+
+**Location:** Tails flight physics (`SidekickCpuController`, Tails sprite physics)
+**ROM Reference:** `sonic3k.asm` `Obj_Tails_Flying` / `Tails_Fly` (flight lift when carrying Sonic)
+
+### Original Implementation
+
+ROM Tails, while flying and carrying Sonic, applies anti-gravity lift each frame that offsets the carry-descent gravity, keeping Tails airborne for ~106 frames during the CNZ1 intro. The combined carrier+cargo Y-velocity sums to near-neutral during active flight.
+
+### Our Implementation
+
+The engine currently runs Tails on normal airborne physics (gravity applies, no carry-aware lift), so a carrying Tails falls ~6x faster than the ROM and lands around frame ~42 in CNZ1. Once Tails lands, the ROM-faithful ground-release path (added here) correctly fires and returns the pair to NORMAL state.
+
+### Impact
+
+- CNZ1 intro carry duration diverges: engine releases at frame ~42 vs. ROM ~106.
+- `TestS3kCnzTraceReplay` and `TestS3kCnzCarryHeadless.cnz1Frame43SonicStillCarried` surface this as a late-frame X/Y position divergence (release happens too early).
+- No functional regression - carry state machine, parentage, and release paths are ROM-accurate; only Tails's lift profile is missing.
+
+### Follow-Up
+
+Implementing Tails flying-with-cargo lift is a separate workstream tracked under S3K trace-replay follow-ups. Gap first recorded as part of CNZ workstream-C (Tails-carry-Sonic intro implementation).
