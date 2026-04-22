@@ -33,6 +33,7 @@ import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
+import com.openggf.game.sonic3k.sidekick.Sonic3kCnzCarryTrigger;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.game.sonic3k.dataselect.S3kDataSelectManager;
@@ -54,6 +55,7 @@ import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCarryTrigger;
 import com.openggf.sprites.playable.SuperStateController;
 
 import java.util.logging.Level;
@@ -81,6 +83,7 @@ public class Sonic3kGameModule implements GameModule {
     private final Sonic3kSpecialStageProvider specialStageProvider =
             new Sonic3kSpecialStageProvider(specialStageManager);
     private final LevelInitProfile levelInitProfile = new Sonic3kLevelInitProfile(levelEventManager);
+    private final SidekickCarryTrigger sidekickCarryTrigger = new Sonic3kCnzCarryTrigger();
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private PhysicsProvider physicsProvider;
     private Sonic3kObjectArtProvider objectArtProvider;
@@ -274,6 +277,11 @@ public class Sonic3kGameModule implements GameModule {
             return GameServices.crossGameFeatures().createSuperStateController(player);
         }
         return new Sonic3kSuperStateController(player);
+    }
+
+    @Override
+    public SidekickCarryTrigger getSidekickCarryTrigger() {
+        return sidekickCarryTrigger;
     }
 
     @Override
