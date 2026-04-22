@@ -1,5 +1,7 @@
 package com.openggf.sprites.playable;
 
+import java.util.Objects;
+
 import com.openggf.camera.Camera;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.CanonicalAnimation;
@@ -481,20 +483,21 @@ public class SidekickCpuController {
         // We supply a minimal inline landing handler that mirrors the subset of
         // Player_TouchFloor (sonic3k.asm:24366-24369) needed for the
         // next-frame release check to trip.
-        CollisionSystem collision = GameServices.collision();
-        if (collision != null) {
-            collision.resolveAirCollision(leader, sprite -> {
-                // ROM Player_TouchFloor (sonic3k.asm:24366-24369):
-                //   bclr #Status_InAir,status(a0)
-                //   bclr #Status_Push,status(a0)
-                //   bclr #Status_RollJump,status(a0)
-                //   move.b #0,jumping(a0)
-                sprite.setAir(false);
-                sprite.setPushing(false);
-                sprite.setRollingJump(false);
-                sprite.setJumping(false);
-            });
-        }
+        CollisionSystem collision = Objects.requireNonNull(
+                GameServices.collision(),
+                "CollisionSystem must be available during CARRYING state "
+                        + "(Tails-carry post-parentage probe, sonic3k.asm:27330)");
+        collision.resolveAirCollision(leader, sprite -> {
+            // ROM Player_TouchFloor (sonic3k.asm:24366-24369):
+            //   bclr #Status_InAir,status(a0)
+            //   bclr #Status_Push,status(a0)
+            //   bclr #Status_RollJump,status(a0)
+            //   move.b #0,jumping(a0)
+            sprite.setAir(false);
+            sprite.setPushing(false);
+            sprite.setRollingJump(false);
+            sprite.setJumping(false);
+        });
 
         // Refresh the latch AFTER our writes so the next frame's compare is
         // against what we just wrote, not stale values.  The probe above may
