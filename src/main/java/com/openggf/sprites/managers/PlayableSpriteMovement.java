@@ -1728,8 +1728,28 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void doObjectMoveAndFall() {
 		short oldYSpeed = sprite.getYSpeed();  // Save old y_vel before gravity
-		sprite.setYSpeed((short) (oldYSpeed + sprite.getGravity()));  // Apply gravity first
+		applyGravity();                         // Gated on isObjectControlled()
 		sprite.move(sprite.getXSpeed(), oldYSpeed);  // Move using OLD y_vel
+	}
+
+	/**
+	 * Apply the sprite's per-frame gravity to y_vel.
+	 *
+	 * <p>Skipped when {@link AbstractPlayableSprite#isObjectControlled()} is true
+	 * (ROM: Obj01_Control skips movement routines entirely). This gate is what
+	 * lets the S3K Tails-carry driver ({@code SidekickCpuController} CARRYING
+	 * state) keep a stable velocity latch on the carried Sonic; without it,
+	 * gravity accumulates between the driver's latch-update and latch-compare
+	 * and spuriously triggers release path C (external-vel mismatch).
+	 *
+	 * <p>Mirrors the ROM behaviour where {@code object_control != 0} short-circuits
+	 * the entire movement dispatch in {@code Obj01_Control}.
+	 */
+	private void applyGravity() {
+		if (sprite.isObjectControlled()) {
+			return;
+		}
+		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
 	}
 
 	// ========================================
@@ -2273,7 +2293,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
     }
 
 	private void applyDeathMovement() {
-		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
+		applyGravity();  // Gated on isObjectControlled(); a controlled sprite never enters the death routine anyway but keep gates consistent
 		sprite.setGSpeed((short) 0);
 		sprite.setXSpeed((short) 0);
 
