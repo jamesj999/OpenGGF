@@ -74,14 +74,19 @@ class TestCnzMinibossSwingPhase {
                 new ObjectSpawn(0x3240, 0x0100, Sonic3kObjectIds.CNZ_MINIBOSS, 0, 0, false, 0));
         boss.setServices(services);
 
-        // Fast-forward through Init+Lower+Go2 so we reach routine 4 (Move)
+        // Fast-forward through Init+Lower+Go2+Move waits so Obj_CNZMinibossGo3
+        // fires. Per ROM (sonic3k.asm:144918..144922), Go3 writes x_vel=0x100
+        // and falls through to Obj_CNZMinibossCloseGo which advances routine
+        // from 4 (Move) to 6 (Move-duplicate slot); the T5 port wires this
+        // fallthrough so the assertion below reads routine 6.
         int totalWait = Sonic3kConstants.CNZ_MINIBOSS_INIT_WAIT
                 + Sonic3kConstants.CNZ_MINIBOSS_GO2_WAIT + 10;
         for (int i = 0; i < totalWait; i++) {
             boss.update(i, fixture.sprite());
         }
-        assertEquals(4, boss.getCurrentRoutine() & 0xFF,
-                "Boss must be in routine 4 (Move) after Init+Lower+Go2 waits");
+        assertEquals(6, boss.getCurrentRoutine() & 0xFF,
+                "Boss must be in routine 6 (Move-duplicate) after Go3 falls "
+                        + "through to CloseGo (ROM sonic3k.asm:144922)");
         assertEquals(Sonic3kConstants.CNZ_MINIBOSS_SWING_X_VEL,
                 Math.abs(boss.getCurrentXVel()),
                 "Go3 sets x_vel magnitude = 0x100 (sign depends on swing direction)");
