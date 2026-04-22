@@ -46,6 +46,16 @@ public interface ObjectInstance {
     }
 
     /**
+     * Refreshes the object state used by touch-response collision before the
+     * player slot runs in inline-order modules. Unlike
+     * {@link #snapshotPreUpdatePosition()}, this must not advance unrelated
+     * first-frame bookkeeping such as solid-contact gating.
+     */
+    default void snapshotTouchResponseState() {
+        snapshotPreUpdatePosition();
+    }
+
+    /**
      * Returns the collision flags as they were before the current frame's object update.
      * ROM parity: ReactToItem runs in Sonic's slot (slot 0) BEFORE other objects update,
      * so it sees enemies at their previous frame's collision type. If an object activates
@@ -115,6 +125,18 @@ public interface ObjectInstance {
      */
     default boolean isPersistent() {
         return false;
+    }
+
+    /**
+     * Returns the X coordinate used by ROM-style {@code out_of_range} checks.
+     * <p>
+     * Most objects use their current X position, but some S1 objects store a
+     * separate anchor/origin in objoff_30/32/3A and feed that to the macro.
+     * The counter-based unload path must use the same reference X or grouped
+     * child objects can despawn before the parent anchor leaves range.
+     */
+    default int getOutOfRangeReferenceX() {
+        return getX();
     }
 
     /**

@@ -49,6 +49,7 @@ public class PatternAtlas {
     private byte[][] cpuPixels;      // per-atlas-page pixel data [atlasWidth * atlasHeight]
     private boolean[] dirtyPages;    // tracks which pages were written during batch
     private boolean batchMode = false;
+    private byte[] patternUploadScratch;
 
     /** Describes a registered virtual pattern ID range for collision detection. */
     public record PatternRange(int base, int size, String category) {}
@@ -404,15 +405,16 @@ public class PatternAtlas {
     private void uploadPattern(Pattern pattern, Entry entry) {
         int pixelX = entry.tileX() * TILE_SIZE;
         int pixelY = entry.tileY() * TILE_SIZE;
+        byte[] patternPixels = ensurePatternUploadScratch();
+        pattern.copyInto(patternPixels, 0);
 
         // Always write to the CPU-side buffer (keeps it in sync for future batches)
         if (cpuPixels != null && entry.atlasIndex() < cpuPixels.length) {
             byte[] page = cpuPixels[entry.atlasIndex()];
-            for (int col = 0; col < TILE_SIZE; col++) {
-                int dstRowStart = (pixelY + col) * atlasWidth + pixelX;
-                for (int row = 0; row < TILE_SIZE; row++) {
-                    page[dstRowStart + row] = pattern.getPixel(row, col);
-                }
+            for (int row = 0; row < TILE_SIZE; row++) {
+                int srcRowStart = row * TILE_SIZE;
+                int dstRowStart = (pixelY + row) * atlasWidth + pixelX;
+                System.arraycopy(patternPixels, srcRowStart, page, dstRowStart, TILE_SIZE);
             }
         }
 
@@ -427,12 +429,7 @@ public class PatternAtlas {
         // Immediate upload (non-batch path)
         ByteBuffer patternBuffer = ensurePatternUploadBuffer();
         patternBuffer.clear();
-        for (int col = 0; col < TILE_SIZE; col++) {
-            for (int row = 0; row < TILE_SIZE; row++) {
-                byte colorIndex = pattern.getPixel(row, col);
-                patternBuffer.put(colorIndex);
-            }
-        }
+        patternBuffer.put(patternPixels, 0, TILE_SIZE * TILE_SIZE);
         patternBuffer.flip();
 
         int textureId = getTextureId(entry.atlasIndex());
@@ -440,6 +437,13 @@ public class PatternAtlas {
         glTexSubImage2D(GL_TEXTURE_2D, 0, pixelX, pixelY, TILE_SIZE, TILE_SIZE,
                 GL_RED, GL_UNSIGNED_BYTE, patternBuffer);
         glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    private byte[] ensurePatternUploadScratch() {
+        if (patternUploadScratch == null) {
+            patternUploadScratch = new byte[TILE_SIZE * TILE_SIZE];
+        }
+        return patternUploadScratch;
     }
 
     private AtlasPage getOrCreatePage(boolean headless) {

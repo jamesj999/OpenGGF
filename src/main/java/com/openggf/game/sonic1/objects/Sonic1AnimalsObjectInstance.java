@@ -8,6 +8,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -27,7 +28,8 @@ import java.util.List;
  * </ul>
  */
 public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
-    private static final int GRAVITY = 0x18;
+    private static final int OBJECT_FALL_GRAVITY = 0x38;
+    private static final int FLIGHT_GRAVITY = 0x18;
     private static final int FLOOR_CHECK_HEIGHT = 12;
     private static final int INITIAL_POP_Y_VELOCITY = -0x400;
     private static final int START_MOVE_DISTANCE = 0xB8;
@@ -238,7 +240,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
      */
     private void updateRoutine91C0(AbstractPlayableSprite player) {
         speedToPos();
-        yVelocity += GRAVITY;
+        yVelocity += FLIGHT_GRAVITY;
 
         if (yVelocity >= 0 && checkFloorCollision()) {
             yVelocity = initialYVelocity;
@@ -289,7 +291,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
             xVelocity = 0;
             initialXVelocity = 0;
             speedToPos();
-            yVelocity += GRAVITY;
+            yVelocity += FLIGHT_GRAVITY;
             applyGroundFrame();
             facePlayer(player);
             animateWings();
@@ -370,7 +372,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
     private void updateRoutine9370(AbstractPlayableSprite player) {
         if (isPlayerClose(player)) {
             speedToPos();
-            yVelocity += GRAVITY;
+            yVelocity += FLIGHT_GRAVITY;
             if (yVelocity >= 0 && checkFloorCollision()) {
                 bounceToggle ^= 1;
                 if (bounceToggle == 0) {
@@ -385,17 +387,25 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
     }
 
     private void speedToPos() {
-        xSub += xVelocity;
-        ySub += yVelocity;
-        currentX += (xSub >> 8);
-        currentY += (ySub >> 8);
-        xSub &= 0xFF;
-        ySub &= 0xFF;
+        SubpixelMotion.State motion = new SubpixelMotion.State(
+                currentX, currentY, xSub, ySub, xVelocity, yVelocity);
+        SubpixelMotion.speedToPos(motion);
+        currentX = motion.x;
+        currentY = motion.y;
+        xSub = motion.xSub;
+        ySub = motion.ySub;
     }
 
     private void objectFall() {
-        speedToPos();
-        yVelocity += GRAVITY;
+        SubpixelMotion.State motion = new SubpixelMotion.State(
+                currentX, currentY, xSub, ySub, xVelocity, yVelocity);
+        SubpixelMotion.objectFallXY(motion, OBJECT_FALL_GRAVITY);
+        currentX = motion.x;
+        currentY = motion.y;
+        xSub = motion.xSub;
+        ySub = motion.ySub;
+        xVelocity = motion.xVel;
+        yVelocity = motion.yVel;
     }
 
     private boolean checkFloorCollision() {

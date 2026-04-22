@@ -19,6 +19,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOption;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugRenderer;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.DebugState;
@@ -1141,6 +1142,9 @@ public class Engine {
 	 * Called each frame to render the game.
 	 */
 	private void display() {
+		profiler.setEnabled(debugViewEnabled
+				&& !isNativeImage()
+				&& debugOverlayManager.isEnabled(DebugOverlayToggle.PERFORMANCE));
 		profiler.beginFrame();
 
 		// Clear the entire window to black first (for letterbox/pillarbox bars)

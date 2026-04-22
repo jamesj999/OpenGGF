@@ -5,6 +5,7 @@ import com.openggf.game.sonic3k.objects.Sonic3kPointsObjectInstance;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.AnimalObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectManager;
@@ -71,9 +72,10 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
     /** S3K destruction config: spawn animal + points popup, no respawn tracking, S3K break SFX. */
     private static final DestructionConfig S3K_DESTRUCTION_CONFIG = new DestructionConfig(
             Sonic3kSfx.BREAK.id,
-            true,   // spawnAnimal
+            AnimalObjectInstance::new,
             false,  // useRespawnTracking (S3K always removeFromActiveSpawns)
-            (spawn, svc, pts) -> new Sonic3kPointsObjectInstance(spawn, svc, pts)
+            (spawn, svc, pts) -> new Sonic3kPointsObjectInstance(spawn, svc, pts),
+            null
     );
 
     protected final void defeat(AbstractPlayableSprite player) {
