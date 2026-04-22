@@ -1441,6 +1441,53 @@ public class Sonic3kConstants {
     /** Direction-change wait. ROM: Obj_CNZMinibossChangeDir `move.w #$13F,$2E(a0)`. */
     public static final int CNZ_MINIBOSS_CHANGEDIR_WAIT = 0x13F;
 
+    // =====================================================================
+    // CNZ Act 1 miniboss top piece (bouncing-ball).
+    // ROM refs (all sonic3k.asm, S&K-side):
+    //   Obj_CNZMinibossTop          line 145004
+    //   CNZMinibossTop_Index        line 145011 (routine 0/2/4/6 dispatch)
+    //     Obj_CNZMinibossTopInit    line 145018 (routine 0)
+    //     Obj_CNZMinibossTopWait    line 145026 (routine 2)
+    //     Obj_CNZMinibossTopWait2   line 145040 (routine 4)
+    //     Obj_CNZMinibossTopMain    line 145053 (routine 6)
+    //   Obj_CNZMinibossTopGo        line 145045 ($34 post-wait handler
+    //                                            installed by TopWait)
+    //   CNZMiniboss_BlockExplosion  line 145204 (snaps impact coords to
+    //                                            the 0x20 block grid)
+    // =====================================================================
+
+    /** ROM: Obj_CNZMinibossTopGo `move.w #$200,x_vel(a0)` (sonic3k.asm:145048). */
+    public static final short CNZ_MINIBOSS_TOP_INIT_X_VEL = (short) 0x0200;
+
+    /** ROM: Obj_CNZMinibossTopGo `move.w #$200,y_vel(a0)` (sonic3k.asm:145049). */
+    public static final short CNZ_MINIBOSS_TOP_INIT_Y_VEL = (short) 0x0200;
+
+    /** Arena right-wall screen-edge limit.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$3380,d0` (sonic3k.asm:145073). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_RIGHT = 0x3380;
+
+    /** Arena left-wall screen-edge limit.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$3200,d0` (sonic3k.asm:145088). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_LEFT = 0x3200;
+
+    /** Arena floor lower bound.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$380,d1` (sonic3k.asm:145109). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_BOTTOM = 0x0380;
+
+    /** Arena ceiling upper bound.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$240,d1` (sonic3k.asm:145125). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_TOP = 0x0240;
+
+    /** Half-width used when probing the next-frame X edge vs the arena wall.
+     *  ROM: Obj_CNZMinibossTopMain `addi.w #$10,d0` / `subi.w #$10,d0`
+     *  (sonic3k.asm:145072, 145087). */
+    public static final int CNZ_MINIBOSS_TOP_WALL_PROBE_DX = 0x10;
+
+    /** Half-height used when probing the next-frame Y edge vs the arena floor/ceiling.
+     *  ROM: Obj_CNZMinibossTopMain `addq.w #8,d1` / `subq.w #8,d1`
+     *  (sonic3k.asm:145104, 145122). */
+    public static final int CNZ_MINIBOSS_TOP_FLOOR_PROBE_DY = 0x08;
+
     // PLC 0x6E loads ArtNem_CNZEndBoss, ArtNem_RobotnikShip, ArtNem_BossExplosion,
     // and ArtNem_EggCapsule for Obj_CNZEndBoss. Task 6 only needs the body sheet and
     // shared support art registrations; the control handoff stays deferred to Task 8.
