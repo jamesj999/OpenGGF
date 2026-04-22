@@ -206,8 +206,8 @@ public class TestBuzzBomberLifecycle {
         manager.update(400, null, null, 1);
         assertEquals(1, manager.getActiveObjects().size());
 
-        // Object flies left to X=600.
-        registry.flyingInstance.setCurrentX(600);
+        // Move beyond both the persistence margin and MarkObjGone's 640px X window.
+        registry.flyingInstance.setCurrentX(700);
 
         // Camera backs up far to X=0.
         //   placement.update() streams new window at end of frame 2.

@@ -146,8 +146,8 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         int dy = Math.abs(player.getCentreY() - spawn.y());
         int playerHalfWidth = 8;
         int playerHalfHeight = player.getYRadius();
-        return dx < (COLLISION_HALF_WIDTH + playerHalfWidth)
-                && dy < (COLLISION_HALF_HEIGHT + playerHalfHeight);
+        return dx <= (COLLISION_HALF_WIDTH + playerHalfWidth)
+                && dy <= (COLLISION_HALF_HEIGHT + playerHalfHeight);
     }
 
     /**
