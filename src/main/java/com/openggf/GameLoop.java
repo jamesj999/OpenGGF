@@ -692,17 +692,27 @@ public class GameLoop {
             // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
             boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
             if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition) {
-                // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
-                LevelFrameStep.execute(levelManager, camera, () -> {
-                    spriteManager.update(inputHandler);
-                    if (playbackFrameConsumed) {
-                        playbackDebugManager.onLevelFrameAdvanced();
-                    }
-                }, (name, step) -> {
-                    profiler.beginSection(name);
-                    step.run();
-                    profiler.endSection(name);
-                });
+                // LiveTraceComparator (or any PlaybackFrameObserver) may ask
+                // us to skip the gameplay tick on ROM lag frames so the
+                // engine and trace stay aligned. Cursor advance still runs
+                // via onLevelFrameAdvanced below.
+                boolean skipGameplay = playbackDebugManager.shouldSkipCurrentGameplayTick();
+                if (!skipGameplay) {
+                    // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
+                    LevelFrameStep.execute(levelManager, camera, () -> spriteManager.update(inputHandler),
+                            (name, step) -> {
+                                profiler.beginSection(name);
+                                step.run();
+                                profiler.endSection(name);
+                            });
+                }
+                // Fire the BK2-advance callback either way — on both real
+                // gameplay ticks and lag-gated skips — so the observer's
+                // cursor always matches the BK2 cursor.
+                // onLevelFrameAdvanced is already a no-op when no playback
+                // session is active, so the previous playbackFrameConsumed
+                // guard is no longer needed.
+                playbackDebugManager.onLevelFrameAdvanced();
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
