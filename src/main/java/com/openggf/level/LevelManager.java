@@ -473,6 +473,7 @@ public class LevelManager {
     private int[] pendingBgTilePassHScrollData;
     private float pendingBgTilePassVdpWrapWidth;
     private float pendingBgTilePassNametableBase;
+    private float pendingBgTilePassPerLineScrollSampleYOffsetPx;
     private float pendingBgTilePassUpperBandWrapHeightPx;
     private float pendingBgTilePassUpperBandWrapWidthTiles;
     private final GLCommand bgTilePassCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
@@ -495,7 +496,8 @@ public class LevelManager {
                     bgRenderer.uploadHScroll(pendingBgTilePassHScrollData);
                     tilemapRenderer.enablePerLineScroll(
                             bgRenderer.getHScrollTextureId(), 224.0f,
-                            pendingBgTilePassVdpWrapWidth, pendingBgTilePassNametableBase);
+                            pendingBgTilePassVdpWrapWidth, pendingBgTilePassNametableBase,
+                            pendingBgTilePassPerLineScrollSampleYOffsetPx);
                 }
                 tilemapRenderer.setUpperBandWrap(
                         pendingBgTilePassUpperBandWrapHeightPx,
@@ -2184,6 +2186,7 @@ public class LevelManager {
         pendingBgTilePassHScrollData = hScrollData;
         pendingBgTilePassVdpWrapWidth = vdpWrapWidthTiles;
         pendingBgTilePassNametableBase = nametableBaseTile;
+        pendingBgTilePassPerLineScrollSampleYOffsetPx = perLineScrollActive ? (float) vOffset : 0.0f;
         pendingBgTilePassUpperBandWrapHeightPx = upperBandWrapHeightPx;
         pendingBgTilePassUpperBandWrapWidthTiles = upperBandWrapWidthTiles;
         graphicsManager.registerCommand(bgTilePassCommand);

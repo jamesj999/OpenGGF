@@ -39,6 +39,7 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int vScrollColumnTextureLocation = -1;
     private int perColumnVScrollLocation = -1;
     private int screenHeightLocation = -1;
+    private int perLineScrollSampleYOffsetPxLocation = -1;
     private int vdpWrapWidthLocation = -1;
     private int vdpWrapHeightLocation = -1;
     private int nametableBaseLocation = -1;
@@ -83,6 +84,7 @@ public class TilemapShaderProgram extends ShaderProgram {
         vScrollColumnTextureLocation = glGetUniformLocation(programId, "VScrollColumnTexture");
         perColumnVScrollLocation = glGetUniformLocation(programId, "PerColumnVScroll");
         screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
+        perLineScrollSampleYOffsetPxLocation = glGetUniformLocation(programId, "PerLineScrollSampleYOffsetPx");
         vdpWrapWidthLocation = glGetUniformLocation(programId, "VDPWrapWidth");
         vdpWrapHeightLocation = glGetUniformLocation(programId, "VDPWrapHeight");
         nametableBaseLocation = glGetUniformLocation(programId, "NametableBase");
@@ -213,6 +215,12 @@ public class TilemapShaderProgram extends ShaderProgram {
     public void setScreenHeight(float height) {
         if (screenHeightLocation >= 0) {
             glUniform1f(screenHeightLocation, height);
+        }
+    }
+
+    public void setPerLineScrollSampleYOffsetPx(float offsetPx) {
+        if (perLineScrollSampleYOffsetPxLocation >= 0) {
+            glUniform1f(perLineScrollSampleYOffsetPxLocation, offsetPx);
         }
     }
 

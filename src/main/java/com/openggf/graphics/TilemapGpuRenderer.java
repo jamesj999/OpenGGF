@@ -55,6 +55,7 @@ public class TilemapGpuRenderer {
     private float perLineScreenHeight = 224.0f;
     private float perLineVdpWrapWidth = 0.0f;
     private float perLineNametableBase = 0.0f;
+    private float perLineScrollSampleYOffsetPx = 0.0f;
     private float upperBandWrapHeightPx = 0.0f;
     private float upperBandWrapWidthTiles = 0.0f;
     private boolean perColumnVScroll = false;
@@ -130,12 +131,13 @@ public class TilemapGpuRenderer {
      * Automatically resets after render().
      */
     public void enablePerLineScroll(int hScrollTextureId, float screenHeight,
-            float vdpWrapWidth, float nametableBase) {
+            float vdpWrapWidth, float nametableBase, float sampleYOffsetPx) {
         this.perLineScroll = true;
         this.perLineHScrollTextureId = hScrollTextureId;
         this.perLineScreenHeight = screenHeight;
         this.perLineVdpWrapWidth = vdpWrapWidth;
         this.perLineNametableBase = nametableBase;
+        this.perLineScrollSampleYOffsetPx = sampleYOffsetPx;
     }
 
     /**
@@ -158,7 +160,7 @@ public class TilemapGpuRenderer {
             return;
         }
         foregroundLineScrollBuffer.upload(packedHScroll);
-        enablePerLineScroll(foregroundLineScrollBuffer.getTextureId(), 224.0f, 0.0f, 0.0f);
+        enablePerLineScroll(foregroundLineScrollBuffer.getTextureId(), 224.0f, 0.0f, 0.0f, 0.0f);
     }
 
     /**
@@ -183,6 +185,22 @@ public class TilemapGpuRenderer {
     public void setShimmerState(int frameCounter, int shimmerStyle) {
         this.shimmerFrameCounter = frameCounter;
         this.shimmerStyle = shimmerStyle;
+    }
+
+    private static float resolvePerLineScrollSampleRow(float pixelYFromTop,
+            float sampleYOffsetPx, float screenHeight) {
+        float maxScanline = screenHeight - 1.0f;
+        if (maxScanline <= 0.0f) {
+            return 0.0f;
+        }
+        float scanline = pixelYFromTop - sampleYOffsetPx;
+        if (scanline < 0.0f) {
+            return 0.0f;
+        }
+        if (scanline > maxScanline) {
+            return maxScanline;
+        }
+        return scanline;
     }
 
     public int getShimmerStyle() {
@@ -280,6 +298,7 @@ public class TilemapGpuRenderer {
         shader.setVdpWrapWidth(perLineScroll ? perLineVdpWrapWidth : 0.0f);
         shader.setVdpWrapHeight(layer == Layer.BACKGROUND ? bgVdpWrapHeight : 0.0f);
         shader.setNametableBase(perLineScroll ? perLineNametableBase : 0.0f);
+        shader.setPerLineScrollSampleYOffsetPx(perLineScroll ? perLineScrollSampleYOffsetPx : 0.0f);
         shader.setUpperBandWrap(layer == Layer.BACKGROUND ? upperBandWrapHeightPx : 0.0f,
                 layer == Layer.BACKGROUND ? upperBandWrapWidthTiles : 0.0f);
         // Always assign HScrollTexture to unit 5 to satisfy macOS sampler validation.
@@ -320,6 +339,7 @@ public class TilemapGpuRenderer {
         quadRenderer.draw(0, 0, windowWidth, windowHeight);
 
         perLineScroll = false; // Reset for next frame
+        perLineScrollSampleYOffsetPx = 0.0f;
         upperBandWrapHeightPx = 0.0f;
         upperBandWrapWidthTiles = 0.0f;
         perColumnVScroll = false;
