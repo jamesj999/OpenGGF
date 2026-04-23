@@ -27,7 +27,7 @@ public class PixelFont {
     private static final String ROW1 = "abcdefghijklmnopqrstuvwxyz";
     private static final String ROW2 = "0123456789_-+\u00D7\u00F7=*/\\%@\u00A9\u00AE\u00B0#\u00A6";
     private static final String ROW3 = "?\u00BF!\u00A1()[]{}<>\u00AB\u00BB:;\u2018\u2019~`\u00AC,.|\u00A3\u20AC";
-    private static final String ROW4 = "$\u201C\u201D^&\u263A\u00BD\u00BE&";
+    private static final String ROW4 = "$\u201C\u201D^&\u263A\u00BD\u00BE&Δ";
 
     private int textureId;
     private int textureWidth;
