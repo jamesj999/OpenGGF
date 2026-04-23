@@ -55,6 +55,15 @@ public class TraceData {
         return new TraceData(metadata, frames, events);
     }
 
+    /**
+     * Test factory — in-memory TraceData without disk I/O. Public (not
+     * package-private) because callers live in different subpackages
+     * (e.g. {@code com.openggf.trace.live}).
+     */
+    public static TraceData ofFrames(TraceMetadata metadata, List<TraceFrame> frames) {
+        return new TraceData(metadata, List.copyOf(frames), Map.of());
+    }
+
     public TraceMetadata metadata() { return metadata; }
     public int frameCount() { return frames.size(); }
 

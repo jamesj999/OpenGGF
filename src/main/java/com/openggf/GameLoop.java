@@ -838,7 +838,12 @@ public class GameLoop {
         }
     }
 
-    private AbstractPlayableSprite getMainPlayableSprite() {
+    /**
+     * Package-private so {@code com.openggf.TraceSessionLauncher.LiveFixture}
+     * can resolve the primary playable sprite by calling the same
+     * ActiveGameplayTeamResolver path the rest of GameLoop uses.
+     */
+    AbstractPlayableSprite getMainPlayableSprite() {
         if (spriteManager == null) {
             return null;
         }
