@@ -2,18 +2,24 @@ package com.openggf.tests;
 
 import com.openggf.LevelFrameStep;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.control.InputHandler;
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.Bk2Movie;
 import com.openggf.game.GameServices;
+import com.openggf.game.TitleCardProvider;
 import com.openggf.level.LevelManager;
-import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 /**
  * Headless test runner that simulates the full game loop update cycle.
  * Delegates to {@link LevelFrameStep} for frame-level ordering and
- * {@link SpriteManager#tickPlayablePhysics} for per-sprite physics,
- * ensuring the test harness cannot drift from production.
+ * {@code SpriteManager.update(...)} for playable updates, ensuring the
+ * test harness cannot drift from production team behavior.
  *
  * <p>Usage example:
  * <pre>
@@ -33,6 +39,12 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 public class HeadlessTestRunner {
     private final AbstractPlayableSprite sprite;
     private final LevelManager levelManager;
+    private final InputHandler inputHandler = new InputHandler();
+    private final int upKey = GameServices.configuration().getInt(SonicConfiguration.UP);
+    private final int downKey = GameServices.configuration().getInt(SonicConfiguration.DOWN);
+    private final int leftKey = GameServices.configuration().getInt(SonicConfiguration.LEFT);
+    private final int rightKey = GameServices.configuration().getInt(SonicConfiguration.RIGHT);
+    private final int jumpKey = GameServices.configuration().getInt(SonicConfiguration.JUMP);
     private int frameCounter = 0;
 
     // BK2 recording playback fields
@@ -53,8 +65,7 @@ public class HeadlessTestRunner {
     /**
      * Steps one frame with the given input state.
      * Frame-level ordering is defined by {@link LevelFrameStep#execute};
-     * per-sprite physics ordering is defined by
-     * {@link SpriteManager#tickPlayablePhysics}.
+     * playable/team ordering is defined by {@code SpriteManager.update(...)}.
      *
      * @param up    Up input pressed
      * @param down  Down input pressed
@@ -64,34 +75,53 @@ public class HeadlessTestRunner {
      */
     public void stepFrame(boolean up, boolean down, boolean left, boolean right, boolean jump) {
         frameCounter++;
+        updateActiveTitleCardOverlay();
+        if (applyPendingSeamlessTransition()) {
+            return;
+        }
+        startPendingInLevelTitleCardIfRequested();
+        setKeyState(upKey, up);
+        setKeyState(downKey, down);
+        setKeyState(leftKey, left);
+        setKeyState(rightKey, right);
+        setKeyState(jumpKey, jump);
 
-        // Store RAW input state for objects (like springs) that need to query button state
-        // even when control is locked. This matches SpriteManager.update() behavior where
-        // input state is set BEFORE object updates. Objects read isJumpPressed() during
-        // their update() methods, so this must be set before updateObjectPositions().
-        sprite.setJumpInputPressed(jump);
-        sprite.setDirectionalInputPressed(up, down, left, right);
+        LevelFrameStep.execute(levelManager, GameServices.camera(),
+                () -> GameServices.sprites().update(inputHandler));
+        inputHandler.update();
+    }
 
-        // Canonical frame tick: objects → zone features → sprites → level events → camera → level.
-        LevelFrameStep.execute(levelManager, GameServices.camera(), () -> {
-            // Compute effective inputs matching SpriteManager.update() filtering.
-            boolean controlLocked = sprite.isControlLocked();
-            boolean forcedRight = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
-                    || sprite.isForceInputRight();
-            boolean forcedLeft = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
-            boolean forcedUp = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
-            boolean forcedDown = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
-            boolean forcedJump = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
-            boolean effectiveRight = (!controlLocked && right) || forcedRight;
-            boolean effectiveLeft = ((!controlLocked && left) || forcedLeft) && !forcedRight;
-            boolean effectiveUp = (!controlLocked && up) || forcedUp;
-            boolean effectiveDown = (!controlLocked && down) || forcedDown;
-            boolean effectiveJump = (!controlLocked && jump) || forcedJump;
+    private void setKeyState(int keyCode, boolean pressed) {
+        inputHandler.handleKeyEvent(keyCode, pressed ? GLFW_PRESS : GLFW_RELEASE);
+    }
 
-            SpriteManager.tickPlayablePhysics(sprite,
-                    effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump,
-                    false, false, false, levelManager, frameCounter);
-        });
+    private void updateActiveTitleCardOverlay() {
+        TitleCardProvider titleCardProvider = GameServices.module().getTitleCardProvider();
+        if (titleCardProvider != null && titleCardProvider.isOverlayActive()) {
+            titleCardProvider.update();
+        }
+    }
+
+    private boolean applyPendingSeamlessTransition() {
+        SeamlessLevelTransitionRequest seamlessRequest = levelManager.consumeSeamlessTransitionRequest();
+        if (seamlessRequest == null) {
+            return false;
+        }
+        levelManager.applySeamlessTransition(seamlessRequest);
+        startPendingInLevelTitleCardIfRequested();
+        return true;
+    }
+
+    private void startPendingInLevelTitleCardIfRequested() {
+        if (!levelManager.consumeInLevelTitleCardRequest()) {
+            return;
+        }
+        TitleCardProvider titleCardProvider = GameServices.module().getTitleCardProvider();
+        if (titleCardProvider != null) {
+            titleCardProvider.initializeInLevel(
+                    levelManager.getInLevelTitleCardZone(),
+                    levelManager.getInLevelTitleCardAct());
+        }
     }
 
     /**
@@ -181,11 +211,11 @@ public class HeadlessTestRunner {
             mask |= AbstractPlayableSprite.INPUT_JUMP;
         }
 
-        boolean up    = (mask & AbstractPlayableSprite.INPUT_UP) != 0;
-        boolean down  = (mask & AbstractPlayableSprite.INPUT_DOWN) != 0;
-        boolean left  = (mask & AbstractPlayableSprite.INPUT_LEFT) != 0;
+        boolean up = (mask & AbstractPlayableSprite.INPUT_UP) != 0;
+        boolean down = (mask & AbstractPlayableSprite.INPUT_DOWN) != 0;
+        boolean left = (mask & AbstractPlayableSprite.INPUT_LEFT) != 0;
         boolean right = (mask & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        boolean jump  = (mask & AbstractPlayableSprite.INPUT_JUMP) != 0;
+        boolean jump = (mask & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
         stepFrame(up, down, left, right, jump);
         currentBk2Index++;
@@ -217,7 +247,7 @@ public class HeadlessTestRunner {
             mask |= AbstractPlayableSprite.INPUT_JUMP;
         }
 
-        // Advance BK2 index without calling stepFrame() — no physics processed.
+        // Advance BK2 index without calling stepFrame() - no physics processed.
         currentBk2Index++;
 
         // ROM parity: v_vbla_byte increments in the VBlank handler even on lag
@@ -237,6 +267,27 @@ public class HeadlessTestRunner {
         if (bk2Movie == null) return 0;
         return bk2Movie.getFrameCount() - currentBk2Index;
     }
+
+    /**
+     * Advances the BK2 cursor without mutating gameplay state.
+     * Used when replay logic elastically skips trace windows after the
+     * engine reaches the matching checkpoint earlier than the recorded run.
+     *
+     * @param frameCount number of BK2 frames to skip
+     */
+    public void advanceRecordingCursor(int frameCount) {
+        if (frameCount <= 0) {
+            return;
+        }
+        if (bk2Movie == null) {
+            throw new IllegalStateException("No BK2 movie loaded. Call setBk2Movie() first.");
+        }
+        int targetIndex = currentBk2Index + frameCount;
+        if (targetIndex > bk2Movie.getFrameCount()) {
+            throw new IllegalStateException(
+                    "BK2 movie exhausted while advancing cursor to index " + targetIndex
+                            + " (movie has " + bk2Movie.getFrameCount() + " frames)");
+        }
+        currentBk2Index = targetIndex;
+    }
 }
-
-

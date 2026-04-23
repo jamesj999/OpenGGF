@@ -109,6 +109,65 @@ public class TestTraceBinder {
             (byte) 0, false, false, 0);
         assertFalse(binder.validateInput(frame, 0x0004));
     }
+
+    @Test
+    void testSidekickStateMismatchIsReported() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            new TraceCharacterState(true,
+                (short) 0x0040, (short) 0x03A0,
+                (short) 0x0010, (short) 0x0000, (short) 0x0010,
+                (byte) 0x00, false, false, 0,
+                0, 0, 0x02, 0x00, 0x00));
+
+        TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, null,
+            new TraceCharacterState(true,
+                (short) 0x0142, (short) 0x03A0,
+                (short) 0x0010, (short) 0x0000, (short) 0x0010,
+                (byte) 0x00, false, false, 0,
+                0, 0, 0x02, 0x00, 0x00));
+
+        assertTrue(result.hasError());
+        assertEquals(Severity.ERROR, result.fields().get("sidekick_x").severity());
+    }
+
+    @Test
+    void testNamedCharacterLabelIsUsedForSecondaryComparisons() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            new TraceCharacterState(true,
+                (short) 0x0040, (short) 0x03A0,
+                (short) 0x0010, (short) 0x0000, (short) 0x0010,
+                (byte) 0x00, false, false, 0,
+                0, 0, 0x02, 0x00, 0x00));
+
+        TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, null, "tails",
+            new TraceCharacterState(true,
+                (short) 0x0142, (short) 0x03A0,
+                (short) 0x0010, (short) 0x0000, (short) 0x0010,
+                (byte) 0x00, false, false, 0,
+                0, 0, 0x02, 0x00, 0x00));
+
+        assertTrue(result.hasError());
+        assertTrue(result.fields().containsKey("tails_x"));
+        assertEquals(Severity.ERROR, result.fields().get("tails_x").severity());
+    }
 }
 
 

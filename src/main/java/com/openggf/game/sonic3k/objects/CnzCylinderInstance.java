@@ -351,6 +351,11 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         slot.horizontalDistance = Math.min(0xFF, Math.abs(player.getCentreX() - centerX));
         slot.priorityThresholdSource = getPriorityThresholdSource();
 
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null) {
+            svc.objectManager().clearRidingObject(player);
+        }
+
         player.setObjectControlled(true);
         player.setControlLocked(true);
         player.setObjectMappingFrameControl(true);

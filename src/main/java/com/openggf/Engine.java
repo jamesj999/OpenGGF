@@ -30,14 +30,9 @@ import com.openggf.level.MutableLevel;
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.game.session.EditorModeContext;
 import com.openggf.game.session.EditorPlaytestStash;
+import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.KnucklesRespawnStrategy;
-import com.openggf.sprites.playable.Knuckles;
-import com.openggf.sprites.playable.Sonic;
-import com.openggf.sprites.playable.SonicRespawnStrategy;
-import com.openggf.sprites.playable.Tails;
-import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
@@ -59,7 +54,6 @@ import java.io.IOException;
 import java.nio.IntBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -516,10 +510,9 @@ public class Engine {
 			initializeGlobalGameplayServices();
 		}
 
-		AbstractPlayableSprite mainSprite = createMainPlayableSprite();
-		spriteManager.addSprite(mainSprite);
-		addConfiguredSidekicks(module, mainSprite);
-		camera.setFocusedSprite(mainSprite);
+		GameplayTeamBootstrap.BootstrappedTeam team = GameplayTeamBootstrap.registerActiveTeam(
+				module, spriteManager, configService);
+		camera.setFocusedSprite(team.mainSprite());
 		camera.updatePosition(true);
 	}
 
@@ -576,81 +569,6 @@ public class Engine {
 			Thread.onSpinWait();
 		}
 		graphicsManager.runPendingRenderThreadTasks();
-	}
-
-	private String resolveLaunchMainCharacter() {
-		var worldSession = SessionManager.getCurrentWorldSession();
-		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
-				&& worldSession != null
-				&& worldSession.getSaveSessionContext() != null
-				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
-			return worldSession.getSaveSessionContext().selectedTeam().mainCharacter();
-		}
-		return configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-	}
-
-	private List<String> resolveLaunchSidekicks() {
-		var worldSession = SessionManager.getCurrentWorldSession();
-		if (gameLoop.getCurrentGameMode() != GameMode.LEVEL_SELECT
-				&& worldSession != null
-				&& worldSession.getSaveSessionContext() != null
-				&& worldSession.getSaveSessionContext().selectedTeam() != null) {
-			return worldSession.getSaveSessionContext().selectedTeam().sidekicks();
-		}
-		return parseSidekickConfig(configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
-	}
-
-	private AbstractPlayableSprite createMainPlayableSprite() {
-		String mainCode = resolveLaunchMainCharacter();
-		if ("tails".equalsIgnoreCase(mainCode)) {
-			return new Tails(mainCode, (short) 100, (short) 624);
-		}
-		if ("knuckles".equalsIgnoreCase(mainCode)) {
-			return new Knuckles(mainCode, (short) 100, (short) 624);
-		}
-		return new Sonic(mainCode, (short) 100, (short) 624);
-	}
-
-	private void addConfiguredSidekicks(GameModule module, AbstractPlayableSprite mainSprite) {
-		List<String> sidekickNames = resolveLaunchSidekicks();
-		boolean sidekickAllowed = module.supportsSidekick() || CrossGameFeatureProvider.isActive();
-		if (!sidekickAllowed) {
-			return;
-		}
-
-		AbstractPlayableSprite previousLeader = mainSprite;
-		int cameraLeftBound = 0;
-		for (int i = 0; i < sidekickNames.size(); i++) {
-			String charName = sidekickNames.get(i);
-			String code = charName + "_p" + (i + 2);
-			int spawnX = Math.max(cameraLeftBound, mainSprite.getX() - 0x20 * (i + 1));
-			boolean offScreen = (mainSprite.getX() - 0x20 * (i + 1)) < cameraLeftBound;
-
-			AbstractPlayableSprite sidekick;
-			if ("tails".equalsIgnoreCase(charName)) {
-				sidekick = new Tails(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-			} else if ("knuckles".equalsIgnoreCase(charName)) {
-				sidekick = new Knuckles(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-			} else {
-				sidekick = new Sonic(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-			}
-			sidekick.setCpuControlled(true);
-			SidekickCpuController controller = new SidekickCpuController(sidekick, previousLeader);
-			controller.setSidekickCount(sidekickNames.size());
-			if (offScreen) {
-				controller.setInitialState(SidekickCpuController.State.SPAWNING);
-			}
-			sidekick.setCpuController(controller);
-
-			if ("knuckles".equalsIgnoreCase(charName)) {
-				controller.setRespawnStrategy(new KnucklesRespawnStrategy(controller));
-			} else if (!"tails".equalsIgnoreCase(charName)) {
-				controller.setRespawnStrategy(new SonicRespawnStrategy(controller));
-			}
-
-			spriteManager.addSprite(sidekick, charName);
-			previousLeader = sidekick;
-		}
 	}
 
 	private void enterConfiguredStartupMode() {
@@ -1676,12 +1594,6 @@ public class Engine {
 	 * character names. Returns an empty list for null, empty, or blank input.
 	 */
 	public static List<String> parseSidekickConfig(String value) {
-		if (value == null || value.isBlank()) {
-			return List.of();
-		}
-		return Arrays.stream(value.split(","))
-			.map(String::trim)
-			.filter(s -> !s.isEmpty())
-			.toList();
+		return ActiveGameplayTeamResolver.parseConfiguredSidekicks(value);
 	}
 }

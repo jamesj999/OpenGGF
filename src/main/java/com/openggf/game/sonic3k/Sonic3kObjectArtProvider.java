@@ -1233,7 +1233,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     }
 
     /**
-     * Loads CNZ miniboss art via PLC 0x5C, matching the
+     * Loads CNZ miniboss art via PLC 0x5D (corrected from prior 0x5C in
+     * workstream D), matching the
      * {@code PLC_5C_5D -> ArtTile_CNZMiniboss / ArtNem_CNZMiniboss} path.
      *
      * <p>Entry 0 is the dedicated miniboss body art and entry 1 is the shared

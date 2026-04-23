@@ -6,6 +6,14 @@ public interface SlopedSolidProvider extends SolidObjectProvider {
     boolean isSlopeFlipped();
 
     /**
+     * Whether grounded players may treat the slope catch window as standing before the
+     * generic side-vs-top classifier would otherwise push them away.
+     */
+    default boolean usesGroundedStandingCatchWindow() {
+        return false;
+    }
+
+    /**
      * Returns the baseline value to subtract from slope samples.
      * Default implementation returns slopeData[0] (existing behavior for most objects).
      * Override to return 0 for objects like Seesaw where the ROM uses absolute slope values.

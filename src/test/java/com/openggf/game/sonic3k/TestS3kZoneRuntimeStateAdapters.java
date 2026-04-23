@@ -1,17 +1,34 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.CnzZoneRuntimeState;
 import com.openggf.game.sonic3k.runtime.HczZoneRuntimeState;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.tests.TestEnvironment;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestS3kZoneRuntimeStateAdapters {
+
+    @BeforeEach
+    void setUp() {
+        TestEnvironment.configureGameModuleFixture(SonicGame.SONIC_3K);
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+    }
 
     @Test
     void aizAdapterMirrorsNamedStateFromExistingEvents() {

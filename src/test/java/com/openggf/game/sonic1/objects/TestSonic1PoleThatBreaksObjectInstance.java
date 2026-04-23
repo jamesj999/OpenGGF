@@ -96,6 +96,40 @@ public class TestSonic1PoleThatBreaksObjectInstance {
     }
 
     @Test
+    public void forcedJumpPressReleasesPole() throws Exception {
+        Sonic1PoleThatBreaksObjectInstance pole = createPole(200, 320, 0);
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 240);
+        player.setCentreY((short) 320);
+
+        pole.onTouchResponse(player, TOUCH_RESULT, 1);
+        pole.update(1, player); // grab
+        player.setForcedJumpPress(true);
+        pole.update(2, player); // demo-style edge-trigger release
+        player.endOfTick();
+
+        assertFalse(player.isObjectControlled());
+        assertEquals(0, pole.getCollisionFlags());
+        assertEquals(1, getPrivateInt(pole, "mappingFrame"));
+    }
+
+    @Test
+    public void jumpReleaseDoesNotSuppressNextPlayableFrameJumpEdge() {
+        Sonic1PoleThatBreaksObjectInstance pole = createPole(200, 320, 0);
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 240);
+        player.setCentreY((short) 320);
+
+        pole.onTouchResponse(player, TOUCH_RESULT, 1);
+        pole.update(1, player); // grab
+        player.setJumpInputPressed(true);
+        pole.update(2, player); // release
+
+        assertFalse(player.consumeSuppressNextJumpPress(),
+                "Pole release happens after Sonic's routine, so the next playable frame must still see the jump edge");
+    }
+
+    @Test
     public void forcedInputMaskMovesPlayerOnPole() {
         // Simulates demo playback: no keyboard input, only forcedInputMask (demo data).
         // Before the fix, isUpPressed()/isDownPressed() only checked raw keyboard state,

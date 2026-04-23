@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import java.util.Objects;
+
 /**
  * One frame of primary trace data from a BizHawk recording.
  * All values match the physics.csv format: positions and speeds are
@@ -9,8 +11,11 @@ package com.openggf.tests.trace;
  * and v3 (22 columns) CSV formats. v2 adds diagnostic fields: x_sub, y_sub, routine,
  * camera_x, camera_y, rings, status_byte. v2.1 adds gameplay_frame_counter (ROM's
  * Level_MainLoop counter). v2.2 adds stand_on_obj (SST slot index of object Sonic is
- * riding on). v3 adds vblank_counter and lag_counter. These are not compared by
- * {@link TraceBinder} but appear in divergence report context windows for debugging.
+ * riding on). v3 adds vblank_counter and lag_counter. v5 appends optional first-sidekick
+ * state. v6 stores explicit named character blocks for both Sonic and Tails while
+ * retaining the same in-memory primary/sidekick representation. Diagnostic fields are
+ * not compared by {@link TraceBinder} but appear in divergence report context windows
+ * for debugging.
  */
 public record TraceFrame(
     int frame,
@@ -38,8 +43,39 @@ public record TraceFrame(
     int standOnObj,
     // v3: ROM VBlank counter and lag-frame counter
     int vblankCounter,
-    int lagCounter
+    int lagCounter,
+    // v5: optional first-sidekick state (for Sonic 2 this is Tails)
+    TraceCharacterState sidekick
 ) {
+
+    public TraceFrame(
+        int frame,
+        int input,
+        short x,
+        short y,
+        short xSpeed,
+        short ySpeed,
+        short gSpeed,
+        byte angle,
+        boolean air,
+        boolean rolling,
+        int groundMode,
+        int xSub,
+        int ySub,
+        int routine,
+        int cameraX,
+        int cameraY,
+        int rings,
+        int statusByte,
+        int gameplayFrameCounter,
+        int standOnObj,
+        int vblankCounter,
+        int lagCounter
+    ) {
+        this(frame, input, x, y, xSpeed, ySpeed, gSpeed, angle, air, rolling, groundMode,
+            xSub, ySub, routine, cameraX, cameraY, rings, statusByte, gameplayFrameCounter,
+            standOnObj, vblankCounter, lagCounter, null);
+    }
 
     /**
      * Convenience factory for tests: creates a TraceFrame with only the core 11 fields,
@@ -49,7 +85,7 @@ public record TraceFrame(
             short x, short y, short xSpeed, short ySpeed, short gSpeed,
             byte angle, boolean air, boolean rolling, int groundMode) {
         return new TraceFrame(frame, input, x, y, xSpeed, ySpeed, gSpeed, angle,
-            air, rolling, groundMode, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1);
+            air, rolling, groundMode, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, null);
     }
 
     /**
@@ -59,7 +95,7 @@ public record TraceFrame(
             int frame, int vblankCounter, int gameplayFrameCounter, int lagCounter) {
         return new TraceFrame(frame, 0, (short) 0, (short) 0, (short) 0, (short) 0, (short) 0,
             (byte) 0, false, false, 0, 0, 0, -1, -1, -1, -1, -1,
-            gameplayFrameCounter, -1, vblankCounter, lagCounter);
+            gameplayFrameCounter, -1, vblankCounter, lagCounter, null);
     }
 
     /** v1 column count (original format). */
@@ -77,15 +113,29 @@ public record TraceFrame(
     /** v3 column count (v2.2 + vblank_counter + lag_counter). */
     private static final int V3_COLUMNS = 22;
 
+    /** v5 column count (v3 + first-sidekick state block). */
+    private static final int V5_COLUMNS = 37;
+
+    /** v6 column count (shared counters + explicit Sonic/Tails state blocks). */
+    private static final int V6_COLUMNS = 38;
+
     /**
      * Parse a single CSV row (all values in hex).
-     * Accepts v1 (11), v2 (18), v2.1 (19), v2.2 (20), and v3 (22) column formats.
+     * Accepts v1 (11), v2 (18), v2.1 (19), v2.2 (20), v3/v4 (22), v5 (37),
+     * and v6 (38) column formats.
      *
      * <p>v1: frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode
      * <p>v2: ...same 11...,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte
      * <p>v2.1: ...same 18...,gameplay_frame_counter
      * <p>v2.2: ...same 19...,stand_on_obj
-     * <p>v3: ...same 20...,vblank_counter,lag_counter
+     * <p>v3/v4: ...same 20...,vblank_counter,lag_counter
+     * <p>v5: ...same 22...,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,
+     * sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,
+     * sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,
+     * sidekick_status_byte,sidekick_stand_on_obj
+     * <p>v6: frame,input,camera_x,camera_y,rings,gameplay_frame_counter,vblank_counter,
+     * lag_counter,sonic_present,sonic_x,...,sonic_stand_on_obj,tails_present,tails_x,...,
+     * tails_stand_on_obj
      */
     public static TraceFrame parseCsvRow(String line) {
         return parseCsvRow(line, null);
@@ -98,11 +148,22 @@ public record TraceFrame(
         String[] parts = line.split(",", -1);
         if (parts.length != V1_COLUMNS && parts.length != V2_COLUMNS
                 && parts.length != V21_COLUMNS && parts.length != V22_COLUMNS
-                && parts.length != V3_COLUMNS) {
+                && parts.length != V3_COLUMNS && parts.length != V5_COLUMNS
+                && parts.length != V6_COLUMNS) {
             throw new IllegalArgumentException(
                 "Expected " + V1_COLUMNS + ", " + V2_COLUMNS + ", " + V21_COLUMNS
-                + ", " + V22_COLUMNS + ", or " + V3_COLUMNS
+                + ", " + V22_COLUMNS + ", " + V3_COLUMNS + ", " + V5_COLUMNS
+                + ", or " + V6_COLUMNS
                 + " CSV columns, got " + parts.length + ": " + line);
+        }
+
+        if ((traceSchema != null && traceSchema >= 6) || parts.length >= V6_COLUMNS) {
+            if (parts.length < V6_COLUMNS) {
+                throw new IllegalArgumentException(
+                    "Schema v6 requires " + V6_COLUMNS + " CSV columns, got " + parts.length
+                        + ": " + line);
+            }
+            return parseV6Row(parts);
         }
 
         int frame = Integer.parseInt(parts[0].trim(), 16);
@@ -128,6 +189,7 @@ public record TraceFrame(
         int standOnObj = -1;
         int vblankCounter = -1;
         int lagCounter = -1;
+        TraceCharacterState sidekick = null;
         if (parts.length >= V2_COLUMNS) {
             xSub = Integer.parseInt(parts[11].trim(), 16);
             ySub = Integer.parseInt(parts[12].trim(), 16);
@@ -152,10 +214,40 @@ public record TraceFrame(
             vblankCounter = Integer.parseInt(parts[20].trim(), 16);
             lagCounter = Integer.parseInt(parts[21].trim(), 16);
         }
+        if ((traceSchema != null && traceSchema >= 5) || parts.length >= V5_COLUMNS) {
+            if (parts.length < V5_COLUMNS) {
+                throw new IllegalArgumentException(
+                    "Schema v5 requires " + V5_COLUMNS + " CSV columns, got " + parts.length
+                        + ": " + line);
+            }
+            sidekick = TraceCharacterState.parseCsvColumns(parts, V3_COLUMNS);
+        }
 
         return new TraceFrame(frame, input, x, y, xSpeed, ySpeed, gSpeed, angle,
             air, rolling, groundMode, xSub, ySub, routine, cameraX, cameraY,
-            rings, statusByte, gameplayFrameCounter, standOnObj, vblankCounter, lagCounter);
+            rings, statusByte, gameplayFrameCounter, standOnObj, vblankCounter, lagCounter,
+            sidekick);
+    }
+
+    private static TraceFrame parseV6Row(String[] parts) {
+        int frame = Integer.parseInt(parts[0].trim(), 16);
+        int input = Integer.parseInt(parts[1].trim(), 16);
+        int cameraX = Integer.parseInt(parts[2].trim(), 16);
+        int cameraY = Integer.parseInt(parts[3].trim(), 16);
+        int rings = Integer.parseInt(parts[4].trim(), 16);
+        int gameplayFrameCounter = Integer.parseInt(parts[5].trim(), 16);
+        int vblankCounter = Integer.parseInt(parts[6].trim(), 16);
+        int lagCounter = Integer.parseInt(parts[7].trim(), 16);
+
+        TraceCharacterState sonic = TraceCharacterState.parseCsvColumns(parts, 8);
+        TraceCharacterState tails = TraceCharacterState.parseCsvColumns(parts, 23);
+
+        return new TraceFrame(frame, input,
+            sonic.x(), sonic.y(), sonic.xSpeed(), sonic.ySpeed(), sonic.gSpeed(), sonic.angle(),
+            sonic.air(), sonic.rolling(), sonic.groundMode(),
+            sonic.xSub(), sonic.ySub(), sonic.routine(),
+            cameraX, cameraY, rings, sonic.statusByte(),
+            gameplayFrameCounter, sonic.standOnObj(), vblankCounter, lagCounter, tails);
     }
 
     /** Whether this frame has v2 diagnostic data. */
@@ -173,7 +265,18 @@ public record TraceFrame(
             && this.xSpeed == other.xSpeed && this.ySpeed == other.ySpeed
             && this.gSpeed == other.gSpeed && this.angle == other.angle
             && this.air == other.air && this.rolling == other.rolling
-            && this.groundMode == other.groundMode;
+            && this.groundMode == other.groundMode
+            && Objects.equals(this.sidekick, other.sidekick);
+    }
+
+    /**
+     * Returns the primary playable character state carried by the core CSV columns.
+     * For Sonic 2 traces this is Sonic.
+     */
+    public TraceCharacterState primaryCharacterState() {
+        return new TraceCharacterState(true,
+            x, y, xSpeed, ySpeed, gSpeed, angle, air, rolling, groundMode,
+            xSub, ySub, routine, statusByte, standOnObj);
     }
 
     /**
@@ -195,6 +298,9 @@ public record TraceFrame(
         }
         if (lagCounter >= 0) {
             base += String.format(" lag=%04X", lagCounter);
+        }
+        if (sidekick != null) {
+            base += " " + sidekick.formatDiagnostics("sidekick");
         }
         return base;
     }

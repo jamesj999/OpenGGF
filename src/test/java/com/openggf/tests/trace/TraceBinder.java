@@ -47,7 +47,7 @@ public class TraceBinder {
             EngineDiagnostics engineDiag) {
         return compareFrame(expected, actualX, actualY, actualXSpeed, actualYSpeed,
             actualGSpeed, actualAngle, actualAir, actualRolling, actualGroundMode,
-            null, engineDiag);
+            null, engineDiag, null);
     }
 
     public FrameComparison compareFrame(
@@ -58,6 +58,35 @@ public class TraceBinder {
             int actualGroundMode,
             String romDiagOverride,
             EngineDiagnostics engineDiag) {
+        return compareFrame(expected, actualX, actualY, actualXSpeed, actualYSpeed,
+            actualGSpeed, actualAngle, actualAir, actualRolling, actualGroundMode,
+            romDiagOverride, engineDiag, null);
+    }
+
+    public FrameComparison compareFrame(
+            TraceFrame expected,
+            short actualX, short actualY,
+            short actualXSpeed, short actualYSpeed, short actualGSpeed,
+            byte actualAngle, boolean actualAir, boolean actualRolling,
+            int actualGroundMode,
+            String romDiagOverride,
+            EngineDiagnostics engineDiag,
+            TraceCharacterState actualSidekick) {
+        return compareFrame(expected, actualX, actualY, actualXSpeed, actualYSpeed,
+            actualGSpeed, actualAngle, actualAir, actualRolling, actualGroundMode,
+            romDiagOverride, engineDiag, "sidekick", actualSidekick);
+    }
+
+    public FrameComparison compareFrame(
+            TraceFrame expected,
+            short actualX, short actualY,
+            short actualXSpeed, short actualYSpeed, short actualGSpeed,
+            byte actualAngle, boolean actualAir, boolean actualRolling,
+            int actualGroundMode,
+            String romDiagOverride,
+            EngineDiagnostics engineDiag,
+            String secondaryCharacterLabel,
+            TraceCharacterState actualSidekick) {
 
         Map<String, FieldComparison> fields = new LinkedHashMap<>();
 
@@ -93,6 +122,10 @@ public class TraceBinder {
         fields.put("ground_mode", compareEnum("ground_mode",
             expectedGroundMode, derivedActualGroundMode));
 
+        appendCharacterComparisons(fields,
+            normalizeCharacterPrefix(secondaryCharacterLabel),
+            expected.sidekick(), actualSidekick);
+
         // Store diagnostic context (ROM trace + engine side) for the context window.
         // These are NOT compared for pass/fail — they're for human debugging only.
         String romDiag = romDiagOverride != null
@@ -110,6 +143,14 @@ public class TraceBinder {
      */
     public DivergenceReport buildReport() {
         return new DivergenceReport(allComparisons);
+    }
+
+    /**
+     * Build a divergence report from all comparisons accumulated so far,
+     * enriched with trace-side checkpoint and zone/act context.
+     */
+    public DivergenceReport buildReport(TraceData trace) {
+        return new DivergenceReport(allComparisons, trace);
     }
 
     /**
@@ -180,6 +221,62 @@ public class TraceBinder {
         if (angle <= 0x5F) return 1;                     // right wall
         if (angle <= 0x9F) return 2;                     // ceiling
         return 3;                                         // left wall
+    }
+
+    private void appendCharacterComparisons(Map<String, FieldComparison> fields, String prefix,
+            TraceCharacterState expected, TraceCharacterState actual) {
+        if (expected == null && actual == null) {
+            return;
+        }
+        boolean expectedPresent = expected != null && expected.present();
+        boolean actualPresent = actual != null && actual.present();
+        fields.put(prefix + "present",
+            compareFlag(prefix + "present", expectedPresent, actualPresent));
+        if (!expectedPresent || !actualPresent) {
+            return;
+        }
+
+        fields.put(prefix + "x", compareNumeric(prefix + "x", expected.x(), actual.x(),
+            tolerances.positionWarn(), tolerances.positionError(), false));
+        fields.put(prefix + "y", compareNumeric(prefix + "y", expected.y(), actual.y(),
+            tolerances.positionWarn(), tolerances.positionError(), false));
+        fields.put(prefix + "x_speed",
+            compareNumeric(prefix + "x_speed", expected.xSpeed(), actual.xSpeed(),
+                tolerances.speedWarn(), tolerances.speedError(),
+                tolerances.speedSignChangeIsError()));
+        fields.put(prefix + "y_speed",
+            compareNumeric(prefix + "y_speed", expected.ySpeed(), actual.ySpeed(),
+                tolerances.speedWarn(), tolerances.speedError(),
+                tolerances.speedSignChangeIsError()));
+        fields.put(prefix + "g_speed",
+            compareNumeric(prefix + "g_speed", expected.gSpeed(), actual.gSpeed(),
+                tolerances.speedWarn(), tolerances.speedError(),
+                tolerances.speedSignChangeIsError()));
+        fields.put(prefix + "angle", compareAngle(prefix + "angle",
+            expected.angle() & 0xFF, actual.angle() & 0xFF,
+            tolerances.angleWarn(), tolerances.angleError()));
+        fields.put(prefix + "air", compareFlag(prefix + "air", expected.air(), actual.air()));
+        fields.put(prefix + "rolling",
+            compareFlag(prefix + "rolling", expected.rolling(), actual.rolling()));
+        fields.put(prefix + "ground_mode", compareEnum(prefix + "ground_mode",
+            deriveGroundMode(expected.angle() & 0xFF),
+            deriveGroundMode(actual.angle() & 0xFF)));
+    }
+
+    private static String normalizeCharacterPrefix(String label) {
+        if (label == null || label.isBlank()) {
+            return "sidekick_";
+        }
+        StringBuilder normalized = new StringBuilder();
+        for (int i = 0; i < label.length(); i++) {
+            char ch = Character.toLowerCase(label.charAt(i));
+            normalized.append(Character.isLetterOrDigit(ch) ? ch : '_');
+        }
+        if (normalized.isEmpty()) {
+            return "sidekick_";
+        }
+        normalized.append('_');
+        return normalized.toString();
     }
 
     private static String formatHex(int value) {

@@ -8,6 +8,7 @@ import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.ObjectFactory;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectSlotLayout;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.game.sonic2.objects.badniks.AsteronBadnikInstance;
 import com.openggf.game.sonic2.objects.badniks.AquisBadnikInstance;
@@ -99,6 +100,11 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
             return List.of();
         }
         return Collections.unmodifiableList(names);
+    }
+
+    @Override
+    public ObjectSlotLayout objectSlotLayout() {
+        return ObjectSlotLayout.SONIC_2;
     }
 
     @Override

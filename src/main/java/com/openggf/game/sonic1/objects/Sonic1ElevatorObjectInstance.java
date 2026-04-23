@@ -1,7 +1,9 @@
 package com.openggf.game.sonic1.objects;
+
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -10,6 +12,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
@@ -61,6 +64,8 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     // Platform surface height (thin platform for solid contact)
     private static final int HALF_HEIGHT = 0x08;
+    // MvSonicOnPtfm2 uses a 9px standing snap for continued riding.
+    private static final int GROUND_HALF_HEIGHT = 0x09;
 
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
@@ -218,19 +223,28 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Routine 2 (Elev_Platform): just runs PlatformObject check via SolidObjectProvider.
-        // Standing detection is automatic via ObjectManager.
-        // When player stands, ObjectManager sets routine to 4.
-
         if (routine == 4) {
-            // Routine 4 (Elev_Action): execute movement types
+            // ROM Elev_Action runs ExitPlatform, then movement, then MvSonicOnPtfm2.
+            // Resolve the solid contact after movement so the riding player is
+            // snapped to the platform's moved position in the same frame.
             executeActionTypes(player);
+            updateDynamicSpawn(x, y);
+            checkpointAll();
         } else if (routine == 2) {
-            // Routine 2 (Elev_Platform): runs Elev_Types for movement
-            executeWaitingTypes(player);
+            // Routine 2 (Elev_Platform): PlatformObject runs before Elev_Types.
+            // Manual checkpoints do not invoke the legacy onSolidContact callback, so
+            // advance into routine 4 directly from the standing result before type dispatch.
+            SolidCheckpointBatch batch = checkpointAll();
+            if (hasStandingContact(batch)) {
+                routine = 4;
+            }
+            if (routine == 4) {
+                executeActionTypes(player);
+            } else {
+                executeWaitingTypes(player);
+            }
+            updateDynamicSpawn(x, y);
         }
-
-        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -453,7 +467,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        return new SolidObjectParams(halfWidth, HALF_HEIGHT, HALF_HEIGHT);
+        return new SolidObjectParams(halfWidth, HALF_HEIGHT, GROUND_HALF_HEIGHT);
     }
 
     @Override
@@ -462,9 +476,22 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean usesCollisionHalfWidthForTopLanding() {
+        // ROM: Elev_Platform / Elev_Action load d1 directly from obActWid before
+        // calling PlatformObject / ExitPlatform, so the collision half-width is
+        // already the correct Solid_Landed standing width.
+        return true;
+    }
+
+    @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed() && !isSpawner;
+    }
+
+    @Override
+    public SolidExecutionMode solidExecutionMode() {
+        return SolidExecutionMode.MANUAL_CHECKPOINT;
     }
 
     @Override

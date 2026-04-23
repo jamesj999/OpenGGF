@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.tests.TestablePlayableSprite;
+import com.openggf.tests.TestEnvironment;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,13 +18,14 @@ public class TestHybridPhysicsFeatureSet {
 
     @BeforeEach
     public void setUp() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        TestEnvironment.configureGameModuleFixture(new Sonic1GameModule());
         CrossGameFeatureProvider.getInstance().resetState();
     }
 
     @AfterEach
     public void tearDown() {
         CrossGameFeatureProvider.getInstance().resetState();
+        RuntimeManager.destroyCurrent();
         GameModuleRegistry.reset();
     }
 
@@ -53,6 +55,9 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // groundWallCollisionEnabled - S1
                 false,  // airSuperspeedPreserved - S1
                 false,  // slopeRepelChecksOnObject - S1
+                true,   // topSolidLandingAllowsZeroDist - S1
+                false,  // airBottomSolidHitClearsGroundSpeed - S1
+                true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
                 true    // stageRingsUseObjectTouchCollection - S1
         );
@@ -72,6 +77,10 @@ public class TestHybridPhysicsFeatureSet {
         assertFalse(expected.elementalShieldsEnabled(), "elementalShieldsEnabled should be false (S1)");
         assertFalse(expected.angleDiffCardinalSnap(), "angleDiffCardinalSnap should be false (S1)");
         assertFalse(expected.extendedEdgeBalance(), "extendedEdgeBalance should be false (S1)");
+        assertFalse(expected.airBottomSolidHitClearsGroundSpeed(),
+                "airBottomSolidHitClearsGroundSpeed should be false (S1)");
+        assertTrue(expected.fullSolidBottomOverlapUsesCurrentYRadiusOnly(),
+                "fullSolidBottomOverlapUsesCurrentYRadiusOnly should be true (S1)");
     }
 
     @Test
@@ -118,7 +127,6 @@ public class TestHybridPhysicsFeatureSet {
     @Test
     public void testS1SpriteGetsS1PhysicsWithoutCrossGame() {
         // Without cross-game features, S1 sprite should have S1 physics
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
 
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();

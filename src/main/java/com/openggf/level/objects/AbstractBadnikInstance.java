@@ -61,6 +61,33 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     }
 
     /**
+     * Hydrates common badnik state (position, velocity, animation cursor, facing)
+     * from a pre-trace SST snapshot. Subclasses override to add per-object fields
+     * (timers, sub-states) and MUST call {@code super.hydrateFromRomSnapshot(snapshot)}.
+     *
+     * <p>Source offsets (Sonic 2 SST, universal header):
+     * <ul>
+     *   <li>{@code $08/$0C} — x_pos / y_pos (word)</li>
+     *   <li>{@code $10/$12} — x_vel / y_vel (signed word, subpixel/frame)</li>
+     *   <li>{@code $1A} — mapping_frame (byte)</li>
+     *   <li>{@code $1E} — anim_frame_timer (byte)</li>
+     *   <li>{@code $22} — status; bit 0 = X-flip (facing left)</li>
+     * </ul>
+     */
+    @Override
+    public void hydrateFromRomSnapshot(RomObjectSnapshot snapshot) {
+        super.hydrateFromRomSnapshot(snapshot);
+        this.currentX = snapshot.xPos();
+        this.currentY = snapshot.yPos();
+        this.xVelocity = snapshot.xVel();
+        this.yVelocity = snapshot.yVel();
+        this.animFrame = snapshot.mappingFrame() & 0xFF;
+        this.animTimer = snapshot.animFrameTimer() & 0xFF;
+        this.facingLeft = (snapshot.status() & 0x01) != 0;
+        updateDynamicSpawn(currentX, currentY);
+    }
+
+    /**
      * Subclasses implement their specific movement and AI logic.
      */
     protected abstract void updateMovement(int frameCounter, PlayableEntity player);

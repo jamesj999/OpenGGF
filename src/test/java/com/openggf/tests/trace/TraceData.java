@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.Set;
 import java.util.HashMap;
@@ -58,6 +59,14 @@ public class TraceData {
     public int frameCount() { return frames.size(); }
 
     /**
+     * Returns the playable character names recorded in this trace, in order.
+     * The current replay pipeline supports the primary character plus at most one sidekick.
+     */
+    public List<String> recordedCharacters() {
+        return metadata.recordedCharacters();
+    }
+
+    /**
      * Returns the ROM VBlank counter value that corresponds to trace frame 0.
      *
      * <p>Schema v3 traces record the real ROM VBlank counter per frame. Older
@@ -83,6 +92,28 @@ public class TraceData {
         return frames.get(traceFrame);
     }
 
+    /**
+     * Returns the recorded state for a named playable character on the given frame.
+     * The current replay pipeline exposes the primary character plus the first sidekick.
+     */
+    public TraceCharacterState characterState(int traceFrame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+
+        TraceFrame frame = getFrame(traceFrame);
+        List<String> recordedCharacters = metadata.recordedCharacters();
+        if (!recordedCharacters.isEmpty()
+                && recordedCharacters.getFirst().equalsIgnoreCase(characterCode)) {
+            return frame.primaryCharacterState();
+        }
+        if (recordedCharacters.size() > 1
+                && recordedCharacters.get(1).equalsIgnoreCase(characterCode)) {
+            return frame.sidekick();
+        }
+        return null;
+    }
+
     public List<TraceEvent> getEventsForFrame(int traceFrame) {
         return eventsByFrame.getOrDefault(traceFrame, Collections.emptyList());
     }
@@ -93,6 +124,81 @@ public class TraceData {
             result.addAll(getEventsForFrame(f));
         }
         return result;
+    }
+
+    public TraceEvent.Checkpoint latestCheckpointAtOrBefore(int frame) {
+        List<Integer> frames = new ArrayList<>(eventsByFrame.keySet());
+        frames.sort(Comparator.reverseOrder());
+        for (int candidateFrame : frames) {
+            if (candidateFrame > frame) {
+                continue;
+            }
+            for (TraceEvent event : eventsByFrame.getOrDefault(candidateFrame, Collections.emptyList())) {
+                if (event instanceof TraceEvent.Checkpoint checkpoint) {
+                    return checkpoint;
+                }
+            }
+        }
+        return null;
+    }
+
+    public TraceEvent.ZoneActState latestZoneActStateAtOrBefore(int frame) {
+        List<Integer> frames = new ArrayList<>(eventsByFrame.keySet());
+        frames.sort(Comparator.reverseOrder());
+        for (int candidateFrame : frames) {
+            if (candidateFrame > frame) {
+                continue;
+            }
+            for (TraceEvent event : eventsByFrame.getOrDefault(candidateFrame, Collections.emptyList())) {
+                if (event instanceof TraceEvent.ZoneActState state) {
+                    return state;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the pre-trace ROM object snapshots emitted by the Lua recorder
+     * at the moment gameplay begins but before trace frame 0 is written.
+     *
+     * <p>Schema v4+ aux files include one {@code object_state_snapshot} event
+     * per occupied SST slot, stored at frame {@code -1}. Older schemas return
+     * an empty list.
+     */
+    public List<TraceEvent.ObjectStateSnapshot> preTraceObjectSnapshots() {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(-1, Collections.emptyList());
+        List<TraceEvent.ObjectStateSnapshot> snapshots = new ArrayList<>();
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.ObjectStateSnapshot snapshot) {
+                snapshots.add(snapshot);
+            }
+        }
+        return snapshots;
+    }
+
+    public TraceEvent.PlayerHistorySnapshot preTracePlayerHistorySnapshot() {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(-1, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.PlayerHistorySnapshot snapshot) {
+                return snapshot;
+            }
+        }
+        return null;
+    }
+
+    public TraceEvent.CpuStateSnapshot preTraceCpuStateSnapshot(String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(-1, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.CpuStateSnapshot snapshot
+                    && characterCode.equalsIgnoreCase(snapshot.character())) {
+                return snapshot;
+            }
+        }
+        return null;
     }
 
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)

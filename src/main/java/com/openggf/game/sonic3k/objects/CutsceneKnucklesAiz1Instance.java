@@ -82,6 +82,12 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /** Mapping frame set after landing. */
     private static final int LANDED_MAPPING_FRAME = 0x16;
 
+    /** ObjSlot_CutsceneKnux width_pixels used by Draw_Sprite render-flag culling. */
+    private static final int RENDER_FLAG_WIDTH = 0x1C;
+
+    /** ObjSlot_CutsceneKnux height_pixels used by Draw_Sprite render-flag culling. */
+    private static final int RENDER_FLAG_HEIGHT = 0x18;
+
     // -----------------------------------------------------------------------
     // Mutable state
     // -----------------------------------------------------------------------
@@ -125,6 +131,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     /** Whether Knuckles is visible (render_flags bit 7). */
     private boolean visible;
 
+    /** Previous-frame render_flags bit 7 state used by the exit handoff. */
+    private boolean exitRenderFlagOnScreen;
+
     /** Shared state object for SubpixelMotion calls. */
     private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
@@ -163,6 +172,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         this.paceReturnPhase = false;
         this.triggered = false;
         this.visible = false;
+        this.exitRenderFlagOnScreen = false;
     }
 
     // -----------------------------------------------------------------------
@@ -482,6 +492,10 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * - Set walk animation (byte_666A9)
      * - x_vel = -0x600 (walk left)
      * - timer = 0x29 (pace frames)
+     *
+     * ROM parity: Obj_Wait dispatches to loc_61E6A, which falls straight into
+     * loc_61E96 on the same frame. The first pace movement/timer tick therefore
+     * happens immediately when the stand timer expires.
      */
     private void routine6Stand() {
         waitTimer--;
@@ -495,6 +509,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_WALK_ADDR);
 
             routine = 8;
+            routine8Pace();
         }
     }
 
@@ -562,6 +577,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             // play AIZ1 music after 120 frames. Independent object survives Knuckles' destruction.
             spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
 
+            exitRenderFlagOnScreen = isVisibleForExitRenderFlag();
             routine = 12;
             LOG.fine("Routine 10: laugh complete, transitioning to exit");
         }
@@ -581,29 +597,24 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      * - Delete self
      */
     private void routine12Exit() {
+        if (!exitRenderFlagOnScreen) {
+            completeIntroExitHandoff();
+            return;
+        }
+
         tickAnimation();
 
         // MoveX: apply X velocity to position (no gravity, no Y movement).
         motionState.x = currentX; motionState.xSub = xSub; motionState.xVel = xVel;
         SubpixelMotion.moveX(motionState);
         currentX = motionState.x; xSub = motionState.xSub;
-
-        // Check if offscreen (render_flags bit 7 clear).
-        if (!isOnScreen()) {
-            LOG.fine("Routine 12: offscreen, cleaning up");
-
-            // Unlock player controls (ROM: player.object_control = 0)
-            unlockPlayerControls();
-
-            // ROM: Level_started_flag = 0x91 — re-enable camera tracking
-            // ROM does NOT change level boundaries here — intro bounds stay in effect
-            services().camera().setLevelStarted(true);
-            services().camera().updatePosition(true);
-
-            // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
-            services().titleCardProvider().initializeInLevel(0, 0);
-
-            setDestroyed(true);
+        exitRenderFlagOnScreen = isVisibleForExitRenderFlag();
+        if (!exitRenderFlagOnScreen) {
+            // The ROM uses render_flags bit 7 as the gate for the intro->gameplay handoff.
+            // In this port that flag is recomputed locally inside the object instead of by a
+            // later BuildSprites pass, so complete the handoff as soon as the post-move state
+            // flips offscreen rather than waiting an extra update frame.
+            completeIntroExitHandoff();
         }
     }
 
@@ -637,6 +648,43 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         } catch (Exception e) {
             LOG.fine(() -> "CutsceneKnucklesAiz1Instance.unlockPlayerControls: " + e.getMessage());
         }
+    }
+
+    private void completeIntroExitHandoff() {
+        LOG.fine("Routine 12: offscreen, cleaning up");
+
+        unlockPlayerControls();
+
+        if (services().titleCardProvider() != null) {
+            services().titleCardProvider().initializeInLevel(0, 0);
+        }
+
+        if (services().camera() != null) {
+            // ROM: Level_started_flag = 0x91 — re-enable camera tracking.
+            services().camera().setLevelStarted(true);
+            services().camera().updatePosition(true);
+        }
+
+        if (services().levelGamestate() != null) {
+            // ROM: clr.l (Timer).w during the intro→gameplay handoff.
+            services().levelGamestate().setTimerFrames(0);
+        }
+
+        setDestroyed(true);
+    }
+
+    private boolean isVisibleForExitRenderFlag() {
+        if (services().camera() == null) {
+            return isOnScreen();
+        }
+        int cameraX = services().camera().getX();
+        int relX = currentX - cameraX;
+        if (relX + RENDER_FLAG_WIDTH < 0 || relX - RENDER_FLAG_WIDTH >= 320) {
+            return false;
+        }
+        int cameraY = services().camera().getY();
+        int relY = currentY - cameraY;
+        return relY + RENDER_FLAG_HEIGHT >= 0 && relY - RENDER_FLAG_HEIGHT < 224;
     }
 
 }

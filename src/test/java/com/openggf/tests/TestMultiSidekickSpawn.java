@@ -103,10 +103,10 @@ public class TestMultiSidekickSpawn {
 
     @Test
     public void testMultiSidekickFollowing() {
-        // Walk right for 120 frames, stepping sidekicks each frame
+        // Walk right for 120 frames; HeadlessTestRunner drives the full
+        // SpriteManager update path, including CPU sidekicks.
         for (int frame = 0; frame < 120; frame++) {
             fixture.stepFrame(false, false, false, true, false);
-            stepAllSidekicks();
         }
 
         int mainX = mainPlayer.getCentreX();
@@ -126,7 +126,6 @@ public class TestMultiSidekickSpawn {
         // Step enough frames for all sidekicks to reach NORMAL and settle
         for (int frame = 0; frame < 60; frame++) {
             fixture.stepFrame(false, false, false, true, false);
-            stepAllSidekicks();
         }
 
         // Verify all sidekicks are in NORMAL state and settled
@@ -148,30 +147,6 @@ public class TestMultiSidekickSpawn {
 
         // sidekick[0] is settled, so it should be the effective leader
         assertSame(sidekicks[0], effectiveLeader, "sidekick[2]'s effective leader should be sidekick[0] (first settled in chain)");
-    }
-
-    // ========== Helper methods ==========
-
-    /**
-     * Steps all sidekick sprites through one frame of AI + physics.
-     * Mirrors the SpriteManager CPU-controlled sidekick update path.
-     */
-    private void stepAllSidekicks() {
-        int frameCount = fixture.frameCount();
-        for (int i = 0; i < sidekicks.length; i++) {
-            controllers[i].update(frameCount);
-            if (!controllers[i].isApproaching()) {
-                sidekicks[i].getMovementManager().handleMovement(
-                        controllers[i].getInputUp(),
-                        controllers[i].getInputDown(),
-                        controllers[i].getInputLeft(),
-                        controllers[i].getInputRight(),
-                        controllers[i].getInputJump(),
-                        false, false, false);
-            }
-            sidekicks[i].tickStatus();
-            sidekicks[i].endOfTick();
-        }
     }
 }
 

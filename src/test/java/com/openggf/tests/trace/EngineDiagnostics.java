@@ -35,6 +35,12 @@ public record EngineDiagnostics(
     /** No diagnostics available. */
     public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, "", -1, -1);
 
+    /** Wrap a preformatted diagnostics string for context rendering. */
+    public static EngineDiagnostics formattedOnly(String formatted) {
+        return new EngineDiagnostics(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+                formatted == null ? "" : formatted, -1, -1);
+    }
+
     /**
      * Format as a compact string for the context window.
      */

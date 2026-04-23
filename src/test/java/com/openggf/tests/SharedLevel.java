@@ -9,12 +9,12 @@ import com.openggf.data.RomManager;
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.sprites.managers.SpriteManager;
-import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.SonicGame;
 
 import java.io.File;
@@ -67,7 +67,7 @@ public final class SharedLevel {
      * {@code TestS2Ehz1Headless}, {@code TestHeadlessCNZ1LiftWallStick}, etc.:
      * <ol>
      *   <li>Init headless graphics</li>
-     *   <li>Create a temporary Sonic sprite and register it</li>
+     *   <li>Create the active gameplay team and register it</li>
      *   <li>Set camera focus and unfreeze</li>
      *   <li>Load the requested zone and act (runs full production path
      *       including camera bounds, level events, and player positioning
@@ -88,10 +88,10 @@ public final class SharedLevel {
         String mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         String sidekickCharCode = cs.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
 
-        Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        GameServices.sprites().addSprite(temp);
+        AbstractPlayableSprite player = GameplayTeamBootstrap.registerActiveTeam(
+                GameServices.module(), GameServices.sprites(), cs).mainSprite();
         Camera camera = GameServices.camera();
-        camera.setFocusedSprite(temp);
+        camera.setFocusedSprite(player);
         camera.setFrozen(false);
 
         LevelManager lm = GameServices.level();

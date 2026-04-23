@@ -9,6 +9,8 @@ This document tracks intentional deviations from the original Sonic 3 & Knuckles
 3. [Immediate Art Loading](#immediate-art-loading)
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
 5. [Save System](#save-system)
+6. [Tails Flying-With-Cargo Physics](#tails-flying-with-cargo-physics)
+7. [CNZ1 Miniboss Arena Entry — Audio Handoff](#cnz1-miniboss-arena-entry--audio-handoff)
 
 ---
 
@@ -216,3 +218,54 @@ OpenGGF now keeps the native S3K save-screen flow but stores saves as JSON envel
 ### Manual Validation
 
 - `2026-04-13`: native S3K parity pass captured via `com.openggf.game.sonic3k.dataselect.S3kDataSelectVisualCapture`, which renders the live native S3K Data Select frontend with real ROM assets into `target/s3k-dataselect-visual/native_s3k_dataselect_slot1.png` for inspection.
+
+---
+
+## Tails Flying-With-Cargo Physics
+
+**Location:** Tails flight physics (`SidekickCpuController`, Tails sprite physics)
+**ROM Reference:** `sonic3k.asm` `Obj_Tails_Flying` / `Tails_Fly` (flight lift when carrying Sonic)
+
+### Original Implementation
+
+ROM Tails, while flying and carrying Sonic, applies anti-gravity lift each frame that offsets the carry-descent gravity, keeping Tails airborne for ~106 frames during the CNZ1 intro. The combined carrier+cargo Y-velocity sums to near-neutral during active flight.
+
+### Our Implementation
+
+The engine currently runs Tails on normal airborne physics (gravity applies, no carry-aware lift), so a carrying Tails falls ~6x faster than the ROM and lands around frame ~42 in CNZ1. Once Tails lands, the ROM-faithful ground-release path (added here) correctly fires and returns the pair to NORMAL state.
+
+### Impact
+
+- CNZ1 intro carry duration diverges: engine releases at frame ~42 vs. ROM ~106.
+- `TestS3kCnzTraceReplay` will report a large X/Y position divergence starting around frame 42 until the carry/catch-up stabilises.
+- `TestS3kCnzCarryHeadless.cnz1Frame20SonicStillCarried` deliberately asserts at frame 20 (before either engine or ROM Tails lands) to work around this gap; when the gap closes, the test can be widened back to frame 43 per the original trace row #3 reference.
+- No functional regression - carry state machine, parentage, and release paths are ROM-accurate; only Tails's lift profile is missing.
+
+### Follow-Up
+
+Implementing Tails flying-with-cargo lift is a separate workstream tracked under S3K trace-replay follow-ups. Gap first recorded as part of CNZ workstream-C (Tails-carry-Sonic intro implementation).
+
+---
+
+## CNZ1 Miniboss Arena Entry — Audio Handoff
+
+**Location:** `Sonic3kCNZEvents.enterMinibossArena()`
+**ROM Reference:** `sonic3k.asm:144841` (`moveq #cmd_FadeOut,d0; jsr Play_Music`) plus the boss-music play-in that follows when `Obj_CNZMiniboss` becomes active.
+
+### Original Implementation
+
+When `Obj_CNZMiniboss` crosses its camera-X gate (`$31E0`), `loc_6D9A8` first issues a music fade-out via `Play_Music` and then the engine queues the miniboss theme as part of the regular boss-music handoff.
+
+### Our Implementation
+
+`Sonic3kCNZEvents.enterMinibossArena()` mirrors the fade-out (`audio().fadeOutMusic()`), but the miniboss-music play-in is intentionally deferred to workstream T12 ("CNZ miniboss audio handoff"). The site is marked with an inline `TODO(T12)` comment so the replacement is easy to find.
+
+### Impact
+
+- Audio drops to silence between the fade-out and boss defeat instead of switching to the miniboss theme.
+- All other arena-entry effects (camera lock, PLC `0x5D`, `Pal_CNZMiniboss` install, `Boss_flag`, wall-grab suppression) match the ROM bit-for-bit, so visual/gameplay parity is unaffected.
+- No tests assert on music selection during the miniboss fight, so this gap does not block T8/T6/T7 coverage.
+
+### Follow-Up
+
+Workstream T12 owns wiring `Sonic3kMusic.MINIBOSS` (or the equivalent S3K music ID) into the existing `audio()` boss-music handoff once the miniboss audio routing lands.

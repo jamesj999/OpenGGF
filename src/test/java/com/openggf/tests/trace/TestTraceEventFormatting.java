@@ -43,6 +43,28 @@ public class TestTraceEventFormatting {
     }
 
     @Test
+    void parsesCharacterScopedEventsIntoCompactSummary() {
+        TraceEvent near = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"object_near","character":"tails","slot":44,"type":"0x23","x":"0x024A","y":"0x0386","routine":"0x04","status":"0x00"}
+                """.trim(),
+                mapper);
+        TraceEvent mode = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"mode_change","character":"tails","field":"rolling","from":1,"to":0}
+                """.trim(),
+                mapper);
+        TraceEvent routine = TraceEvent.parseJsonLine(
+                """
+                {"frame":387,"vfc":388,"event":"routine_change","character":"tails","from":"0x02","to":"0x04","x":"0x0241","y":"0x038F"}
+                """.trim(),
+                mapper);
+
+        assertEquals("near tails s44 0x23 @024A,0386 rtn=04 | tails mode rolling 1->0 | tails routine 02->04 @0241,038F",
+                TraceEventFormatter.summariseFrameEvents(List.of(near, mode, routine)));
+    }
+
+    @Test
     void parsesObjectLifecycleEvents() {
         TraceEvent appeared = TraceEvent.parseJsonLine(
                 """
@@ -71,5 +93,22 @@ public class TestTraceEventFormatting {
         TraceEvent.StateSnapshot snapshot = (TraceEvent.StateSnapshot) event;
         assertEquals("slot_dump", snapshot.fields().get("event"));
         assertEquals("[[32,\"0x46\"],[75,\"0x55\"]]", snapshot.fields().get("slots"));
+    }
+
+    @Test
+    void parsesCheckpointAndZoneActStateIntoCompactSummary() {
+        TraceEvent checkpoint = TraceEvent.parseJsonLine(
+                """
+                {"frame":1200,"event":"checkpoint","name":"aiz2_main_gameplay","actual_zone_id":0,"actual_act":1,"apparent_act":0,"game_mode":12,"notes":"resume strict replay"}
+                """.trim(),
+                mapper);
+        TraceEvent zoneActState = TraceEvent.parseJsonLine(
+                """
+                {"frame":1200,"event":"zone_act_state","actual_zone_id":0,"actual_act":1,"apparent_act":0,"game_mode":12}
+                """.trim(),
+                mapper);
+
+        assertEquals("cp aiz2_main_gameplay z=0 a=1 ap=0 gm=12 | zoneact z=0 a=1 ap=0 gm=12",
+                TraceEventFormatter.summariseFrameEvents(List.of(checkpoint, zoneActState)));
     }
 }
