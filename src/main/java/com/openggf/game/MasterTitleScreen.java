@@ -394,6 +394,23 @@ public class MasterTitleScreen {
         return gameSelected;
     }
 
+    /**
+     * Programmatic selection used by {@link com.openggf.TraceSessionLauncher}
+     * to force a game without user input. Must be called while state is
+     * {@code ACTIVE}. Seeds the internal "selected" state so
+     * {@link #isGameSelected()} returns true on the next tick.
+     */
+    public void selectEntry(GameEntry entry) {
+        Objects.requireNonNull(entry, "entry");
+        this.selectedIndex = entry.ordinal();
+        if (!romAvailable[selectedIndex]) {
+            throw new IllegalStateException("Selected ROM is unavailable: " + entry.gameId);
+        }
+        this.state = State.CONFIRMING;
+        playConfirmSound();
+        this.gameSelected = true;
+    }
+
     public void setProjectionMatrix(float[] projectionMatrix) {
         if (renderer != null && projectionMatrix != null) {
             renderer.setProjectionMatrix(projectionMatrix);
