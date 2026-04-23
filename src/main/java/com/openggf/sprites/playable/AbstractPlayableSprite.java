@@ -2067,7 +2067,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Returns whether jump was freshly pressed this frame, including forced/demo input.
          */
         public boolean isJumpJustPressed() {
-                return jumpInputJustPressed;
+                return jumpInputJustPressed || forcedJumpPress;
         }
 
         /**
@@ -2220,6 +2220,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setXSpeed(short xSpeed) {
+                traceS3kAizVelocityProbe("xSpeed", this.xSpeed, xSpeed);
                 this.xSpeed = xSpeed;
         }
 
@@ -2228,6 +2229,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setYSpeed(short ySpeed) {
+                traceS3kAizVelocityProbe("ySpeed", this.ySpeed, ySpeed);
                 this.ySpeed = ySpeed;
         }
 
@@ -2552,7 +2554,65 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setGSpeed(short gSpeed) {
+                traceS3kAizVelocityProbe("gSpeed", this.gSpeed, gSpeed);
                 this.gSpeed = gSpeed;
+        }
+
+        private void traceS3kAizVelocityProbe(String field, short oldValue, short newValue) {
+                if (oldValue == newValue || !Boolean.getBoolean("s3k.aiz.velocityprobe")) {
+                        return;
+                }
+
+                int centreX = getCentreX() & 0xFFFF;
+                int centreY = getCentreY() & 0xFFFF;
+                if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
+                        return;
+                }
+
+                int frameCounter = -1;
+                var levelManager = GameServices.levelOrNull();
+                if (levelManager != null && levelManager.getObjectManager() != null) {
+                        frameCounter = levelManager.getObjectManager().getFrameCounter();
+                }
+
+                System.out.printf(
+                        "s3k-aiz-velocityprobe frame=%d field=%s from=%04X to=%04X pos=(%04X,%04X) "
+                                + "spd=(%04X,%04X,%04X) air=%s roll=%s angle=%02X caller=%s%n",
+                        frameCounter,
+                        field,
+                        oldValue & 0xFFFF,
+                        newValue & 0xFFFF,
+                        centreX,
+                        centreY,
+                        getXSpeed() & 0xFFFF,
+                        getYSpeed() & 0xFFFF,
+                        getGSpeed() & 0xFFFF,
+                        getAir(),
+                        getRolling(),
+                        getAngle() & 0xFF,
+                        describeVelocityProbeCaller());
+        }
+
+        private String describeVelocityProbeCaller() {
+                StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+                StringBuilder builder = new StringBuilder();
+                for (int i = 4; i < Math.min(stack.length, 8); i++) {
+                        if (builder.length() > 0) {
+                                builder.append(" <- ");
+                        }
+                        StackTraceElement frame = stack[i];
+                        String className = frame.getClassName();
+                        int lastDot = className.lastIndexOf('.');
+                        if (lastDot >= 0) {
+                                className = className.substring(lastDot + 1);
+                        }
+                        builder.append(className)
+                                .append('.')
+                                .append(frame.getMethodName())
+                                .append(':')
+                                .append(frame.getLineNumber());
+                }
+                return builder.toString();
         }
 
         public short getRunAccel() {
