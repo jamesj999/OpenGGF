@@ -96,7 +96,9 @@ public class Engine {
 	private final LevelEditorController levelEditorController = new LevelEditorController();
 	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
 	private final EditorOverlayRenderer editorOverlayRenderer;
-	private final PixelFontTextRenderer traceHudTextRenderer = new PixelFontTextRenderer();
+	// Match the rest of the debug overlay — no drop shadow.
+	private final PixelFontTextRenderer traceHudTextRenderer =
+		new PixelFontTextRenderer(PixelFontVariant.PIXEL_FONT_NO_SHADOW);
 
 	private static volatile DebugState debugState = DebugState.NONE;
 	private static volatile DebugOption debugOption = DebugOption.A;

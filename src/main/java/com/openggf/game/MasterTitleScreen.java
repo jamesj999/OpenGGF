@@ -100,6 +100,9 @@ public class MasterTitleScreen {
     // GL resources
     private TexturedQuadRenderer renderer;
     private PixelFont font;
+    // Loaded lazily when TEST_MODE_ENABLED fires. Matches the rest
+    // of the debug overlay (no drop shadow).
+    private PixelFont pickerFont;
     private TestModeTracePicker tracePicker;
     private int bgTextureId;
     private int solidWhiteTextureId; // 1x1 white texture for solid color overlays
@@ -246,7 +249,8 @@ public class MasterTitleScreen {
                 Path root = Path.of(System.getProperty("user.dir"))
                         .resolve(configService.getString(SonicConfiguration.TRACE_CATALOG_DIR))
                         .normalize();
-                tracePicker = new TestModeTracePicker(TraceCatalog.scan(root), font);
+                tracePicker = new TestModeTracePicker(
+                        TraceCatalog.scan(root), ensurePickerFont());
             }
             tracePicker.update(inputHandler);
             switch (tracePicker.consumeResult()) {
@@ -468,8 +472,27 @@ public class MasterTitleScreen {
     /**
      * Cleans up all GL resources.
      */
+    private PixelFont ensurePickerFont() {
+        if (pickerFont == null) {
+            pickerFont = new PixelFont();
+            try {
+                pickerFont.init("pixel-font-ns.png", renderer);
+            } catch (IOException e) {
+                LOGGER.warning("Failed to load pixel-font-ns.png for trace picker, "
+                        + "falling back to master-title font: " + e.getMessage());
+                pickerFont = font;
+            }
+        }
+        return pickerFont;
+    }
+
     public void cleanup() {
         if (font != null) font.cleanup();
+        // pickerFont is only non-null AND distinct from font when the
+        // no-shadow atlas loaded successfully. Clean it up separately.
+        if (pickerFont != null && pickerFont != font) {
+            pickerFont.cleanup();
+        }
         PngTextureLoader.deleteTexture(bgTextureId);
         PngTextureLoader.deleteTexture(solidWhiteTextureId);
         PngTextureLoader.deleteTexture(emblemTextureId);
