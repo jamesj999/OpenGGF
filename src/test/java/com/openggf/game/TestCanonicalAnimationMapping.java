@@ -77,6 +77,7 @@ public class TestCanonicalAnimationMapping {
         assertDoesNotThrow(() -> CanonicalAnimation.valueOf("GLIDE_DROP"));
         assertDoesNotThrow(() -> CanonicalAnimation.valueOf("GLIDE_LAND"));
         assertDoesNotThrow(() -> CanonicalAnimation.valueOf("GLIDE_SLIDE"));
+        assertDoesNotThrow(() -> CanonicalAnimation.valueOf("TAILS_CARRIED"));
 
         // Super
         assertDoesNotThrow(() -> CanonicalAnimation.valueOf("SUPER_TRANSFORM"));
@@ -84,7 +85,7 @@ public class TestCanonicalAnimationMapping {
 
     @Test
     void canonicalEnumHasExpectedCount() {
-        assertEquals(50, CanonicalAnimation.values().length);
+        assertEquals(51, CanonicalAnimation.values().length);
     }
 
     @Test

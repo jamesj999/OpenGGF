@@ -182,8 +182,10 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         currentX = motionState.x;
         currentY = motionState.y;
 
-        // Check if off-screen (with margin) and destroy
-        if (!isOnScreen(32)) {
+        // ROM: Buzzer's Obj4B_Projectile ends with MarkObjGone_P1, so it stays
+        // alive until the normal object out_of_range window removes it.
+        boolean usesRomRangeUnload = type == ProjectileType.BUZZER_STINGER;
+        if (!usesRomRangeUnload && !isOnScreen(32)) {
             setDestroyed(true);
         }
 

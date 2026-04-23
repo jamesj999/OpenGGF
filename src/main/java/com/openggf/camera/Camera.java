@@ -84,9 +84,10 @@ public class Camera {
 	// ROM: Inertia threshold for fast scroll (0x800 = 2048)
 	private static final short FAST_SCROLL_INERTIA_THRESHOLD = 0x800;
 
-	// ROM: Maximum vertical scroll speed for airborne + fast-ground paths.
-	// S1/S2: 16 (0x10) pixels/frame  (s2.asm:18190 ".doScroll_fast")
-	// S3K:   24 (0x18) pixels/frame  (sonic3k.asm:loc_1C1B0; comment "S3K uses 24 instead of 16")
+	// ROM: Maximum per-frame camera step used by the fast vertical paths and by
+	// the horizontal catch-up clamp in ScrollHoriz / MoveCameraX.
+	// S1/S2: 16 (0x10) pixels/frame.
+	// S3K:   24 (0x18) pixels/frame.
 	// Set per-game via setFastScrollCap().
 	private static final short DEFAULT_FAST_SCROLL_CAP = 16;
 	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
@@ -131,16 +132,7 @@ public class Camera {
 		// See s2.asm ScrollHoriz (line ~18009) vs ScrollVerti (line ~18112).
 
 		// Horizontal scroll - may use position history if delay is active
-		short focusedSpriteRealX;
-		if (horizScrollDelayFrames > 0) {
-			// ROM: ScrollHoriz uses position buffer when Horiz_scroll_delay_val is set
-			// Use historical X position, clamped to buffer size (64 entries)
-			int historyIndex = Math.min(horizScrollDelayFrames, 63);
-			focusedSpriteRealX = (short) (focusedSprite.getCentreX(historyIndex) - x);
-			horizScrollDelayFrames--;
-		} else {
-			focusedSpriteRealX = (short) (focusedSprite.getCentreX() - x);
-		}
+		x = computeNextHorizontalCameraX(true);
 
 		// Vertical scroll - always uses current position (ROM: ScrollVerti has no delay)
 		// ROM: d0 = (v_player+obY).w - (v_screenposy).w
@@ -167,23 +159,6 @@ public class Camera {
 			focusedSpriteRealY -= 5;
 			if (focusedSprite instanceof Tails) {
 				focusedSpriteRealY += 4; // Net: subtract 1 for Tails
-			}
-		}
-
-		// Horizontal scroll logic (ROM: ScrollHoriz)
-		if (focusedSpriteRealX < 144) {
-			short difference = (short) (focusedSpriteRealX - 144);
-			if (difference < -16) {
-				x -= 16;
-			} else {
-				x += difference;
-			}
-		} else if (focusedSpriteRealX > 160) {
-			short difference = (short) (focusedSpriteRealX - 160);
-			if (difference > 16) {
-				x += 16;
-			} else {
-				x += difference;
 			}
 		}
 
@@ -294,6 +269,58 @@ public class Camera {
 		if (!lastFrameWrapped) {
 			y = clampAxisWithWrap(y, minY, maxY);
 		}
+	}
+
+	/**
+	 * Predicts the horizontal camera position that {@link #updatePosition()} will
+	 * commit on this frame without consuming scroll-delay history.
+	 * This lets event scripts reason about end-of-frame camera thresholds while
+	 * preserving the actual camera state for the later camera step.
+	 */
+	public short previewNextX() {
+		if (focusedSprite == null || frozen) {
+			return x;
+		}
+		return computeNextHorizontalCameraX(false);
+	}
+
+	private short computeNextHorizontalCameraX(boolean consumeDelayState) {
+		short nextX = x;
+		short focusedSpriteRealX;
+		if (horizScrollDelayFrames > 0) {
+			// ROM: MoveCameraX stores the delay count in the high byte of
+			// H_scroll_frame_offset and subtracts $100 before sampling Pos_table.
+			// Our history buffer is also one frame behind by the time camera scroll
+			// runs, so delay N maps to the buffered position from N-1 frames ago.
+			int historyIndex = Math.max(0, Math.min(horizScrollDelayFrames - 1, 63));
+			focusedSpriteRealX = (short) (focusedSprite.getCentreX(historyIndex) - nextX);
+			if (consumeDelayState) {
+				horizScrollDelayFrames--;
+			}
+		} else {
+			focusedSpriteRealX = (short) (focusedSprite.getCentreX() - nextX);
+		}
+
+		short cameraStepCap = fastScrollCap;
+
+		// Horizontal scroll logic (ROM: ScrollHoriz / MoveCameraX).
+		if (focusedSpriteRealX < 144) {
+			short difference = (short) (focusedSpriteRealX - 144);
+			if (difference < -cameraStepCap) {
+				nextX -= cameraStepCap;
+			} else {
+				nextX += difference;
+			}
+		} else if (focusedSpriteRealX > 160) {
+			short difference = (short) (focusedSpriteRealX - 160);
+			if (difference > cameraStepCap) {
+				nextX += cameraStepCap;
+			} else {
+				nextX += difference;
+			}
+		}
+
+		return clampAxisWithWrap(nextX, minX, maxX);
 	}
 
 	private short clampAxisWithWrap(short value, short min, short max) {
@@ -461,6 +488,22 @@ public class Camera {
 		int spriteY = sprite.getY();
 		return spriteX >= xLower && spriteY >= yLower && spriteX <= xUpper
 				&& spriteY <= yUpper;
+	}
+
+	/**
+	 * Computes the current-frame BuildSprites visibility that feeds
+	 * {@code render_flags.on_screen}.
+	 * Mirrors the common path: X uses {@code width_pixels}, while the approximate
+	 * Y path keeps sprites visible 32 pixels beyond the bottom edge.
+	 */
+	public boolean isVisibleForRenderFlag(AbstractPlayableSprite sprite) {
+		int widthPixels = sprite.getRenderFlagWidthPixels();
+		int relX = sprite.getRenderCentreX() - x;
+		if (relX + widthPixels < 0 || relX - widthPixels >= width) {
+			return false;
+		}
+		int relY = sprite.getRenderCentreY() - y;
+		return relY >= -32 && relY < height + 32;
 	}
 
 	public void setFocusedSprite(AbstractPlayableSprite sprite) {

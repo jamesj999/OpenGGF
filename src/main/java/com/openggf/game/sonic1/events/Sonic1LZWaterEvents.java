@@ -10,6 +10,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
+import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
@@ -65,6 +66,7 @@ public class Sonic1LZWaterEvents {
      * ROM: f_wtunnelmode (set to 1 when inside tunnel, cleared when leaving).
      */
     private boolean windTunnelActive;
+    private boolean windTunnelPreserveGroundContact;
 
     /**
      * Whether wind tunnels are temporarily disabled.
@@ -209,6 +211,7 @@ public class Sonic1LZWaterEvents {
         this.actId = actId;
         this.waterRoutine = 0;
         this.windTunnelActive = false;
+        this.windTunnelPreserveGroundContact = false;
         this.windTunnelDisabled = false;
         this.windTunnelSoundTimer = 0;
         this.waterSlideActive = false;
@@ -764,6 +767,7 @@ public class Sonic1LZWaterEvents {
 
             // ROM: tst.b (f_wtunnelallow).w / bne.w .quit
             if (windTunnelDisabled) {
+                windTunnelPreserveGroundContact = false;
                 return;
             }
 
@@ -771,12 +775,14 @@ public class Sonic1LZWaterEvents {
             // obRoutine >= 4 means Sonic is hurt or dying
             if (player.isHurt() || player.getDead()) {
                 windTunnelActive = false;
+                windTunnelPreserveGroundContact = false;
                 player.setForcedAnimationId(-1);
                 return;
             }
 
             // ROM: move.b #1,(f_wtunnelmode).w
             windTunnelActive = true;
+            windTunnelPreserveGroundContact = !player.getAir();
 
             // ROM: subi.w #$80,d0 / cmp.w (a2),d0 / bhs.s .movesonic
             // Check if player is in the "curve" zone (first $80 pixels of tunnel)
@@ -832,6 +838,7 @@ public class Sonic1LZWaterEvents {
             player.setForcedAnimationId(-1);
             // ROM: .clrquit: clr.b (f_wtunnelmode).w
             windTunnelActive = false;
+            windTunnelPreserveGroundContact = false;
         }
     }
 
@@ -875,16 +882,19 @@ public class Sonic1LZWaterEvents {
             }
 
             if (windTunnelDisabled) {
+                windTunnelPreserveGroundContact = false;
                 return;
             }
 
             if (player.isHurt() || player.getDead()) {
                 windTunnelActive = false;
+                windTunnelPreserveGroundContact = false;
                 player.setForcedAnimationId(-1);
                 return;
             }
 
             windTunnelActive = true;
+            windTunnelPreserveGroundContact = !player.getAir();
 
             // SBZ3 curve: no act-specific negation (not act 2)
             if ((playerX - WIND_TUNNEL_CURVE_OFFSET) < region[0]) {
@@ -911,6 +921,7 @@ public class Sonic1LZWaterEvents {
             player.setAnimationId(Sonic1AnimationIds.WALK);
             player.setForcedAnimationId(-1);
             windTunnelActive = false;
+            windTunnelPreserveGroundContact = false;
         }
     }
 
@@ -1075,6 +1086,19 @@ public class Sonic1LZWaterEvents {
      */
     public boolean isWindTunnelActive() {
         return windTunnelActive;
+    }
+
+    public boolean allowsFlatZeroDistanceLanding(SensorResult support) {
+        return windTunnelActive
+                && windTunnelPreserveGroundContact
+                && support != null
+                && support.distance() == 0
+                && isFlatGroundAngle(support.angle() & 0xFF);
+    }
+
+    private boolean isFlatGroundAngle(int angle) {
+        angle &= 0xFF;
+        return angle == 0x00 || angle == 0xFF;
     }
 
     /**

@@ -36,7 +36,7 @@ class TestSolidExecutionRegistry {
                         false,
                         false,
                         false,
-                        new PreContactState((short) 0x180, (short) 0x40, true),
+                        new PreContactState((short) 0x180, (short) 0x40, true, 0),
                         new PostContactState((short) 0, (short) 0, false, true, false),
                         0))));
         registry.currentObject().resolveSolidNow(player);
@@ -51,7 +51,7 @@ class TestSolidExecutionRegistry {
         registry.beginObject(object, () -> new SolidCheckpointBatch(object, Map.of(
                 player, PlayerSolidContactResult.noContact(
                         registry.previousStanding(object, player),
-                        new PreContactState((short) 0x200, (short) 0, false),
+                        new PreContactState((short) 0x200, (short) 0, false, 0),
                         new PostContactState((short) 0x200, (short) 0, true, false, false)))));
         PlayerSolidContactResult result = registry.currentObject().resolveSolidNow(player);
         registry.endObject(object);
@@ -81,7 +81,7 @@ class TestSolidExecutionRegistry {
                             false,
                             false,
                             false,
-                            new PreContactState((short) pass, (short) 0, false),
+                            new PreContactState((short) pass, (short) 0, false, 0),
                             new PostContactState((short) 0, (short) 0, false, pass == 1, false),
                             0)));
         });
@@ -168,7 +168,7 @@ class TestSolidExecutionRegistry {
                         false,
                         true,
                         false,
-                        new PreContactState((short) 0, (short) 0, false),
+                        new PreContactState((short) 0, (short) 0, false, 0),
                         new PostContactState((short) 0, (short) 0, false, false, true),
                         0))));
 

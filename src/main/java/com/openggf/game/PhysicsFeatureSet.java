@@ -51,6 +51,28 @@ public record PhysicsFeatureSet(
          *  S1: false — no isOnObject check (s1disasm/_incObj/01 Sonic.asm:1107-1135).
          *  When false, slope repel can trigger while standing on object surfaces. */
         boolean slopeRepelChecksOnObject,
+        /** Whether top-solid landing accepts the exact edge-contact boundary.
+         *  Engine terms: allow a new landing when {@code distY == 0}.
+         *  S1/S3K: true for current shared platform parity.
+         *  S2: false — {@code PlatformObject_ChkYRange} only falls through for
+         *  {@code d0 in [-16,-1]}, excluding the {@code d0 == 0} boundary
+         *  (s2.asm:35692-35703). */
+        boolean topSolidLandingAllowsZeroDist,
+        /** Whether an airborne underside hit on a solid object clears ground speed.
+         *  Engine terms: when the player is in air and hits the object's bottom,
+         *  also zero {@code gSpeed}/{@code ground_vel} in addition to {@code ySpeed}.
+         *  S3K: true â€” {@code SolidObjectFull_Offset_1P} clears {@code ground_vel(a1)}
+         *  on the {@code Status_InAir} underside path before resolving bottom contact
+         *  (s3.asm:34170-34177 / sonic3k.asm:48000-48007).
+         *  S1/S2: false â€” their underside solid paths only zero {@code y_vel}
+         *  and preserve inertia/ground velocity
+         *  (s1disasm/_incObj/sub SolidObject.asm:238-250, s2.asm:35307-35318). */
+        boolean airBottomSolidHitClearsGroundSpeed,
+        /** Whether full-solid underside overlap uses the player's current y-radius
+         *  on both halves of the vertical collision box.
+         *  Current parity: S1=true for rolling glass-block behavior, S2/S3K=false
+         *  to preserve the taller underside box used by existing solid/spring traces. */
+        boolean fullSolidBottomOverlapUsesCurrentYRadiusOnly,
         /** Maximum vertical scroll speed for airborne + fast-ground camera paths.
          *  S1/S2: 16 (0x10) pixels/frame (s2.asm:18190 ".doScroll_fast").
          *  S3K:   24 (0x18) pixels/frame (sonic3k.asm:loc_1C1B0; s2.asm:18189 "S3K uses 24 instead of 16"). */
@@ -91,7 +113,7 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false, false, FAST_SCROLL_CAP_S2, true);
+            null, (short) 0, true, false, false, true, false, true, FAST_SCROLL_CAP_S2, true);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -101,7 +123,7 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, false, true, FAST_SCROLL_CAP_S2, false);
+            null, (short) 0, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -115,7 +137,7 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true, true, FAST_SCROLL_CAP_S3K, false);
+    }, (short) 0x100, true, true, true, true, true, false, FAST_SCROLL_CAP_S3K, false);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

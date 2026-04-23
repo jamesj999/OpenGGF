@@ -423,40 +423,108 @@ public class CollisionSystem {
                                     Consumer<AbstractPlayableSprite> landingHandler,
                                     boolean forceFloorCheck) {
         int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
+        traceS3kAizAirCollisionProbe(sprite, "start", quadrant, null, null, false);
         switch (quadrant) {
             case 0x00 -> {
                 doWallCheckBoth(sprite);
                 SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
+                traceS3kAizAirCollisionProbe(sprite, "ground-00", quadrant, groundResult, null, false);
                 doTerrainCollisionAir(sprite, groundResult, landingHandler);
             }
             case 0x40 -> {
                 if (doWallCheck(sprite, 0)) {
+                    traceS3kAizAirCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
                     return;
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
-                if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
+                boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
+                traceS3kAizAirCollisionProbe(sprite, "ceiling-40", quadrant, null, ceilingResult, ceilingHit);
+                if (!ceilingHit) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
+                    traceS3kAizAirCollisionProbe(sprite, "ground-40", quadrant, groundResult, null, false);
                     doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
             case 0x80 -> {
                 doWallCheckBoth(sprite);
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
+                traceS3kAizAirCollisionProbe(sprite, "ceiling-80", quadrant, null, ceilingResult, false);
                 doCeilingCollision(sprite, ceilingResult);
             }
             case 0xC0 -> {
                 if (doWallCheck(sprite, 1)) {
+                    traceS3kAizAirCollisionProbe(sprite, "wall-C0", quadrant, null, null, true);
                     return;
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
-                if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
+                boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
+                traceS3kAizAirCollisionProbe(sprite, "ceiling-C0", quadrant, null, ceilingResult, ceilingHit);
+                if (!ceilingHit) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
+                    traceS3kAizAirCollisionProbe(sprite, "ground-C0", quadrant, groundResult, null, false);
                     doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
             default -> {
             }
         }
+    }
+
+    private void traceS3kAizAirCollisionProbe(AbstractPlayableSprite sprite,
+                                              String stage,
+                                              int quadrant,
+                                              SensorResult[] groundResult,
+                                              SensorResult[] ceilingResult,
+                                              boolean collisionResolved) {
+        if (!Boolean.getBoolean("s3k.aiz.aircollisionprobe")) {
+            return;
+        }
+        com.openggf.level.LevelManager levelManager = com.openggf.game.GameServices.level();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        int frameCounter = levelManager.getObjectManager().getFrameCounter();
+        int centreX = sprite.getCentreX() & 0xFFFF;
+        int centreY = sprite.getCentreY() & 0xFFFF;
+        if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
+            return;
+        }
+        System.out.printf(
+                "s3k-aiz-aircollisionprobe frame=%d stage=%s quad=%02X pos=(%04X,%04X) spd=(%04X,%04X,%04X) ground=[%s] ceiling=[%s] resolved=%s%n",
+                frameCounter,
+                stage,
+                quadrant & 0xFF,
+                sprite.getCentreX() & 0xFFFF,
+                sprite.getCentreY() & 0xFFFF,
+                sprite.getXSpeed() & 0xFFFF,
+                sprite.getYSpeed() & 0xFFFF,
+                sprite.getGSpeed() & 0xFFFF,
+                formatProbeResults(groundResult),
+                formatProbeResults(ceilingResult),
+                collisionResolved);
+    }
+
+    private String formatProbeResults(SensorResult[] results) {
+        if (results == null) {
+            return "<none>";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < results.length; i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            SensorResult result = results[i];
+            if (result == null) {
+                builder.append(i).append("=<null>");
+                continue;
+            }
+            builder.append(i)
+                    .append("={dir=").append(result.direction())
+                    .append(" dist=").append(result.distance())
+                    .append(" angle=").append(String.format("%02X", result.angle() & 0xFF))
+                    .append("}");
+        }
+        return builder.toString();
     }
 
     /**
@@ -472,8 +540,12 @@ public class CollisionSystem {
         }
 
         SensorResult lowestResult = findLowestSensorResult(results);
-
-        if (lowestResult == null || lowestResult.distance() >= 0) {
+        if (lowestResult == null) {
+            return;
+        }
+        boolean zeroDistanceLanding = shouldTreatZeroDistanceAsGround(sprite, lowestResult);
+        traceS1LzAirLandingProbe(sprite, "threshold", lowestResult, zeroDistanceLanding);
+        if (lowestResult.distance() > 0 || (lowestResult.distance() == 0 && !zeroDistanceLanding)) {
             return;
         }
 
@@ -508,12 +580,62 @@ public class CollisionSystem {
         }
 
         SensorResult lowestResult = findLowestSensorResult(results);
-        if (lowestResult == null || lowestResult.distance() >= 0) {
+        if (lowestResult == null) {
+            return;
+        }
+        boolean zeroDistanceLanding = shouldTreatZeroDistanceAsGround(sprite, lowestResult);
+        traceS1LzAirLandingProbe(sprite, "direct", lowestResult, zeroDistanceLanding);
+        if (lowestResult.distance() > 0 || (lowestResult.distance() == 0 && !zeroDistanceLanding)) {
             return;
         }
 
         // No threshold check — land immediately if any floor found (d1 < 0).
         landOnFloor(sprite, lowestResult, landingHandler);
+    }
+
+    private boolean shouldTreatZeroDistanceAsGround(AbstractPlayableSprite sprite, SensorResult support) {
+        if (support == null || support.distance() != 0) {
+            return false;
+        }
+        com.openggf.level.LevelManager levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            return false;
+        }
+        com.openggf.game.ZoneFeatureProvider zoneFeatures = levelManager.getZoneFeatureProvider();
+        return zoneFeatures != null
+                && zoneFeatures.shouldTreatZeroDistanceAirLandingAsGround(sprite, support);
+    }
+
+    private void traceS1LzAirLandingProbe(AbstractPlayableSprite sprite,
+                                          String mode,
+                                          SensorResult support,
+                                          boolean zeroDistanceLanding) {
+        if (!Boolean.getBoolean("s1.lz.airlandingprobe")) {
+            return;
+        }
+        com.openggf.level.LevelManager levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            return;
+        }
+        int x = sprite.getCentreX() & 0xFFFF;
+        int y = sprite.getCentreY() & 0xFFFF;
+        if (x < 0x0AE0 || x > 0x0B60 || y < 0x0640 || y > 0x0670) {
+            return;
+        }
+        System.out.printf(
+                "s1-lz-airlanding frame=%d mode=%s pos=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s support={dist=%d ang=%02X dir=%s} zero=%s%n",
+                levelManager.getFrameCounter(),
+                mode,
+                x,
+                y,
+                sprite.getXSpeed() & 0xFFFF,
+                sprite.getYSpeed() & 0xFFFF,
+                sprite.getGSpeed() & 0xFFFF,
+                sprite.getAir(),
+                support.distance(),
+                support.angle() & 0xFF,
+                support.direction(),
+                zeroDistanceLanding);
     }
 
     /** Shared landing logic: snap to floor surface, set angle, invoke landing handler. */

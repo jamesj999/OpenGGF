@@ -2,6 +2,8 @@ package com.openggf.tests.trace;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -26,12 +28,51 @@ class TestTraceExecutionModel {
     }
 
     @Test
-    void sonic3kUsesGameplayCounterNotLagCounter() {
+    void sonic1NoCounterDelta_defaultsToFullFrame() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x0120, 0x3456, 0);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x0120, 0x3456, 0);
+
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceExecutionModel.forGame("s1").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic2VblankDeltaWithoutGameplayDelta_vblankOnly() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x0220, 0x1456, 0);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x0221, 0x1456, 0);
+
+        assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                TraceExecutionModel.forGame("s2").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic3kLagCounterDelta_vblankOnly() {
         TraceFrame previous = TraceFrame.executionTestFrame(0, 0x2000, 0x0100, 3);
         TraceFrame current = TraceFrame.executionTestFrame(1, 0x2001, 0x0100, 4);
 
         assertEquals(TraceExecutionPhase.VBLANK_ONLY,
                 TraceExecutionModel.forGame("s3k").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic3kLagCounterAloneDoesNotSelectVblankOnly() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x2000, 0x0100, 3);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x2000, 0x0100, 4);
+
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceExecutionModel.forGame("s3k").phaseFor(previous, current));
+    }
+
+    @Test
+    void legacyS3kAizIntroFramesReplayAsFullFramesBeforeGameplayStart() throws Exception {
+        TraceData trace = TraceData.load(
+                Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
+        TraceFrame previous = trace.getFrame(0);
+        TraceFrame current = trace.getFrame(1);
+
+        assertEquals(previous.gameplayFrameCounter(), current.gameplayFrameCounter());
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceReplayBootstrap.phaseForReplay(trace, previous, current));
     }
 
     @Test

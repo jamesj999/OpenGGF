@@ -288,6 +288,17 @@ public interface GameModule {
     }
 
     /**
+     * Supplies the sidekick-carry trigger for this game module. Defaults to
+     * {@code null} (no carry mechanic). Only Sonic 3 &amp; Knuckles overrides
+     * this to port the Tails-carry-Sonic CNZ1 intro.
+     *
+     * @see com.openggf.sprites.playable.SidekickCarryTrigger
+     */
+    default com.openggf.sprites.playable.SidekickCarryTrigger getSidekickCarryTrigger() {
+        return null;
+    }
+
+    /**
      * Applies game-specific plane switching logic for the given player sprite.
      * Called each frame from LevelManager.applyPlaneSwitchers(), after any
      * object-based plane switching (Sonic 2 style).

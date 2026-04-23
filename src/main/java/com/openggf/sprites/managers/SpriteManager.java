@@ -81,6 +81,11 @@ public class SpriteManager {
 	private int frameCounter;
 	private boolean inputSuppressed;
 	private boolean playbackInputSuppressed;
+	private final IdentityHashMap<AbstractPlayableSprite, Integer> playableUpdateOrder = new IdentityHashMap<>();
+	private final IdentityHashMap<AbstractPlayableSprite, List<Runnable>> deferredPostTickMutations =
+			new IdentityHashMap<>();
+	private AbstractPlayableSprite activePlayableUpdate;
+	private boolean playableFrameActive;
 
 	public SpriteManager() {
 		this(GameServices.configuration());
@@ -125,8 +130,13 @@ public class SpriteManager {
 	 */
 	public boolean addSprite(Sprite sprite) {
 		bucketsDirty = true;
-		boolean replaced = (sprites.put(sprite.getCode(), sprite) != null);
-		if (!replaced && sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
+		Sprite previous = sprites.put(sprite.getCode(), sprite);
+		boolean replaced = previous != null;
+		if (previous instanceof AbstractPlayableSprite previousPlayable) {
+			sidekicks.remove(previousPlayable);
+			sidekickCharacterNames.remove(previousPlayable);
+		}
+		if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
 			sidekicks.add(playable);
 			// characterName is null when registered via the untyped overload
 		}
@@ -178,6 +188,10 @@ public class SpriteManager {
 		inputSuppressed = false;
 		playbackInputSuppressed = false;
 		lastSidekickSuppressed = false;
+		playableUpdateOrder.clear();
+		deferredPostTickMutations.clear();
+		activePlayableUpdate = null;
+		playableFrameActive = false;
 	}
 
 	/**
@@ -222,6 +236,9 @@ public class SpriteManager {
 		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),
 		// no need to unconditionally mark dirty every frame
 		Collection<Sprite> sprites = getAllSprites();
+		List<AbstractPlayableSprite> playables =
+				buildPlayableUpdateOrder(sprites, sidekicks, isCpuSidekickSuppressed());
+		beginPlayableFrame(playables);
 		boolean suppressInput = inputSuppressed || playbackInputSuppressed;
 		boolean up = !suppressInput && handler.isKeyDown(upKey);
 		boolean down = !suppressInput && handler.isKeyDown(downKey);
@@ -254,113 +271,197 @@ public class SpriteManager {
 		}
 
 		LevelManager levelManager = getLevelManager();
-		for (Sprite sprite : sprites) {
-			if (sprite instanceof AbstractPlayableSprite playable) {
-				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
-					continue;
-				}
-				if (debugModePressed) {
-					playable.toggleDebugMode();
-				}
-				// Super Sonic debug toggle (only for player 1, not CPU sidekicks)
-				if (superSonicDebugPressed && !playable.isCpuControlled()) {
-					var superCtrl = playable.getSuperStateController();
-					if (superCtrl != null) {
-						if (superCtrl.isSuper()) {
-							superCtrl.debugDeactivate();
-						} else {
-							superCtrl.debugActivate();
+		try {
+			for (AbstractPlayableSprite playable : playables) {
+				activePlayableUpdate = playable;
+				try {
+					playable.applyQueuedControlStateForFrameStart();
+					if (debugModePressed) {
+						playable.toggleDebugMode();
+					}
+					// Super Sonic debug toggle (only for player 1, not CPU sidekicks)
+					if (superSonicDebugPressed && !playable.isCpuControlled()) {
+						var superCtrl = playable.getSuperStateController();
+						if (superCtrl != null) {
+							if (superCtrl.isSuper()) {
+								superCtrl.debugDeactivate();
+							} else {
+								superCtrl.debugActivate();
+							}
 						}
 					}
-				}
 
-				boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;
+					boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;
 
-				if (playable.isCpuControlled() && playable.getCpuController() != null) {
-					// CPU-controlled sprite: run AI to generate virtual input
-					var cpuController = playable.getCpuController();
-					boolean isFirstSidekick = !sidekicks.isEmpty() && sidekicks.getFirst() == playable;
-					if (isFirstSidekick) {
-						cpuController.setController2Input(p2Held, p2Logical);
+					if (playable.isCpuControlled() && playable.getCpuController() != null) {
+						// CPU-controlled sprite: run AI to generate virtual input
+						var cpuController = playable.getCpuController();
+						boolean isFirstSidekick = !sidekicks.isEmpty() && sidekicks.getFirst() == playable;
+						if (isFirstSidekick) {
+							cpuController.setController2Input(p2Held, p2Logical);
+						}
+						cpuController.update(frameCounter);
+
+						boolean aiUp = cpuController.getInputUp();
+						boolean aiDown = cpuController.getInputDown();
+						boolean aiLeft = cpuController.getInputLeft();
+						boolean aiRight = cpuController.getInputRight();
+						boolean aiJump = cpuController.getInputJump();
+						boolean aiJumpPress = cpuController.getInputJumpPress();
+
+						boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+								|| playable.isForceInputRight();
+						boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+						boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+						boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+						boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+						effectiveRight = aiRight || forcedRight;
+						effectiveLeft = (aiLeft || forcedLeft) && !forcedRight;
+						effectiveUp = aiUp || forcedUp;
+						effectiveDown = aiDown || forcedDown;
+						effectiveJump = aiJump || forcedJump;
+						effectiveTest = false;
+
+						publishInputState(playable,
+								aiUp, aiDown, aiLeft, aiRight, aiJump,
+								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+
+						// If approaching (respawn in progress) and the strategy handles movement
+						// directly (Tails fly-in, Knuckles glide), skip normal physics.
+						// Strategies that need physics (Sonic walk/spindash) fall through.
+						if (cpuController.isApproaching()
+								&& !cpuController.getRespawnStrategy().requiresPhysics()) {
+							playable.getAnimationManager().update(frameCounter);
+							playable.tickStatus();
+							playable.endOfTick();
+							continue;
+						}
+						if (aiJumpPress) {
+							playable.setForcedJumpPress(true);
+						}
+					} else {
+						// Player-controlled sprite: use keyboard input
+						boolean controlLocked = playable.isControlLocked();
+						boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+								|| playable.isForceInputRight();
+						boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+						boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+						boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+						boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+						effectiveRight = (!controlLocked && right) || forcedRight;
+						effectiveLeft = ((!controlLocked && left) || forcedLeft) && !forcedRight;
+						effectiveUp = (!controlLocked && up) || forcedUp;
+						effectiveDown = (!controlLocked && down) || forcedDown;
+						effectiveJump = (!controlLocked && space) || forcedJump;
+						effectiveTest = !controlLocked && testButton;
+
+						// Store RAW input state for objects (like flippers) that need to query
+						// button state even when control is locked. This matches ROM behavior
+						// where obj_control locks movement but objects can still read button state.
+						publishInputState(playable,
+								up, down, left, right, space,
+								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
 					}
-					cpuController.update(frameCounter);
 
-					// If approaching (respawn in progress) and the strategy handles movement
-					// directly (Tails fly-in, Knuckles glide), skip normal physics.
-					// Strategies that need physics (Sonic walk/spindash) fall through.
-					if (cpuController.isApproaching()
-							&& !cpuController.getRespawnStrategy().requiresPhysics()) {
-						playable.getAnimationManager().update(frameCounter);
-						playable.tickStatus();
-						playable.endOfTick();
-						continue;
-					}
-
-					boolean aiUp = cpuController.getInputUp();
-					boolean aiDown = cpuController.getInputDown();
-					boolean aiLeft = cpuController.getInputLeft();
-					boolean aiRight = cpuController.getInputRight();
-					boolean aiJump = cpuController.getInputJump();
-
-					boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
-							|| playable.isForceInputRight();
-					boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
-					boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
-					boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
-					boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
-					effectiveRight = aiRight || forcedRight;
-					effectiveLeft = (aiLeft || forcedLeft) && !forcedRight;
-					effectiveUp = aiUp || forcedUp;
-					effectiveDown = aiDown || forcedDown;
-					effectiveJump = aiJump || forcedJump;
-					effectiveTest = false;
-
-					playable.setJumpInputPressed(aiJump);
-					playable.setDirectionalInputPressed(aiUp, aiDown, aiLeft, aiRight);
-				} else {
-					// Player-controlled sprite: use keyboard input
-					boolean controlLocked = playable.isControlLocked();
-					boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
-							|| playable.isForceInputRight();
-					boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
-					boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
-					boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
-					boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
-					effectiveRight = (!controlLocked && right) || forcedRight;
-					effectiveLeft = ((!controlLocked && left) || forcedLeft) && !forcedRight;
-					effectiveUp = (!controlLocked && up) || forcedUp;
-					effectiveDown = (!controlLocked && down) || forcedDown;
-					effectiveJump = (!controlLocked && space) || forcedJump;
-					effectiveTest = !controlLocked && testButton;
-
-					// Store RAW input state for objects (like flippers) that need to query
-					// button state even when control is locked. This matches ROM behavior
-					// where obj_control locks movement but objects can still read button state.
-					playable.setJumpInputPressed(space);
-					playable.setDirectionalInputPressed(up, down, left, right);
+					tickPlayablePhysics(playable, effectiveUp, effectiveDown, effectiveLeft,
+							effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown,
+							levelManager, frameCounter);
+				} finally {
+					runDeferredPostTickMutations(playable);
+					activePlayableUpdate = null;
 				}
-
-				tickPlayablePhysics(playable, effectiveUp, effectiveDown, effectiveLeft,
-						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown,
-						levelManager, frameCounter);
 			}
+		} finally {
+			endPlayableFrame();
 		}
 	}
 
 	public void updateWithoutInput() {
 		frameCounter++;
 		Collection<Sprite> sprites = getAllSprites();
+		List<AbstractPlayableSprite> playables =
+				buildPlayableUpdateOrder(sprites, sidekicks, isCpuSidekickSuppressed());
 		LevelManager levelManager = getLevelManager();
-
-		for (Sprite sprite : sprites) {
-			if (sprite instanceof AbstractPlayableSprite playable) {
-				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
-					continue;
+		beginPlayableFrame(playables);
+		try {
+			for (AbstractPlayableSprite playable : playables) {
+				activePlayableUpdate = playable;
+				try {
+					playable.applyQueuedControlStateForFrameStart();
+					publishInputState(playable,
+							false, false, false, false, false,
+							false, false, false, false, false);
+					tickPlayablePhysics(playable, false, false, false, false, false, false, false, false,
+							levelManager, frameCounter);
+				} finally {
+					runDeferredPostTickMutations(playable);
+					activePlayableUpdate = null;
 				}
-				tickPlayablePhysics(playable, false, false, false, false, false, false, false, false,
-						levelManager, frameCounter);
 			}
+		} finally {
+			endPlayableFrame();
 		}
+	}
+
+	/**
+	 * Defers a cross-playable mutation until the target sprite has finished its
+	 * current physics slot in this frame.
+	 * <p>
+	 * ROM touch handlers can mutate another character's status during the current
+	 * player's ReactToItem slot. When the target player's slot still lies ahead in
+	 * the engine's update order, applying that mutation immediately would let the
+	 * later player tick consume it one frame too early.
+	 */
+	public void deferCrossPlayableMutationUntilPostTick(AbstractPlayableSprite target, Runnable mutation) {
+		if (target == null || mutation == null) {
+			return;
+		}
+		if (!playableFrameActive) {
+			mutation.run();
+			return;
+		}
+		Integer targetOrder = playableUpdateOrder.get(target);
+		Integer activeOrder = activePlayableUpdate != null ? playableUpdateOrder.get(activePlayableUpdate) : null;
+		if (targetOrder == null || activeOrder == null || targetOrder <= activeOrder) {
+			mutation.run();
+			return;
+		}
+		deferredPostTickMutations.computeIfAbsent(target, ignored -> new ArrayList<>()).add(mutation);
+	}
+
+	private void beginPlayableFrame(List<AbstractPlayableSprite> playables) {
+		playableFrameActive = true;
+		playableUpdateOrder.clear();
+		deferredPostTickMutations.clear();
+		activePlayableUpdate = null;
+		for (int i = 0; i < playables.size(); i++) {
+			playableUpdateOrder.put(playables.get(i), i);
+		}
+	}
+
+	private void endPlayableFrame() {
+		playableFrameActive = false;
+		playableUpdateOrder.clear();
+		deferredPostTickMutations.clear();
+		activePlayableUpdate = null;
+	}
+
+	private void runDeferredPostTickMutations(AbstractPlayableSprite playable) {
+		List<Runnable> deferred = deferredPostTickMutations.remove(playable);
+		if (deferred == null) {
+			return;
+		}
+		for (Runnable mutation : deferred) {
+			mutation.run();
+		}
+	}
+
+	private static void publishInputState(AbstractPlayableSprite playable,
+			boolean rawUp, boolean rawDown, boolean rawLeft, boolean rawRight, boolean rawJump,
+			boolean logicalUp, boolean logicalDown, boolean logicalLeft, boolean logicalRight, boolean logicalJump) {
+		playable.setJumpInputPressed(rawJump);
+		playable.setDirectionalInputPressed(rawUp, rawDown, rawLeft, rawRight);
+		playable.setLogicalInputState(logicalUp, logicalDown, logicalLeft, logicalRight, logicalJump);
 	}
 
 	/**
@@ -376,6 +477,17 @@ public class SpriteManager {
 					continue;
 				}
 				playable.getAnimationManager().update(frameCounter);
+			}
+		}
+	}
+
+	public void refreshPlayableRenderFlags(Camera camera) {
+		if (camera == null) {
+			return;
+		}
+		for (Sprite sprite : getAllSprites()) {
+			if (sprite instanceof AbstractPlayableSprite playable) {
+				playable.setRenderFlagOnScreen(camera.isVisibleForRenderFlag(playable));
 			}
 		}
 	}
@@ -762,8 +874,11 @@ public class SpriteManager {
 		} else {
 			playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
 		}
-		// ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
-		// after their physics but before other objects' solid checks.
+		// ROM Obj01_Control: movement runs first, then Sonic_Animate, then
+		// TouchResponse. Special objects like monitors gate on anim(a0), so
+		// ReactToItem must observe the post-movement animation state from the
+		// current player slot, not the previous frame's mapping state.
+		playable.getAnimationManager().update(frameCounter);
 		levelManager.applyTouchResponses(playable);
 		// S1 (UNIFIED): Post-movement solid pass matches ROM timing — solid objects
 		// check Sonic's position after he has moved in the ROM's ExecuteObjects loop.
@@ -775,7 +890,6 @@ public class SpriteManager {
 			applySolidContacts(levelManager, playable, true, false);
 		}
 		levelManager.applyPlaneSwitchers(playable);
-		playable.getAnimationManager().update(frameCounter);
 		playable.tickStatus();
 		playable.endOfTick();
 	}
@@ -795,6 +909,48 @@ public class SpriteManager {
 		}
 		PhysicsFeatureSet featureSet = playable.getPhysicsFeatureSet();
 		return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+	}
+
+	static List<AbstractPlayableSprite> buildPlayableUpdateOrder(Collection<Sprite> sprites,
+			List<AbstractPlayableSprite> sidekicks,
+			boolean suppressCpuSidekicks) {
+		List<AbstractPlayableSprite> ordered = new ArrayList<>();
+		IdentityHashMap<AbstractPlayableSprite, Boolean> scheduled = new IdentityHashMap<>();
+		IdentityHashMap<AbstractPlayableSprite, Boolean> available = new IdentityHashMap<>();
+
+		for (Sprite sprite : sprites) {
+			if (sprite instanceof AbstractPlayableSprite playable) {
+				available.put(playable, Boolean.TRUE);
+				if (!playable.isCpuControlled()) {
+					ordered.add(playable);
+					scheduled.put(playable, Boolean.TRUE);
+				}
+			}
+		}
+
+		if (!suppressCpuSidekicks) {
+			for (AbstractPlayableSprite sidekick : sidekicks) {
+				if (available.containsKey(sidekick) && !scheduled.containsKey(sidekick)) {
+					ordered.add(sidekick);
+					scheduled.put(sidekick, Boolean.TRUE);
+				}
+			}
+		}
+
+		for (Sprite sprite : sprites) {
+			if (!(sprite instanceof AbstractPlayableSprite playable)) {
+				continue;
+			}
+			if (playable.isCpuControlled() && suppressCpuSidekicks) {
+				continue;
+			}
+			if (!scheduled.containsKey(playable)) {
+				ordered.add(playable);
+				scheduled.put(playable, Boolean.TRUE);
+			}
+		}
+
+		return ordered;
 	}
 
 

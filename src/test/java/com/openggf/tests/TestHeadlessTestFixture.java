@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
@@ -58,6 +59,22 @@ public class TestHeadlessTestFixture {
         assertNotNull(camera, "Fixture should provide a non-null camera");
         assertFalse(camera.getFrozen(), "Camera should not be frozen after fixture build");
         assertTrue(camera.getMaxX() > 0, "Camera maxX should be non-zero after fixture build");
+    }
+
+    @Test
+    public void testFixtureRegistersConfiguredSidekickTeam() {
+        HeadlessTestFixture.builder()
+                .withSharedLevel(shared)
+                .startPosition((short) 96, (short) 655)
+                .build();
+
+        var sidekicks = GameServices.sprites().getSidekicks();
+        assertEquals(1, sidekicks.size(), "EHZ1 headless fixture should include Sonic 2's default Tails sidekick");
+        AbstractPlayableSprite tails = sidekicks.getFirst();
+        assertTrue(tails.isCpuControlled(), "Configured sidekick should be CPU-controlled");
+        assertNotNull(tails.getCpuController(), "Configured sidekick should have an active CPU controller");
+        assertEquals("tails", GameServices.sprites().getSidekickCharacterName(tails),
+                "Registered sidekick should preserve the configured character name");
     }
 
     @Test

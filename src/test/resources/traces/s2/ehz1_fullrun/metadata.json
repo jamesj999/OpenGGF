@@ -1,0 +1,19 @@
+{
+  "game": "s2",
+  "zone": "ehz",
+  "zone_id": 0,
+  "act": 1,
+  "bk2_frame_offset": 899,
+  "trace_frame_count": 5852,
+  "start_x": "0x0060",
+  "start_y": "0x0290",
+  "characters": ["sonic", "tails"],
+  "main_character": "sonic",
+  "sidekicks": ["tails"],
+  "recording_date": "2026-04-22",
+  "lua_script_version": "8.0-s2",
+  "trace_schema": 8,
+  "csv_version": 6,
+  "rom_checksum": "",
+  "notes": ""
+}

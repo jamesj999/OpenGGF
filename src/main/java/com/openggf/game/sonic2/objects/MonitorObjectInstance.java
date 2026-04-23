@@ -3,6 +3,7 @@ import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 
@@ -26,6 +27,8 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.sprites.Sprite;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.audio.GameSound;
@@ -59,6 +62,10 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     private int currentY;
 
     private boolean initialized;
+    private boolean mainCharacterStanding;
+    private boolean mainCharacterPushing;
+    private boolean sidekickStanding;
+    private boolean sidekickPushing;
 
     public MonitorObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -148,7 +155,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     @Override
     public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (broken || player == null || player.isCpuControlled()) {
+        if (broken || player == null) {
             return;
         }
 
@@ -178,19 +185,34 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         }
 
         // Hitting from above (Moving Down or Stationary)
-        if (!player.getRolling()) {
+        // ROM: Touch_Monitor checks anim(a0) == AniIDSonAni_Roll here, not the
+        // broader rolling status bit. The animation transition lags status changes
+        // by a frame in some cases, which affects monitor break timing.
+        if (player.getAnimationId() != Sonic2AnimationIds.ROLL.id()) {
             return;
         }
 
         // Break Monitor and Bounce Player Up
         broken = true;
 
+        boolean touchingMonitorAsSolid = wasTouchingMonitor(player);
+
         // Mark as broken in persistence table
         ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
+            objectManager.clearRidingObject(player);
         }
 
+        // ROM Obj26_Break only forces the character airborne when the monitor's
+        // own standing/pushing bits were set for that character.
+        if (touchingMonitorAsSolid) {
+            player.setOnObject(false);
+            player.setPushing(false);
+            player.setAir(true);
+        }
+        clearTouchingMonitor(player);
+        releaseTouchingCharactersOnBreak(objectManager, player);
         player.setYSpeed((short) -player.getYSpeed());
         mappingFrame = BROKEN_FRAME;
         startIconRise(spawn.y(), player);
@@ -235,7 +257,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
 
     @Override
     public int getCollisionFlags() {
-        return 0x46;
+        return broken ? 0 : 0x46;
     }
 
     @Override
@@ -276,7 +298,74 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Solid contact used for standing/edge checks in ROM; no behavior yet.
+        if (player == null) {
+            return;
+        }
+        if (contact.standing()) {
+            setStandingOnMonitor(player, true);
+        }
+        if (contact.pushing()) {
+            setPushingMonitor(player, true);
+        }
+    }
+
+    private boolean wasTouchingMonitor(AbstractPlayableSprite player) {
+        return isSidekick(player)
+                ? sidekickStanding || sidekickPushing
+                : mainCharacterStanding || mainCharacterPushing;
+    }
+
+    private void clearTouchingMonitor(AbstractPlayableSprite player) {
+        setStandingOnMonitor(player, false);
+        setPushingMonitor(player, false);
+    }
+
+    private void releaseTouchingCharactersOnBreak(ObjectManager objectManager, AbstractPlayableSprite breaker) {
+        SpriteManager spriteManager = services().spriteManager();
+        if (spriteManager == null) {
+            return;
+        }
+        for (Sprite sprite : spriteManager.getAllSprites()) {
+            if (!(sprite instanceof AbstractPlayableSprite playable) || playable == breaker) {
+                continue;
+            }
+            if (!wasTouchingMonitor(playable)) {
+                continue;
+            }
+            spriteManager.deferCrossPlayableMutationUntilPostTick(
+                    playable,
+                    () -> releaseTouchingCharacterOnBreak(objectManager, playable));
+        }
+    }
+
+    private void releaseTouchingCharacterOnBreak(ObjectManager objectManager, AbstractPlayableSprite player) {
+        if (objectManager != null) {
+            objectManager.clearRidingObject(player);
+        }
+        player.setOnObject(false);
+        player.setPushing(false);
+        player.setAir(true);
+        clearTouchingMonitor(player);
+    }
+
+    private void setStandingOnMonitor(AbstractPlayableSprite player, boolean standing) {
+        if (isSidekick(player)) {
+            sidekickStanding = standing;
+        } else {
+            mainCharacterStanding = standing;
+        }
+    }
+
+    private void setPushingMonitor(AbstractPlayableSprite player, boolean pushing) {
+        if (isSidekick(player)) {
+            sidekickPushing = pushing;
+        } else {
+            mainCharacterPushing = pushing;
+        }
+    }
+
+    private boolean isSidekick(AbstractPlayableSprite player) {
+        return player.isCpuControlled();
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.openggf.game.sonic3k.objects.badniks.SpikerBadnikInstance;
 import com.openggf.game.sonic3k.objects.bosses.CnzEndBossInstance;
 import com.openggf.game.sonic3k.objects.bosses.HczEndBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
+import com.openggf.level.objects.ObjectSlotLayout;
 import com.openggf.level.objects.PlaceholderObjectInstance;
 
 /**
@@ -35,6 +36,11 @@ import com.openggf.level.objects.PlaceholderObjectInstance;
  * same underlying object names in most cases.
  */
 public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
+
+    @Override
+    public ObjectSlotLayout objectSlotLayout() {
+        return ObjectSlotLayout.SONIC_3K;
+    }
 
     @Override
     protected void registerDefaultFactories() {

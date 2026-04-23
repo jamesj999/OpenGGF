@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_2)
 class TestSolidOrderingCollisionTraces {
+    private static final String DEFAULT_TAILS_SIDEKICK_CODE = "tails_p2";
     private static SharedLevel sharedLevel;
 
     @BeforeAll
@@ -125,7 +126,9 @@ class TestSolidOrderingCollisionTraces {
     }
 
     private AbstractPlayableSprite createSidekick() {
-        Tails tails = new Tails("tails", (short) 0x130, (short) 0x0F3);
+        // Replace the default shared-fixture Tails slot so each checkpoint probe
+        // still sees exactly one sidekick participant.
+        Tails tails = new Tails(DEFAULT_TAILS_SIDEKICK_CODE, (short) 0x130, (short) 0x0F3);
         tails.setCpuControlled(true);
         tails.setCpuController(new SidekickCpuController(tails, player));
         GameServices.sprites().addSprite(tails, "tails");

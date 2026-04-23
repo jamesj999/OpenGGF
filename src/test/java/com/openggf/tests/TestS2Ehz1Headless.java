@@ -264,11 +264,14 @@ public class TestS2Ehz1Headless {
 
     private Tails tails;
     private SidekickCpuController controller;
+    private static final String DEFAULT_TAILS_SIDEKICK_CODE = "tails_p2";
 
     private void createTailsForTest() {
         sprite.setX((short) 100);
         sprite.setY((short) 624);
-        tails = new Tails("tails", (short) 60, (short) 624);
+        // Replace the default headless-fixture Tails slot instead of appending a
+        // second CPU sidekick alongside the registered P2 helper.
+        tails = new Tails(DEFAULT_TAILS_SIDEKICK_CODE, (short) 60, (short) 624);
         tails.setCpuControlled(true);
         controller = new SidekickCpuController(tails, sprite);
         tails.setCpuController(controller);
@@ -316,8 +319,8 @@ public class TestS2Ehz1Headless {
         }
 
         // Place Tails very close to Sonic's delayed position
-        short sonicDelayedX = sonic.getCentreX(17);
-        short sonicDelayedY = sonic.getCentreY(17);
+        short sonicDelayedX = sonic.getCentreX(16);
+        short sonicDelayedY = sonic.getCentreY(16);
         tails.setX((short) (sonicDelayedX - tails.getWidth() / 2));
         tails.setY((short) (sonicDelayedY - tails.getHeight() / 2));
 
@@ -535,9 +538,9 @@ public class TestS2Ehz1Headless {
         controller.update(320);
         assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
 
-        // Place Tails right at Sonic's delayed position (17-frame delay)
-        short targetX = sonic.getCentreX(17);
-        short targetY = sonic.getCentreY(17);
+        // Place Tails right at Sonic's effective delayed position.
+        short targetX = sonic.getCentreX(16);
+        short targetY = sonic.getCentreY(16);
         tails.setX((short) (targetX - tails.getWidth() / 2));
         tails.setY((short) (targetY - tails.getHeight() / 2));
 
@@ -654,26 +657,26 @@ public class TestS2Ehz1Headless {
     public void testInputReplayFromSonicHistory() {
         createTailsForTest();
         // Record Sonic's input history by walking right for 20+ frames
-        // so that the 17-frame delayed input has right pressed
+        // so that the effective 16-frame delayed input has right pressed
         for (int i = 0; i < 25; i++) {
             fixture.stepFrame(false, false, false, true, false);
             stepTailsFrame();
         }
 
         // Place Tails close to target so AI override doesn't force direction
-        short targetX = sonic.getCentreX(17);
-        short targetY = sonic.getCentreY(17);
+        short targetX = sonic.getCentreX(16);
+        short targetY = sonic.getCentreY(16);
         tails.setX((short) (targetX - tails.getWidth() / 2));
         tails.setY((short) (targetY - tails.getHeight() / 2));
         tails.setAir(false);
 
         controller.update(fixture.frameCount());
 
-        // Sonic's recorded input from 17 frames ago should have RIGHT pressed
+        // Sonic's recorded input from 16 frames ago should have RIGHT pressed
         // (since Sonic was walking right for all 25 frames)
-        short replayedInput = sonic.getInputHistory(17);
+        short replayedInput = sonic.getInputHistory(16);
         boolean replayedRight = (replayedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        assertTrue(replayedRight, "Sonic's recorded input from 17 frames ago should have RIGHT pressed");
+        assertTrue(replayedRight, "Sonic's recorded input from 16 frames ago should have RIGHT pressed");
         assertTrue(controller.getInputRight(), "Tails should replay Sonic's right input");
     }
 
@@ -690,8 +693,8 @@ public class TestS2Ehz1Headless {
         fixture.stepFrame(false, false, false, false, true);
         stepTailsFrame();
 
-        // Continue for 16 more frames (not stepping Tails on the last one)
-        for (int i = 0; i < 16; i++) {
+        // Continue for 15 more frames (not stepping Tails on the last one)
+        for (int i = 0; i < 15; i++) {
             fixture.stepFrame(false, false, false, false, false);
             stepTailsFrame();
         }
@@ -699,14 +702,14 @@ public class TestS2Ehz1Headless {
         // Step Sonic one more frame but DON'T step Tails yet
         fixture.stepFrame(false, false, false, false, false);
 
-        // Now the jump input is exactly 17 frames behind in Sonic's history.
+        // Now the jump input is exactly 16 frames behind in Sonic's history.
         // Update Tails' controller fresh to see the replayed jump.
         tails.setAir(false);
         controller.update(fixture.frameCount());
 
-        short replayedInput = sonic.getInputHistory(17);
+        short replayedInput = sonic.getInputHistory(16);
         boolean replayedJump = (replayedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
-        assertTrue(replayedJump, "Sonic's recorded input from 17 frames ago should have JUMP pressed");
+        assertTrue(replayedJump, "Sonic's recorded input from 16 frames ago should have JUMP pressed");
         assertTrue(controller.getInputJump(), "Tails should replay Sonic's jump input");
     }
 
