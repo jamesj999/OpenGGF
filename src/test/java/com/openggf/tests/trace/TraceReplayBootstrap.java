@@ -497,6 +497,17 @@ public final class TraceReplayBootstrap {
         if (!current.stateEquals(previous)) {
             return TraceExecutionPhase.FULL_LEVEL_FRAME;
         }
+        // Pre-level frames (SEGA/title/level-load) leave stale non-zero speed
+        // fields in the Player_1 RAM block that the recorder samples. When the
+        // gameplay_frame_counter stays pinned across two consecutive frames,
+        // treat the state as "game is still initializing / intro cutscene
+        // running" rather than trusting the stale speed fields, which would
+        // otherwise misclassify frozen-state frames as VBLANK_ONLY.
+        if (previous.gameplayFrameCounter() >= 0
+                && current.gameplayFrameCounter() >= 0
+                && previous.gameplayFrameCounter() == current.gameplayFrameCounter()) {
+            return TraceExecutionPhase.FULL_LEVEL_FRAME;
+        }
         return current.xSpeed() != 0 || current.ySpeed() != 0
                 || current.gSpeed() != 0 || current.air()
                 ? TraceExecutionPhase.VBLANK_ONLY

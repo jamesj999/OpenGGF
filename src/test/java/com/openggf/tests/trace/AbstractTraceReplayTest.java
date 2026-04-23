@@ -358,6 +358,24 @@ public abstract class AbstractTraceReplayTest {
             }
             controller.alignCursorToTraceIndex(replayStart.startingTraceIndex());
         } else if (driveTraceIndex > 0) {
+            // Legacy warmup path: we skipped past every trace checkpoint that
+            // preceded strictStart (e.g. intro_begin at frame 0 for AIZ1).
+            // Seed the detector and open the relevant elastic windows so the
+            // intro cutscene is compared loosely rather than driving strict
+            // comparison against the frozen pre-gameplay player snapshot.
+            // The controller auto-closes each window once the drive cursor
+            // passes its recorded exit frame, so the engine's checkpoint
+            // timing (e.g. title-card overlay activation) does not have to
+            // align exactly with the trace for the replay loop to progress.
+            for (int frame = 0; frame < driveTraceIndex; frame++) {
+                for (TraceEvent event : trace.getEventsForFrame(frame)) {
+                    if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
+                        detector.seedCheckpoint(traceCheckpoint.name());
+                        controller.onEntryFrameValidated(traceCheckpoint);
+                        controller.onEngineCheckpoint(traceCheckpoint);
+                    }
+                }
+            }
             controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
