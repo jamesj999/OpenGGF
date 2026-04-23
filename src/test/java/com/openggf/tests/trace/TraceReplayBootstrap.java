@@ -206,6 +206,24 @@ public final class TraceReplayBootstrap {
         return trace.metadata().bk2FrameOffset() + replaySeedTraceIndexForTraceReplay(trace);
     }
 
+    /**
+     * Returns the first trace frame where a ZoneActState or Checkpoint event
+     * reports {@code game_mode=0x0C} (LEVEL). Headless replay fixtures start
+     * the engine directly in gamemode 0x0C, but the recorder usually runs
+     * for some number of frames in SEGA/title/level-load gamemodes before
+     * the ROM reaches LevelLoop for the first time. Many ROM systems
+     * (OscillateNumDo, sprite placement cursor, random lookups) only tick
+     * inside LevelLoop, so replay drivers need to know how many leading
+     * frames to neutralise from the engine-side so the ROM and engine
+     * stay phase-aligned over long traces.
+     */
+    public static int preLevelFrameCountForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return 0;
+        }
+        return findFirstLevelGameplayFrame(trace);
+    }
+
     public static int replaySeedTraceIndexForTraceReplay(TraceData trace) {
         if (trace == null || trace.frameCount() == 0) {
             return 0;
