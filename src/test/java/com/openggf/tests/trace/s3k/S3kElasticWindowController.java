@@ -89,19 +89,32 @@ public final class S3kElasticWindowController {
                             "Missing recorded checkpoint frame for elastic window "
                                     + checkpoint.name() + " -> " + chainedExitName);
                 }
+                // When the engine reaches the exit checkpoint later than the
+                // recorded trace frame, preserve forward progress of the drive
+                // cursor so we do not rewind into already-consumed BK2 inputs.
+                // The chained-window entry frame is the outer window's exit;
+                // clamp to the maximum of the engine's current position and
+                // the recorded entry so BK2/trace indexing stays monotonic.
+                int chainedEntry = Math.max(driveTraceIndex, exitTraceFrame);
                 openEntryName = checkpoint.name();
                 expectedExitName = chainedExitName;
-                entryTraceFrame = exitTraceFrame;
+                entryTraceFrame = chainedEntry;
                 exitTraceFrame = recordedChainedExit;
                 engineTicksInsideWindow = 0;
                 maxEngineSpan = (exitTraceFrame - entryTraceFrame)
                         + Math.max(180, exitTraceFrame - entryTraceFrame);
-                driveTraceIndex = entryTraceFrame;
-                strictTraceIndex = entryTraceFrame;
+                driveTraceIndex = chainedEntry;
+                strictTraceIndex = chainedEntry;
                 return;
             }
-            strictTraceIndex = exitTraceFrame + 1;
-            driveTraceIndex = exitTraceFrame + 1;
+            // Engine may reach the exit checkpoint earlier or later than the
+            // recorded trace frame. Resume strict comparison at the first
+            // frame that is (a) after the recorded exit AND (b) after the
+            // engine's current drive cursor, so we never rewind backwards and
+            // re-consume BK2 inputs that were already read during the window.
+            int resumeIndex = Math.max(driveTraceIndex + 1, exitTraceFrame + 1);
+            strictTraceIndex = resumeIndex;
+            driveTraceIndex = resumeIndex;
             openEntryName = null;
             expectedExitName = null;
             return;
