@@ -1,6 +1,8 @@
 package com.openggf.tests.trace.s1;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.sonic1.objects.Sonic1RingInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.TouchResponseDebugHit;
 import com.openggf.level.objects.TouchResponseDebugState;
@@ -17,6 +19,7 @@ import com.openggf.tests.trace.TraceMetadata;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
@@ -352,6 +355,75 @@ class TestS1Mz1LostRingCollectionOrderRegression {
         }
     }
 
+    @Test
+    void stageTouchPassTargetsRomFirstRingAtFrame2808() throws Exception {
+        Path traceDir = Path.of("src/test/resources/traces/s1/mz1_fullrun");
+        Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
+
+        Path bk2Path;
+        try (var files = Files.list(traceDir)) {
+            bk2Path = files
+                    .filter(path -> path.toString().endsWith(".bk2"))
+                    .findFirst()
+                    .orElse(null);
+        }
+        Assumptions.assumeTrue(bk2Path != null, "No .bk2 file found in " + traceDir);
+
+        TraceData trace = TraceData.load(traceDir);
+        TraceMetadata meta = trace.metadata();
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, 1, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .startPosition(meta.startX(), meta.startY())
+                    .startPositionIsCentre()
+                    .withRecording(bk2Path)
+                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = meta.preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            GameServices.debugOverlay().setEnabled(com.openggf.debug.DebugOverlayToggle.TOUCH_RESPONSE, true);
+
+            for (int i = 0; i < trace.frameCount(); i++) {
+                TraceFrame expected = trace.getFrame(i);
+                TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
+                TraceExecutionPhase phase =
+                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY) {
+                    fixture.skipFrameFromRecording();
+                } else {
+                    fixture.stepFrameFromRecording();
+                }
+
+                if (expected.frame() == 2808) {
+                    assertEquals(8, expected.rings(), "Trace fixture assumption changed");
+                    assertEquals(8, fixture.sprite().getRingCount(),
+                            "Frame 2808 should still add exactly one ring");
+                    assertEquals("slot=34 flags=0x47 obj=0x0D2C,0x03F0",
+                            firstOverlappingHit(GameServices.level().getObjectManager()),
+                            () -> "S1 ReactToItem should collect the lower-slot 0x0D2C ring first"
+                                    + " player=" + formatPlayerState(fixture)
+                                    + " allHits=" + describeAllTouchHits(GameServices.level().getObjectManager())
+                                    + " ringStates=" + describeStageRingStates(GameServices.level().getObjectManager(),
+                                    0x0D2C, 0x0D14));
+                    return;
+                }
+            }
+        } finally {
+            GameServices.debugOverlay().setEnabled(com.openggf.debug.DebugOverlayToggle.TOUCH_RESPONSE, false);
+            sharedLevel.dispose();
+        }
+    }
+
     private static void stepTouchPhaseOnly(HeadlessTestFixture fixture, int inputMask) {
         boolean up = (inputMask & com.openggf.sprites.playable.AbstractPlayableSprite.INPUT_UP) != 0;
         boolean down = (inputMask & com.openggf.sprites.playable.AbstractPlayableSprite.INPUT_DOWN) != 0;
@@ -400,5 +472,81 @@ class TestS1Mz1LostRingCollectionOrderRegression {
                         hit.objectX() & 0xFFFF,
                         hit.objectY() & 0xFFFF))
                 .collect(Collectors.joining(" | "));
+    }
+
+    private static String firstOverlappingHit(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        TouchResponseDebugState state = objectManager.getTouchResponseDebugState();
+        if (state == null) {
+            return "<no touch debug state>";
+        }
+        return state.getHits().stream()
+                .filter(TouchResponseDebugHit::overlapping)
+                .findFirst()
+                .map(hit -> String.format("slot=%d flags=0x%02X obj=0x%04X,0x%04X",
+                        hit.slotIndex(),
+                        hit.flags() & 0xFF,
+                        hit.objectX() & 0xFFFF,
+                        hit.objectY() & 0xFFFF))
+                .orElse("<none>");
+    }
+
+    private static String describeAllTouchHits(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        TouchResponseDebugState state = objectManager.getTouchResponseDebugState();
+        if (state == null) {
+            return "<no touch debug state>";
+        }
+        if (state.getHits().isEmpty()) {
+            return "<none>";
+        }
+        return state.getHits().stream()
+                .map(hit -> String.format("slot=%d overlap=%s flags=0x%02X obj=0x%04X,0x%04X",
+                        hit.slotIndex(),
+                        hit.overlapping(),
+                        hit.flags() & 0xFF,
+                        hit.objectX() & 0xFFFF,
+                        hit.objectY() & 0xFFFF))
+                .collect(Collectors.joining(" | "));
+    }
+
+    private static String describeStageRingStates(ObjectManager objectManager, int... xs) {
+        if (objectManager == null) {
+            return "<no object manager>";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (int x : xs) {
+            if (builder.length() > 0) {
+                builder.append(" | ");
+            }
+            builder.append(String.format("0x%04X=%s", x & 0xFFFF, describeRingState(objectManager, x)));
+        }
+        return builder.toString();
+    }
+
+    private static String describeRingState(ObjectManager objectManager, int targetX) {
+        for (var instance : objectManager.getActiveObjects()) {
+            if (!(instance instanceof Sonic1RingInstance ring)) {
+                continue;
+            }
+            if (ring.getX() != targetX) {
+                continue;
+            }
+            String state = "<unknown>";
+            try {
+                Field field = Sonic1RingInstance.class.getDeclaredField("state");
+                field.setAccessible(true);
+                state = String.valueOf(field.get(ring));
+            } catch (ReflectiveOperationException ignored) {
+                state = "<reflect-failed>";
+            }
+            int slot = ring instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
+            return String.format("%s@slot=%d", state, slot);
+        }
+        return "<missing>";
     }
 }
