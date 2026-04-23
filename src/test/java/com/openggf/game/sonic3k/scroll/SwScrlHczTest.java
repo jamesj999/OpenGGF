@@ -509,6 +509,20 @@ public class SwScrlHczTest {
         assertNotEquals(bg1, bg2, "Different wall offsets produce different BG scroll");
     }
 
+    @Test
+    public void hcz2WallChaseExposesBgCameraForCollisionParity() {
+        SwScrlHcz handler = new SwScrlHcz();
+
+        handler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+        handler.setWallChaseOffsetX(-0x120);
+        handler.primeBgCollisionState(0x840, 0x690);
+
+        assertEquals(0x840 - 0x200 - 0x120, handler.getBgCameraX(),
+                "HCZ2 wall-chase BG collisions must use Camera_X_pos_BG_copy");
+        assertEquals((short) (0x690 - 0x500), handler.getVscrollFactorBG(),
+                "HCZ2 wall-chase BG collisions must use Camera_Y_pos_BG_copy");
+    }
+
     // ==== Provider routing test ====
 
     @Test
@@ -566,5 +580,4 @@ public class SwScrlHczTest {
         return data;
     }
 }
-
 

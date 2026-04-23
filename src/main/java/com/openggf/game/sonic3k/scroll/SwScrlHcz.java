@@ -68,6 +68,7 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
     private Hcz2BgPhase hcz2Phase = Hcz2BgPhase.NORMAL;
     private int screenShakeOffset;
     private int wallChaseOffsetX;
+    private int lastBgCameraX = Integer.MIN_VALUE;
     private short vscrollFactorFG;
 
     public SwScrlHcz(byte[] waterlineData) {
@@ -94,9 +95,30 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
         this.wallChaseOffsetX = offset;
     }
 
+    /**
+     * Prime the collision-facing BG camera state before physics runs.
+     *
+     * <p>ROM: HCZ2_WallMove writes Camera_X/Y_pos_BG_copy before the dual-path
+     * BG collision routines read Camera_X/Y_diff. The engine's normal scroll
+     * update runs later in the frame, so HCZ2 needs this pre-physics cache.
+     */
+    public void primeBgCollisionState(int cameraX, int cameraY) {
+        if (hcz2Phase == Hcz2BgPhase.WALL_CHASE) {
+            lastBgCameraX = cameraX - WALL_CHASE_BG_X_OFFSET + wallChaseOffsetX;
+            vscrollFactorBG = (short) (cameraY - WALL_CHASE_BG_Y_OFFSET);
+            return;
+        }
+        lastBgCameraX = Integer.MIN_VALUE;
+    }
+
     @Override
     public short getVscrollFactorFG() {
         return vscrollFactorFG;
+    }
+
+    @Override
+    public int getBgCameraX() {
+        return lastBgCameraX;
     }
 
     @Override
@@ -115,6 +137,7 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
         composer.setVscrollFactorFG((short) 0);
 
         if (actId == 0) {
+            lastBgCameraX = Integer.MIN_VALUE;
             updateHcz1(cameraX, cameraY);
         } else {
             updateHcz2(cameraX, cameraY);
@@ -203,13 +226,16 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
         short fgScroll = negWord(cameraX);
 
         if (hcz2Phase == Hcz2BgPhase.WALL_CHASE) {
+            int bgCameraX = cameraX - WALL_CHASE_BG_X_OFFSET + wallChaseOffsetX;
+            lastBgCameraX = bgCameraX;
             composer.setVscrollFactorBG((short) (cameraY - WALL_CHASE_BG_Y_OFFSET));
-            short bgScroll = negWord(cameraX - WALL_CHASE_BG_X_OFFSET + wallChaseOffsetX);
+            short bgScroll = negWord(bgCameraX);
             composer.fillPackedScrollWords(0, VISIBLE_LINES, fgScroll, bgScroll);
             return;
         }
 
         hcz2HScroll.clear();
+        lastBgCameraX = Integer.MIN_VALUE;
         short shakeY = (short) screenShakeOffset;
         composer.setVscrollFactorBG((short) (asrWord(cameraY - shakeY, 2) + shakeY));
 
