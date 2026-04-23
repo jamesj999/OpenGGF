@@ -179,6 +179,9 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     /** Reference to the spawned wall collision object. */
     private HCZ2WallObjectInstance wallObject;
 
+    /** Prevents Act 2 BG logic from double-advancing when pre-physics already ran it. */
+    private boolean act2BgUpdatedPrePhysics;
+
     // =========================================================================
     // Post-transition whirlpool descent cutscene
     // =========================================================================
@@ -232,6 +235,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         wallStopped = false;
         shakeTimer = 0;
         wallObject = null;
+        act2BgUpdatedPrePhysics = false;
     }
 
     @Override
@@ -247,8 +251,31 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             updateAct1Bg();
         } else {
             updateAct2Fg();
-            updateAct2Bg(frameCounter);
+            if (!act2BgUpdatedPrePhysics) {
+                updateAct2Bg(frameCounter);
+            } else if (act2BgRoutine == BG_WALL_MOVE && eventsFg5) {
+                // Preserve the ROM-style same-frame FG -> BG handoff at the end
+                // of the wall chase without running the full BG move logic twice.
+                act2BgWallMove(frameCounter);
+            }
+            act2BgUpdatedPrePhysics = false;
         }
+    }
+
+    /**
+     * Run the HCZ2 wall-chase BG event before player physics.
+     *
+     * <p>ROM: HCZ2_BackgroundEvent updates Camera_X/Y_pos_BG_copy before the
+     * background-collision FindFloor/FindWall path uses Camera_X/Y_diff. The
+     * engine's normal scroll update happens later in the frame, so HCZ2 needs
+     * the same pre-physics priming pattern used by MGZ2's BG-rise sequence.
+     */
+    public void updatePrePhysics(int act, int frameCounter) {
+        if (act != 1 || cutsceneActive) {
+            return;
+        }
+        updateAct2Bg(frameCounter);
+        act2BgUpdatedPrePhysics = true;
     }
 
     // =========================================================================
@@ -572,6 +599,8 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             SwScrlHcz scrollHandler = resolveHczScrollHandler();
             if (scrollHandler != null) {
                 scrollHandler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+                scrollHandler.setWallChaseOffsetX(wallOffsetPixels);
+                scrollHandler.primeBgCollisionState(camX, camY);
             }
 
             // Enable BG high-priority overlay so wall tiles render in front of FG
@@ -624,6 +653,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             scrollHandler.setWallChaseOffsetX(wallOffsetPixels);
             scrollHandler.setScreenShakeOffset(
                     wallMoving ? getShakeOffset(frameCounter) : 0);
+            scrollHandler.primeBgCollisionState(camera().getX(), camera().getY());
         }
 
         // Update wall object position
@@ -643,6 +673,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
             scrollHandler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.NORMAL);
             scrollHandler.setScreenShakeOffset(0);
             scrollHandler.setWallChaseOffsetX(0);
+            scrollHandler.primeBgCollisionState(camera().getX(), camera().getY());
         }
         gameState().setBackgroundCollisionFlag(false);
         gameState().setBgHighPriorityOverlayActive(false);
