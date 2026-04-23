@@ -267,4 +267,27 @@ public class HeadlessTestRunner {
         if (bk2Movie == null) return 0;
         return bk2Movie.getFrameCount() - currentBk2Index;
     }
+
+    /**
+     * Advances the BK2 cursor without mutating gameplay state.
+     * Used when replay logic elastically skips trace windows after the
+     * engine reaches the matching checkpoint earlier than the recorded run.
+     *
+     * @param frameCount number of BK2 frames to skip
+     */
+    public void advanceRecordingCursor(int frameCount) {
+        if (frameCount <= 0) {
+            return;
+        }
+        if (bk2Movie == null) {
+            throw new IllegalStateException("No BK2 movie loaded. Call setBk2Movie() first.");
+        }
+        int targetIndex = currentBk2Index + frameCount;
+        if (targetIndex > bk2Movie.getFrameCount()) {
+            throw new IllegalStateException(
+                    "BK2 movie exhausted while advancing cursor to index " + targetIndex
+                            + " (movie has " + bk2Movie.getFrameCount() + " frames)");
+        }
+        currentBk2Index = targetIndex;
+    }
 }

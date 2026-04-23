@@ -1,8 +1,10 @@
 package com.openggf.tests.trace;
 
+import com.openggf.Engine;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameMode;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.objects.Aiz2BossEndSequenceState;
@@ -21,6 +23,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
+import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.tests.trace.s3k.S3kCheckpointProbe;
 import com.openggf.tests.trace.s3k.S3kElasticWindowController;
@@ -87,18 +90,30 @@ public abstract class AbstractTraceReplayTest {
         // 2. Load trace data
         TraceData trace = TraceData.load(traceDir);
         TraceMetadata meta = trace.metadata();
+        boolean requiresFreshLevelLoad =
+                TraceReplayBootstrap.requiresFreshLevelLoadForTraceReplay(trace);
 
         // 3. Validate test configuration matches metadata
         validateMetadata(meta);
         applyRecordedTeamConfig(meta);
+        if (requiresFreshLevelLoad && "s3k".equals(meta.game())) {
+            SonicConfigurationService.getInstance()
+                    .setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+        }
 
         // 4. Load level and create fixture
-        SharedLevel sharedLevel = SharedLevel.load(game(), zone(), act());
+        SharedLevel sharedLevel = requiresFreshLevelLoad
+                ? null
+                : SharedLevel.load(game(), zone(), act());
         try {
             HeadlessTestFixture.Builder fixtureBuilder = HeadlessTestFixture.builder()
-                .withSharedLevel(sharedLevel)
                 .withRecording(bk2Path)
-                .withRecordingStartFrame(meta.bk2FrameOffset());
+                .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace));
+            if (sharedLevel != null) {
+                fixtureBuilder.withSharedLevel(sharedLevel);
+            } else {
+                fixtureBuilder.withZoneAndAct(zone(), act());
+            }
             if (shouldApplyMetadataStartPosition(trace, meta)) {
                 fixtureBuilder
                         .startPosition(meta.startX(), meta.startY())
@@ -111,8 +126,8 @@ public abstract class AbstractTraceReplayTest {
             //     VBlank counter directly; older traces fall back to the
             //     historical BK2-offset heuristic.
             ObjectManager om = GameServices.level().getObjectManager();
-            if (om != null) {
-                om.initVblaCounter(trace.initialVblankCounter() - 1);
+            if (om != null && shouldUseTraceStartBootstrap(trace)) {
+                om.initVblaCounter(TraceReplayBootstrap.initialVblankCounterForTraceReplay(trace) - 1);
             }
             if (GameServices.debugOverlay() != null) {
                 GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
@@ -129,7 +144,7 @@ public abstract class AbstractTraceReplayTest {
             int preTraceOsc = overridePreTraceOscFrames() >= 0
                     ? overridePreTraceOscFrames()
                     : meta.preTraceOscillationFrames();
-            if (preTraceOsc > 0) {
+            if (shouldUseTraceStartBootstrap(trace) && preTraceOsc > 0) {
                 for (int i = 0; i < preTraceOsc; i++) {
                     // Use negative frame counters to avoid collisions with the
                     // real frame counter that starts at 0 during the test loop.
@@ -263,7 +278,11 @@ public abstract class AbstractTraceReplayTest {
                 fail(report.toSummary());
             }
         } finally {
-            sharedLevel.dispose();
+            if (sharedLevel != null) {
+                sharedLevel.dispose();
+            } else {
+                TestEnvironment.resetAll();
+            }
         }
     }
 
@@ -289,12 +308,10 @@ public abstract class AbstractTraceReplayTest {
     }
 
     private boolean shouldApplyMetadataStartPosition(TraceData trace, TraceMetadata meta) {
-        // start_x/start_y are written from the live ROM player position at the
-        // exact frame where recording begins. For S3K end-to-end traces,
-        // frame 0 may still carry the unconditional "intro_begin" anchor even
-        // when the BK2 was armed after the production intro bootstrap. Treat
-        // the recorded start position as authoritative for all replay tests.
-        return true;
+        // Power-on traces can begin before the level is actually live. In those
+        // cases start_x/start_y reflect whatever was left in Player_1 RAM at the
+        // recorder start, not the first replayable in-level position.
+        return TraceReplayBootstrap.shouldApplyMetadataStartPositionForTraceReplay(trace);
     }
 
     private void replayS3kTrace(TraceData trace, TraceMetadata meta,
@@ -303,7 +320,7 @@ public abstract class AbstractTraceReplayTest {
         int driveTraceIndex = replayStart.startingTraceIndex();
         TraceFrame previousDriveFrame = replayStart.hasSeededTraceState()
                 ? trace.getFrame(replayStart.seededTraceIndex())
-                : null;
+                : driveTraceIndex > 0 ? trace.getFrame(driveTraceIndex - 1) : null;
         S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
         S3kElasticWindowController controller =
                 new S3kElasticWindowController(loadCheckpointFrames(trace));
@@ -313,6 +330,9 @@ public abstract class AbstractTraceReplayTest {
 
         if (replayStart.hasSeededTraceState()) {
             TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
+            TraceReplayBootstrap.ReplayPrimaryState seededPrimary =
+                    TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
+                            trace, seededFrame, fixture.sprite());
             EngineDiagnostics engineDiag = captureEngineDiagnostics(fixture.sprite());
             String romDiag = combineDiagnostics(
                     seededFrame.hasExtendedData() ? seededFrame.formatDiagnostics() : "",
@@ -320,11 +340,11 @@ public abstract class AbstractTraceReplayTest {
                             trace.getEventsForFrame(replayStart.seededTraceIndex())));
 
             binder.compareFrame(seededFrame,
-                    fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
-                    fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getGSpeed(),
-                    fixture.sprite().getAngle(),
-                    fixture.sprite().getAir(), fixture.sprite().getRolling(),
-                    fixture.sprite().getGroundMode().ordinal(), romDiag,
+                    seededPrimary.x(), seededPrimary.y(),
+                    seededPrimary.xSpeed(), seededPrimary.ySpeed(), seededPrimary.gSpeed(),
+                    seededPrimary.angle(),
+                    seededPrimary.air(), seededPrimary.rolling(),
+                    seededPrimary.groundMode(), romDiag,
                     engineDiag);
 
             for (int frame = 0; frame <= replayStart.seededTraceIndex(); frame++) {
@@ -336,6 +356,9 @@ public abstract class AbstractTraceReplayTest {
                     }
                 }
             }
+            controller.alignCursorToTraceIndex(replayStart.startingTraceIndex());
+        } else if (driveTraceIndex > 0) {
+            controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
         while (driveTraceIndex < trace.frameCount()) {
@@ -351,7 +374,7 @@ public abstract class AbstractTraceReplayTest {
             boolean titleCardOverlayActive = titleCardProvider != null && titleCardProvider.isOverlayActive();
             boolean titleCardReleaseControl = titleCardProvider != null && titleCardProvider.shouldReleaseControl();
             if (lastEventsFg5 == null || lastEventsFg5 != probe.eventsFg5()) {
-                System.out.printf("S3K probe frame=%d levelStarted=%b eventsFg5=%b fire=%b zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b tcOverlay=%b tcRelease=%b%n",
+                System.out.printf("S3K probe frame=%d levelStarted=%b eventsFg5=%b fire=%b zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b tcOverlay=%b tcRelease=%b%n",
                         driveFrame.frame(),
                         probe.levelStarted(),
                         probe.eventsFg5(),
@@ -361,13 +384,15 @@ public abstract class AbstractTraceReplayTest {
                         probe.apparentAct(),
                         probe.moveLock(),
                         probe.ctrlLocked(),
+                        probe.objectControlled(),
+                        probe.hidden(),
                         titleCardOverlayActive,
                         titleCardReleaseControl);
                 lastEventsFg5 = probe.eventsFg5();
             }
             TraceEvent.Checkpoint engineCheckpoint = detector.observe(probe);
             if (engineCheckpoint != null) {
-                System.out.printf("S3K engine checkpoint frame=%d name=%s zone=%s act=%s apparent=%s levelStarted=%b moveLock=%d ctrlLocked=%b eventsFg5=%b tcOverlay=%b tcRelease=%b%n",
+                System.out.printf("S3K engine checkpoint frame=%d name=%s zone=%s act=%s apparent=%s levelStarted=%b moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b eventsFg5=%b tcOverlay=%b tcRelease=%b%n",
                         driveFrame.frame(),
                         engineCheckpoint.name(),
                         probe.actualZoneId(),
@@ -376,6 +401,8 @@ public abstract class AbstractTraceReplayTest {
                         probe.levelStarted(),
                         probe.moveLock(),
                         probe.ctrlLocked(),
+                        probe.objectControlled(),
+                        probe.hidden(),
                         probe.eventsFg5(),
                         titleCardOverlayActive,
                         titleCardReleaseControl);
@@ -386,17 +413,20 @@ public abstract class AbstractTraceReplayTest {
             if (controller.isStrictComparisonEnabled()) {
                 int strictTraceIndex = controller.strictTraceIndex();
                 TraceFrame expected = trace.getFrame(strictTraceIndex);
+                TraceReplayBootstrap.ReplayPrimaryState actualPrimary =
+                        TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
+                                trace, expected, fixture.sprite());
                 EngineDiagnostics engineDiag = captureEngineDiagnostics(fixture.sprite());
                 String romDiag = combineDiagnostics(
                         expected.hasExtendedData() ? expected.formatDiagnostics() : "",
                         TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(strictTraceIndex)));
 
                 binder.compareFrame(expected,
-                        fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
-                        fixture.sprite().getXSpeed(), fixture.sprite().getYSpeed(), fixture.sprite().getGSpeed(),
-                        fixture.sprite().getAngle(),
-                        fixture.sprite().getAir(), fixture.sprite().getRolling(),
-                        fixture.sprite().getGroundMode().ordinal(), romDiag,
+                        actualPrimary.x(), actualPrimary.y(),
+                        actualPrimary.xSpeed(), actualPrimary.ySpeed(), actualPrimary.gSpeed(),
+                        actualPrimary.angle(),
+                        actualPrimary.air(), actualPrimary.rolling(),
+                        actualPrimary.groundMode(), romDiag,
                         engineDiag);
 
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
@@ -410,33 +440,40 @@ public abstract class AbstractTraceReplayTest {
                 }
 
                 if (firstSubDivFrame < 0 && expected.xSub() > 0) {
-                    int engXSub = fixture.sprite().getXSubpixelRaw();
+                    int engXSub = actualPrimary.xSub();
                     int romXSub = expected.xSub();
-                    int engYSub = fixture.sprite().getYSubpixelRaw();
+                    int engYSub = actualPrimary.ySub();
                     int romYSub = expected.ySub();
                     if (engXSub != romXSub || engYSub != romYSub) {
                         firstSubDivFrame = expected.frame();
                         System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
                                         "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
                                 expected.frame(), romXSub, engXSub, romYSub, engYSub,
-                                fixture.sprite().getCentreX(), fixture.sprite().getCentreY(),
-                                fixture.sprite().getXSpeed(), expected.xSpeed(),
-                                fixture.sprite().getYSpeed(), expected.ySpeed(),
-                                fixture.sprite().getAir(), expected.air());
+                                actualPrimary.x(), actualPrimary.y(),
+                                actualPrimary.xSpeed(), expected.xSpeed(),
+                                actualPrimary.ySpeed(), expected.ySpeed(),
+                                actualPrimary.air(), expected.air());
                     }
                 }
             }
 
             boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
+            int naturalNextDriveIndex = driveTraceIndex + 1;
             if (engineCheckpoint != null) {
                 controller.onEngineCheckpoint(engineCheckpoint);
+                int skippedTraceFrames = controller.driveTraceIndex() - naturalNextDriveIndex;
+                if (skippedTraceFrames > 0) {
+                    fixture.advanceRecordingCursor(skippedTraceFrames);
+                }
             }
 
             if (engineCheckpoint != null
                     && !strictBeforeCheckpoint
                     && controller.isStrictComparisonEnabled()) {
                 driveTraceIndex = controller.driveTraceIndex();
-                previousDriveFrame = driveFrame;
+                previousDriveFrame = driveTraceIndex > 0
+                        ? trace.getFrame(driveTraceIndex - 1)
+                        : null;
                 continue;
             }
 
@@ -444,6 +481,10 @@ public abstract class AbstractTraceReplayTest {
             driveTraceIndex = controller.driveTraceIndex();
             previousDriveFrame = driveFrame;
         }
+    }
+
+    private static boolean shouldUseTraceStartBootstrap(TraceData trace) {
+        return true;
     }
 
     private Map<String, Integer> loadCheckpointFrames(TraceData trace) {
@@ -472,15 +513,18 @@ public abstract class AbstractTraceReplayTest {
                 Aiz2BossEndSequenceState.isCutsceneOverrideObjectsActive() && !resultsActive;
         var titleCardProvider = GameServices.module().getTitleCardProvider();
         boolean titleCardOverlayActive = titleCardProvider != null && titleCardProvider.isOverlayActive();
+        Integer traceGameMode = resolveS3kTraceGameMode(titleCardOverlayActive);
 
         return new S3kCheckpointProbe(
                 replayFrame,
                 GameServices.level().getCurrentZone(),
                 GameServices.level().getCurrentAct(),
                 GameServices.level().getApparentAct(),
-                0x0C,
+                traceGameMode,
                 sprite.getMoveLockTimer(),
                 sprite.isControlLocked(),
+                sprite.isObjectControlled(),
+                sprite.isHidden(),
                 eventsFg5,
                 fireTransitionActive,
                 hczTransitionActive,
@@ -488,6 +532,24 @@ public abstract class AbstractTraceReplayTest {
                 resultsActive,
                 GameServices.camera().isLevelStarted(),
                 titleCardOverlayActive);
+    }
+
+    private Integer resolveS3kTraceGameMode(boolean titleCardOverlayActive) {
+        Engine engine = Engine.getInstance();
+        GameMode currentMode = engine != null ? engine.getCurrentGameMode() : null;
+        boolean levelStarted = GameServices.camera() != null && GameServices.camera().isLevelStarted();
+        if (currentMode == null) {
+            return levelStarted ? 0x0C : 0x04;
+        }
+        return switch (currentMode) {
+            case LEVEL, TITLE_CARD -> levelStarted ? 0x0C : 0x04;
+            case SPECIAL_STAGE -> 0x10;
+            case SPECIAL_STAGE_RESULTS -> 0x14;
+            case TITLE_SCREEN, MASTER_TITLE_SCREEN -> 0x00;
+            case LEVEL_SELECT -> 0x08;
+            case DATA_SELECT -> 0x18;
+            case CREDITS_TEXT, CREDITS_DEMO, TRY_AGAIN_END, ENDING_CUTSCENE, EDITOR, BONUS_STAGE -> null;
+        };
     }
 
     private Path findBk2File(Path dir) throws IOException {
