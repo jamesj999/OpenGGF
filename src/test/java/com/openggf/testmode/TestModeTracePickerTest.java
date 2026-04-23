@@ -51,7 +51,16 @@ class TestModeTracePickerTest {
     }
 
     @Test
-    void emptyPickerConsumeResultBack() {
+    void singleEntryNavigationIsStable() {
+        TestModeTracePicker picker = new TestModeTracePicker(
+                entries("s1"), null);
+        assertEquals(0, picker.prevGroupStart(0));
+        assertEquals(0, picker.nextGroupStart(0));
+        assertEquals(0, picker.cursor());
+    }
+
+    @Test
+    void emptyPickerStartsWithNoResult() {
         TestModeTracePicker picker = new TestModeTracePicker(List.of(), null);
         assertEquals(TestModeTracePicker.Result.NONE, picker.consumeResult());
     }
