@@ -53,13 +53,18 @@ running from the project working directory.
    - an input visualiser showing the BK2 frame's inputs as
      `A B C U D L R S` with a `.` wherever a button is released
    - the last 5 distinct mismatch entries
-8. `Esc` tears the session down (`TestEnvironment.resetAll()`) and returns
-   to the picker. Running off the end of the BK2 shows `TRACE COMPLETE`,
-   holds for ~1 second (parameterised via a code constant
-   `TraceSessionLauncher.COMPLETION_HOLD_SECONDS`, default `1.0`), then
-   fades to black using `FadeManager`'s default fade duration and
-   auto-returns to the picker. `Esc` is still accepted at any point
-   during the hold or fade to skip straight to the picker.
+8. Session end (two paths, both ending in a fade-to-black → picker):
+   - **Natural completion.** On BK2 exhaustion the overlay shows
+     `TRACE COMPLETE`, holds for ~1 second (parameterised via a code
+     constant `TraceSessionLauncher.COMPLETION_HOLD_SECONDS`, default
+     `1.0`), then starts a `FadeManager.startFadeToBlack(...)` using
+     the default fade duration. When the fade completes, the launcher
+     tears the session down (`TestEnvironment.resetAll()`) and returns
+     to the picker.
+   - **Manual `Esc`.** Skips the hold and begins the same fade-to-black
+     immediately. A second `Esc` during the fade has no additional
+     effect — once a fade is scheduled, the teardown runs on its
+     completion callback either way.
 9. Standard `PlaybackDebugManager` hotkeys (play/pause, step forward/back,
    jump, rate) continue to work during the session — those already exist
    and don't need changes.
@@ -323,9 +328,11 @@ and don't need to go through `SonicConfiguration`.
    starts so phase gating is live from frame zero.
 6. Register `TraceHudOverlay` with the debug-overlay pipeline.
 
-The launcher also installs a shutdown callback that, on `Esc` from the
-overlay, runs `TestEnvironment.resetAll()` and returns the engine to the
-picker.
+The launcher also installs a shutdown callback. Both paths out of a
+playback session (natural completion or `Esc`) go through the same
+fade-to-black → `TestEnvironment.resetAll()` → picker sequence (see
+9.2). `Esc` simply skips the completion hold; the fade duration itself
+is always `FadeManager`'s default.
 
 ### 6.1 Extracted bootstrap helper
 
@@ -607,8 +614,11 @@ When `LiveTraceComparator.isComplete()` first goes true:
    readable until the screen is fully black.
 4. The fade's `onComplete` callback runs the same teardown path as
    manual `Esc` (`TestEnvironment.resetAll()` + return to picker).
-5. `Esc` pressed at any time during the hold or fade short-circuits
-   straight to teardown.
+5. `Esc` pressed during the hold skips the hold and starts the fade
+   immediately — teardown still runs on the fade's completion callback,
+   not instantly. `Esc` pressed during the fade has no additional
+   effect; the fade runs to completion and teardown follows. This keeps
+   both end paths visually identical.
 
 `FadeManager` composites correctly with the normal level render pipeline
 and works across S1/S2/S3K without per-game code.
@@ -621,7 +631,7 @@ into `GameLoop`. The only new binding is:
 
 | Key | Action |
 |-----|--------|
-| `Esc` | End the trace session, reset runtime, return to picker |
+| `Esc` | End the trace session: skip the completion hold, fade to black (default `FadeManager` duration), reset runtime, return to picker |
 
 ## 11. Configuration keys
 
