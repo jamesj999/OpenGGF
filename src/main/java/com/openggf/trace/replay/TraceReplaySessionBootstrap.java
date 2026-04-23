@@ -3,6 +3,7 @@ package com.openggf.trace.replay;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
@@ -66,6 +67,20 @@ public final class TraceReplaySessionBootstrap {
                 LOGGER.warning("Trace-replay reset step '" + step.name()
                         + "' threw " + e.getClass().getSimpleName()
                         + ": " + e.getMessage());
+            }
+        }
+        // Reset the GameRng seed so the replay starts from the same
+        // pristine state the headless test fixture does. Between
+        // Engine.initializeGame() and the trace callback, the master
+        // title screen and any configured startup mode may advance
+        // the PRNG; a single divergent Random() call later rewrites
+        // badnik behaviour (e.g. animal selection on kill, Batbrain
+        // eyelid flicker) and causes subpixel drift that surfaces at
+        // the first enemy destruction.
+        if (GameServices.runtimeOrNull() != null) {
+            GameRng rng = GameServices.rng();
+            if (rng != null) {
+                rng.setSeed(0L);
             }
         }
     }
