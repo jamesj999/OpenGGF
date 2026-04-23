@@ -54,8 +54,12 @@ running from the project working directory.
      `A B C U D L R S` with a `.` wherever a button is released
    - the last 5 distinct mismatch entries
 8. `Esc` tears the session down (`TestEnvironment.resetAll()`) and returns
-   to the picker. Running off the end of the BK2 holds the final frame and
-   shows `TRACE COMPLETE` until `Esc`.
+   to the picker. Running off the end of the BK2 shows `TRACE COMPLETE`,
+   holds for the remainder of the fade duration, fades to black over
+   ~1 second (parameterised via a code constant
+   `TraceSessionLauncher.COMPLETION_FADE_SECONDS`), then auto-returns to
+   the picker. `Esc` is still accepted at any point during the fade to
+   skip the remaining fade time.
 9. Standard `PlaybackDebugManager` hotkeys (play/pause, step forward/back,
    jump, rate) continue to work during the session — those already exist
    and don't need changes.
@@ -586,11 +590,25 @@ so the normal debug-render pass picks it up.
 - The mismatch log fades older entries slightly so the newest is visually
   loudest.
 
-### 9.2 Completion state
+### 9.2 Completion state & auto-return
 
-When `LiveTraceComparator.isComplete()` first goes true, the overlay
-appends a `TRACE COMPLETE` line above the mismatch log. The session still
-accepts `Esc` to return to the picker; nothing else changes.
+When `LiveTraceComparator.isComplete()` first goes true:
+
+1. The overlay appends a `TRACE COMPLETE` line above the mismatch log.
+2. `TraceSessionLauncher` starts a completion timer. Over
+   `COMPLETION_FADE_SECONDS` (a private `static final double` in
+   `TraceSessionLauncher`, default `1.0`) the scene fades to black.
+   The HUD counters, input visualiser, and `TRACE COMPLETE` line stay
+   drawn on top of the fade at full brightness so the user sees the
+   final counts throughout.
+3. When the timer expires, the launcher runs the same teardown path as
+   manual `Esc` (`TestEnvironment.resetAll()` + return to picker).
+4. `Esc` pressed during the fade short-circuits the timer and teardowns
+   immediately.
+
+The fade is driven through the existing `FadeManager` (available via
+`GameServices.fade()`) so it composites correctly with the normal level
+render pipeline and works across S1/S2/S3K without per-game code.
 
 ## 10. Controls during playback
 
