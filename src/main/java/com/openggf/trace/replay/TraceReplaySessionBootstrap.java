@@ -7,7 +7,9 @@ import com.openggf.game.GameServices;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceMetadata;
@@ -230,8 +232,27 @@ public final class TraceReplaySessionBootstrap {
             return;
         }
         TraceMetadata meta = trace.metadata();
+
+        // Mirror HeadlessTestFixture.Builder.build steps 6-11 exactly:
+        // set the metadata centre coords, re-anchor sidekicks, wire
+        // GroundSensor's level-manager override, re-run the camera +
+        // level-events init so they pick up the new player position
+        // (loadZoneAndAct ran them against the ROM default), then
+        // snap to ground. Without the re-inits the camera and event
+        // handlers keep the default-start-derived bounds from the
+        // initial load, which drifts physics at the first collision.
         sprite.setCentreX(meta.startX());
         sprite.setCentreY(meta.startY());
+        if (GameServices.module() != null && GameServices.level() != null) {
+            GameplayTeamBootstrap.repositionRegisteredSidekicks(
+                    GameServices.module(),
+                    GameServices.level());
+        }
+        if (GameServices.level() != null) {
+            GroundSensor.setLevelManager(GameServices.level());
+            GameServices.level().initCameraForLevel();
+            GameServices.level().initLevelEventsForLevel();
+        }
         // Ground snap: 14 subpixel threshold matches the fixture.
         if (GameServices.collision() != null) {
             GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
