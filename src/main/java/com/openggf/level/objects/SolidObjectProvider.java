@@ -61,6 +61,20 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether the collision half-width already matches the ROM's standable top
+     * width for new landings.
+     * <p>
+     * Most solid helpers pass {@code d1 = obActWid + $B} into the generic solid
+     * routines, so the landing check must narrow back down to {@code obActWid}.
+     * Platform-style helpers such as Sonic 1's {@code PlatformObject} instead pass
+     * {@code d1 = obActWid} directly, so the collision half-width is already the
+     * correct landing width and should not be narrowed again.
+     */
+    default boolean usesCollisionHalfWidthForTopLanding() {
+        return false;
+    }
+
+    /**
      * Called when the player is pushing against this object.
      * ROM: bset #p1_pushing_bit,status(a0) (s2.asm:35220-35226).
      * Objects that need to react to being pushed (e.g., spring walls) can override.
@@ -79,5 +93,19 @@ public interface SolidObjectProvider {
      */
     default boolean dropOnFloor() {
         return false;
+    }
+
+    /**
+     * Whether losing ride contact through the inline carrying path should force the
+     * player airborne.
+     * <p>
+     * Generic platform helpers in the original games typically clear
+     * {@code status.player.on_object} and set {@code status.player.in_air} when the
+     * player walks off the ride bounds. Some bespoke solids, such as the EHZ/HPZ log
+     * bridge helper ({@code PlatformObject11_cont}), clear only the on-object flag and
+     * allow immediate terrain handoff without an airborne frame.
+     */
+    default boolean forceAirOnRideExit() {
+        return true;
     }
 }

@@ -26,6 +26,8 @@ import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.game.GroundMode;
 
+import java.util.function.Consumer;
+
 /**
  * ROM-accurate movement handler for playable sprites.
  * Implements exact order of operations from Sonic 2 ROM disassembly (s2.asm:36145-37700).
@@ -107,12 +109,63 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		this(sprite, sprite.currentCollisionSystemOrNull(), sprite.currentGameStateOrNull());
 	}
 
+	@Override
+	public void resetTransientState() {
+		jumpPressed = false;
+		jumpPrevious = false;
+		jumpReleasedSinceJump = false;
+		testKeyPressed = false;
+		inputUp = false;
+		inputDown = false;
+		inputLeft = false;
+		inputRight = false;
+		inputJump = false;
+		inputJumpPress = false;
+		inputRawLeft = false;
+		inputRawRight = false;
+		wasCrouching = false;
+	}
+
 	private Camera camera() {
 		return sprite.currentCamera();
 	}
 
 	private LevelManager levelManager() {
 		return sprite.currentLevelManager();
+	}
+
+	private void traceS3kAizAirProbe(String stage) {
+		if (!Boolean.getBoolean("s3k.aiz.airprobe")) {
+			return;
+		}
+		LevelManager levelManager = levelManager();
+		if (levelManager == null || sprite == null || sprite.isCpuControlled()) {
+			return;
+		}
+		if (levelManager.getCurrentZone() != 0 || levelManager.getCurrentAct() != 0) {
+			return;
+		}
+		int centreX = sprite.getCentreX() & 0xFFFF;
+		if (centreX < 0x1940 || centreX > 0x1955) {
+			return;
+		}
+		System.out.printf(
+				"s3k-aiz-airprobe lmFrame=%d stage=%s pos=(%04X,%04X) spd=(%04X,%04X,%04X) sub=(%04X,%04X) air=%s roll=%s jump=%s rollJump=%s spring=%s angle=%02X%n",
+				levelManager.getFrameCounter(),
+				stage,
+				centreX,
+				sprite.getCentreY() & 0xFFFF,
+				sprite.getXSpeed() & 0xFFFF,
+				sprite.getYSpeed() & 0xFFFF,
+				sprite.getGSpeed() & 0xFFFF,
+				sprite.getXSubpixelRaw(),
+				sprite.getYSubpixelRaw(),
+				sprite.getAir(),
+				sprite.getRolling(),
+				sprite.isJumping(),
+				sprite.getRollingJump(),
+				sprite.getSpringing(),
+				sprite.getAngle() & 0xFF);
 	}
 
 	private CollisionSystem collisionSystem() {
@@ -277,11 +330,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			modeNormal();
 		}
 
-		// ROM: Knuckles_Glide manages direction itself via setGlideAnimation();
-		// don't let the normal facing direction logic override it.
-		if (!isInGlideDirectionControl()) {
-			updateFacingDirection();
-		}
+		// ROM facing changes happen inside the movement branches themselves:
+		// doChgJumpDir() for air, Sonic_Move/Tails_Move for normal ground,
+		// and Sonic_RollLeft/Right for rolling. A generic post-pass flips
+		// low-speed turn states too early and breaks Tails follow parity.
 		sprite.updateSensors(originalX, originalY);
 	}
 
@@ -350,6 +402,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
+		traceS3kAizAirProbe("start");
 
 		// Knuckles glide states 1-2 use custom physics
 		int glideState = sprite.getDoubleJumpFlag();
@@ -376,11 +429,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Sonic_ChgJumpDir — only applies gravity + collision.
 		if (!sprite.isHurt()) {
 			doJumpHeight();
+			traceS3kAizAirProbe("afterJumpHeight");
 			doChgJumpDir();
+			traceS3kAizAirProbe("afterChgJumpDir");
 		}
 		doLevelBoundary();
+		traceS3kAizAirProbe("afterLevelBoundary");
 
 		doObjectMoveAndFall();
+		traceS3kAizAirProbe("afterMoveAndFall");
 
 		// Underwater gravity reduction
 		// Normal airborne: net gravity = 0x38 - 0x28 = 0x10 (s2.asm:36170)
@@ -406,11 +463,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// return-to-zero, so the ground angle is preserved through recoil.
 		if (!sprite.isHurt()) {
 			sprite.returnAngleToZero();
+			traceS3kAizAirProbe("afterJumpAngle");
 		}
 		sprite.updateSensors(originalX, originalY);
 		boolean wasAirBeforeCollision = sprite.getAir();
 		if (!sprite.isObjectControlled() && !sprite.isSuppressAirCollision()) {
 			doLevelCollision(sprite.isForceFloorCheck());
+			traceS3kAizAirProbe("afterLevelCollision");
 		}
 
 		// ROM: Knuckles_Fall_From_Glide landing (sonic3k.asm:30913-30940).
@@ -467,9 +526,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private boolean doUpdateSpindash() {
 		if (!inputDown) {
 			doReleaseSpindash();
-			// Return true to skip the rest of modeNormal().
-			// The release routine handles movement and collision for this frame,
-			// and next frame will properly dispatch to modeRoll().
+			// ROM Obj01_Spindash_ResetScr exits Obj01_MdNormal after LevelBound +
+			// AnglePos only. The actual rolling move starts next frame in Obj01_MdRoll.
 			return true;
 		}
 
@@ -516,10 +574,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		sprite.setGSpeed(spindashGSpeed);
 
-		// Calculate X/Y velocity from gSpeed immediately.
-		// This is critical for the ground attachment threshold in doAnglePos() -
-		// without this, xSpeed would be 0 giving a threshold of only 4 pixels,
-		// causing false airborne detection on release (ROM: s2.asm:42727).
+		short preReleaseXSpeed = sprite.getXSpeed();
+		short preReleaseYSpeed = sprite.getYSpeed();
+
+		// Keep a temporary derived release velocity for the AnglePos threshold
+		// check that still runs on the release frame.
 		int hexAngle = sprite.getAngle() & 0xFF;
 		sprite.setXSpeed((short) ((spindashGSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8));
 		sprite.setYSpeed((short) ((spindashGSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8));
@@ -527,41 +586,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setRolling(true);
 
 		audioManager.playSfx(GameSound.SPINDASH_RELEASE);
-		doSpindashReleaseCollision();
-	}
-
-	/**
-	 * Handle collision and movement for the spindash release frame.
-	 * ROM processes this as part of the normal rolling mode flow, but since we're
-	 * transitioning mid-frame, we need to apply rolling physics here.
-	 * Mirrors modeRoll() order of operations (ROM: Obj01_MdRoll s2.asm:36180).
-	 */
-	private void doSpindashReleaseCollision() {
-		short originalX = sprite.getX();
-		short originalY = sprite.getY();
-
-		// Apply rolling slope physics (ROM: Sonic_RollRepel)
-		doRollRepel();
-
-		// Recalculate X/Y velocity from gSpeed after slope physics
-		// (doRollRepel may have modified gSpeed on slopes)
-		short gSpeed = sprite.getGSpeed();
-		int hexAngle = sprite.getAngle() & 0xFF;
-		sprite.setXSpeed((short) ((gSpeed * TrigLookupTable.cosHex(hexAngle)) >> 8));
-		sprite.setYSpeed((short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8));
-
-		// Level boundary check
-		doLevelBoundary();
-
-		// Move sprite based on velocity
-		sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
-
-		// Update sensors and ground position
-		sprite.updateSensors(originalX, originalY);
-		doAnglePos();
-
-		// Slope slip/fall check (ROM: Sonic_SlopeRepel)
-		doSlopeRepel();
+		doLevelBoundaryAndAnglePos();
+		if (!sprite.getAir()) {
+			sprite.setXSpeed(preReleaseXSpeed);
+			sprite.setYSpeed(preReleaseYSpeed);
+		}
 	}
 
 	// ========================================
@@ -1405,10 +1434,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					gSpeed -= runDecel;
 					if (gSpeed < 0) gSpeed = (short) -128;
 					if (isOnFlatGround() && gSpeed > SKID_SPEED_THRESHOLD) {
+						sprite.setDirection(Direction.RIGHT);
 						handleSkid();
 					}
 				} else {
 					sprite.setSkidding(false);
+					sprite.setDirection(Direction.LEFT);
 					gSpeed = accelerateLeft(gSpeed, runAccel, max);
 				}
 			}
@@ -1424,10 +1455,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					// the reset to 0x80 executes for both gSpeed==0 and gSpeed>0.
 					if (gSpeed >= 0) gSpeed = (short) 128;
 					if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
+						sprite.setDirection(Direction.LEFT);
 						handleSkid();
 					}
 				} else {
 					sprite.setSkidding(false);
+					sprite.setDirection(Direction.RIGHT);
 					gSpeed = accelerateRight(gSpeed, runAccel, max);
 				}
 			}
@@ -1569,13 +1602,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Controlled roll deceleration: hardcoded $20 regardless of water state
 		// ROM ref: s2.asm:36671 — move.w #$20,d4
 		short rollDecel = (short) 0x20;
-		if (inputAllowed && inputLeft && gSpeed > 0) {
-			gSpeed -= rollDecel;
-			if (gSpeed < 0) gSpeed = (short) -128;
+		if (inputAllowed && inputLeft) {
+			if (gSpeed > 0) {
+				gSpeed -= rollDecel;
+				if (gSpeed < 0) gSpeed = (short) -128;
+			} else {
+				sprite.setDirection(Direction.LEFT);
+			}
 		}
-		if (inputAllowed && inputRight && gSpeed < 0) {
-			gSpeed += rollDecel;
-			if (gSpeed > 0) gSpeed = (short) 128;
+		if (inputAllowed && inputRight) {
+			if (gSpeed < 0) {
+				gSpeed += rollDecel;
+				if (gSpeed > 0) gSpeed = (short) 128;
+			} else {
+				sprite.setDirection(Direction.RIGHT);
+			}
 		}
 
 		// Natural deceleration
@@ -1687,8 +1728,28 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void doObjectMoveAndFall() {
 		short oldYSpeed = sprite.getYSpeed();  // Save old y_vel before gravity
-		sprite.setYSpeed((short) (oldYSpeed + sprite.getGravity()));  // Apply gravity first
+		applyGravity();                         // Gated on isObjectControlled()
 		sprite.move(sprite.getXSpeed(), oldYSpeed);  // Move using OLD y_vel
+	}
+
+	/**
+	 * Apply the sprite's per-frame gravity to y_vel.
+	 *
+	 * <p>Skipped when {@link AbstractPlayableSprite#isObjectControlled()} is true
+	 * (ROM: Obj01_Control skips movement routines entirely). This gate is what
+	 * lets the S3K Tails-carry driver ({@code SidekickCpuController} CARRYING
+	 * state) keep a stable velocity latch on the carried Sonic; without it,
+	 * gravity accumulates between the driver's latch-update and latch-compare
+	 * and spuriously triggers release path C (external-vel mismatch).
+	 *
+	 * <p>Mirrors the ROM behaviour where {@code object_control != 0} short-circuits
+	 * the entire movement dispatch in {@code Obj01_Control}.
+	 */
+	private void applyGravity() {
+		if (sprite.isObjectControlled()) {
+			return;
+		}
+		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
 	}
 
 	// ========================================
@@ -1798,7 +1859,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_DoLevelCollision: Full airborne collision (s2.asm:37540) */
 	private void doLevelCollision(boolean forceFloorCheck) {
-		collisionSystem().resolveAirCollision(sprite, this::calculateLanding, forceFloorCheck);
+		int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
+		Consumer<AbstractPlayableSprite> landingHandler =
+				usesDirectHitFloorLanding(quadrant) ? this::calculateDirectFloorLanding : this::calculateLanding;
+		collisionSystem().resolveAirCollision(sprite, landingHandler, forceFloorCheck);
+	}
+
+	private static boolean usesDirectHitFloorLanding(int quadrant) {
+		return quadrant == 0x40 || quadrant == 0xC0;
 	}
 
 	/** Obj01_CheckWallsOnGround: Ground wall collision (s2.asm:36486) */
@@ -2031,6 +2099,24 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 		}
 
+		applyPostLandingAbilities(sprite, savedDoubleJumpFlag);
+	}
+
+	/**
+	 * ROM direct HitFloor landing for movement quadrants 0x40/0xC0.
+	 * <p>
+	 * S1/S2 write {@code y_vel = 0} and {@code inertia = x_vel} after ResetOnFloor;
+	 * S3K's direct floor path does the same before falling through its TouchFloor tail.
+	 */
+	private void calculateDirectFloorLanding(AbstractPlayableSprite sprite) {
+		int savedDoubleJumpFlag = sprite.getDoubleJumpFlag();
+		resetOnFloor();
+		sprite.setYSpeed((short) 0);
+		sprite.setGSpeed(sprite.getXSpeed());
+		applyPostLandingAbilities(sprite, savedDoubleJumpFlag);
+	}
+
+	private void applyPostLandingAbilities(AbstractPlayableSprite sprite, int savedDoubleJumpFlag) {
 		// Bubble shield bounce check (s3.asm:21849-21859 Player_TouchFloor tail)
 		// ROM: Only Sonic (character_id 0) can trigger this — Knuckles/Tails have
 		// separate jump code that never sets doubleJumpFlag via bubbleShieldBounce.
@@ -2163,14 +2249,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setSkidDustTimer(dustTimer);
 	}
 
-	private void updateFacingDirection() {
-		if (inputLeft && !inputRight) {
-			sprite.setDirection(!sprite.getAir() && sprite.getGSpeed() > 0 ? Direction.RIGHT : Direction.LEFT);
-		} else if (inputRight && !inputLeft) {
-			sprite.setDirection(!sprite.getAir() && sprite.getGSpeed() < 0 ? Direction.LEFT : Direction.RIGHT);
-		}
-	}
-
 	private void updateCrouchState() {
 		// S3K: allow ducking while moving at speeds below the roll threshold.
 		// ROM: sonic3k.asm:23223-23240 (SonicKnux_Roll) — down pressed + |gSpeed| < $100
@@ -2215,7 +2293,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
     }
 
 	private void applyDeathMovement() {
-		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
+		applyGravity();  // Gated on isObjectControlled(); a controlled sprite never enters the death routine anyway but keep gates consistent
 		sprite.setGSpeed((short) 0);
 		sprite.setXSpeed((short) 0);
 

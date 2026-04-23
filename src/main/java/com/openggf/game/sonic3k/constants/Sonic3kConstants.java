@@ -1373,14 +1373,134 @@ public class Sonic3kConstants {
     // 22 bytes earlier at 0x046B3C.
     public static final int MAP_SSZ_HPZ_TELEPORTER_ADDR = 0x046B3C;
 
-    // PLC 0x5C/0x5D (shared across both CNZ acts) loads the CNZ miniboss body art
-    // plus shared boss-explosion art. The object code references Map_CNZMiniboss
-    // with ArtTile_CNZMiniboss after this PLC has populated VRAM.
-    public static final int PLC_CNZ_MINIBOSS = 0x5C;
+    /**
+     * CNZ Act 1 miniboss PLC id.
+     *
+     * <p>ROM: {@code sonic3k.asm:144844} — {@code moveq #$5D,d0} then
+     * {@code jsr (Load_PLC).l}. The engine previously held {@code 0x5C}
+     * (off-by-one); corrected in workstream D.
+     */
+    public static final int PLC_CNZ_MINIBOSS = 0x5D;
+
+    /**
+     * CNZ Act 1 miniboss palette ROM offset (S&K-side).
+     *
+     * <p>ROM: {@code sonic3k.asm:144846} — {@code lea Pal_CNZMiniboss(pc),a1}
+     * then {@code jmp (PalLoad_Line1).l}, loading 32 bytes (one VDP palette
+     * line) into palette line 1. Verified via {@code RomOffsetFinder
+     * search-rom} on the binary signature
+     * {@code 00 00 0E EE 06 E0 02 80 00 40} from
+     * {@code Levels/CNZ/Palettes/Miniboss.bin}: the S&K-side match is
+     * {@code 0x06E370}; the {@code 0x24BF70} sibling lives in the S3 half and
+     * must not be referenced from the engine.
+     */
+    public static final int PAL_CNZ_MINIBOSS_ADDR = 0x06E370;
 
     // Map_CNZMiniboss - CNZ miniboss mappings. The include file has 22 dc.w entries
     // before Frame_362F00, so the table base is 44 bytes earlier at 0x362ED4.
     public static final int MAP_CNZ_MINIBOSS_ADDR = 0x362ED4;
+
+    // =====================================================================
+    // CNZ Act 1 miniboss state machine
+    // ROM refs (all sonic3k.asm, S&K-side):
+    //   Obj_CNZMiniboss        line 144823  outer gate
+    //   loc_6D9A8              line 144830  arena setup
+    //   CNZMiniboss_Index      line 144874  routine dispatch table:
+    //     Obj_CNZMinibossInit    line 144885  routine 0
+    //     Obj_CNZMinibossLower   line 144898  routine 2
+    //     Obj_CNZMinibossMove    line 144912  routine 4
+    //     Obj_CNZMinibossMove    line 144912  routine 6 (same handler as routine 4)
+    //     Obj_CNZMinibossOpening line 144941  routine 8
+    //     Obj_CNZMinibossWaitHit line 144954  routine A
+    //     Obj_CNZMinibossClosing line 144968  routine C
+    //     Obj_CNZMinibossLower2  line 144972  routine E
+    //   Obj_CNZMinibossEnd     line 144984  defeat handler — NOT in the dispatch
+    //                                       table; invoked via the $34(a0) "next
+    //                                       handler" pointer from
+    //                                       CNZMiniboss_CheckPlayerHit when the
+    //                                       hit counter reaches zero.
+    // =====================================================================
+
+    /** Arena camera X minimum. ROM: loc_6D9A8 `move.w d0,(Camera_min_X_pos).w`
+     *  after `move.w #$31E0,d0`. */
+    public static final int CNZ_MINIBOSS_ARENA_MIN_X = 0x31E0;
+
+    /** Arena camera X maximum. ROM: loc_6D9A8 `addi.w #$80,d0`. */
+    public static final int CNZ_MINIBOSS_ARENA_MAX_X = 0x3260;
+
+    /** Arena camera Y minimum. ROM: loc_6D9A8 `move.w #$1C0,(Camera_min_Y_pos).w`. */
+    public static final int CNZ_MINIBOSS_ARENA_MIN_Y = 0x01C0;
+
+    /** Arena camera Y maximum / target max Y. ROM: loc_6D9A8 `move.w #$2B8,...`. */
+    public static final int CNZ_MINIBOSS_ARENA_MAX_Y = 0x02B8;
+
+    /** Boss hit count. ROM: Obj_CNZMinibossInit `move.b #6,collision_property(a0)`. */
+    public static final int CNZ_MINIBOSS_HIT_COUNT = 0x06;
+
+    /** Initial descent y_vel. ROM: Obj_CNZMinibossInit `move.w #$80,y_vel(a0)`. */
+    public static final short CNZ_MINIBOSS_INIT_Y_VEL = (short) 0x0080;
+
+    /** Swing x_vel magnitude. ROM: Obj_CNZMinibossGo3 `move.w #$100,x_vel(a0)`. */
+    public static final short CNZ_MINIBOSS_SWING_X_VEL = (short) 0x0100;
+
+    /** Init wait timer. ROM: Obj_CNZMinibossInit `move.w #$11F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_INIT_WAIT = 0x11F;
+
+    /** Go2 wait timer. ROM: Obj_CNZMinibossGo2 `move.w #$90,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_GO2_WAIT = 0x90;
+
+    /** Swing (Go3) wait timer. ROM: Obj_CNZMinibossGo3 `move.w #$9F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_SWING_WAIT = 0x9F;
+
+    /** Direction-change wait. ROM: Obj_CNZMinibossChangeDir `move.w #$13F,$2E(a0)`. */
+    public static final int CNZ_MINIBOSS_CHANGEDIR_WAIT = 0x13F;
+
+    // =====================================================================
+    // CNZ Act 1 miniboss top piece (bouncing-ball).
+    // ROM refs (all sonic3k.asm, S&K-side):
+    //   Obj_CNZMinibossTop          line 145004
+    //   CNZMinibossTop_Index        line 145011 (routine 0/2/4/6 dispatch)
+    //     Obj_CNZMinibossTopInit    line 145018 (routine 0)
+    //     Obj_CNZMinibossTopWait    line 145026 (routine 2)
+    //     Obj_CNZMinibossTopWait2   line 145040 (routine 4)
+    //     Obj_CNZMinibossTopMain    line 145053 (routine 6)
+    //   Obj_CNZMinibossTopGo        line 145045 ($34 post-wait handler
+    //                                            installed by TopWait)
+    //   CNZMiniboss_BlockExplosion  line 145204 (snaps impact coords to
+    //                                            the 0x20 block grid)
+    // =====================================================================
+
+    /** ROM: Obj_CNZMinibossTopGo `move.w #$200,x_vel(a0)` (sonic3k.asm:145048). */
+    public static final short CNZ_MINIBOSS_TOP_INIT_X_VEL = (short) 0x0200;
+
+    /** ROM: Obj_CNZMinibossTopGo `move.w #$200,y_vel(a0)` (sonic3k.asm:145049). */
+    public static final short CNZ_MINIBOSS_TOP_INIT_Y_VEL = (short) 0x0200;
+
+    /** Arena right-wall screen-edge limit.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$3380,d0` (sonic3k.asm:145073). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_RIGHT = 0x3380;
+
+    /** Arena left-wall screen-edge limit.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$3200,d0` (sonic3k.asm:145088). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_LEFT = 0x3200;
+
+    /** Arena floor lower bound.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$380,d1` (sonic3k.asm:145109). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_BOTTOM = 0x0380;
+
+    /** Arena ceiling upper bound.
+     *  ROM: Obj_CNZMinibossTopMain `cmpi.w #$240,d1` (sonic3k.asm:145125). */
+    public static final int CNZ_MINIBOSS_TOP_ARENA_TOP = 0x0240;
+
+    /** Half-width used when probing the next-frame X edge vs the arena wall.
+     *  ROM: Obj_CNZMinibossTopMain `addi.w #$10,d0` / `subi.w #$10,d0`
+     *  (sonic3k.asm:145072, 145087). */
+    public static final int CNZ_MINIBOSS_TOP_WALL_PROBE_DX = 0x10;
+
+    /** Half-height used when probing the next-frame Y edge vs the arena floor/ceiling.
+     *  ROM: Obj_CNZMinibossTopMain `addq.w #8,d1` / `subq.w #8,d1`
+     *  (sonic3k.asm:145104, 145122). */
+    public static final int CNZ_MINIBOSS_TOP_FLOOR_PROBE_DY = 0x08;
 
     // PLC 0x6E loads ArtNem_CNZEndBoss, ArtNem_RobotnikShip, ArtNem_BossExplosion,
     // and ArtNem_EggCapsule for Obj_CNZEndBoss. Task 6 only needs the body sheet and
@@ -1646,6 +1766,47 @@ public class Sonic3kConstants {
     // ArtNem_VerticalSpring — standalone red vertical spring art used by gumball bonus springs.
     // ROM: s3.asm:118453, 325 compressed bytes -> 512 bytes (8 tiles).
     public static final int ART_NEM_VERTICAL_SPRING_ADDR = 0x35C988;
+
+    // =====================================================================
+    // Tails-carry-Sonic intro (CNZ1 and future zones)
+    // ROM refs: sonic3k.asm loc_13A32 (CNZ trigger), loc_13FC2/loc_13FFA
+    // (carry init + body), sub_1459E (Sonic pickup), Tails_Carry_Sonic
+    // (per-frame parentage). All addresses < 0x200000 (S&K-side only).
+    // =====================================================================
+
+    /** Zone-and-act word value that triggers the CNZ1 Tails-carry intro. */
+    public static final int CARRY_TRIGGER_ZONE_ACT_WORD = 0x0300;
+
+    /** Tails's spawn X after the CNZ1 trigger. ROM: loc_13A32. */
+    public static final int CARRY_INIT_TAILS_X = 0x0018;
+
+    /** Tails's spawn Y after the CNZ1 trigger. ROM: loc_13A32. */
+    public static final int CARRY_INIT_TAILS_Y = 0x0600;
+
+    /** Constant horizontal flight velocity while carrying. ROM: loc_13FC2 x_vel write. */
+    public static final short CARRY_INIT_TAILS_X_VEL = (short) 0x0100;
+
+    /** Sonic hangs this many pixels below Tails's centre. ROM: sub_1459E y_pos + 0x1C. */
+    public static final int CARRY_DESCEND_OFFSET_Y = 0x1C;
+
+    /** Level_frame_counter mask that gates synthetic right-press injection.
+     *  Every 32 frames: (Level_frame_counter + 1) & 0x1F == 0. ROM: loc_13FFA. */
+    public static final int CARRY_INPUT_INJECT_MASK = 0x1F;
+
+    /** Cooldown frames after A/B/C jump release. ROM: Tails_Carry_Sonic line 27241. */
+    public static final int CARRY_COOLDOWN_JUMP_RELEASE = 0x12;
+
+    /** Cooldown frames after external-vel latch-mismatch release. ROM: loc_14466. */
+    public static final int CARRY_COOLDOWN_LATCH_RELEASE = 0x3C;
+
+    /** Post-A/B/C-release y_vel (jump impulse). ROM: Tails_Carry_Sonic line ~27248. */
+    public static final short CARRY_RELEASE_JUMP_Y_VEL = (short) -0x0380;
+
+    /** Post-A/B/C-release x_vel magnitude (sign applied from face direction). */
+    public static final short CARRY_RELEASE_JUMP_X_VEL = (short) 0x0200;
+
+    /** Sonic's `anim` byte while carried. ROM: sub_1459E writes 0x2200 word (high byte 0x22). */
+    public static final int CARRY_SONIC_ANIM_BYTE = 0x22;
 
     private static boolean scanned = false;
 

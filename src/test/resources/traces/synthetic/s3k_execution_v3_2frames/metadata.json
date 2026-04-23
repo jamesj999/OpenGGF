@@ -1,0 +1,16 @@
+{
+  "game": "s3k",
+  "zone": "aiz",
+  "zone_id": 0,
+  "act": 1,
+  "bk2_frame_offset": 300,
+  "trace_frame_count": 2,
+  "start_x": "0x0080",
+  "start_y": "0x03A0",
+  "recording_date": "2026-04-21",
+  "lua_script_version": "3.0-s3k",
+  "trace_schema": 3,
+  "csv_version": 4,
+  "rom_checksum": "test",
+  "notes": "Synthetic Sonic 3K v3 execution-counter fixture"
+}

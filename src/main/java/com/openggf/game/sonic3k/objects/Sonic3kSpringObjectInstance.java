@@ -106,6 +106,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        traceS3kAizSpringProbe(player, contact, frameCounter, "contact");
+
         if (springType == TYPE_DIAGONAL_UP) {
             if (!contact.standing()) {
                 return;
@@ -152,9 +154,11 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * - bset #status.player.in_air
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
+        traceS3kAizSpringProbe(player, null, -1, "applyUp");
+        // ROM updates y_pos (centre coordinate) with a word-sized add, so preserve y_sub.
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 8));
         player.setYSpeed((short) getStrength());
         player.setAir(true);
-        player.setGSpeed((short) 0);
 
         // ROM: sub_22F98 line 47729-47731 - if bit 7 set, clear x velocity
         if ((spawn.subtype() & 0x80) != 0) {
@@ -171,7 +175,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * S3K-specific: red down springs cap at $D00 instead of $1000.
      */
     private void applyDownSpring(AbstractPlayableSprite player) {
-        player.setY((short) (player.getY() - 8));
+        traceS3kAizSpringProbe(player, null, -1, "applyDown");
+        // ROM updates y_pos (centre coordinate) with a word-sized subtract, so preserve y_sub.
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() - 8));
 
         // ROM negates strength for down springs (positive = down)
         int yVel = -getStrength();
@@ -182,7 +188,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) yVel);
 
         player.setAir(true);
-        player.setGSpeed((short) 0);
 
         // ROM: sub_233CA line 48103-48105 - if bit 7 set, clear x velocity
         if ((spawn.subtype() & 0x80) != 0) {
@@ -198,14 +203,16 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: Obj_Spring_Horizontal (sonic3k.asm)
      * - move.w objoff_30(a0),x_vel(a1) [starts negative]
      * - addq.w #8,x_pos(a1) / subi.w #$10 if not flipped
-     * - Sets gSpeed = x_vel, control lock 16 frames
+     * - Sets gSpeed = x_vel, control lock 15 frames
      * - Does NOT set airborne
      */
     private void applyHorizontalSpring(AbstractPlayableSprite player) {
+        traceS3kAizSpringProbe(player, null, -1, "applyHorizontal");
         int strength = getStrength(); // starts negative
         boolean flipped = isFlippedHorizontal();
 
-        int newX = player.getX() + 8;
+        // ROM updates x_pos (centre coordinate) with word-sized add/sub, so preserve x_sub.
+        int newX = player.getCentreX() + 8;
         Direction dir = Direction.RIGHT;
 
         if (!flipped) {
@@ -215,7 +222,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             dir = Direction.LEFT;
         }
 
-        player.setX((short) newX);
+        player.setCentreXPreserveSubpixel((short) newX);
         player.setXSpeed((short) strength);
         player.setDirection(dir);
 
@@ -228,8 +235,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         }
 
         player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
-        // ROM: control lock 16 frames
-        player.setSpringing(16);
+        // ROM: move.w #$F,$32(a1) - lock player control while grounded.
+        player.setMoveLockTimer(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -240,23 +247,23 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: addq.w #6,y_pos(a1) / addq.w #6,x_pos(a1) / [subi.w #12 if not flipped]
      */
     private void applyDiagonalSpring(AbstractPlayableSprite player, boolean up) {
+        traceS3kAizSpringProbe(player, null, -1, up ? "applyDiagonalUp" : "applyDiagonalDown");
         int strength = getStrength(); // negative base
         boolean flipped = isFlippedHorizontal();
+
+        int newY = player.getCentreY() + (up ? 6 : -6);
+        int newX = player.getCentreX() + 6;
+        if (!flipped) {
+            newX -= 12;
+        }
+        player.setCentreXPreserveSubpixel((short) newX);
+        player.setCentreYPreserveSubpixel((short) newY);
 
         int xStrength = flipped ? strength : -strength;
         int yStrength = up ? strength : -strength;
 
         player.setXSpeed((short) xStrength);
         player.setYSpeed((short) yStrength);
-
-        // ROM position nudge: separate player from spring surface
-        // Up diagonal: y += 6; flipped: x += 6, unflipped: x -= 6
-        // Down diagonal: y -= 6 (inverted); same x logic
-        int yNudge = up ? 6 : -6;
-        int xNudge = flipped ? 6 : -6;
-        player.setX((short) (player.getX() + xNudge));
-        player.setY((short) (player.getY() + yNudge));
-
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
@@ -267,6 +274,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     }
 
     private void trigger(AbstractPlayableSprite player) {
+        traceS3kAizSpringProbe(player, null, -1, "trigger");
         animationState.setAnimId(ANIM_TRIGGERED);
 
         int subtype = spawn.subtype();
@@ -322,7 +330,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         }
         initialized = true;
         // ROM: Reverse_gravity_flag swaps UP<->DOWN during init (sonic3k.asm:47622-47627)
-        if (services().gameState().isReverseGravityActive()) {
+        if (services().gameState() != null && services().gameState().isReverseGravityActive()) {
             if (springType == TYPE_UP) {
                 springType = TYPE_DOWN;
             } else if (springType == TYPE_DOWN) {
@@ -399,6 +407,45 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         return (spawn.renderFlags() & 0x1) != 0;
     }
 
+    private void traceS3kAizSpringProbe(AbstractPlayableSprite player,
+                                        SolidContact contact,
+                                        int frameCounter,
+                                        String stage) {
+        if (!Boolean.getBoolean("s3k.aiz.springprobe")) {
+            return;
+        }
+        boolean targetSpring = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
+                || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
+        if (!targetSpring) {
+            return;
+        }
+        int playerX = player.getCentreX() & 0xFFFF;
+        if (playerX < 0x1920 || playerX > 0x1960) {
+            return;
+        }
+        String contactSummary = contact == null
+                ? "<none>"
+                : String.format("standing=%s touchBottom=%s pushing=%s", contact.standing(),
+                contact.touchBottom(), contact.pushing());
+        System.out.printf(
+                "s3k-aiz-springprobe stage=%s spring=(%04X,%04X) subtype=%02X frame=%d player=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s roll=%s springing=%s angle=%02X contact=%s%n",
+                stage,
+                spawn.x() & 0xFFFF,
+                spawn.y() & 0xFFFF,
+                spawn.subtype() & 0xFF,
+                frameCounter,
+                player.getCentreX() & 0xFFFF,
+                player.getCentreY() & 0xFFFF,
+                player.getXSpeed() & 0xFFFF,
+                player.getYSpeed() & 0xFFFF,
+                player.getGSpeed() & 0xFFFF,
+                player.getAir(),
+                player.getRolling(),
+                player.getSpringing(),
+                player.getAngle() & 0xFF,
+                contactSummary);
+    }
+
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
@@ -414,12 +461,15 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         if (springType == TYPE_HORIZONTAL) {
-            return new SolidObjectParams(19, 8, 8);
+            return new SolidObjectParams(19, 14, 15);
         }
         if (springType == TYPE_DIAGONAL_UP || springType == TYPE_DIAGONAL_DOWN) {
             return new SolidObjectParams(27, 16, 16);
         }
-        return new SolidObjectParams(27, 8, 8);
+        if (springType == TYPE_DOWN) {
+            return new SolidObjectParams(27, 8, 9);
+        }
+        return new SolidObjectParams(27, 8, 16);
     }
 
     @Override

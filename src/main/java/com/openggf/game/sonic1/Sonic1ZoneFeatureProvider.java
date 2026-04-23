@@ -9,6 +9,7 @@ import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
+import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -246,6 +247,12 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
      */
     public Sonic1LZWaterEvents getWaterEvents() {
         return waterEvents;
+    }
+
+    @Override
+    public boolean shouldTreatZeroDistanceAirLandingAsGround(AbstractPlayableSprite player,
+                                                             SensorResult support) {
+        return waterEvents != null && waterEvents.allowsFlatZeroDistanceLanding(support);
     }
 
     @Override

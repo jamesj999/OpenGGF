@@ -1,5 +1,6 @@
 package com.openggf.sprites.playable;
 
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -7,12 +8,16 @@ import com.openggf.game.sonic2.Sonic2GameModule;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class TestRespawnStrategies {
 
     @BeforeEach
     void setUp() {
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         SessionManager.clear();
         RuntimeManager.createGameplay();
@@ -82,6 +87,113 @@ class TestRespawnStrategies {
         boolean complete = strategy.updateApproaching(sk, main, 180);
         // Not complete yet — sidekick is still in air (no physics engine in unit test)
         assertFalse(complete, "Should not complete until landed");
+    }
+    @Test
+    void tailsDoesNotCompleteFlyInWhenOnlyVerticalStepReachesTarget() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+        TailsRespawnStrategy strategy = new TailsRespawnStrategy(ctrl);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x0100);
+        Arrays.fill(yHistory, (short) 0x0200);
+        main.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
+
+        sk.setCentreX((short) 0x0100);
+        sk.setCentreY((short) 0x01FF);
+
+        assertFalse(strategy.updateApproaching(sk, main, 0),
+                "ROM keeps Tails in fly-in mode when the vertical +/-1 step reaches the target this frame");
+        assertEquals(0x0200, sk.getCentreY() & 0xFFFF);
+
+        assertTrue(strategy.updateApproaching(sk, main, 1),
+                "ROM exits fly-in once the pre-move vertical delta is already zero");
+    }
+
+    @Test
+    void tailsCompletesFlyInWhenHorizontalCatchUpClosesRemainingGap() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+        TailsRespawnStrategy strategy = new TailsRespawnStrategy(ctrl);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x0105);
+        Arrays.fill(yHistory, (short) 0x0200);
+        main.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
+        main.setXSpeed((short) 0x0500);
+
+        sk.setCentreX((short) 0x0100);
+        sk.setCentreY((short) 0x0200);
+
+        assertTrue(strategy.updateApproaching(sk, main, 0),
+                "ROM fly-in completion uses the post-horizontal residual, so closing the X gap this frame exits approach");
+        assertEquals(0x0105, sk.getCentreX() & 0xFFFF);
+        assertEquals(0x0200, sk.getCentreY() & 0xFFFF);
+    }
+
+    @Test
+    void tailsFlyInCompletionCopiesLeaderCollisionBitsAndPriority() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x0100);
+        Arrays.fill(yHistory, (short) 0x0200);
+        main.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
+
+        main.setTopSolidBit((byte) 0x0E);
+        main.setLrbSolidBit((byte) 0x0F);
+        main.setHighPriority(true);
+
+        sk.setCentreX((short) 0x0100);
+        sk.setCentreY((short) 0x0200);
+        sk.setTopSolidBit((byte) 0x0C);
+        sk.setLrbSolidBit((byte) 0x0D);
+        sk.setHighPriority(false);
+
+        ctrl.setInitialState(SidekickCpuController.State.APPROACHING);
+        ctrl.update(0);
+
+        assertEquals(SidekickCpuController.State.NORMAL, ctrl.getState());
+        assertEquals(0x0E, sk.getTopSolidBit() & 0xFF);
+        assertEquals(0x0F, sk.getLrbSolidBit() & 0xFF);
+        assertTrue(sk.isHighPriority());
+    }
+
+    @Test
+    void tailsFlyInUsesSignedHighByteOfLeaderVelocityForHorizontalBonus() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+        TailsRespawnStrategy strategy = new TailsRespawnStrategy(ctrl);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x010B);
+        Arrays.fill(yHistory, (short) 0x0200);
+        main.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
+
+        sk.setCentreX((short) 0x0100);
+        sk.setCentreY((short) 0x0200);
+        main.setXSpeed((short) 0xFF82);
+
+        assertFalse(strategy.updateApproaching(sk, main, 0));
+        assertEquals(0x0102, sk.getCentreX() & 0xFFFF,
+                "ROM uses the signed high byte of Sonic's x_vel during Tails fly-in, so 0xFF82 adds a +1 speed bonus");
     }
 }
 

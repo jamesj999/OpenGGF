@@ -15,10 +15,98 @@ All notable changes to the OpenGGF project are documented in this file.
   bounded `CHUNK_STEP` advancement, push-block two-stage out-of-range logic,
   and counter-based object-placement catch-up after large camera jumps.
 - Trace replay now supports schema v3 execution counters
-  (`gameplay_frame_counter`, `vblank_counter`, `lag_counter`) and logs a
-  one-shot notice when a pre-v3 fixture falls back to the legacy lag
-  heuristic. The BizHawk v3 recorder upgrade is currently landed for Sonic 1;
-  Sonic 2 and Sonic 3K recorder migration remains deferred.
+  (`gameplay_frame_counter`, `vblank_counter`, `lag_counter`). Sonic 1,
+  Sonic 2, and Sonic 3&K BizHawk recorders all emit the v3 schema, and
+  synthetic v3 fixtures cover the per-game parser contract. Real
+  BK2-derived S3K fixture coverage remains follow-up work; until it lands,
+  the legacy-heuristic fallback in `TraceExecutionModel` remains reachable
+  for older or pre-v3 traces.
+
+### Sonic 3&K CNZ1 Miniboss Arena Entry (Workstream D, Task 8)
+
+- Wired the CNZ Act 1 miniboss arena trigger in `Sonic3kCNZEvents`. When
+  the camera reaches `Camera_X_pos = $31E0`
+  (`Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X`), the engine now mirrors
+  ROM `loc_6D9A8` (sonic3k.asm:144830): stash the prior camera clamp
+  rectangle, lock the camera to the arena box ($31E0..$3260,
+  $01C0..$02B8), fade out the music, set `Boss_flag` and the
+  wall-grab-suppression bit, run PLC `0x5D`, and install
+  `Pal_CNZMiniboss` into palette line 1 via the shared palette
+  ownership registry.
+- Added a falling-edge release path: when `CnzMinibossInstance.onEndGo`
+  clears `Boss_flag` after the defeat sequence, the saved camera clamps
+  are restored and the wall-grab suppression bit is released so the
+  post-boss camera-pan + signpost sequence can resume.
+- Added the `S3kPaletteOwners.CNZ_MINIBOSS` owner ID
+  (`s3k.cnz.miniboss`) and the `Sonic3kConstants.PAL_CNZ_MINIBOSS_ADDR`
+  ROM offset (`0x06E370`, S&K-side). The S&K offset was confirmed via
+  `RomOffsetFinder search-rom` against the
+  `Levels/CNZ/Palettes/Miniboss.bin` byte signature; the S3-half
+  sibling (`0x24BF70`) is documented but explicitly not referenced.
+- Replaced the placeholder local threshold `MINIBOSS_CAM_X_THRESHOLD =
+  0x3000` with a reference to `Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X`
+  so the trigger and the camera-min clamp share a single source of
+  truth. Audio fade-in for the miniboss music is reserved for T12.
+- Added `TestCnzMinibossArenaEntry` covering the threshold-crossing
+  behaviour (Boss_flag set, wall-grab suppressed, BG routine =
+  `BG_BOSS_START`) and pinning `CNZ_MINIBOSS_ARENA_MIN_X` to `$31E0`.
+
+### Sonic 3&K CNZ1 Mini-Boss (Workstream D)
+
+- Ported `Obj_CNZMiniboss` (sonic3k.asm:144823..145002) to
+  `CnzMinibossInstance` atop `AbstractBossInstance`: full 8-routine
+  state machine (Init, Lower, Move, Opening, WaitHit, Closing, Lower2,
+  End), ROM hit count of 6, and the Lower2 per-pixel descent.
+- Ported `Obj_CNZMinibossTop` (sonic3k.asm:145004..145673) to
+  `CnzMinibossTopInstance`: 4-routine state machine (TopInit, TopWait,
+  TopWait2, TopMain) with bouncing-ball physics and arena-chunk
+  destruction publication.
+- Wired CNZ1 arena entry in `Sonic3kCNZEvents`: camera clamps
+  (0x31E0..0x3260, 0x01C0..0x02B8), `Boss_flag`, wall-grab
+  suppression, PLC 0x5D, and `Pal_CNZMiniboss` installation — mirroring
+  ROM `loc_6D9A8`. Corrected the miniboss camera-trigger X from 0x3000
+  to the ROM's 0x31E0.
+- Corrected `PLC_CNZ_MINIBOSS` from 0x5C to 0x5D (ROM
+  `sonic3k.asm:144844`). No external behaviour depended on the
+  off-by-one value in prior commits; the now-corrected PLC load is
+  guarded per spec §9.
+- `TestS3kCnzTraceReplay` error count remains 1954 (delta 0 vs
+  post-C baseline). The cascade from the workstream-C Tails-carry arc
+  (Tails lands ~frame 42 vs ROM frame 106) dominates the headline number
+  and fills the first-20 divergence list before the mini-boss window is
+  reached in isolation; the boss state machine is implemented correctly
+  but cannot be validated from the trace alone until the carry-arc
+  cascade is resolved. Baseline captured in
+  `docs/s3k-zones/cnz-post-workstream-d-baseline.md`.
+
+### Sonic 3&K CNZ1 Tails-Carry Intro (Workstream C)
+
+- Implemented the CNZ Act 1 Tails-carry intro (`Tails_CPU_routine` 0x0C /
+  0x0E / 0x20 in the S3K disassembly). The sidekick CPU driver now enters
+  `CARRY_INIT` on the first gameplay tick of CNZ1 when the active team is
+  Sonic + Tails, copies Tails's velocity onto Sonic each frame, and
+  releases through any of the three ROM-accurate paths: ground contact,
+  jump press (with the 0x12-frame cooldown), or external-velocity latch
+  mismatch (with the 0x3C-frame cooldown).
+- Added the `SidekickCarryTrigger` game-agnostic hook
+  (`GameModule.getSidekickCarryTrigger()`), the S3K-specific
+  `Sonic3kCnzCarryTrigger`, and new `SidekickCpuController` states
+  `CARRY_INIT` / `CARRYING` plus `CanonicalAnimation.TAILS_CARRIED`.
+  `PlayableSpriteMovement.applyGravity` now short-circuits when the sprite
+  is object-controlled so the carried cargo no longer accumulates free-fall.
+- `TestS3kCnzTraceReplay` first-divergence frame is now 4 (was frame 0
+  on the initial workstream-C landing, frame 1 pre-workstream-C) and
+  total errors are 1954 (down from 2547 on the initial landing, up 319
+  from the 1635 pre-workstream-C baseline). The residual delta
+  (frames 4..107) tracks the deferred Tails-flying-with-cargo physics
+  gap. The subsequent follow-up fix (`c627ba2bc`) removed the premature
+  `updateCarryInit()` call from `updateInit()` after the S3K ROM was
+  re-verified: `loc_13A10` (sonic3k.asm:26414) sets
+  `Tails_CPU_routine=$C` and `rts` — no same-frame fall-through into
+  `loc_13FC2` — so the carry body now runs on the tick after the INIT
+  handler. The `TestS3kAizTraceReplay` pre-existing regression is
+  orthogonal and stays owned by workstream H (see
+  `docs/s3k-zones/cnz-task7-regression-note.md`).
 
 ### Experimental Level Editor Overlay
 

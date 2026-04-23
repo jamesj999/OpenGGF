@@ -30,6 +30,17 @@ public final class S3kPaletteOwners {
      */
     public static final String CNZ_ANPAL = "s3k.cnz.anpal";
     /**
+     * Owner ID for the Act 1 miniboss palette installed by the arena-entry
+     * gate.
+     *
+     * <p>ROM: {@code loc_6D9A8} (sonic3k.asm:144830) loads
+     * {@code Pal_CNZMiniboss} into palette line 1 via
+     * {@code PalLoad_Line1}. The engine routes the same 32-byte write through
+     * the shared palette ownership registry so post-defeat code (and tests)
+     * can observe the explicit owner.
+     */
+    public static final String CNZ_MINIBOSS = "s3k.cnz.miniboss";
+    /**
      * Reserved owner ID for the Knuckles-route teleporter palette override.
      *
      * <p>Task 5 introduces the owner now so Task 8's teleporter object can

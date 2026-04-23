@@ -2,10 +2,13 @@ package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TrigLookupTable;
+import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
@@ -19,6 +22,7 @@ import com.openggf.game.GroundMode;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -128,6 +132,63 @@ public class TestPlayableSpriteMovement {
                 method.invoke(manager, mockSprite);
 
                 assertTrue(mockSprite.getGSpeed() < 0, "gSpeed should be negative for left-facing slope, but was " + mockSprite.getGSpeed());
+        }
+
+        @Test
+        public void testDoLevelCollisionUsesGenericLandingForQuadrant00FloorTouch() throws Exception {
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0xD8);
+                mockSprite.setXSpeed((short) 0x0000);
+                mockSprite.setYSpeed((short) 0x0021);
+                mockSprite.setGSpeed((short) 0x0000);
+
+                CollisionSystem collisionSystem =
+                                new LandingProbeCollisionSystem((sprite, landingHandler, forceFloorCheck) -> {
+                                        sprite.setAngle((byte) 0xD8);
+                                        landingHandler.accept(sprite);
+                                });
+                manager = new PlayableSpriteMovement(mockSprite, collisionSystem, GameServices.gameState());
+                installRuntimeCollisionSystem(collisionSystem);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelCollision", boolean.class);
+                method.setAccessible(true);
+                method.invoke(manager, false);
+
+                assertEquals((short) 0x0000, mockSprite.getXSpeed(),
+                                "Quadrant 0x00 floor touch should keep generic steep-landing xSpeed handling");
+                assertEquals((short) 0x0021, mockSprite.getYSpeed(),
+                                "Generic steep landing should preserve ySpeed");
+                assertEquals((short) -0x0021, mockSprite.getGSpeed(),
+                                "Quadrant 0x00 floor touch should use generic steep-landing inertia");
+        }
+
+        @Test
+        public void testDoLevelCollisionUsesDirectFloorLandingForQuadrantC0FloorTouch() throws Exception {
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0xD8);
+                mockSprite.setXSpeed((short) 0x0110);
+                mockSprite.setYSpeed((short) 0x0021);
+                mockSprite.setGSpeed((short) 0x0000);
+
+                CollisionSystem collisionSystem =
+                                new LandingProbeCollisionSystem((sprite, landingHandler, forceFloorCheck) -> {
+                                        sprite.setAngle((byte) 0xD8);
+                                        landingHandler.accept(sprite);
+                                });
+                manager = new PlayableSpriteMovement(mockSprite, collisionSystem, GameServices.gameState());
+                installRuntimeCollisionSystem(collisionSystem);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelCollision", boolean.class);
+                method.setAccessible(true);
+                method.invoke(manager, false);
+
+                assertEquals((short) 0x0110, mockSprite.getXSpeed(),
+                                "Quadrant 0xC0 direct floor touch should preserve xSpeed");
+                assertEquals((short) 0x0000, mockSprite.getYSpeed(),
+                                "Quadrant 0xC0 direct floor touch should zero ySpeed");
+                assertEquals((short) 0x0110, mockSprite.getGSpeed(),
+                                "Quadrant 0xC0 direct floor touch should copy xSpeed into gSpeed");
+                assertTrue(!mockSprite.getAir(), "Floor touch should clear airborne state");
         }
 
         @Test
@@ -968,6 +1029,36 @@ public class TestPlayableSpriteMovement {
                 assertTrue(((0x60 + 0x20) & 0x40) == 0, "0x60 should NOT be steep");
                 assertTrue(((0x9F + 0x20) & 0x40) == 0, "0x9F should NOT be steep");
                 assertTrue(((0xE0 + 0x20) & 0x40) == 0, "0xE0 should NOT be steep");
+        }
+
+        private static final class LandingProbeCollisionSystem extends CollisionSystem {
+                private final LandingProbe probe;
+
+                private LandingProbeCollisionSystem(LandingProbe probe) {
+                        super(new TerrainCollisionManager());
+                        this.probe = probe;
+                }
+
+                @Override
+                public void resolveAirCollision(AbstractPlayableSprite sprite,
+                                                Consumer<AbstractPlayableSprite> landingHandler,
+                                                boolean forceFloorCheck) {
+                        probe.accept(sprite, landingHandler, forceFloorCheck);
+                }
+        }
+
+        @FunctionalInterface
+        private interface LandingProbe {
+                void accept(AbstractPlayableSprite sprite,
+                            Consumer<AbstractPlayableSprite> landingHandler,
+                            boolean forceFloorCheck);
+        }
+
+        private static void installRuntimeCollisionSystem(CollisionSystem collisionSystem) throws Exception {
+                GameRuntime runtime = RuntimeManager.getCurrent();
+                Field field = GameRuntime.class.getDeclaredField("collisionSystem");
+                field.setAccessible(true);
+                field.set(runtime, collisionSystem);
         }
 
         /**

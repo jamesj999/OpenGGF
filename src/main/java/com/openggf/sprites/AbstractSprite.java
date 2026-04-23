@@ -71,8 +71,32 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public void setCentreY(short y) {
+		short beforeY = this.yPixel;
+		short beforeCentreY = getCentreY();
 		this.yPixel = (short) (y - (height / 2));
 		this.ySubpixel = (short) 0;
+		traceS3kAizYProbe("setCentreY", beforeY, beforeCentreY);
+	}
+
+	/**
+	 * Sets the ROM centre X while preserving the current subpixel fraction.
+	 * Mirrors a 68000 {@code move.w} to {@code x_pos}, which does not touch
+	 * the low 16-bit subpixel field.
+	 */
+	public void setCentreXPreserveSubpixel(short x) {
+		this.xPixel = (short) (x - (width / 2));
+	}
+
+	/**
+	 * Sets the ROM centre Y while preserving the current subpixel fraction.
+	 * Mirrors a 68000 {@code move.w} to {@code y_pos}, which does not touch
+	 * the low 16-bit subpixel field.
+	 */
+	public void setCentreYPreserveSubpixel(short y) {
+		short beforeY = this.yPixel;
+		short beforeCentreY = getCentreY();
+		this.yPixel = (short) (y - (height / 2));
+		traceS3kAizYProbe("setCentreYPreserveSubpixel", beforeY, beforeCentreY);
 	}
 
 	public final short getX() {
@@ -123,9 +147,63 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public final void setY(short y) {
+		short beforeY = this.yPixel;
+		short beforeCentreY = getCentreY();
 		this.yPixel = y;
 		// ROM-accurate: move.w to y_pos does not touch y_sub.
 		// Subpixel fraction is preserved across position updates.
+		traceS3kAizYProbe("setY", beforeY, beforeCentreY);
+	}
+
+	private void traceS3kAizYProbe(String op, short beforeY, short beforeCentreY) {
+		if (!Boolean.getBoolean("s3k.aiz.yprobe")) {
+			return;
+		}
+		if (!(this instanceof com.openggf.sprites.playable.AbstractPlayableSprite)) {
+			return;
+		}
+		com.openggf.level.LevelManager levelManager = com.openggf.game.GameServices.level();
+		if (levelManager == null || levelManager.getObjectManager() == null) {
+			return;
+		}
+		int frameCounter = levelManager.getObjectManager().getFrameCounter();
+		int beforeCentreX = getCentreX() & 0xFFFF;
+		int afterCentreX = getCentreX() & 0xFFFF;
+		int afterCentreY = getCentreY() & 0xFFFF;
+		if (Math.max(beforeCentreX, afterCentreX) < 0x1900
+				|| Math.min(beforeCentreX, afterCentreX) > 0x1990
+				|| Math.max(beforeCentreY & 0xFFFF, afterCentreY) < 0x0380
+				|| Math.min(beforeCentreY & 0xFFFF, afterCentreY) > 0x03E0) {
+			return;
+		}
+		if (beforeY == this.yPixel && beforeCentreY == getCentreY()) {
+			return;
+		}
+		StackTraceElement caller = null;
+		StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+		for (StackTraceElement element : stack) {
+			String className = element.getClassName();
+			if (!className.equals(AbstractSprite.class.getName())
+					&& !className.equals(Thread.class.getName())) {
+				caller = element;
+				break;
+			}
+		}
+		String callerSummary = caller == null
+				? "<unknown>"
+				: caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
+		System.out.printf(
+				"s3k-aiz-yprobe frame=%d caller=%s op=%s centre=(%04X,%04X)->(%04X,%04X) y=%04X->%04X sub=%04X%n",
+				frameCounter,
+				callerSummary,
+				op,
+				beforeCentreX,
+				beforeCentreY & 0xFFFF,
+				getCentreX() & 0xFFFF,
+				afterCentreY,
+				beforeY & 0xFFFF,
+				this.yPixel & 0xFFFF,
+				this.ySubpixel & 0xFFFF);
 	}
 
 	/**
@@ -212,6 +290,15 @@ public abstract class AbstractSprite implements Sprite {
 	/** Returns the full 16-bit subpixel value (for diagnostic comparison). */
 	public int getYSubpixelRaw() {
 		return ySubpixel & 0xFFFF;
+	}
+
+	/**
+	 * Restores the full 16-bit subpixel fraction directly.
+	 * Used by trace/bootstrap code that needs ROM-accurate sprite state hydration.
+	 */
+	public void setSubpixelRaw(int xSubpixel, int ySubpixel) {
+		this.xSubpixel = (short) xSubpixel;
+		this.ySubpixel = (short) ySubpixel;
 	}
 
 	public Sensor[] getPushSensors() {

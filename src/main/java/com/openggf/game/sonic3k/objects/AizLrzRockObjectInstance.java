@@ -6,6 +6,7 @@ import com.openggf.game.ShieldType;
 import com.openggf.game.solid.ContactKind;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.solid.SolidCheckpointBatch;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -112,6 +113,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private boolean playerPushingSide;
 
     private boolean savedPreContactRolling;
+    private int savedPreContactAnimationId;
     private int savedPreContactXSpeed;
     private int savedPreContactYSpeed;
 
@@ -167,7 +169,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
 
         if (knucklesOnlyStanding && playerStandingOnRock && player != null) {
             if (isKnuckles()) {
-                player.setRolling(true);
+                enterRollingLaunch(player);
                 player.setYSpeed((short) -0x300);
                 player.setAir(true);
                 player.setOnObject(false);
@@ -179,8 +181,8 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         }
 
         if ((behaviorBits & BIT_BREAK_TOP) != 0 && playerStandingOnRock && player != null) {
-            if (savedPreContactRolling) {
-                player.setRolling(true);
+            if (savedPreContactAnimationId == Sonic3kAnimationIds.ROLL.id()) {
+                enterRollingLaunch(player);
                 player.setYSpeed((short) -0x300);
                 player.setAir(true);
                 player.setOnObject(false);
@@ -194,7 +196,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         if ((behaviorBits & BIT_BREAK_SIDE) != 0 && playerPushingSide && player != null) {
             if (canSideBreak(player)) {
                 if (savedPreContactRolling) {
-                    player.setRolling(true);
+                    enterRollingLaunch(player);
                 }
                 player.setXSpeed((short) savedPreContactXSpeed);
                 int playerX = player.getCentreX();
@@ -228,6 +230,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         }
 
         savedPreContactRolling = result.preContact().rolling();
+        savedPreContactAnimationId = result.preContact().animationId();
         savedPreContactXSpeed = result.preContact().xSpeed();
         savedPreContactYSpeed = result.preContact().ySpeed();
 
@@ -269,6 +272,18 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             return true;
         }
         return playerPushingSide;
+    }
+
+    private void enterRollingLaunch(AbstractPlayableSprite player) {
+        boolean wasRolling = player.getRolling();
+        short centreY = player.getCentreY();
+        player.setRolling(true);
+        if (!wasRolling) {
+            // ROM keeps y_pos fixed when the rock forces roll status and radii.
+            // Preserve the current centre Y instead of using the normal
+            // "feet planted" roll transition.
+            player.setCentreYPreserveSubpixel(centreY);
+        }
     }
 
     @Override

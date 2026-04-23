@@ -1,13 +1,17 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.ObjectManager;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -86,8 +90,9 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
             32, 32, 32, 32, 32, 32, 32, 32
     };
 
-    // Tracks current state per frame logic
-    private boolean active;
+    // ROM: status(a0) stores separate standing bits for Sonic and Tails.
+    private final Set<AbstractPlayableSprite> ridingPlayers =
+            Collections.newSetFromMap(new IdentityHashMap<>(2));
 
     public SpiralObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -95,60 +100,38 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (player == null) {
-            return;
+        if (playerEntity instanceof AbstractPlayableSprite player) {
+            processPlayer(frameCounter, player);
         }
-
-        if (!active && player != null) {
-            checkActivation(frameCounter, player);
-        } else if (active) {
-            // Bounds check for falling off
-            // loc_215C0
-            // logic normally uses inertia, but since we force air state, gSpeed isn't
-            // updated.
-            // xSpeed is active, so we use that.
-            int inertia = Math.abs(player.getGSpeed());
-            if (inertia == 0) {
-                inertia = Math.abs(player.getXSpeed());
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            if (sidekickEntity instanceof AbstractPlayableSprite sidekick) {
+                processPlayer(frameCounter, sidekick);
             }
-            // ROM uses inertia threshold 0x600
-            if (inertia < 0x600) {
-                fallOff(player, frameCounter);
-                return;
-            }
-
-            // X range check relative to spiral start
-            // move.w x_pos(a1),d0
-            // sub.w x_pos(a0),d0
-            // addi.w #$D0,d0 -> this centers the range check.
-            // Range in ROM logic: -0xD0 to 0x1A0 (relative to start)
-
-            int dx = player.getCentreX() - spawn.x();
-            int offset = dx + 0xD0;
-
-            if (offset < 0 || offset >= 0x1A0) {
-                fallOff(player, frameCounter);
-                return;
-            }
-
-            updateMovement(player, frameCounter);
         }
     }
 
-    private void checkActivation(int frameCounter, AbstractPlayableSprite player) {
+    private void processPlayer(int frameCounter, AbstractPlayableSprite player) {
+        if (ridingPlayers.contains(player)) {
+            updateRidingPlayer(frameCounter, player);
+            return;
+        }
+        tryActivate(frameCounter, player);
+    }
+
+    private void tryActivate(int frameCounter, AbstractPlayableSprite player) {
         int dx = player.getCentreX() - spawn.x();
 
-        // loc_21512 checks:
-        boolean wasOnSpiral = player.wasSpiralActive(frameCounter);
-        if (player.getAir() && !wasOnSpiral) {
+        // ROM: btst #status.player.in_air,status(a1) / bne.w return_215BE
+        if (player.getAir()) {
+            return;
+        }
+        // ROM: tst.b obj_control(a1) / bne.s return_215BE
+        if (player.isObjectControlled()) {
             return;
         }
 
-        // Initial range checks for "locking on"
         int vx = player.getXSpeed();
-        ObjectManager objectManager = services().objectManager();
-        boolean onObject = (objectManager != null && objectManager.isRidingObject(player)) || wasOnSpiral;
+        boolean onObject = player.isOnObject();
 
         // Debug range
         if (Math.abs(dx) < 250 && frameCounter % 30 == 0) {
@@ -185,96 +168,86 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Engage
-        active = true;
-        // Logic similar to RideObject_SetRide
-        // Start by "floating" (air=true) but correcting Y manually.
-        // We do NOT set air=false because that causes the ground sensor check to fail
-        // and reset state.
-        player.setAir(true);
-        // Match RideObject_SetRide behavior: zero vertical speed and keep inertia.
+        engagePlayer(frameCounter, player);
+    }
+
+    private void engagePlayer(int frameCounter, AbstractPlayableSprite player) {
+        ObjectManager objectManager = services().objectManager();
+        if (objectManager != null
+                && objectManager.isRidingObject(player)
+                && !objectManager.isRidingObject(player, this)) {
+            objectManager.clearRidingObject(player);
+        }
+        clearPreviousSpiralOwnership(player, objectManager);
+
+        ridingPlayers.add(player);
+        if (objectManager != null) {
+            objectManager.markObjectSupportThisFrame(player);
+        }
+        player.setOnObject(true);
+        player.setAir(false);
+        player.setAngle((byte) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed(player.getXSpeed());
         player.markSpiralActive(frameCounter);
         LOGGER.fine("Spiral Activated: Player engaged at dx=" + (player.getCentreX() - spawn.x()));
     }
 
-    private void updateMovement(AbstractPlayableSprite player, int frameCounter) {
-        // Obj06_Spiral_MoveCharacter:
+    private void clearPreviousSpiralOwnership(AbstractPlayableSprite player, ObjectManager objectManager) {
+        if (objectManager == null || !player.isOnObject()) {
+            return;
+        }
+        // ROM: RideObject_SetRide clears the previous owner's standing bit before
+        // assigning the new interact slot. Spirals track that bit in ridingPlayers.
+        for (ObjectInstance instance : objectManager.getActiveObjects()) {
+            if (instance == this || !(instance instanceof SpiralObjectInstance spiral)) {
+                continue;
+            }
+            spiral.ridingPlayers.remove(player);
+        }
+    }
 
-        // Index into cosine table is based on X position relative to object
-        // move.w x_pos(a1),d0
-        // sub.w x_pos(a0),d0
-        int dx = player.getCentreX() - spawn.x();
-
-        // Ensure positive index access for table if needed, but Java arrays need
-        // correct index.
-        // ROM: move.b Obj06_CosineTable(pc,d0.w),d1 -> d0 is signed relative offset.
-        // But wait, d0 was offset by $D0 in the check.
-        // Actually, let's look at table access.
-        // "move.b Obj06_CosineTable(pc,d0.w),d1"
-        // This suggests the table covers the entire range of X offsets that are valid.
-
-        // We need to map dx to table index.
-        // If dx starts at -0xD0 (approx -208), accessing index -208 is invalid in Java.
-        // The table size is roughly 416 bytes (0x1A0).
-        // It matches the 416 (0x1A0) range.
-        // This strongly suggests the table assumes the index is `dx + 0xD0`.
-        // But the ASM instruction uses raw `d0`.
-        // Unless... does `Obj06_CosineTable` point to the MIDDLE (offset 208) of the
-        // data?
-        // `dc.b 32, 32...` - those look like height values.
-
-        // Let's assume for Java implementation that we index by `dx + 0xD0`.
-
-        int tableIndex = dx + 0xD0;
-        if (tableIndex < 0 || tableIndex >= SPIRAL_Y_OFFSETS.length) {
-            // Out of bounds
+    private void updateRidingPlayer(int frameCounter, AbstractPlayableSprite player) {
+        // ROM: loc_215C0
+        int inertia = Math.abs(player.getGSpeed());
+        if (inertia < 0x600 || player.getAir()) {
+            fallOff(player);
             return;
         }
 
-        byte offsetY = SPIRAL_Y_OFFSETS[tableIndex];
-        // d1 extended to word.
+        int offset = player.getCentreX() - spawn.x() + 0xD0;
+        if (offset < 0 || offset >= 0x1A0) {
+            fallOff(player);
+            return;
+        }
 
-        // move.w y_pos(a0),d2
-        // add.w d1,d2
-        // sub.w (y_radius - $13), d2
-        // move.w d2,y_pos(a1)
+        // ROM: btst #status.player.on_object,status(a1) / beq.s return_215BE
+        if (!player.isOnObject()) {
+            return;
+        }
 
-        // Update Y position
-        int targetCenterY = spawn.y() + offsetY;
-        int radiusOffset = player.getYRadius() - 0x13;
-        targetCenterY -= radiusOffset;
-        int targetTopY = targetCenterY - (player.getHeight() / 2);
-        player.setY((short) targetTopY);
-        player.setYSpeed((short) 0);
-        player.setAir(true); // Ensure engine doesn't try to "land" us on non-existent ground
+        updateMovement(player, frameCounter, offset);
+    }
 
-        // Flip Angle Logic
-        // lsr.w #3,d0 -> d0 / 8
-        // andi.w #$3F,d0 -> mask 63
-        // move.b Obj06_FlipAngleTable(pc,d0.w),flip_angle(a1)
+    private void updateMovement(AbstractPlayableSprite player, int frameCounter, int tableIndex) {
+        ObjectManager objectManager = services().objectManager();
+        if (objectManager != null) {
+            objectManager.markObjectSupportThisFrame(player);
+        }
+        int targetCenterY = spawn.y() + SPIRAL_Y_OFFSETS[tableIndex];
+        targetCenterY -= player.getYRadius() - 0x13;
+        player.setCentreYPreserveSubpixel((short) targetCenterY);
 
-        // Again, assuming `d0` here effectively means `dx + 0xD0` for the index?
-        // Actually, with `lsr #3`, it scales down.
-        // 416 / 8 = 52.
-        // The Flip Angle Table is exactly 52 bytes.
-        // This confirms that we should use `(dx + 0xD0) >> 3` as the index.
-
-        int angleIndex = ((dx + 0xD0) >> 3) & 0x3F;
+        int angleIndex = (tableIndex >> 3) & 0x3F;
         if (angleIndex >= 0 && angleIndex < FLIP_ANGLE_TABLE.length) {
             player.setFlipAngle(FLIP_ANGLE_TABLE[angleIndex] & 0xFF);
         }
         player.markSpiralActive(frameCounter);
     }
 
-    private void fallOff(AbstractPlayableSprite player, int frameCounter) {
-        active = false;
-        player.setAir(true);
-        // Reset angle if no other spiral updated this frame.
-        if (!player.isSpiralActiveThisFrame(frameCounter)) {
-            player.setAngle((byte) 0);
-        }
+    private void fallOff(AbstractPlayableSprite player) {
+        ridingPlayers.remove(player);
+        player.setOnObject(false);
         player.setFlipsRemaining(0);
         player.setFlipSpeed(4);
     }

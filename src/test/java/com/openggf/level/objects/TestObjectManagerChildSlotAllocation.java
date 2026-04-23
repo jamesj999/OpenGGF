@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.camera.Camera;
@@ -95,6 +96,37 @@ public class TestObjectManagerChildSlotAllocation {
         manager.update(0, null, null, 2);
 
         assertEquals(1, parent.child.updateCount);
+    }
+
+    @Test
+    public void childSpawnedWithFindFreeObj_usesSonic2DynamicSlotBase() {
+        ObjectManager[] holder = new ObjectManager[1];
+        ObjectServices services = new StubObjectServices() {
+            @Override
+            public ObjectManager objectManager() {
+                return holder[0];
+            }
+        };
+        Camera camera = mock(Camera.class);
+        when(camera.getX()).thenReturn((short) 0);
+        when(camera.getY()).thenReturn((short) 0);
+        when(camera.getWidth()).thenReturn((short) 320);
+        when(camera.getHeight()).thenReturn((short) 224);
+        when(camera.isVerticalWrapEnabled()).thenReturn(false);
+        ObjectManager manager = new ObjectManager(
+                List.of(), new Sonic2ObjectRegistry(), 0, null, null,
+                GraphicsManager.getInstance(), camera, services);
+        holder[0] = manager;
+
+        FindFreeParentObject parent =
+                new FindFreeParentObject(new ObjectSpawn(0, 0, 0, 0, 0, false, 0));
+        manager.addDynamicObjectAtSlot(parent, 40);
+
+        manager.update(0, null, null, 1);
+
+        assertNotNull(parent.child);
+        assertEquals(16, parent.child.getSlotIndex(),
+                "Sonic 2 FindFreeObj should start allocating at dynamic slot 0x10");
     }
 
     @Test
