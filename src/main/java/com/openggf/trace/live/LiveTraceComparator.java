@@ -3,6 +3,9 @@ package com.openggf.trace.live;
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.PlaybackDebugManager.PlaybackFrameObserver;
 import com.openggf.game.GameServices;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.FieldComparison;
@@ -144,25 +147,29 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                 System.err.printf(
                         "[LiveTraceComparator] FIRST ERROR at trace frame %d:%n"
                                 + "  field=%s expected=%s actual=%s delta=%d%n"
-                                + "  full frame comparison: %s%n",
+                                + "  full frame comparison: %s%n"
+                                + "  active objects near player:%n%s",
                         frameNumber,
                         fc.fieldName(),
                         fc.expected(),
                         fc.actual(),
                         fc.delta(),
-                        result);
+                        result,
+                        summariseNearbyObjects());
             } else if (sev == Severity.WARNING && !firstWarningLogged) {
                 firstWarningLogged = true;
                 System.err.printf(
                         "[LiveTraceComparator] FIRST WARNING at trace frame %d:%n"
                                 + "  field=%s expected=%s actual=%s delta=%d%n"
-                                + "  full frame comparison: %s%n",
+                                + "  full frame comparison: %s%n"
+                                + "  active objects near player:%n%s",
                         frameNumber,
                         fc.fieldName(),
                         fc.expected(),
                         fc.actual(),
                         fc.delta(),
-                        result);
+                        result,
+                        summariseNearbyObjects());
             }
             mismatches.push(new MismatchEntry(
                     frameNumber,
@@ -173,6 +180,45 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                     sev,
                     1));
         }
+    }
+
+    private String summariseNearbyObjects() {
+        ObjectManager om = GameServices.level() != null
+                ? GameServices.level().getObjectManager() : null;
+        if (om == null) {
+            return "    (no ObjectManager)";
+        }
+        AbstractPlayableSprite sprite = spriteProvider.get();
+        int px = sprite != null ? sprite.getCentreX() & 0xFFFF : 0;
+        int py = sprite != null ? sprite.getCentreY() & 0xFFFF : 0;
+        StringBuilder sb = new StringBuilder();
+        for (ObjectInstance inst : om.getActiveObjects()) {
+            if (!(inst instanceof AbstractObjectInstance aoi)) {
+                continue;
+            }
+            int ox = aoi.getX() & 0xFFFF;
+            int oy = aoi.getY() & 0xFFFF;
+            int dx = Math.abs(ox - px);
+            int dy = Math.abs(oy - py);
+            // Include anything within a ~screen-width horizontal box —
+            // the divergence is typically tied to badniks a few blocks
+            // ahead of the player, not off-screen spawns.
+            if (dx > 0x180 || dy > 0x100) {
+                continue;
+            }
+            int id = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
+            sb.append(String.format(
+                    "    slot=%3d id=0x%02X %s @%04X,%04X (dx=%d dy=%d)%n",
+                    aoi.getSlotIndex(),
+                    id & 0xFF,
+                    aoi.getClass().getSimpleName(),
+                    ox, oy,
+                    ox - px, oy - py));
+        }
+        if (sb.length() == 0) {
+            return "    (no active objects within a screen-width of the player)";
+        }
+        return sb.toString();
     }
 
     private static TraceCharacterState captureFirstSidekickState() {
