@@ -176,10 +176,10 @@ public class TestPostLoadAssemblyBehavior {
         assertEquals(600, ctx.getCheckpointY());
     }
 
-    // ========== S3K Title Card Suppression on Checkpoint Resume ==========
+    // ========== S3K Title Card Behavior on Checkpoint Resume ==========
 
     @Test
-    public void s3kTitleCardStepExecutesAsNoOpWhenCheckpointActive() {
+    public void s3kTitleCardStepStillExistsWhenCheckpointActive() {
         CheckpointState state = createCheckpoint(1, 100, 200);
 
         LevelLoadContext ctx = new LevelLoadContext();
@@ -190,23 +190,18 @@ public class TestPostLoadAssemblyBehavior {
         Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep titleCardStep = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
         assertNotNull(titleCardStep, "S3K profile should include RequestTitleCard step");
-
-        // Execute the step. With checkpoint active, S3K's guard skips the
-        // LevelManager.requestTitleCardIfNeeded() call entirely, making this a
-        // no-op. If the guard were missing, this would NPE because LevelManager
-        // is not initialized.
-        titleCardStep.execute();
     }
 
     @Test
-    public void s3kTitleCardStepDocumentsCheckpointGuard() {
+    public void s3kTitleCardStepHasNoCheckpointGuard() {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
         Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
-        assertTrue(step.romRoutine().contains("skipped on checkpoint"), "S3K title card step should document checkpoint suppression");
+        assertFalse(step.romRoutine().contains("skipped on checkpoint"),
+                "S3K title card step should not suppress the title card just because a checkpoint is active");
     }
 
     @Test
@@ -322,5 +317,4 @@ public class TestPostLoadAssemblyBehavior {
                 .orElse(null);
     }
 }
-
 
