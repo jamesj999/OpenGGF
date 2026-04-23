@@ -144,6 +144,14 @@ public final class TraceSessionLauncher {
             // launchGameByEntry fired — the master-title exit handler
             // needs the recorded team config in place when it calls
             // GameplayTeamBootstrap.registerActiveTeam.
+            //
+            // Mirror TestEnvironment.resetPerTest so the replay starts
+            // from the same zero state the headless trace tests do.
+            // Without this, state left by initializeGame() (title
+            // screen, default level, residual objects) leaks in and
+            // causes subpixel drift from frame 0 that surfaces at the
+            // first enemy destruction.
+            TraceReplaySessionBootstrap.resetLevelSubsystemsForReplay();
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
