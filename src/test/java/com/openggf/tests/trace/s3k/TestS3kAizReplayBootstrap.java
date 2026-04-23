@@ -241,7 +241,7 @@ public class TestS3kAizReplayBootstrap {
             HeadlessTestFixture fixture = buildTraceReplayFixture(trace, sharedLevel);
             TraceReplayBootstrap.applyPreTraceState(trace, fixture);
             TraceReplayBootstrap.ReplayStartState replayStart =
-                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+                    TraceReplayBootstrap.applySeedReplayStartStateForTraceReplay(trace, fixture);
 
             assertEquals(levelEntryFrame + 1, replayStart.startingTraceIndex());
             assertEquals(levelEntryFrame, replayStart.seededTraceIndex());
@@ -376,7 +376,7 @@ public class TestS3kAizReplayBootstrap {
 
             HeadlessTestFixture fixture = buildTraceReplayFixture(trace, sharedLevel);
             TraceReplayBootstrap.applyPreTraceState(trace, fixture);
-            TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+            TraceReplayBootstrap.applySeedReplayStartStateForTraceReplay(trace, fixture);
 
             AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
             assertNotNull(intro, "AIZ intro object should exist on the seeded entry frame.");
@@ -433,7 +433,7 @@ public class TestS3kAizReplayBootstrap {
             HeadlessTestFixture fixture = buildTraceReplayFixture(trace, sharedLevel);
             TraceReplayBootstrap.applyPreTraceState(trace, fixture);
             TraceReplayBootstrap.ReplayStartState replayStart =
-                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+                    TraceReplayBootstrap.applySeedReplayStartStateForTraceReplay(trace, fixture);
 
             int lastInput = advanceReplayToTraceFrame(trace, fixture, replayStart, probeFrame);
             TraceFrame expected = trace.getFrame(probeFrame);

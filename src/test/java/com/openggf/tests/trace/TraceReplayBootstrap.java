@@ -161,6 +161,33 @@ public final class TraceReplayBootstrap {
         return applyReplayStartState(trace, fixture, false, replaySeedTraceIndexForTraceReplay(trace));
     }
 
+    /**
+     * Seeds legacy S3K AIZ end-to-end traces at the first live in-level frame
+     * (trace frame 0) instead of running the full warmup up to strict start.
+     * Callers that need the seed-at-0 semantics (intro object still at routine 0,
+     * ObjectManager VBlank matches frame 0, sprite frozen at recorded frame 0
+     * position) should use this entrypoint. For non-legacy traces this behaves
+     * identically to {@link #applyReplayStartStateForTraceReplay}.
+     *
+     * <p>The warmup-compatible fixture initializes the ObjectManager VBla
+     * counter to the strict-start frame's vblank. Seed-at-0 callers need the
+     * counter aligned with the seed frame's vblank instead, so reset it here
+     * before the seed path runs its level-event update and advance.
+     */
+    public static ReplayStartState applySeedReplayStartStateForTraceReplay(TraceData trace,
+                                                                           HeadlessTestFixture fixture) {
+        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
+            ObjectManager objectManager = GameServices.level() != null
+                    ? GameServices.level().getObjectManager()
+                    : null;
+            if (objectManager != null && trace != null && trace.frameCount() > 0) {
+                objectManager.initVblaCounter(trace.getFrame(seedTraceIndex).vblankCounter() - 1);
+            }
+        }
+        return applyReplayStartState(trace, fixture, false, replaySeedTraceIndexForTraceReplay(trace));
+    }
+
     public static int recordingStartFrameForTraceReplay(TraceData trace) {
         if (trace == null) {
             return 0;
@@ -290,6 +317,12 @@ public final class TraceReplayBootstrap {
                     // advancing Obj_intPlane beyond its recorded routine-0 state.
                     objectManager.advanceVblaCounter();
                 }
+                // Re-apply the recorded frame-0 state because the intro object's
+                // constructor forces controlLocked/objectControlled/hidden = true
+                // and zeroes speeds. The recorded pre-lock state captured a Sonic
+                // still in free-fall at frame 0 (y_speed=0x440), so restore that
+                // end-of-frame snapshot after the intro spawn is complete.
+                applyRecordedFrameState(sprite, seededFrame);
             }
         }
 
@@ -330,6 +363,20 @@ public final class TraceReplayBootstrap {
         // intro object during non-level time and push the cutscene hundreds of
         // frames ahead. Start the replay loop at the first real in-level frame
         // instead and align the BK2/VBlank cursors to that same trace index.
+        //
+        // Prime the sprite and camera to the recorded strict-start frame state so
+        // the first strict replay frame continues from the exact recorded values
+        // (player position, speeds, air/rolling flags, subpixel, camera scroll)
+        // rather than from the ROM's default AIZ1 intro bootstrap position. The
+        // intro object and level-started flag remain in their pre-gameplay_start
+        // state because the trace recorded them that way on this frame.
+        TraceFrame strictStart = trace.getFrame(strictStartTraceIndex);
+        AbstractPlayableSprite sprite = fixture.sprite();
+        applyRecordedFrameState(sprite, strictStart);
+        if (GameServices.camera() != null) {
+            GameServices.camera().setX((short) strictStart.cameraX());
+            GameServices.camera().setY((short) strictStart.cameraY());
+        }
         return new ReplayStartState(strictStartTraceIndex, -1);
     }
 
