@@ -183,7 +183,10 @@ public final class PlaybackDebugManager {
             periodicLogCounter++;
             if (periodicLogCounter >= PERIODIC_LOG_INTERVAL_FRAMES) {
                 periodicLogCounter = 0;
-                logStatus("tick");
+                // Periodic heartbeat at FINE — default log level won't
+                // surface it; opt in via java.util.logging when
+                // debugging playback cadence.
+                logStatus("tick", Level.FINE);
             }
         } else {
             periodicLogCounter = 0;
@@ -400,8 +403,15 @@ public final class PlaybackDebugManager {
     }
 
     private void logStatus(String reason) {
+        logStatus(reason, Level.INFO);
+    }
+
+    private void logStatus(String reason, Level level) {
+        if (!LOGGER.isLoggable(level)) {
+            return;
+        }
         if (movie == null || timeline == null) {
-            LOGGER.info("[Playback][" + reason + "] " + statusMessage);
+            LOGGER.log(level, "[Playback][" + reason + "] " + statusMessage);
             return;
         }
         Bk2FrameInput frame = movie.getFrame(timeline.getCursorFrame());
@@ -416,6 +426,6 @@ public final class PlaybackDebugManager {
                 formatInput(frame.p1InputMask(), frame.p1StartPressed()),
                 firstActiveFrame,
                 statusMessage);
-        LOGGER.info(summary);
+        LOGGER.log(level, summary);
     }
 }
