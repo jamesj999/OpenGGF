@@ -5,7 +5,7 @@
 **Goal:** Build the Trace Test Mode specified in `docs/superpowers/specs/2026-04-23-trace-test-mode-design.md` — a config-gated screen on top of the master title that lists every trace under `src/test/resources/traces/`, plays a selected trace inside the live graphical engine driven by its BK2, and overlays red/orange/grey divergence counters + a BK2 input visualiser + a rolling mismatch log. End-of-session uses a 1 s hold on `TRACE COMPLETE` then a `FadeManager` fade to black.
 
 **Architecture:**
-The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, etc.) moves from `src/test/java/com/openggf/tests/trace/` to `src/main/java/com/openggf/trace/` so it can be used at runtime. A new `TraceReplayFixture` interface abstracts the difference between the headless test fixture and the live engine. `PlaybackDebugManager` gains a programmatic `startSession` + a `PlaybackFrameObserver` that lets a `LiveTraceComparator` classify each BK2 frame as gameplay or lag, gate the engine's gameplay tick, and accumulate divergences. The UI sits in `com.openggf.testmode` (picker + HUD) and `com.openggf.TraceSessionLauncher` (the glue between the picker, `GameLoop`, `PlaybackDebugManager`, and `FadeManager`).
+The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, etc.) moves from `src/test/java/com/openggf/tests/trace/` to `src/main/java/com/openggf/trace/` so it can be used at runtime. A new `TraceReplayFixture` interface abstracts the difference between the headless test fixture and the live engine. `TraceSessionLauncher` launches traces asynchronously through the existing master-title fade path: it requests the selected game, waits for `Engine.exitMasterTitleScreen(...)` to finish creating the gameplay runtime, then loads the trace's zone/act, runs the shared replay bootstrap, and only then attaches `LiveTraceComparator` + `PlaybackDebugManager` for live playback. The UI sits in `com.openggf.testmode` (picker + HUD), and the HUD is rendered from `Engine.display()` after the fade pass so it remains visible during the completion fade.
 
 **Tech Stack:** Java 21, JUnit 5 / Jupiter (JUnit 4 is forbidden — CLAUDE.md), LWJGL/GLFW, existing `MasterTitleScreen`, `GameLoop`, `FadeManager`, `PlaybackDebugManager`, `HeadlessTestFixture`, `TraceBinder`. Maven build (`mvn package` / `mvn test`).
 
@@ -42,8 +42,9 @@ The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, et
 - `src/main/java/com/openggf/configuration/SonicConfiguration.java` — add `TEST_MODE_ENABLED`, `TRACE_CATALOG_DIR`
 - `src/main/resources/config.json` — add defaults for those keys
 - `src/main/java/com/openggf/game/MasterTitleScreen.java` — add package-private `selectEntry(GameEntry)` and `TEST_MODE_ENABLED` branch
-- `src/main/java/com/openggf/GameLoop.java` — add package-private `launchGameByEntry(GameEntry)` wrapper, skip-tick query integration
-- `src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java` — `PlaybackFrameObserver` interface, `startSession`, `endSession`, `shouldSkipCurrentGameplayTick`, observer hook in `onLevelFrameAdvanced`
+- `src/main/java/com/openggf/GameLoop.java` — add package-private `launchGameByEntry(GameEntry, Runnable)` wrapper, pending post-exit callback, skip-tick query integration, and master-title return hook
+- `src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java` — `PlaybackFrameObserver` interface, `startSession`, `endSession`, bootstrap cursor helpers for `TraceReplayFixture`, `shouldSkipCurrentGameplayTick`, observer hook in `onLevelFrameAdvanced`
+- `src/main/java/com/openggf/Engine.java` — add static `currentGameLoop()` accessor, recreate master title on trace-session teardown, and render the trace HUD after the fade pass
 - `src/test/java/com/openggf/tests/HeadlessTestFixture.java` — implement `TraceReplayFixture`
 - `src/test/java/com/openggf/tests/trace/AbstractTraceReplayTest.java` — use `TraceReplaySessionBootstrap` + new imports; mechanical import updates from the package move
 - Every file in `src/test/` that imports from `com.openggf.tests.trace.*` — import updates (Phase 1 Task 1)
@@ -56,7 +57,7 @@ The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, et
 
 **Files:**
 - Create: `src/main/java/com/openggf/trace/` (directory) and all subpackages listed in file map
-- Move (one by one): the 20 source files listed in the spec section 7
+- Move (one by one): the 22 source files listed in the spec section 7
 - Modify: every `src/test/java/com/openggf/tests/trace/` consumer and every other `src/test/` file that imports `com.openggf.tests.trace.*`
 
 > **Why this is a single "task":** the package move is mechanical and must land atomically — every cross-file import is broken until the last rename is done. Land it in one commit so CI never sees a half-state. (Spec §7.)
@@ -64,7 +65,7 @@ The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, et
 - [ ] **Step 1: Create a feature branch**
 
 Run:
-```bash
+```powershell
 git checkout develop
 git pull
 git checkout -b feature/ai-trace-test-mode
@@ -79,31 +80,61 @@ Expected: tests pass (or skip cleanly without a ROM). If failures exist, stop an
 - [ ] **Step 3: Create the new package directories**
 
 Run:
-```bash
-mkdir -p src/main/java/com/openggf/trace
-mkdir -p src/main/java/com/openggf/trace/catalog
-mkdir -p src/main/java/com/openggf/trace/replay
-mkdir -p src/main/java/com/openggf/trace/live
+```powershell
+New-Item -ItemType Directory -Force 'src/main/java/com/openggf/trace' | Out-Null
+New-Item -ItemType Directory -Force 'src/main/java/com/openggf/trace/catalog' | Out-Null
+New-Item -ItemType Directory -Force 'src/main/java/com/openggf/trace/replay' | Out-Null
+New-Item -ItemType Directory -Force 'src/main/java/com/openggf/trace/live' | Out-Null
 ```
 
-- [ ] **Step 4: Move the 20 source files (`git mv` preserves history)**
+- [ ] **Step 4: Move the 22 source files (`git mv` preserves history)**
 
-Run (one line):
-```bash
-for f in TraceData TraceFrame TraceCharacterState TraceMetadata TraceEvent TraceEventFormatter TraceExecutionPhase TraceExecutionModel TraceHistoryHydration TraceBinder ToleranceConfig FieldComparison FrameComparison DivergenceGroup DivergenceReport Severity TraceObjectSnapshotBinder TraceReplayBootstrap EngineDiagnostics EngineNearbyObject EngineNearbyObjectFormatter TouchResponseDebugHitFormatter; do
-  git mv "src/test/java/com/openggf/tests/trace/${f}.java" "src/main/java/com/openggf/trace/${f}.java"
-done
+Run:
+```powershell
+$traceFiles = @(
+  'TraceData',
+  'TraceFrame',
+  'TraceCharacterState',
+  'TraceMetadata',
+  'TraceEvent',
+  'TraceEventFormatter',
+  'TraceExecutionPhase',
+  'TraceExecutionModel',
+  'TraceHistoryHydration',
+  'TraceBinder',
+  'ToleranceConfig',
+  'FieldComparison',
+  'FrameComparison',
+  'DivergenceGroup',
+  'DivergenceReport',
+  'Severity',
+  'TraceObjectSnapshotBinder',
+  'TraceReplayBootstrap',
+  'EngineDiagnostics',
+  'EngineNearbyObject',
+  'EngineNearbyObjectFormatter',
+  'TouchResponseDebugHitFormatter'
+)
+
+foreach ($name in $traceFiles) {
+  git mv "src/test/java/com/openggf/tests/trace/$name.java" `
+         "src/main/java/com/openggf/trace/$name.java"
+}
 ```
 
 - [ ] **Step 5: Rewrite package declarations in the moved files**
 
 Run:
-```bash
-git ls-files src/main/java/com/openggf/trace/ | xargs sed -i 's|^package com.openggf.tests.trace;$|package com.openggf.trace;|'
+```powershell
+Get-ChildItem 'src/main/java/com/openggf/trace' -Filter '*.java' | ForEach-Object {
+  $text = Get-Content -Raw $_.FullName
+  $text = $text.Replace('package com.openggf.tests.trace;', 'package com.openggf.trace;')
+  Set-Content -NoNewline $_.FullName $text
+}
 ```
 
 Verify:
-```bash
+```powershell
 git grep -n 'package com.openggf.tests.trace' src/main/java/com/openggf/trace/
 ```
 Expected: no results.
@@ -111,15 +142,23 @@ Expected: no results.
 - [ ] **Step 6: Rewrite imports across src/test/**
 
 Run:
-```bash
-git ls-files 'src/test/java/**/*.java' | xargs sed -i 's|com\.openggf\.tests\.trace\.|com.openggf.trace.|g'
+```powershell
+Get-ChildItem 'src/test/java' -Recurse -Filter '*.java' | ForEach-Object {
+  $text = Get-Content -Raw $_.FullName
+  $text = $text.Replace('com.openggf.tests.trace.', 'com.openggf.trace.')
+  Set-Content -NoNewline $_.FullName $text
+}
 ```
 
 - [ ] **Step 7: Rewrite intra-package references inside the moved files themselves**
 
 The moved files import each other via fully qualified names in places. Run:
-```bash
-git ls-files src/main/java/com/openggf/trace/ | xargs sed -i 's|com\.openggf\.tests\.trace\.|com.openggf.trace.|g'
+```powershell
+Get-ChildItem 'src/main/java/com/openggf/trace' -Filter '*.java' | ForEach-Object {
+  $text = Get-Content -Raw $_.FullName
+  $text = $text.Replace('com.openggf.tests.trace.', 'com.openggf.trace.')
+  Set-Content -NoNewline $_.FullName $text
+}
 ```
 
 - [ ] **Step 8: Compile**
@@ -135,9 +174,9 @@ Expected: same pass/skip set as Step 2.
 - [ ] **Step 10: Commit the move**
 
 Run:
-```bash
+```powershell
 git add -A src/main/java/com/openggf/trace src/test/java
-git commit -m "$(cat <<'EOF'
+$message = @'
 refactor(trace): move trace infrastructure from src/test to src/main
 
 Enables runtime use of TraceData, TraceBinder, TraceReplayBootstrap,
@@ -153,8 +192,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -200,9 +239,9 @@ Expected: BUILD SUCCESS.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/replay/TraceReplayFixture.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): TraceReplayFixture interface for headless + live replay
 
 Abstracts the five methods (sprite, runtime, step, skip,
@@ -217,8 +256,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 3: Make HeadlessTestFixture implement TraceReplayFixture
@@ -246,9 +285,9 @@ Expected: same pass/skip set as before.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/test/java/com/openggf/tests/HeadlessTestFixture.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 refactor(tests): HeadlessTestFixture implements TraceReplayFixture
 
 Pure declaration change — existing method signatures already match the
@@ -262,8 +301,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 4: Rewrite TraceReplayBootstrap signatures against the interface
@@ -304,9 +343,9 @@ Expected: same pass/skip set as before. The fixture widens from a concrete class
 
 - [ ] **Step 4: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/TraceReplayBootstrap.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 refactor(trace): TraceReplayBootstrap takes TraceReplayFixture
 
 Widens every bootstrap-entrypoint signature from the test-only
@@ -321,8 +360,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -432,9 +471,9 @@ Expected: BUILD SUCCESS. If `shouldUseTraceStartBootstrapForTraceReplay` (or the
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/replay/TraceReplaySessionBootstrap.java src/main/java/com/openggf/trace/TraceReplayBootstrap.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): TraceReplaySessionBootstrap helper for shared setup
 
 Extracts the config + vblank + oscillation + snapshot + replay-start
@@ -449,8 +488,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 6: Migrate AbstractTraceReplayTest to use the helper
@@ -503,9 +542,9 @@ Expected: same pass/skip set as before the refactor.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/test/java/com/openggf/tests/trace/AbstractTraceReplayTest.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 refactor(tests): AbstractTraceReplayTest uses TraceReplaySessionBootstrap
 
 Pulls the config + vblank + osc + snapshot + replay-start sequence into
@@ -519,8 +558,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -567,9 +606,9 @@ Expected: BUILD SUCCESS.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(playback): PlaybackFrameObserver hook in PlaybackDebugManager
 
 Adds a nullable observer slot with shouldSkipGameplayTick and
@@ -583,18 +622,18 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
-### Task 8: Add startSession / endSession + shouldSkipCurrentGameplayTick
+### Task 8: Add startSession / endSession + bootstrap cursor helpers + shouldSkipCurrentGameplayTick
 
 **Files:**
 - Modify: `src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java`
 
 Spec §6.2, §6.3.
 
-- [ ] **Step 1: Add startSession / endSession**
+- [ ] **Step 1: Add startSession / endSession + bootstrap cursor helpers**
 
 ```java
 public synchronized void startSession(Bk2Movie movie, int startOffsetIndex) {
@@ -621,6 +660,21 @@ public synchronized void endSession() {
     this.currentTickSuppressed = false;
     clearLastAppliedState();
     setStatus("Session ended", true);
+}
+
+public synchronized Bk2FrameInput currentFrameOrThrow() {
+    if (!enabled || movie == null || timeline == null) {
+        throw new IllegalStateException("No active playback session");
+    }
+    return movie.getFrame(timeline.getCursorFrame());
+}
+
+public synchronized void advanceCurrentFrameWithoutGameplay() {
+    if (!enabled || movie == null || timeline == null) {
+        return;
+    }
+    currentTickSuppressed = false;
+    timeline.advanceIfPlaying();
 }
 ```
 
@@ -680,13 +734,14 @@ Expected: pass.
 
 - [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(playback): programmatic startSession + lag-frame gating hooks
 
 Adds startSession(Bk2Movie, int)/endSession() so TraceSessionLauncher
-can drive playback without the configured hotkey path, and
+can drive playback without the configured hotkey path, bootstrap cursor
+helpers for the live TraceReplayFixture, and
 shouldSkipCurrentGameplayTick() + afterFrameAdvanced callback so an
 attached observer can suppress gameplay ticks on ROM lag frames.
 
@@ -697,8 +752,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 9: Gate gameplay tick in GameLoop.update()
@@ -708,32 +763,50 @@ EOF
 
 Spec §6.3.
 
-- [ ] **Step 1: Identify the per-frame gameplay entrypoint**
+- [ ] **Step 1: Hoist `playbackDebugManager.onLevelFrameAdvanced()` out of the freeze block**
 
-The existing `update()` runs per-frame with `currentGameMode == GameMode.LEVEL`. Find the block that runs the gameplay tick for the LEVEL branch (the call that drives sprites + objects). You want the first call that advances physics — in this codebase that path goes through `LevelFrameStep` / `SpriteManager.tick*`.
+As of this codebase the call lives inside the
+`LevelFrameStep.execute(...)` lambda in `GameLoop.update()`, which is
+only reached when
+`!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition`.
+If we add a lag-gate on top of that, skipped-tick frames never reach
+the callback — the comparator's cursor stalls and the BK2 cursor stops
+advancing.
 
-Locate the function `updateLevelMode()` (or equivalent) within `GameLoop`. Wrap the **gameplay update body** in a skip check, but **not** rendering or input handling:
+Move the call out of the lambda so it fires **unconditionally** once per
+LEVEL tick. Locate the single `playbackDebugManager.onLevelFrameAdvanced()`
+call (search `git grep -n onLevelFrameAdvanced src/main/java/com/openggf/GameLoop.java`)
+and relocate it to just after the `LevelFrameStep.execute(...)` call
+(or the gameplay-update dispatch, whichever is the common join point
+for both the normal and frozen paths).
+
+- [ ] **Step 2: Wrap the gameplay update body in a skip check**
+
+With `onLevelFrameAdvanced()` already hoisted above in Step 1, add the
+skip gate around the gameplay body only:
 
 ```java
 boolean skipGameplay = playbackDebugManager.shouldSkipCurrentGameplayTick();
 if (!skipGameplay) {
-    // existing gameplay update body (sprite ticks, object manager, physics)
+    // existing LevelFrameStep.execute(...) body — sprite ticks, object
+    // manager, physics, etc.
 }
-playbackDebugManager.onLevelFrameAdvanced(); // already called here; keep it
+playbackDebugManager.onLevelFrameAdvanced(); // now hoisted — fires either way
 ```
 
-> **If the existing code already calls `onLevelFrameAdvanced()` from inside the gameplay update:** move the call out to the common path so it still fires on skipped frames. The observer needs the callback either way.
+Rendering and input handling stay outside the gate; they keep running
+each frame so the window remains responsive.
 
-- [ ] **Step 2: Verify trace tests still pass**
+- [ ] **Step 3: Verify trace tests still pass**
 
 Run: `mvn -q test -Dtest='Test*Trace*' -Dmse=off`
 Expected: pass. (No observer is set, so skip check returns false and behaviour is unchanged.)
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/GameLoop.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(gameloop): consult PlaybackDebugManager skip gate before LEVEL tick
 
 Wraps the gameplay update path with a shouldSkipCurrentGameplayTick
@@ -748,8 +821,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -799,9 +872,9 @@ Expected: pass (if the test class exists; otherwise skip).
 
 - [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/configuration/SonicConfiguration.java src/main/resources/config.json
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(config): TEST_MODE_ENABLED and TRACE_CATALOG_DIR keys
 
 Dev-only toggle for the upcoming Trace Test Mode screen and the
@@ -814,8 +887,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: updated
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 > **Note:** `Configuration-Docs: updated` trailer requires updating `CONFIGURATION.md`. Do that as part of this commit — add a one-line row describing each new key.
@@ -865,9 +938,9 @@ Expected: BUILD SUCCESS.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/catalog/TraceEntry.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): TraceEntry record for catalog entries
 
 Changelog: n/a
@@ -877,8 +950,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 12: TraceCatalog scanner + tests (TDD)
@@ -937,21 +1010,24 @@ class TraceCatalogTest {
         assertTrue(TraceCatalog.scan(tmp).isEmpty());
     }
 
-    private static void writeValidTrace(Path dir, String game, int zone, int act)
+    private static void writeValidTrace(Path dir, String game, int zoneId, int act)
             throws Exception {
         Files.createDirectories(dir);
+        // TraceMetadata's "zone" field is a String label; the numeric
+        // zone index lives in "zone_id".
         Files.writeString(dir.resolve("metadata.json"), String.format("""
             {
               "game": "%s",
-              "zone": %d,
+              "zone": "ZONE",
+              "zone_id": %d,
               "act": %d,
-              "schema": 3,
+              "trace_schema": 3,
               "bk2_frame_offset": 100,
-              "pre_trace_oscillation_frames": 12,
+              "pre_trace_osc_frames": 12,
               "main_character": "sonic",
-              "recorded_sidekicks": []
+              "sidekicks": []
             }
-            """, game, zone, act));
+            """, game, zoneId, act));
         Files.writeString(dir.resolve("physics.csv"),
                 "0,0,0,0,0,0,0,0,0,0,0\n1,0,0,0,0,0,0,0,0,0,0\n");
         Files.writeString(dir.resolve("trace.bk2"), "stub");
@@ -1050,10 +1126,14 @@ public final class TraceCatalog {
                 ? "sonic"
                 : meta.recordedMainCharacter();
         SelectedTeam team = new SelectedTeam(main, meta.recordedSidekicks());
+        // Important: TraceMetadata.zone() returns a String display label
+        // (e.g. "GHZ"). The numeric zone index is zoneId() (Integer, may
+        // be null on older traces — default 0 for sorting).
+        int zoneIndex = meta.zoneId() != null ? meta.zoneId() : 0;
         return java.util.Optional.of(new TraceEntry(
                 dir,
                 meta.game(),
-                meta.zone(),
+                zoneIndex,
                 meta.act(),
                 frameCount,
                 meta.bk2FrameOffset(),
@@ -1080,9 +1160,9 @@ Expected: 3 tests pass.
 
 - [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/catalog/TraceCatalog.java src/test/java/com/openggf/trace/catalog/TraceCatalogTest.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): TraceCatalog scans traces root with filter + sort
 
 Scans a directory tree for valid trace dirs (metadata.json +
@@ -1096,8 +1176,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -1135,10 +1215,10 @@ public record MismatchEntry(
 
 - [ ] **Step 2: Compile + commit**
 
-```bash
+```powershell
 mvn -q -o compile -Dmse=off
 git add src/main/java/com/openggf/trace/live/MismatchEntry.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): MismatchEntry record for live divergence HUD
 
 Changelog: n/a
@@ -1148,8 +1228,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 14: MismatchRingBuffer (TDD)
@@ -1275,9 +1355,9 @@ Expected: 3 tests pass.
 
 - [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/live/MismatchRingBuffer.java src/test/java/com/openggf/trace/live/MismatchRingBufferTest.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): MismatchRingBuffer with head-dedup + FIFO eviction
 
 Changelog: n/a
@@ -1287,8 +1367,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 15: LiveTraceComparator (TDD)
@@ -1356,39 +1436,89 @@ class LiveTraceComparatorTest {
 }
 ```
 
-> **Note:** this test needs two new package-private factories on the moved classes:
->
-> 1. `TraceData.ofFrames(TraceMetadata, List<TraceFrame>)` — builds an in-memory `TraceData` without needing a directory on disk.
-> 2. `TraceMetadata.forTest(String gameId, int zone, int act)` — constructs a minimal `TraceMetadata` with sensible defaults for in-memory tests.
->
-> Add both as part of this task. Keep them package-private so they don't leak into production use.
+- [ ] **Step 1b: Add the two test factories the test depends on**
+
+In `src/main/java/com/openggf/trace/TraceData.java` add:
+```java
+/** Package-private test factory — in-memory TraceData without disk I/O. */
+static TraceData ofFrames(TraceMetadata metadata, java.util.List<TraceFrame> frames) {
+    return new TraceData(metadata, java.util.List.copyOf(frames), java.util.Map.of());
+}
+```
+(If the existing constructor is private, widen it to package-private; or
+mirror the private call signature used by `TraceData.load`.)
+
+In `src/main/java/com/openggf/trace/TraceMetadata.java` add:
+```java
+/** Package-private test factory — minimal metadata for in-memory tests. */
+static TraceMetadata forTest(String gameId, int zoneId, int act) {
+    return new TraceMetadata(
+            gameId,          // game
+            "TEST",         // zone (display label)
+            zoneId,          // zone_id
+            act,             // act
+            0,               // bk2_frame_offset
+            0,               // trace_frame_count
+            "0x0000",       // start_x
+            "0x0000",       // start_y
+            null,            // recording_date
+            null,            // lua_script_version
+            3,               // trace_schema
+            null,            // rom_checksum
+            null,            // notes
+            null,            // characters
+            "sonic",        // main_character
+            java.util.List.of(), // sidekicks
+            0,               // pre_trace_osc_frames
+            null,            // trace_type
+            null,            // input_source
+            null,            // credits_demo_index
+            null);           // credits_demo_slug
+}
+```
+(Order of arguments must match the record's canonical constructor;
+verify by reading the current `TraceMetadata` record declaration. If
+Jackson record components are reordered in the future, update this
+factory to match.)
 
 - [ ] **Step 2: Run — expect fail**
 
 Run: `mvn -q test -Dtest=LiveTraceComparatorTest -Dmse=off`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement LiveTraceComparator**
+- [ ] **Step 3: Promote GameLoop.getMainPlayableSprite() to package-private**
+
+In `src/main/java/com/openggf/GameLoop.java`, change `getMainPlayableSprite()` (currently private, around line 831) to package-private so `LiveTraceComparator` and `TraceSessionLauncher.LiveFixture` can call it via a public getter. Also add a convenience accessor on `Engine`:
+
+```java
+// In Engine.java:
+public GameLoop currentGameLoop() { return this.gameLoop; }
+
+// In GameLoop.java — widen visibility (remove the `private` modifier):
+AbstractPlayableSprite getMainPlayableSprite() { /* existing body */ }
+```
+
+- [ ] **Step 4: Implement LiveTraceComparator**
 
 ```java
 package com.openggf.trace.live;
 
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.PlaybackDebugManager.PlaybackFrameObserver;
-import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.trace.DivergenceGroup;
-import com.openggf.trace.DivergenceReport;
 import com.openggf.trace.FieldComparison;
+import com.openggf.trace.FrameComparison;
 import com.openggf.trace.Severity;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceBinder;
 import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceReplayBootstrap;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Engine-side per-frame trace comparator. Attached to
@@ -1399,23 +1529,33 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private static final int RING_CAPACITY = 5;
 
     private final TraceData trace;
-    private final ToleranceConfig tolerances;
     private final TraceBinder binder;
     private final MismatchRingBuffer mismatches = new MismatchRingBuffer(RING_CAPACITY);
+    private final Supplier<AbstractPlayableSprite> spriteProvider;
 
-    private int cursor;           // next trace index to compare against
+    /**
+     * Initial trace index the engine is seeded at. Set from the
+     * launcher's seed index so comparison aligns from frame zero.
+     */
+    private int cursor;
+
     private int errorCount;
     private int warningCount;
     private int laggedFrames;
+    private int lastActionMask;
     private int lastInputMask;
     private boolean lastStartPressed;
     private boolean complete;
     private boolean gameplayStartSeen;
 
-    public LiveTraceComparator(TraceData trace, ToleranceConfig tolerances) {
+    public LiveTraceComparator(TraceData trace,
+                               ToleranceConfig tolerances,
+                               int initialCursor,
+                               Supplier<AbstractPlayableSprite> spriteProvider) {
         this.trace = trace;
-        this.tolerances = tolerances;
         this.binder = new TraceBinder(tolerances);
+        this.cursor = initialCursor;
+        this.spriteProvider = spriteProvider;
     }
 
     @Override
@@ -1432,6 +1572,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
 
     @Override
     public void afterFrameAdvanced(Bk2FrameInput frame, boolean wasSkipped) {
+        lastActionMask = frame.p1ActionMask();
         lastInputMask = frame.p1InputMask();
         lastStartPressed = frame.p1StartPressed();
         if (wasSkipped) {
@@ -1450,20 +1591,21 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             checkComplete();
             return;
         }
-        AbstractPlayableSprite sprite = GameServices.sprites().getSprite("player") != null
-                ? (AbstractPlayableSprite) GameServices.sprites().getSprite("player")
-                : null;
+        AbstractPlayableSprite sprite = spriteProvider.get();
         if (sprite == null) {
             cursor++;
             checkComplete();
             return;
         }
-        DivergenceReport report = binder.compareFrameToReport(expected,
+        // TraceBinder.compareFrame returns a FrameComparison holding a
+        // Map<String, FieldComparison> of every compared field. We only
+        // care about the divergent ones for the HUD ring buffer.
+        FrameComparison result = binder.compareFrame(expected,
                 sprite.getCentreX(), sprite.getCentreY(),
                 sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                 sprite.getAngle(), sprite.getAir(), sprite.getRolling(),
                 sprite.getGroundMode().ordinal());
-        absorbReport(report, expected.frame());
+        absorbDivergentFields(result, expected.frame());
         cursor++;
         checkComplete();
     }
@@ -1476,7 +1618,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             return false;
         }
         boolean isGameplayStart = trace.getEventsForFrame(expected.frame()).stream()
-                .anyMatch(e -> e instanceof com.openggf.trace.TraceEvent.Checkpoint cp
+                .anyMatch(e -> e instanceof TraceEvent.Checkpoint cp
                         && "gameplay_start".equals(cp.name()));
         if (isGameplayStart) {
             gameplayStartSeen = true;
@@ -1484,31 +1626,24 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         return !gameplayStartSeen;
     }
 
-    private void absorbReport(DivergenceReport report, int frameNumber) {
-        for (DivergenceGroup group : report.errors()) {
-            absorbGroup(group, frameNumber);
-        }
-        for (DivergenceGroup group : report.warnings()) {
-            absorbGroup(group, frameNumber);
-        }
-    }
-
-    private void absorbGroup(DivergenceGroup group, int frameNumber) {
-        for (FieldComparison fc : group.fields()) {
-            if (fc.severity() == Severity.ERROR) {
+    private void absorbDivergentFields(FrameComparison result, int frameNumber) {
+        List<FieldComparison> divergent = result.divergentFields();
+        for (FieldComparison fc : divergent) {
+            Severity sev = fc.severity();
+            if (sev == Severity.ERROR) {
                 errorCount++;
-            } else if (fc.severity() == Severity.WARNING) {
+            } else if (sev == Severity.WARNING) {
                 warningCount++;
             } else {
-                continue;
+                continue; // MATCH or unknown → skip
             }
             mismatches.push(new MismatchEntry(
                     frameNumber,
-                    fc.field(),
-                    fc.romValueFormatted(),
-                    fc.engineValueFormatted(),
-                    fc.deltaFormatted(),
-                    fc.severity(),
+                    fc.fieldName(),
+                    fc.expected(),
+                    fc.actual(),
+                    Integer.toString(fc.delta()),
+                    sev,
                     1));
         }
     }
@@ -1524,37 +1659,36 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     public int laggedFrames() { return laggedFrames; }
     public boolean isComplete() { return complete; }
     public List<MismatchEntry> recentMismatches() { return mismatches.recent(); }
+    public int recentActionMask() { return lastActionMask; }
     public int recentInputMask() { return lastInputMask; }
     public boolean recentStartPressed() { return lastStartPressed; }
 }
 ```
 
-> **Note on binder signature:** `TraceBinder.compareFrameToReport` is used here but the current `TraceBinder.compareFrame` mutates internal state. Add a new `compareFrameToReport(TraceFrame, ...)` method that returns a single-frame `DivergenceReport` without mutating the accumulator, or reuse `compareFrame` + a private accumulator. Implementation detail — pick whichever keeps the API small.
+> **Why this shape matches the real API:** `TraceBinder.compareFrame(TraceFrame, short, short, short, short, short, byte, boolean, boolean, int)` is the existing 10-arg simple overload (verified in `TraceBinder.java` lines 26-34) that returns `FrameComparison`. `FrameComparison.divergentFields()` returns `List<FieldComparison>` filtered to non-`MATCH` entries. `FieldComparison` record components are `(fieldName, expected, actual, severity, delta)` where `delta` is `int`. No `DivergenceGroup`/`DivergenceReport` involvement at per-frame scope — those are post-hoc run aggregators, not per-frame divergence lists.
 
-- [ ] **Step 4: Add `TraceBinder.compareFrameToReport` if missing**
+- [ ] **Step 5: Update test to pass initialCursor + spriteProvider**
 
-In `src/main/java/com/openggf/trace/TraceBinder.java`, add (if not present):
+Update the `stubTrace` calls in `LiveTraceComparatorTest` to pass a spriteProvider that returns null (so comparison paths early-out harmlessly):
+
 ```java
-public DivergenceReport compareFrameToReport(TraceFrame expected,
-        short cx, short cy, short xs, short ys, short gs,
-        byte angle, boolean air, boolean rolling, int groundMode) {
-    TraceBinder single = new TraceBinder(tolerances);
-    single.compareFrame(expected, cx, cy, xs, ys, gs, angle, air, rolling,
-            groundMode, "", "", "sidekick", null);
-    return single.buildReport();
-}
+LiveTraceComparator c = new LiveTraceComparator(
+        stubTrace(List.of(...)),
+        ToleranceConfig.DEFAULT,
+        0,
+        () -> null);
 ```
 
-- [ ] **Step 5: Run — expect pass**
+- [ ] **Step 6: Run — expect pass**
 
 Run: `mvn -q test -Dtest=LiveTraceComparatorTest -Dmse=off`
 Expected: 2 tests pass.
 
 - [ ] **Step 6: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/trace/live/LiveTraceComparator.java src/test/java/com/openggf/trace/live/LiveTraceComparatorTest.java src/main/java/com/openggf/trace/TraceBinder.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(trace): LiveTraceComparator + S3K gameplay_start gate
 
 Runtime PlaybackFrameObserver that classifies each BK2 frame via
@@ -1571,15 +1705,15 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
 
 ## Phase 8 — MasterTitleScreen / GameLoop hooks
 
-### Task 16: selectEntry + launchGameByEntry
+### Task 16: selectEntry + launchGameByEntry callback
 
 **Files:**
 - Modify: `src/main/java/com/openggf/game/MasterTitleScreen.java`
@@ -1597,50 +1731,68 @@ Spec §6 step 2.
  * {@code isGameSelected()} returns true on the next tick.
  */
 void selectEntry(GameEntry entry) {
-    // Match the field(s) the Enter-key path already sets when the user
-    // picks a game — locate them by reading the existing "game selected"
-    // confirmation branch in update() and copy the assignments here.
-    this.selectedEntry = entry;
+    Objects.requireNonNull(entry, "entry");
+    this.selectedIndex = entry.ordinal();
+    if (!romAvailable[selectedIndex]) {
+        throw new IllegalStateException("Selected ROM is unavailable: " + entry.gameId);
+    }
+    this.state = State.CONFIRMING;
+    playConfirmSound();
     this.gameSelected = true;
-    this.state = State.EXITING;
 }
 ```
 
-> **Note:** the field names `selectedEntry`, `gameSelected`, `state` are indicative — use whatever names the actual class uses. Read `MasterTitleScreen.update()` and mirror the final-branch assignments exactly.
-
-- [ ] **Step 2: Add GameLoop.launchGameByEntry(GameEntry)**
+- [ ] **Step 2: Add GameLoop.launchGameByEntry(GameEntry, Runnable)**
 
 ```java
+private Runnable pendingMasterTitleLaunchCallback;
+
 /**
  * Programmatic path into {@link #exitMasterTitleScreen}. Seeds the
  * master-title selection and runs the same post-selection bootstrap as
- * a user pressing Enter. Used by {@link com.openggf.TraceSessionLauncher}.
+ * a user pressing Enter. The callback runs from doExitMasterTitleScreen()
+ * after Engine.exitMasterTitleScreen(...) has rebuilt the gameplay runtime.
  */
-void launchGameByEntry(MasterTitleScreen.GameEntry entry) {
+void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoaded) {
     MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
             ? masterTitleScreenSupplier.get() : null;
     if (masterScreen == null) {
         throw new IllegalStateException("No master title screen available");
     }
+    pendingMasterTitleLaunchCallback = afterGameLoaded;
     masterScreen.selectEntry(entry);
     exitMasterTitleScreen(masterScreen);
 }
 ```
 
-- [ ] **Step 3: Compile**
+- [ ] **Step 3: Invoke the pending callback from doExitMasterTitleScreen()**
+
+Inside `doExitMasterTitleScreen(String selectedGameId)`, immediately after
+`masterTitleExitHandler.accept(selectedGameId);`, add:
+
+```java
+Runnable afterGameLoaded = pendingMasterTitleLaunchCallback;
+pendingMasterTitleLaunchCallback = null;
+if (afterGameLoaded != null) {
+    afterGameLoaded.run();
+}
+```
+
+- [ ] **Step 4: Compile**
 
 Run: `mvn -q -o compile -Dmse=off`
 Expected: BUILD SUCCESS.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/game/MasterTitleScreen.java src/main/java/com/openggf/GameLoop.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(title): package-private selectEntry / launchGameByEntry hooks
 
 Lets TraceSessionLauncher (same package as GameLoop) programmatically
-force a master-title selection without touching private internals.
+force a master-title selection and resume on a post-bootstrap callback
+once Engine.exitMasterTitleScreen(...) has rebuilt the gameplay runtime.
 
 Changelog: n/a
 Guide: n/a
@@ -1649,8 +1801,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -1819,10 +1971,10 @@ public final class TestModeTracePicker {
 
 - [ ] **Step 2: Compile + commit**
 
-```bash
+```powershell
 mvn -q -o compile -Dmse=off
 git add src/main/java/com/openggf/testmode/TestModeTracePicker.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(testmode): TestModeTracePicker screen with list + info panel
 
 Navigates TraceCatalog entries with Up/Down, PgUp/PgDn between game
@@ -1836,8 +1988,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ### Task 18: Wire TEST_MODE_ENABLED branch in MasterTitleScreen
@@ -1909,9 +2061,9 @@ Expected: BUILD SUCCESS. `TraceSessionLauncher` may not exist yet — if so, tem
 
 - [ ] **Step 5: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/game/MasterTitleScreen.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(testmode): MasterTitleScreen opens trace picker when enabled
 
 When TEST_MODE_ENABLED is true, the ACTIVE state of the master title
@@ -1925,18 +2077,19 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
 
 ## Phase 10 — TraceSessionLauncher
 
-### Task 19: TraceSessionLauncher skeleton + live fixture
+### Task 19: TraceSessionLauncher skeleton + post-bootstrap live fixture
 
 **Files:**
 - Create: `src/main/java/com/openggf/TraceSessionLauncher.java`
+- Modify: `src/main/java/com/openggf/Engine.java` — add static `currentGameLoop()` accessor used by the launcher
 
 Spec §6.
 
@@ -1945,13 +2098,16 @@ Spec §6.
 ```java
 package com.openggf;
 
+import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.Bk2Movie;
 import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.game.GameRuntime;
+import com.openggf.game.GameMode;
 import com.openggf.game.GameServices;
 import com.openggf.game.MasterTitleScreen;
 import com.openggf.game.RuntimeManager;
+import com.openggf.graphics.PixelFont;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.testmode.TraceHudOverlay;
 import com.openggf.trace.TraceData;
@@ -1960,7 +2116,7 @@ import com.openggf.trace.live.LiveTraceComparator;
 import com.openggf.trace.replay.TraceReplayFixture;
 import com.openggf.trace.replay.TraceReplaySessionBootstrap;
 
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.logging.Logger;
 
 public final class TraceSessionLauncher {
@@ -1976,50 +2132,73 @@ public final class TraceSessionLauncher {
     private final TraceEntry entry;
     private final TraceData trace;
     private final Bk2Movie movie;
-    private final LiveTraceComparator comparator;
-    private final TraceHudOverlay overlay;
+    private LiveTraceComparator comparator;
+    private TraceHudOverlay overlay;
+    private TraceReplayFixture fixture;
 
     private boolean completionArmed;
     private int completionHoldFrames;
     private boolean fadeStarted;
 
-    private TraceSessionLauncher(TraceEntry entry, TraceData trace, Bk2Movie movie,
-                                 LiveTraceComparator comparator, TraceHudOverlay overlay) {
+    private TraceSessionLauncher(TraceEntry entry, TraceData trace, Bk2Movie movie) {
         this.entry = entry;
         this.trace = trace;
         this.movie = movie;
-        this.comparator = comparator;
-        this.overlay = overlay;
     }
 
     public static void launch(TraceEntry entry) {
         try {
             TraceData trace = TraceData.load(entry.dir());
-            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
-
-            GameLoop gameLoop = Engine.currentGameLoop();
-            gameLoop.launchGameByEntry(resolveGameEntry(entry.gameId()));
-
-            TraceReplayFixture fixture = new LiveFixture();
-            TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
-
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
-            int startIndex = com.openggf.trace.TraceReplayBootstrap
-                    .recordingStartFrameForTraceReplay(trace);
-
-            LiveTraceComparator comparator = new LiveTraceComparator(
-                    trace, com.openggf.trace.ToleranceConfig.DEFAULT);
-            TraceHudOverlay overlay = new TraceHudOverlay(comparator, fixture);
-
-            PlaybackDebugManager pdm = PlaybackDebugManager.getInstance();
-            pdm.setFrameObserver(comparator);
-            pdm.startSession(movie, startIndex);
-
-            activeSession = new TraceSessionLauncher(entry, trace, movie, comparator, overlay);
-            // HUD renders via Engine.display() direct hook (see Task 21 Step 3).
+            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
+            TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
+            Engine.currentGameLoop().launchGameByEntry(
+                    resolveGameEntry(entry.gameId()),
+                    session::finishLaunchAfterGameBootstrap);
         } catch (Exception e) {
             LOGGER.severe("Failed to launch trace " + entry.dir() + ": " + e.getMessage());
         }
+    }
+
+    private void finishLaunchAfterGameBootstrap() {
+        try {
+            ensureTraceLevelLoaded();
+
+            PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
+            int startIndex = com.openggf.trace.TraceReplayBootstrap
+                    .recordingStartFrameForTraceReplay(trace);
+            playback.startSession(movie, startIndex);
+
+            GameLoop loop = Engine.currentGameLoop();
+            this.fixture = new LiveFixture(playback, loop);
+            TraceReplaySessionBootstrap.BootstrapResult boot =
+                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
+
+            // Align the comparator's initial cursor with the first trace
+            // index the engine will produce after bootstrap. The
+            // TraceReplayBootstrap.ReplayStartState already carries this
+            // (startingTraceIndex). For traces with a seeded mid-level
+            // start (S3K AIZ post-intro, etc.) this keeps comparison
+            // meaningful from frame zero; for plain-power-on traces it's
+            // simply 0.
+            int initialCursor = boot.replayStart().startingTraceIndex();
+            this.comparator = new LiveTraceComparator(
+                    trace,
+                    com.openggf.trace.ToleranceConfig.DEFAULT,
+                    initialCursor,
+                    loop::getMainPlayableSprite);
+            this.overlay = new TraceHudOverlay(comparator, fixture);
+            playback.setFrameObserver(comparator);
+            activeSession = this;
+        } catch (Exception e) {
+            PlaybackDebugManager.getInstance().endSession();
+            LOGGER.severe("Failed to finish trace launch for " + entry.dir() + ": " + e.getMessage());
+        }
+    }
+
+    private void ensureTraceLevelLoaded() throws IOException {
+        GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
+        Engine.currentGameLoop().setGameMode(GameMode.LEVEL);
     }
 
     public static TraceSessionLauncher active() {
@@ -2028,7 +2207,7 @@ public final class TraceSessionLauncher {
 
     /** Called by GameLoop once per LEVEL tick while a session is active. */
     public void tick() {
-        if (fadeStarted) return;
+        if (comparator == null || fadeStarted) return;
         if (comparator.isComplete() && !completionArmed) {
             completionArmed = true;
             completionHoldFrames = (int) Math.round(COMPLETION_HOLD_SECONDS * 60.0);
@@ -2044,8 +2223,14 @@ public final class TraceSessionLauncher {
 
     /** Called from the InputHandler path when Esc is pressed during a session. */
     public void requestEarlyExit() {
-        if (fadeStarted) return;
+        if (comparator == null || fadeStarted) return;
         startFadeOut();
+    }
+
+    public void render(PixelFont font) {
+        if (overlay != null) {
+            overlay.render(font);
+        }
     }
 
     private void startFadeOut() {
@@ -2072,43 +2257,71 @@ public final class TraceSessionLauncher {
 
     /** Thin live-engine implementation of TraceReplayFixture. */
     private static final class LiveFixture implements TraceReplayFixture {
+        private final PlaybackDebugManager playback;
+        private final GameLoop gameLoop;
+
+        private LiveFixture(PlaybackDebugManager playback, GameLoop gameLoop) {
+            this.playback = playback;
+            this.gameLoop = gameLoop;
+        }
+
         @Override
         public AbstractPlayableSprite sprite() {
-            var s = GameServices.sprites().getSprite("player");
-            return s instanceof AbstractPlayableSprite a ? a : null;
+            // SpriteManager.getSprite() is keyed on character code
+            // ("sonic"/"tails"/"knuckles"), not a fixed "player" string,
+            // and depends on active team config. GameLoop.getMainPlayableSprite()
+            // already resolves the primary playable via
+            // ActiveGameplayTeamResolver.resolveMainCharacterCode.
+            return gameLoop.getMainPlayableSprite();
         }
         @Override public GameRuntime runtime() { return RuntimeManager.getCurrent(); }
         @Override public int stepFrameFromRecording() {
-            // During bootstrap no BK2 is driving the engine yet — this is
-            // only called by TraceReplayBootstrap for legacy seed-replay,
-            // which does not apply to the live path. Return 0.
-            return 0;
+            Bk2FrameInput frame = playback.currentFrameOrThrow();
+            gameLoop.step();
+            return frame.p1InputMask();
         }
-        @Override public int skipFrameFromRecording() { return 0; }
-        @Override public void advanceRecordingCursor(int frameCount) {}
+        @Override public int skipFrameFromRecording() {
+            Bk2FrameInput frame = playback.currentFrameOrThrow();
+            playback.advanceCurrentFrameWithoutGameplay();
+            return frame.p1InputMask();
+        }
+        @Override public void advanceRecordingCursor(int frameCount) {
+            for (int i = 0; i < frameCount; i++) {
+                playback.advanceCurrentFrameWithoutGameplay();
+            }
+        }
     }
 }
 ```
 
-> **Note on teardown:** the live launcher does not call `TestEnvironment.resetAll()` — that helper is test-only (depends on `com.openggf.tests.rules.SonicGame`) and is designed for between-test singleton isolation, which is heavier than session teardown needs. Instead the launcher calls a new package-private `GameLoop.returnToMasterTitle()` that: sets `currentGameMode = GameMode.MASTER_TITLE_SCREEN`, unloads the current level via the existing editor-exit path (search `GameLoop` for `editorPlaytestToggleHandler` for a working template of "tear down level, go somewhere else"), and re-primes the master title screen so the picker re-enters via the `TEST_MODE_ENABLED` branch in Task 18. Implement this helper as part of Task 20.
+In `src/main/java/com/openggf/Engine.java`, add:
+
+```java
+public static GameLoop currentGameLoop() {
+    return instance != null ? instance.gameLoop : null;
+}
+```
+
+> **Note on teardown:** the live launcher does not call `TestEnvironment.resetAll()` — that helper is test-only (depends on `com.openggf.tests.rules.SonicGame`) and is designed for between-test singleton isolation. Instead the launcher returns through a new Engine-owned `returnToMasterTitleScreen()` path that recreates the master title screen and resets gameplay/runtime state in-process. Implement that path as part of Task 20.
 
 - [ ] **Step 2: Compile**
 
 Run: `mvn -q -o compile -Dmse=off`
-Expected: BUILD SUCCESS. Expect diagnostics about `Engine.currentGameLoop()` (create that accessor on `Engine` as a static returning the current `gameLoop` field) and `DebugOverlayManager.registerTextPanel` (check the existing API and adapt).
+Expected: BUILD SUCCESS.
 
 - [ ] **Step 3: Commit**
 
-```bash
+```powershell
 git add src/main/java/com/openggf/TraceSessionLauncher.java src/main/java/com/openggf/Engine.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(testmode): TraceSessionLauncher wires picker → live playback
 
-Launch path: prepare config → launchGameByEntry → TraceReplaySessionBootstrap →
-Bk2Movie load → PlaybackDebugManager.startSession with LiveTraceComparator
-attached. tick() runs each frame to drive the completion hold; Esc
-short-circuits to the fade. Both end paths converge on fade →
-teardown → picker via FadeManager's onComplete callback.
+Launch path: prepare config → async launchGameByEntry callback →
+load trace level → PlaybackDebugManager.startSession →
+TraceReplaySessionBootstrap → LiveTraceComparator attach. tick() runs
+each frame to drive the completion hold; Esc short-circuits to the
+fade. Both end paths converge on fade → teardown → picker via
+FadeManager's onComplete callback.
 
 Changelog: n/a
 Guide: n/a
@@ -2117,44 +2330,61 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
-### Task 20: Wire launcher tick + Esc to GameLoop; add returnToMasterTitle
+### Task 20: Wire launcher tick + Esc to GameLoop; recreate master title on teardown
 
 **Files:**
 - Modify: `src/main/java/com/openggf/GameLoop.java`
+- Modify: `src/main/java/com/openggf/Engine.java`
 
-- [ ] **Step 1: Add returnToMasterTitle() helper**
+- [ ] **Step 1: Add a GameLoop → Engine return-to-master-title callback**
 
-Add a package-private method on `GameLoop`:
+In `GameLoop`, add:
 
 ```java
+private Runnable returnToMasterTitleHandler;
+
+public void setReturnToMasterTitleHandler(Runnable returnToMasterTitleHandler) {
+    this.returnToMasterTitleHandler = returnToMasterTitleHandler;
+}
+
 /**
- * Tear down the current level/session and jump back to the master
- * title screen. Used by {@link TraceSessionLauncher#teardown()} and is
- * parallel in intent to the editor→playtest toggle path.
+ * Tear down the current trace session and hand control back to Engine so
+ * it can recreate the master title screen and reset gameplay state.
  */
 void returnToMasterTitle() {
-    // Null out any active level state, clear object managers, reset
-    // GameServices.level() to a fresh instance. Mirror the cleanup the
-    // editor playtest toggle performs when exiting back to editor mode
-    // — search for the existing `editorPlaytestToggleHandler` / stash
-    // logic for the template.
-    this.currentGameMode = GameMode.MASTER_TITLE_SCREEN;
-    // Re-prime the master title so fade-in + cloud animation start fresh.
-    MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
-            ? masterTitleScreenSupplier.get() : null;
-    if (masterScreen != null) {
-        masterScreen.reenterForTestMode();
+    if (returnToMasterTitleHandler != null) {
+        returnToMasterTitleHandler.run();
     }
 }
 ```
 
-Also add a package-private `MasterTitleScreen.reenterForTestMode()` that resets its `State` to `FADE_IN` and clears the selected-game fields so the TEST_MODE_ENABLED branch in `update()` re-creates the picker.
+- [ ] **Step 2: Implement Engine.returnToMasterTitleScreen() and wire the callback**
 
-- [ ] **Step 2: Call TraceSessionLauncher.active().tick() per LEVEL frame**
+In the `Engine` constructor, add:
+
+```java
+this.gameLoop.setReturnToMasterTitleHandler(this::returnToMasterTitleScreen);
+```
+
+Then add:
+
+```java
+void returnToMasterTitleScreen() {
+    resetForGameplayFromMasterTitle();
+    if (masterTitleScreen != null) {
+        masterTitleScreen.cleanup();
+    }
+    masterTitleScreen = new MasterTitleScreen(configService);
+    masterTitleScreen.initialize();
+    gameLoop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
+}
+```
+
+- [ ] **Step 3: Call TraceSessionLauncher.active().tick() per LEVEL frame**
 
 At the end of the LEVEL-mode update (after gameplay + `onLevelFrameAdvanced`), add:
 
@@ -2165,12 +2395,13 @@ if (session != null) {
 }
 ```
 
-- [ ] **Step 3: Esc triggers requestEarlyExit**
+- [ ] **Step 4: Esc triggers requestEarlyExit**
 
 At the top of `update()` before the normal Esc/pause handling, add:
 
 ```java
-if (TraceSessionLauncher.active() != null
+if (currentGameMode == GameMode.LEVEL
+        && TraceSessionLauncher.active() != null
         && inputHandler.isKeyPressed(GLFW_KEY_ESCAPE)) {
     TraceSessionLauncher.active().requestEarlyExit();
     inputHandler.update();
@@ -2178,13 +2409,13 @@ if (TraceSessionLauncher.active() != null
 }
 ```
 
-- [ ] **Step 4: Compile + commit**
+- [ ] **Step 5: Compile + commit**
 
-```bash
+```powershell
 mvn -q -o compile -Dmse=off
-git add src/main/java/com/openggf/GameLoop.java src/main/java/com/openggf/game/MasterTitleScreen.java
-git commit -m "$(cat <<'EOF'
-feat(testmode): GameLoop drives TraceSessionLauncher tick + Esc handoff + returnToMasterTitle
+git add src/main/java/com/openggf/GameLoop.java src/main/java/com/openggf/Engine.java
+$message = @'
+feat(testmode): GameLoop drives TraceSessionLauncher tick + Esc handoff + master-title return
 
 Changelog: n/a
 Guide: n/a
@@ -2193,8 +2424,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -2205,7 +2436,7 @@ EOF
 
 **Files:**
 - Create: `src/main/java/com/openggf/testmode/TraceHudOverlay.java`
-- Modify: `src/main/java/com/openggf/Engine.java` — add a `renderTraceHud(PixelFont)` call in `display()` after the scene renders but before the fade pass.
+- Modify: `src/main/java/com/openggf/Engine.java` — add a `renderTraceHud(PixelFont)` call in `display()` after the fade pass so the HUD stays visible during fade-to-black.
 - Modify: `src/main/java/com/openggf/TraceSessionLauncher.java` — expose a `render(PixelFont)` method that the Engine calls.
 
 Spec §9. `DebugOverlayManager` has no panel-registration hook, so the HUD is painted from a direct hook in `Engine.display()` rather than via a panel interface.
@@ -2242,13 +2473,17 @@ public final class TraceHudOverlay {
         font.drawText(String.format("LAG    %4d", comparator.laggedFrames()),
                 x, y, 0.5f, 0.5f, 0.5f, 1f); y += 14;
 
+        int actionMask = comparator.recentActionMask();
         int mask = comparator.recentInputMask();
         boolean start = comparator.recentStartPressed();
-        // Bk2FrameInput.p1ActionMask isn't exposed via comparator; ask the
-        // playback manager for it via GameServices if needed. For now show
-        // U/D/L/R/S from mask + the START pressed bit.
         StringBuilder buttons = new StringBuilder("A B C U D L R S");
         StringBuilder active = new StringBuilder();
+        active.append(bit(actionMask, 0x01, 'A'));
+        active.append(' ');
+        active.append(bit(actionMask, 0x02, 'B'));
+        active.append(' ');
+        active.append(bit(actionMask, 0x04, 'C'));
+        active.append(' ');
         active.append(bit(mask, AbstractPlayableSprite.INPUT_UP, 'U'));
         active.append(' ');
         active.append(bit(mask, AbstractPlayableSprite.INPUT_DOWN, 'D'));
@@ -2300,7 +2535,7 @@ public void render(PixelFont font) {
 
 - [ ] **Step 3: Hook Engine.display() to render the HUD**
 
-In `src/main/java/com/openggf/Engine.java`, inside `display()` after the main scene render and before the fade pass, add:
+In `src/main/java/com/openggf/Engine.java`, inside `display()` after `uiPipeline.renderFadePass()` and after the normal debug/playback overlay has rendered, add:
 
 ```java
 TraceSessionLauncher session = TraceSessionLauncher.active();
@@ -2309,20 +2544,22 @@ if (session != null) {
 }
 ```
 
-Use whichever `PixelFont` the existing debug HUD uses (search for existing `drawText` calls in `Engine.display()` to locate the instance).
+This hook must stay **after** the fade pass so `TRACE COMPLETE`, counters,
+and the mismatch log remain readable on top of the fade-to-black.
 
 - [ ] **Step 4: Compile + commit**
 
-```bash
+```powershell
 mvn -q -o compile -Dmse=off
 git add src/main/java/com/openggf/testmode/TraceHudOverlay.java src/main/java/com/openggf/TraceSessionLauncher.java src/main/java/com/openggf/Engine.java
-git commit -m "$(cat <<'EOF'
+$message = @'
 feat(testmode): TraceHudOverlay renders counters + input + mismatch log
 
 Bottom-right HUD painted each frame from Engine.display while a trace
 session is active. Red ERRORS, orange WARN, grey LAG counters; BK2
-input visualiser; the last five mismatch entries (severity-coloured,
-with repeat counts).
+input visualiser including A/B/C/U/D/L/R/S; the last five mismatch
+entries (severity-coloured, with repeat counts). Rendered after the
+fade pass so TRACE COMPLETE remains visible during fade-to-black.
 
 Changelog: n/a
 Guide: n/a
@@ -2331,8 +2568,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: n/a
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 ---
@@ -2348,9 +2585,15 @@ EOF
 - [ ] **Step 1: Manual smoke test**
 
 Steps:
-1. Set `TEST_MODE_ENABLED=true` in `src/main/resources/config.json` (or a `config.local.json`).
+1. Set `TEST_MODE_ENABLED=true` in the working-directory `config.json` that `SonicConfigurationService` actually loads.
 2. Ensure ROMs are present in the working directory per `CLAUDE.md`.
-3. Run: `mvn -q package -Dmse=off && java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar`.
+3. Run:
+```powershell
+mvn -q package -Dmse=off
+if ($LASTEXITCODE -eq 0) {
+  java -jar target/OpenGGF-0.6.prerelease-jar-with-dependencies.jar
+}
+```
 4. Observe: master title fades in → trace picker appears.
 5. Arrow down to `s1/ghz1_fullrun`, press Enter.
 6. Watch the engine: level loads, playback starts, HUD shows counters ticking, input row reflects BK2.
@@ -2359,9 +2602,14 @@ Steps:
 
 Record observed counter behaviour in the commit message (not in the repo). If counters are obviously wrong (e.g. tens of thousands of errors on frame 1) open a follow-up issue rather than patching inline.
 
-- [ ] **Step 2: Update CLAUDE.md**
+- [ ] **Step 2: Update CLAUDE.md *and* AGENTS.md**
 
-Add under the "Configuration" section:
+`.githooks` policy: the `Agent-Docs` trailer is mapped to **both**
+`CLAUDE.md` and `AGENTS.md`. Staging only CLAUDE.md with
+`Agent-Docs: updated` fails the policy check (and `n/a` is invalid when
+a mapped file is staged). Add the same configuration-reference block to
+both files under their "Configuration" section:
+
 ```markdown
 - `TEST_MODE_ENABLED` - replaces the master-title game-select with a trace picker (dev-only; requires `TRACE_CATALOG_DIR`).
 - `TRACE_CATALOG_DIR` - directory scanned by `TraceCatalog` (default `src/test/resources/traces`).
@@ -2381,10 +2629,10 @@ BK2 input visualiser, and rolling mismatch log. Toggle via
 
 - [ ] **Step 4: Commit docs update**
 
-```bash
-git add CLAUDE.md CHANGELOG.md
-git commit -m "$(cat <<'EOF'
-docs: trace test mode — changelog + CLAUDE.md config reference
+```powershell
+git add CLAUDE.md AGENTS.md CHANGELOG.md
+$message = @'
+docs: trace test mode — changelog + agent/claude config references
 
 Changelog: updated
 Guide: n/a
@@ -2393,8 +2641,8 @@ S3K-Known-Discrepancies: n/a
 Agent-Docs: updated
 Configuration-Docs: n/a
 Skills: n/a
-EOF
-)"
+'@
+git commit -m $message
 ```
 
 - [ ] **Step 5: Final full-suite run**
@@ -2405,9 +2653,9 @@ Expected: same pass/skip set as baseline. No regressions.
 - [ ] **Step 6: Open PR to develop**
 
 Run:
-```bash
+```powershell
 git push -u origin feature/ai-trace-test-mode
-gh pr create --base develop --title "feat: trace test mode (visual replay picker)" --body "$(cat <<'EOF'
+$prBody = @'
 ## Summary
 - Adds config-gated Trace Test Mode: master title → picker → live playback with divergence HUD.
 - Trace infrastructure moved from src/test to src/main (pure package rename).
@@ -2422,8 +2670,8 @@ gh pr create --base develop --title "feat: trace test mode (visual replay picker
 - [ ] Manual: natural completion holds 1 s on TRACE COMPLETE then fades
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
+'@
+gh pr create --base develop --title "feat: trace test mode (visual replay picker)" --body $prBody
 ```
 
 ---
@@ -2443,3 +2691,5 @@ EOF
 - [x] Spec §12 (testing plan): Tasks 12, 14, 15 (unit); Task 22 (manual smoke).
 
 No placeholders: every step shows the actual code or command to run. Types are consistent: `TraceReplayFixture` signature is defined once in Task 2 and reused verbatim in Tasks 4 and 19; `PlaybackFrameObserver` is declared in Task 7 and implemented in Task 15; `COMPLETION_HOLD_SECONDS` is introduced in Task 19 and named consistently with §9.2.
+
+
