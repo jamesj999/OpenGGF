@@ -79,6 +79,13 @@ public final class OscillationManager {
     private static int[] activeLimits = S2_LIMITS;
     private static int control = S2_INITIAL_CONTROL;
     private static int lastFrame = Integer.MIN_VALUE;
+    // Number of incoming update() calls to swallow before resuming normal
+    // OscillateNumDo ticking. Used by trace replay fixtures: the ROM only
+    // runs OscillateNumDo inside LevelLoop (gamemode 0x0C), but a headless
+    // fixture loads the level directly in gamemode 0x0C and starts ticking
+    // from BK2 frame 0 — 289 frames earlier than the recorder. Skipping
+    // that prefix keeps the ROM and engine oscillators phase-aligned.
+    private static int suppressedUpdates = 0;
 
     static {
         reset();
@@ -99,6 +106,7 @@ public final class OscillationManager {
             deltas[i] = S2_INITIAL_DELTAS[i] & 0xFFFF;
         }
         lastFrame = Integer.MIN_VALUE;
+        suppressedUpdates = 0;
     }
 
     /**
@@ -121,6 +129,20 @@ public final class OscillationManager {
             deltas[i] = S1_INITIAL_DELTAS[i] & 0xFFFF;
         }
         lastFrame = Integer.MIN_VALUE;
+        suppressedUpdates = 0;
+    }
+
+    /**
+     * Swallows the next {@code n} calls to {@link #update(int)} without
+     * advancing the oscillator values. Calls clamp at zero. Used by trace
+     * replay fixtures to skip the ROM's pre-LevelLoop frames (SEGA/title/
+     * level-load gamemodes 0x00/0x04/0x8C) that the headless fixture
+     * collapses into zero real ticks but where the replay driver still
+     * calls {@link com.openggf.level.LevelManager#advanceGlobalOscillation}
+     * once per stepped trace frame.
+     */
+    public static void suppressNextFrames(int n) {
+        suppressedUpdates = Math.max(0, n);
     }
 
     public static void update(int frameCounter) {
@@ -128,6 +150,11 @@ public final class OscillationManager {
             return;
         }
         lastFrame = frameCounter;
+
+        if (suppressedUpdates > 0) {
+            suppressedUpdates--;
+            return;
+        }
 
         for (int i = 0; i < OSC_COUNT; i++) {
             int bit = OSC_COUNT - 1 - i;

@@ -1710,6 +1710,13 @@ public class TestS3kAizReplayBootstrap {
         for (int i = 0; i < preTraceOsc; i++) {
             com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
         }
+        // Skip the oscillation ticks the recorder captured while game_mode
+        // was still SEGA/title/level-load: the ROM only runs OscillateNumDo
+        // inside LevelLoop, but the headless fixture loads the level
+        // directly in gamemode 0x0C and ticks once per replayed trace
+        // frame. See `OscillationManager.suppressNextFrames` Javadoc.
+        com.openggf.game.OscillationManager.suppressNextFrames(
+                TraceReplayBootstrap.preLevelFrameCountForTraceReplay(trace));
         return fixture;
     }
 
