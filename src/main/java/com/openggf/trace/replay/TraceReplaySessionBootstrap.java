@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
@@ -69,7 +70,32 @@ public final class TraceReplaySessionBootstrap {
                 TraceReplayBootstrap.applyPreTraceState(trace, fixture);
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+        applyStartPositionAndGroundSnap(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
+    }
+
+    /**
+     * Reapply the metadata-recorded start centre coordinates (when the
+     * trace policy says to) and run an initial ground-attachment pass so
+     * the sprite's Y/angle match the ROM's post-title-card state before
+     * frame 0 of the comparison loop. Mirrors
+     * {@code HeadlessTestFixture.Builder.build} steps 6 and 11.
+     */
+    private static void applyStartPositionAndGroundSnap(TraceData trace,
+                                                        TraceReplayFixture fixture) {
+        AbstractPlayableSprite sprite = fixture.sprite();
+        if (sprite == null) {
+            return;
+        }
+        TraceMetadata meta = trace.metadata();
+        if (TraceReplayBootstrap.shouldApplyMetadataStartPositionForTraceReplay(trace)) {
+            sprite.setCentreX(meta.startX());
+            sprite.setCentreY(meta.startY());
+        }
+        // Ground snap: 14 subpixel threshold matches the fixture.
+        if (GameServices.collision() != null) {
+            GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+        }
     }
 
     public record BootstrapResult(
