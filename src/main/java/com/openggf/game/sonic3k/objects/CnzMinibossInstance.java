@@ -984,8 +984,8 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     // routine transitions without widening the public API. T6 follows the
     // same convention.
 
-    /** ROM: current {@code routine(a0)}. Test-only visibility. */
-    int getCurrentRoutine() {
+    /** ROM: current {@code routine(a0)}. Public for cross-package test access. */
+    public int getCurrentRoutine() {
         return state.routine;
     }
 
@@ -1091,7 +1091,7 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * machine these tests exercise, and running the real hit handler here
      * would tangle palette-flash side effects into every defeat-path test.
      */
-    void simulateHitForTest() {
+    public void simulateHitForTest() {
         statusBit6TopHit = true;
         if (state.hitCount > 0) {
             state.hitCount--;
