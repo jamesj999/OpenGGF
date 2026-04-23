@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameModule;
-import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
@@ -670,8 +669,8 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
      * level event manager isn't the expected Sonic3k type (e.g. during a
      * test fixture that hasn't finished CNZ bootstrap).
      */
-    private static Sonic3kCNZEvents getCnzEvents() {
-        GameModule module = GameServices.module();
+    private Sonic3kCNZEvents getCnzEvents() {
+        GameModule module = services().gameModule();
         if (module == null) {
             return null;
         }

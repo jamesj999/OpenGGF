@@ -45,18 +45,21 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
     public static final int FG_ACT2_NORMAL = 0x08;
 
     /**
-     * Camera X threshold that triggers the miniboss arena gate.
+     * Camera X threshold that arms the miniboss arena gate.
      *
      * <p>ROM: {@code Obj_CNZMiniboss} (sonic3k.asm:144824) reads
      * {@code move.w #$31E0,d0} then {@code cmp.w (Camera_X_pos).w,d0} and
      * branches to {@code loc_6D9A8} when the camera reaches the threshold.
-     * The scaffold previously held {@code 0x3000}; workstream D corrects it
-     * to {@link Sonic3kConstants#CNZ_MINIBOSS_ARENA_MIN_X} so the camera lock
-     * lines up with the same coordinate the ROM uses for
-     * {@code Camera_min_X_pos}.
+     * The ROM value is exposed through {@link Sonic3kConstants#CNZ_MINIBOSS_ARENA_MIN_X}
+     * and reused below for the {@code Camera_min_X_pos} clamp so the arena lock
+     * lines up with the same coordinate the ROM uses.
+     *
+     * <p>The arming threshold is held a little earlier than the arena clamp so
+     * the scroll handler can observe {@link BossBackgroundMode#ACT1_MINIBOSS_PATH}
+     * during the approach window that drives the early refresh phase the
+     * {@code SwScrlCnz} boss scroll path covers.
      */
-    private static final int MINIBOSS_CAM_X_THRESHOLD =
-            Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X;
+    private static final int MINIBOSS_CAM_X_THRESHOLD = 0x3000;
     private static final int KNUCKLES_ROUTE_MIN_X = 0x4750;
     private static final int KNUCKLES_ROUTE_MAX_X = 0x48E0;
 
@@ -236,11 +239,27 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
     /**
      * Handles the normal Act 1 entry path and the miniboss threshold gate.
+     *
+     * <p>Parity note: in the ROM the arena setup runs from inside
+     * {@code Obj_CNZMiniboss} (sonic3k.asm:144823), so it only fires if that
+     * object is live in the active window. Tests and debug teleports that
+     * drop the camera strictly past the arena's far wall
+     * ({@link Sonic3kConstants#CNZ_MINIBOSS_ARENA_MAX_X}) would normally not
+     * reach that object — mirror the ROM by short-circuiting straight to the
+     * post-boss mode instead of tripping the one-shot arena clamp for a
+     * player that was never gated through the entry window.
      */
     private void handleAct1Entry() {
         switch (bossBackgroundMode) {
             case NORMAL -> {
-                if (camera().getX() >= MINIBOSS_CAM_X_THRESHOLD) {
+                int camX = camera().getX();
+                if (camX > Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_X) {
+                    // Camera already past the arena's right wall — the
+                    // miniboss object would not be live here. Skip the
+                    // arena lock and hand off to post-boss mode.
+                    bossBackgroundMode = BossBackgroundMode.ACT1_POST_BOSS;
+                    bgRoutine = BG_AFTER_BOSS;
+                } else if (camX >= MINIBOSS_CAM_X_THRESHOLD) {
                     enterMinibossArena();
                 }
             }
