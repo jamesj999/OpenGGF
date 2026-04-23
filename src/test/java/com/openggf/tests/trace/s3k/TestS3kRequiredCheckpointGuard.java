@@ -1,6 +1,6 @@
 package com.openggf.tests.trace.s3k;
 
-import com.openggf.tests.trace.TraceEvent;
+import com.openggf.trace.TraceEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;

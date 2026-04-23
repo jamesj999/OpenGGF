@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /**
  * Per-character trace state used for optional sidekick tracking in schema v5+.

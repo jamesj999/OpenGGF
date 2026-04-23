@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import java.util.Objects;
 

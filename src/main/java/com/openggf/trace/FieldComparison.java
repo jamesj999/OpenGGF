@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /**
  * Comparison result for a single field on a single frame.

@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /**
  * A run of consecutive frames where the same field diverged at the same severity.

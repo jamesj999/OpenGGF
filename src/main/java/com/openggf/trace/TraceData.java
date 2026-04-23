@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 

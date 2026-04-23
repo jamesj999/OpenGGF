@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openggf.level.objects.RomObjectSnapshot;

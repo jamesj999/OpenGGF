@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 @FunctionalInterface
 public interface TraceExecutionModel {

@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.*;
+
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 

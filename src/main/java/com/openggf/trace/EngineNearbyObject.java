@@ -1,6 +1,6 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
-record EngineNearbyObject(
+public record EngineNearbyObject(
         int slot,
         int objectId,
         String name,

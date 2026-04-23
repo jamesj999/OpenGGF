@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /**
  * Per-field tolerance thresholds for trace comparison.
