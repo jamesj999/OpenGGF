@@ -5,6 +5,7 @@ import com.openggf.game.LevelEventProvider;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.GroundMode;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.physics.Direction;
@@ -25,6 +26,37 @@ public final class TraceReplayBootstrap {
 
         public boolean hasSeededTraceState() {
             return seededTraceIndex >= 0;
+        }
+    }
+
+    public record ReplayPrimaryState(
+            short x,
+            short y,
+            short xSpeed,
+            short ySpeed,
+            short gSpeed,
+            byte angle,
+            boolean air,
+            boolean rolling,
+            int groundMode,
+            int xSub,
+            int ySub,
+            String source) {
+
+        public static ReplayPrimaryState fromSprite(AbstractPlayableSprite sprite) {
+            return new ReplayPrimaryState(
+                    sprite.getCentreX(),
+                    sprite.getCentreY(),
+                    sprite.getXSpeed(),
+                    sprite.getYSpeed(),
+                    sprite.getGSpeed(),
+                    sprite.getAngle(),
+                    sprite.getAir(),
+                    sprite.getRolling(),
+                    sprite.getGroundMode().ordinal(),
+                    sprite.getXSubpixelRaw(),
+                    sprite.getYSubpixelRaw(),
+                    "player");
         }
     }
 
@@ -123,35 +155,142 @@ public final class TraceReplayBootstrap {
 
     public static ReplayStartState applyReplayStartStateForTraceReplay(TraceData trace,
                                                                        HeadlessTestFixture fixture) {
-        return applyReplayStartState(trace, fixture, false);
+        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            return warmupLegacyS3kAizTraceReplay(trace, fixture);
+        }
+        return applyReplayStartState(trace, fixture, false, replaySeedTraceIndexForTraceReplay(trace));
+    }
+
+    public static int recordingStartFrameForTraceReplay(TraceData trace) {
+        if (trace == null) {
+            return 0;
+        }
+        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            int strictStartTraceIndex = strictStartTraceIndexForTraceReplay(trace);
+            // Trace frame N represents the end-of-frame state reached after consuming
+            // the movie input for frame N-1. Seeded replay paths naturally preserve
+            // that relationship because they restore trace frame N and resume from
+            // trace frame N+1 while the BK2 cursor is still parked on N. The legacy
+            // AIZ intro warmup path has no seed frame, so pre-roll the movie cursor
+            // by one input frame to keep the first strict replay frame on the same
+            // controller sample cadence as the rest of trace replay.
+            return trace.metadata().bk2FrameOffset() + Math.max(0, strictStartTraceIndex - 1);
+        }
+        return trace.metadata().bk2FrameOffset() + replaySeedTraceIndexForTraceReplay(trace);
+    }
+
+    public static int replaySeedTraceIndexForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return 0;
+        }
+        if (isLegacyS3kAizIntroTrace(trace)) {
+            // The AIZ full-run fixture records the intro/cutscene timeline from its
+            // own frame 0. Replaying from the first in-level frame skips hundreds of
+            // recorded intro frames and loses global state that the seed frame alone
+            // cannot reconstruct (timers, title-card state, zone-event evolution).
+            return 0;
+        }
+        int firstLevelFrame = findFirstLevelGameplayFrame(trace);
+        return Math.max(firstLevelFrame, 0);
+    }
+
+    public static int initialVblankCounterForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return 0;
+        }
+        int traceIndex = shouldUseLegacyS3kAizIntroWarmup(trace)
+                ? strictStartTraceIndexForTraceReplay(trace)
+                : replaySeedTraceIndexForTraceReplay(trace);
+        return trace.getFrame(traceIndex).vblankCounter();
+    }
+
+    public static boolean requiresFreshLevelLoadForTraceReplay(TraceData trace) {
+        return isLegacyS3kAizIntroTrace(trace)
+                && replaySeedTraceIndexForTraceReplay(trace) == 0;
+    }
+
+    public static boolean shouldUseLegacyS3kAizIntroWarmup(TraceData trace) {
+        return isLegacyS3kAizIntroTrace(trace);
+    }
+
+    public static boolean shouldApplyMetadataStartPositionForTraceReplay(TraceData trace) {
+        return replaySeedTraceIndexForTraceReplay(trace) == 0
+                && !shouldUseLegacyS3kAizIntroWarmup(trace);
+    }
+
+    public static int strictStartTraceIndexForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return 0;
+        }
+        if (!shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            return replaySeedTraceIndexForTraceReplay(trace);
+        }
+
+        int firstGameplayModeFrame = findFirstLevelGameplayFrame(trace);
+        return Math.min(firstGameplayModeFrame + 1, trace.frameCount() - 1);
+    }
+
+    public static ReplayPrimaryState capturePrimaryReplayStateForComparison(TraceData trace,
+                                                                            TraceFrame current,
+                                                                            AbstractPlayableSprite sprite) {
+        if (sprite == null) {
+            throw new IllegalArgumentException("sprite must not be null");
+        }
+        return ReplayPrimaryState.fromSprite(sprite);
     }
 
     private static ReplayStartState applyReplayStartState(TraceData trace,
                                                           HeadlessTestFixture fixture,
                                                           boolean seedLegacyS3kAizAtGameplayStart) {
-        if (!shouldSeedFrameZero(trace, fixture)) {
+        return applyReplayStartState(
+                trace,
+                fixture,
+                seedLegacyS3kAizAtGameplayStart,
+                seedLegacyS3kAizAtGameplayStart
+                        ? resolveLegacyS3kAizSeedTraceIndex(trace)
+                        : 0);
+    }
+
+    private static ReplayStartState applyReplayStartState(TraceData trace,
+                                                          HeadlessTestFixture fixture,
+                                                          boolean seedLegacyS3kAizAtGameplayStart,
+                                                          int requestedSeedTraceIndex) {
+        if (!shouldSeedReplayStartState(trace, fixture, requestedSeedTraceIndex)) {
             return ReplayStartState.DEFAULT;
         }
 
-        int seededTraceIndex = seedLegacyS3kAizAtGameplayStart
-                ? resolveLegacyS3kAizSeedTraceIndex(trace)
-                : 0;
-        TraceFrame frame0 = trace.getFrame(0);
+        int seededTraceIndex = Math.max(0, Math.min(requestedSeedTraceIndex, trace.frameCount() - 1));
+        TraceFrame seededFrame = trace.getFrame(seededTraceIndex);
         AbstractPlayableSprite sprite = fixture.sprite();
-        applyRecordedFrameState(sprite, frame0);
+        applyRecordedFrameState(sprite, seededFrame);
 
         if (GameServices.camera() != null) {
-            GameServices.camera().setX((short) frame0.cameraX());
-            GameServices.camera().setY((short) frame0.cameraY());
+            GameServices.camera().setX((short) seededFrame.cameraX());
+            GameServices.camera().setY((short) seededFrame.cameraY());
         }
 
-        // Schema v3 S3K end-to-end traces arm at frame-end, so metadata start_x/start_y
-        // and trace frame 0 describe the world AFTER the first armed frame. Recreate
-        // that state directly and run the frame-0 level-event pass once so AIZ intro
-        // objects exist before replay continues with frame 1.
+        // For S3K non-zero level-entry seeds, the headless level fixture is created
+        // before the first live gameplay frame executes. Re-run the first zone-event
+        // pass once so intro-only bootstrap objects exist before replay continues.
+        // Frame-0 intro traces already record the spawned-but-unadvanced intro object,
+        // so only spawn level events there and do not replay the object's first update.
         LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
-        if (levelEvents instanceof Sonic3kLevelEventManager) {
+        if (levelEvents instanceof Sonic3kLevelEventManager
+                && seededTraceIndex == replaySeedTraceIndexForTraceReplay(trace)) {
             levelEvents.update();
+            if (seededTraceIndex > 0) {
+                completeSeededS3kLevelEntryFrame(trace, seededTraceIndex, sprite);
+            } else {
+                ObjectManager objectManager = GameServices.level() != null
+                        ? GameServices.level().getObjectManager()
+                        : null;
+                if (objectManager != null) {
+                    // Frame-0 intro seeds represent the recorded end-of-frame state.
+                    // Align the object VBlank counter with that frame without
+                    // advancing Obj_intPlane beyond its recorded routine-0 state.
+                    objectManager.advanceVblaCounter();
+                }
+            }
         }
 
         // Legacy S3K AIZ end-to-end traces arm and emit frame 0 in the same
@@ -159,10 +298,9 @@ public final class TraceReplayBootstrap {
         // the next replayable input after that directly restored state, so
         // consuming one movie frame here shifts the splice one frame ahead.
 
-        if (seededTraceIndex > 0) {
+        if (seedLegacyS3kAizAtGameplayStart && seededTraceIndex > 0) {
             replayLegacyFramesToSeedIndex(trace, fixture, seededTraceIndex);
 
-            TraceFrame seededFrame = trace.getFrame(seededTraceIndex);
             applyRecordedFrameState(sprite, seededFrame);
             resetSeededOverlayState();
             if (GameServices.camera() != null) {
@@ -173,7 +311,52 @@ public final class TraceReplayBootstrap {
             return new ReplayStartState(seededTraceIndex + 1, seededTraceIndex);
         }
 
-        return new ReplayStartState(1, 0);
+        return new ReplayStartState(seededTraceIndex + 1, seededTraceIndex);
+    }
+
+    private static ReplayStartState warmupLegacyS3kAizTraceReplay(TraceData trace,
+                                                                  HeadlessTestFixture fixture) {
+        if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
+            return ReplayStartState.DEFAULT;
+        }
+
+        int strictStartTraceIndex = strictStartTraceIndexForTraceReplay(trace);
+        if (strictStartTraceIndex <= 0) {
+            return ReplayStartState.DEFAULT;
+        }
+        // This legacy trace begins at BK2 power-on and includes title/data-select
+        // time before AIZ is actually live. The headless fixture starts directly in
+        // AIZ, so replaying trace frames 0..strictStartTraceIndex would advance the
+        // intro object during non-level time and push the cutscene hundreds of
+        // frames ahead. Start the replay loop at the first real in-level frame
+        // instead and align the BK2/VBlank cursors to that same trace index.
+        return new ReplayStartState(strictStartTraceIndex, -1);
+    }
+
+    /**
+     * Trace-replay seeds restore the recorded end-of-frame player/camera state directly.
+     * For AIZ1 frame 403, the ROM also spawned Obj_intPlane during the level-event pass
+     * and then executed its first object update in the same frame, advancing routine 0
+     * to routine 2. Reproduce that missing object-half of the seeded frame here so the
+     * replay continues from the recorded end-of-frame state instead of starting the intro
+     * object one frame late.
+     */
+    private static void completeSeededS3kLevelEntryFrame(TraceData trace,
+                                                         int seededTraceIndex,
+                                                         AbstractPlayableSprite sprite) {
+        if (trace == null || sprite == null || !"s3k".equals(trace.metadata().game())) {
+            return;
+        }
+        ObjectManager objectManager = GameServices.level() != null
+                ? GameServices.level().getObjectManager()
+                : null;
+        AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
+        if (objectManager == null || intro == null) {
+            return;
+        }
+
+        objectManager.advanceVblaCounter();
+        intro.update(trace.getFrame(seededTraceIndex).vblankCounter(), sprite);
     }
 
     private static void replayLegacyFramesToSeedIndex(TraceData trace,
@@ -195,8 +378,8 @@ public final class TraceReplayBootstrap {
     public static TraceExecutionPhase phaseForReplay(TraceData trace,
                                                      TraceFrame previous,
                                                      TraceFrame current) {
-        if (shouldTreatLegacyS3kAizIntroFrameAsFull(trace, current)) {
-            return TraceExecutionPhase.FULL_LEVEL_FRAME;
+        if (shouldUseLegacyS3kAizIntroHeuristic(trace, current)) {
+            return deriveLegacyPhase(previous, current);
         }
         return TraceExecutionModel.forGame(trace.metadata().game()).phaseFor(previous, current);
     }
@@ -238,13 +421,39 @@ public final class TraceReplayBootstrap {
         return isLegacyS3kAizIntroTrace(trace);
     }
 
-    private static boolean shouldTreatLegacyS3kAizIntroFrameAsFull(TraceData trace,
-                                                                   TraceFrame current) {
+    private static boolean shouldSeedReplayStartState(TraceData trace,
+                                                      HeadlessTestFixture fixture,
+                                                      int requestedSeedTraceIndex) {
+        return shouldSeedFrameZero(trace, fixture) || requestedSeedTraceIndex > 0;
+    }
+
+    private static boolean shouldUseLegacyS3kAizIntroHeuristic(TraceData trace,
+                                                                TraceFrame current) {
         if (trace == null || current == null || !isLegacyS3kAizIntroTrace(trace)) {
             return false;
         }
         int gameplayStartFrame = findCheckpointFrame(trace, "gameplay_start");
         return gameplayStartFrame >= 0 && current.frame() <= gameplayStartFrame;
+    }
+
+    /**
+     * Legacy S3K AIZ intro traces keep gameplay_frame_counter pinned during the
+     * opening cutscene, so the normal execution model misclassifies many real
+     * gameplay frames as VBlank-only. Use the old state-change heuristic for
+     * the intro window instead of forcing every frame to full execution.
+     */
+    private static TraceExecutionPhase deriveLegacyPhase(TraceFrame previous,
+                                                         TraceFrame current) {
+        if (previous == null || current == null) {
+            return TraceExecutionPhase.FULL_LEVEL_FRAME;
+        }
+        if (!current.stateEquals(previous)) {
+            return TraceExecutionPhase.FULL_LEVEL_FRAME;
+        }
+        return current.xSpeed() != 0 || current.ySpeed() != 0
+                || current.gSpeed() != 0 || current.air()
+                ? TraceExecutionPhase.VBLANK_ONLY
+                : TraceExecutionPhase.FULL_LEVEL_FRAME;
     }
 
     private static boolean isLegacyS3kAizIntroTrace(TraceData trace) {
@@ -279,6 +488,24 @@ public final class TraceReplayBootstrap {
             }
         }
         return -1;
+    }
+
+    private static int findFirstLevelGameplayFrame(TraceData trace) {
+        for (int frame = 0; frame < trace.frameCount(); frame++) {
+            for (TraceEvent event : trace.getEventsForFrame(frame)) {
+                if (event instanceof TraceEvent.ZoneActState state
+                        && state.gameMode() != null
+                        && state.gameMode() == 12) {
+                    return frame;
+                }
+                if (event instanceof TraceEvent.Checkpoint checkpoint
+                        && checkpoint.gameMode() != null
+                        && checkpoint.gameMode() == 12) {
+                    return frame;
+                }
+            }
+        }
+        return 0;
     }
 
     private static void applyRecordedFrameState(AbstractPlayableSprite sprite,

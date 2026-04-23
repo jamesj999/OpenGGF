@@ -6,12 +6,14 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestTraceReplayStartPositionPolicy {
 
     @Test
-    void s3kEndToEndTraceAppliesRecordedStartPositionEvenWithIntroBeginAnchor() throws Exception {
+    void s3kEndToEndTraceUsesLiveIntroSpawnInsteadOfRecordedFrameZeroPosition() throws Exception {
         TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
         TraceMetadata metadata = trace.metadata();
 
@@ -45,10 +47,19 @@ class TestTraceReplayStartPositionPolicy {
 
         boolean shouldApply = (boolean) method.invoke(subject, trace, metadata);
 
-        assertTrue(
+        assertFalse(
                 shouldApply,
-                "start_x/start_y record the actual trace start state and must still be applied "
-                        + "for the S3K AIZ end-to-end trace even though frame 0 is tagged "
-                        + "with the unconditional intro_begin anchor");
+                "The legacy S3K AIZ full-run trace starts from power-on state, so replay must "
+                        + "keep the engine's live intro spawn instead of applying frame-zero "
+                        + "start_x/start_y from stale Player_1 RAM.");
+    }
+
+    @Test
+    void s3kEndToEndTraceWarmsUpToFirstStrictIntroFrame() throws Exception {
+        TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
+
+        assertTrue(TraceReplayBootstrap.shouldUseLegacyS3kAizIntroWarmup(trace));
+        assertEquals(0, TraceReplayBootstrap.replaySeedTraceIndexForTraceReplay(trace));
+        assertEquals(404, TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace));
     }
 }

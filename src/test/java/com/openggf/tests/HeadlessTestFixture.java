@@ -62,6 +62,11 @@ public final class HeadlessTestFixture {
         return runner.skipFrameFromRecording();
     }
 
+    /** Advance the BK2 cursor without stepping gameplay. */
+    public void advanceRecordingCursor(int frameCount) {
+        runner.advanceRecordingCursor(frameCount);
+    }
+
     /** Returns the playable sprite managed by this fixture. */
     public AbstractPlayableSprite sprite() {
         return sprite;
