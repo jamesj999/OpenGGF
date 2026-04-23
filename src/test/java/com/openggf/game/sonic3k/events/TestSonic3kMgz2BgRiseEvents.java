@@ -148,6 +148,26 @@ class TestSonic3kMgz2BgRiseEvents {
     }
 
     @Test
+    void sonicRise_locksCameraMinXWhenMotionActuallyStarts() {
+        AbstractPlayableSprite player = placePlayer(0x3500, 0x850);
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        tick(events, 0);
+
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x36F0);
+        player.setCentreX((short) 0x3701);
+        player.setCentreY((short) 0x0A81);
+
+        tick(events, 1);
+
+        assertEquals((short) 0x36F0, camera.getMinX(),
+                "starting the MGZ2 floor rise should immediately lock camera minX to the live camera position");
+        assertEquals((short) 0x36F0, camera.getMinXTarget(),
+                "starting the MGZ2 floor rise should also latch the minX target, matching Camera_target_min_X_pos");
+    }
+
+    @Test
     void sonicRise_acceleratesOncePlayerCrossesAccelThreshold() {
         AbstractPlayableSprite player = placePlayer(0x3500, 0x0850);
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
@@ -246,6 +266,26 @@ class TestSonic3kMgz2BgRiseEvents {
 
         assertEquals(startY - 1, afterOne,
                 "player centre Y should decrease by exactly the rise delta (1 pixel accelerated)");
+    }
+
+    @Test
+    void sonicRise_liftsFirstSidekickBySameDeltaAsFocusedPlayer() {
+        AbstractPlayableSprite player = placePlayer(0x3500, 0x0850);
+        TestablePlayableSprite sidekick = new TestablePlayableSprite("tails", (short) 0x3500, (short) 0x0A81);
+        sidekick.setCpuControlled(true);
+        GameServices.sprites().addSprite(sidekick, "tails");
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        tick(events, 0);
+
+        player.setCentreX((short) 0x3D60);
+        player.setCentreY((short) 0x0A81);
+        int sidekickStartY = sidekick.getCentreY();
+
+        tick(events, 1);
+
+        assertEquals(sidekickStartY - 1, sidekick.getCentreY(),
+                "MGZ2 floor rise should lift Player 2 / the lead sidekick by the same rise delta as Sonic");
     }
 
     @Test

@@ -169,6 +169,26 @@ public class SwScrlMgzTest {
     }
 
     @Test
+    public void act2CloudsStayFrozenWhenStateEightIsReenteredAfterAfterMove() {
+        SwScrlMgz handler = new SwScrlMgz();
+        int[] afterMove = new int[224];
+        int[] reenteredStateEight = new int[224];
+        int[] reenteredStateEightNextFrame = new int[224];
+
+        handler.setBgRiseState(0xC, 0x1D0);
+        handler.update(afterMove, 0x3900, 0x07F0, 1, 1);
+
+        handler.setBgRiseState(8, 0x1D0);
+        handler.update(reenteredStateEight, 0x3A40, 0x0800, 2, 1);
+        handler.update(reenteredStateEightNextFrame, 0x3A40, 0x0800, 3, 1);
+
+        assertEquals(0, accumulatorValue(handler, "mgz2CloudAccumulator"),
+                "Once MGZ2 reaches after-move, the cloud auto-scroll latch should remain off even if state 8 is re-entered");
+        assertEquals(unpackBgScroll(reenteredStateEight[0]), unpackBgScroll(reenteredStateEightNextFrame[0]),
+                "Re-entering MGZ2 state 8 after after-move should keep the cloud band frozen instead of restarting drift on subsequent frames");
+    }
+
+    @Test
     public void setBgRiseStatePrimesLiveBgCollisionStateBeforeParallaxUpdate() {
         SwScrlMgz handler = new SwScrlMgz();
         GameServices.camera().setX((short) 0x3500);

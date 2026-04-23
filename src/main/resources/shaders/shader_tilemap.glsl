@@ -30,6 +30,7 @@ uniform int PerLineScroll;           // 1 = per-scanline HScroll, 0 = uniform Wo
 uniform sampler1D VScrollColumnTexture; // Per-column VScroll (R32F, 20 entries)
 uniform int PerColumnVScroll;        // 1 = apply per-column VScroll to worldY
 uniform float ScreenHeight;          // Visible scanline count (224.0)
+uniform float PerLineScrollSampleYOffsetPx;
 uniform float VDPWrapWidth;          // VDP nametable width in tiles (64.0), 0 = use TilemapWidth
 uniform float VDPWrapHeight;         // VDP nametable height in tiles, 0 = disabled
 uniform float NametableBase;         // Starting tilemap column for VDP-style wrapping
@@ -110,7 +111,7 @@ void main()
     if (PerLineScroll == 1) {
         // Per-scanline horizontal scroll: each scanline has its own BG offset.
         // Matches VDP behavior where HScroll RAM provides per-line offsets.
-        float scanline = clamp(pixelYFromTop, 0.0, ScreenHeight - 1.0);
+        float scanline = clamp(pixelYFromTop - PerLineScrollSampleYOffsetPx, 0.0, ScreenHeight - 1.0);
         float scanlineTexCoord = (scanline + 0.5) / ScreenHeight;
         float hScrollThis = texture(HScrollTexture, scanlineTexCoord).r * 32767.0;
         worldX = pixelX - hScrollThis;

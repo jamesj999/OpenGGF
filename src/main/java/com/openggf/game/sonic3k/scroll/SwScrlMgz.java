@@ -56,6 +56,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     public void setBgRiseState(int routine, int offset) {
         if (this.bgRiseRoutine != BG_RISE_AFTER_MOVE_STATE && routine == BG_RISE_AFTER_MOVE_STATE) {
             mgz2CloudAccumulator.set(0);
+            mgz2CloudsFrozen = true;
         }
         this.bgRiseRoutine = routine;
         this.bgRiseOffset = offset;
@@ -115,6 +116,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     private final PersistentAccumulator mgz2CloudAccumulator = new PersistentAccumulator(0);
 
     private int lastActId = -1;
+    private boolean mgz2CloudsFrozen;
 
     @Override
     public void update(int[] horizScrollBuf,
@@ -153,7 +155,8 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             // translate into the BG layout's populated 0..23 range.
             lastBgCameraX = bgScrollBaseX;
             composer.setVscrollFactorBG((short) bgY);
-            buildMgz2StateEightHScrollTable(cameraX, bgScrollBaseX, mgz2HScrollTable, mgz2ScatterSource);
+            buildMgz2StateEightHScrollTable(cameraX, bgScrollBaseX, shouldAutoMoveMgz2Clouds(),
+                    mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
                     composer,
                     bgY,
@@ -171,7 +174,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     : computeMgz2BgY(cameraY);
             lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) bgY);
-            buildMgz2HScrollTable(cameraX, bgRiseRoutine != BG_RISE_AFTER_MOVE_STATE,
+            buildMgz2HScrollTable(cameraX, shouldAutoMoveMgz2Clouds(),
                     mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
                     composer,
@@ -202,8 +205,13 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             mgz1CloudAccumulator.set(0);
         } else {
             mgz2CloudAccumulator.set(0);
+            mgz2CloudsFrozen = bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE;
         }
         lastActId = actId;
+    }
+
+    private boolean shouldAutoMoveMgz2Clouds() {
+        return !mgz2CloudsFrozen && bgRiseRoutine != BG_RISE_AFTER_MOVE_STATE;
     }
 
     /**
@@ -292,9 +300,10 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
      */
     private void buildMgz2StateEightHScrollTable(int cameraX,
                                                  int bgScrollBaseX,
+                                                 boolean autoMoveClouds,
                                                  ScrollValueTable table,
                                                  ScrollValueTable scatterSource) {
-        buildMgz2HScrollTable(cameraX, true, table, scatterSource);
+        buildMgz2HScrollTable(cameraX, autoMoveClouds, table, scatterSource);
         table.set(27, (short) bgScrollBaseX);
     }
 

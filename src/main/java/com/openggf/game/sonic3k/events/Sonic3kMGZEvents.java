@@ -911,6 +911,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 return;
             }
             bgRiseMotionStarted = true;
+            camera().setMinX(camera().getX());
         }
         advanceBgRise(player, playerX);
     }
@@ -965,7 +966,21 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
         bgRiseOffset = newOffset;
+        liftBgRisePassengers(player, delta);
+    }
+
+    private void liftBgRisePassengers(AbstractPlayableSprite player, int delta) {
         player.setCentreY((short) (player.getCentreY() - delta));
+
+        var sidekicks = GameServices.sprites().getSidekicks();
+        if (sidekicks.isEmpty()) {
+            return;
+        }
+
+        AbstractPlayableSprite playerTwo = sidekicks.getFirst();
+        if (playerTwo != null && playerTwo != player) {
+            playerTwo.setCentreY((short) (playerTwo.getCentreY() - delta));
+        }
     }
 
     public int getChunkEventRoutine() {
