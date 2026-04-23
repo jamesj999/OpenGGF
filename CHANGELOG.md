@@ -51,6 +51,34 @@ All notable changes to the OpenGGF project are documented in this file.
   behaviour (Boss_flag set, wall-grab suppressed, BG routine =
   `BG_BOSS_START`) and pinning `CNZ_MINIBOSS_ARENA_MIN_X` to `$31E0`.
 
+### Sonic 3&K CNZ1 Mini-Boss (Workstream D)
+
+- Ported `Obj_CNZMiniboss` (sonic3k.asm:144823..145002) to
+  `CnzMinibossInstance` atop `AbstractBossInstance`: full 8-routine
+  state machine (Init, Lower, Move, Opening, WaitHit, Closing, Lower2,
+  End), ROM hit count of 6, and the Lower2 per-pixel descent.
+- Ported `Obj_CNZMinibossTop` (sonic3k.asm:145004..145673) to
+  `CnzMinibossTopInstance`: 4-routine state machine (TopInit, TopWait,
+  TopWait2, TopMain) with bouncing-ball physics and arena-chunk
+  destruction publication.
+- Wired CNZ1 arena entry in `Sonic3kCNZEvents`: camera clamps
+  (0x31E0..0x3260, 0x01C0..0x02B8), `Boss_flag`, wall-grab
+  suppression, PLC 0x5D, and `Pal_CNZMiniboss` installation — mirroring
+  ROM `loc_6D9A8`. Corrected the miniboss camera-trigger X from 0x3000
+  to the ROM's 0x31E0.
+- Corrected `PLC_CNZ_MINIBOSS` from 0x5C to 0x5D (ROM
+  `sonic3k.asm:144844`). No external behaviour depended on the
+  off-by-one value in prior commits; the now-corrected PLC load is
+  guarded per spec §9.
+- `TestS3kCnzTraceReplay` error count remains 1954 (delta 0 vs
+  post-C baseline). The cascade from the workstream-C Tails-carry arc
+  (Tails lands ~frame 42 vs ROM frame 106) dominates the headline number
+  and fills the first-20 divergence list before the mini-boss window is
+  reached in isolation; the boss state machine is implemented correctly
+  but cannot be validated from the trace alone until the carry-arc
+  cascade is resolved. Baseline captured in
+  `docs/s3k-zones/cnz-post-workstream-d-baseline.md`.
+
 ### Sonic 3&K CNZ1 Tails-Carry Intro (Workstream C)
 
 - Implemented the CNZ Act 1 Tails-carry intro (`Tails_CPU_routine` 0x0C /
