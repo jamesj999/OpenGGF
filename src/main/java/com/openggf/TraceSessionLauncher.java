@@ -151,7 +151,17 @@ public final class TraceSessionLauncher {
             // screen, default level, residual objects) leaks in and
             // causes subpixel drift from frame 0 that surfaces at the
             // first enemy destruction.
+            //
+            // The reset zaps the sprite manager, so we need to
+            // re-register the active team BEFORE loadZoneAndAct runs
+            // (loadZoneAndAct's spawnPlayerAtStartPosition expects the
+            // main sprite to already exist — otherwise the camera's
+            // focusedSprite ends up null on the next frame).
             TraceReplaySessionBootstrap.resetLevelSubsystemsForReplay();
+            com.openggf.game.session.GameplayTeamBootstrap.registerActiveTeam(
+                    GameServices.module(),
+                    GameServices.sprites(),
+                    com.openggf.configuration.SonicConfigurationService.getInstance());
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
