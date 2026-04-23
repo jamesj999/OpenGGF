@@ -291,13 +291,17 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
 
         // ROM sonic3k.asm:144841 — `moveq #cmd_FadeOut,d0; jsr Play_Music`.
         // Mirror the music fade through the engine's helper. Sequencing the
-        // miniboss theme that follows is wired up in T12, hence the marker.
+        // miniboss theme that follows is reserved for the audio follow-up
+        // (see TODO marker below).
         if (audio() != null) {
             audio().fadeOutMusic();
         }
-        // TODO(T12): wire miniboss audio fade-in (Sonic3kMusic.MINIBOSS) once
-        // the boss music handoff lands; the fade-out above already mirrors
-        // sonic3k.asm:144841.
+        // TODO(audio-followup): wire miniboss audio fade-in
+        // (Sonic3kMusic.MINIBOSS) once the boss music handoff lands; the
+        // fade-out above already mirrors sonic3k.asm:144841. Workstream D
+        // shipped the boss without this fade-in by design (out of scope for
+        // D — see the workstream-D entries in CHANGELOG.md and the
+        // post-D baseline doc at docs/s3k-zones/cnz-post-workstream-d-baseline.md).
 
         // ROM sonic3k.asm:144844 — `moveq #$5D,d0; jsr Load_PLC`.
         applyPlc(Sonic3kConstants.PLC_CNZ_MINIBOSS);
