@@ -55,11 +55,11 @@ running from the project working directory.
    - the last 5 distinct mismatch entries
 8. `Esc` tears the session down (`TestEnvironment.resetAll()`) and returns
    to the picker. Running off the end of the BK2 shows `TRACE COMPLETE`,
-   holds for the remainder of the fade duration, fades to black over
-   ~1 second (parameterised via a code constant
-   `TraceSessionLauncher.COMPLETION_FADE_SECONDS`), then auto-returns to
-   the picker. `Esc` is still accepted at any point during the fade to
-   skip the remaining fade time.
+   holds for ~1 second (parameterised via a code constant
+   `TraceSessionLauncher.COMPLETION_HOLD_SECONDS`, default `1.0`), then
+   fades to black using `FadeManager`'s default fade duration and
+   auto-returns to the picker. `Esc` is still accepted at any point
+   during the hold or fade to skip straight to the picker.
 9. Standard `PlaybackDebugManager` hotkeys (play/pause, step forward/back,
    jump, rate) continue to work during the session — those already exist
    and don't need changes.
@@ -595,20 +595,23 @@ so the normal debug-render pass picks it up.
 When `LiveTraceComparator.isComplete()` first goes true:
 
 1. The overlay appends a `TRACE COMPLETE` line above the mismatch log.
-2. `TraceSessionLauncher` starts a completion timer. Over
-   `COMPLETION_FADE_SECONDS` (a private `static final double` in
-   `TraceSessionLauncher`, default `1.0`) the scene fades to black.
-   The HUD counters, input visualiser, and `TRACE COMPLETE` line stay
-   drawn on top of the fade at full brightness so the user sees the
-   final counts throughout.
-3. When the timer expires, the launcher runs the same teardown path as
+2. `TraceSessionLauncher` starts a hold timer for
+   `COMPLETION_HOLD_SECONDS` (a private `static final double` in
+   `TraceSessionLauncher`, default `1.0`). During the hold the HUD stays
+   fully drawn so the user can read the final counters.
+3. When the hold elapses, the launcher calls
+   `GameServices.fade().startFadeToBlack(onComplete)` — using
+   `FadeManager`'s default fade duration (unparameterised). The HUD
+   counters, input visualiser, and `TRACE COMPLETE` line stay drawn on
+   top of the fade at full brightness so the final counts remain
+   readable until the screen is fully black.
+4. The fade's `onComplete` callback runs the same teardown path as
    manual `Esc` (`TestEnvironment.resetAll()` + return to picker).
-4. `Esc` pressed during the fade short-circuits the timer and teardowns
-   immediately.
+5. `Esc` pressed at any time during the hold or fade short-circuits
+   straight to teardown.
 
-The fade is driven through the existing `FadeManager` (available via
-`GameServices.fade()`) so it composites correctly with the normal level
-render pipeline and works across S1/S2/S3K without per-game code.
+`FadeManager` composites correctly with the normal level render pipeline
+and works across S1/S2/S3K without per-game code.
 
 ## 10. Controls during playback
 
