@@ -12,11 +12,21 @@ import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
 
 /**
- * Headless and live trace replay share the same pre-gameplay setup:
- * configure team, load level, seed vblank counter, pre-advance
- * oscillation, apply pre-trace object snapshots and replay start
- * state. This helper owns that sequence so {@code AbstractTraceReplayTest}
- * and {@code TraceSessionLauncher} stay consistent.
+ * Headless and live trace replay share the same pre-gameplay setup.
+ * This helper owns that sequence so {@code AbstractTraceReplayTest}
+ * and {@code TraceSessionLauncher} stay consistent. Steps, in order:
+ * <ol>
+ *   <li>{@link #prepareConfiguration}: set recorded team + S3K intro
+ *       skip flag on the configuration service. Must run before the
+ *       caller loads the level.</li>
+ *   <li>{@link #applyBootstrap}: seed the vblank counter, pre-advance
+ *       oscillation, apply pre-trace object snapshots, apply the
+ *       replay start state, then (when the trace policy calls for it)
+ *       reapply the metadata start centre coordinates and run an
+ *       initial ground-attachment pass — so both headless fixture and
+ *       live launcher end up with the same post-title-card sprite state
+ *       before frame 0 of the comparison loop.</li>
+ * </ol>
  */
 public final class TraceReplaySessionBootstrap {
 
@@ -37,13 +47,30 @@ public final class TraceReplaySessionBootstrap {
     }
 
     /**
-     * Apply pre-gameplay replay state to an already-loaded level. Must be
-     * called after the level has been loaded and a player sprite exists
-     * on the runtime.
+     * Apply pre-gameplay replay state to an already-loaded level. Must
+     * be called after the level has been loaded and a player sprite
+     * exists on the runtime.
      *
-     * @param preTraceOscOverride number of pre-trace oscillation frames to
-     *                            pre-advance; pass a negative value to use
-     *                            the value from the trace metadata.
+     * <p>Performs, in order:
+     * <ol>
+     *   <li>{@code ObjectManager.initVblaCounter} — seed the VBlank
+     *       counter to match the trace's initial value.</li>
+     *   <li>Oscillation pre-advance — {@link OscillationManager#update}
+     *       run {@code preTraceOsc} times so the OscillateNumDo phase
+     *       matches the ROM at trace frame 0.</li>
+     *   <li>{@link TraceReplayBootstrap#applyPreTraceState} — object
+     *       snapshot + player history hydration.</li>
+     *   <li>{@link TraceReplayBootstrap#applyReplayStartStateForTraceReplay}
+     *       — primary-sprite state for seeded traces.</li>
+     *   <li>Metadata start centre coordinates (when
+     *       {@link TraceReplayBootstrap#shouldApplyMetadataStartPositionForTraceReplay}
+     *       is true) + initial ground-attachment pass — mirrors
+     *       {@code HeadlessTestFixture.Builder.build} steps 6 and 11.</li>
+     * </ol>
+     *
+     * @param preTraceOscOverride number of pre-trace oscillation frames
+     *                            to pre-advance; pass a negative value
+     *                            to use the value from the trace metadata.
      */
     public static BootstrapResult applyBootstrap(TraceData trace,
                                                  TraceReplayFixture fixture,

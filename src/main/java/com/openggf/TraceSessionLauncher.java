@@ -80,8 +80,12 @@ public final class TraceSessionLauncher {
         try {
             TraceData trace = TraceData.load(entry.dir());
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
-            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
+            // NOTE: prepareConfiguration (team + S3K_SKIP_INTROS) runs
+            // inside finishLaunchAfterGameBootstrap rather than here so
+            // a failed launchGameByEntry (e.g. fade-in-flight) cannot
+            // leave the config service with trace-only overrides
+            // applied for the next unrelated master-title selection.
             loop.launchGameByEntry(
                     resolveGameEntry(entry.gameId()),
                     session::finishLaunchAfterGameBootstrap);
@@ -100,6 +104,9 @@ public final class TraceSessionLauncher {
         }
         PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
         try {
+            // Apply trace-only config (team / S3K_SKIP_INTROS) now that
+            // the master-title fade has committed. See launch().
+            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
@@ -150,9 +157,9 @@ public final class TraceSessionLauncher {
             activeSession = null;
             LOGGER.log(java.util.logging.Level.SEVERE,
                     "Failed to finish trace launch for " + entry.dir(), e);
-            if (loop != null) {
-                loop.returnToMasterTitle();
-            }
+            // loop is guaranteed non-null here — we early-returned at the
+            // top of the method when it was null.
+            loop.returnToMasterTitle();
         }
     }
 
