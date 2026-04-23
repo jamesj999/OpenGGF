@@ -805,6 +805,16 @@ public class SidekickCpuController {
         this.carryTrigger = trigger;
     }
 
+    /**
+     * True while Tails is actively carrying Sonic in flight (ROM
+     * Flying_carrying_Sonic_flag). Used by PlayableSpriteMovement.applyGravity
+     * to substitute Tails's flight gravity (+0x08/frame, Tails_Move_FlySwim
+     * loc_1488C in sonic3k.asm:27633) for the standard +0x38 air gravity.
+     */
+    public boolean isFlyingCarrying() {
+        return flyingCarryingFlag;
+    }
+
     /** Test/debug accessor for the release-cooldown byte (ROM Flying_carrying_Sonic_flag+1). */
     int getReleaseCooldownForTest() { return releaseCooldown; }
 
