@@ -1069,7 +1069,7 @@ public class LevelManager {
         // (sonic.asm:3205→3223) and S2 (s2.asm:5091→5104). Objects must read
         // the previous frame's oscillation values, then OscillateNumDo advances
         // them for the next frame.
-        OscillationManager.update(frameCounter);
+        advanceGlobalOscillation();
     }
 
     /**
@@ -1134,7 +1134,7 @@ public class LevelManager {
         // the previous frame's oscillation values, then OscillateNumDo advances
         // them for the next frame. Placing this call before objectManager.update()
         // caused a 1-frame phase shift in oscillating platform positions.
-        OscillationManager.update(frameCounter);
+        advanceGlobalOscillation();
     }
 
     /**
@@ -1168,6 +1168,16 @@ public class LevelManager {
 
         // ROM parity: objects read the previous frame's oscillation values, then
         // OscillateNumDo advances them for the next frame after ExecuteObjects.
+        advanceGlobalOscillation();
+    }
+
+    private void advanceGlobalOscillation() {
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (zoneFeatureProvider != null
+                && !zoneFeatureProvider.shouldAdvanceGlobalOscillation(featureZone, featureAct)) {
+            return;
+        }
         OscillationManager.update(frameCounter);
     }
 
