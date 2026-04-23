@@ -2150,6 +2150,17 @@ public class GameLoop {
      * {@link #step()} unwinds, so trace bootstrap code may safely call
      * {@code gameLoop.step()} without reentering the master-title frame.
      */
+    /**
+     * Pre-flight check for {@link #launchGameByEntry}. Returns false when
+     * a master-title fade is already in flight (launchGameByEntry would
+     * throw in that case). Package-private so
+     * {@link TraceSessionLauncher} can refuse a launch *before* mutating
+     * the configuration service.
+     */
+    boolean canLaunchGameNow() {
+        return !resolveFadeManager().isActive();
+    }
+
     void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoaded) {
         MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
                 ? masterTitleScreenSupplier.get() : null;
