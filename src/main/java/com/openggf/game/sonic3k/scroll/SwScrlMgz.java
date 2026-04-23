@@ -22,6 +22,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     // vertical delta to sprites. MGZ2_BGDeform compensates BG parallax math so
     // the shake lands 1:1 on the plane instead of being scaled away.
     private int screenShakeOffset;
+    private int pendingScreenShakeOffset;
     private short vscrollFactorFG;
 
     // ROM: MGZ2_BGDeform (Lockon S3/Screen Events.asm:1090-1145) switches the BG
@@ -50,7 +51,9 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     private int lastBgCameraX = Integer.MIN_VALUE;
 
     public void setScreenShakeOffset(int offset) {
-        this.screenShakeOffset = offset;
+        if (offset > pendingScreenShakeOffset) {
+            pendingScreenShakeOffset = offset;
+        }
     }
 
     public void setBgRiseState(int routine, int offset) {
@@ -129,6 +132,8 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         }
 
         composer.reset();
+        screenShakeOffset = pendingScreenShakeOffset;
+        pendingScreenShakeOffset = 0;
         short fgScroll = negWord(cameraX);
 
         if (actId == 0) {
