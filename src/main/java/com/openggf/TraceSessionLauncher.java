@@ -103,15 +103,19 @@ public final class TraceSessionLauncher {
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
-            // Swallow any title-card request / active overlay that the
-            // level load triggered. Headless trace tests drive frames
-            // through LevelFrameStep.execute directly, which never gates
-            // gameplay on title-card state; we mirror that by dropping
-            // the title card entirely so the replay starts on frame 0.
+            // Swallow every title-card request the level load raised —
+            // both the main `consumeTitleCardRequest` (fired by
+            // requestTitleCardIfNeeded during profile load steps; if
+            // left armed, GameLoop.stepInternal flips the mode to
+            // TITLE_CARD on the next step, freezing the sprite and
+            // desyncing the BK2 cursor from the comparator) and the
+            // in-level variant. Headless trace tests bypass both via
+            // the headless graphics mode; we do it explicitly.
             //
             // Relies on TitleCardProvider.reset() being a simple state
             // wipe that can't throw — true for all three game modules
             // today (S1/S2/S3K TitleCardManager.reset are field resets).
+            GameServices.level().consumeTitleCardRequest();
             GameServices.level().consumeInLevelTitleCardRequest();
             TitleCardProvider titleCardProvider =
                     GameServices.module() != null
