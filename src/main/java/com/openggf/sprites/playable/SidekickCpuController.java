@@ -6,8 +6,6 @@ import com.openggf.camera.Camera;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.GameModule;
-import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.LevelManager;
@@ -139,7 +137,8 @@ public class SidekickCpuController {
                 int zone = lm.getCurrentZone();
                 int act = lm.getCurrentAct();
                 PlayerCharacter pc = resolvePlayerCharacter();
-                if (carryTrigger.shouldEnterCarry(zone, act, pc)) {
+                if (carryTrigger.shouldEnterCarry(zone, act, pc)
+                        && carryTrigger.isLeaderAtIntroPosition(leader)) {
                     // ROM loc_13A10 (sonic3k.asm:26414) for CNZ act 0:
                     //   move.w #$C,(Tails_CPU_routine).w
                     //   rts
@@ -172,8 +171,8 @@ public class SidekickCpuController {
         sidekick.setGSpeed((short) 0);
     }
 
-    private static PlayerCharacter resolvePlayerCharacter() {
-        GameModule gameModule = GameModuleRegistry.getCurrent();
+    private PlayerCharacter resolvePlayerCharacter() {
+        GameModule gameModule = sidekick.currentGameModule();
         if (gameModule != null) {
             LevelEventProvider lep = gameModule.getLevelEventProvider();
             if (lep instanceof AbstractLevelEventManager alem) {
@@ -493,7 +492,7 @@ public class SidekickCpuController {
         // Player_TouchFloor (sonic3k.asm:24366-24369) needed for the
         // next-frame release check to trip.
         CollisionSystem collision = Objects.requireNonNull(
-                GameServices.collision(),
+                leader.currentCollisionSystem(),
                 "CollisionSystem must be available during CARRYING state "
                         + "(Tails-carry post-parentage probe, sonic3k.asm:27330)");
         collision.resolveAirCollision(leader, sprite -> {

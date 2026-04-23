@@ -30,6 +30,19 @@ public interface SidekickCarryTrigger {
     boolean shouldEnterCarry(int zoneId, int actId, PlayerCharacter playerMode);
 
     /**
+     * Secondary gate: when the ROM intro carry normally fires, confirm that
+     * the leader is still parked at the zone's ROM spawn coordinates. Headless
+     * tests teleport the leader (e.g., onto a CNZ cannon or cylinder) before
+     * the first sidekick tick; without this guard, the INIT branch would
+     * unconditionally steal object-control of the leader and defeat the object
+     * the test is exercising. The default implementation always returns
+     * {@code true}, preserving pre-existing trigger behaviour.
+     */
+    default boolean isLeaderAtIntroPosition(AbstractPlayableSprite leader) {
+        return true;
+    }
+
+    /**
      * Positions the carrier (sidekick, typically Tails) and cargo (leader,
      * typically Sonic) for the first CARRY_INIT tick. The driver will then
      * clamp velocities via {@link #carryInitXVel()} etc.

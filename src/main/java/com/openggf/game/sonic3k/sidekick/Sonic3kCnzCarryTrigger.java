@@ -29,6 +29,17 @@ public final class Sonic3kCnzCarryTrigger implements SidekickCarryTrigger {
     }
 
     @Override
+    public boolean isLeaderAtIntroPosition(AbstractPlayableSprite leader) {
+        // ROM CNZ1 intro parks Sonic near Tails' carry pickup X (0x18). If a
+        // test has teleported Sonic far away (e.g., onto a cannon/cylinder),
+        // skip the carry so the object under test keeps control of the leader.
+        // Matches the ROM intuition that the fly-carry cutscene is a one-shot
+        // tied to the level's spawn coordinates rather than mid-level state.
+        int dx = Math.abs(leader.getCentreX() - Sonic3kConstants.CARRY_INIT_TAILS_X);
+        return dx <= 0x200;
+    }
+
+    @Override
     public void applyInitialPlacement(AbstractPlayableSprite carrier,
                                       AbstractPlayableSprite cargo) {
         // Teleport Tails (carrier) to the ROM's fixed pickup position.
