@@ -75,14 +75,21 @@ position errors cascaded from row 6 (frame 193), not divergences in the boss sta
 
 ## Next dispatch
 
-Based on the post-D first-20 being identical to post-C, the priority order is unchanged:
+Based on the post-D first-20 being identical to post-C, the priority order is unchanged.
 
-- [ ] C-follow-up (Tails flying-with-cargo physics): **DEFER**. The documented gap (Tails
-  lands frame ~42 vs ROM frame 106) is the dominant cascade source. Addressing it would
-  require implementing the per-frame y_vel / gravity handling in `Tails_CPU_routine` 0x0C /
-  0x0E / 0x20 for the carry arc. Left deferred — the D workstream did not worsen it and
-  the boss port is complete. When C-follow-up lands, the post-E first-20 should reveal
-  D-window divergences in isolation.
+**Recommended next dispatch: C-follow-up (Tails flying-with-cargo physics).** The DEFER
+tags below reflect this branch's scope (workstream D only) rather than relative priority —
+C-follow-up is the highest-value next dispatch because it is the documented dominant
+cascade source, and clearing it is the prerequisite for any other workstream's divergences
+to become measurable in the trace.
+
+- [ ] C-follow-up (Tails flying-with-cargo physics): **DEFER for this branch / DISPATCH
+  next.** The documented gap (Tails lands frame ~42 vs ROM frame 106) is the dominant
+  cascade source. Addressing it would require implementing the per-frame y_vel / gravity
+  handling in `Tails_CPU_routine` 0x0C / 0x0E / 0x20 for the carry arc. Left deferred for
+  this branch — the D workstream did not worsen it and the boss port is complete. When
+  C-follow-up lands, the next baseline's first-20 should reveal D-window divergences in
+  isolation.
 - [ ] D-follow-up (boss hit-response timing): **DEFER**. No D-native residual is isolatable
   in the current trace because all D-window rows are cascade-dominated. Once C-follow-up
   clears the carry-arc error, re-run the trace to check for D-window residue (e.g. boss
