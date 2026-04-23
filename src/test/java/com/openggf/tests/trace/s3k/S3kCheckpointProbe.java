@@ -8,6 +8,8 @@ public record S3kCheckpointProbe(
         Integer gameMode,
         int moveLock,
         boolean ctrlLocked,
+        boolean objectControlled,
+        boolean hidden,
         boolean eventsFg5,
         boolean fireTransitionActive,
         boolean hczTransitionActive,

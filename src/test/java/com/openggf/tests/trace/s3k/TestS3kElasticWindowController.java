@@ -31,6 +31,23 @@ class TestS3kElasticWindowController {
     }
 
     @Test
+    void aligningSeededCursorPreservesOpenWindowWithoutRewinding() {
+        S3kElasticWindowController controller = new S3kElasticWindowController(Map.of(
+                "intro_begin", 0,
+                "gameplay_start", 12,
+                "aiz1_fire_transition_begin", 40,
+                "aiz2_main_gameplay", 260));
+
+        controller.onEntryFrameValidated(new TraceEvent.Checkpoint(
+                0, "intro_begin", null, null, null, 12, null));
+        controller.alignCursorToTraceIndex(4);
+
+        assertFalse(controller.isStrictComparisonEnabled());
+        assertEquals(4, controller.strictTraceIndex());
+        assertEquals(4, controller.driveTraceIndex());
+    }
+
+    @Test
     void fireTransitionCheckpointOpensSecondWindowAfterStrictGap() {
         S3kElasticWindowController controller = new S3kElasticWindowController(Map.of(
                 "intro_begin", 0,
