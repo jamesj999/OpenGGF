@@ -96,6 +96,7 @@ public class Engine {
 	private final LevelEditorController levelEditorController = new LevelEditorController();
 	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
 	private final EditorOverlayRenderer editorOverlayRenderer;
+	private final PixelFontTextRenderer traceHudTextRenderer = new PixelFontTextRenderer();
 
 	private static volatile DebugState debugState = DebugState.NONE;
 	private static volatile DebugOption debugOption = DebugOption.A;
@@ -190,6 +191,7 @@ public class Engine {
 		this.gameLoop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
 		this.gameLoop.setMasterTitleExitHandler(this::exitMasterTitleScreen);
 		this.gameLoop.setDataSelectActionHandler(this::launchGameplayFromDataSelect);
+		this.gameLoop.setReturnToMasterTitleHandler(this::returnToMasterTitleScreen);
 		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.projectionWidth = realWidth;
@@ -463,6 +465,23 @@ public class Engine {
 		debugOverlayManager.resetState();
 		RenderContext.reset();
 		AizIntroArtLoader.reset();
+	}
+
+	/**
+	 * Teardown path used by {@link TraceSessionLauncher} after a trace
+	 * playback session completes. Resets gameplay runtime state (same
+	 * cleanup as when gameplay first exits the master title) and
+	 * rebuilds the master title screen so the picker can re-enter on
+	 * the next frame.
+	 */
+	void returnToMasterTitleScreen() {
+		resetForGameplayFromMasterTitle();
+		if (masterTitleScreen != null) {
+			masterTitleScreen.cleanup();
+		}
+		masterTitleScreen = new MasterTitleScreen(configService);
+		masterTitleScreen.initialize();
+		gameLoop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
 	}
 
 	public void enterEditorFromCurrentPlayer(EditorPlaytestStash stash, int playerX, int playerY) {
@@ -1159,6 +1178,14 @@ public class Engine {
 		if (uiPipeline != null) {
 			uiPipeline.renderFadePass();
 		}
+
+		// Trace Test Mode HUD: drawn AFTER the fade pass so counters and
+		// TRACE COMPLETE remain readable during fade-to-black teardown.
+		TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+		if (traceSession != null) {
+			traceHudTextRenderer.setProjectionMatrix(getProjectionMatrixBuffer());
+			traceSession.render(traceHudTextRenderer);
+		}
 		if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
 			EndingProvider provider = gameLoop.getEndingProvider();
 			if (provider != null && provider.shouldRenderDemoSpritesOverFade()) {
@@ -1230,6 +1257,15 @@ public class Engine {
 	 */
 	public GameLoop getGameLoop() {
 		return gameLoop;
+	}
+
+	/**
+	 * Static accessor used by {@link com.openggf.TraceSessionLauncher} (and
+	 * other {@code com.openggf.*} classes) to reach the singleton game
+	 * loop without going through a tier-1 service.
+	 */
+	public static GameLoop currentGameLoop() {
+		return instance != null ? instance.gameLoop : null;
 	}
 
 	public void draw() {
@@ -1427,6 +1463,7 @@ public class Engine {
 			masterTitleScreen.cleanup();
 			masterTitleScreen = null;
 		}
+		traceHudTextRenderer.cleanup();
 		graphicsManager.cleanup();
 		audioManager.destroy();
 

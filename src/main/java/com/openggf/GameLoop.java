@@ -198,6 +198,7 @@ public class GameLoop {
      */
     private Runnable pendingMasterTitleLaunchCallback;
     private Runnable afterStepMasterTitleLaunchCallback;
+    private Runnable returnToMasterTitleHandler;
 
     public GameLoop() {
         this(RuntimeManager.currentEngineServices());
@@ -443,6 +444,17 @@ public class GameLoop {
                 return;
             }
             updateEditorMode();
+            inputHandler.update();
+            return;
+        }
+
+        // Trace Test Mode: Esc during a live trace session begins the
+        // early-exit fade. Checked before pause so Esc never gets eaten
+        // by another handler.
+        if (currentGameMode == GameMode.LEVEL
+                && TraceSessionLauncher.active() != null
+                && inputHandler.isKeyPressed(GLFW_KEY_ESCAPE)) {
+            TraceSessionLauncher.active().requestEarlyExit();
             inputHandler.update();
             return;
         }
@@ -743,6 +755,12 @@ public class GameLoop {
                 BonusStageType bonusRequest = levelManager.consumeBonusStageRequest();
                 if (bonusRequest != null) {
                     enterBonusStage(bonusRequest);
+                }
+
+                // Drive the trace session completion-hold + auto-fade state.
+                TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+                if (traceSession != null) {
+                    traceSession.tick();
                 }
             }
 
@@ -2153,6 +2171,21 @@ public class GameLoop {
         afterStepMasterTitleLaunchCallback = null;
         if (callback != null) {
             callback.run();
+        }
+    }
+
+    public void setReturnToMasterTitleHandler(Runnable returnToMasterTitleHandler) {
+        this.returnToMasterTitleHandler = returnToMasterTitleHandler;
+    }
+
+    /**
+     * Tear down the current trace session and hand control back to the
+     * Engine so it can recreate the master title screen and reset
+     * gameplay state. Called by {@link TraceSessionLauncher#teardown()}.
+     */
+    void returnToMasterTitle() {
+        if (returnToMasterTitleHandler != null) {
+            returnToMasterTitleHandler.run();
         }
     }
 
