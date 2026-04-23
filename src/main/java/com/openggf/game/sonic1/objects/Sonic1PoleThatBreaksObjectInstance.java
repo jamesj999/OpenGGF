@@ -64,9 +64,6 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
     // obColProp emulation signal from touch callback.
     private boolean touchSignal;
 
-    // v_jpadpress2 edge detection.
-    private boolean jumpPressedPrevious;
-
     public Sonic1PoleThatBreaksObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PoleThatBreaks");
         int subtype = spawn.subtype() & 0xFF;
@@ -130,12 +127,11 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
         // move.b #1,pole_grabbed(a0)
         poleGrabbed = true;
-        jumpPressedPrevious = player.isJumpPressed();
     }
 
     private void updateGrabbedPlayer(AbstractPlayableSprite player) {
         if (player == null) {
-            releasePlayer(null, false);
+            releasePlayer(null);
             return;
         }
 
@@ -143,7 +139,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
             poleTime--;
             if (poleTime == 0) {
                 mappingFrame = FRAME_BROKEN;
-                releasePlayer(player, false);
+                releasePlayer(player);
                 return;
             }
         }
@@ -166,16 +162,14 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
             player.setCentreY((short) newY);
         }
 
-        boolean jumpPressedNow = player.isJumpPressed();
-        if (jumpPressedNow && !jumpPressedPrevious) {
+        if (player.isJumpJustPressed()) {
             mappingFrame = FRAME_BROKEN;
-            releasePlayer(player, true);
+            releasePlayer(player);
             return;
         }
-        jumpPressedPrevious = jumpPressedNow;
     }
 
-    private void releasePlayer(AbstractPlayableSprite player, boolean consumeJumpPress) {
+    private void releasePlayer(AbstractPlayableSprite player) {
         // clr.b obColType(a0)
         collisionFlags = 0;
 
@@ -184,12 +178,8 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
         // clr.b (f_playerctrl).w / clr.b (f_wtunnelallow).w
         if (player != null) {
-            if (consumeJumpPress) {
-                // ROM: the ABC edge that releases the pole is read by the pole object
-                // after Sonic's mode logic for that frame has already run, so it does
-                // not trigger an immediate jump on release.
-                player.suppressNextJumpPress();
-            }
+            // Pole_Action runs after Sonic's routine for the current frame, so
+            // releasing here cannot trigger an immediate same-frame jump.
             player.deferObjectControlRelease();
         }
         setWindTunnelDisabled(false);
@@ -197,7 +187,6 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
         // clr.b pole_grabbed(a0)
         poleGrabbed = false;
         touchSignal = false;
-        jumpPressedPrevious = false;
     }
 
     @Override

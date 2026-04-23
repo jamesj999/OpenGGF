@@ -174,12 +174,9 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         this.frameDirection = INITIAL_FRAME_DIRECTION;
         // move.b obSubtype(a0),jun_switch(a0) — switch index from subtype
         this.switchIndex = spawn.subtype() & 0xFF;
-        // In practice the ROM object reaches gameplay already one tick into its
-        // animation cycle: the first visible Jun_Action pass presents frame 1 with
-        // a freshly reloaded 7-frame timer. Seeding that state keeps the disc gap
-        // phase aligned with the trace suite's SBZ junction timings.
-        this.mappingFrame = 1;
-        this.frameTimer = FRAME_TIMER_PERIOD;
+        // Jun_Main does not seed obFrame/obTimeFrame. Fresh object RAM starts at
+        // frame 0 with a zero timer, and the first Jun_Action pass advances that
+        // to frame 1 with a reloaded timer.
     }
 
     // ========================================================================
