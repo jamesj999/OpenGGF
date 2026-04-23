@@ -482,6 +482,14 @@ public class Engine {
 		masterTitleScreen = new MasterTitleScreen(configService);
 		masterTitleScreen.initialize();
 		gameLoop.setGameMode(GameMode.MASTER_TITLE_SCREEN);
+		// Counter the teardown's fade-to-black. Without this the screen
+		// stays fully black and the new master title never becomes
+		// visible. Use the graphics-owned fade manager — the runtime
+		// (and its fade manager) was just destroyed above.
+		FadeManager fadeManager = graphicsManager.getFadeManager();
+		if (fadeManager != null) {
+			fadeManager.startFadeFromBlack(null);
+		}
 	}
 
 	public void enterEditorFromCurrentPlayer(EditorPlaytestStash stash, int playerX, int playerY) {
