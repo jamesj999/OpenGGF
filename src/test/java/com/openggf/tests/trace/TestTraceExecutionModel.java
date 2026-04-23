@@ -28,11 +28,38 @@ class TestTraceExecutionModel {
     }
 
     @Test
-    void sonic3kUsesGameplayCounterNotLagCounter() {
+    void sonic1NoCounterDelta_defaultsToFullFrame() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x0120, 0x3456, 0);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x0120, 0x3456, 0);
+
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceExecutionModel.forGame("s1").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic2VblankDeltaWithoutGameplayDelta_vblankOnly() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x0220, 0x1456, 0);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x0221, 0x1456, 0);
+
+        assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                TraceExecutionModel.forGame("s2").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic3kLagCounterDelta_vblankOnly() {
         TraceFrame previous = TraceFrame.executionTestFrame(0, 0x2000, 0x0100, 3);
         TraceFrame current = TraceFrame.executionTestFrame(1, 0x2001, 0x0100, 4);
 
         assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                TraceExecutionModel.forGame("s3k").phaseFor(previous, current));
+    }
+
+    @Test
+    void sonic3kLagCounterAloneDoesNotSelectVblankOnly() {
+        TraceFrame previous = TraceFrame.executionTestFrame(0, 0x2000, 0x0100, 3);
+        TraceFrame current = TraceFrame.executionTestFrame(1, 0x2000, 0x0100, 4);
+
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
                 TraceExecutionModel.forGame("s3k").phaseFor(previous, current));
     }
 
