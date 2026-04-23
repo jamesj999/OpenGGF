@@ -2,7 +2,10 @@ package com.openggf.trace.replay;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
+import com.openggf.game.InitStep;
+import com.openggf.game.LevelInitProfile;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -10,6 +13,8 @@ import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
+
+import java.util.logging.Logger;
 
 /**
  * Headless and live trace replay share the same pre-gameplay setup.
@@ -30,7 +35,37 @@ import com.openggf.trace.TraceReplayBootstrap;
  */
 public final class TraceReplaySessionBootstrap {
 
+    private static final Logger LOGGER =
+            Logger.getLogger(TraceReplaySessionBootstrap.class.getName());
+
     private TraceReplaySessionBootstrap() {
+    }
+
+    /**
+     * Clears the per-zone subsystem state the headless fixture zaps
+     * via {@code TestEnvironment.resetPerTest()}: sprites, collision,
+     * camera, fade, game state, timers, water, parallax, cross-game
+     * features, debug overlay, and the game's {@code perTestLeadStep}
+     * (e.g. S1 event/switch/conveyor reset).
+     *
+     * <p>Call this BEFORE {@code LevelManager.loadZoneAndAct} when
+     * starting a live trace replay. Without it, state left behind by
+     * {@code Engine.initializeGame()} (title screen, default level,
+     * residual object state) leaks into the replay — one symptom is
+     * subpixel drift from frame 0 that first becomes pixel-visible at
+     * the first ROM-accurate collision or enemy destruction.
+     */
+    public static void resetLevelSubsystemsForReplay() {
+        LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+        for (InitStep step : profile.perTestResetSteps()) {
+            try {
+                step.execute();
+            } catch (RuntimeException e) {
+                LOGGER.warning("Trace-replay reset step '" + step.name()
+                        + "' threw " + e.getClass().getSimpleName()
+                        + ": " + e.getMessage());
+            }
+        }
     }
 
     /**
