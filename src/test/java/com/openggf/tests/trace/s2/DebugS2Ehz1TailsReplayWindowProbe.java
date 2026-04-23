@@ -141,6 +141,7 @@ class DebugS2Ehz1TailsReplayWindowProbe {
         SignpostObjectInstance signpost = findNearestSignpost();
         String signpostState = formatSignpostState(signpost);
         boolean sonicLock = sonic != null && sonic.isControlLocked();
+        boolean sonicObjectControlled = sonic != null && sonic.isObjectControlled();
         boolean sonicForceRight = sonic != null && sonic.isForceInputRight();
         boolean sonicQueuedLock = sonic != null && Boolean.TRUE.equals(readField(sonic, "hasQueuedControlLockedState"));
         boolean sonicQueuedForceRight =
@@ -160,7 +161,7 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                         + "actLay=%d top=%02X lrb=%02X hi=%d "
                         + "ctrl=%s ds=%d cc=%d onScr=%d lastId=%02X latch=%02X l=%d r=%d u=%d d=%d jump=%d leadIn=%04X leadSt=%02X "
                         + "leadPos=(%04X,%04X) dx=%d dy=%d moveLock=%d push=%d ride=%s sonicRide=%s "
-                        + "sonicAir=%d sonicRoll=%d sonicLock=%d sonicForceR=%d qLock=%d qLockV=%s "
+                        + "sonicAir=%d sonicRoll=%d sonicLock=%d sonicObj=%d sonicYRad=%d sonicStandY=%d sonicForceR=%d qLock=%d qLockV=%s "
                         + "qForceR=%d qForceRV=%s goal=%s wall=%s nearby=%s switchers=%s%n",
                 current.frame(),
                 phase,
@@ -231,6 +232,9 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                 sonic != null && sonic.getAir() ? 1 : 0,
                 sonic != null && sonic.getRolling() ? 1 : 0,
                 sonicLock ? 1 : 0,
+                sonicObjectControlled ? 1 : 0,
+                sonic != null ? sonic.getYRadius() : -1,
+                sonic != null ? sonic.getStandYRadius() : -1,
                 sonicForceRight ? 1 : 0,
                 sonicQueuedLock ? 1 : 0,
                 sonicQueuedLockValue,
