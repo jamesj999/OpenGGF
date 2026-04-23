@@ -38,7 +38,8 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private int errorCount;
     private int warningCount;
     private int laggedFrames;
-    private boolean firstDivergenceLogged;
+    private boolean firstErrorLogged;
+    private boolean firstWarningLogged;
     private int lastActionMask;
     private int lastInputMask;
     private boolean lastStartPressed;
@@ -138,10 +139,22 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             } else {
                 continue;
             }
-            if (!firstDivergenceLogged && sev == Severity.ERROR) {
-                firstDivergenceLogged = true;
+            if (sev == Severity.ERROR && !firstErrorLogged) {
+                firstErrorLogged = true;
                 System.err.printf(
                         "[LiveTraceComparator] FIRST ERROR at trace frame %d:%n"
+                                + "  field=%s expected=%s actual=%s delta=%d%n"
+                                + "  full frame comparison: %s%n",
+                        frameNumber,
+                        fc.fieldName(),
+                        fc.expected(),
+                        fc.actual(),
+                        fc.delta(),
+                        result);
+            } else if (sev == Severity.WARNING && !firstWarningLogged) {
+                firstWarningLogged = true;
+                System.err.printf(
+                        "[LiveTraceComparator] FIRST WARNING at trace frame %d:%n"
                                 + "  field=%s expected=%s actual=%s delta=%d%n"
                                 + "  full frame comparison: %s%n",
                         frameNumber,
