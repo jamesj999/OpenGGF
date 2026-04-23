@@ -151,6 +151,13 @@ public final class TraceSessionLauncher {
             playback.startSession(movie, startIndex);
 
             this.fixture = new LiveFixture(playback, loop);
+            // Reapply metadata start centre + initial ground snap
+            // BEFORE applyBootstrap so the order matches the headless
+            // fixture (which does these in Builder.build() — i.e.
+            // before any trace-data bootstrap runs). Running them
+            // after applyBootstrap would clobber subpixel state the
+            // helper's hydration steps wrote for seeded traces.
+            TraceReplaySessionBootstrap.applyStartPositionAndGroundSnap(trace, fixture);
             TraceReplaySessionBootstrap.BootstrapResult boot =
                     TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
 

@@ -62,11 +62,15 @@ public final class TraceReplaySessionBootstrap {
      *       snapshot + player history hydration.</li>
      *   <li>{@link TraceReplayBootstrap#applyReplayStartStateForTraceReplay}
      *       — primary-sprite state for seeded traces.</li>
-     *   <li>Metadata start centre coordinates (when
-     *       {@link TraceReplayBootstrap#shouldApplyMetadataStartPositionForTraceReplay}
-     *       is true) + initial ground-attachment pass — mirrors
-     *       {@code HeadlessTestFixture.Builder.build} steps 6 and 11.</li>
      * </ol>
+     *
+     * <p>The metadata start-position reapply + initial ground snap that
+     * mirrors {@code HeadlessTestFixture.Builder.build} steps 6 and 11
+     * is exposed separately as
+     * {@link #applyStartPositionAndGroundSnap} so callers can invoke it
+     * BEFORE this method (matching the test fixture order, which sets
+     * the start position and snaps to ground before hydrating recorded
+     * player history).
      *
      * @param preTraceOscOverride number of pre-trace oscillation frames
      *                            to pre-advance; pass a negative value
@@ -97,26 +101,29 @@ public final class TraceReplaySessionBootstrap {
                 TraceReplayBootstrap.applyPreTraceState(trace, fixture);
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
-        applyStartPositionAndGroundSnap(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
     }
 
     /**
-     * Reapply the metadata-recorded start centre coordinates and run an
-     * initial ground-attachment pass so the sprite's Y/angle match the
-     * ROM's post-title-card state before frame 0 of the comparison
-     * loop. Mirrors {@code HeadlessTestFixture.Builder.build} steps 6
-     * and 11.
+     * Reapply the metadata-recorded start centre coordinates and run
+     * an initial ground-attachment pass so the sprite's Y/angle match
+     * the ROM's post-title-card state. Mirrors
+     * {@code HeadlessTestFixture.Builder.build} steps 6 and 11 so
+     * headless and live paths end up with identical post-load sprite
+     * state.
+     *
+     * <p>Call this BEFORE {@link #applyBootstrap}. The fixture runs
+     * these steps at build time (before any trace-data bootstrap);
+     * running them afterwards would clobber subpixel state that
+     * {@code applyReplayStartState} had written for seeded traces.
      *
      * <p>Gated on
      * {@link TraceReplayBootstrap#shouldApplyMetadataStartPositionForTraceReplay}
      * (i.e. {@code replaySeedTraceIndex == 0 && !legacyS3kAizIntro}).
-     * Seeded-frame traces and legacy-AIZ traces have already had their
-     * sprite state written by {@code applyReplayStartState}; running
-     * the snap for them would contaminate a few subpixels of Y.
+     * Seeded-frame traces and legacy-AIZ traces are short-circuited.
      */
-    private static void applyStartPositionAndGroundSnap(TraceData trace,
-                                                        TraceReplayFixture fixture) {
+    public static void applyStartPositionAndGroundSnap(TraceData trace,
+                                                       TraceReplayFixture fixture) {
         if (!TraceReplayBootstrap.shouldApplyMetadataStartPositionForTraceReplay(trace)) {
             return;
         }
