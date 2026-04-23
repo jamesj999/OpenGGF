@@ -1,6 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
@@ -26,6 +27,12 @@ public class CheckpointState implements RespawnState {
     private int savedWaterLevel;
     private int savedWaterRoutine;
     private boolean hasWaterState;
+    private int savedCameraMaxY;
+    private int savedDynamicResizeRoutine;
+    private boolean hasS3kRuntimeState;
+    private byte savedTopSolidBit = 0x0C;
+    private byte savedLrbSolidBit = 0x0D;
+    private boolean hasSolidBits;
 
     /**
      * Clear checkpoint state (called on level start/change).
@@ -41,6 +48,12 @@ public class CheckpointState implements RespawnState {
         savedWaterLevel = 0;
         savedWaterRoutine = 0;
         hasWaterState = false;
+        savedCameraMaxY = 0;
+        savedDynamicResizeRoutine = 0;
+        hasS3kRuntimeState = false;
+        savedTopSolidBit = 0x0C;
+        savedLrbSolidBit = 0x0D;
+        hasSolidBits = false;
     }
 
     /**
@@ -56,8 +69,36 @@ public class CheckpointState implements RespawnState {
         Camera camera = GameServices.camera();
         this.savedCameraX = camera.getX();
         this.savedCameraY = camera.getY();
+        saveS3kRuntimeStateIfPresent(camera);
+        savePlayerSolidBitsIfPresent();
 
         LOGGER.fine("Saved checkpoint " + lastCheckpointIndex + " at (" + savedX + ", " + savedY + ")");
+    }
+
+    private void savePlayerSolidBitsIfPresent() {
+        Camera camera = GameServices.cameraOrNull();
+        if (camera == null || !(camera.getFocusedSprite() instanceof AbstractPlayableSprite playable)) {
+            savedTopSolidBit = 0x0C;
+            savedLrbSolidBit = 0x0D;
+            hasSolidBits = false;
+            return;
+        }
+        savedTopSolidBit = playable.getTopSolidBit();
+        savedLrbSolidBit = playable.getLrbSolidBit();
+        hasSolidBits = true;
+    }
+
+    private void saveS3kRuntimeStateIfPresent(Camera camera) {
+        LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
+        if (camera == null || !(eventProvider instanceof Sonic3kLevelEventManager s3kEvents)) {
+            savedCameraMaxY = 0;
+            savedDynamicResizeRoutine = 0;
+            hasS3kRuntimeState = false;
+            return;
+        }
+        savedCameraMaxY = camera.getMaxY();
+        savedDynamicResizeRoutine = s3kEvents.getDynamicResizeRoutine();
+        hasS3kRuntimeState = true;
     }
 
     /**
@@ -88,6 +129,10 @@ public class CheckpointState implements RespawnState {
             camera.setX((short) savedCameraX);
             camera.setY((short) savedCameraY);
             camera.setFocusedSprite(player);
+            if (hasS3kRuntimeState) {
+                camera.setMaxY((short) savedCameraMaxY);
+                camera.setMaxYTarget((short) savedCameraMaxY);
+            }
 
             // Apply camera min X lock if subtype bit 7 was set
             if (cameraLock) {
@@ -149,6 +194,30 @@ public class CheckpointState implements RespawnState {
         return usedForSpecialStage;
     }
 
+    public boolean hasS3kRuntimeState() {
+        return hasS3kRuntimeState;
+    }
+
+    public int getSavedCameraMaxY() {
+        return savedCameraMaxY;
+    }
+
+    public int getSavedDynamicResizeRoutine() {
+        return savedDynamicResizeRoutine;
+    }
+
+    public boolean hasSolidBits() {
+        return hasSolidBits;
+    }
+
+    public byte getSavedTopSolidBit() {
+        return savedTopSolidBit;
+    }
+
+    public byte getSavedLrbSolidBit() {
+        return savedLrbSolidBit;
+    }
+
     public void markUsedForSpecialStage() {
         this.usedForSpecialStage = true;
         LOGGER.fine("Checkpoint " + lastCheckpointIndex + " marked as used for special stage entry");
@@ -166,5 +235,17 @@ public class CheckpointState implements RespawnState {
         this.savedCameraX = cameraX;
         this.savedCameraY = cameraY;
         LOGGER.fine("Restored checkpoint " + checkpointIndex + " state at (" + x + ", " + y + ")");
+    }
+
+    public void saveS3kRuntimeState(int cameraMaxY, int dynamicResizeRoutine) {
+        this.savedCameraMaxY = cameraMaxY;
+        this.savedDynamicResizeRoutine = dynamicResizeRoutine;
+        this.hasS3kRuntimeState = true;
+    }
+
+    public void saveSolidBits(byte topSolidBit, byte lrbSolidBit) {
+        this.savedTopSolidBit = topSolidBit;
+        this.savedLrbSolidBit = lrbSolidBit;
+        this.hasSolidBits = true;
     }
 }

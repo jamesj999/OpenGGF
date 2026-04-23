@@ -2,10 +2,25 @@ package com.openggf.tests;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.CheckpointState;
 import com.openggf.game.GameServices;
+import com.openggf.game.RespawnState;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.LevelManager;
+import com.openggf.level.Map;
+import com.openggf.level.SolidTile;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.physics.Direction;
+import com.openggf.physics.GroundSensor;
+import com.openggf.physics.Sensor;
+import com.openggf.physics.SensorResult;
+import com.openggf.sprites.SensorConfiguration;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
@@ -14,6 +29,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +54,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 @RequiresRom(SonicGame.SONIC_3K)
 class TestS3kMgz2BgRiseHeadless {
+    private static final int FINAL_WALL_BUG_START_TOP_LEFT_X = 14342;
+    private static final int FINAL_WALL_BUG_START_TOP_LEFT_Y = 2007;
+    private static final int FINAL_WALL_BUG_MAX_FRAMES = 180;
+    private static final int FINAL_WALL_BUG_EJECT_XSPEED_THRESHOLD = 400;
+    private static final int FINAL_WALL_BUG_EJECT_LOOKAHEAD_FRAMES = 16;
 
     private static SharedLevel sharedLevel;
     private static Object oldSkipIntros;
@@ -82,6 +103,61 @@ class TestS3kMgz2BgRiseHeadless {
     private void teleport(int centreX, int centreY) {
         sprite.setCentreX((short) centreX);
         sprite.setCentreY((short) centreY);
+    }
+
+    private ObjectSpawn lastCheckpoint() {
+        int checkpointId = GameServices.module().getCheckpointObjectId();
+        return GameServices.level().getCurrentLevel().getObjects().stream()
+                .filter(spawn -> spawn.objectId() == checkpointId)
+                .max(java.util.Comparator.comparingInt(ObjectSpawn::x))
+                .orElseThrow(() -> new AssertionError("expected MGZ2 to contain at least one checkpoint"));
+    }
+
+    private static boolean isLateLoadFinishedRisePosition(int checkpointX, int checkpointY) {
+        boolean sonicRiseFinished = checkpointY >= 0x0800 && checkpointX >= 0x3800;
+        boolean afterMoveFinished = checkpointY >= 0x0500 && checkpointY < 0x0800 && checkpointX >= 0x3900;
+        return sonicRiseFinished || afterMoveFinished;
+    }
+
+    private static int expectedLateLoadBgRiseRoutine(int checkpointX, int checkpointY) {
+        if (checkpointY >= 0x0500 && checkpointY < 0x0800 && checkpointX >= 0x3900) {
+            return 0x0C;
+        }
+        if (checkpointY >= 0x0800 && checkpointX >= 0x3800) {
+            return 0x08;
+        }
+        throw new AssertionError(String.format(
+                "checkpoint (0x%04X,0x%04X) is not in MGZ2's finished-rise late-load range",
+                checkpointX, checkpointY));
+    }
+
+    private void respawnFromLastCheckpointWithFinishedRise() {
+        ObjectSpawn lastCheckpoint = lastCheckpoint();
+        int checkpointX = lastCheckpoint.x();
+        int checkpointY = lastCheckpoint.y();
+        assertTrue(isLateLoadFinishedRisePosition(checkpointX, checkpointY),
+                String.format("last MGZ2 checkpoint should be beyond the ROM late-load terrain-rise thresholds, got (0x%04X,0x%04X)",
+                        checkpointX, checkpointY));
+
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
+        assertNotNull(checkpointState, "checkpoint state should exist after MGZ2 load");
+        ((CheckpointState) checkpointState).saveCheckpoint(lastCheckpoint.subtype() & 0x7F,
+                checkpointX, checkpointY, false);
+
+        teleport(0x0200, 0x0200);
+        GameServices.level().respawnPlayer();
+
+        assertEquals(checkpointX, sprite.getCentreX(), "respawn should restore checkpoint X");
+        assertEquals(checkpointY, sprite.getCentreY(), "respawn should restore checkpoint Y");
+
+        fixture.stepIdleFrames(1);
+
+        Sonic3kMGZEvents events = mgzEvents();
+        int expectedRoutine = expectedLateLoadBgRiseRoutine(checkpointX, checkpointY);
+        assertEquals(expectedRoutine, events.getBgRiseRoutine(),
+                "first live frame after respawn should reconstruct MGZ2's ROM late-load BG state");
+        assertEquals(0x1D0, events.getBgRiseOffset(),
+                "late-load MGZ2 checkpoint respawn should preload the fully-raised BG offset");
     }
 
     @Test
@@ -171,6 +247,331 @@ class TestS3kMgz2BgRiseHeadless {
         Sonic3kMGZEvents events = mgzEvents();
         assertEquals(0x1D0, events.getBgRiseOffset(),
                 "after 600 accelerated frames the offset should be at the ROM target $1D0");
+    }
+
+    @Test
+    void respawnFromLastCheckpoint_restoresFinishedBgRiseStateFromLoadPosition() {
+        ObjectSpawn lastCheckpoint = lastCheckpoint();
+        int checkpointX = lastCheckpoint.x();
+        int checkpointY = lastCheckpoint.y();
+        respawnFromLastCheckpointWithFinishedRise();
+        Sonic3kMGZEvents events = mgzEvents();
+        int expectedRoutine = expectedLateLoadBgRiseRoutine(checkpointX, checkpointY);
+        assertEquals(expectedRoutine, events.getBgRiseRoutine(),
+                "first live frame after respawn should reconstruct MGZ2's ROM late-load BG state");
+        assertEquals(0x1D0, events.getBgRiseOffset(),
+                "late-load MGZ2 checkpoint respawn should preload the fully-raised BG offset");
+        assertEquals(expectedRoutine == 0x08,
+                GameServices.gameState().isBackgroundCollisionFlag(),
+                "MGZ2 ROM late-load collision flag should match the restored BG state");
+    }
+
+    @Test
+    void checkpointRespawn_restoresSavedMgzEventRoutineAndCameraMaxY() {
+        ObjectSpawn lastCheckpoint = lastCheckpoint();
+        CheckpointState checkpointState = (CheckpointState) GameServices.level().getCheckpointState();
+        assertNotNull(checkpointState, "checkpoint state should exist after MGZ2 load");
+
+        int savedCameraMaxY = 0x06A0;
+        int savedRoutine = 4;
+        fixture.camera().setMaxY((short) savedCameraMaxY);
+        fixture.camera().setMaxYTarget((short) savedCameraMaxY);
+        mgzEvents().setDynamicResizeRoutine(savedRoutine);
+        checkpointState.saveCheckpoint(lastCheckpoint.subtype() & 0x7F, lastCheckpoint.x(), lastCheckpoint.y(), false);
+
+        fixture.camera().setMaxY((short) 0x1000);
+        fixture.camera().setMaxYTarget((short) 0x1000);
+        mgzEvents().setDynamicResizeRoutine(0);
+
+        teleport(0x0200, 0x0200);
+        GameServices.level().respawnPlayer();
+
+        assertEquals(savedCameraMaxY, fixture.camera().getMaxY(),
+                "death respawn should restore the saved S3K camera max Y from the checkpoint");
+        assertEquals(savedRoutine, mgzEvents().getDynamicResizeRoutine(),
+                "death respawn should restore the saved S3K dynamic resize routine from the checkpoint");
+    }
+
+    @Test
+    void checkpointRespawn_restoresSavedSolidBits() {
+        ObjectSpawn lastCheckpoint = lastCheckpoint();
+        CheckpointState checkpointState = (CheckpointState) GameServices.level().getCheckpointState();
+        assertNotNull(checkpointState, "checkpoint state should exist after MGZ2 load");
+
+        sprite.setTopSolidBit((byte) 0x0E);
+        sprite.setLrbSolidBit((byte) 0x0F);
+        checkpointState.saveCheckpoint(lastCheckpoint.subtype() & 0x7F, lastCheckpoint.x(), lastCheckpoint.y(), false);
+
+        sprite.setTopSolidBit((byte) 0x0C);
+        sprite.setLrbSolidBit((byte) 0x0D);
+
+        teleport(0x0200, 0x0200);
+        GameServices.level().respawnPlayer();
+
+        assertEquals(0x0E, sprite.getTopSolidBit() & 0xFF,
+                "death respawn should restore the saved top solid bit from the checkpoint");
+        assertEquals(0x0F, sprite.getLrbSolidBit() & 0xFF,
+                "death respawn should restore the saved left/right/bottom solid bit from the checkpoint");
+    }
+
+    @Test
+    void finalCheckpointAirborneWallRoute_doesNotZeroYSpeedOrLaunchSonicAway() {
+        respawnFromLastCheckpointWithFinishedRise();
+        forceFinalChunkStateForDebug();
+
+        // This route is intentionally after the floor-rise sequence has already
+        // completed. The user reports that many airborne left/right wall
+        // contacts misbehave only during and after that MGZ2 state.
+        sprite.setX((short) FINAL_WALL_BUG_START_TOP_LEFT_X);
+        sprite.setY((short) FINAL_WALL_BUG_START_TOP_LEFT_Y);
+        sprite.setCentreX(sprite.getCentreX());
+        sprite.setCentreY(sprite.getCentreY());
+        sprite.setAir(true);
+        sprite.setJumping(false);
+        sprite.setPushing(false);
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
+        fixture.camera().updatePosition(true);
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
+
+        StringBuilder trace = new StringBuilder();
+        trace.append("start bgRoutine=").append(mgzEvents().getBgRiseRoutine())
+                .append(" bgOffset=").append(mgzEvents().getBgRiseOffset())
+                .append(" bgCollision=").append(GameServices.gameState().isBackgroundCollisionFlag())
+                .append('\n');
+
+        BugRouteFrame previous = snapshotBugRouteFrame(-1);
+        trace.append(previous.describe()).append('\n');
+        int snapFrame = -1;
+
+        for (int frame = 0; frame < FINAL_WALL_BUG_MAX_FRAMES; frame++) {
+            fixture.stepFrame(false, false, true, false, false);
+            BugRouteFrame current = snapshotBugRouteFrame(frame);
+            trace.append(current.describe()).append('\n');
+            if (frame >= 9 && frame <= 11) {
+                trace.append(describeBgCollisionState()).append('\n');
+                trace.append(describeGroundSensors()).append('\n');
+                trace.append(describePushSensors()).append('\n');
+                if (frame == 10) {
+                    trace.append(describePredictedCollisionSensors()).append('\n');
+                }
+            }
+
+            boolean upwardSnap = current.topLeftY < previous.topLeftY;
+            if (snapFrame < 0 && upwardSnap && current.ySpeed == 0 && previous.ySpeed > 0) {
+                snapFrame = frame;
+                trace.append("snapFrame=").append(frame).append('\n');
+            }
+            boolean badWallResponse = snapFrame >= 0
+                    && frame <= snapFrame + FINAL_WALL_BUG_EJECT_LOOKAHEAD_FRAMES
+                    && current.xSpeed > FINAL_WALL_BUG_EJECT_XSPEED_THRESHOLD;
+
+            assertFalse(badWallResponse,
+                    "MGZ2 final-checkpoint airborne wall collision zeroed ySpeed and launched Sonic away while holding left.\n"
+                            + trace);
+
+            previous = current;
+        }
+    }
+
+    private String describeGroundSensors() {
+        StringBuilder builder = new StringBuilder("groundSensors:");
+        for (Sensor sensor : sprite.getGroundSensors()) {
+            builder.append(' ').append(describeGroundSensor(sensor));
+        }
+        return builder.toString();
+    }
+
+    private String describeBgCollisionState() {
+        int cameraX = fixture.camera().getX();
+        int cameraY = fixture.camera().getY();
+        int bgCameraX = Integer.MIN_VALUE;
+        int bgCameraY = 0;
+        ParallaxManager parallaxManager = GameServices.parallaxOrNull();
+        if (parallaxManager != null) {
+            ZoneScrollHandler handler = parallaxManager.getHandler(GameServices.level().getFeatureZoneId());
+            if (handler != null) {
+                bgCameraX = handler.getBgCameraX();
+                bgCameraY = handler.getVscrollFactorBG();
+            }
+            if (bgCameraX == Integer.MIN_VALUE) {
+                bgCameraX = parallaxManager.getBgCameraX();
+            }
+            if (bgCameraY == 0) {
+                bgCameraY = parallaxManager.getVscrollFactorBG();
+            }
+        }
+        int cameraDiffX = bgCameraX == Integer.MIN_VALUE ? 0 : cameraX - bgCameraX;
+        int cameraDiffY = cameraY - bgCameraY;
+        return String.format(
+                "bgState: camera=(%d,%d) bgCamera=(%d,%d) diff=(%d,%d) bgCollision=%s",
+                cameraX, cameraY, bgCameraX, bgCameraY, cameraDiffX, cameraDiffY,
+                GameServices.gameState().isBackgroundCollisionFlag());
+    }
+
+    private String describePushSensors() {
+        StringBuilder builder = new StringBuilder("pushSensors:");
+        for (Sensor sensor : sprite.getPushSensors()) {
+            builder.append(' ').append(describePushSensor(sensor));
+        }
+        return builder.toString();
+    }
+
+    private String describePushSensor(Sensor sensor) {
+        if (!(sensor instanceof GroundSensor groundSensor)) {
+            return "nonGround";
+        }
+        try {
+            SensorConfiguration config = SpriteManager.getSensorConfigurationForGroundModeAndDirection(
+                    sprite.getGroundMode(), groundSensor.getDirection());
+            short originalX = (short) (sprite.getCentreX() + rotatedX(groundSensor));
+            short originalY = (short) (sprite.getCentreY() + rotatedY(groundSensor));
+            int solidityBit = sprite.getLrbSolidBit();
+            SensorResult fgResult = invokeSensorMethod(groundSensor, "scanHorizontal",
+                    new Class<?>[] {short.class, short.class, int.class, Direction.class},
+                    originalX, originalY, solidityBit, config.direction());
+            SensorResult bgResult = invokeSensorMethod(groundSensor, "scanBackgroundCollision",
+                    new Class<?>[] {short.class, short.class, int.class, Direction.class, boolean.class},
+                    originalX, originalY, solidityBit, config.direction(), config.vertical());
+            SensorResult selected = copySensorResult(groundSensor.scan((short) 0, (short) 0));
+            return String.format("%s@(%d,%d) fg=%s bg=%s selected=%s %s",
+                    groundSensor.getDirection(), originalX, originalY,
+                    describeSensorResult(fgResult), describeSensorResult(bgResult), describeSensorResult(selected),
+                    describeForegroundTile(originalX, originalY, solidityBit));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect push sensor state", e);
+        }
+    }
+
+    private String describePredictedCollisionSensors() {
+        int predictedXPos = (((sprite.getX() << 16) | sprite.getXSubpixelRaw()) + ((int) sprite.getXSpeed() << 8)) >> 16;
+        int predictedYPos = (((sprite.getY() << 16) | sprite.getYSubpixelRaw()) + ((int) sprite.getYSpeed() << 8)) >> 16;
+        short dx = (short) (predictedXPos - sprite.getX());
+        short dy = (short) (predictedYPos - sprite.getY());
+        StringBuilder builder = new StringBuilder();
+        builder.append("predicted move dx=").append(dx)
+                .append(" dy=").append(dy)
+                .append(" xSub=").append(sprite.getXSubpixelRaw())
+                .append(" ySub=").append(sprite.getYSubpixelRaw());
+        builder.append(" ground:");
+        for (Sensor sensor : sprite.getGroundSensors()) {
+            builder.append(' ').append(describeOffsetSensor(sensor, dx, dy));
+        }
+        builder.append(" push:");
+        for (Sensor sensor : sprite.getPushSensors()) {
+            builder.append(' ').append(describeOffsetSensor(sensor, dx, dy));
+        }
+        return builder.toString();
+    }
+
+    private String describeSimpleSensor(Sensor sensor) {
+        SensorResult result = copySensorResult(sensor.scan((short) 0, (short) 0));
+        return String.format("%s=%s", sensor.getDirection(), describeSensorResult(result));
+    }
+
+    private String describeOffsetSensor(Sensor sensor, short dx, short dy) {
+        SensorResult result = copySensorResult(sensor.scan(dx, dy));
+        return String.format("%s=%s", sensor.getDirection(), describeSensorResult(result));
+    }
+
+    private String describeGroundSensor(Sensor sensor) {
+        if (!(sensor instanceof GroundSensor groundSensor)) {
+            return "nonGround";
+        }
+        try {
+            SensorConfiguration config = SpriteManager.getSensorConfigurationForGroundModeAndDirection(
+                    sprite.getGroundMode(), groundSensor.getDirection());
+            short originalX = (short) (sprite.getCentreX() + rotatedX(groundSensor));
+            short originalY = (short) (sprite.getCentreY() + rotatedY(groundSensor));
+            int solidityBit = (groundSensor.getDirection() == Direction.DOWN)
+                    ? sprite.getTopSolidBit()
+                    : sprite.getLrbSolidBit();
+            SensorResult fgResult = config.vertical()
+                    ? invokeSensorMethod(groundSensor, "scanVertical",
+                    new Class<?>[] {short.class, short.class, int.class, Direction.class},
+                    originalX, originalY, solidityBit, config.direction())
+                    : null;
+            SensorResult bgResult = invokeSensorMethod(groundSensor, "scanBackgroundCollision",
+                    new Class<?>[] {short.class, short.class, int.class, Direction.class, boolean.class},
+                    originalX, originalY, solidityBit, config.direction(), config.vertical());
+            SensorResult selected = copySensorResult(groundSensor.scan((short) 0, (short) 0));
+            return String.format("%s@(%d,%d) fg=%s bg=%s selected=%s %s",
+                    groundSensor.getDirection(), originalX, originalY,
+                    describeSensorResult(fgResult), describeSensorResult(bgResult), describeSensorResult(selected),
+                    describeForegroundTile(originalX, originalY, solidityBit));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to inspect ground sensor state", e);
+        }
+    }
+
+    private short rotatedX(GroundSensor sensor) {
+        sensor.computeRotatedOffset();
+        return sensor.getRotatedX();
+    }
+
+    private short rotatedY(GroundSensor sensor) {
+        sensor.computeRotatedOffset();
+        return sensor.getRotatedY();
+    }
+
+    private SensorResult invokeSensorMethod(GroundSensor sensor, String methodName, Class<?>[] parameterTypes,
+                                            Object... args)
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        Method method = GroundSensor.class.getDeclaredMethod(methodName, parameterTypes);
+        method.setAccessible(true);
+        SensorResult result = (SensorResult) method.invoke(sensor, args);
+        return copySensorResult(result);
+    }
+
+    private SensorResult copySensorResult(SensorResult result) {
+        if (result == null) {
+            return null;
+        }
+        return new SensorResult(result.angle(), result.distance(), result.tileId(), result.direction());
+    }
+
+    private static String describeSensorResult(SensorResult result) {
+        if (result == null) {
+            return "null";
+        }
+        return String.format("{dist=%d angle=%02X tile=%d dir=%s}",
+                result.distance(), result.angle() & 0xFF, result.tileId(), result.direction());
+    }
+
+    private String describeForegroundTile(short worldX, short worldY, int solidityBit) {
+        LevelManager levelManager = GameServices.level();
+        Map map = levelManager.getCurrentLevel().getMap();
+        int blockPixelSize = levelManager.getCurrentLevel().getBlockPixelSize();
+        int mapX = worldX / blockPixelSize;
+        int mapY = worldY / blockPixelSize;
+        int blockIndex = map.getValue(0, mapX, mapY) & 0xFF;
+        ChunkDesc desc = levelManager.getChunkDescAt((byte) 0, worldX, worldY, sprite.isLoopLowPlane());
+        if (desc == null) {
+            return "fgTile=null";
+        }
+        SolidTile tile = levelManager.getSolidTileForChunkDesc(desc, solidityBit);
+        if (tile == null) {
+            return String.format("fgTile=none block=%02X map=(%d,%d) desc=%04X", blockIndex, mapX, mapY, desc.get());
+        }
+        int heightIndex = worldX & 0x0F;
+        if (desc.getHFlip()) {
+            heightIndex = 15 - heightIndex;
+        }
+        return String.format("fgTile=%d block=%02X map=(%d,%d) desc=%04X chunk=%03X hFlip=%s vFlip=%s rawHeight=%d angle=%02X",
+                tile.getIndex(), blockIndex, mapX, mapY, desc.get(), desc.getChunkIndex(), desc.getHFlip(), desc.getVFlip(),
+                tile.getHeightAt((byte) heightIndex), tile.getAngle(desc.getHFlip(), desc.getVFlip()) & 0xFF);
+    }
+
+    private void forceFinalChunkStateForDebug() {
+        try {
+            Method applyChunkMutationPair = Sonic3kMGZEvents.class.getDeclaredMethod(
+                    "applyChunkMutationPair", int.class);
+            applyChunkMutationPair.setAccessible(true);
+            applyChunkMutationPair.invoke(mgzEvents(), 0x5C);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to force final MGZ2 chunk state for debug", e);
+        }
     }
 
     @Test
@@ -585,6 +986,43 @@ class TestS3kMgz2BgRiseHeadless {
         Method ensureBg = com.openggf.level.LevelManager.class.getDeclaredMethod("ensureBackgroundTilemapData");
         ensureBg.setAccessible(true);
         ensureBg.invoke(GameServices.level());
+    }
+
+    private BugRouteFrame snapshotBugRouteFrame(int frame) {
+        return new BugRouteFrame(
+                frame,
+                sprite.getX(),
+                sprite.getY(),
+                sprite.getCentreX(),
+                sprite.getCentreY(),
+                sprite.getXSpeed(),
+                sprite.getYSpeed(),
+                sprite.getGSpeed(),
+                sprite.getAir(),
+                sprite.getPushing(),
+                sprite.getAngle() & 0xFF,
+                String.valueOf(sprite.getGroundMode()));
+    }
+
+    private record BugRouteFrame(
+            int frame,
+            int topLeftX,
+            int topLeftY,
+            int centreX,
+            int centreY,
+            int xSpeed,
+            int ySpeed,
+            int gSpeed,
+            boolean air,
+            boolean pushing,
+            int angle,
+            String groundMode) {
+
+        String describe() {
+            return String.format(
+                    "frame=%d topLeft=(%d,%d) centre=(%d,%d) xSpeed=%d ySpeed=%d gSpeed=%d air=%s pushing=%s angle=%02X mode=%s",
+                    frame, topLeftX, topLeftY, centreX, centreY, xSpeed, ySpeed, gSpeed, air, pushing, angle, groundMode);
+        }
     }
 
     @Test

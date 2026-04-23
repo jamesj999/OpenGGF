@@ -3534,8 +3534,18 @@ public class LevelManager {
                 ctx.getCheckpointX(), ctx.getCheckpointY(),
                 ctx.getCheckpointCameraX(), ctx.getCheckpointCameraY(),
                 ctx.getCheckpointIndex());
-        if (ctx.hasWaterState() && checkpointState instanceof CheckpointState cs) {
-            cs.saveWaterState(ctx.getCheckpointWaterLevel(), ctx.getCheckpointWaterRoutine());
+        if (checkpointState instanceof CheckpointState cs) {
+            if (ctx.hasWaterState()) {
+                cs.saveWaterState(ctx.getCheckpointWaterLevel(), ctx.getCheckpointWaterRoutine());
+            }
+            if (ctx.hasCheckpointS3kRuntimeState()) {
+                cs.saveS3kRuntimeState(
+                        ctx.getCheckpointCameraMaxY(),
+                        ctx.getCheckpointDynamicResizeRoutine());
+            }
+            if (ctx.hasCheckpointSolidBits()) {
+                cs.saveSolidBits(ctx.getCheckpointTopSolidBit(), ctx.getCheckpointLrbSolidBit());
+            }
         }
 
         // ROM Lamp_LoadInfo: restore water level and routine after level reload.
@@ -3549,6 +3559,22 @@ public class LevelManager {
             if (zoneFeatureProvider != null) {
                 zoneFeatureProvider.setWaterRoutine(ctx.getCheckpointWaterRoutine());
             }
+        }
+    }
+
+    private void restoreCheckpointRuntimeState(LevelLoadContext ctx) {
+        if (!ctx.hasCheckpoint() || !ctx.hasCheckpointS3kRuntimeState()) {
+            return;
+        }
+
+        camera.setMaxY((short) ctx.getCheckpointCameraMaxY());
+        camera.setMaxYTarget((short) ctx.getCheckpointCameraMaxY());
+
+        LevelEventProvider levelEvents = activeGameModule().getLevelEventProvider();
+        if (levelEvents instanceof AbstractLevelEventManager eventManager) {
+            eventManager.restoreEventRoutineState(
+                    ctx.getCheckpointDynamicResizeRoutine(),
+                    eventManager.getEventRoutineBg());
         }
     }
 
@@ -3651,6 +3677,10 @@ public class LevelManager {
         playable.setHighPriority(false);
         playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         playable.setRingCount(0);
+        if (ctx.hasCheckpoint() && ctx.hasCheckpointSolidBits()) {
+            playable.setTopSolidBit(ctx.getCheckpointTopSolidBit());
+            playable.setLrbSolidBit(ctx.getCheckpointLrbSolidBit());
+        }
         audioManager.getBackend().setSpeedShoes(false);
     }
 
@@ -3823,6 +3853,7 @@ public class LevelManager {
             ctx.snapshotCheckpoint(checkpointState);
 
             loadLevel(levelData.getLevelIndex(), loadMode, ctx);
+            restoreCheckpointRuntimeState(ctx);
 
             frameCounter = 0;
 

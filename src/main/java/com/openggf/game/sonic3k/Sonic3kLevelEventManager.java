@@ -600,6 +600,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         if (hczEvents != null) {
             return hczEvents.getDynamicResizeRoutine();
         }
+        if (mgzEvents != null) {
+            return mgzEvents.getDynamicResizeRoutine();
+        }
         return 0;
     }
 
@@ -616,6 +619,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
         }
         if (hczEvents != null) {
             hczEvents.setDynamicResizeRoutine(routine);
+        }
+        if (mgzEvents != null) {
+            mgzEvents.setDynamicResizeRoutine(routine);
         }
     }
 

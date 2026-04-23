@@ -31,6 +31,7 @@ public class GroundSensor extends Sensor {
 
     private final SensorResult reusableResult = new SensorResult();
     private final SensorResult bgScanResult = new SensorResult();
+    private final SensorResult bgWallScanResult = new SensorResult();
     private final WallScanResult wallResult1 = new WallScanResult();
     private final WallScanResult wallResult2 = new WallScanResult();
 
@@ -254,14 +255,16 @@ public class GroundSensor extends Sensor {
 
         switch (result.state) {
             case FOUND:
-                return createResultWithDistance(result.tile, result.desc, (byte) result.distance, direction);
+                return createResultWithDistance(bgWallScanResult, result.tile, result.desc,
+                        (byte) result.distance, direction);
 
             case REGRESS: {
                 int prevX = x + (direction == Direction.LEFT ? 16 : -16);
                 WallScanResult prev = scanWallTileSimpleBg(prevX, y, solidityBit, direction);
                 SolidTile prevTile = prev.tile != null ? prev.tile : result.tile;
                 ChunkDesc prevDesc = prev.tile != null ? prev.desc : result.desc;
-                return createResultWithDistance(prevTile, prevDesc, (byte) (prev.distance - 16), direction);
+                return createResultWithDistance(bgWallScanResult, prevTile, prevDesc,
+                        (byte) (prev.distance - 16), direction);
             }
 
             case EXTEND:
@@ -270,7 +273,8 @@ public class GroundSensor extends Sensor {
                 WallScanResult next = scanWallTileSimpleBg(nextX, y, solidityBit, direction);
                 SolidTile nextTile = next.tile != null ? next.tile : result.tile;
                 ChunkDesc nextDesc = next.tile != null ? next.desc : result.desc;
-                return createResultWithDistance(nextTile, nextDesc, (byte) (next.distance + 16), direction);
+                return createResultWithDistance(bgWallScanResult, nextTile, nextDesc,
+                        (byte) (next.distance + 16), direction);
             }
         }
     }
@@ -395,8 +399,8 @@ public class GroundSensor extends Sensor {
                 // ROM FindFloor2: when the tile IS solid but metric=0, the angle register
                 // d3 was already loaded from this tile (move.b (a4,d0.w),d3 runs before
                 // the metric check). The ROM branches to loc_1E88A (default distance)
-                // which returns d1=15-yInTile and d3=this tile's angle.
-                // Engine must return a result (not null) to preserve the extension tile's angle.
+                    // which returns d1=15-yInTile and d3=this tile's angle.
+                    // Engine must return a result (not null) to preserve the extension tile's angle.
                 byte distance = calculateVerticalDistance((byte) 0, origY, checkY, direction);
                 return createResultWithDistance(tile, desc, distance, direction);
             }
@@ -687,6 +691,14 @@ public class GroundSensor extends Sensor {
     }
 
     private SensorResult createResultWithDistance(SolidTile tile, ChunkDesc desc, byte distance, Direction direction) {
+        return createResultWithDistance(reusableResult, tile, desc, distance, direction);
+    }
+
+    private SensorResult createResultWithDistance(SensorResult target,
+                                                  SolidTile tile,
+                                                  ChunkDesc desc,
+                                                  byte distance,
+                                                  Direction direction) {
         byte angle = FLAGGED_ANGLE;
         int tileIndex = 0;
 
@@ -697,7 +709,7 @@ public class GroundSensor extends Sensor {
             tileIndex = tile.getIndex();
         }
 
-        return reusableResult.set(angle, distance, tileIndex, direction);
+        return target.set(angle, distance, tileIndex, direction);
     }
 
     // ========================================
