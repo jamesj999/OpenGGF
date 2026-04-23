@@ -540,8 +540,12 @@ public class CollisionSystem {
         }
 
         SensorResult lowestResult = findLowestSensorResult(results);
-
-        if (lowestResult == null || lowestResult.distance() >= 0) {
+        if (lowestResult == null) {
+            return;
+        }
+        boolean zeroDistanceLanding = shouldTreatZeroDistanceAsGround(sprite, lowestResult);
+        traceS1LzAirLandingProbe(sprite, "threshold", lowestResult, zeroDistanceLanding);
+        if (lowestResult.distance() > 0 || (lowestResult.distance() == 0 && !zeroDistanceLanding)) {
             return;
         }
 
@@ -576,12 +580,62 @@ public class CollisionSystem {
         }
 
         SensorResult lowestResult = findLowestSensorResult(results);
-        if (lowestResult == null || lowestResult.distance() >= 0) {
+        if (lowestResult == null) {
+            return;
+        }
+        boolean zeroDistanceLanding = shouldTreatZeroDistanceAsGround(sprite, lowestResult);
+        traceS1LzAirLandingProbe(sprite, "direct", lowestResult, zeroDistanceLanding);
+        if (lowestResult.distance() > 0 || (lowestResult.distance() == 0 && !zeroDistanceLanding)) {
             return;
         }
 
         // No threshold check — land immediately if any floor found (d1 < 0).
         landOnFloor(sprite, lowestResult, landingHandler);
+    }
+
+    private boolean shouldTreatZeroDistanceAsGround(AbstractPlayableSprite sprite, SensorResult support) {
+        if (support == null || support.distance() != 0) {
+            return false;
+        }
+        com.openggf.level.LevelManager levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            return false;
+        }
+        com.openggf.game.ZoneFeatureProvider zoneFeatures = levelManager.getZoneFeatureProvider();
+        return zoneFeatures != null
+                && zoneFeatures.shouldTreatZeroDistanceAirLandingAsGround(sprite, support);
+    }
+
+    private void traceS1LzAirLandingProbe(AbstractPlayableSprite sprite,
+                                          String mode,
+                                          SensorResult support,
+                                          boolean zeroDistanceLanding) {
+        if (!Boolean.getBoolean("s1.lz.airlandingprobe")) {
+            return;
+        }
+        com.openggf.level.LevelManager levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            return;
+        }
+        int x = sprite.getCentreX() & 0xFFFF;
+        int y = sprite.getCentreY() & 0xFFFF;
+        if (x < 0x0AE0 || x > 0x0B60 || y < 0x0640 || y > 0x0670) {
+            return;
+        }
+        System.out.printf(
+                "s1-lz-airlanding frame=%d mode=%s pos=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s support={dist=%d ang=%02X dir=%s} zero=%s%n",
+                levelManager.getFrameCounter(),
+                mode,
+                x,
+                y,
+                sprite.getXSpeed() & 0xFFFF,
+                sprite.getYSpeed() & 0xFFFF,
+                sprite.getGSpeed() & 0xFFFF,
+                sprite.getAir(),
+                support.distance(),
+                support.angle() & 0xFF,
+                support.direction(),
+                zeroDistanceLanding);
     }
 
     /** Shared landing logic: snap to floor surface, set angle, invoke landing handler. */
