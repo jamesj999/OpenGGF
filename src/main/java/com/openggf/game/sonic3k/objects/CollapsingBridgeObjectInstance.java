@@ -24,7 +24,10 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -310,6 +313,8 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
     private int[] activeDelays;        // Selected delay array (normal or flip)
     private boolean flippedForCollapse; // Sprite flipped during directional determination
     private int fragmentFrameIndex;    // Mapping frame used for fragment pieces
+    private final Set<PlayableEntity> collapseWaveRiders =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
     // Post-fragment fall state (state 3)
     private int velX;   // X velocity (subpixels, only used by MGZ stomp parent)
@@ -564,9 +569,16 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
-        // Solid during idle (0), countdown (1), and wave-release (2) states.
-        // State 3 (falling away) is not solid.
-        return state < 3;
+        // ROM: once the platform enters Obj_PlatformCollapseWaitHandlePlayer it stops
+        // calling SolidObjectTop entirely. Only riders already standing on it remain
+        // supported until Check_CollapsePlayerRelease drops them.
+        if (state < 2) {
+            return true;
+        }
+        if (state == 2) {
+            return playerEntity != null && collapseWaveRiders.contains(playerEntity);
+        }
+        return false;
     }
 
     // ===== SolidObjectListener =====
@@ -674,6 +686,11 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        collapseWaveRiders.clear();
+        if (player != null && shouldTrackCollapseRider(player)) {
+            collapseWaveRiders.add(player);
+        }
+
         // Select delay array and determine direction
         activeDelays = delays;
         flippedForCollapse = false;
@@ -750,7 +767,7 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
     private void updateWaveCollapse(AbstractPlayableSprite player) {
         parentTimer--;
 
-        if (player != null && isPlayerRiding()) {
+        if (player != null && collapseWaveRiders.contains(player)) {
             // ROM: Check_CollapsePlayerRelease
             // Calculate player position relative to bridge left edge
             int playerX = player.getCentreX();
@@ -788,19 +805,17 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
             }
 
             if (release) {
-                // ROM: bclr standing bits, bclr Status_OnObj, bset Status_InAir
-                player.setAir(true);
-                player.setOnObject(false);
+                releaseCollapseRider(player);
             }
         }
 
         // When parent timer fully expires, release any remaining players and fall
         if (parentTimer <= 0) {
             state = 3;
-            if (player != null && isPlayerRiding()) {
-                player.setAir(true);
-                player.setOnObject(false);
+            if (player != null && collapseWaveRiders.contains(player)) {
+                releaseCollapseRider(player);
             }
+            collapseWaveRiders.clear();
         }
     }
 
@@ -810,6 +825,7 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
      */
     private void performMgzStomp(AbstractPlayableSprite player) {
         fragmented = true;
+        collapseWaveRiders.clear();
 
         // Release the player
         // ROM: lea (Player_1).w,a1; bsr.s loc_20A3C
@@ -859,6 +875,30 @@ public class CollapsingBridgeObjectInstance extends AbstractObjectInstance
 
         // Enter falling state directly
         state = 3;
+    }
+
+    private boolean shouldTrackCollapseRider(AbstractPlayableSprite player) {
+        if (player.isOnObject()) {
+            return true;
+        }
+        try {
+            return services().objectManager() != null && services().objectManager().isRidingObject(player, this);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void releaseCollapseRider(AbstractPlayableSprite player) {
+        collapseWaveRiders.remove(player);
+        player.setAir(true);
+        player.setOnObject(false);
+        try {
+            if (services().objectManager() != null) {
+                services().objectManager().clearRidingObject(player);
+            }
+        } catch (Exception e) {
+            // Keep release logic robust when called outside a fully-wired runtime.
+        }
     }
 
     // ===== Rendering =====
