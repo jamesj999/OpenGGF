@@ -51,8 +51,11 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             new ObjectDiscoveryTool.LevelConfig(LevelData.S3K_DOOMSDAY, "DDZ", "The Doomsday Zone", 1)
     );
 
-    // Shared objects implemented for both zone sets
-    private static final Set<Integer> SHARED_IMPLEMENTED_IDS = Set.of(
+    // Shared objects implemented for both zone sets.
+    // Public so tests (e.g. TestCnzMinibossRegistered) can assert that
+    // zone-set-specific ids (where the same numeric id maps to different
+    // objects in S3KL vs SKL) stay out of the cross-zoneset allowlist.
+    public static final Set<Integer> SHARED_IMPLEMENTED_IDS = Set.of(
             0x01, // Monitor
             0x02, // PathSwap
             0x04, // CollapsingPlatform
@@ -134,7 +137,8 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x91, // AIZMiniboss
                 0x92, // AIZEndBoss
                 0x99, // HCZMiniboss
-                0x9A  // HCZEndBoss
+                0x9A, // HCZEndBoss
+                0xA6  // CNZMiniboss (S3KL only — same id maps to DEZMiniboss in SKL)
         ));
         S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
 
