@@ -27,17 +27,22 @@ public final class TraceHudOverlay {
     private static final int LINE_HEIGHT = 6;
     private static final int SECTION_GAP = 8;
 
+    // Lower-left corner, above the lives counter at y~208. Leaves the
+    // top-bar HUD (rings/time/score) and right-side game HUD clear.
+    private static final int X = 4;
+    private static final int COMPLETE_BANNER_Y = 110;
+    private static final int TOP_Y = 120;
+
     public void render(PixelFontTextRenderer text) {
-        int x = 210;
-        int y = 145;
+        int y = TOP_Y;
         text.drawShadowedText(String.format("ERRORS %4d", comparator.errorCount()),
-                x, y, DebugColor.RED, SCALE);
+                X, y, DebugColor.RED, SCALE);
         y += LINE_HEIGHT;
         text.drawShadowedText(String.format("WARN   %4d", comparator.warningCount()),
-                x, y, DebugColor.ORANGE, SCALE);
+                X, y, DebugColor.ORANGE, SCALE);
         y += LINE_HEIGHT;
         text.drawShadowedText(String.format("LAG    %4d", comparator.laggedFrames()),
-                x, y, DebugColor.GRAY, SCALE);
+                X, y, DebugColor.GRAY, SCALE);
         y += SECTION_GAP;
 
         int actionMask = comparator.recentActionMask();
@@ -52,10 +57,10 @@ public final class TraceHudOverlay {
         active.append(bit(inputMask, AbstractPlayableSprite.INPUT_LEFT, 'L'));
         active.append(bit(inputMask, AbstractPlayableSprite.INPUT_RIGHT, 'R'));
         active.append(start ? 'S' : '.');
-        text.drawShadowedText(active.toString(), x, y, DebugColor.GREEN, SCALE);
+        text.drawShadowedText(active.toString(), X, y, DebugColor.GREEN, SCALE);
         y += SECTION_GAP;
 
-        text.drawShadowedText("Last mismatches:", x, y, DebugColor.LIGHT_GRAY, SCALE);
+        text.drawShadowedText("Last mismatches:", X, y, DebugColor.LIGHT_GRAY, SCALE);
         y += LINE_HEIGHT;
         List<MismatchEntry> recent = comparator.recentMismatches();
         for (MismatchEntry m : recent) {
@@ -65,12 +70,13 @@ public final class TraceHudOverlay {
                     m.repeatCount() > 1 ? (" ×" + m.repeatCount()) : "");
             DebugColor color = m.severity() == Severity.ERROR
                     ? DebugColor.RED : DebugColor.ORANGE;
-            text.drawShadowedText(line, x, y, color, SCALE);
+            text.drawShadowedText(line, X, y, color, SCALE);
             y += LINE_HEIGHT;
         }
 
         if (comparator.isComplete()) {
-            text.drawShadowedText("TRACE COMPLETE", x, 135, DebugColor.YELLOW, SCALE);
+            text.drawShadowedText("TRACE COMPLETE", X, COMPLETE_BANNER_Y,
+                    DebugColor.YELLOW, SCALE);
         }
     }
 
