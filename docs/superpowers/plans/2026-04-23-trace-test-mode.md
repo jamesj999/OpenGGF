@@ -41,7 +41,7 @@ The trace infrastructure (`TraceData`, `TraceBinder`, `TraceReplayBootstrap`, et
 ### Modified
 - `src/main/java/com/openggf/configuration/SonicConfiguration.java` — add `TEST_MODE_ENABLED`, `TRACE_CATALOG_DIR`
 - `src/main/resources/config.json` — add defaults for those keys
-- `src/main/java/com/openggf/game/MasterTitleScreen.java` — add package-private `selectEntry(GameEntry)` and `TEST_MODE_ENABLED` branch
+- `src/main/java/com/openggf/game/MasterTitleScreen.java` — add public `selectEntry(GameEntry)` and `TEST_MODE_ENABLED` branch
 - `src/main/java/com/openggf/GameLoop.java` — add package-private `launchGameByEntry(GameEntry, Runnable)` wrapper, pending post-exit callback, skip-tick query integration, and master-title return hook
 - `src/main/java/com/openggf/debug/playback/PlaybackDebugManager.java` — `PlaybackFrameObserver` interface, `startSession`, `endSession`, bootstrap cursor helpers for `TraceReplayFixture`, `shouldSkipCurrentGameplayTick`, observer hook in `onLevelFrameAdvanced`
 - `src/main/java/com/openggf/Engine.java` — add static `currentGameLoop()` accessor, recreate master title on trace-session teardown, and render the trace HUD after the fade pass
@@ -763,39 +763,60 @@ git commit -m $message
 
 Spec §6.3.
 
-- [ ] **Step 1: Hoist `playbackDebugManager.onLevelFrameAdvanced()` out of the freeze block**
+- [ ] **Step 1: Read the current GameLoop update path**
 
-As of this codebase the call lives inside the
-`LevelFrameStep.execute(...)` lambda in `GameLoop.update()`, which is
-only reached when
-`!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition`.
-If we add a lag-gate on top of that, skipped-tick frames never reach
-the callback — the comparator's cursor stalls and the BK2 cursor stops
-advancing.
-
-Move the call out of the lambda so it fires **unconditionally** once per
-LEVEL tick. Locate the single `playbackDebugManager.onLevelFrameAdvanced()`
-call (search `git grep -n onLevelFrameAdvanced src/main/java/com/openggf/GameLoop.java`)
-and relocate it to just after the `LevelFrameStep.execute(...)` call
-(or the gameplay-update dispatch, whichever is the common join point
-for both the normal and frozen paths).
-
-- [ ] **Step 2: Wrap the gameplay update body in a skip check**
-
-With `onLevelFrameAdvanced()` already hoisted above in Step 1, add the
-skip gate around the gameplay body only:
+In `src/main/java/com/openggf/GameLoop.java`, search for
+`playbackDebugManager.onLevelFrameAdvanced()`. As of this codebase the
+call lives inside the `LevelFrameStep.execute(...)` lambda (roughly
+lines 694-705) and is guarded by `if (playbackFrameConsumed)`:
 
 ```java
-boolean skipGameplay = playbackDebugManager.shouldSkipCurrentGameplayTick();
-if (!skipGameplay) {
-    // existing LevelFrameStep.execute(...) body — sprite ticks, object
-    // manager, physics, etc.
+if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition) {
+    LevelFrameStep.execute(levelManager, camera, () -> {
+        spriteManager.update(inputHandler);
+        if (playbackFrameConsumed) {
+            playbackDebugManager.onLevelFrameAdvanced();
+        }
+    }, ...);
+    ...
 }
-playbackDebugManager.onLevelFrameAdvanced(); // now hoisted — fires either way
 ```
 
-Rendering and input handling stay outside the gate; they keep running
-each frame so the window remains responsive.
+Two layered problems for the lag gate:
+- `LevelFrameStep.execute` runs the gameplay body. If we skip it, the
+  inner `onLevelFrameAdvanced()` never fires.
+- The `if (playbackFrameConsumed)` guard suppresses the callback on
+  frames where no playback input was consumed — which happens on
+  skipped (lag-gated) frames by definition.
+
+- [ ] **Step 2: Restructure the LEVEL dispatch**
+
+Replace the lambda body and outer freeze-guard block with:
+
+```java
+if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition) {
+    boolean skipGameplay = playbackDebugManager.shouldSkipCurrentGameplayTick();
+    if (!skipGameplay) {
+        LevelFrameStep.execute(levelManager, camera, () -> spriteManager.update(inputHandler),
+            (name, step) -> { profiler.beginSection(name); step.run(); profiler.endSection(name); });
+    }
+    // Fire the BK2-advance callback either way — on both real gameplay
+    // ticks and lag-gated skips — so the observer's cursor always
+    // matches the BK2 cursor. PlaybackDebugManager.onLevelFrameAdvanced
+    // is already a no-op when no session is active, so removing the
+    // existing `playbackFrameConsumed` guard is safe.
+    playbackDebugManager.onLevelFrameAdvanced();
+    // existing special-stage / bonus-stage / zone-act request handling
+    // stays here, below the callback, unchanged.
+}
+// Freeze path (any of the freeze flags true): neither gameplay nor the
+// BK2 cursor advances. This is intentional — a user with the art viewer
+// open should be able to pause trace playback without drifting the
+// comparator.
+```
+
+Rendering and input handling stay outside this block; they keep
+running each frame so the window remains responsive.
 
 - [ ] **Step 3: Verify trace tests still pass**
 
@@ -1440,8 +1461,12 @@ class LiveTraceComparatorTest {
 
 In `src/main/java/com/openggf/trace/TraceData.java` add:
 ```java
-/** Package-private test factory — in-memory TraceData without disk I/O. */
-static TraceData ofFrames(TraceMetadata metadata, java.util.List<TraceFrame> frames) {
+/**
+ * Public test factory — in-memory TraceData without disk I/O.
+ * Public (not package-private) because {@code LiveTraceComparatorTest}
+ * lives in {@code com.openggf.trace.live}, a different subpackage.
+ */
+public static TraceData ofFrames(TraceMetadata metadata, java.util.List<TraceFrame> frames) {
     return new TraceData(metadata, java.util.List.copyOf(frames), java.util.Map.of());
 }
 ```
@@ -1450,8 +1475,12 @@ mirror the private call signature used by `TraceData.load`.)
 
 In `src/main/java/com/openggf/trace/TraceMetadata.java` add:
 ```java
-/** Package-private test factory — minimal metadata for in-memory tests. */
-static TraceMetadata forTest(String gameId, int zoneId, int act) {
+/**
+ * Public test factory — minimal metadata for in-memory tests. Public
+ * because callers live in different subpackages
+ * (e.g. {@code com.openggf.trace.live}).
+ */
+public static TraceMetadata forTest(String gameId, int zoneId, int act) {
     return new TraceMetadata(
             gameId,          // game
             "TEST",         // zone (display label)
@@ -1488,12 +1517,9 @@ Expected: FAIL.
 
 - [ ] **Step 3: Promote GameLoop.getMainPlayableSprite() to package-private**
 
-In `src/main/java/com/openggf/GameLoop.java`, change `getMainPlayableSprite()` (currently private, around line 831) to package-private so `LiveTraceComparator` and `TraceSessionLauncher.LiveFixture` can call it via a public getter. Also add a convenience accessor on `Engine`:
+In `src/main/java/com/openggf/GameLoop.java`, change `getMainPlayableSprite()` (currently private, around line 831) to package-private so the later `TraceSessionLauncher.LiveFixture` in `com.openggf` can call it directly. Do **not** add `Engine.currentGameLoop()` here; Task 19 introduces the single static helper used by the launcher.
 
 ```java
-// In Engine.java:
-public GameLoop currentGameLoop() { return this.gameLoop; }
-
 // In GameLoop.java — widen visibility (remove the `private` modifier):
 AbstractPlayableSprite getMainPlayableSprite() { /* existing body */ }
 ```
@@ -1730,7 +1756,7 @@ Spec §6 step 2.
  * {@code ACTIVE}. Seeds the internal "selected" state so
  * {@code isGameSelected()} returns true on the next tick.
  */
-void selectEntry(GameEntry entry) {
+public void selectEntry(GameEntry entry) {
     Objects.requireNonNull(entry, "entry");
     this.selectedIndex = entry.ordinal();
     if (!romAvailable[selectedIndex]) {
@@ -1788,7 +1814,7 @@ Expected: BUILD SUCCESS.
 ```powershell
 git add src/main/java/com/openggf/game/MasterTitleScreen.java src/main/java/com/openggf/GameLoop.java
 $message = @'
-feat(title): package-private selectEntry / launchGameByEntry hooks
+feat(title): public selectEntry + launchGameByEntry hooks
 
 Lets TraceSessionLauncher (same package as GameLoop) programmatically
 force a master-title selection and resume on a post-bootstrap callback
@@ -2054,32 +2080,13 @@ if (tracePicker != null) {
 }
 ```
 
-- [ ] **Step 4: Compile**
+- [ ] **Step 4: Defer compile until Task 19**
 
-Run: `mvn -q -o compile -Dmse=off`
-Expected: BUILD SUCCESS. `TraceSessionLauncher` may not exist yet — if so, temporarily no-op the launch branch and revisit in Task 21.
+`MasterTitleScreen` now references `TraceSessionLauncher`, which is created in the next task. Do not add a temporary no-op branch or stub. Leave this file modified in the working tree and run the first compile once Task 19 lands.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit with Task 19**
 
-```powershell
-git add src/main/java/com/openggf/game/MasterTitleScreen.java
-$message = @'
-feat(testmode): MasterTitleScreen opens trace picker when enabled
-
-When TEST_MODE_ENABLED is true, the ACTIVE state of the master title
-screen becomes TestModeTracePicker. Esc toggles back to normal
-game-select for the current session.
-
-Changelog: n/a
-Guide: n/a
-Known-Discrepancies: n/a
-S3K-Known-Discrepancies: n/a
-Agent-Docs: n/a
-Configuration-Docs: n/a
-Skills: n/a
-'@
-git commit -m $message
-```
+Stage `src/main/java/com/openggf/game/MasterTitleScreen.java` together with Task 19's launcher files and commit them as one compile-clean change.
 
 ---
 
@@ -2092,6 +2099,44 @@ git commit -m $message
 - Modify: `src/main/java/com/openggf/Engine.java` — add static `currentGameLoop()` accessor used by the launcher
 
 Spec §6.
+
+- [ ] **Step 0: Add supporting accessors on Engine and TraceReplayBootstrap**
+
+In `src/main/java/com/openggf/Engine.java` add a public static accessor
+so other `com.openggf.*` classes can reach the singleton game loop:
+
+```java
+public static GameLoop currentGameLoop() { return INSTANCE.gameLoop; }
+```
+(Use whatever field name `Engine` already uses for its game loop. If no
+singleton exists, expose via a static `INSTANCE` field that `Engine`'s
+constructor assigns itself to — mirror the existing
+`SonicConfigurationService.getInstance()` pattern.)
+
+In `src/main/java/com/openggf/trace/TraceReplayBootstrap.java` add a
+public static helper used by the launcher's v1 filter:
+
+```java
+/**
+ * Returns true if replaying this trace requires running the existing
+ * legacy seed-replay path (which steps physics during bootstrap via
+ * fixture.stepFrameFromRecording). The live launcher cannot run that
+ * path because its bootstrap callback executes inside GameLoop.update
+ * — stepping physics from there would be reentrant.
+ */
+public static boolean requiresLegacySeedReplayForTraceReplay(TraceData trace) {
+    // Legacy seed-replay is only triggered for S3K AIZ traces that
+    // begin before gameplay_start AND have a non-zero seed index.
+    // Reuse the existing internal predicate; promote it to public if
+    // it's currently private (see shouldSeedReplayStartState / other
+    // seed-replay predicates near the top of this file).
+    return /* existing predicate body */ false;
+}
+```
+Fill in the predicate body by reading the surrounding private helpers
+in `TraceReplayBootstrap`. If no single predicate maps directly, inline
+the condition: `trace.metadata().game().equals("s3k")` AND
+`shouldSeedReplayStartState(trace)` AND `seededTraceIndex > 0`.
 
 - [ ] **Step 1: Write the class**
 
@@ -2149,6 +2194,17 @@ public final class TraceSessionLauncher {
     public static void launch(TraceEntry entry) {
         try {
             TraceData trace = TraceData.load(entry.dir());
+            // v1 filter: reject traces that would require the legacy
+            // seed-replay path. Those run physics during bootstrap via
+            // fixture.stepFrameFromRecording, which would reenter
+            // GameLoop.step from inside a callback already executing
+            // inside GameLoop.update. The headless path is fine because
+            // it doesn't run inside a live gameplay tick.
+            if (TraceReplayBootstrap.requiresLegacySeedReplayForTraceReplay(trace)) {
+                LOGGER.warning("Skipping trace " + entry.dir()
+                        + ": requires legacy seed-replay (not supported by live launcher)");
+                return;
+            }
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
             TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
@@ -2275,20 +2331,29 @@ public final class TraceSessionLauncher {
             return gameLoop.getMainPlayableSprite();
         }
         @Override public GameRuntime runtime() { return RuntimeManager.getCurrent(); }
+
+        // The three playback-drive methods are only exercised by
+        // TraceReplayBootstrap's legacy seed-replay path
+        // (replayLegacyFramesToSeedIndex). Calling gameLoop.step() from
+        // here would be reentrant — finishLaunchAfterGameBootstrap runs
+        // from inside GameLoop.update(). For v1 we refuse traces that
+        // would require this path (see launch() guard below) and throw
+        // loudly if reached, rather than silently corrupting engine state.
+
         @Override public int stepFrameFromRecording() {
-            Bk2FrameInput frame = playback.currentFrameOrThrow();
-            gameLoop.step();
-            return frame.p1InputMask();
+            throw new UnsupportedOperationException(
+                    "Live launcher does not support legacy seed-replay; trace should "
+                  + "have been filtered by TraceSessionLauncher.launch()");
         }
         @Override public int skipFrameFromRecording() {
-            Bk2FrameInput frame = playback.currentFrameOrThrow();
-            playback.advanceCurrentFrameWithoutGameplay();
-            return frame.p1InputMask();
+            throw new UnsupportedOperationException(
+                    "Live launcher does not support legacy seed-replay; trace should "
+                  + "have been filtered by TraceSessionLauncher.launch()");
         }
         @Override public void advanceRecordingCursor(int frameCount) {
-            for (int i = 0; i < frameCount; i++) {
-                playback.advanceCurrentFrameWithoutGameplay();
-            }
+            throw new UnsupportedOperationException(
+                    "Live launcher does not support legacy seed-replay; trace should "
+                  + "have been filtered by TraceSessionLauncher.launch()");
         }
     }
 }
@@ -2312,7 +2377,7 @@ Expected: BUILD SUCCESS.
 - [ ] **Step 3: Commit**
 
 ```powershell
-git add src/main/java/com/openggf/TraceSessionLauncher.java src/main/java/com/openggf/Engine.java
+git add src/main/java/com/openggf/game/MasterTitleScreen.java src/main/java/com/openggf/TraceSessionLauncher.java src/main/java/com/openggf/Engine.java
 $message = @'
 feat(testmode): TraceSessionLauncher wires picker → live playback
 
@@ -2690,6 +2755,5 @@ gh pr create --base develop --title "feat: trace test mode (visual replay picker
 - [x] Spec §11 (config keys): Task 10.
 - [x] Spec §12 (testing plan): Tasks 12, 14, 15 (unit); Task 22 (manual smoke).
 
-No placeholders: every step shows the actual code or command to run. Types are consistent: `TraceReplayFixture` signature is defined once in Task 2 and reused verbatim in Tasks 4 and 19; `PlaybackFrameObserver` is declared in Task 7 and implemented in Task 15; `COMPLETION_HOLD_SECONDS` is introduced in Task 19 and named consistently with §9.2.
-
+No placeholder branches remain: where the trace-picker wiring depends on the next task's launcher class, the plan explicitly batches the compile/commit instead of asking for a temporary no-op. Types are consistent: `TraceReplayFixture` signature is defined once in Task 2 and reused verbatim in Tasks 4 and 19; `PlaybackFrameObserver` is declared in Task 7 and implemented in Task 15; `COMPLETION_HOLD_SECONDS` is introduced in Task 19 and named consistently with §9.2.
 
