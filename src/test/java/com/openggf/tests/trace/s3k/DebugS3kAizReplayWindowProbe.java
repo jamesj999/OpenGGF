@@ -2,13 +2,23 @@ package com.openggf.tests.trace.s3k;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.game.sonic3k.objects.AizLrzRockObjectInstance;
 import com.openggf.game.sonic3k.objects.RockDebrisChild;
 import com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSignpostInstance;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseDebugHit;
+import com.openggf.level.objects.TouchResponseDebugState;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.Sensor;
+import com.openggf.physics.SensorResult;
+import com.openggf.physics.TerrainCheckResult;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.SonicGame;
@@ -192,6 +202,80 @@ class DebugS3kAizReplayWindowProbe {
     }
 
     @Test
+    void scanFullTraceReplayForFirstLargeDrift() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int startFrame = Integer.getInteger("s3k.aiz.full.scan.start", 1500);
+        int endFrame = Integer.getInteger("s3k.aiz.full.scan.end", 6000);
+        int xBudget = Integer.getInteger("s3k.aiz.full.scan.xBudget", 0);
+        int yBudget = Integer.getInteger("s3k.aiz.full.scan.yBudget", 0);
+        int camBudget = Integer.getInteger("s3k.aiz.full.scan.camBudget", 0);
+
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        try {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            scanFullTraceReplayForFirstLargeDrift(trace, startFrame, endFrame, xBudget, yBudget, camBudget);
+        } finally {
+            config.setConfigValue(
+                    SonicConfiguration.S3K_SKIP_INTROS,
+                    oldSkip != null ? oldSkip : false);
+            config.setConfigValue(
+                    SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMain != null ? oldMain : "sonic");
+        }
+    }
+
+    @Test
+    void dumpFullTraceReplayWindowFromProperties() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int startFrame = Integer.getInteger("s3k.aiz.full.window.start", 0);
+        int endFrame = Integer.getInteger("s3k.aiz.full.window.end", startFrame + 32);
+
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        try {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            dumpFullTraceReplayWindow(trace, startFrame, endFrame);
+        } finally {
+            config.setConfigValue(
+                    SonicConfiguration.S3K_SKIP_INTROS,
+                    oldSkip != null ? oldSkip : false);
+            config.setConfigValue(
+                    SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMain != null ? oldMain : "sonic");
+        }
+    }
+
+    @Test
+    void dumpFullTraceReplayFocusFrameFromProperties() throws Exception {
+        Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int probeFrame = Integer.getInteger("s3k.aiz.focus.frame", 2006);
+
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        try {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            dumpFullTraceReplayFocusFrame(trace, probeFrame);
+        } finally {
+            config.setConfigValue(
+                    SonicConfiguration.S3K_SKIP_INTROS,
+                    oldSkip != null ? oldSkip : false);
+            config.setConfigValue(
+                    SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMain != null ? oldMain : "sonic");
+        }
+    }
+
+    @Test
     void dumpLegacyBootstrapRockWindow() throws Exception {
         Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
         TraceData trace = TraceData.load(TRACE_DIR);
@@ -228,6 +312,9 @@ class DebugS3kAizReplayWindowProbe {
             ObjectManager objectManager = GameServices.level().getObjectManager();
             if (objectManager != null) {
                 objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+            if (GameServices.debugOverlay() != null) {
+                GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
             }
 
             int preTraceOsc = trace.metadata().preTraceOscillationFrames();
@@ -455,7 +542,7 @@ class DebugS3kAizReplayWindowProbe {
                 TraceEvent.Checkpoint engineCheckpoint = detector.observe(probe);
                 if (engineCheckpoint != null) {
                     System.out.printf(
-                            "legacy-bootstrap checkpoint frame=%d name=%s zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b levelStarted=%b fire=%b overlay=%b%n",
+                            "legacy-bootstrap checkpoint frame=%d name=%s zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b levelStarted=%b fire=%b overlay=%b%n",
                             current.frame(),
                             engineCheckpoint.name(),
                             probe.actualZoneId(),
@@ -463,6 +550,8 @@ class DebugS3kAizReplayWindowProbe {
                             probe.apparentAct(),
                             probe.moveLock(),
                             probe.ctrlLocked(),
+                            probe.objectControlled(),
+                            probe.hidden(),
                             probe.levelStarted(),
                             probe.fireTransitionActive(),
                             probe.titleCardOverlayActive());
@@ -471,7 +560,7 @@ class DebugS3kAizReplayWindowProbe {
                 for (int sampleFrame : LEGACY_BOOTSTRAP_SAMPLES) {
                     if (current.frame() == sampleFrame) {
                         System.out.printf(
-                                "legacy-bootstrap sample frame=%d x=%04X y=%04X cam=(%04X,%04X) zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b levelStarted=%b fire=%b overlay=%b checkpoint=%s%n",
+                                "legacy-bootstrap sample frame=%d x=%04X y=%04X cam=(%04X,%04X) zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b levelStarted=%b fire=%b overlay=%b checkpoint=%s%n",
                                 current.frame(),
                                 fixture.sprite().getCentreX() & 0xFFFF,
                                 fixture.sprite().getCentreY() & 0xFFFF,
@@ -482,6 +571,8 @@ class DebugS3kAizReplayWindowProbe {
                                 probe.apparentAct(),
                                 probe.moveLock(),
                                 probe.ctrlLocked(),
+                                probe.objectControlled(),
+                                probe.hidden(),
                                 probe.levelStarted(),
                                 probe.fireTransitionActive(),
                                 probe.titleCardOverlayActive(),
@@ -668,6 +759,315 @@ class DebugS3kAizReplayWindowProbe {
         }
     }
 
+    private void scanFullTraceReplayForFirstLargeDrift(
+            TraceData trace,
+            int startFrame,
+            int endFrame,
+            int xBudget,
+            int yBudget,
+            int camBudget) throws Exception {
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .withRecording(findBk2File())
+                    .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace))
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = trace.metadata().preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+
+            TraceFrame previous = replayStart.hasSeededTraceState()
+                    ? trace.getFrame(replayStart.seededTraceIndex())
+                    : null;
+            boolean found = false;
+            for (int traceIndex = replayStart.startingTraceIndex(); traceIndex <= endFrame; traceIndex++) {
+                TraceFrame current = trace.getFrame(traceIndex);
+                TraceExecutionPhase phase = TraceReplayBootstrap.phaseForReplay(trace, previous, current);
+                int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
+                        ? fixture.skipFrameFromRecording()
+                        : fixture.stepFrameFromRecording();
+
+                int dx = Math.abs(fixture.sprite().getCentreX() - current.x());
+                int dy = Math.abs(fixture.sprite().getCentreY() - current.y());
+                int dCamX = Math.abs((GameServices.camera().getX() & 0xFFFF) - current.cameraX());
+                int dCamY = Math.abs((GameServices.camera().getY() & 0xFFFF) - current.cameraY());
+                if (current.frame() >= startFrame
+                        && (dx > xBudget || dy > yBudget || dCamX > camBudget || dCamY > camBudget)) {
+                    System.out.printf(
+                            "full-trace-drift frame=%d phase=%s expIn=%04X bk2In=%04X "
+                                    + "exp=(%04X,%04X) act=(%04X,%04X) d=(%d,%d) "
+                                    + "expCam=(%04X,%04X) actCam=(%04X,%04X) dCam=(%d,%d) "
+                                    + "zone=%d act=%d apparent=%d levelStarted=%b moveLock=%d ctrl=%b objCtrl=%b hidden=%b "
+                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s%n",
+                            current.frame(),
+                            phase,
+                            current.input(),
+                            bk2Input,
+                            current.x() & 0xFFFF,
+                            current.y() & 0xFFFF,
+                            fixture.sprite().getCentreX() & 0xFFFF,
+                            fixture.sprite().getCentreY() & 0xFFFF,
+                            dx,
+                            dy,
+                            current.cameraX() & 0xFFFF,
+                            current.cameraY() & 0xFFFF,
+                            GameServices.camera().getX() & 0xFFFF,
+                            GameServices.camera().getY() & 0xFFFF,
+                            dCamX,
+                            dCamY,
+                            GameServices.level().getCurrentZone(),
+                            GameServices.level().getCurrentAct(),
+                            GameServices.level().getApparentAct(),
+                            GameServices.camera().isLevelStarted(),
+                            fixture.sprite().getMoveLockTimer(),
+                            fixture.sprite().isControlLocked(),
+                            fixture.sprite().isObjectControlled(),
+                            fixture.sprite().isHidden(),
+                            eventsFg5(),
+                            isFireTransitionActive(),
+                            dynamicResizeRoutine(),
+                            trace.latestCheckpointAtOrBefore(traceIndex));
+                    int windowStart = Math.max(replayStart.startingTraceIndex(), current.frame() - 6);
+                    int windowEnd = Math.min(endFrame, current.frame() + 6);
+                    dumpFullTraceReplayWindow(trace, windowStart, windowEnd);
+                    found = true;
+                    break;
+                }
+
+                previous = current;
+            }
+
+            if (!found) {
+                System.out.printf(
+                        "full-trace-drift none start=%d end=%d budgets=(x=%d,y=%d,cam=%d)%n",
+                        startFrame, endFrame, xBudget, yBudget, camBudget);
+            }
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    private void dumpFullTraceReplayWindow(TraceData trace, int startFrame, int endFrame) throws Exception {
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .withRecording(findBk2File())
+                    .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace))
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = trace.metadata().preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+
+            TraceFrame previous = replayStart.hasSeededTraceState()
+                    ? trace.getFrame(replayStart.seededTraceIndex())
+                    : null;
+            for (int traceIndex = replayStart.startingTraceIndex(); traceIndex <= endFrame; traceIndex++) {
+                TraceFrame current = trace.getFrame(traceIndex);
+                TraceExecutionPhase phase = TraceReplayBootstrap.phaseForReplay(trace, previous, current);
+                int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
+                        ? fixture.skipFrameFromRecording()
+                        : fixture.stepFrameFromRecording();
+                if (traceIndex >= startFrame) {
+                    System.out.printf(
+                            "full-trace-window frame=%d phase=%s expIn=%04X bk2In=%04X "
+                                    + "exp=(%04X,%04X) act=(%04X,%04X) "
+                                    + "expCam=(%04X,%04X) actCam=(%04X,%04X) "
+                                    + "zone=%d act=%d apparent=%d lvlStarted=%b moveLock=%d ctrl=%b objCtrl=%b hidden=%b "
+                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s%n",
+                            current.frame(),
+                            phase,
+                            current.input(),
+                            bk2Input,
+                            current.x() & 0xFFFF,
+                            current.y() & 0xFFFF,
+                            fixture.sprite().getCentreX() & 0xFFFF,
+                            fixture.sprite().getCentreY() & 0xFFFF,
+                            current.cameraX() & 0xFFFF,
+                            current.cameraY() & 0xFFFF,
+                            GameServices.camera().getX() & 0xFFFF,
+                            GameServices.camera().getY() & 0xFFFF,
+                            GameServices.level().getCurrentZone(),
+                            GameServices.level().getCurrentAct(),
+                            GameServices.level().getApparentAct(),
+                            GameServices.camera().isLevelStarted(),
+                            fixture.sprite().getMoveLockTimer(),
+                            fixture.sprite().isControlLocked(),
+                            fixture.sprite().isObjectControlled(),
+                            fixture.sprite().isHidden(),
+                            eventsFg5(),
+                            isFireTransitionActive(),
+                            dynamicResizeRoutine(),
+                            trace.latestCheckpointAtOrBefore(traceIndex));
+                }
+                previous = current;
+            }
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    private void dumpFullTraceReplayFocusFrame(TraceData trace, int probeFrame) throws Exception {
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
+        try {
+            HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                    .withSharedLevel(sharedLevel)
+                    .withRecording(findBk2File())
+                    .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace))
+                    .build();
+
+            ObjectManager objectManager = GameServices.level().getObjectManager();
+            if (objectManager != null) {
+                objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
+            }
+
+            int preTraceOsc = trace.metadata().preTraceOscillationFrames();
+            for (int i = 0; i < preTraceOsc; i++) {
+                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+            }
+
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+
+            TraceFrame previous = replayStart.hasSeededTraceState()
+                    ? trace.getFrame(replayStart.seededTraceIndex())
+                    : null;
+            for (int traceIndex = replayStart.startingTraceIndex(); traceIndex <= probeFrame; traceIndex++) {
+                TraceFrame current = trace.getFrame(traceIndex);
+                TraceExecutionPhase phase = TraceReplayBootstrap.phaseForReplay(trace, previous, current);
+                int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
+                        ? fixture.skipFrameFromRecording()
+                        : fixture.stepFrameFromRecording();
+                if (traceIndex == probeFrame) {
+                    dumpFullTraceReplayFocusState(trace, current, fixture, phase, bk2Input);
+                    return;
+                }
+                previous = current;
+            }
+
+            throw new AssertionError("Probe frame not reached: " + probeFrame);
+        } finally {
+            sharedLevel.dispose();
+        }
+    }
+
+    private void dumpFullTraceReplayFocusState(TraceData trace,
+                                               TraceFrame current,
+                                               HeadlessTestFixture fixture,
+                                               TraceExecutionPhase phase,
+                                               int bk2Input) {
+        AbstractPlayableSprite sprite = fixture.sprite();
+        System.out.printf(
+                "full-trace-focus frame=%d phase=%s expIn=%04X bk2In=%04X "
+                        + "exp=(%04X,%04X) act=(%04X,%04X) expSpd=(%04X,%04X,%04X) actSpd=(%04X,%04X,%04X) "
+                        + "expAngle=%02X actAngle=%02X expAir=%b actAir=%b expRoll=%b actRoll=%b "
+                        + "radii=%d,%d moveLock=%d ctrl=%b objCtrl=%b hidden=%b onObj=%b "
+                        + "events=%s switches=%s objs=%s%n",
+                current.frame(),
+                phase,
+                current.input(),
+                bk2Input,
+                current.x() & 0xFFFF,
+                current.y() & 0xFFFF,
+                sprite.getCentreX() & 0xFFFF,
+                sprite.getCentreY() & 0xFFFF,
+                current.xSpeed() & 0xFFFF,
+                current.ySpeed() & 0xFFFF,
+                current.gSpeed() & 0xFFFF,
+                sprite.getXSpeed() & 0xFFFF,
+                sprite.getYSpeed() & 0xFFFF,
+                sprite.getGSpeed() & 0xFFFF,
+                current.angle() & 0xFF,
+                sprite.getAngle() & 0xFF,
+                current.air(),
+                sprite.getAir(),
+                current.rolling(),
+                sprite.getRolling(),
+                sprite.getXRadius(),
+                sprite.getYRadius(),
+                sprite.getMoveLockTimer(),
+                sprite.isControlLocked(),
+                sprite.isObjectControlled(),
+                sprite.isHidden(),
+                sprite.isOnObject(),
+                describeTraceEvents(trace.getEventsForFrame(current.frame())),
+                nearbyPathSwaps(sprite),
+                nearbyActiveObjects(sprite));
+
+        TouchResponseDebugState touchState = GameServices.level() != null
+                ? GameServices.level().getObjectManager().getTouchResponseDebugState()
+                : null;
+        if (touchState == null || touchState.getHits().isEmpty()) {
+            System.out.println("touch=<none>");
+        } else {
+            System.out.printf(
+                    "touch box=@%04X,%04X h=%d yr=%d crouch=%b overlaps=%s scans=%s%n",
+                    touchState.getPlayerX() & 0xFFFF,
+                    touchState.getPlayerY() & 0xFFFF,
+                    touchState.getPlayerHeight(),
+                    touchState.getPlayerYRadius(),
+                    touchState.isCrouching(),
+                    summariseTouchOverlaps(touchState.getHits()),
+                    summariseNearbyTouchScans(
+                            touchState.getHits(),
+                            sprite.getCentreX(),
+                            sprite.getCentreY()));
+        }
+
+        System.out.println(describeSensorArray("ground", sprite.getGroundSensors(), sprite));
+        System.out.println(describeSensorArray("ceiling", sprite.getCeilingSensors(), sprite));
+        System.out.println(describeSensorArray("push", sprite.getPushSensors(), sprite));
+        System.out.println("ceiling-sweep " + describeCeilingSweep(sprite));
+        System.out.println("right-wall-sweep " + describeRightWallSweep(sprite));
+        System.out.println("floor-sweep " + describeFloorSweep(sprite));
+        System.out.println("aiz-intro " + describeAizIntroInstance());
+    }
+
+    private boolean eventsFg5() {
+        if (GameServices.module().getLevelEventProvider() instanceof Sonic3kLevelEventManager levelEvents) {
+            return levelEvents.isEventsFg5();
+        }
+        return false;
+    }
+
+    private boolean isFireTransitionActive() {
+        if (GameServices.module().getLevelEventProvider() instanceof Sonic3kLevelEventManager levelEvents) {
+            return levelEvents.isFireTransitionActive();
+        }
+        return false;
+    }
+
+    private int dynamicResizeRoutine() {
+        if (GameServices.module().getLevelEventProvider() instanceof Sonic3kLevelEventManager levelEvents) {
+            return levelEvents.getDynamicResizeRoutine();
+        }
+        return -1;
+    }
+
     private void dumpLegacyBootstrapRockWindow(
             TraceData trace, int rawOffset, int startFrame, int endFrame) throws Exception {
         SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
@@ -733,6 +1133,117 @@ class DebugS3kAizReplayWindowProbe {
         }
     }
 
+    private static String describeSensorArray(String label,
+                                              Sensor[] sensors,
+                                              AbstractPlayableSprite sprite) {
+        if (sensors == null) {
+            return label + "=<none>";
+        }
+        StringBuilder builder = new StringBuilder(label).append("=[");
+        for (int i = 0; i < sensors.length; i++) {
+            if (i > 0) {
+                builder.append(" | ");
+            }
+            Sensor sensor = sensors[i];
+            if (sensor == null) {
+                builder.append(i).append("=<null>");
+                continue;
+            }
+            sensor.computeRotatedOffset();
+            int worldX = sprite.getCentreX() + sensor.getRotatedX();
+            int worldY = sprite.getCentreY() + sensor.getRotatedY();
+            SensorResult result = sensor.scan((short) 0, (short) 0);
+            builder.append(String.format(
+                    "%d:{act=%s dir=%s off=(%d,%d) rot=(%d,%d) world=(%04X,%04X) res=%s}",
+                    i,
+                    sensor.isActive(),
+                    sensor.getDirection(),
+                    sensor.getX(),
+                    sensor.getY(),
+                    sensor.getRotatedX(),
+                    sensor.getRotatedY(),
+                    worldX & 0xFFFF,
+                    worldY & 0xFFFF,
+                    formatSensorResult(result)));
+        }
+        return builder.append(']').toString();
+    }
+
+    private static String formatSensorResult(SensorResult result) {
+        if (result == null) {
+            return "<null>";
+        }
+        return String.format(
+                "{dir=%s dist=%d angle=%02X tile=%04X}",
+                result.direction(),
+                result.distance(),
+                result.angle() & 0xFF,
+                result.tileId() & 0xFFFF);
+    }
+
+    private static String describeCeilingSweep(AbstractPlayableSprite sprite) {
+        StringBuilder builder = new StringBuilder();
+        for (int dx = -12; dx <= 12; dx += 4) {
+            int checkX = sprite.getCentreX() + dx;
+            TerrainCheckResult result = ObjectTerrainUtils.checkCeilingDist(
+                    checkX,
+                    sprite.getCentreY(),
+                    sprite.getYRadius());
+            appendSweepSample(builder, "x", checkX, result);
+        }
+        return builder.toString();
+    }
+
+    private static String describeRightWallSweep(AbstractPlayableSprite sprite) {
+        StringBuilder builder = new StringBuilder();
+        int checkX = sprite.getCentreX() + 10;
+        for (int dy = -16; dy <= 16; dy += 4) {
+            int checkY = sprite.getCentreY() + dy;
+            TerrainCheckResult result = ObjectTerrainUtils.checkRightWallDist(checkX, checkY);
+            appendSweepSample(builder, "y", checkY, result);
+        }
+        return String.format("x=%04X %s", checkX & 0xFFFF, builder);
+    }
+
+    private static String describeFloorSweep(AbstractPlayableSprite sprite) {
+        StringBuilder builder = new StringBuilder();
+        for (int dx = -12; dx <= 12; dx += 4) {
+            int checkX = sprite.getCentreX() + dx;
+            TerrainCheckResult result = ObjectTerrainUtils.checkFloorDist(
+                    checkX,
+                    sprite.getCentreY(),
+                    sprite.getYRadius());
+            appendSweepSample(builder, "x", checkX, result);
+        }
+        return builder.toString();
+    }
+
+    private static void appendSweepSample(StringBuilder builder,
+                                          String axis,
+                                          int coordinate,
+                                          TerrainCheckResult result) {
+        if (!builder.isEmpty()) {
+            builder.append(" | ");
+        }
+        builder.append(String.format(
+                "%s=%04X:%s",
+                axis,
+                coordinate & 0xFFFF,
+                formatTerrainCheckResult(result)));
+    }
+
+    private static String formatTerrainCheckResult(TerrainCheckResult result) {
+        if (result == null || !result.foundSurface()) {
+            return "<none>";
+        }
+        return String.format(
+                "{dist=%d hit=%s angle=%02X tile=%04X}",
+                result.distance(),
+                result.hasCollision(),
+                result.angle() & 0xFF,
+                result.tileIndex() & 0xFFFF);
+    }
+
     private static String nearbyPathSwaps(com.openggf.sprites.playable.AbstractPlayableSprite sprite) {
         ObjectManager objectManager = GameServices.level() != null
                 ? GameServices.level().getObjectManager()
@@ -791,6 +1302,100 @@ class DebugS3kAizReplayWindowProbe {
                 })
                 .reduce((left, right) -> left + " | " + right)
                 .orElse("-");
+    }
+
+    private static String summariseTouchOverlaps(java.util.List<TouchResponseDebugHit> hits) {
+        if (hits == null || hits.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        for (TouchResponseDebugHit hit : hits) {
+            if (!hit.overlapping()) {
+                continue;
+            }
+            if (shown > 0) {
+                sb.append(" | ");
+            }
+            appendTouchPrefix(sb, "touch", hit);
+            appendTouchPosition(sb, hit);
+            shown++;
+            if (shown >= 4) {
+                break;
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String summariseNearbyTouchScans(
+            java.util.List<TouchResponseDebugHit> hits, int centreX, int centreY) {
+        if (hits == null || hits.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        for (TouchResponseDebugHit hit : hits) {
+            int dx = Math.abs(hit.objectX() - centreX);
+            int dy = Math.abs(hit.objectY() - centreY);
+            if (dx > 160 || dy > 160) {
+                continue;
+            }
+            if (shown > 0) {
+                sb.append(" | ");
+            }
+            appendTouchPrefix(sb, "scan", hit);
+            sb.append(String.format(" ov=%d sz=%dx%d",
+                    hit.overlapping() ? 1 : 0,
+                    hit.width(),
+                    hit.height()));
+            appendTouchPosition(sb, hit);
+            shown++;
+            if (shown >= 8) {
+                break;
+            }
+        }
+        return sb.toString();
+    }
+
+    private static void appendTouchPrefix(StringBuilder sb, String prefix, TouchResponseDebugHit hit) {
+        sb.append(prefix);
+        if (hit.slotIndex() >= 0) {
+            sb.append(' ').append('s').append(hit.slotIndex());
+        }
+        ObjectSpawn spawn = hit.spawn();
+        if (spawn != null) {
+            sb.append(String.format(" 0x%02X", spawn.objectId() & 0xFF));
+        } else {
+            sb.append(" 0x??");
+        }
+        sb.append(' ').append(hit.category());
+    }
+
+    private static void appendTouchPosition(StringBuilder sb, TouchResponseDebugHit hit) {
+        sb.append(String.format(" obj=@%04X,%04X",
+                hit.objectX() & 0xFFFF,
+                hit.objectY() & 0xFFFF));
+        ObjectSpawn spawn = hit.spawn();
+        if (spawn != null && (spawn.x() != hit.objectX() || spawn.y() != hit.objectY())) {
+            sb.append(String.format(" sp=@%04X,%04X",
+                    spawn.x() & 0xFFFF,
+                    spawn.y() & 0xFFFF));
+        }
+    }
+
+    private static String describeAizIntroInstance() {
+        AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
+        if (intro == null) {
+            return "<none>";
+        }
+        return String.format(
+                "routine=%d x=%04X y=%04X xs=%04X ys=%04X destroyed=%b",
+                intro.getRoutine(),
+                intro.getX() & 0xFFFF,
+                intro.getY() & 0xFFFF,
+                intro.getReplayXSpeed() & 0xFFFF,
+                intro.getReplayYSpeed() & 0xFFFF,
+                intro.isDestroyed());
     }
 
     private static String describeRockState(ObjectManager objectManager) {
@@ -901,6 +1506,8 @@ class DebugS3kAizReplayWindowProbe {
                 0x0C,
                 fixture.sprite().getMoveLockTimer(),
                 fixture.sprite().isControlLocked(),
+                fixture.sprite().isObjectControlled(),
+                fixture.sprite().isHidden(),
                 eventsFg5,
                 fireTransitionActive,
                 false,
