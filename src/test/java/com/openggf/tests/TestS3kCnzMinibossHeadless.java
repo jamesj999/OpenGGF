@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -100,11 +101,17 @@ class TestS3kCnzMinibossHeadless {
         GameServices.camera().setX((short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MIN_X);
         fixture.stepFrame(false, false, false, false, false);
 
-        // Confirm arena lock is active.
+        // Confirm arena lock is active and that the locked max X really is the arena
+        // constant (catches a future regression where enterMinibossArena stops
+        // applying CNZ_MINIBOSS_ARENA_MAX_X — the release assertion below would
+        // silently pass otherwise if the natural CNZ1 maxX coincidentally equalled
+        // 0x3260).
         assertTrue(getCnzEvents().isBossFlag(), "Precondition: Boss_flag must be set after arena entry");
         short lockedMaxX = GameServices.camera().getMaxX();
-        // The camera should now be clamped to the arena max X.
-        // (enterMinibossArena sets maxX = CNZ_MINIBOSS_ARENA_MAX_X)
+        assertEquals(
+                (int) (short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_X,
+                (int) lockedMaxX,
+                "Precondition: arena entry must clamp camera maxX to CNZ_MINIBOSS_ARENA_MAX_X");
 
         // Simulate defeat: clear the boss flag directly (mirrors CnzMinibossInstance.onEndGo).
         getCnzEvents().setBossFlag(false);
@@ -113,10 +120,14 @@ class TestS3kCnzMinibossHeadless {
         // calls releaseArenaCameraClamps().
         fixture.stepFrame(false, false, false, false, false);
 
-        // After release the camera max X must differ from the arena-locked value.
+        // After release the camera max X must differ from the locked (arena) value.
+        // Anchoring against the captured lockedMaxX (rather than re-deriving the
+        // constant) makes the assertion read as "the value moved" and keeps the
+        // intent explicit: release-watchdog must mutate the bound away from where
+        // it was during the fight.
         short releasedMaxX = GameServices.camera().getMaxX();
         assertNotEquals(
-                (int) (short) Sonic3kConstants.CNZ_MINIBOSS_ARENA_MAX_X,
+                (int) lockedMaxX,
                 (int) releasedMaxX,
                 "Camera maxX must be restored to the pre-arena level bound after Boss_flag falls");
     }
