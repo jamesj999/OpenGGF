@@ -34,7 +34,9 @@ public final class S3kReplayCheckpointDetector {
                 && isLevelGameplay(probe)
                 && probe.moveLock() == 0
                 && !probe.ctrlLocked()
-                && !probe.titleCardOverlayActive()) {
+                && !probe.objectControlled()
+                && !probe.hidden()
+                && probe.titleCardOverlayActive()) {
             return emit(probe, "gameplay_start");
         }
         if (!emitted.contains("aiz1_fire_transition_begin")

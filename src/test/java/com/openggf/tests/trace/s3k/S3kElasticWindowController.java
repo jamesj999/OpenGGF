@@ -48,6 +48,11 @@ public final class S3kElasticWindowController {
         strictTraceIndex = entryTraceFrame;
     }
 
+    public void alignCursorToTraceIndex(int traceIndex) {
+        driveTraceIndex = traceIndex;
+        strictTraceIndex = traceIndex;
+    }
+
     public void onEngineTick() {
         if (openEntryName != null) {
             engineTicksInsideWindow++;
