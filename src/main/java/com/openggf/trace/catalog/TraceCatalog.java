@@ -95,18 +95,47 @@ public final class TraceCatalog {
         SelectedTeam team = new SelectedTeam(
                 main == null ? "sonic" : main,
                 meta.recordedSidekicks());
-        int zoneIndex = meta.zoneId() != null ? meta.zoneId() : 0;
+        int romZoneId = meta.zoneId() != null ? meta.zoneId() : 0;
+        int engineZone = romZoneToProgressionIndex(meta.game(), romZoneId);
+        // metadata "act" is 1-indexed (Act 1 == 1). Engine's
+        // LevelManager.loadZoneAndAct expects 0-indexed acts.
+        int engineAct = Math.max(0, meta.act() - 1);
         return Optional.of(new TraceEntry(
                 dir,
                 meta.game(),
-                zoneIndex,
-                meta.act(),
+                engineZone,
+                engineAct,
                 frameCount,
                 meta.bk2FrameOffset(),
                 meta.preTraceOscillationFrames(),
                 team,
                 bk2s.get(0),
                 meta));
+    }
+
+    /**
+     * Convert a metadata ROM zone id into the engine's progression
+     * zone index. For S2 and S3K these coincide, but S1 stores zones
+     * in ROM order (GHZ=0, LZ=1, MZ=2, SLZ=3, SYZ=4, SBZ=5, FZ=6)
+     * while the engine's {@code Sonic1ZoneRegistry} uses play order
+     * (GHZ=0, MZ=1, SYZ=2, LZ=3, SLZ=4, SBZ=5, FZ=6).
+     */
+    private static int romZoneToProgressionIndex(String gameId, int romZoneId) {
+        if ("s1".equals(gameId)) {
+            return switch (romZoneId) {
+                case 0 -> 0;  // GHZ
+                case 1 -> 3;  // LZ
+                case 2 -> 1;  // MZ
+                case 3 -> 4;  // SLZ
+                case 4 -> 2;  // SYZ
+                case 5 -> 5;  // SBZ
+                case 6 -> 6;  // FZ
+                default -> romZoneId;
+            };
+        }
+        // S2 and S3K already use progression ordering in their
+        // recorded zone_id.
+        return romZoneId;
     }
 
     private static int countCsvRows(Path physicsCsv) throws IOException {
