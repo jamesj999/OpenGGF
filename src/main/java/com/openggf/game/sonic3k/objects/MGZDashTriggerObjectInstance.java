@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.Direction;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -69,6 +70,7 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
     // ROM: mapping_frame ping-pongs between 0 (rest) and 4 (extended) each active frame.
     private static final int FRAME_REST = 0;
     private static final int FRAME_EXTENDED = 4;
+    private static final int CHILD_FRAME_MASK = 0x03;
 
     private final int triggerIndex;
     /** Trigger facing direction: false = bit 0 clear (right), true = bit 0 set (left). */
@@ -78,6 +80,12 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
     private int armTimer;
     // ROM: mapping_frame(a0)
     private int mappingFrame = FRAME_REST;
+    // ROM: sub2_mapframe(a0) -- child sprite frame at the same position.
+    private int childMappingFrame;
+    // ROM: $32(a0) -- signed step for the child sprite cycle.
+    private int childFrameStep = 1;
+    // ROM: anim_frame_timer(a0) -- child sprite delay counter.
+    private int childAnimFrameTimer;
 
     public MGZDashTriggerObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MGZDashTrigger");
@@ -131,6 +139,14 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
             launchIfRiding((AbstractPlayableSprite) sk);
         }
 
+        // ROM: subq.b #1,anim_frame_timer(a0) / move.b #1,anim_frame_timer(a0)
+        // / add.b $32(a0),sub2_mapframe(a0) / andi.b #3,sub2_mapframe(a0)
+        childAnimFrameTimer--;
+        if (childAnimFrameTimer < 0) {
+            childAnimFrameTimer = 1;
+            childMappingFrame = (childMappingFrame + childFrameStep) & CHILD_FRAME_MASK;
+        }
+
         // ROM: mapping_frame ping-pong between 0 and 4 every frame.
         mappingFrame = (mappingFrame == FRAME_REST) ? FRAME_EXTENDED : FRAME_REST;
     }
@@ -147,9 +163,8 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
         if (!isAdjacent(player)) return;
 
         armTimer = TIMER_DURATION;
-        // ROM tracks an animation-direction byte ($32) selected via XOR of
-        // status bits between player and trigger; that only feeds the optional
-        // child-sprite cycle ($1D) and is not visible at our render level.
+        boolean playerFacingLeft = player.getDirection() == Direction.LEFT;
+        childFrameStep = (playerFacingLeft == facingLeft) ? -1 : 1;
     }
 
     /**
@@ -237,7 +252,12 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
         if (renderer == null) {
             return;
         }
-        renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), facingLeft, false);
+        // ROM Render_Sprites skips the main sprite when mapping_frame == 0, then
+        // always draws the child sprite from sub2_mapframe at the same position.
+        if (mappingFrame != FRAME_REST) {
+            renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), facingLeft, false);
+        }
+        renderer.drawFrameIndex(childMappingFrame, spawn.x(), spawn.y(), facingLeft, false);
     }
 
     @Override
