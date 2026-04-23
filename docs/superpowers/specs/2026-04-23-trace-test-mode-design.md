@@ -166,7 +166,13 @@ public record TraceEntry(
 
 `SelectedTeam` already exists
 (`com.openggf.game.save.SelectedTeam(mainCharacter, sidekicks)`). The catalog
-builds it from `metadata.mainCharacter()` + `metadata.recordedSidekicks()`.
+builds it from `metadata.recordedMainCharacter()` +
+`metadata.recordedSidekicks()`. **Important:** use the null-safe
+`recordedMainCharacter()` accessor, not the raw `mainCharacter()` JSON
+field — the newer `characters[]` metadata format leaves the raw field
+null, and `SelectedTeam` rejects null at construction. When
+`recordedMainCharacter()` itself returns null (legacy trace with no
+recorded team), default to `"sonic"` for display.
 
 ### 4.4 Sorting
 
@@ -194,14 +200,28 @@ resolved against `user.dir` the same way `PLAYBACK_MOVIE_PATH` already is
 `MasterTitleScreen.update(InputHandler)` checks
 `configService.getBoolean(TEST_MODE_ENABLED)` on entry. When set, it hands
 off to a `TestModeTracePicker` instance instead of running its normal
-game-selection state machine. The existing `MasterTitleScreen.State`
-lifecycle (`FADE_IN` → `ACTIVE` → `EXITING`) is reused; only the `ACTIVE`
-behaviour is redirected.
+game-selection state machine.
+
+**State handling.** The full `MasterTitleScreen.State` enum is
+`{INACTIVE, FADE_IN, ACTIVE, ERROR_DISPLAY, CONFIRMING, EXITING}`. The
+picker is only reachable from `ACTIVE` — the other states are either
+transitional (`FADE_IN`, `EXITING`) or dialog-ish (`ERROR_DISPLAY`,
+`CONFIRMING`). In test mode:
+
+- `FADE_IN` proceeds as usual (fade-in animation plays).
+- On entering `ACTIVE` for the first time, if `TEST_MODE_ENABLED` is true
+  the picker takes over the `ACTIVE` render/update path; otherwise the
+  normal game-select layout runs.
+- `ERROR_DISPLAY` and `CONFIRMING` retain their existing behaviour. The
+  picker is suspended while those are up and resumes when the state
+  returns to `ACTIVE`.
+- `EXITING` proceeds as usual once a trace is chosen and the launcher
+  hands off to `GameLoop.launchGameByEntry`.
 
 When `Esc` is pressed inside the picker, the picker returns a
 `BACK_TO_MASTER` result and the master title falls through to its normal
-game-select layout. This avoids needing a separate `GameMode` entry: the
-picker is a sibling render path inside `MASTER_TITLE_SCREEN`.
+game-select layout in `ACTIVE`. This avoids needing a separate `GameMode`
+entry: the picker is a sibling render path inside `MASTER_TITLE_SCREEN`.
 
 `GameMode` itself is **not** changed. A dedicated mode isn't needed because
 the picker only runs before any ROM is loaded, and the playback session
@@ -256,11 +276,22 @@ and don't need to go through `SonicConfiguration`.
 
 1. Resolve the entry's `gameId` to a `MasterTitleScreen.GameEntry`
    (`SONIC_1` / `SONIC_2` / `SONIC_3K`).
-2. Reuse the master-title game-bootstrap pathway: `MasterTitleScreen`
-   exposes a new package-private `selectEntry(GameEntry)` that mirrors its
-   Enter-confirmation path, and `GameLoop.exitMasterTitleScreen(...)` (the
-   code that already runs when a user picks a game) is invoked against it.
-   This loads the right ROM and game module with zero duplicated logic.
+2. Reuse the master-title game-bootstrap pathway. Two small access-level
+   changes are required in `GameLoop`:
+   - Promote `exitMasterTitleScreen(MasterTitleScreen)` from `private` to
+     package-private, **or** introduce a package-private wrapper
+     `launchGameByEntry(GameEntry)` that internally synthesises a forced
+     selection and calls `exitMasterTitleScreen`. The spec picks the
+     wrapper approach to keep the existing private routine untouched.
+   - `MasterTitleScreen` exposes a package-private `selectEntry(GameEntry)`
+     that mirrors its Enter-confirmation behaviour (seeds
+     `isGameSelected()` to true for the chosen entry).
+   - `TraceSessionLauncher` lives in the same package as `GameLoop` (i.e.
+     `com.openggf`) so it can invoke `launchGameByEntry`.
+
+   The result: the launcher picks the `GameEntry`, the existing
+   master-title post-selection code runs as if the user had pressed Enter,
+   and the right ROM and module load with zero duplicated logic.
 3. Reuse `AbstractTraceReplayTest`'s bootstrap flow — extracted into a new
    `TraceReplaySessionBootstrap` helper so it can be called from both the
    test and the engine:
@@ -306,11 +337,37 @@ public final class TraceReplaySessionBootstrap {
 }
 ```
 
-`TraceReplayFixture` is a new narrow interface
-(`AbstractPlayableSprite sprite()`, `GameRuntime runtime()`) that both
-`HeadlessTestFixture` and the live launcher implement. The test class keeps
-orchestrating JUnit/assertions; the bootstrap helper owns the ordering that
-is identical in both paths.
+`TraceReplayFixture` is a new narrow interface that both
+`HeadlessTestFixture` and the live launcher implement:
+
+```java
+public interface TraceReplayFixture {
+    AbstractPlayableSprite sprite();
+    GameRuntime runtime();
+    int stepFrameFromRecording();     // runs one tick using BK2 input, returns the mask
+    int skipFrameFromRecording();     // advances BK2, does NOT run gameplay, returns mask
+    void advanceRecordingCursor(int frameCount);
+}
+```
+
+The three playback-driving methods are required — `TraceReplayBootstrap`'s
+existing call sites (`applyReplayStartStateForTraceReplay`,
+`replayLegacyFramesToSeedIndex`, etc.) already invoke all of them on its
+fixture arg. The test class keeps orchestrating JUnit/assertions; the
+bootstrap helper owns the ordering that is identical in both paths.
+
+**Live-launcher implementation.** The launcher's `TraceReplayFixture` impl
+delegates the three playback methods to `PlaybackDebugManager`:
+- `stepFrameFromRecording()` reads the current `Bk2FrameInput`, feeds it
+  into the input bridge, advances the cursor, returns the mask.
+- `skipFrameFromRecording()` advances the cursor without binding input or
+  running a gameplay tick (the live engine's lag-gate from 6.3 makes this
+  a no-op-on-gameplay path).
+- `advanceRecordingCursor(int)` pumps the cursor by N frames without
+  stepping gameplay.
+
+These behaviours already exist on `HeadlessTestRunner`; factoring them
+behind the interface is the move that makes the live launcher possible.
 
 ### 6.2 Programmatic playback entrypoint
 
@@ -468,13 +525,33 @@ introduced in 6.3:
 ### 8.3 S3K elastic window
 
 S3K replays use `S3kElasticWindowController` to align engine frames to trace
-frames across checkpoints. For the live comparator we take the simpler
-"best-effort" path: compare engine frame N to trace frame `startIndex + N`
-directly. S3K divergences may be noisier than what `TestS3kAizTraceReplay`
-reports, because we don't re-align on checkpoint events. This is acceptable
-for a visual tool — the counters still trend correctly. We keep the door
-open to consume `S3kReplayCheckpointDetector` later if noise proves too
-high in practice, but it's out of scope for v1.
+frames across checkpoints. Full elastic-window re-alignment is out of scope
+for v1.
+
+However, a naive frame-N-to-`startIndex + N` comparison produces a flood of
+false positives during pre-gameplay frames (intro cutscene, title card,
+etc.) where the ROM and engine are intentionally out of step. The existing
+`AbstractTraceReplayTest.replayS3kTrace` gates all binder calls on
+`S3kElasticWindowController.isStrictComparisonEnabled()` — comparison is
+suppressed until the first checkpoint aligns.
+
+V1 picks the minimum viable subset of that gating:
+
+- The comparator consumes `TraceEvent.Checkpoint` events via
+  `S3kReplayCheckpointDetector` (the existing probe-driven detector).
+- Per-frame comparison is **suppressed** for S3K traces until the first
+  `gameplay_start` checkpoint is detected on the engine side.
+- Once past the first gameplay checkpoint, comparison resumes against
+  `startIndex + N` without elastic re-alignment. Downstream checkpoint
+  drift is reflected as real divergences — which is exactly the signal a
+  visual tool wants to surface.
+- The grey LAG counter and error/warning counters remain live throughout
+  (including the suppressed window), so the user can see the engine is
+  running even while the comparator is intentionally quiet.
+
+The hook point is a new `boolean comparisonSuppressed()` method on the
+comparator. When true, `afterFrameAdvanced` only increments the lag
+counter (if `wasSkipped`) and does not call into `TraceBinder`.
 
 ## 9. HUD overlay
 
