@@ -2,12 +2,15 @@ package com.openggf.trace.live;
 
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.PlaybackDebugManager.PlaybackFrameObserver;
+import com.openggf.game.GameServices;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.FieldComparison;
 import com.openggf.trace.FrameComparison;
 import com.openggf.trace.Severity;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceBinder;
+import com.openggf.trace.TraceCharacterState;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceExecutionPhase;
@@ -90,11 +93,18 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             checkComplete();
             return;
         }
+        // Pass the first sidekick's state too so the binder's
+        // appendCharacterComparisons finds an actual value instead of
+        // flagging every recorded sidekick field as divergent (EHZ1
+        // etc. record Sonic+Tails).
+        TraceCharacterState actualSidekick = captureFirstSidekickState();
         FrameComparison result = binder.compareFrame(expected,
                 sprite.getCentreX(), sprite.getCentreY(),
                 sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                 sprite.getAngle(), sprite.getAir(), sprite.getRolling(),
-                sprite.getGroundMode().ordinal());
+                sprite.getGroundMode().ordinal(),
+                null, null,
+                "sidekick", actualSidekick);
         absorbDivergentFields(result, expected.frame());
         cursor++;
         checkComplete();
@@ -136,6 +146,14 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                     sev,
                     1));
         }
+    }
+
+    private static TraceCharacterState captureFirstSidekickState() {
+        SpriteManager sprites = GameServices.sprites();
+        if (sprites == null || sprites.getSidekicks().isEmpty()) {
+            return null;
+        }
+        return TraceCharacterState.fromSprite(sprites.getSidekicks().getFirst());
     }
 
     private void checkComplete() {

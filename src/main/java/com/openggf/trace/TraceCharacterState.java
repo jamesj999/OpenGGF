@@ -1,5 +1,12 @@
 package com.openggf.trace;
 
+import com.openggf.game.GameServices;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.physics.Direction;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
 /**
  * Per-character trace state used for optional sidekick tracking in schema v5+.
  */
@@ -25,6 +32,49 @@ public record TraceCharacterState(
         return new TraceCharacterState(false,
             (short) 0, (short) 0, (short) 0, (short) 0, (short) 0,
             (byte) 0, false, false, 0, 0, 0, -1, -1, -1);
+    }
+
+    /**
+     * Capture the current engine state of a playable sprite in the
+     * same shape the recorded CSV uses. Shared by headless and live
+     * replay paths so both compare apples-to-apples.
+     */
+    public static TraceCharacterState fromSprite(AbstractPlayableSprite sprite) {
+        if (sprite == null) {
+            return absent();
+        }
+        ObjectManager om = GameServices.level() != null
+                ? GameServices.level().getObjectManager() : null;
+        int standOnSlot = -1;
+        if (om != null) {
+            ObjectInstance ridingObj = om.getRidingObject(sprite);
+            if (ridingObj instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= 0) {
+                standOnSlot = aoi.getSlotIndex();
+            }
+        }
+        int statusByte = 0;
+        if (sprite.getDirection() == Direction.LEFT) {
+            statusByte |= 0x01;
+        }
+        if (sprite.getAir()) statusByte |= 0x02;
+        if (sprite.getRolling()) statusByte |= 0x04;
+        if (sprite.isOnObject()) statusByte |= 0x08;
+        int routine = sprite.isHurt() ? 0x04 : 0x02;
+        return new TraceCharacterState(true,
+                sprite.getCentreX(),
+                sprite.getCentreY(),
+                sprite.getXSpeed(),
+                sprite.getYSpeed(),
+                sprite.getGSpeed(),
+                sprite.getAngle(),
+                sprite.getAir(),
+                sprite.getRolling(),
+                sprite.getGroundMode().ordinal(),
+                sprite.getXSubpixelRaw(),
+                sprite.getYSubpixelRaw(),
+                routine,
+                statusByte,
+                standOnSlot);
     }
 
     public static TraceCharacterState parseCsvColumns(String[] parts, int offset) {
