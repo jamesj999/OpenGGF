@@ -169,6 +169,25 @@ public class SwScrlMgzTest {
     }
 
     @Test
+    public void sameFrameZeroShakeRequestDoesNotClobberEarlierActiveShake() {
+        SwScrlMgz handler = new SwScrlMgz();
+        int[] rising = new int[224];
+
+        handler.setBgRiseState(8, 0x200);
+        handler.setScreenShakeOffset(3);
+        handler.setScreenShakeOffset(0);
+        handler.update(rising, 0x3500, 0x0850, 1, 1);
+
+        assertEquals(3, handler.getShakeOffsetY(),
+                "MGZ should preserve the strongest same-frame shake request so MGZ2 events do not clear an active dash-trigger platform shake");
+
+        handler.update(rising, 0x3500, 0x0850, 2, 1);
+
+        assertEquals(0, handler.getShakeOffsetY(),
+                "Without a new request on the next frame, MGZ shake should clear normally");
+    }
+
+    @Test
     public void act2CloudsStayFrozenWhenStateEightIsReenteredAfterAfterMove() {
         SwScrlMgz handler = new SwScrlMgz();
         int[] afterMove = new int[224];
