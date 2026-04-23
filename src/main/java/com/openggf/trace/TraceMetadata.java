@@ -94,35 +94,6 @@ public record TraceMetadata(
         ObjectMapper mapper = new ObjectMapper();
         return mapper.readValue(metadataFile.toFile(), TraceMetadata.class);
     }
-
-    /**
-     * Test factory — minimal metadata for in-memory tests. Public because
-     * callers live in different subpackages (e.g. {@code com.openggf.trace.live}).
-     */
-    public static TraceMetadata forTest(String gameId, int zoneId, int act) {
-        return new TraceMetadata(
-                gameId,
-                "TEST",
-                zoneId,
-                act,
-                0,
-                0,
-                "0x0000",
-                "0x0000",
-                null,
-                null,
-                3,
-                null,
-                null,
-                null,
-                "sonic",
-                List.of(),
-                0,
-                null,
-                null,
-                null,
-                null);
-    }
 }
 
 

@@ -67,24 +67,29 @@ public final class TestModeTracePicker {
         }
     }
 
+    private static final float SCALE = 0.5f;
+    private static final int LINE_HEIGHT = 6;
+    private static final int GROUP_GAP = 3;
+    private static final int HEADING_HEIGHT = 8;
+
     public void render() {
-        font.drawTextCentered("TRACE TEST MODE", 320, 12, 1f, 1f, 1f, 1f);
-        int y = 32;
+        font.drawText("TRACE TEST MODE", 8, 6, SCALE, 1f, 1f, 1f, 1f);
+        int y = 18;
         String lastGame = null;
         for (int i = 0; i < entries.size(); i++) {
             TraceEntry e = entries.get(i);
             if (!e.gameId().equals(lastGame)) {
-                if (lastGame != null) y += 6;
-                font.drawText(gameHeading(e.gameId()), 20, y, 1f, 1f, 0.6f, 1f);
-                y += 14;
+                if (lastGame != null) y += GROUP_GAP;
+                font.drawText(gameHeading(e.gameId()), 8, y, SCALE, 1f, 1f, 0.6f, 1f);
+                y += HEADING_HEIGHT;
                 lastGame = e.gameId();
             }
             boolean selected = (i == cursor);
-            float brightness = selected ? 1.0f : 0.7f;
+            float brightness = selected ? 1.0f : 0.6f;
             String prefix = selected ? ">" : " ";
             String line = prefix + " " + e.dir().getFileName();
-            font.drawText(line, 24, y, brightness, brightness, brightness, 1f);
-            y += 11;
+            font.drawText(line, 12, y, SCALE, brightness, brightness, brightness, 1f);
+            y += LINE_HEIGHT;
         }
         if (cursor < entries.size()) {
             renderInfoPanel(entries.get(cursor));
@@ -92,19 +97,19 @@ public final class TestModeTracePicker {
     }
 
     private void renderInfoPanel(TraceEntry e) {
-        int y = 180;
+        int y = 192;
         font.drawText("SELECTED: " + e.gameId() + "/" + e.dir().getFileName(),
-                8, y, 1f, 1f, 1f, 1f);
-        y += 12;
+                4, y, SCALE, 1f, 1f, 1f, 1f);
+        y += LINE_HEIGHT;
         font.drawText(String.format("Zone: %02X  Act: %d   Frames: %d   BK2 offset: %d",
                         e.zone(), e.act(), e.frameCount(), e.bk2StartOffset()),
-                8, y, 0.9f, 0.9f, 0.9f, 1f);
-        y += 11;
+                4, y, SCALE, 0.9f, 0.9f, 0.9f, 1f);
+        y += LINE_HEIGHT;
         font.drawText("Team: " + formatTeam(e) + "   Pre-osc: " + e.preTraceOscFrames(),
-                8, y, 0.9f, 0.9f, 0.9f, 1f);
-        y += 11;
+                4, y, SCALE, 0.9f, 0.9f, 0.9f, 1f);
+        y += LINE_HEIGHT;
         font.drawText("BK2: " + e.bk2Path().getFileName(),
-                8, y, 0.7f, 0.7f, 0.7f, 1f);
+                4, y, SCALE, 0.7f, 0.7f, 0.7f, 1f);
     }
 
     private static String gameHeading(String gameId) {
@@ -136,13 +141,24 @@ public final class TestModeTracePicker {
 
     private int prevGroupStart(int from) {
         String current = entries.get(from).gameId();
-        int found = -1;
-        for (int i = 0; i < from; i++) {
-            if (!entries.get(i).gameId().equals(current) && found == -1) {
-                found = i;
+        // Walk backwards to find the group that precedes the current one,
+        // then walk to that group's FIRST entry.
+        int prevGroupLastIdx = -1;
+        for (int i = from - 1; i >= 0; i--) {
+            if (!entries.get(i).gameId().equals(current)) {
+                prevGroupLastIdx = i;
+                break;
             }
         }
-        return found >= 0 ? found : 0;
+        if (prevGroupLastIdx < 0) {
+            return 0;
+        }
+        String prevGame = entries.get(prevGroupLastIdx).gameId();
+        int start = prevGroupLastIdx;
+        while (start > 0 && entries.get(start - 1).gameId().equals(prevGame)) {
+            start--;
+        }
+        return start;
     }
 
     public Result consumeResult() {

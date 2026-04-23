@@ -70,26 +70,47 @@ public final class TraceSessionLauncher {
     }
 
     public static void launch(TraceEntry entry) {
+        GameLoop loop = Engine.currentGameLoop();
+        if (loop == null) {
+            LOGGER.severe("Cannot launch trace " + entry.dir()
+                    + ": Engine is not initialised");
+            return;
+        }
         try {
             TraceData trace = TraceData.load(entry.dir());
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
             TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
-            Engine.currentGameLoop().launchGameByEntry(
+            loop.launchGameByEntry(
                     resolveGameEntry(entry.gameId()),
                     session::finishLaunchAfterGameBootstrap);
         } catch (Exception e) {
-            LOGGER.severe("Failed to launch trace " + entry.dir() + ": " + e.getMessage());
+            LOGGER.log(java.util.logging.Level.SEVERE,
+                    "Failed to launch trace " + entry.dir(), e);
         }
     }
 
     private void finishLaunchAfterGameBootstrap() {
+        GameLoop loop = Engine.currentGameLoop();
+        PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
         try {
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
-            GameLoop loop = Engine.currentGameLoop();
             loop.setGameMode(GameMode.LEVEL);
 
-            PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
+            // Swallow any title-card request / active overlay that the
+            // level load triggered. Headless trace tests drive frames
+            // through LevelFrameStep.execute directly, which never gates
+            // gameplay on title-card state; we mirror that by dropping
+            // the title card entirely so the replay starts on frame 0.
+            GameServices.level().consumeInLevelTitleCardRequest();
+            com.openggf.game.TitleCardProvider titleCardProvider =
+                    GameServices.module() != null
+                            ? GameServices.module().getTitleCardProvider()
+                            : null;
+            if (titleCardProvider != null && titleCardProvider.isOverlayActive()) {
+                titleCardProvider.reset();
+            }
+
             int startIndex = TraceReplayBootstrap
                     .recordingStartFrameForTraceReplay(trace);
             playback.startSession(movie, startIndex);
@@ -104,13 +125,20 @@ public final class TraceSessionLauncher {
                     ToleranceConfig.DEFAULT,
                     initialCursor,
                     loop::getMainPlayableSprite);
-            this.overlay = new TraceHudOverlay(comparator, fixture);
+            this.overlay = new TraceHudOverlay(comparator);
             playback.setFrameObserver(comparator);
             activeSession = this;
         } catch (Exception e) {
-            PlaybackDebugManager.getInstance().endSession();
-            LOGGER.severe("Failed to finish trace launch for "
-                    + entry.dir() + ": " + e.getMessage());
+            // Partial bootstrap: detach playback and route back to the
+            // picker so the engine doesn't end up orphaned in LEVEL
+            // mode with no session.
+            playback.endSession();
+            activeSession = null;
+            LOGGER.log(java.util.logging.Level.SEVERE,
+                    "Failed to finish trace launch for " + entry.dir(), e);
+            if (loop != null) {
+                loop.returnToMasterTitle();
+            }
         }
     }
 
@@ -152,12 +180,17 @@ public final class TraceSessionLauncher {
     }
 
     private void teardown() {
+        // Clear the static session pointer BEFORE kicking off the
+        // runtime reset so any callback running during teardown
+        // (GameLoop tick, Engine.draw, observer afterFrameAdvanced)
+        // sees a clean "no session active" state instead of the
+        // half-torn-down launcher.
+        activeSession = null;
         PlaybackDebugManager.getInstance().endSession();
         GameLoop loop = Engine.currentGameLoop();
         if (loop != null) {
             loop.returnToMasterTitle();
         }
-        activeSession = null;
     }
 
     private static MasterTitleScreen.GameEntry resolveGameEntry(String gameId) {

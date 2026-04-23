@@ -32,8 +32,10 @@ public class TraceData {
     private final List<TraceFrame> frames;
     private final Map<Integer, List<TraceEvent>> eventsByFrame;
 
-    private TraceData(TraceMetadata metadata, List<TraceFrame> frames,
-                      Map<Integer, List<TraceEvent>> eventsByFrame) {
+    // Package-private so same-package test fixtures in src/test can
+    // construct in-memory instances without going through disk I/O.
+    TraceData(TraceMetadata metadata, List<TraceFrame> frames,
+              Map<Integer, List<TraceEvent>> eventsByFrame) {
         this.metadata = metadata;
         this.frames = frames;
         this.eventsByFrame = eventsByFrame;
@@ -53,15 +55,6 @@ public class TraceData {
         warnIfLegacyExecutionCounters(traceDirectory, metadata, frames);
 
         return new TraceData(metadata, frames, events);
-    }
-
-    /**
-     * Test factory — in-memory TraceData without disk I/O. Public (not
-     * package-private) because callers live in different subpackages
-     * (e.g. {@code com.openggf.trace.live}).
-     */
-    public static TraceData ofFrames(TraceMetadata metadata, List<TraceFrame> frames) {
-        return new TraceData(metadata, List.copyOf(frames), Map.of());
     }
 
     public TraceMetadata metadata() { return metadata; }
