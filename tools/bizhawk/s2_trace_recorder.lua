@@ -131,7 +131,7 @@ local SIDEKICK_BASE        = OBJ_TABLE_START + OBJ_SLOT_SIZE  -- slot 1 = Tails/
 -- Frame counter (v_framecount at $FFFE04, word — increments each Level_MainLoop)
 -- NOTE: 0xFE0C is v_vbla_count (longword, VBlank interrupt counter — different!)
 local ADDR_FRAMECOUNT      = 0xFE04
-local ADDR_VBLA_WORD       = 0xFE0E
+local ADDR_VBLA_WORD       = 0xFE0C
 
 -- Genesis joypad bitmask (matching engine convention)
 local INPUT_UP    = 0x01
