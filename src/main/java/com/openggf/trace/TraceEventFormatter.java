@@ -1,14 +1,14 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class TraceEventFormatter {
+public final class TraceEventFormatter {
 
     private TraceEventFormatter() {
     }
 
-    static String summariseFrameEvents(List<TraceEvent> events) {
+    public static String summariseFrameEvents(List<TraceEvent> events) {
         if (events == null || events.isEmpty()) {
             return "";
         }

@@ -13,6 +13,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.trace.replay.TraceReplayFixture;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -23,7 +24,7 @@ import java.nio.file.Path;
  * found in headless test classes (sprite creation, camera setup, level event
  * initialization, HeadlessTestRunner wiring).
  */
-public final class HeadlessTestFixture {
+public final class HeadlessTestFixture implements TraceReplayFixture {
 
     private final GameRuntime runtime;
     private final HeadlessTestRunner runner;

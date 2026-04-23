@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.*;
+
 import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;

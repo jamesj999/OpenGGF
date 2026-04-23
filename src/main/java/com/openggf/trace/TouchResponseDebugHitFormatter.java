@@ -1,16 +1,16 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseDebugHit;
 
 import java.util.List;
 
-final class TouchResponseDebugHitFormatter {
+public final class TouchResponseDebugHitFormatter {
 
     private TouchResponseDebugHitFormatter() {
     }
 
-    static String summariseOverlaps(List<TouchResponseDebugHit> hits) {
+    public static String summariseOverlaps(List<TouchResponseDebugHit> hits) {
         if (hits == null || hits.isEmpty()) {
             return "";
         }
@@ -34,7 +34,7 @@ final class TouchResponseDebugHitFormatter {
         return sb.toString();
     }
 
-    static String summariseNearbyScans(List<TouchResponseDebugHit> hits, int centreX, int centreY) {
+    public static String summariseNearbyScans(List<TouchResponseDebugHit> hits, int centreX, int centreY) {
         if (hits == null || hits.isEmpty()) {
             return "";
         }

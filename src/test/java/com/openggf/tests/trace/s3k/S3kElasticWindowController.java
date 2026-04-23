@@ -1,6 +1,6 @@
 package com.openggf.tests.trace.s3k;
 
-import com.openggf.tests.trace.TraceEvent;
+import com.openggf.trace.TraceEvent;
 
 import java.util.Map;
 

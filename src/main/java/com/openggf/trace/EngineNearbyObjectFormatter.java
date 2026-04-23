@@ -1,13 +1,13 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import java.util.List;
 
-final class EngineNearbyObjectFormatter {
+public final class EngineNearbyObjectFormatter {
 
     private EngineNearbyObjectFormatter() {
     }
 
-    static String summarise(List<EngineNearbyObject> objects) {
+    public static String summarise(List<EngineNearbyObject> objects) {
         if (objects == null || objects.isEmpty()) {
             return "";
         }

@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /** Severity of a single field divergence. */
 public enum Severity {

@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.*;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseDebugHit;

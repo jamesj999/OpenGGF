@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
@@ -12,7 +12,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
-import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.trace.replay.TraceReplayFixture;
 
 import java.util.List;
 
@@ -64,7 +64,7 @@ public final class TraceReplayBootstrap {
     }
 
     public static TraceObjectSnapshotBinder.Result applyPreTraceState(TraceData trace,
-                                                                     HeadlessTestFixture fixture) {
+                                                                     TraceReplayFixture fixture) {
         applyPreTracePlayerHistory(trace.preTracePlayerHistorySnapshot(), fixture.sprite());
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
@@ -149,12 +149,12 @@ public final class TraceReplayBootstrap {
     }
 
     public static ReplayStartState applyReplayStartState(TraceData trace,
-                                                         HeadlessTestFixture fixture) {
+                                                         TraceReplayFixture fixture) {
         return applyReplayStartState(trace, fixture, true);
     }
 
     public static ReplayStartState applyReplayStartStateForTraceReplay(TraceData trace,
-                                                                       HeadlessTestFixture fixture) {
+                                                                       TraceReplayFixture fixture) {
         if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
             return warmupLegacyS3kAizTraceReplay(trace, fixture);
         }
@@ -175,7 +175,7 @@ public final class TraceReplayBootstrap {
      * before the seed path runs its level-event update and advance.
      */
     public static ReplayStartState applySeedReplayStartStateForTraceReplay(TraceData trace,
-                                                                           HeadlessTestFixture fixture) {
+                                                                           TraceReplayFixture fixture) {
         if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
             int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
             ObjectManager objectManager = GameServices.level() != null
@@ -285,7 +285,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static ReplayStartState applyReplayStartState(TraceData trace,
-                                                          HeadlessTestFixture fixture,
+                                                          TraceReplayFixture fixture,
                                                           boolean seedLegacyS3kAizAtGameplayStart) {
         return applyReplayStartState(
                 trace,
@@ -297,7 +297,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static ReplayStartState applyReplayStartState(TraceData trace,
-                                                          HeadlessTestFixture fixture,
+                                                          TraceReplayFixture fixture,
                                                           boolean seedLegacyS3kAizAtGameplayStart,
                                                           int requestedSeedTraceIndex) {
         if (!shouldSeedReplayStartState(trace, fixture, requestedSeedTraceIndex)) {
@@ -366,7 +366,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static ReplayStartState warmupLegacyS3kAizTraceReplay(TraceData trace,
-                                                                  HeadlessTestFixture fixture) {
+                                                                  TraceReplayFixture fixture) {
         if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
             return ReplayStartState.DEFAULT;
         }
@@ -425,7 +425,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static void replayLegacyFramesToSeedIndex(TraceData trace,
-                                                      HeadlessTestFixture fixture,
+                                                      TraceReplayFixture fixture,
                                                       int seededTraceIndex) {
         TraceFrame previous = trace.getFrame(0);
         for (int traceIndex = 1; traceIndex <= seededTraceIndex; traceIndex++) {
@@ -475,7 +475,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static boolean shouldSeedFrameZero(TraceData trace,
-                                               HeadlessTestFixture fixture) {
+                                               TraceReplayFixture fixture) {
         if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
             return false;
         }
@@ -487,7 +487,7 @@ public final class TraceReplayBootstrap {
     }
 
     private static boolean shouldSeedReplayStartState(TraceData trace,
-                                                      HeadlessTestFixture fixture,
+                                                      TraceReplayFixture fixture,
                                                       int requestedSeedTraceIndex) {
         return shouldSeedFrameZero(trace, fixture) || requestedSeedTraceIndex > 0;
     }

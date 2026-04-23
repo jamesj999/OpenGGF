@@ -1,4 +1,4 @@
-package com.openggf.tests.trace;
+package com.openggf.trace;
 
 /**
  * Engine-side diagnostic snapshot captured per-frame during trace replay.
