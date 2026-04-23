@@ -249,6 +249,16 @@ public final class TraceReplayBootstrap {
         return trace.getFrame(traceIndex).vblankCounter();
     }
 
+    /**
+     * Returns true when the replay bootstrap should seed the engine from the
+     * trace's recorded start state rather than driving gameplay from frame 0
+     * without hydration. Currently always true; kept as a gate so future
+     * trace schemas can opt out.
+     */
+    public static boolean shouldUseTraceStartBootstrapForTraceReplay(TraceData trace) {
+        return true;
+    }
+
     public static boolean requiresFreshLevelLoadForTraceReplay(TraceData trace) {
         return isLegacyS3kAizIntroTrace(trace)
                 && replaySeedTraceIndexForTraceReplay(trace) == 0;
