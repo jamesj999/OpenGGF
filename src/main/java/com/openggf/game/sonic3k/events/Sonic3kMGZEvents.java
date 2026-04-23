@@ -192,6 +192,12 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int BG_RISE_SONIC = 8;
     /** ROM: Events_bg+$00 == 0xC — after BG rise completes, collision off, can re-enter. */
     private static final int BG_RISE_AFTER_MOVE = 0xC;
+    /** ROM: MGZ2_BackgroundInit late-load path: Y in [$500,$800) and X >= $3900 enters state C. */
+    private static final int BG_RISE_LATE_LOAD_AFTER_MOVE_Y_MIN = 0x0500;
+    private static final int BG_RISE_LATE_LOAD_AFTER_MOVE_Y_MAX = 0x0800;
+    private static final int BG_RISE_LATE_LOAD_AFTER_MOVE_X_MIN = 0x3900;
+    /** ROM: MGZ2_BackgroundInit preloads the fully-raised offset once X >= $3800 in state 8. */
+    private static final int BG_RISE_LATE_LOAD_FINISHED_X_MIN = 0x3800;
 
     /** ROM: loc_51A8A — BG_RISE_NORMAL trigger box for Sonic path (Y in [$800,$900), X >= $34C0). */
     private static final int BG_RISE_TRIGGER_Y_MIN = 0x0800;
@@ -254,6 +260,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private boolean bgRiseAccelLatched;
     /** ROM: Screen_shake_flag timed countdown ($E frames) armed when target reached. */
     private int bgRiseFinalShakeTimer;
+    /** One-shot MGZ2_BackgroundInit parity path for late checkpoint/death loads. */
+    private boolean bgRiseLoadStateInitialised;
 
     /** ROM: Events_bg+$12, +$13, +$14 — one-shot flags per appearance. */
     private boolean appearance1Complete;
@@ -320,6 +328,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bgRiseMotionStarted = false;
         bgRiseAccelLatched = false;
         bgRiseFinalShakeTimer = 0;
+        bgRiseLoadStateInitialised = false;
         savedCameraMinX = 0;
         savedCameraMaxX = 0;
         savedCameraBoundsValid = false;
@@ -779,6 +788,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         if (player == null) {
             return;
         }
+        primeBgRiseFromLoadPosition(player.getCentreX(), player.getCentreY());
         if (bgRiseFinalShakeTimer > 0) {
             bgRiseFinalShakeTimer--;
         }
@@ -800,6 +810,48 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         } else {
             scrollHandler.setBgRiseState(bgRiseRoutine, bgRiseOffset);
         }
+    }
+
+    /**
+     * ROM: MGZ2_BackgroundInit reconstructs the BG-rise route from the loaded
+     * player position. That means late starpost/death reloads skip straight to
+     * the finished raised-terrain state instead of replaying the whole lift.
+     */
+    private void primeBgRiseFromLoadPosition(int playerX, int playerY) {
+        if (bgRiseLoadStateInitialised) {
+            return;
+        }
+        bgRiseLoadStateInitialised = true;
+
+        if (playerY >= BG_RISE_LATE_LOAD_AFTER_MOVE_Y_MIN
+                && playerY < BG_RISE_LATE_LOAD_AFTER_MOVE_Y_MAX
+                && playerX >= BG_RISE_LATE_LOAD_AFTER_MOVE_X_MIN) {
+            bgRiseRoutine = BG_RISE_AFTER_MOVE;
+            bgRiseOffset = BG_RISE_TARGET_SONIC;
+            bgRiseSubpixelAccum = 0;
+            bgRiseMotionStarted = false;
+            bgRiseAccelLatched = false;
+            gameState().setBackgroundCollisionFlag(false);
+            LOG.info(String.format(
+                    "MGZ BG-rise: late-load init -> AFTER_MOVE at player (0x%04X, 0x%04X)",
+                    playerX, playerY));
+            return;
+        }
+
+        if (playerY >= BG_RISE_TRIGGER_Y_MIN && playerX >= BG_RISE_TRIGGER_X_MIN) {
+            bgRiseRoutine = BG_RISE_SONIC;
+            bgRiseOffset = playerX >= BG_RISE_LATE_LOAD_FINISHED_X_MIN ? BG_RISE_TARGET_SONIC : 0;
+            bgRiseSubpixelAccum = 0;
+            bgRiseMotionStarted = false;
+            bgRiseAccelLatched = false;
+            gameState().setBackgroundCollisionFlag(true);
+            LOG.info(String.format(
+                    "MGZ BG-rise: late-load init -> SONIC offset=0x%03X at player (0x%04X, 0x%04X)",
+                    bgRiseOffset, playerX, playerY));
+            return;
+        }
+
+        gameState().setBackgroundCollisionFlag(false);
     }
 
     /**
@@ -938,6 +990,16 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
 
     int getScreenEventRoutine() {
         return screenEventRoutine;
+    }
+
+    @Override
+    public int getDynamicResizeRoutine() {
+        return screenEventRoutine;
+    }
+
+    @Override
+    public void setDynamicResizeRoutine(int routine) {
+        screenEventRoutine = routine;
     }
 
     private void updateAct2ChunkEvent() {

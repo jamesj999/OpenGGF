@@ -32,9 +32,11 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     // State C shifts the parallax origin by $500.
     private static final int BG_RISE_NORMAL_STATE = 0;
     private static final int BG_RISE_SONIC_STATE = 8;
+    private static final int BG_RISE_AFTER_MOVE_STATE = 0xC;
     /** ROM: loc_23D1EA — d1 = $8F0, d2 = $3200 for Sonic rise. */
     private static final int MGZ2_SONIC_RISE_Y_BASE = 0x8F0;
     private static final int MGZ2_SONIC_RISE_X_BASE = 0x3200;
+    private static final int MGZ2_AFTER_MOVE_Y_BASE = 0x500;
 
     private int bgRiseRoutine;
     private int bgRiseOffset;
@@ -52,6 +54,9 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
     }
 
     public void setBgRiseState(int routine, int offset) {
+        if (this.bgRiseRoutine != BG_RISE_AFTER_MOVE_STATE && routine == BG_RISE_AFTER_MOVE_STATE) {
+            mgz2CloudAccumulator.set(0);
+        }
         this.bgRiseRoutine = routine;
         this.bgRiseOffset = offset;
         primeBgCollisionStateFromCurrentCamera();
@@ -158,12 +163,16 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
                     4,
                     NEGATE_WORD);
         } else {
-            // State 0 (normal MGZ2 play) and state C (after-move) use the
-            // unchanged cloud-parallax formula so cloud rendering stays correct.
-            int bgY = computeMgz2BgY(cameraY);
+            // State 0 (normal MGZ2 play) uses the drifting cloud parallax.
+            // State C (after-move) freezes cloud movement and shifts the
+            // parallax origin by $500, matching MGZ2_BGDeform's d1 preload.
+            int bgY = bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
+                    ? computeMgz2BgY(cameraY - MGZ2_AFTER_MOVE_Y_BASE)
+                    : computeMgz2BgY(cameraY);
             lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) bgY);
-            buildMgz2HScrollTable(cameraX, true, mgz2HScrollTable, mgz2ScatterSource);
+            buildMgz2HScrollTable(cameraX, bgRiseRoutine != BG_RISE_AFTER_MOVE_STATE,
+                    mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
                     composer,
                     bgY,
@@ -309,6 +318,8 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             return;
         }
         lastBgCameraX = Integer.MIN_VALUE;
-        vscrollFactorBG = (short) computeMgz2BgY(camera.getY());
+        vscrollFactorBG = (short) (bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
+                ? computeMgz2BgY(camera.getY() - MGZ2_AFTER_MOVE_Y_BASE)
+                : computeMgz2BgY(camera.getY()));
     }
 }

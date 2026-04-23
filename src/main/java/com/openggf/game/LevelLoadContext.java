@@ -33,6 +33,12 @@ public class LevelLoadContext {
     private boolean hasWaterState;
     private int checkpointWaterLevel;
     private int checkpointWaterRoutine;
+    private boolean hasCheckpointS3kRuntimeState;
+    private int checkpointCameraMaxY;
+    private int checkpointDynamicResizeRoutine;
+    private boolean hasCheckpointSolidBits;
+    private byte checkpointTopSolidBit;
+    private byte checkpointLrbSolidBit;
 
     // Post-load assembly fields
     private boolean includePostLoadAssembly;
@@ -74,6 +80,12 @@ public class LevelLoadContext {
     public boolean hasWaterState() { return hasWaterState; }
     public int getCheckpointWaterLevel() { return checkpointWaterLevel; }
     public int getCheckpointWaterRoutine() { return checkpointWaterRoutine; }
+    public boolean hasCheckpointS3kRuntimeState() { return hasCheckpointS3kRuntimeState; }
+    public int getCheckpointCameraMaxY() { return checkpointCameraMaxY; }
+    public int getCheckpointDynamicResizeRoutine() { return checkpointDynamicResizeRoutine; }
+    public boolean hasCheckpointSolidBits() { return hasCheckpointSolidBits; }
+    public byte getCheckpointTopSolidBit() { return checkpointTopSolidBit; }
+    public byte getCheckpointLrbSolidBit() { return checkpointLrbSolidBit; }
 
     // Post-load assembly accessors
 
@@ -109,6 +121,12 @@ public class LevelLoadContext {
             hasWaterState = false;
             checkpointWaterLevel = 0;
             checkpointWaterRoutine = 0;
+            hasCheckpointS3kRuntimeState = false;
+            checkpointCameraMaxY = 0;
+            checkpointDynamicResizeRoutine = 0;
+            hasCheckpointSolidBits = false;
+            checkpointTopSolidBit = 0;
+            checkpointLrbSolidBit = 0;
             return;
         }
         hasCheckpoint = true;
@@ -126,6 +144,26 @@ public class LevelLoadContext {
             hasWaterState = false;
             checkpointWaterLevel = 0;
             checkpointWaterRoutine = 0;
+        }
+
+        if (state instanceof CheckpointState cs && cs.hasS3kRuntimeState()) {
+            hasCheckpointS3kRuntimeState = true;
+            checkpointCameraMaxY = cs.getSavedCameraMaxY();
+            checkpointDynamicResizeRoutine = cs.getSavedDynamicResizeRoutine();
+        } else {
+            hasCheckpointS3kRuntimeState = false;
+            checkpointCameraMaxY = 0;
+            checkpointDynamicResizeRoutine = 0;
+        }
+
+        if (state instanceof CheckpointState cs && cs.hasSolidBits()) {
+            hasCheckpointSolidBits = true;
+            checkpointTopSolidBit = cs.getSavedTopSolidBit();
+            checkpointLrbSolidBit = cs.getSavedLrbSolidBit();
+        } else {
+            hasCheckpointSolidBits = false;
+            checkpointTopSolidBit = 0;
+            checkpointLrbSolidBit = 0;
         }
     }
 }

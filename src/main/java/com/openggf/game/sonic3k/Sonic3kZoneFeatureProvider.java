@@ -137,6 +137,14 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             // Water skim runs after tunnels (ROM: Obj_HCZWaterSplash runs in ExecuteObjects
             // which is after sub_6F4A/water tunnels)
             HCZWaterSkimHandler.update();
+            if (GameServices.module().getLevelEventProvider()
+                    instanceof Sonic3kLevelEventManager mgr) {
+                var events = mgr.getHczEvents();
+                if (events != null) {
+                    int frameCounter = levelManager != null ? levelManager.getFrameCounter() : 0;
+                    events.updatePrePhysics(act, frameCounter);
+                }
+            }
         }
         if (zoneIndex == Sonic3kZoneIds.ZONE_MGZ && player != null && !player.getDead()) {
             int act = levelManager != null ? levelManager.getFeatureActId() : 0;

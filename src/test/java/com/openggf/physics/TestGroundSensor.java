@@ -558,6 +558,27 @@ public class TestGroundSensor {
                 "BG wall extension should mirror the foreground wall-scan distance");
     }
 
+    @Test
+    public void backgroundCollisionDoesNotOverwriteCloserForegroundLeftWallHit() {
+        setTileAt((byte) 0, 100, 100, 1);
+
+        mockSprite.setX((short) 100);
+        mockSprite.setY((short) 100);
+
+        GameServices.gameState().setBackgroundCollisionFlag(true);
+        GameServices.camera().setX((short) 0);
+        GameServices.camera().setY((short) 0);
+
+        GroundSensor sensor = new GroundSensor(mockSprite, Direction.LEFT, (byte) 0, (byte) 0, true);
+        SensorResult result = sensor.scan();
+
+        assertNotNull(result, "foreground left-wall hit should still resolve while BG collision is enabled");
+        assertEquals(-12, result.distance(),
+                "BG wall fallback must not overwrite a closer penetrating FG wall hit");
+        assertEquals(1, result.tileId(),
+                "selected wall result should come from the foreground solid tile");
+    }
+
     private void setParallaxField(String fieldName, Object value) throws Exception {
         ParallaxManager parallaxManager = GameServices.parallax();
         Field field = ParallaxManager.class.getDeclaredField(fieldName);
