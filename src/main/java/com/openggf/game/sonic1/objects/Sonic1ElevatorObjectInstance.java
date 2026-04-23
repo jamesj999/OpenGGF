@@ -1,7 +1,9 @@
 package com.openggf.game.sonic1.objects;
+
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -230,8 +232,17 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             checkpointAll();
         } else if (routine == 2) {
             // Routine 2 (Elev_Platform): PlatformObject runs before Elev_Types.
-            checkpointAll();
-            executeWaitingTypes(player);
+            // Manual checkpoints do not invoke the legacy onSolidContact callback, so
+            // advance into routine 4 directly from the standing result before type dispatch.
+            SolidCheckpointBatch batch = checkpointAll();
+            if (hasStandingContact(batch)) {
+                routine = 4;
+            }
+            if (routine == 4) {
+                executeActionTypes(player);
+            } else {
+                executeWaitingTypes(player);
+            }
             updateDynamicSpawn(x, y);
         }
     }
@@ -461,6 +472,14 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean isTopSolidOnly() {
+        return true;
+    }
+
+    @Override
+    public boolean usesCollisionHalfWidthForTopLanding() {
+        // ROM: Elev_Platform / Elev_Action load d1 directly from obActWid before
+        // calling PlatformObject / ExitPlatform, so the collision half-width is
+        // already the correct Solid_Landed standing width.
         return true;
     }
 
