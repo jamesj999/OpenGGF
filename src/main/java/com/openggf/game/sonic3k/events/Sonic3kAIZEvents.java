@@ -793,6 +793,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     public void setEventsFg5(boolean flag) {
         this.eventsFg5 = flag;
         if (flag) {
+            promoteIntroToMainLevelForExplicitFireSignal();
             LOG.info("AIZ1: Events_fg_5 set - fire transition signaled");
         }
     }
@@ -807,6 +808,33 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     public boolean isBossFlag() {
         return bossFlag;
+    }
+
+    /**
+     * The act 1 intro and the fire fake-out both reuse Events_fg_5 in the ROM,
+     * but tests and trace bootstrap paths can jump straight to the late act 1
+     * fire trigger without running the full intro object lifecycle first.
+     *
+     * When that happens at camera X >= $1400, promote the intro state to the
+     * post-swap main-level phase immediately so the explicit fire trigger is not
+     * consumed by intro refresh bookkeeping on the next update.
+     */
+    private void promoteIntroToMainLevelForExplicitFireSignal() {
+        if (!shouldSpawnIntro(0) || fireSequencePhase != FireSequencePhase.INACTIVE) {
+            return;
+        }
+        if (!AizPlaneIntroInstance.isMainLevelPhaseActive()) {
+            // By the time the act 1 fake-out fire trigger can be raised, the ROM
+            // is already in post-intro gameplay. Some tests and replay/bootstrap
+            // paths do not advance the singleton camera to that late-camera state
+            // before signaling the fire, so promote using at least the $1400
+            // terrain-swap threshold instead of requiring the camera singleton to
+            // already be there.
+            int cameraX = Math.max(camera().getX() & 0xFFFF, TERRAIN_SWAP_X);
+            AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(cameraX, false);
+            LOG.info("AIZ1: promoted intro state to main-level phase for explicit fire signal");
+        }
+        introNormalRefreshPending = false;
     }
 
     public boolean isFireTransitionActive() {
