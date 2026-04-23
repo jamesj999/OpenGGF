@@ -43,6 +43,36 @@ class TraceCatalogTest {
         assertTrue(TraceCatalog.scan(tmp).isEmpty());
     }
 
+    @Test
+    void scanTranslatesS1RomZoneToProgressionIndex(@TempDir Path tmp) throws Exception {
+        // Sonic 1 ROM zone IDs differ from the engine's progression
+        // order: LZ=ROM 1 but progression 3, MZ=ROM 2 but progression 1.
+        writeValidTrace(tmp.resolve("s1/mz1"), "s1", 2, 1); // MZ Act 1
+        writeValidTrace(tmp.resolve("s1/lz3"), "s1", 1, 3); // LZ Act 3
+
+        List<TraceEntry> entries = TraceCatalog.scan(tmp);
+
+        // MZ progression=1 sorts before LZ progression=3.
+        assertEquals(List.of(1, 3),
+                entries.stream().map(TraceEntry::zone).toList());
+        // Acts are 1-indexed in metadata → 0-indexed in TraceEntry.
+        assertEquals(List.of(0, 2),
+                entries.stream().map(TraceEntry::act).toList());
+    }
+
+    @Test
+    void scanS2AndS3kUseIdentityZoneMapping(@TempDir Path tmp) throws Exception {
+        writeValidTrace(tmp.resolve("s2/cpz1"), "s2", 4, 1); // CPZ Act 1
+        writeValidTrace(tmp.resolve("s3k/cnz1"), "s3k", 3, 1); // CNZ Act 1
+
+        List<TraceEntry> entries = TraceCatalog.scan(tmp);
+
+        assertEquals(List.of(4, 3),
+                entries.stream().map(TraceEntry::zone).toList());
+        assertEquals(List.of(0, 0),
+                entries.stream().map(TraceEntry::act).toList());
+    }
+
     private static void writeValidTrace(Path dir, String game, int zoneId, int act)
             throws Exception {
         Files.createDirectories(dir);
