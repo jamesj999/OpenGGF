@@ -569,15 +569,14 @@ counter (if `wasSkipped`) and does not call into `TraceBinder`.
 `TraceHudOverlay` is registered through the existing `DebugOverlayManager`
 so the normal debug-render pass picks it up.
 
-### 9.1 Layout (bottom-right, ~180×100 px)
+### 9.1 Layout (bottom-right, ~120×60 px at 0.5× font scale)
 
 ```
  ERRORS   12     (red,   00FF0000)
  WARN      3     (orange,00FFA500)
  LAG      47     (grey,  00808080)
 
- Input: A B C U D L R S   (white column headers)
-        . . . . . L . .   (green letters where pressed, dot where released)
+ ABC..L.S         (green letters where pressed, dot where released)
 
  Last mismatches:
   f 04A1  xSpeed rom=+0180 eng=+0178   (Δ8)      ×3
@@ -589,13 +588,18 @@ so the normal debug-render pass picks it up.
 
 - Counter colours are fixed RGB values tuned to remain readable on common
   level backgrounds.
-- Input column headers are static (`A B C U D L R S`); the row below them
-  replaces each letter with `.` when the corresponding bit is unset.
+- Input row is a single packed 8-character string — each position
+  holds the corresponding button's letter when pressed or `.` when
+  released. No static header row and no inter-letter spacing, per
+  the dev-tool "compact" brief.
 - `A`/`B`/`C` come from `Bk2FrameInput.p1ActionMask()` (bits `0x01`/`0x02`/
   `0x04`). `U`/`D`/`L`/`R` come from `p1InputMask()`. `S` comes from
   `p1StartPressed()`.
 - The mismatch log fades older entries slightly so the newest is visually
   loudest.
+- Whole HUD is drawn at scale `0.5` against the engine's virtual
+  `320×224` coordinate space so it fits into the bottom-right
+  without overlapping gameplay.
 
 ### 9.2 Completion state & auto-return
 
