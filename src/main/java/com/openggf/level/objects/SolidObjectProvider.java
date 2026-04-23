@@ -61,6 +61,20 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether the collision half-width already matches the ROM's standable top
+     * width for new landings.
+     * <p>
+     * Most solid helpers pass {@code d1 = obActWid + $B} into the generic solid
+     * routines, so the landing check must narrow back down to {@code obActWid}.
+     * Platform-style helpers such as Sonic 1's {@code PlatformObject} instead pass
+     * {@code d1 = obActWid} directly, so the collision half-width is already the
+     * correct landing width and should not be narrowed again.
+     */
+    default boolean usesCollisionHalfWidthForTopLanding() {
+        return false;
+    }
+
+    /**
      * Called when the player is pushing against this object.
      * ROM: bset #p1_pushing_bit,status(a0) (s2.asm:35220-35226).
      * Objects that need to react to being pushed (e.g., spring walls) can override.
