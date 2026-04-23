@@ -84,9 +84,10 @@ public class Camera {
 	// ROM: Inertia threshold for fast scroll (0x800 = 2048)
 	private static final short FAST_SCROLL_INERTIA_THRESHOLD = 0x800;
 
-	// ROM: Maximum vertical scroll speed for airborne + fast-ground paths.
-	// S1/S2: 16 (0x10) pixels/frame  (s2.asm:18190 ".doScroll_fast")
-	// S3K:   24 (0x18) pixels/frame  (sonic3k.asm:loc_1C1B0; comment "S3K uses 24 instead of 16")
+	// ROM: Maximum per-frame camera step used by the fast vertical paths and by
+	// the horizontal catch-up clamp in ScrollHoriz / MoveCameraX.
+	// S1/S2: 16 (0x10) pixels/frame.
+	// S3K:   24 (0x18) pixels/frame.
 	// Set per-game via setFastScrollCap().
 	private static final short DEFAULT_FAST_SCROLL_CAP = 16;
 	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
@@ -300,18 +301,20 @@ public class Camera {
 			focusedSpriteRealX = (short) (focusedSprite.getCentreX() - nextX);
 		}
 
-		// Horizontal scroll logic (ROM: ScrollHoriz).
+		short cameraStepCap = fastScrollCap;
+
+		// Horizontal scroll logic (ROM: ScrollHoriz / MoveCameraX).
 		if (focusedSpriteRealX < 144) {
 			short difference = (short) (focusedSpriteRealX - 144);
-			if (difference < -16) {
-				nextX -= 16;
+			if (difference < -cameraStepCap) {
+				nextX -= cameraStepCap;
 			} else {
 				nextX += difference;
 			}
 		} else if (focusedSpriteRealX > 160) {
 			short difference = (short) (focusedSpriteRealX - 160);
-			if (difference > 16) {
-				nextX += 16;
+			if (difference > cameraStepCap) {
+				nextX += cameraStepCap;
 			} else {
 				nextX += difference;
 			}
