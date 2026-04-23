@@ -77,15 +77,26 @@ public final class TraceSessionLauncher {
                     + ": Engine is not initialised");
             return;
         }
+        // prepareConfiguration must run BEFORE launchGameByEntry
+        // because the master-title exit handler calls
+        // GameplayTeamBootstrap.registerActiveTeam, which reads
+        // MAIN_CHARACTER_CODE / SIDEKICK_CHARACTER_CODE to build the
+        // sprites for this session. If we deferred the write until
+        // after the handler, the session would use the pre-trace team.
+        //
+        // Pre-flight the fade check so we don't mutate config and
+        // then fail at launchGameByEntry with a fade-active throw.
+        com.openggf.graphics.FadeManager fade = com.openggf.game.GameServices.fade();
+        if (fade != null && fade.isActive()) {
+            LOGGER.severe("Cannot launch trace " + entry.dir()
+                    + ": a master-title fade is already in flight");
+            return;
+        }
         try {
             TraceData trace = TraceData.load(entry.dir());
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
             TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
-            // NOTE: prepareConfiguration (team + S3K_SKIP_INTROS) runs
-            // inside finishLaunchAfterGameBootstrap rather than here so
-            // a failed launchGameByEntry (e.g. fade-in-flight) cannot
-            // leave the config service with trace-only overrides
-            // applied for the next unrelated master-title selection.
+            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             loop.launchGameByEntry(
                     resolveGameEntry(entry.gameId()),
                     session::finishLaunchAfterGameBootstrap);
@@ -104,9 +115,10 @@ public final class TraceSessionLauncher {
         }
         PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
         try {
-            // Apply trace-only config (team / S3K_SKIP_INTROS) now that
-            // the master-title fade has committed. See launch().
-            TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
+            // prepareConfiguration already ran inside launch() before
+            // launchGameByEntry fired — the master-title exit handler
+            // needs the recorded team config in place when it calls
+            // GameplayTeamBootstrap.registerActiveTeam.
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
