@@ -187,6 +187,18 @@ public class GameLoop {
     private boolean playbackForcedMaskApplied = false;
     private boolean playbackFrameConsumed = false;
 
+    /**
+     * Callback registered by {@link #launchGameByEntry} to run once
+     * Engine.exitMasterTitleScreen has rebuilt the gameplay runtime.
+     * Staged into {@link #afterStepMasterTitleLaunchCallback} when
+     * {@link #doExitMasterTitleScreen} runs (inside the fade callback)
+     * and fired at the end of the next {@link #step()} so trace
+     * bootstrap code can safely call {@code step()} without reentering
+     * the master-title frame.
+     */
+    private Runnable pendingMasterTitleLaunchCallback;
+    private Runnable afterStepMasterTitleLaunchCallback;
+
     public GameLoop() {
         this(RuntimeManager.currentEngineServices());
     }
@@ -375,6 +387,14 @@ public class GameLoop {
      * Call this method at your target FPS (typically 60fps).
      */
     public void step() {
+        try {
+            stepInternal();
+        } finally {
+            runAfterStepMasterTitleLaunchCallbackIfPresent();
+        }
+    }
+
+    private void stepInternal() {
         if (inputHandler == null) {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
@@ -2111,6 +2131,32 @@ public class GameLoop {
     // ==================== Master Title Screen Methods ====================
 
     /**
+     * Programmatic path into {@link #exitMasterTitleScreen}. Seeds the
+     * master-title selection and runs the same post-selection bootstrap
+     * as a user pressing Enter. The callback is deferred until the next
+     * {@link #step()} unwinds, so trace bootstrap code may safely call
+     * {@code gameLoop.step()} without reentering the master-title frame.
+     */
+    void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoaded) {
+        MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
+                ? masterTitleScreenSupplier.get() : null;
+        if (masterScreen == null) {
+            throw new IllegalStateException("No master title screen available");
+        }
+        pendingMasterTitleLaunchCallback = afterGameLoaded;
+        masterScreen.selectEntry(entry);
+        exitMasterTitleScreen(masterScreen);
+    }
+
+    private void runAfterStepMasterTitleLaunchCallbackIfPresent() {
+        Runnable callback = afterStepMasterTitleLaunchCallback;
+        afterStepMasterTitleLaunchCallback = null;
+        if (callback != null) {
+            callback.run();
+        }
+    }
+
+    /**
      * Exits the master title screen after the user selects a game.
      * Performs a fade-to-black, then initializes the selected game (Phase 2),
      * and transitions to the game-specific title screen.
@@ -2137,6 +2183,12 @@ public class GameLoop {
         if (masterTitleExitHandler != null) {
             masterTitleExitHandler.accept(selectedGameId);
         }
+        // Stage the programmatic launch callback (if any) to fire at the
+        // end of the next step() rather than inline, so trace bootstrap
+        // code can call gameLoop.step() without reentering master-title
+        // logic.
+        afterStepMasterTitleLaunchCallback = pendingMasterTitleLaunchCallback;
+        pendingMasterTitleLaunchCallback = null;
 
         // When TITLE_SCREEN_ON_STARTUP or LEVEL_SELECT_ON_STARTUP is true,
         // initializeGame() sets currentGameMode via initializeTitleScreenMode/
