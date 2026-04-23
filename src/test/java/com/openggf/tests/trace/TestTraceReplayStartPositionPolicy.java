@@ -60,6 +60,10 @@ class TestTraceReplayStartPositionPolicy {
 
         assertTrue(TraceReplayBootstrap.shouldUseLegacyS3kAizIntroWarmup(trace));
         assertEquals(0, TraceReplayBootstrap.replaySeedTraceIndexForTraceReplay(trace));
-        assertEquals(404, TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace));
+        // The strict start lands on the frame after the first ZoneActState with
+        // game_mode=0x0C (first live LEVEL frame). For this trace the recorder
+        // starts at the very first SEGA/title frame, so the first gm=0x0C event
+        // is the AIZ1 intro-object activation at trace frame 289 → strict start 290.
+        assertEquals(290, TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace));
     }
 }

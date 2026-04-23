@@ -68,6 +68,20 @@ public final class S3kElasticWindowController {
 
     public void advanceDriveCursor() {
         driveTraceIndex++;
+        // Auto-close stale elastic windows once the drive cursor passes the
+        // recorded exit frame. This covers legacy warmup paths where the
+        // engine's title-card / checkpoint timing diverges from the trace
+        // (e.g. AIZ1 intro: detector requires titleCardOverlayActive at
+        // gameplay_start, which is set at a different engine tick than the
+        // recorder sampled). Without this, later checkpoints like
+        // aiz1_fire_transition_begin would throw "out-of-order" inside the
+        // still-open intro window.
+        if (openEntryName != null && driveTraceIndex > exitTraceFrame) {
+            openEntryName = null;
+            expectedExitName = null;
+            strictTraceIndex = driveTraceIndex;
+            engineTicksInsideWindow = 0;
+        }
         if (openEntryName == null) {
             strictTraceIndex = driveTraceIndex;
         }
