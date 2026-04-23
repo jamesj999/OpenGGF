@@ -185,7 +185,6 @@ public class GameLoop {
     private volatile boolean userPaused = false;  // Keyboard toggle pause
     private boolean playbackInputSuppressed = false;
     private boolean playbackForcedMaskApplied = false;
-    private boolean playbackFrameConsumed = false;
 
     /**
      * Callback registered by {@link #launchGameByEntry} to run once
@@ -740,10 +739,8 @@ public class GameLoop {
                 }
                 // Fire the BK2-advance callback either way — on both real
                 // gameplay ticks and lag-gated skips — so the observer's
-                // cursor always matches the BK2 cursor.
-                // onLevelFrameAdvanced is already a no-op when no playback
-                // session is active, so the previous playbackFrameConsumed
-                // guard is no longer needed.
+                // cursor always matches the BK2 cursor. onLevelFrameAdvanced
+                // is a no-op when no playback session is active.
                 playbackDebugManager.onLevelFrameAdvanced();
 
                 // Check if a checkpoint star requested a special stage
@@ -845,7 +842,6 @@ public class GameLoop {
     }
 
     private void syncPlaybackInputBridge() {
-        playbackFrameConsumed = false;
         boolean shouldDrive = playbackDebugManager.isDriving(currentGameMode);
         if (spriteManager == null) {
             playbackDebugManager.clearLastAppliedState();
@@ -863,7 +859,6 @@ public class GameLoop {
             player.setForcedInputMask(playbackDebugManager.getCurrentForcedInputMask());
             player.setForcedJumpPress(playbackDebugManager.isCurrentForcedJumpPress());
             playbackForcedMaskApplied = true;
-            playbackFrameConsumed = true;
             return;
         }
 
@@ -2161,9 +2156,21 @@ public class GameLoop {
         if (masterScreen == null) {
             throw new IllegalStateException("No master title screen available");
         }
+        if (resolveFadeManager().isActive()) {
+            throw new IllegalStateException(
+                    "Cannot launch game: a master-title fade is already in flight");
+        }
         pendingMasterTitleLaunchCallback = afterGameLoaded;
-        masterScreen.selectEntry(entry);
-        exitMasterTitleScreen(masterScreen);
+        try {
+            masterScreen.selectEntry(entry);
+            exitMasterTitleScreen(masterScreen);
+        } catch (RuntimeException e) {
+            // selectEntry / exitMasterTitleScreen failed before the fade
+            // started — the callback will never fire, so drop it rather
+            // than leaking it into an unrelated future exit.
+            pendingMasterTitleLaunchCallback = null;
+            throw e;
+        }
     }
 
     private void runAfterStepMasterTitleLaunchCallbackIfPresent() {
@@ -2174,7 +2181,7 @@ public class GameLoop {
         }
     }
 
-    public void setReturnToMasterTitleHandler(Runnable returnToMasterTitleHandler) {
+    void setReturnToMasterTitleHandler(Runnable returnToMasterTitleHandler) {
         this.returnToMasterTitleHandler = returnToMasterTitleHandler;
     }
 

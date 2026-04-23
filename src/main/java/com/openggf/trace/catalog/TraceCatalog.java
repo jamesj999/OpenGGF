@@ -38,7 +38,11 @@ public final class TraceCatalog {
             return List.of();
         }
         List<TraceEntry> entries = new ArrayList<>();
-        try (Stream<Path> stream = Files.walk(root)) {
+        // Depth 2 reaches `<root>/<game>/<trace-dir>` — the exact level
+        // where every valid trace lives. Bounding the walk here avoids
+        // multi-minute whole-project scans if TRACE_CATALOG_DIR is
+        // misconfigured and resolves to the project root.
+        try (Stream<Path> stream = Files.walk(root, 2)) {
             stream.filter(Files::isDirectory)
                     .filter(p -> !isSyntheticSubtree(root, p))
                     .forEach(dir -> tryLoad(dir).ifPresent(entries::add));

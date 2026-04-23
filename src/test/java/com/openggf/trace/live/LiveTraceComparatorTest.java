@@ -3,8 +3,8 @@ package com.openggf.trace.live;
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceFixtures;
 import com.openggf.trace.TraceFrame;
-import com.openggf.trace.TraceMetadata;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -46,6 +46,6 @@ class LiveTraceComparatorTest {
     }
 
     private static TraceData stubTrace(List<TraceFrame> frames) {
-        return TraceData.ofFrames(TraceMetadata.forTest("s2", 0, 0), frames);
+        return TraceFixtures.trace(TraceFixtures.metadata("s2", 0, 0), frames);
     }
 }
