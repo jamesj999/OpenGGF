@@ -1408,6 +1408,7 @@ package com.openggf.trace.live;
 import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceFrame;
+import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.ToleranceConfig;
 import org.junit.jupiter.api.Test;
 
@@ -1772,12 +1773,14 @@ public void selectEntry(GameEntry entry) {
 
 ```java
 private Runnable pendingMasterTitleLaunchCallback;
+private Runnable afterStepMasterTitleLaunchCallback;
 
 /**
  * Programmatic path into {@link #exitMasterTitleScreen}. Seeds the
  * master-title selection and runs the same post-selection bootstrap as
- * a user pressing Enter. The callback runs from doExitMasterTitleScreen()
- * after Engine.exitMasterTitleScreen(...) has rebuilt the gameplay runtime.
+ * a user pressing Enter. The callback is deferred until the current
+ * {@link #step()} unwinds, so trace bootstrap code may safely call
+ * {@code gameLoop.step()} without reentering the master-title frame.
  */
 void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoaded) {
     MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
@@ -1789,19 +1792,38 @@ void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoad
     masterScreen.selectEntry(entry);
     exitMasterTitleScreen(masterScreen);
 }
+
+private void runAfterStepMasterTitleLaunchCallbackIfPresent() {
+    Runnable callback = afterStepMasterTitleLaunchCallback;
+    afterStepMasterTitleLaunchCallback = null;
+    if (callback != null) {
+        callback.run();
+    }
+}
 ```
 
-- [ ] **Step 3: Invoke the pending callback from doExitMasterTitleScreen()**
+- [ ] **Step 3: Defer the pending callback until the current frame is finished**
 
 Inside `doExitMasterTitleScreen(String selectedGameId)`, immediately after
 `masterTitleExitHandler.accept(selectedGameId);`, add:
 
 ```java
-Runnable afterGameLoaded = pendingMasterTitleLaunchCallback;
+afterStepMasterTitleLaunchCallback = pendingMasterTitleLaunchCallback;
 pendingMasterTitleLaunchCallback = null;
-if (afterGameLoaded != null) {
-    afterGameLoaded.run();
-}
+```
+
+Then run the deferred callback only after the outer `step()` has completed its
+normal per-frame work:
+
+```java
+// In the MASTER_TITLE_SCREEN branch, just before `return;`
+inputHandler.update();
+runAfterStepMasterTitleLaunchCallbackIfPresent();
+return;
+
+// And at the bottom of step(), immediately after the normal input update:
+inputHandler.update();
+runAfterStepMasterTitleLaunchCallbackIfPresent();
 ```
 
 - [ ] **Step 4: Compile**
@@ -2044,7 +2066,7 @@ if (configService.getBoolean(SonicConfiguration.TEST_MODE_ENABLED)) {
         Path root = Path.of(System.getProperty("user.dir"))
                 .resolve(configService.getString(SonicConfiguration.TRACE_CATALOG_DIR));
         tracePicker = new TestModeTracePicker(
-                TraceCatalog.scan(root.normalize()), pixelFont);
+                TraceCatalog.scan(root.normalize()), font);
     }
     tracePicker.update(input);
     switch (tracePicker.consumeResult()) {
@@ -2100,43 +2122,19 @@ Stage `src/main/java/com/openggf/game/MasterTitleScreen.java` together with Task
 
 Spec §6.
 
-- [ ] **Step 0: Add supporting accessors on Engine and TraceReplayBootstrap**
+- [ ] **Step 0: Add the Engine accessor**
 
 In `src/main/java/com/openggf/Engine.java` add a public static accessor
 so other `com.openggf.*` classes can reach the singleton game loop:
 
 ```java
-public static GameLoop currentGameLoop() { return INSTANCE.gameLoop; }
-```
-(Use whatever field name `Engine` already uses for its game loop. If no
-singleton exists, expose via a static `INSTANCE` field that `Engine`'s
-constructor assigns itself to — mirror the existing
-`SonicConfigurationService.getInstance()` pattern.)
-
-In `src/main/java/com/openggf/trace/TraceReplayBootstrap.java` add a
-public static helper used by the launcher's v1 filter:
-
-```java
-/**
- * Returns true if replaying this trace requires running the existing
- * legacy seed-replay path (which steps physics during bootstrap via
- * fixture.stepFrameFromRecording). The live launcher cannot run that
- * path because its bootstrap callback executes inside GameLoop.update
- * — stepping physics from there would be reentrant.
- */
-public static boolean requiresLegacySeedReplayForTraceReplay(TraceData trace) {
-    // Legacy seed-replay is only triggered for S3K AIZ traces that
-    // begin before gameplay_start AND have a non-zero seed index.
-    // Reuse the existing internal predicate; promote it to public if
-    // it's currently private (see shouldSeedReplayStartState / other
-    // seed-replay predicates near the top of this file).
-    return /* existing predicate body */ false;
+public static GameLoop currentGameLoop() {
+    return instance != null ? instance.gameLoop : null;
 }
 ```
-Fill in the predicate body by reading the surrounding private helpers
-in `TraceReplayBootstrap`. If no single predicate maps directly, inline
-the condition: `trace.metadata().game().equals("s3k")` AND
-`shouldSeedReplayStartState(trace)` AND `seededTraceIndex > 0`.
+
+Reuse the existing `private static Engine instance` field already present in
+`Engine`; do **not** introduce a second singleton field such as `INSTANCE`.
 
 - [ ] **Step 1: Write the class**
 
@@ -2152,7 +2150,7 @@ import com.openggf.game.GameMode;
 import com.openggf.game.GameServices;
 import com.openggf.game.MasterTitleScreen;
 import com.openggf.game.RuntimeManager;
-import com.openggf.graphics.PixelFont;
+import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.testmode.TraceHudOverlay;
 import com.openggf.trace.TraceData;
@@ -2194,17 +2192,6 @@ public final class TraceSessionLauncher {
     public static void launch(TraceEntry entry) {
         try {
             TraceData trace = TraceData.load(entry.dir());
-            // v1 filter: reject traces that would require the legacy
-            // seed-replay path. Those run physics during bootstrap via
-            // fixture.stepFrameFromRecording, which would reenter
-            // GameLoop.step from inside a callback already executing
-            // inside GameLoop.update. The headless path is fine because
-            // it doesn't run inside a live gameplay tick.
-            if (TraceReplayBootstrap.requiresLegacySeedReplayForTraceReplay(trace)) {
-                LOGGER.warning("Skipping trace " + entry.dir()
-                        + ": requires legacy seed-replay (not supported by live launcher)");
-                return;
-            }
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
             TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
             TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
@@ -2227,6 +2214,9 @@ public final class TraceSessionLauncher {
 
             GameLoop loop = Engine.currentGameLoop();
             this.fixture = new LiveFixture(playback, loop);
+            // Task 16 defers this callback until after the outer
+            // MASTER_TITLE_SCREEN step has unwound, so the shared bootstrap
+            // may safely drive replay frames via gameLoop.step().
             TraceReplaySessionBootstrap.BootstrapResult boot =
                     TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
 
@@ -2283,9 +2273,9 @@ public final class TraceSessionLauncher {
         startFadeOut();
     }
 
-    public void render(PixelFont font) {
+    public void render(PixelFontTextRenderer textRenderer) {
         if (overlay != null) {
-            overlay.render(font);
+            overlay.render(textRenderer);
         }
     }
 
@@ -2331,39 +2321,31 @@ public final class TraceSessionLauncher {
             return gameLoop.getMainPlayableSprite();
         }
         @Override public GameRuntime runtime() { return RuntimeManager.getCurrent(); }
-
-        // The three playback-drive methods are only exercised by
-        // TraceReplayBootstrap's legacy seed-replay path
-        // (replayLegacyFramesToSeedIndex). Calling gameLoop.step() from
-        // here would be reentrant — finishLaunchAfterGameBootstrap runs
-        // from inside GameLoop.update(). For v1 we refuse traces that
-        // would require this path (see launch() guard below) and throw
-        // loudly if reached, rather than silently corrupting engine state.
-
         @Override public int stepFrameFromRecording() {
-            throw new UnsupportedOperationException(
-                    "Live launcher does not support legacy seed-replay; trace should "
-                  + "have been filtered by TraceSessionLauncher.launch()");
+            Bk2FrameInput frame = playback.currentFrameOrThrow();
+            int mask = toReplayValidationMask(frame);
+            gameLoop.step();
+            return mask;
         }
         @Override public int skipFrameFromRecording() {
-            throw new UnsupportedOperationException(
-                    "Live launcher does not support legacy seed-replay; trace should "
-                  + "have been filtered by TraceSessionLauncher.launch()");
+            Bk2FrameInput frame = playback.currentFrameOrThrow();
+            int mask = toReplayValidationMask(frame);
+            playback.advanceCurrentFrameWithoutGameplay();
+            return mask;
         }
         @Override public void advanceRecordingCursor(int frameCount) {
-            throw new UnsupportedOperationException(
-                    "Live launcher does not support legacy seed-replay; trace should "
-                  + "have been filtered by TraceSessionLauncher.launch()");
+            for (int i = 0; i < frameCount; i++) {
+                playback.advanceCurrentFrameWithoutGameplay();
+            }
+        }
+        private static int toReplayValidationMask(Bk2FrameInput frame) {
+            int mask = frame.p1InputMask();
+            if (frame.p1ActionMask() != 0) {
+                mask |= AbstractPlayableSprite.INPUT_JUMP;
+            }
+            return mask;
         }
     }
-}
-```
-
-In `src/main/java/com/openggf/Engine.java`, add:
-
-```java
-public static GameLoop currentGameLoop() {
-    return instance != null ? instance.gameLoop : null;
 }
 ```
 
@@ -2501,8 +2483,8 @@ git commit -m $message
 
 **Files:**
 - Create: `src/main/java/com/openggf/testmode/TraceHudOverlay.java`
-- Modify: `src/main/java/com/openggf/Engine.java` — add a `renderTraceHud(PixelFont)` call in `display()` after the fade pass so the HUD stays visible during fade-to-black.
-- Modify: `src/main/java/com/openggf/TraceSessionLauncher.java` — expose a `render(PixelFont)` method that the Engine calls.
+- Modify: `src/main/java/com/openggf/Engine.java` — add an engine-owned `PixelFontTextRenderer` and call into the trace HUD after the fade pass so the HUD stays visible during fade-to-black.
+- Modify: `src/main/java/com/openggf/TraceSessionLauncher.java` — expose a `render(PixelFontTextRenderer)` method that the Engine calls.
 
 Spec §9. `DebugOverlayManager` has no panel-registration hook, so the HUD is painted from a direct hook in `Engine.display()` rather than via a panel interface.
 
@@ -2511,7 +2493,8 @@ Spec §9. `DebugOverlayManager` has no panel-registration hook, so the HUD is pa
 ```java
 package com.openggf.testmode;
 
-import com.openggf.graphics.PixelFont;
+import com.openggf.debug.DebugColor;
+import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.live.LiveTraceComparator;
 import com.openggf.trace.live.MismatchEntry;
@@ -2528,15 +2511,15 @@ public final class TraceHudOverlay {
         this.fixture = fixture;
     }
 
-    public void render(PixelFont font) {
+    public void render(PixelFontTextRenderer text) {
         int x = 180;
         int y = 130;
-        font.drawText(String.format("ERRORS %4d", comparator.errorCount()),
-                x, y, 1.0f, 0.0f, 0.0f, 1f); y += 11;
-        font.drawText(String.format("WARN   %4d", comparator.warningCount()),
-                x, y, 1.0f, 0.65f, 0.0f, 1f); y += 11;
-        font.drawText(String.format("LAG    %4d", comparator.laggedFrames()),
-                x, y, 0.5f, 0.5f, 0.5f, 1f); y += 14;
+        text.drawShadowedText(String.format("ERRORS %4d", comparator.errorCount()),
+                x, y, DebugColor.RED); y += 11;
+        text.drawShadowedText(String.format("WARN   %4d", comparator.warningCount()),
+                x, y, DebugColor.ORANGE); y += 11;
+        text.drawShadowedText(String.format("LAG    %4d", comparator.laggedFrames()),
+                x, y, DebugColor.GRAY); y += 14;
 
         int actionMask = comparator.recentActionMask();
         int mask = comparator.recentInputMask();
@@ -2558,23 +2541,24 @@ public final class TraceHudOverlay {
         active.append(bit(mask, AbstractPlayableSprite.INPUT_RIGHT, 'R'));
         active.append(' ');
         active.append(start ? 'S' : '.');
-        font.drawText(buttons.toString(), x, y, 1f, 1f, 1f, 1f); y += 11;
-        font.drawText(active.toString(), x + 48, y, 0.0f, 1.0f, 0.0f, 1f); y += 11;
+        text.drawShadowedText(buttons.toString(), x, y, DebugColor.WHITE); y += 11;
+        text.drawShadowedText(active.toString(), x + 48, y, DebugColor.GREEN); y += 11;
 
-        font.drawText("Last mismatches:", x, y, 0.8f, 0.8f, 0.8f, 1f); y += 11;
+        text.drawShadowedText("Last mismatches:", x, y, DebugColor.LIGHT_GRAY); y += 11;
         List<MismatchEntry> recent = comparator.recentMismatches();
         for (MismatchEntry m : recent) {
             String line = String.format("f %04X %s rom=%s eng=%s Δ%s%s",
                     m.frame(), m.field(), m.romValue(),
                     m.engineValue(), m.delta(),
                     m.repeatCount() > 1 ? (" ×" + m.repeatCount()) : "");
-            float brightness = m.severity() == com.openggf.trace.Severity.ERROR ? 1.0f : 0.6f;
-            font.drawText(line, x, y, brightness, brightness, brightness, 1f);
+            DebugColor color = m.severity() == com.openggf.trace.Severity.ERROR
+                    ? DebugColor.RED : DebugColor.ORANGE;
+            text.drawShadowedText(line, x, y, color, 0.8f);
             y += 10;
         }
 
         if (comparator.isComplete()) {
-            font.drawText("TRACE COMPLETE", x, 120, 1f, 1f, 0f, 1f);
+            text.drawShadowedText("TRACE COMPLETE", x, 120, DebugColor.YELLOW);
         }
     }
 
@@ -2586,31 +2570,46 @@ public final class TraceHudOverlay {
 
 > **Note:** `AbstractPlayableSprite.INPUT_UP`/etc. are public constants already used elsewhere (see `PlaybackDebugManager.formatInput`).
 
-- [ ] **Step 2: Expose render(PixelFont) on TraceSessionLauncher**
+- [ ] **Step 2: Keep the render(PixelFontTextRenderer) helper on TraceSessionLauncher**
 
-In `TraceSessionLauncher`, add:
+Task 19 already introduced:
 
 ```java
-public void render(PixelFont font) {
-    overlay.render(font);
+public void render(PixelFontTextRenderer textRenderer) {
+    overlay.render(textRenderer);
 }
 ```
 
-(The `overlay` field already exists from Task 19.)
+Do not add a second copy; just keep this method when wiring the HUD in
+`Engine.display()`.
 
 - [ ] **Step 3: Hook Engine.display() to render the HUD**
 
-In `src/main/java/com/openggf/Engine.java`, inside `display()` after `uiPipeline.renderFadePass()` and after the normal debug/playback overlay has rendered, add:
+In `src/main/java/com/openggf/Engine.java`, add an engine-owned text renderer:
 
 ```java
+private final PixelFontTextRenderer traceHudTextRenderer = new PixelFontTextRenderer();
+```
+
+In `display()` after `uiPipeline.renderFadePass()` and after the normal
+debug/playback overlay has rendered, add:
+
+```java
+traceHudTextRenderer.setProjectionMatrix(getProjectionMatrixBuffer());
 TraceSessionLauncher session = TraceSessionLauncher.active();
 if (session != null) {
-    session.render(pixelFont); // use whichever PixelFont instance is in scope
+    session.render(traceHudTextRenderer);
 }
 ```
 
 This hook must stay **after** the fade pass so `TRACE COMPLETE`, counters,
 and the mismatch log remain readable on top of the fade-to-black.
+
+Also clean up the renderer from `Engine.cleanup()`:
+
+```java
+traceHudTextRenderer.cleanup();
+```
 
 - [ ] **Step 4: Compile + commit**
 
@@ -2755,5 +2754,5 @@ gh pr create --base develop --title "feat: trace test mode (visual replay picker
 - [x] Spec §11 (config keys): Task 10.
 - [x] Spec §12 (testing plan): Tasks 12, 14, 15 (unit); Task 22 (manual smoke).
 
-No placeholder branches remain: where the trace-picker wiring depends on the next task's launcher class, the plan explicitly batches the compile/commit instead of asking for a temporary no-op. Types are consistent: `TraceReplayFixture` signature is defined once in Task 2 and reused verbatim in Tasks 4 and 19; `PlaybackFrameObserver` is declared in Task 7 and implemented in Task 15; `COMPLETION_HOLD_SECONDS` is introduced in Task 19 and named consistently with §9.2.
+No placeholder branches remain: where the trace-picker wiring depends on the next task's launcher class, the plan explicitly batches the compile/commit instead of asking for a temporary no-op. The live launcher keeps the full `TraceReplayFixture` contract instead of filtering out part of the trace catalog. Types are consistent: `TraceReplayFixture` signature is defined once in Task 2 and reused verbatim in Tasks 4 and 19; `PlaybackFrameObserver` is declared in Task 7 and implemented in Task 15; `COMPLETION_HOLD_SECONDS` is introduced in Task 19 and named consistently with §9.2.
 
