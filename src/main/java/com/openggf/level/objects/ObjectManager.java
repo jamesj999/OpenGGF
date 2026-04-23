@@ -4123,6 +4123,8 @@ public class ObjectManager {
             int anchorY = instance.getY() + params.offsetY();
             int halfHeight = params.airHalfHeight();
             boolean useStickyBuffer = provider.usesStickyContactBuffer();
+            boolean wasAirborne = player.getAir();
+            boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
             SolidContact contact;
             byte[] slopeData = null;
@@ -4144,6 +4146,8 @@ public class ObjectManager {
             if (contact == null) {
                 return null;
             }
+            applyNonUnifiedTopSolidLandingHeightOverride(
+                    player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
             if ((contact.standing() || contact.touchTop())
                     && instance.getSpawn() != null
                     && player instanceof AbstractPlayableSprite sprite) {
@@ -4708,6 +4712,8 @@ public class ObjectManager {
                 // overwritten by playerYRadius before it is read.
                 int halfHeight = params.airHalfHeight();
                 boolean useStickyBuffer = provider.usesStickyContactBuffer();
+                boolean wasAirborne = player.getAir();
+                boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
                 SolidContact contact;
                 byte[] slopeData = null;
@@ -4745,6 +4751,8 @@ public class ObjectManager {
                 if (contact == null) {
                     continue;
                 }
+                applyNonUnifiedTopSolidLandingHeightOverride(
+                        player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
                 traceS3kAizSolidProbe(player, instance, contact, params, anchorX, anchorY);
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
@@ -4908,8 +4916,13 @@ public class ObjectManager {
 
             int playerYRadius = player.getYRadius();
             int maxTop = halfHeight + playerYRadius;
-            int totalHeight = maxTop + (monitorSolidity ? maxTop
-                    : halfHeight + getSolidTopYRadius(player));
+            // Full-solid underside overlap is game-sensitive. S1 uses the player's
+            // current y-radius on both halves to avoid premature rolling underside
+            // hits, while S2/S3K keep the taller underside half used by existing
+            // solid/spring parity and the AIZ trace-replay spring contact.
+            int totalHeight = usesCurrentYRadiusOnlyForFullSolidBottomOverlap(player)
+                    ? maxTop * 2
+                    : maxTop + (monitorSolidity ? maxTop : halfHeight + getSolidTopYRadius(player));
             // SPG: Monitors don't add +4 during vertical overlap check
             int verticalOffset = monitorSolidity ? 0 : 4;
             // ROM: s2.asm:35147 uses andi.w #$7FF,d0 to handle VDP Y-coordinate
@@ -4994,13 +5007,6 @@ public class ObjectManager {
                     topSolidOnly, riding, apply, instance, true);
         }
 
-        private int getSolidTopYRadius(PlayableEntity player) {
-            if (player instanceof AbstractPlayableSprite sprite) {
-                return sprite.getStandYRadius();
-            }
-            return player.getYRadius();
-        }
-
         private void traceS3kAizObjectProbe(String stage,
                                             PlayableEntity player,
                                             ObjectInstance instance,
@@ -5057,6 +5063,32 @@ public class ObjectManager {
                     player.getGSpeed() & 0xFFFF,
                     player.getAir(),
                     player.getRolling());
+        }
+
+        private int getSolidTopYRadius(PlayableEntity player) {
+            if (player instanceof AbstractPlayableSprite sprite) {
+                return sprite.getStandYRadius();
+            }
+            return player.getYRadius();
+        }
+
+        private void applyNonUnifiedTopSolidLandingHeightOverride(PlayableEntity player,
+                SolidContact contact, boolean topSolidOnly, boolean wasAirborne, boolean wasRidingObject,
+                int anchorY, SolidObjectParams params) {
+            if (contact != SolidContact.STANDING
+                    || !topSolidOnly
+                    || !wasAirborne
+                    || wasRidingObject
+                    || usesUnifiedCollisionModel(player)) {
+                return;
+            }
+            int targetCentreY = anchorY - params.groundHalfHeight() - player.getYRadius() - 1;
+            if (player instanceof AbstractPlayableSprite sprite) {
+                sprite.setCentreYPreserveSubpixel((short) targetCentreY);
+                return;
+            }
+            int newY = targetCentreY - (player.getHeight() / 2);
+            player.setY((short) newY);
         }
 
         /**
@@ -5498,10 +5530,13 @@ public class ObjectManager {
                 // ROM: SolidObjectFull (s2.asm:35298) uses "cmpi.w #$10,d3; blo
                 // Solid_Landed" — signed branch semantics, landing range d3 in
                 // [0, 15] (equivalently engine distY in [0, 15]).
-                // Platform landings are validated by the replay suite across multiple
-                // games. In practice the shared top-solid path must accept distY==0
-                // for new landings to match existing S1/S3K object parity.
-                if (topSolidOnly ? distY > 0x10 : distY >= 0x10) {
+                // PlatformObject differs per game on the exact boundary:
+                // S2's PlatformObject_ChkYRange excludes d0==0, which maps to
+                // distY==0 here, while the current S1/S3K shared path keeps that
+                // boundary as a valid landing.
+                if (topSolidOnly
+                        ? distY > 0x10 || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                        : distY >= 0x10) {
                     return null;
                 }
                 // ROM: SolidObject_Landed re-reads the narrower obActWid for NEW landings,
@@ -5592,10 +5627,10 @@ public class ObjectManager {
                 int newCenterY = playerCenterY - distY;
                 int newY = newCenterY - (player.getHeight() / 2);
                 player.setY((short) newY);
-                if (player.getAir()) {
+                LOGGER.fine(() -> "Solid object ceiling hit, zeroing ySpeed from " + player.getYSpeed());
+                if (clearsGroundSpeedOnAirBottomSolidHit(player)) {
                     player.setGSpeed((short) 0);
                 }
-                LOGGER.fine(() -> "Solid object ceiling hit, zeroing ySpeed from " + player.getYSpeed());
                 player.setYSpeed((short) 0);
             }
             return SolidContact.CEILING;
@@ -5609,7 +5644,9 @@ public class ObjectManager {
 
             int configuredHalfWidth = provider.getTopLandingHalfWidth(player, collisionHalfWidth);
             int allowedHalfWidth;
-            if (configuredHalfWidth < collisionHalfWidth) {
+            if (provider.usesCollisionHalfWidthForTopLanding()) {
+                allowedHalfWidth = collisionHalfWidth;
+            } else if (configuredHalfWidth < collisionHalfWidth) {
                 // Provider explicitly set a narrower landing width
                 allowedHalfWidth = configuredHalfWidth;
             } else {
@@ -5634,6 +5671,30 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+        }
+
+        private boolean allowsZeroDistTopSolidLanding(PlayableEntity player) {
+            if (player == null) {
+                return true;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet == null || featureSet.topSolidLandingAllowsZeroDist();
+        }
+
+        private boolean clearsGroundSpeedOnAirBottomSolidHit(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.airBottomSolidHitClearsGroundSpeed();
+        }
+
+        private boolean usesCurrentYRadiusOnlyForFullSolidBottomOverlap(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly();
         }
 
         private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {
