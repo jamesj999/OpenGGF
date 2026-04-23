@@ -1,11 +1,15 @@
 package com.openggf.tests.trace;
 
 import com.openggf.data.Rom;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
+import com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance;
+import com.openggf.game.sonic1.objects.Sonic1PoleThatBreaksObjectInstance;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -27,6 +31,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,6 +94,12 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         short startX = (short) Sonic1CreditsDemoData.START_X[idx];
         short startY = (short) Sonic1CreditsDemoData.START_Y[idx];
 
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldMainCharacter = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Object oldSidekickCharacter = config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "");
+
         SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_1, zone, act);
         try {
             HeadlessTestFixture fixture = HeadlessTestFixture.builder()
@@ -100,10 +111,15 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
             }
 
+            initialiseDemoPlayerState(fixture);
+
             // 3a. Demo-specific state: LZ (credit 3) needs lamppost/water setup
             if (idx == 3) {
-                setupLzDemoState(fixture);
+                setupLzDemoState(fixture, trace);
             }
+            resetStreamingWindows(fixture);
+            applyFrameZeroPlayerSnapshot(trace, fixture.sprite());
+            primeFrameZeroObjectState();
 
             // 4. Determine frame limit: min of trace frames and demo timer
             int frameLimit = Math.min(trace.frameCount(),
@@ -116,7 +132,11 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 TraceFrame expected = trace.getFrame(i);
                 TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
                 TraceExecutionPhase phase =
-                    TraceExecutionModel.forGame("s1").phaseFor(previous, expected);
+                    TraceReplayBootstrap.phaseForReplay(trace, previous, expected);
+                if (phase == TraceExecutionPhase.VBLANK_ONLY
+                        && shouldPromoteObjectControlledDemoFrame(idx, fixture.sprite())) {
+                    phase = TraceExecutionPhase.FULL_LEVEL_FRAME;
+                }
 
                 // On VBlank-only frames, the ROM's main loop didn't complete, so
                 // neither physics nor demo input advanced. Skip both to
@@ -199,7 +219,111 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             }
         } finally {
             sharedLevel.dispose();
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMainCharacter != null ? oldMainCharacter : "sonic");
+            config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                    oldSidekickCharacter != null ? oldSidekickCharacter : "tails");
         }
+    }
+
+    private void initialiseDemoPlayerState(HeadlessTestFixture fixture) {
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setRingCount(0);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 0);
+        player.setControlLocked(false);
+        player.setForcedInputMask(0);
+    }
+
+    private void applyFrameZeroPlayerSnapshot(TraceData trace, AbstractPlayableSprite player) {
+        if (trace == null || player == null) {
+            return;
+        }
+
+        TraceEvent.StateSnapshot snapshot = trace.getEventsForFrame(0).stream()
+                .filter(TraceEvent.StateSnapshot.class::isInstance)
+                .map(TraceEvent.StateSnapshot.class::cast)
+                .findFirst()
+                .orElse(null);
+        if (snapshot == null) {
+            return;
+        }
+
+        Map<String, Object> fields = snapshot.fields();
+        int statusByte = parseHexInt(fields.get("status_byte"), 0);
+        boolean controlLocked = parseBoolean(fields.get("control_locked"), false);
+        boolean onObject = parseBoolean(fields.get("on_object"), (statusByte & 0x08) != 0);
+        boolean pushing = parseBoolean(fields.get("pushing"), (statusByte & 0x20) != 0);
+        boolean underwater = parseBoolean(fields.get("underwater"), (statusByte & 0x40) != 0);
+        boolean rollingJump = parseBoolean(fields.get("roll_jumping"), false);
+
+        player.setControlLocked(controlLocked);
+        player.setObjectControlled(controlLocked);
+        player.setAnimationId(parseInt(fields.get("anim_id"), player.getAnimationId()));
+        player.setDirection((statusByte & 0x01) != 0
+                ? com.openggf.physics.Direction.LEFT
+                : com.openggf.physics.Direction.RIGHT);
+        player.setAir((statusByte & 0x02) != 0);
+        player.setRolling((statusByte & 0x04) != 0);
+        player.setOnObject(onObject);
+        player.setPushing(pushing);
+        player.setRollingJump(rollingJump);
+        player.setInWater(underwater);
+
+        int xRadius = parseInt(fields.get("x_radius"), -1);
+        int yRadius = parseInt(fields.get("y_radius"), -1);
+        if (xRadius > 0 && yRadius > 0) {
+            player.applyCustomRadii(xRadius, yRadius);
+        }
+    }
+
+    private int parseInt(Object value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.decode(text);
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
+    }
+
+    private int parseHexInt(Object value, int defaultValue) {
+        if (value instanceof String text) {
+            try {
+                return Integer.decode(text);
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return parseInt(value, defaultValue);
+    }
+
+    private boolean parseBoolean(Object value, boolean defaultValue) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        if (value instanceof Number number) {
+            return number.intValue() != 0;
+        }
+        if (value instanceof String text) {
+            if ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text)) {
+                return Boolean.parseBoolean(text);
+            }
+            try {
+                return Integer.decode(text) != 0;
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 
     /**
@@ -207,12 +331,26 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
      * The ROM restores lamppost state before the demo starts: ring count,
      * camera position, bottom boundary, and water height/routine.
      */
-    private void setupLzDemoState(HeadlessTestFixture fixture) {
+    private void setupLzDemoState(HeadlessTestFixture fixture, TraceData trace) {
         AbstractPlayableSprite player = fixture.sprite();
-        player.setRingCount(Sonic1CreditsDemoData.LZ_LAMP_RINGS);
+        TraceFrame frameZero = trace != null && trace.frameCount() > 0
+                ? trace.getFrame(0)
+                : null;
 
-        fixture.camera().setX((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X);
-        fixture.camera().setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
+        int recordedRings = frameZero != null && frameZero.rings() >= 0
+                ? frameZero.rings()
+                : Sonic1CreditsDemoData.LZ_LAMP_RINGS;
+        int recordedCameraX = frameZero != null && frameZero.cameraX() >= 0
+                ? frameZero.cameraX()
+                : Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X;
+        int recordedCameraY = frameZero != null && frameZero.cameraY() >= 0
+                ? frameZero.cameraY()
+                : Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y;
+
+        player.setRingCount(recordedRings);
+
+        fixture.camera().setX((short) recordedCameraX);
+        fixture.camera().setY((short) recordedCameraY);
         fixture.camera().setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
 
         WaterSystem waterSystem = GameServices.water();
@@ -232,6 +370,52 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         // Without this, the first frame runs with inWater=false and uses
         // normal (non-underwater) acceleration, causing physics divergence.
         player.updateWaterState(Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+    }
+
+    private void resetStreamingWindows(HeadlessTestFixture fixture) {
+        int cameraX = fixture.camera().getX();
+        if (GameServices.level().getObjectManager() != null) {
+            GameServices.level().getObjectManager().reset(cameraX);
+        }
+        if (GameServices.level().getRingManager() != null) {
+            GameServices.level().getRingManager().reset(cameraX);
+        }
+    }
+
+    /**
+     * Credits traces record frame-zero object state after the first ExecuteObjects pass.
+     * The headless fixture respawns objects in their fresh constructor state, so prime
+     * them once before replaying frame 0 to avoid a one-frame phase lag in object timers.
+     */
+    private void primeFrameZeroObjectState() {
+        GameServices.level().updateObjectPositionsWithoutTouches();
+    }
+
+    private boolean shouldPromoteObjectControlledDemoFrame(int demoIndex,
+                                                           AbstractPlayableSprite player) {
+        if (player == null || !player.isObjectControlled()) {
+            return false;
+        }
+        return switch (demoIndex) {
+            case 3 -> hasActiveObject(Sonic1PoleThatBreaksObjectInstance.class);
+            case 5 -> hasActiveObject(Sonic1JunctionObjectInstance.class);
+            default -> false;
+        };
+    }
+
+    private boolean hasActiveObject(Class<? extends AbstractObjectInstance> type) {
+        ObjectManager objectManager = GameServices.level() != null
+                ? GameServices.level().getObjectManager()
+                : null;
+        if (objectManager == null) {
+            return false;
+        }
+        for (ObjectInstance instance : objectManager.getActiveObjects()) {
+            if (type.isInstance(instance)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

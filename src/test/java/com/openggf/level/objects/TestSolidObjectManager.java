@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic1.Sonic1GameModule;
@@ -216,6 +217,109 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void upwardBottomCollisionPreservesGroundSpeed() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.useFeatureSet(PhysicsFeatureSet.SONIC_2);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) -0x400);
+        player.setGSpeed((short) 0x0B54);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 119);
+
+        manager.updateSolidContacts(player);
+
+        assertEquals(0x0B54, player.getGSpeed() & 0xFFFF);
+        assertEquals(0, player.getYSpeed());
+        assertTrue(player.getAir());
+        assertFalse(player.isOnObject());
+    }
+
+    @Test
+    public void upwardBottomCollisionCanClearGroundSpeedPerFeatureSet() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setAir(true);
+        player.setYSpeed((short) -0x400);
+        player.setGSpeed((short) 0x0813);
+        player.setCentreX((short) 100);
+        player.setCentreY((short) 119);
+
+        manager.updateSolidContacts(player);
+
+        assertEquals(0, player.getGSpeed());
+        assertEquals(0, player.getYSpeed());
+        assertTrue(player.getAir());
+        assertFalse(player.isOnObject());
+    }
+
+    @Test
+    public void sonic1RollingAirborneFullSolidIgnoresUndersideAtCurrentRadiusBoundary() {
+        SolidObjectParams params = new SolidObjectParams(0x2B, 0x48, 0x49);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.useFeatureSet(PhysicsFeatureSet.SONIC_1);
+        player.setWidth(28);
+        player.setHeight(38);
+        player.setAir(true);
+        player.setRolling(true);
+        player.setYSpeed((short) -0x00F0);
+        player.setCentreX((short) 100);
+        // S1 SolidObject uses the player's CURRENT obHeight for the full-rect overlap.
+        // At deltaY = airHalfHeight + rollingYRadius, ROM remains just outside the box.
+        player.setCentreY((short) (100 + params.airHalfHeight() + player.getYRadius()));
+
+        manager.updateSolidContacts(player);
+
+        assertEquals(-0x00F0, player.getYSpeed(),
+                "Rolling airborne full-solid overlap should not use standing radius for the underside check");
+        assertEquals(100 + params.airHalfHeight() + 14, player.getCentreY());
+        assertTrue(player.getAir());
+        assertFalse(player.isOnObject());
+    }
+
+    @Test
+    public void sonic3kRollingAirborneFullSolidUsesTallerUndersideOverlapWindow() {
+        SolidObjectParams params = new SolidObjectParams(0x1B, 8, 0x10);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        player.setWidth(28);
+        player.setHeight(38);
+        player.setAir(true);
+        player.setRolling(true);
+        player.setYSpeed((short) -0x00F0);
+        player.setGSpeed((short) 0x0813);
+        player.setCentreX((short) 100);
+        // This is the AIZ spring-style boundary: current-radius-only overlap misses it,
+        // but the taller S2/S3K underside box should still resolve the bottom hit.
+        player.setCentreY((short) (100 + params.airHalfHeight() + player.getYRadius()));
+
+        manager.updateSolidContacts(player);
+
+        assertEquals(0, player.getYSpeed());
+        assertEquals(0, player.getGSpeed());
+        assertEquals(100 + params.airHalfHeight() + player.getStandYRadius(), player.getCentreY());
+        assertTrue(player.getAir());
+        assertFalse(player.isOnObject());
+    }
+
+    @Test
     public void testSonic1TopSolidEdgeLandingZoneRejectionAndAcceptance() {
         GameModule previous = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
@@ -287,6 +391,33 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void testTopSolidCanOptIntoFullCollisionLandingWidth() {
+        GameModule previous = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        try {
+            SolidObjectParams params = new SolidObjectParams(0x28, 8, 8);
+            TestSolidObject object = new TestSolidObject(100, 100, params, true, null, true);
+            ObjectManager manager = buildManager(object);
+
+            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+            player.setWidth(20);
+            player.setHeight(20);
+            player.setAir(true);
+            player.setYSpeed((short) 0x100);
+            player.setCentreX((short) (100 - 35));
+            int maxTop = params.groundHalfHeight() + player.getYRadius();
+            player.setCentreY((short) (100 - 4 - maxTop + 10));
+
+            manager.updateSolidContacts(player);
+
+            assertTrue(player.isOnObject());
+            assertFalse(player.getAir());
+        } finally {
+            GameModuleRegistry.setCurrent(previous);
+        }
+    }
+
+    @Test
     public void testNarrowTopLandingWidthStillAllowsCenterStanding() {
         SolidObjectParams params = new SolidObjectParams(0x2B, 0x60, 0x61);
         TestSolidObject object = new TestSolidObject(100, 100, params, false, 0x20);
@@ -335,6 +466,42 @@ public class TestSolidObjectManager {
         manager.updateSolidContacts(player);
 
         assertTrue(manager.isRidingObject(player));
+    }
+
+    @Test
+    public void unifiedRideExitClearsOnObjectWithoutForcingAirSameFrame() {
+        GameModule previous = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        try {
+            SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+            TestSolidObject object = new TestSolidObject(100, 100, params, true);
+            ObjectManager manager = buildManager(object);
+
+            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+            player.useFeatureSet(PhysicsFeatureSet.SONIC_1);
+            player.setWidth(20);
+            player.setHeight(20);
+            player.setAir(false);
+            player.setOnObject(true);
+            player.setYSpeed((short) 0);
+            player.setCentreX((short) 100);
+            player.setCentreY((short) (100 - params.groundHalfHeight() - player.getYRadius()));
+
+            manager.update(0, player, List.of(), 0, false, true, true);
+
+            assertTrue(manager.isRidingObject(player));
+            assertTrue(player.isOnObject());
+            assertFalse(player.getAir());
+
+            player.setCentreX((short) (100 + params.halfWidth() + 12));
+            manager.update(0, player, List.of(), 1, false, true, true);
+
+            assertFalse(manager.isRidingObject(player));
+            assertFalse(player.isOnObject());
+            assertFalse(player.getAir());
+        } finally {
+            GameModuleRegistry.setCurrent(previous);
+        }
     }
 
     @Test
@@ -425,21 +592,28 @@ public class TestSolidObjectManager {
         private final SolidObjectParams params;
         private final boolean topSolidOnly;
         private final Integer topLandingHalfWidth;
+        private final boolean useCollisionHalfWidthForTopLanding;
 
         private TestSolidObject(int x, int y, SolidObjectParams params) {
-            this(x, y, params, false, null);
+            this(x, y, params, false, null, false);
         }
 
         private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly) {
-            this(x, y, params, topSolidOnly, null);
+            this(x, y, params, topSolidOnly, null, false);
         }
 
         private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly,
                 Integer topLandingHalfWidth) {
+            this(x, y, params, topSolidOnly, topLandingHalfWidth, false);
+        }
+
+        private TestSolidObject(int x, int y, SolidObjectParams params, boolean topSolidOnly,
+                Integer topLandingHalfWidth, boolean useCollisionHalfWidthForTopLanding) {
             this.spawn = new ObjectSpawn(x, y, 0, 0, 0, false, 0);
             this.params = params;
             this.topSolidOnly = topSolidOnly;
             this.topLandingHalfWidth = topLandingHalfWidth;
+            this.useCollisionHalfWidthForTopLanding = useCollisionHalfWidthForTopLanding;
         }
 
         @Override
@@ -480,6 +654,11 @@ public class TestSolidObjectManager {
         @Override
         public int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
             return topLandingHalfWidth != null ? topLandingHalfWidth : collisionHalfWidth;
+        }
+
+        @Override
+        public boolean usesCollisionHalfWidthForTopLanding() {
+            return useCollisionHalfWidthForTopLanding;
         }
     }
 
@@ -646,6 +825,10 @@ public class TestSolidObjectManager {
     private static final class TestPlayableSprite extends AbstractPlayableSprite {
         private TestPlayableSprite(short x, short y) {
             super("TEST", x, y);
+        }
+
+        private void useFeatureSet(PhysicsFeatureSet fs) {
+            setPhysicsFeatureSet(fs);
         }
 
         @Override

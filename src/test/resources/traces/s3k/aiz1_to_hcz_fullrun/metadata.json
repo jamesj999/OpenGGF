@@ -1,0 +1,21 @@
+{
+  "game": "s3k",
+  "zone": "aiz",
+  "zone_id": 0,
+  "act": 1,
+  "bk2_frame_offset": 397,
+  "trace_frame_count": 20912,
+  "start_x": "0x0120",
+  "start_y": "0x0130",
+  "characters": ["sonic", "tails"],
+  "main_character": "sonic",
+  "sidekicks": ["tails"],
+  "recording_date": "2026-04-21",
+  "lua_script_version": "3.1-s3k",
+  "trace_schema": 3,
+  "csv_version": 4,
+  "bizhawk_version": "2.11",
+  "genesis_core": "Genplus-gx",
+  "rom_checksum": "C5B1C655C19F462ADE0AC4E17A844D10",
+  "notes": "AIZ intro through HCZ handoff end-to-end fixture"
+}

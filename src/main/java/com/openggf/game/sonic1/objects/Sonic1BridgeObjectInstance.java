@@ -145,6 +145,11 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean forceAirOnRideExit() {
+        return false;
+    }
+
+    @Override
     public byte[] getSlopeData() {
         return slopeData;
     }

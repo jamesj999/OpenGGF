@@ -58,6 +58,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     private int targetSpeed;
     private int stateTimer;
     private SpeedCallback speedCallback = SpeedCallback.REACH_TURN_POINT;
+    private boolean initCompletedOnScreen;
 
     public RhinobotBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Rhinobot",
@@ -77,6 +78,18 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
+            return;
+        }
+        if (!isOnScreenX()) {
+            return;
+        }
+
+        // ROM entry point begins with Obj_WaitOffscreen. Once the object is
+        // finally visible, the first dispatched frame is still routine 0
+        // (SetUp_ObjAttributesSlotted + setup only); patrol movement does not
+        // begin until the following on-screen frame.
+        if (!initCompletedOnScreen) {
+            initCompletedOnScreen = true;
             return;
         }
 

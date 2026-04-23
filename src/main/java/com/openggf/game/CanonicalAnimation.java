@@ -193,6 +193,13 @@ public enum CanonicalAnimation {
     /** Glide wall-slide (Knuckles, S3K). */
     GLIDE_SLIDE,
 
+    /** S3K: Sonic's animation while being carried by Tails.
+     *  ROM reference: sub_1459E writes anim high-byte 0x22 on the carried Sonic.
+     *  SpriteAnimationProfile lookup may not define a mapping yet — callers
+     *  must tolerate a -1 return from SpriteAnimationSet.getAnimIdFor(...).
+     */
+    TAILS_CARRIED,
+
     // -------------------------------------------------------------------------
     // Super Sonic
     // -------------------------------------------------------------------------

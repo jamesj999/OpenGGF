@@ -5,16 +5,30 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class DivergenceReport {
 
     private final List<FrameComparison> allComparisons;
     private final List<DivergenceGroup> errors;
     private final List<DivergenceGroup> warnings;
+    private final TraceData traceData;
 
     public DivergenceReport(List<FrameComparison> comparisons) {
+        this(comparisons, null);
+    }
+
+    public DivergenceReport(List<FrameComparison> comparisons, TraceData traceData) {
         this.allComparisons = List.copyOf(comparisons);
+        this.traceData = traceData;
         List<DivergenceGroup> allGroups = buildGroups(comparisons);
         this.errors = allGroups.stream()
             .filter(g -> g.severity() == Severity.ERROR)
@@ -47,6 +61,8 @@ public class DivergenceReport {
             sb.append(String.format(" First error: frame %d -- %s mismatch (expected=%s, actual=%s)",
                 first.startFrame(), first.field(), first.expectedAtStart(), first.actualAtStart()));
         }
+
+        appendTraceContextSummary(sb, summaryReferenceFrame());
         return sb.toString();
     }
 
@@ -60,6 +76,17 @@ public class DivergenceReport {
             root.put("warning_count", warnings.size());
             root.put("total_frames", allComparisons.size());
             root.put("summary", toSummary());
+
+            int referenceFrame = summaryReferenceFrame();
+            TraceEvent.Checkpoint checkpoint = latestCheckpointAtOrBefore(referenceFrame);
+            if (checkpoint != null) {
+                root.set("latest_checkpoint", checkpointToJson(mapper, checkpoint));
+            }
+
+            TraceEvent.ZoneActState zoneActState = latestZoneActStateAtOrBefore(referenceFrame);
+            if (zoneActState != null) {
+                root.set("latest_zone_act_state", zoneActStateToJson(mapper, zoneActState));
+            }
 
             ArrayNode errorsNode = root.putArray("errors");
             for (DivergenceGroup g : errors) {
@@ -82,6 +109,7 @@ public class DivergenceReport {
         int end = Math.min(allComparisons.size() - 1, centreFrame + radius);
 
         StringBuilder sb = new StringBuilder();
+        appendTraceContextWindow(sb, centreFrame);
         sb.append(String.format("%-6s", "Frame"));
 
         Set<String> fieldNames = new LinkedHashSet<>();
@@ -102,7 +130,9 @@ public class DivergenceReport {
         sb.append("\n");
 
         for (int i = start; i <= end; i++) {
-            if (i >= allComparisons.size()) break;
+            if (i >= allComparisons.size()) {
+                break;
+            }
             FrameComparison fc = allComparisons.get(i);
             sb.append(String.format("%-6d", fc.frame()));
             for (String field : fieldNames) {
@@ -115,7 +145,6 @@ public class DivergenceReport {
                     sb.append(String.format(" | %-8s | %-8s", "?", "?"));
                 }
             }
-            // Append diagnostic context on divergent frames
             if (hasDiagnostics && fc.hasDivergence()) {
                 String romDiag = fc.romDiagnostics();
                 String engDiag = fc.engineDiagnostics();
@@ -127,6 +156,63 @@ public class DivergenceReport {
             sb.append("\n");
         }
         return sb.toString();
+    }
+
+    private void appendTraceContextSummary(StringBuilder sb, int frame) {
+        TraceEvent.Checkpoint checkpoint = latestCheckpointAtOrBefore(frame);
+        if (checkpoint != null) {
+            sb.append(" Latest checkpoint: ")
+                .append(TraceEventFormatter.summariseFrameEvents(List.of(checkpoint)));
+        }
+
+        TraceEvent.ZoneActState zoneActState = latestZoneActStateAtOrBefore(frame);
+        if (zoneActState != null) {
+            sb.append(" Latest zone/act state: ")
+                .append(TraceEventFormatter.summariseFrameEvents(List.of(zoneActState)));
+        }
+    }
+
+    private void appendTraceContextWindow(StringBuilder sb, int frame) {
+        TraceEvent.Checkpoint checkpoint = latestCheckpointAtOrBefore(frame);
+        if (checkpoint != null) {
+            sb.append("Latest checkpoint: ")
+                .append(TraceEventFormatter.summariseFrameEvents(List.of(checkpoint)))
+                .append("\n");
+        }
+
+        TraceEvent.ZoneActState zoneActState = latestZoneActStateAtOrBefore(frame);
+        if (zoneActState != null) {
+            sb.append("Latest zone_act_state: ")
+                .append(TraceEventFormatter.summariseFrameEvents(List.of(zoneActState)))
+                .append("\n");
+        }
+    }
+
+    private int summaryReferenceFrame() {
+        if (!errors.isEmpty()) {
+            return errors.get(0).startFrame();
+        }
+        if (!warnings.isEmpty()) {
+            return warnings.get(0).startFrame();
+        }
+        if (!allComparisons.isEmpty()) {
+            return allComparisons.get(allComparisons.size() - 1).frame();
+        }
+        return -1;
+    }
+
+    private TraceEvent.Checkpoint latestCheckpointAtOrBefore(int frame) {
+        if (traceData == null || frame < 0) {
+            return null;
+        }
+        return traceData.latestCheckpointAtOrBefore(frame);
+    }
+
+    private TraceEvent.ZoneActState latestZoneActStateAtOrBefore(int frame) {
+        if (traceData == null || frame < 0) {
+            return null;
+        }
+        return traceData.latestZoneActStateAtOrBefore(frame);
     }
 
     private static List<DivergenceGroup> buildGroups(List<FrameComparison> comparisons) {
@@ -187,7 +273,9 @@ public class DivergenceReport {
             }
         }
 
-        if (earliestErrorField == null) return;
+        if (earliestErrorField == null) {
+            return;
+        }
 
         for (int i = 0; i < groups.size(); i++) {
             DivergenceGroup g = groups.get(i);
@@ -215,6 +303,40 @@ public class DivergenceReport {
         return node;
     }
 
+    private ObjectNode checkpointToJson(ObjectMapper mapper, TraceEvent.Checkpoint checkpoint) {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("frame", checkpoint.frame());
+        node.put("name", checkpoint.name());
+        putNullableInt(node, "actual_zone_id", checkpoint.actualZoneId());
+        putNullableInt(node, "actual_act", checkpoint.actualAct());
+        putNullableInt(node, "apparent_act", checkpoint.apparentAct());
+        putNullableInt(node, "game_mode", checkpoint.gameMode());
+        if (checkpoint.notes() == null) {
+            node.putNull("notes");
+        } else {
+            node.put("notes", checkpoint.notes());
+        }
+        return node;
+    }
+
+    private ObjectNode zoneActStateToJson(ObjectMapper mapper, TraceEvent.ZoneActState zoneActState) {
+        ObjectNode node = mapper.createObjectNode();
+        node.put("frame", zoneActState.frame());
+        putNullableInt(node, "actual_zone_id", zoneActState.actualZoneId());
+        putNullableInt(node, "actual_act", zoneActState.actualAct());
+        putNullableInt(node, "apparent_act", zoneActState.apparentAct());
+        putNullableInt(node, "game_mode", zoneActState.gameMode());
+        return node;
+    }
+
+    private void putNullableInt(ObjectNode node, String field, Integer value) {
+        if (value == null) {
+            node.putNull(field);
+        } else {
+            node.put(field, value);
+        }
+    }
+
     private static class DivergenceGroupBuilder {
         final String field;
         final Severity severity;
@@ -239,5 +361,3 @@ public class DivergenceReport {
         }
     }
 }
-
-

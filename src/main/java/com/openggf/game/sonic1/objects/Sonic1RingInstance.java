@@ -80,7 +80,12 @@ public class Sonic1RingInstance extends AbstractObjectInstance
     public void update(int frameCounter, PlayableEntity player) {
         switch (state) {
             case INIT -> {
-                spawnChildren();
+                RingManager ringManager = services().ringManager();
+                spawnChildren(ringManager);
+                if (ringManager != null && ringManager.isCollected(ringSpawn)) {
+                    setDestroyed(true);
+                    return;
+                }
                 state = State.ANIMATE;
             }
             case ANIMATE -> {
@@ -109,7 +114,7 @@ public class Sonic1RingInstance extends AbstractObjectInstance
         }
     }
 
-    private void spawnChildren() {
+    private void spawnChildren(RingManager ringManager) {
         if (childRingSpawns.isEmpty()) {
             return;
         }
@@ -131,6 +136,9 @@ public class Sonic1RingInstance extends AbstractObjectInstance
             int childX = baseX + (i + 1) * dx;
             int childY = baseY + (i + 1) * dy;
             RingSpawn childRing = childRingSpawns.get(i);
+            if (ringManager != null && ringManager.isCollected(childRing)) {
+                continue;
+            }
             if (om != null) {
                 // Use the slots allocated above from the live SST state of this
                 // exec sweep so child numbers match the ROM's FindFreeObj order.

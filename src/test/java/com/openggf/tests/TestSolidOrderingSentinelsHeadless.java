@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_2)
 class TestSolidOrderingSentinelsHeadless {
+    private static final String DEFAULT_TAILS_SIDEKICK_CODE = "tails_p2";
     private static SharedLevel sharedLevel;
 
     @BeforeAll
@@ -174,7 +175,9 @@ class TestSolidOrderingSentinelsHeadless {
     }
 
     private AbstractPlayableSprite createSidekick() {
-        Tails tails = new Tails("tails", (short) 0x120, (short) 0x0EE);
+        // Replace the default shared-fixture Tails slot so the checkpoint batch
+        // still models one main player plus one sidekick.
+        Tails tails = new Tails(DEFAULT_TAILS_SIDEKICK_CODE, (short) 0x120, (short) 0x0EE);
         tails.setCpuControlled(true);
         tails.setCentreY((short) (0x100 - 8 - tails.getYRadius()));
         GameServices.sprites().addSprite(tails, "tails");

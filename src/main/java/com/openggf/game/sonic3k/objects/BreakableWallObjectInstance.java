@@ -291,6 +291,13 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         int brokenFrame = (mappingFrame + 1) - config.sheetFrameOffset;
         spawnFragments(brokenFrame, velTable);
         markRemembered();
+
+        // ROM parity: sub_218CE ends with loc_21692 -> Delete_Current_Sprite. The
+        // wall's solid/body representation is gone the instant fragments spawn; the
+        // only thing that lingers is the fragment children. Retiring the object via
+        // setDestroyed(true) mirrors that and lets `isSolidFor()` (via !broken) and
+        // `wall.isDestroyed()` agree.
+        setDestroyed(true);
     }
 
     private boolean isTriggerActive() {

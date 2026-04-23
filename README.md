@@ -214,6 +214,8 @@ further S3K parity work.
   player state explicitly, tightening ROM parity across rideable, breakable, and trigger-driven
   objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
   collapsing solids.
+- **Trace replay tooling:** S2/S3K trace recorder and replay fixtures now capture BK2-backed frame
+  data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work.
 - **S3K CNZ and MGZ expansion:** Carnival Night now has a much larger traversal/object pass
   including tubes, teleporters, balloons, cannons, hover fans, trap doors, water helpers, and
   miniboss/boss scaffolding, while Marble Garden gains more event/object coverage and supporting

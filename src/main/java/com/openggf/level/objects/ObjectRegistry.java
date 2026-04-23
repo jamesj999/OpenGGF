@@ -9,6 +9,10 @@ public interface ObjectRegistry {
 
     String getPrimaryName(int objectId);
 
+    default ObjectSlotLayout objectSlotLayout() {
+        return ObjectSlotLayout.SONIC_1;
+    }
+
     default List<String> getAliases(int objectId) {
         return List.of();
     }

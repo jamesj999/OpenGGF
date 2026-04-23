@@ -5,6 +5,7 @@ import com.openggf.data.Rom;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.game.render.AdvancedRenderModeController;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
+import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -211,6 +212,18 @@ public interface ZoneFeatureProvider {
     }
 
     /**
+     * Whether an airborne terrain probe that is exactly touching the surface
+     * (distance 0) should count as a landing for the current zone feature state.
+     *
+     * <p>Default false to preserve the engine's normal "must penetrate floor"
+     * air-landing rule.
+     */
+    default boolean shouldTreatZeroDistanceAirLandingAsGround(AbstractPlayableSprite player,
+                                                              SensorResult support) {
+        return false;
+    }
+
+    /**
      * Whether the HUD should be hidden for the given zone/act.
      * Used during intro cinematics (e.g. AIZ intro in S3K) where the HUD
      * should not be visible until gameplay begins.
@@ -221,6 +234,23 @@ public interface ZoneFeatureProvider {
      */
     default boolean shouldSuppressHud(int zoneIndex, int actIndex) {
         return false;
+    }
+
+    /**
+     * Whether the shared global oscillation table should advance this frame for
+     * the current zone/act.
+     *
+     * <p>Only override this when the ROM loop for a specific sequence genuinely
+     * skips the oscillation update. Cinematics such as S3K AIZ1 still advance
+     * the table every level frame even while {@code Level_started_flag} is
+     * cleared.
+     *
+     * @param zoneIndex the current feature zone
+     * @param actIndex the current feature act
+     * @return true if the oscillation table should advance
+     */
+    default boolean shouldAdvanceGlobalOscillation(int zoneIndex, int actIndex) {
+        return true;
     }
 
     /**

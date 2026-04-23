@@ -1,5 +1,5 @@
 package com.openggf.level.objects;
-
+        // by postCameraPlacementUpdate(...), otherwise they reset and respawn with
 import static org.lwjgl.opengl.GL11.GL_LINES;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
@@ -67,10 +67,11 @@ public class ObjectManager {
     private boolean updating;
 
     // ROM parity: slot-ordered execution array for ExecuteObjects emulation.
-    // Populated at start of each update pass, iterated slot 0→95 in order.
+    // The dynamic slot window is game-specific and comes from ObjectRegistry.
     // When a child is spawned at a higher slot, it's placed here directly
     // so the ongoing loop reaches it naturally (same-frame execution).
-    private final ObjectInstance[] execOrder = new ObjectInstance[DYNAMIC_SLOT_COUNT];
+    private final ObjectSlotLayout slotLayout;
+    private final ObjectInstance[] execOrder;
     private int currentExecSlot = -1; // -1 when not in update loop
     private int peakSlotCount = 0;    // Track actual peak usedSlots cardinality
 
@@ -89,14 +90,9 @@ public class ObjectManager {
     private final List<ObjectInstance> cachedTouchResponseObjects = new ArrayList<>();
     private boolean activeObjectsCacheDirty = true;
 
-
-    // ROM: Dynamic objects occupy SST slots 32-127 (96 slots total).
-    // Each slot's d7 = 127 - slotIndex, used in timing gates like
-    // (v_vbla_byte + d7) & 7 for Batbrain drop checks. Objects need
-    // unique slot indices for correct per-object timing phase offsets.
-    private static final int DYNAMIC_SLOT_BASE = 32;
-    private static final int DYNAMIC_SLOT_COUNT = 96;
-    private final BitSet usedSlots = new BitSet(DYNAMIC_SLOT_COUNT);
+    // ROM parity: dynamic object slot tracking for the current game's allocatable
+    // SST window. S1 uses 32..127, S2 uses 16..127, and S3K uses 3..92.
+    private final BitSet usedSlots;
 
     // ROM parity: Tracks child slots reserved by objects with getReservedChildSlotCount() > 0.
     // In S1, ring objects (obj25) allocate child ring slots via FindFreeObj. These slots
@@ -123,6 +119,9 @@ public class ObjectManager {
         this.graphicsManager = graphicsManager;
         this.camera = camera;
         this.objectServices = objectServices;
+        this.slotLayout = registry != null ? registry.objectSlotLayout() : ObjectSlotLayout.SONIC_1;
+        this.execOrder = new ObjectInstance[slotLayout.dynamicSlotCount()];
+        this.usedSlots = new BitSet(slotLayout.dynamicSlotCount());
         this.planeSwitchers = planeSwitcherConfig != null
                 ? new PlaneSwitchers(placement, planeSwitcherObjectId, planeSwitcherConfig)
                 : null;
@@ -161,6 +160,18 @@ public class ObjectManager {
         return new BootstrapObjectServices();
     }
 
+    private boolean isManagedDynamicSlot(int slotIndex) {
+        return slotLayout.isDynamicSlot(slotIndex);
+    }
+
+    private int execIndexForSlot(int slotIndex) {
+        return slotLayout.toExecIndex(slotIndex);
+    }
+
+    private int slotIndexForExec(int execIndex) {
+        return slotLayout.toSlotIndex(execIndex);
+    }
+
     public void reset(int cameraX) {
         clearActiveObjects();
         dynamicObjects.clear();
@@ -180,18 +191,34 @@ public class ObjectManager {
         if (touchResponses != null) {
             touchResponses.reset();
         }
-        if (placement.isCounterBasedRespawn()) {
-            // ROM parity: S1 runs OPL_Main/OPL_Next during level setup, so the
-            // initial object window already occupies SST slots before the first
-            // gameplay frame's ExecuteObjects pass begins. If we defer this
-            // load until ObjectManager.update(), grouped rings and other Routine 0
-            // objects start one frame late and the slot map drifts immediately.
-            syncActiveSpawnsLoad();
-        }
+        // Materialize the current placement window immediately after reset.
+        // S1 needs this for ROM parity at level start; for S2/S3K it keeps
+        // manual camera resets and headless probes from sitting on an empty
+        // active window until a later placement delta occurs. The load step is
+        // idempotent, so the first gameplay update will not duplicate instances.
+        syncActiveSpawnsLoad();
     }
 
     ObjectServices services() {
         return objectServices;
+    }
+
+    /**
+     * Instantiates all spawns currently in the placement window. Intended for
+     * trace replay and editor state restoration that need engine object
+     * instances to exist before the first {@link #update} call, so external
+     * state (ROM SST snapshots, editor bookmarks) can be hydrated onto them.
+     *
+     * <p>For S1 (counter-based respawn, {@code UNIFIED} collision model) this
+     * work is already done inside {@link #reset(int)}. For S2/S3K
+     * ({@code DUAL_PATH}) spawn→instance conversion is normally deferred until
+     * the first {@link #update} tick; calling this method brings S2/S3K in
+     * line with that ROM behavior ahead of time.
+     *
+     * <p>Idempotent: objects that already exist are not re-created.
+     */
+    public void preloadInitialSpawnsForHydration() {
+        syncActiveSpawnsLoad();
     }
 
     /**
@@ -277,8 +304,8 @@ public class ObjectManager {
         updateCameraBounds();
         SolidExecutionRegistry solidExecutionRegistry = objectServices.solidExecutionRegistry();
         solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, activeSidekicks));
-
         boolean counterBased = placement.isCounterBasedRespawn();
+
         if (inlineSolidResolution) {
             solidContacts.beginInlineFrame(player, activeSidekicks, solidPostMovement);
         }
@@ -404,13 +431,13 @@ public class ObjectManager {
 
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -420,7 +447,7 @@ public class ObjectManager {
         updating = true;
         boolean objectsRemoved = false;
         try {
-            for (currentExecSlot = 0; currentExecSlot < DYNAMIC_SLOT_COUNT; currentExecSlot++) {
+            for (currentExecSlot = 0; currentExecSlot < execOrder.length; currentExecSlot++) {
                 ObjectInstance instance = execOrder[currentExecSlot];
                 if (instance == null) continue;
 
@@ -430,7 +457,7 @@ public class ObjectManager {
                 // the correct set of available slots.
                 ObjectSpawn spawn = instanceToSpawn.get(instance);
                 if (unloadCounterBasedOutOfRange(instance, spawn,
-                        currentExecSlot + DYNAMIC_SLOT_BASE, cameraX)) {
+                        slotIndexForExec(currentExecSlot), cameraX)) {
                     execOrder[currentExecSlot] = null;
                     objectsRemoved = true;
                     continue;
@@ -440,7 +467,7 @@ public class ObjectManager {
                         instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
 
                 if (instance.isDestroyed()) {
-                    int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
+                    int slotIndex = slotIndexForExec(currentExecSlot);
                     if (instance instanceof AbstractObjectInstance aoi3
                             && aoi3.getSlotIndex() == slotIndex) {
                         releaseSlot(slotIndex);
@@ -544,13 +571,13 @@ public class ObjectManager {
         // ROM parity: Build slot-ordered execution array.
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
-                execOrder[aoi.getSlotIndex() - DYNAMIC_SLOT_BASE] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -558,13 +585,12 @@ public class ObjectManager {
 
         updating = true;
         boolean objectsRemoved = false;
-        boolean counterBased = placement.isCounterBasedRespawn();
         // Track objects processed by the slot-based loop so the fallback loop
         // doesn't double-update objects that lost their slot mid-frame.
         Set<ObjectInstance> processedInExecLoop = Collections.newSetFromMap(new IdentityHashMap<>());
         try {
             // ROM parity: Iterate slots in ascending order, matching ExecuteObjects.
-            for (currentExecSlot = 0; currentExecSlot < DYNAMIC_SLOT_COUNT; currentExecSlot++) {
+            for (currentExecSlot = 0; currentExecSlot < execOrder.length; currentExecSlot++) {
                 ObjectInstance instance = execOrder[currentExecSlot];
                 if (instance == null) continue;
                 processedInExecLoop.add(instance);
@@ -573,13 +599,18 @@ public class ObjectManager {
                         instance, player, sidekicks, inlineSolidResolution, solidPostMovement);
 
                 // ROM parity: each object calls RememberState / out_of_range
-                // at the END of its routine, AFTER updating position. Check
-                // post-update position so objects moving toward the camera
-                // survive (matching ROM behavior where obX reflects movement).
-                if (counterBased && !instance.isDestroyed()) {
+                // at the END of its routine, AFTER updating position. S2/S3K
+                // objects end their routines with `jmpto JmpTo_MarkObjGone_P1`
+                // (docs/s2disasm/s2.asm MarkObjGone_P1 line ~30080), which
+                // checks the object's CURRENT x_pos(a0) — not its spawn x —
+                // against the camera window. Moving objects (e.g. Buzzer
+                // flying 174 px west of spawn) survive as long as their
+                // current position is in range. This check runs for both
+                // counter-based (S1) and non-counter (S2/S3K) placement.
+                if (!instance.isDestroyed()) {
                     ObjectSpawn oorSpawn = instanceToSpawn.get(instance);
                     if (unloadCounterBasedOutOfRange(instance, oorSpawn,
-                            currentExecSlot + DYNAMIC_SLOT_BASE, cameraX)) {
+                            slotIndexForExec(currentExecSlot), cameraX)) {
                         execOrder[currentExecSlot] = null;
                         objectsRemoved = true;
                         continue;
@@ -587,7 +618,7 @@ public class ObjectManager {
                 }
 
                 if (instance.isDestroyed()) {
-                    int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
+                    int slotIndex = slotIndexForExec(currentExecSlot);
                     if (instance instanceof AbstractObjectInstance aoi3
                             && aoi3.getSlotIndex() == slotIndex) {
                         releaseSlot(slotIndex);
@@ -619,7 +650,7 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
-                if (counterBased && !inst.isDestroyed()
+                if (!inst.isDestroyed()
                         && unloadCounterBasedOutOfRange(inst, null, -1, cameraX)) {
                     objectsRemoved = true;
                     continue;
@@ -651,7 +682,7 @@ public class ObjectManager {
                 }
                 executeObjectWithSolidContext(
                         inst, player, sidekicks, inlineSolidResolution, solidPostMovement);
-                if (counterBased && !inst.isDestroyed()
+                if (!inst.isDestroyed()
                         && unloadCounterBasedOutOfRange(inst, spawn, -1, cameraX)) {
                     objectsRemoved = true;
                     continue;
@@ -687,11 +718,15 @@ public class ObjectManager {
      * and creating a 4px collision offset.
      * <p>
      * This method scans the gap region (between the old and new window right
-     * edges) and adds any eligible spawns to the active set, WITHOUT updating
-     * the placement's internal state (cursor, lastCameraChunk). This ensures
-     * that the primary placement pass in the next frame still processes the
-     * chunk boundary normally (including left-edge removal), while the gap
-     * spawns are already in the active set for {@code syncActiveSpawns()}.
+     * edges) and materializes any eligible spawns into the current frame's
+     * object table, WITHOUT updating the placement's internal state
+     * (cursor, lastCameraChunk). This ensures that the primary placement pass
+     * in the next frame still processes the chunk boundary normally
+     * (including left-edge removal), while the gap spawns already exist with
+     * ROM-accurate end-of-frame timing. Because this runs after
+     * {@code ObjectManager.update(...)} for the current frame, the newly
+     * created instances do not execute until the following frame's
+     * ExecuteObjects pass.
      *
      * @param postCameraX camera X position after the camera update step
      */
@@ -757,9 +792,9 @@ public class ObjectManager {
     }
 
     public void applyPlaneSwitchers(PlayableEntity player) {
-        // ROM: CPU Tails does not interact with plane switchers in 1P mode.
-        // Only the main player triggers layer/priority changes.
-        if (planeSwitchers != null && !player.isCpuControlled()) {
+        // Sonic 2 Obj03 tracks separate crossover state for MainCharacter and
+        // Sidekick (objoff_34 / objoff_35) and updates both each frame.
+        if (planeSwitchers != null) {
             planeSwitchers.update(player);
         }
     }
@@ -980,6 +1015,25 @@ public class ObjectManager {
         return cachedActiveObjects;
     }
 
+    /**
+     * Runs post-player hooks for legacy object-order modules after the main
+     * playable update has completed for the current frame.
+     */
+    public void runPostPlayerHooks(PlayableEntity player, int frameCounter) {
+        if (player == null) {
+            return;
+        }
+        List<ObjectInstance> snapshot = new ArrayList<>(getActiveObjects());
+        for (ObjectInstance instance : snapshot) {
+            if (instance == null || instance.isDestroyed()) {
+                continue;
+            }
+            if (instance instanceof PostPlayerUpdateHook hook) {
+                hook.updatePostPlayer(frameCounter, player);
+            }
+        }
+    }
+
     private List<ObjectInstance> getSolidProviderObjects() {
         rebuildActiveObjectCaches();
         return cachedSolidProviderObjects;
@@ -1097,7 +1151,7 @@ public class ObjectManager {
             // gates like (v_vbla_byte + d7) & 7.
             if (aoi.getSlotIndex() < 0) {
                 int slot = allocateAfterCurrent && updating && currentExecSlot >= 0
-                        ? allocateSlotAfter(currentExecSlot + DYNAMIC_SLOT_BASE)
+                        ? allocateSlotAfter(slotIndexForExec(currentExecSlot))
                         : allocateSlot();
                 if (slot >= 0) {
                     aoi.setSlotIndex(slot);
@@ -1107,21 +1161,21 @@ public class ObjectManager {
                 // replacement). Ensure the slot is marked as used in the BitSet —
                 // it may have been released when the original object was destroyed.
                 int slot = aoi.getSlotIndex();
-                if (slot >= DYNAMIC_SLOT_BASE && slot < DYNAMIC_SLOT_BASE + DYNAMIC_SLOT_COUNT) {
-                    usedSlots.set(slot - DYNAMIC_SLOT_BASE);
+                if (isManagedDynamicSlot(slot)) {
+                    usedSlots.set(execIndexForSlot(slot));
                 }
             }
         }
         dynamicObjects.add(object);
         if (allowSameFrameExec && updating && object instanceof AbstractObjectInstance aoi2
-                && aoi2.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+                && isManagedDynamicSlot(aoi2.getSlotIndex())) {
             // ROM parity: FindFreeObj places the child directly into the SST.
             // The ExecuteObjects loop processes slots sequentially, so a child
             // at a HIGHER slot than the parent will be reached and updated in
             // the same frame. A child at a LOWER slot (already processed) won't
             // run until the next frame.
-            int execIdx = aoi2.getSlotIndex() - DYNAMIC_SLOT_BASE;
-            if (execIdx < DYNAMIC_SLOT_COUNT && execIdx > currentExecSlot) {
+            int execIdx = execIndexForSlot(aoi2.getSlotIndex());
+            if (execIdx < execOrder.length && execIdx > currentExecSlot) {
                 object.snapshotPreUpdatePosition();
                 aoi2.setSkipTouchThisFrame(true);
                 execOrder[execIdx] = object;
@@ -1144,19 +1198,19 @@ public class ObjectManager {
     }
 
     /**
-     * Allocates the next available dynamic slot index (32-127).
-     * Equivalent to ROM's FindFreeObj — searches from slot 32 forward.
+     * Allocates the next available dynamic slot index for the current game's layout.
+     * Equivalent to ROM's FindFreeObj — searches from the first dynamic slot forward.
      * Returns -1 if all slots are in use (overflow).
      */
     private int allocateSlot() {
         int bit = usedSlots.nextClearBit(0);
-        if (bit >= DYNAMIC_SLOT_COUNT) {
+        if (bit >= execOrder.length) {
             return -1;
         }
         usedSlots.set(bit);
         int currentSlotCount = usedSlots.cardinality();
         if (currentSlotCount > peakSlotCount) peakSlotCount = currentSlotCount;
-        return DYNAMIC_SLOT_BASE + bit;
+        return slotIndexForExec(bit);
     }
 
     /**
@@ -1169,24 +1223,23 @@ public class ObjectManager {
      * @return the allocated slot index, or -1 if no slot is available
      */
     public int allocateSlotAfter(int parentSlot) {
-        int startBit = Math.max(0, parentSlot - DYNAMIC_SLOT_BASE + 1);
+        int startBit = Math.max(0, parentSlot - slotLayout.firstDynamicSlot() + 1);
         int bit = usedSlots.nextClearBit(startBit);
-        if (bit >= DYNAMIC_SLOT_COUNT) {
+        if (bit >= execOrder.length) {
             return -1;
         }
         usedSlots.set(bit);
         int currentSlotCount = usedSlots.cardinality();
         if (currentSlotCount > peakSlotCount) peakSlotCount = currentSlotCount;
-        return DYNAMIC_SLOT_BASE + bit;
+        return slotIndexForExec(bit);
     }
 
     /**
      * Releases a previously allocated dynamic slot index.
      */
     private void releaseSlot(int slotIndex) {
-        if (slotIndex >= DYNAMIC_SLOT_BASE && slotIndex < DYNAMIC_SLOT_BASE + DYNAMIC_SLOT_COUNT) {
-            int bit = slotIndex - DYNAMIC_SLOT_BASE;
-            usedSlots.clear(bit);
+        if (isManagedDynamicSlot(slotIndex)) {
+            usedSlots.clear(execIndexForSlot(slotIndex));
         }
     }
 
@@ -1196,12 +1249,12 @@ public class ObjectManager {
      * existing as {@link ObjectInstance} entries in this manager.
      */
     public void releaseDynamicSlot(int slotIndex) {
-        if (slotIndex < DYNAMIC_SLOT_BASE || slotIndex >= DYNAMIC_SLOT_BASE + DYNAMIC_SLOT_COUNT) {
+        if (!isManagedDynamicSlot(slotIndex)) {
             return;
         }
         releaseSlot(slotIndex);
-        int execIdx = slotIndex - DYNAMIC_SLOT_BASE;
-        if (execIdx >= 0 && execIdx < DYNAMIC_SLOT_COUNT) {
+        int execIdx = execIndexForSlot(slotIndex);
+        if (execIdx >= 0 && execIdx < execOrder.length) {
             execOrder[execIdx] = null;
         }
     }
@@ -1253,11 +1306,11 @@ public class ObjectManager {
     public void releaseSlot(ObjectInstance object) {
         if (object instanceof AbstractObjectInstance aoi) {
             int slot = aoi.getSlotIndex();
-            if (slot >= DYNAMIC_SLOT_BASE) {
+            if (isManagedDynamicSlot(slot)) {
                 releaseSlot(slot);
                 // Clear execOrder so the slot can be reused
-                int execIdx = slot - DYNAMIC_SLOT_BASE;
-                if (execIdx >= 0 && execIdx < DYNAMIC_SLOT_COUNT) {
+                int execIdx = execIndexForSlot(slot);
+                if (execIdx >= 0 && execIdx < execOrder.length) {
                     execOrder[execIdx] = null;
                 }
                 // Clear the object's slot index to prevent double-release.
@@ -1266,7 +1319,7 @@ public class ObjectManager {
                 // or unloaded, would release the slot AGAIN — potentially
                 // corrupting a different object that reused the slot number.
                 // With slotIndex=-1, the object falls through to the fallback
-                // activeObjects loop for continued updates (slotIndex < DYNAMIC_SLOT_BASE).
+                // activeObjects loop for continued updates outside the managed slot window.
                 aoi.setSlotIndex(-1);
             }
         }
@@ -1285,7 +1338,7 @@ public class ObjectManager {
      */
     public void releaseParentSlot(AbstractObjectInstance instance) {
         int slot = instance.getSlotIndex();
-        if (slot >= DYNAMIC_SLOT_BASE) {
+        if (isManagedDynamicSlot(slot)) {
             releaseSlot(slot);
             instance.setSlotIndex(-1);
         }
@@ -1305,7 +1358,7 @@ public class ObjectManager {
         int[] childSlots = reservedChildSlots.get(spawn);
         if (childSlots != null && index >= 0 && index < childSlots.length) {
             int slot = childSlots[index];
-            if (slot >= DYNAMIC_SLOT_BASE) {
+            if (isManagedDynamicSlot(slot)) {
                 releaseSlot(slot);
                 childSlots[index] = -1; // Mark as freed
             }
@@ -1329,7 +1382,7 @@ public class ObjectManager {
         int[] childSlots = reservedChildSlots.get(parentSpawn);
         if (childSlots != null && childIndex >= 0 && childIndex < childSlots.length) {
             int reservedSlot = childSlots[childIndex];
-            if (reservedSlot >= DYNAMIC_SLOT_BASE) {
+            if (isManagedDynamicSlot(reservedSlot)) {
                 if (object instanceof AbstractObjectInstance aoi) {
                     aoi.setServices(objectServices);
                     aoi.setSlotIndex(reservedSlot);
@@ -1341,8 +1394,8 @@ public class ObjectManager {
                 childSlots[childIndex] = -1;
                 dynamicObjects.add(object);
                 if (updating) {
-                    int execIdx = reservedSlot - DYNAMIC_SLOT_BASE;
-                    if (execIdx >= 0 && execIdx < DYNAMIC_SLOT_COUNT && execIdx > currentExecSlot) {
+                    int execIdx = execIndexForSlot(reservedSlot);
+                    if (execIdx >= 0 && execIdx < execOrder.length && execIdx > currentExecSlot) {
                         object.snapshotPreUpdatePosition();
                         execOrder[execIdx] = object;
                     }
@@ -1431,7 +1484,7 @@ public class ObjectManager {
         int[] childSlots = reservedChildSlots.remove(spawn);
         if (childSlots != null) {
             for (int slot : childSlots) {
-                if (slot >= DYNAMIC_SLOT_BASE) {
+                if (isManagedDynamicSlot(slot)) {
                     releaseSlot(slot);
                 }
             }
@@ -1531,6 +1584,18 @@ public class ObjectManager {
     }
 
     /**
+     * Preserves a non-solid object's ownership of the player's on-object state for the
+     * current inline ExecuteObjects pass.
+     * <p>
+     * Some ROM objects (for example S2 Obj06 spiral) set {@code status.player.on_object}
+     * without going through SolidObject. Inline solid cleanup must not clear that state at
+     * frame end, so these objects can mark the player as supported for the current pass.
+     */
+    public void markObjectSupportThisFrame(PlayableEntity player) {
+        solidContacts.markObjectSupportThisFrame(player);
+    }
+
+    /**
      * Get the object that this player is currently standing on (riding).
      * Used for balance detection at object edges.
      *
@@ -1618,19 +1683,17 @@ public class ObjectManager {
     }
 
     /**
-     * Phase 1 of spawn window sync: unload objects that left the placement window.
+     * Phase 1 of spawn window sync for non-counter placement.
      * <p>
-     * ROM parity: Release slots for departing objects BEFORE the exec loop runs.
-     * For counter-based respawn (S1), objects are also checked against the ROM's
-     * {@code out_of_range} macro for objects whose spawns are still in the
-     * placement active set but whose position is beyond the ROM's 640px threshold.
+     * For S2/S3K-style placement, {@code activeSpawns} only tracks the current
+     * ObjPosLoad candidate window. Live objects are retired by their own
+     * RememberState/out_of_range-equivalent code paths during execution, not by
+     * leaving the spawn candidate set.
      */
     private void syncActiveSpawnsUnload() {
-        Collection<ObjectSpawn> activeSpawns = placement.getActiveSpawns();
-        boolean changed = false;
-        boolean counterBased = placement.isCounterBasedRespawn();
-        int cameraX = camera.getX();
-
+        // Intentionally empty. For non-counter placement, live objects are kept
+        // alive until their own execution tail path retires them.
+        /*
         Iterator<Map.Entry<ObjectSpawn, ObjectInstance>> iterator = activeObjects.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<ObjectSpawn, ObjectInstance> entry = iterator.next();
@@ -1680,6 +1743,7 @@ public class ObjectManager {
             bucketsDirty = true;
             activeObjectsCacheDirty = true;
         }
+        */
     }
 
     /**
@@ -1763,7 +1827,7 @@ public class ObjectManager {
         }
         if (instance instanceof AbstractObjectInstance aoi) {
             int slotIndex = aoi.getSlotIndex();
-            if (slotIndex >= DYNAMIC_SLOT_BASE
+            if (isManagedDynamicSlot(slotIndex)
                     && (expectedSlotIndex < 0 || slotIndex == expectedSlotIndex)) {
                 releaseSlot(slotIndex);
             }
@@ -1935,7 +1999,7 @@ public class ObjectManager {
         dynamicFallbackScratch.clear();
         for (ObjectInstance inst : dynamicObjects) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
                 continue;
             }
             dynamicFallbackScratch.add(inst);
@@ -1946,7 +2010,7 @@ public class ObjectManager {
         activeFallbackScratch.clear();
         for (ObjectInstance inst : activeObjects.values()) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && aoi.getSlotIndex() >= DYNAMIC_SLOT_BASE) {
+                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
                 continue;
             }
             activeFallbackScratch.add(inst);
@@ -2408,8 +2472,18 @@ public class ObjectManager {
         /**
          * Marks a spawn as dormant after its instance was deleted via out_of_range.
          * The spawn stays in {@code active} but syncActiveSpawnsLoad will skip it.
-         * Only the cursor system clears dormant when it naturally re-processes
-         * the spawn position (via forward/backward scan or cursor trim).
+         * <p>
+         * The dormant bit is cleared when the placement cursor naturally re-processes
+         * the spawn position:
+         * <ul>
+         *   <li>Counter-based (S1): cursor entry helpers clear dormant on forward/backward
+         *       scan and trim (see spawnForwardEntry, spawnBackwardCountered,
+         *       trimLeftCountered, trimRightCountered).</li>
+         *   <li>Non-counter-based (S2/S3K): {@link #trySpawn(int)} clears dormant when
+         *       the spawn is re-considered by spawnForward/refreshWindow/extendForPostCamera.
+         *       This mirrors the ROM's MarkObjGone_P1 behavior of clearing bit 7 of
+         *       Obj_respawn_data, allowing the next ObjPosLoad scan to re-create the object.</li>
+         * </ul>
          */
         void markDormant(ObjectSpawn spawn) {
             int index = getSpawnIndex(spawn);
@@ -2438,15 +2512,18 @@ public class ObjectManager {
         private void trimActive(int cameraX) {
             int windowStart = getWindowStart(cameraX);
             int windowEnd = getWindowEnd(cameraX);
-            // ROM parity: window is [windowStart, windowEnd) — objects at windowEnd
-            // are outside the window (strict < on right boundary).
-            Iterator<ObjectSpawn> iterator = active.iterator();
-            while (iterator.hasNext()) {
-                ObjectSpawn spawn = iterator.next();
-                if (spawn.x() < windowStart || spawn.x() >= windowEnd) {
-                    iterator.remove();
-                }
-            }
+            // ROM parity: MarkObjGone_P1 (at $164A6) checks the object's CURRENT
+            // x_pos(a0) — not its spawn position — against the camera window.
+            // Moving objects (e.g. Buzzer flying 174 pixels west of its spawn)
+            // survive as long as their current position is in range. The placement
+            // cursor (spawnForward) still advances to track new spawns entering
+            // from the right; removal from the active set is the instance's job
+            // via its own out_of_range check during ExecuteObjects (see
+            // runExecLoop's call to unloadObjectOutOfRange). Previously this
+            // method removed spawns whose spawn.x() was out of window, which
+            // prematurely killed moving badniks like Buzzer — their engine
+            // lifecycle diverged from the ROM (unload/respawn cycling) while
+            // the ROM instance stayed alive continuously.
             clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
         }
 
@@ -2467,7 +2544,20 @@ public class ObjectManager {
         }
 
         private void trySpawn(int index) {
+            trySpawn(index, null);
+        }
+
+        private void trySpawn(int index, SpawnCallback callback) {
             ObjectSpawn spawn = spawns.get(index);
+            // Clear dormant: this spawn is being re-considered by the non-counter
+            // placement (spawnForward advancing the cursor, refreshWindow rebuilding
+            // the active set, or extendForPostCamera extending to post-camera chunk).
+            // ROM parity: S2/S3K's ObjectsManager_Main clears `bit #7 of Obj_respawn_data`
+            // on unload (MarkObjGone_P1), so the next ObjPosLoad scan can re-create
+            // the object. This mirrors the dormant.clear() calls in the counter-based
+            // cursor entry helpers (spawnForwardEntry at line ~2541, spawnBackwardCountered
+            // at line ~2614, trimLeftCountered at line ~2596, trimRightCountered at line ~2679).
+            dormant.clear(index);
             if (remembered.get(index) && !stayActive.get(index)) {
                 return;
             }
@@ -2476,6 +2566,9 @@ public class ObjectManager {
                 return;
             }
             active.add(spawn);
+            if (callback != null) {
+                callback.tryCreate(spawn, -1);
+            }
         }
 
         // ================================================================
@@ -2755,10 +2848,14 @@ public class ObjectManager {
                 updateAndLoad(postCameraX, callback);
                 return;
             }
-            extendForPostCamera(postCameraX);
+            extendForPostCamera(postCameraX, callback, false);
         }
 
         void extendForPostCamera(int postCameraX) {
+            extendForPostCamera(postCameraX, null, true);
+        }
+
+        private void extendForPostCamera(int postCameraX, SpawnCallback callback, boolean legacyNoCreate) {
             if (counterBasedRespawn) {
                 update(postCameraX);
                 return;
@@ -2776,7 +2873,11 @@ public class ObjectManager {
                         break;
                     }
                     if (sx >= oldWindowEnd) {
-                        trySpawn(i);
+                        if (legacyNoCreate) {
+                            trySpawn(i);
+                        } else {
+                            trySpawn(i, callback);
+                        }
                     }
                 }
             }
@@ -2853,9 +2954,11 @@ public class ObjectManager {
                 int sideNow = horizontal
                         ? (playerY >= spawn.y() ? 1 : 0)
                         : (playerX >= spawn.x() ? 1 : 0);
-                if (!state.seeded) {
-                    state.sideState = (byte) sideNow;
-                    state.seeded = true;
+                int previousSide = state.getSideState(player);
+                if (previousSide < 0) {
+                    state.setSideState(player, sideNow);
+                    state.setLastSideState(sideNow);
+                    continue;
                 }
 
                 int half = state.halfSpanPixels;
@@ -2864,7 +2967,7 @@ public class ObjectManager {
                         : (playerY >= spawn.y() - half && playerY < spawn.y() + half);
                 boolean groundedGate = onlySwitchWhenGrounded(subtype) && player.getAir();
 
-                if (inSpan && !groundedGate && sideNow != state.sideState) {
+                if (inSpan && !groundedGate && sideNow != previousSide) {
                     boolean skipCollisionChange = (spawn.renderFlags() & 0x1) != 0;
                     if (!skipCollisionChange) {
                         int path = decodePath(subtype, sideNow);
@@ -2879,14 +2982,15 @@ public class ObjectManager {
                         LOGGER.fine(() -> String.format(
                                 "PlaneSwitcher path=%d: player(%d,%d) obj(%d,%d) sub=0x%02X side=%d→%d air=%b mode=%s",
                                 path, player.getCentreX(), player.getCentreY(),
-                                spawn.x(), spawn.y(), subtype, state.sideState, sideNow,
+                                spawn.x(), spawn.y(), subtype, previousSide, sideNow,
                                 player.getAir(), player.getGroundMode()));
                     }
                     boolean highPriority = decodePriority(subtype, sideNow);
                     player.setHighPriority(highPriority);
                 }
 
-                state.sideState = (byte) sideNow;
+                state.setSideState(player, sideNow);
+                state.setLastSideState(sideNow);
             }
 
             states.keySet().removeIf(spawn -> spawn.objectId() == objectId && !active.contains(spawn));
@@ -2894,10 +2998,10 @@ public class ObjectManager {
 
         int getSideState(ObjectSpawn spawn) {
             PlaneSwitcherState state = states.get(spawn);
-            if (state == null || !state.seeded) {
+            if (state == null || !state.hasLastSideState()) {
                 return -1;
             }
-            return state.sideState;
+            return state.getLastSideState();
         }
 
         static int decodeHalfSpan(int subtype) {
@@ -2936,11 +3040,34 @@ public class ObjectManager {
 
         private static final class PlaneSwitcherState {
             private final int halfSpanPixels;
-            private byte sideState = 0;
-            private boolean seeded = false;
+            private final IdentityHashMap<PlayableEntity, Byte> sideStates = new IdentityHashMap<>();
+            private byte lastSideState = 0;
+            private boolean hasLastSideState = false;
 
             private PlaneSwitcherState(int halfSpanPixels) {
                 this.halfSpanPixels = halfSpanPixels;
+            }
+
+            private int getSideState(PlayableEntity player) {
+                Byte value = sideStates.get(player);
+                return value != null ? value & 0xFF : -1;
+            }
+
+            private void setSideState(PlayableEntity player, int sideState) {
+                sideStates.put(player, (byte) sideState);
+            }
+
+            private void setLastSideState(int sideState) {
+                this.lastSideState = (byte) sideState;
+                this.hasLastSideState = true;
+            }
+
+            private boolean hasLastSideState() {
+                return hasLastSideState;
+            }
+
+            private int getLastSideState() {
+                return lastSideState & 0xFF;
             }
         }
     }
@@ -3606,6 +3733,7 @@ public class ObjectManager {
         private short preContactXSpeed;
         private short preContactYSpeed;
         private boolean preContactRolling;
+        private int preContactAnimationId;
 
         // When true, the velocity classification adjustment in resolveContactInternal is
         // skipped. Set when this pass runs AFTER movement (S1 UNIFIED post-movement pass),
@@ -3650,6 +3778,62 @@ public class ObjectManager {
             perAngle.put(hexAngle & 0xFF, distance);
         }
 
+        private void traceS3kAizSolidProbe(PlayableEntity player,
+                                           ObjectInstance instance,
+                                           SolidContact contact,
+                                           SolidObjectParams params,
+                                           int anchorX,
+                                           int anchorY) {
+            if (!Boolean.getBoolean("s3k.aiz.solidprobe")
+                    || player == null
+                    || instance == null
+                    || contact == null) {
+                return;
+            }
+
+            int playerX = player.getCentreX() & 0xFFFF;
+            int playerY = player.getCentreY() & 0xFFFF;
+            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0380 || playerY > 0x03D8) {
+                return;
+            }
+
+            ObjectSpawn spawn = instance.getSpawn();
+            int spawnX = spawn != null ? spawn.x() & 0xFFFF : 0xFFFF;
+            int spawnY = spawn != null ? spawn.y() & 0xFFFF : 0xFFFF;
+            int objectId = spawn != null ? spawn.objectId() & 0xFF : 0xFF;
+            int subtype = spawn != null ? spawn.subtype() & 0xFF : 0xFF;
+
+            System.out.printf(
+                    "s3k-aiz-solidprobe frame=%d obj=%s spawn=(%04X,%04X) id=%02X subtype=%02X "
+                            + "anchor=(%04X,%04X) params=(%d,%d,%d) contact=[stand=%s side=%s bottom=%s top=%s push=%s] "
+                            + "player=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s roll=%s onObj=%s angle=%02X%n",
+                    frameCounter,
+                    instance.getClass().getSimpleName(),
+                    spawnX,
+                    spawnY,
+                    objectId,
+                    subtype,
+                    anchorX & 0xFFFF,
+                    anchorY & 0xFFFF,
+                    params.halfWidth(),
+                    params.airHalfHeight(),
+                    params.groundHalfHeight(),
+                    contact.standing(),
+                    contact.touchSide(),
+                    contact.touchBottom(),
+                    contact.touchTop(),
+                    contact.pushing(),
+                    playerX,
+                    playerY,
+                    player.getXSpeed() & 0xFFFF,
+                    player.getYSpeed() & 0xFFFF,
+                    player.getGSpeed() & 0xFFFF,
+                    player.getAir(),
+                    player.getRolling(),
+                    player.isOnObject(),
+                    player.getAngle() & 0xFF);
+        }
+
         boolean isRidingObject(PlayableEntity player) {
             if (player == null) return false;
             RidingState state = ridingStates.get(player);
@@ -3680,6 +3864,12 @@ public class ObjectManager {
             if (player != null) {
                 ridingStates.remove(player);
                 latestStandingSnapshots.remove(player);
+            }
+        }
+
+        void markObjectSupportThisFrame(PlayableEntity player) {
+            if (player != null) {
+                inlineSupportedPlayers.add(player);
             }
         }
 
@@ -3830,9 +4020,10 @@ public class ObjectManager {
             preContactXSpeed = player.getXSpeed();
             preContactYSpeed = player.getYSpeed();
             preContactRolling = player.getRolling();
+            preContactAnimationId = player.getAnimationId();
 
             PreContactState preContact = new PreContactState(
-                    preContactXSpeed, preContactYSpeed, preContactRolling);
+                    preContactXSpeed, preContactYSpeed, preContactRolling, preContactAnimationId);
             SolidContact contact = processInlineObjectForPlayer(instance, player);
             PostContactState postContact = new PostContactState(
                     player.getXSpeed(), player.getYSpeed(), player.getAir(),
@@ -3945,6 +4136,8 @@ public class ObjectManager {
             int anchorY = instance.getY() + params.offsetY();
             int halfHeight = params.airHalfHeight();
             boolean useStickyBuffer = provider.usesStickyContactBuffer();
+            boolean wasAirborne = player.getAir();
+            boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
             SolidContact contact;
             byte[] slopeData = null;
@@ -3965,6 +4158,13 @@ public class ObjectManager {
 
             if (contact == null) {
                 return null;
+            }
+            applyNonUnifiedTopSolidLandingHeightOverride(
+                    player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
+            if ((contact.standing() || contact.touchTop())
+                    && instance.getSpawn() != null
+                    && player instanceof AbstractPlayableSprite sprite) {
+                sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
             }
             if (contact.pushing()) {
                 player.setPushing(true);
@@ -3993,6 +4193,16 @@ public class ObjectManager {
                 params = provider.getSolidParams();
             }
 
+            // ROM PlatformObject_SingleCharacter / SlopedPlatform_SingleCharacter:
+            // once the rider's in_air bit is set, ExitPlatform stops here and clears
+            // the standing state instead of applying one more frame of platform carry.
+            if (player.getAir()) {
+                ridingStates.remove(player);
+                player.setOnObject(false);
+                player.setAir(true);
+                return null;
+            }
+
             int halfWidth = params.halfWidth();
             // ROM: ExitPlatform walk-off checks use the full collision width of the
             // current solid, not the narrower Solid_Landed top-landing width.
@@ -4014,7 +4224,8 @@ public class ObjectManager {
                 }
                 int surfaceOffset;
                 if (instance instanceof SlopedSolidProvider sloped) {
-                    int slopeY = sampleSlopeY(player, currentX, params.halfWidth(), sloped);
+                    int slopeAnchorX = currentX + params.offsetX();
+                    int slopeY = sampleSlopeY(player, slopeAnchorX, params.halfWidth(), sloped);
                     surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.groundHalfHeight();
                 } else {
                     surfaceOffset = params.groundHalfHeight();
@@ -4043,9 +4254,16 @@ public class ObjectManager {
 
             ridingStates.remove(player);
             player.setOnObject(false);
-            // ROM ExitPlatform clears the on-object latch but does not force Sonic into
-            // air mode. In the inline scheduler the player's air state has already been
-            // resolved earlier in the frame, so preserve it here.
+            if (provider.forceAirOnRideExit() && !usesUnifiedCollisionModel(player)) {
+                // ROM PlatformObject_SingleCharacter exit path (s2.asm:35506-35511):
+                //   bclr #status.player.on_object,status(a1)
+                //   bset #status.player.in_air,status(a1)
+                // Bridge-specific helpers such as PlatformObject11_cont clear only
+                // on_object so terrain handoff can happen without an airborne frame.
+                // S1's unified model resolves platform walk-off one frame before the
+                // airborne transition, so preserve the pre-object air state there.
+                player.setAir(true);
+            }
             return null;
         }
 
@@ -4383,7 +4601,8 @@ public class ObjectManager {
                     // platforms d3=$10, etc.
                     int surfaceOffset;
                     if (ridingObject instanceof SlopedSolidProvider sloped) {
-                        int slopeY = sampleSlopeY(player, currentX, params.halfWidth(), sloped);
+                        int slopeAnchorX = currentX + params.offsetX();
+                        int slopeY = sampleSlopeY(player, slopeAnchorX, params.halfWidth(), sloped);
                         surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.groundHalfHeight();
                     } else {
                         surfaceOffset = params.groundHalfHeight();
@@ -4506,6 +4725,8 @@ public class ObjectManager {
                 // overwritten by playerYRadius before it is read.
                 int halfHeight = params.airHalfHeight();
                 boolean useStickyBuffer = provider.usesStickyContactBuffer();
+                boolean wasAirborne = player.getAir();
+                boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
                 SolidContact contact;
                 byte[] slopeData = null;
@@ -4542,6 +4763,14 @@ public class ObjectManager {
 
                 if (contact == null) {
                     continue;
+                }
+                applyNonUnifiedTopSolidLandingHeightOverride(
+                        player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
+                traceS3kAizSolidProbe(player, instance, contact, params, anchorX, anchorY);
+                if ((contact.standing() || contact.touchTop())
+                        && instance.getSpawn() != null
+                        && player instanceof AbstractPlayableSprite sprite) {
+                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
                 }
                 if (contact.pushing()) {
                     player.setPushing(true);
@@ -4621,6 +4850,11 @@ public class ObjectManager {
                 if (contact == null) {
                     continue;
                 }
+                if ((contact.standing() || contact.touchTop())
+                        && instance.getSpawn() != null
+                        && player instanceof AbstractPlayableSprite sprite) {
+                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                }
 
                 if (contact.standing()) {
                     anyStanding = true;
@@ -4677,11 +4911,31 @@ public class ObjectManager {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
+            traceS3kAizObjectProbe("start",
+                    player,
+                    instance,
+                    anchorX,
+                    anchorY,
+                    halfWidth,
+                    halfHeight,
+                    0,
+                    0,
+                    0,
+                    0,
+                    "entry");
+
             int width2 = halfWidth * 2;
             int relXRaw = playerCenterX - anchorX + halfWidth;
 
             int playerYRadius = player.getYRadius();
             int maxTop = halfHeight + playerYRadius;
+            // Full-solid underside overlap is game-sensitive. S1 uses the player's
+            // current y-radius on both halves to avoid premature rolling underside
+            // hits, while S2/S3K keep the taller underside half used by existing
+            // solid/spring parity and the AIZ trace-replay spring contact.
+            int totalHeight = usesCurrentYRadiusOnlyForFullSolidBottomOverlap(player)
+                    ? maxTop * 2
+                    : maxTop + (monitorSolidity ? maxTop : halfHeight + getSolidTopYRadius(player));
             // SPG: Monitors don't add +4 during vertical overlap check
             int verticalOffset = monitorSolidity ? 0 : 4;
             // ROM: s2.asm:35147 uses andi.w #$7FF,d0 to handle VDP Y-coordinate
@@ -4703,7 +4957,31 @@ public class ObjectManager {
             // ridden piece. Without this, fast moving platforms (ObjB2 Tornado, etc.)
             // can drop contact for one frame at edges.
             int stickyX = ridingThisPiece ? 16 : 0;
+            traceS3kAizObjectProbe("window",
+                    player,
+                    instance,
+                    anchorX,
+                    anchorY,
+                    halfWidth,
+                    halfHeight,
+                    relXRaw,
+                    relY,
+                    maxTop,
+                    stickyX,
+                    "pre-bounds");
             if (relXRaw < -stickyX || relXRaw >= width2 + stickyX) {
+                traceS3kAizObjectProbe("reject-x",
+                        player,
+                        instance,
+                        anchorX,
+                        anchorY,
+                        halfWidth,
+                        halfHeight,
+                        relXRaw,
+                        relY,
+                        maxTop,
+                        stickyX,
+                        "x-range");
                 return null;
             }
             // Clamp back into the normal box before side/top resolution so all existing
@@ -4717,7 +4995,19 @@ public class ObjectManager {
 
             int minRelY = ridingThisPiece ? -16 : 0;
 
-            if (relY < minRelY || relY >= maxTop * 2) {
+            if (relY < minRelY || relY >= totalHeight) {
+                traceS3kAizObjectProbe("reject-y",
+                        player,
+                        instance,
+                        anchorX,
+                        anchorY,
+                        halfWidth,
+                        halfHeight,
+                        relX,
+                        relY,
+                        maxTop,
+                        minRelY,
+                        "y-range");
                 return null;
             }
 
@@ -4725,8 +5015,93 @@ public class ObjectManager {
                 return resolveMonitorContact(player, relX, relY, halfWidth, maxTop, playerCenterX, playerCenterY,
                         anchorX, riding, apply);
             }
-            return resolveContactInternal(player, relX, relY, halfWidth, maxTop, playerCenterX, playerCenterY,
-                    topSolidOnly, riding, apply, instance);
+            return resolveContactInternal(player, relX, relY, halfWidth, maxTop, totalHeight,
+                    playerCenterX, playerCenterY,
+                    topSolidOnly, riding, apply, instance, true);
+        }
+
+        private void traceS3kAizObjectProbe(String stage,
+                                            PlayableEntity player,
+                                            ObjectInstance instance,
+                                            int anchorX,
+                                            int anchorY,
+                                            int halfWidth,
+                                            int halfHeight,
+                                            int relX,
+                                            int relY,
+                                            int maxTop,
+                                            int aux,
+                                            String reason) {
+            if (!Boolean.getBoolean("s3k.aiz.objectprobe")
+                    || player == null
+                    || instance == null
+                    || instance.getSpawn() == null) {
+                return;
+            }
+
+            ObjectSpawn spawn = instance.getSpawn();
+            boolean targetObject = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
+                    || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
+            if (!targetObject) {
+                return;
+            }
+
+            int playerX = player.getCentreX() & 0xFFFF;
+            int playerY = player.getCentreY() & 0xFFFF;
+            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0390 || playerY > 0x03C0) {
+                return;
+            }
+
+            System.out.printf(
+                    "s3k-aiz-objectprobe frame=%d stage=%s obj=%s spawn=(%04X,%04X) player=(%04X,%04X) "
+                            + "anchor=(%04X,%04X) params=(w=%d,h=%d,maxTop=%d) rel=(%d,%d) aux=%d reason=%s spd=(%04X,%04X,%04X) air=%s roll=%s%n",
+                    frameCounter,
+                    stage,
+                    instance.getClass().getSimpleName(),
+                    spawn.x() & 0xFFFF,
+                    spawn.y() & 0xFFFF,
+                    playerX,
+                    playerY,
+                    anchorX & 0xFFFF,
+                    anchorY & 0xFFFF,
+                    halfWidth,
+                    halfHeight,
+                    maxTop,
+                    relX,
+                    relY,
+                    aux,
+                    reason,
+                    player.getXSpeed() & 0xFFFF,
+                    player.getYSpeed() & 0xFFFF,
+                    player.getGSpeed() & 0xFFFF,
+                    player.getAir(),
+                    player.getRolling());
+        }
+
+        private int getSolidTopYRadius(PlayableEntity player) {
+            if (player instanceof AbstractPlayableSprite sprite) {
+                return sprite.getStandYRadius();
+            }
+            return player.getYRadius();
+        }
+
+        private void applyNonUnifiedTopSolidLandingHeightOverride(PlayableEntity player,
+                SolidContact contact, boolean topSolidOnly, boolean wasAirborne, boolean wasRidingObject,
+                int anchorY, SolidObjectParams params) {
+            if (contact != SolidContact.STANDING
+                    || !topSolidOnly
+                    || !wasAirborne
+                    || wasRidingObject
+                    || usesUnifiedCollisionModel(player)) {
+                return;
+            }
+            int targetCentreY = anchorY - params.groundHalfHeight() - player.getYRadius() - 1;
+            if (player instanceof AbstractPlayableSprite sprite) {
+                sprite.setCentreYPreserveSubpixel((short) targetCentreY);
+                return;
+            }
+            int newY = targetCentreY - (player.getHeight() / 2);
+            player.setY((short) newY);
         }
 
         /**
@@ -4813,9 +5188,10 @@ public class ObjectManager {
             // away, the ROM skips the push entirely (falls through to loc_A246).
             boolean leftSide = playerCenterX <= anchorX;
             boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
-            boolean pushing = !player.getAir() && movingInto;
+            boolean exactEdgeOverlap = absDistX == 0;
+            boolean pushing = !player.getAir() && movingInto && !exactEdgeOverlap;
             boolean skipMonitorSide = deferSideToPostMovement && player.getAir();
-            if (apply && movingInto && !skipMonitorSide) {
+            if (apply && movingInto && !exactEdgeOverlap && !skipMonitorSide) {
                 player.setXSpeed((short) 0);
                 player.setGSpeed((short) 0);
                 int pushDist = leftSide ? -absDistX : absDistX;
@@ -4846,7 +5222,10 @@ public class ObjectManager {
 
             int sampleX = relX;
             if (xFlip) {
-                sampleX = width2 - sampleX;
+                // ROM: move.w d0,d5 / not.w d5 / add.w d3,d5 / lsr.w #1,d5
+                // where d0=relX and d3=halfWidth*2. For in-range relX this is
+                // equivalent to (width2 - relX - 1) >> 1.
+                sampleX = width2 - sampleX - 1;
             }
             sampleX = sampleX >> 1;
             if (sampleX < 0 || sampleX >= slopeData.length) {
@@ -4890,8 +5269,23 @@ public class ObjectManager {
                 return SolidContact.STANDING;
             }
 
-            SolidContact result = resolveContactInternal(player, relX, relY, halfWidth, maxTop,
-                    playerCenterX, playerCenterY, topSolidOnly, riding, apply, instance);
+            if (!riding
+                    && !player.getAir()
+                    && slopedProvider.usesGroundedStandingCatchWindow()
+                    && relY >= 0
+                    && relY <= maxTop
+                    && isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
+                if (apply) {
+                    player.setAngle((byte) 0);
+                    player.setYSpeed((short) 0);
+                    player.setGSpeed(player.getXSpeed());
+                    player.setOnObject(true);
+                }
+                return SolidContact.STANDING;
+            }
+
+            SolidContact result = resolveContactInternal(player, relX, relY, halfWidth, maxTop, maxTop * 2,
+                    playerCenterX, playerCenterY, topSolidOnly, riding, apply, instance, true);
 
             // ROM parity: SlopeObject2 uses absolute Y positioning for continued riding.
             // The generic resolveContactInternal formula (playerCenterY - distY + 3) is a
@@ -4913,8 +5307,8 @@ public class ObjectManager {
         }
 
         private SolidContact resolveContactInternal(PlayableEntity player, int relX, int relY, int halfWidth,
-                int maxTop, int playerCenterX, int playerCenterY, boolean topSolidOnly, boolean sticky, boolean apply,
-                ObjectInstance instance) {
+                int maxTop, int totalHeight, int playerCenterX, int playerCenterY, boolean topSolidOnly,
+                boolean sticky, boolean apply, ObjectInstance instance, boolean useTopLandingWidth) {
             int distX;
             int absDistX;
             if (relX >= halfWidth) {
@@ -4931,7 +5325,7 @@ public class ObjectManager {
                 distY = relY;
                 absDistY = distY;
             } else {
-                distY = relY - 4 - (maxTop * 2);
+                distY = relY - 4 - totalHeight;
                 absDistY = Math.abs(distY);
             }
 
@@ -5146,17 +5540,25 @@ public class ObjectManager {
                     return null;
                 }
 
-                // ROM: SolidObjectFull uses "cmpi.w #$10,d3; blo" → d3 < $10 (strict).
-                // SolidObjectTop uses "cmpi.w #-$10,d0; blo" → d0 ≥ -$10, i.e. distY ≤ $10.
-                // The one-pixel difference matters for buttons placed flush with terrain.
-                if (topSolidOnly ? distY > 0x10 : distY >= 0x10) {
+                // ROM: SolidObjectFull (s2.asm:35298) uses "cmpi.w #$10,d3; blo
+                // Solid_Landed" — signed branch semantics, landing range d3 in
+                // [0, 15] (equivalently engine distY in [0, 15]).
+                // PlatformObject differs per game on the exact boundary:
+                // S2's PlatformObject_ChkYRange excludes d0==0, which maps to
+                // distY==0 here, while the current S1/S3K shared path keeps that
+                // boundary as a valid landing.
+                if (topSolidOnly
+                        ? distY > 0x10 || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                        : distY >= 0x10) {
                     return null;
                 }
-                // ROM: SolidObjectFull's Solid_Landed re-reads the narrower obActWid
-                // for NEW landings. SolidObjectTop uses full d1 (same as the initial
-                // collision box we already passed), so no further width check needed.
-                // When sticky (already riding), ROM uses ExitPlatform's full collision width.
-                if (!sticky && !topSolidOnly
+                // ROM: SolidObject_Landed re-reads the narrower obActWid for NEW landings,
+                // including the SlopedSolid_cont path after it falls through
+                // SolidObject_ChkBounds -> SolidObject_TopBottom -> SolidObject_Landed.
+                // SolidObjectTop uses full d1 (same as the initial collision box we
+                // already passed), so no further width check is needed there. Sticky
+                // riders follow the MvSonicOnPtfm / MvSonicOnSlope path instead.
+                if (useTopLandingWidth && !sticky && !topSolidOnly
                         && !isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                     return null;
                 }
@@ -5239,6 +5641,9 @@ public class ObjectManager {
                 int newY = newCenterY - (player.getHeight() / 2);
                 player.setY((short) newY);
                 LOGGER.fine(() -> "Solid object ceiling hit, zeroing ySpeed from " + player.getYSpeed());
+                if (clearsGroundSpeedOnAirBottomSolidHit(player)) {
+                    player.setGSpeed((short) 0);
+                }
                 player.setYSpeed((short) 0);
             }
             return SolidContact.CEILING;
@@ -5252,7 +5657,9 @@ public class ObjectManager {
 
             int configuredHalfWidth = provider.getTopLandingHalfWidth(player, collisionHalfWidth);
             int allowedHalfWidth;
-            if (configuredHalfWidth < collisionHalfWidth) {
+            if (provider.usesCollisionHalfWidthForTopLanding()) {
+                allowedHalfWidth = collisionHalfWidth;
+            } else if (configuredHalfWidth < collisionHalfWidth) {
                 // Provider explicitly set a narrower landing width
                 allowedHalfWidth = configuredHalfWidth;
             } else {
@@ -5277,6 +5684,30 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
+        }
+
+        private boolean allowsZeroDistTopSolidLanding(PlayableEntity player) {
+            if (player == null) {
+                return true;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet == null || featureSet.topSolidLandingAllowsZeroDist();
+        }
+
+        private boolean clearsGroundSpeedOnAirBottomSolidHit(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.airBottomSolidHitClearsGroundSpeed();
+        }
+
+        private boolean usesCurrentYRadiusOnlyForFullSolidBottomOverlap(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly();
         }
 
         private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {

@@ -20,7 +20,6 @@ import java.util.List;
 
 public class SpringObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener, SlopedSolidProvider {
-
     // Subtype constants (shifted >> 3 & 0xE) - matches ROM Obj41_Index
     private static final int TYPE_UP = 0;
     private static final int TYPE_HORIZONTAL = 2;
@@ -105,25 +104,12 @@ public class SpringObjectInstance extends BoxObjectInstance
         int type = getType();
 
         if (type == TYPE_DIAGONAL_UP) {
-            // ROM: Obj41_DiagonallyUp calls SlopedSolid_SingleCharacter which sets the
-            // standing bit when the player lands on the sloped surface. The standing bit
-            // persists across frames. Our engine re-evaluates contacts each frame, and
-            // the generic side-vs-top comparison can misclassify contacts on the slope
-            // as side contacts (absDistX < absDistY). To match ROM behavior, accept any
-            // solid contact where the player is grounded — this mirrors the ROM's
-            // SlopedSolid_SingleCharacter which only checks !in_air + X range when the
-            // standing bit is already set.
-            //
-            // ROM: loc_18DB4 checks X threshold (springX +/-4 vs playerX) to prevent
-            // launch from the flat portion. In the ROM, this works because the player
-            // naturally walks past the threshold within a few frames. In our engine
-            // with batched solid contacts, the standing contact itself (resolved via
-            // resolveSlopedContact) already confirms the player is within the spring's
-            // sloped surface area, making the X threshold check redundant. The
-            // SolidObjectParams halfWidth (27) bounds the overall contact area, while
-            // the slope data constrains the Y surface — together they gate activation
-            // more accurately than the fixed 4px X offset.
-            if (!contact.standingNow() && player.getAir()) {
+            // ROM: Obj41_DiagonallyUp only calls loc_18DB4 after
+            // SlopedSolid_SingleCharacter sets the standing bit.
+            if (!contact.standingNow()) {
+                return;
+            }
+            if (!hasReachedDiagonalLaunchThreshold(player)) {
                 return;
             }
             applyDiagonalSpring(player, true);
@@ -131,8 +117,11 @@ public class SpringObjectInstance extends BoxObjectInstance
         }
 
         if (type == TYPE_DIAGONAL_DOWN) {
-            // Same logic as diagonal-up: accept any contact when player is grounded
-            if (contact.kind() != ContactKind.BOTTOM && player.getAir()) {
+            // ROM: Obj41_DiagonallyDown only launches on the d4 == -2 bottom-contact path.
+            if (contact.kind() != ContactKind.BOTTOM) {
+                return;
+            }
+            if (!hasReachedDiagonalLaunchThreshold(player)) {
                 return;
             }
             applyDiagonalSpring(player, false);
@@ -179,13 +168,12 @@ public class SpringObjectInstance extends BoxObjectInstance
     private void applyUpSpring(AbstractPlayableSprite player) {
         // ROM: addq.w #8,y_pos(a1) — push player down 8px (away from spring face)
         // before launching. y_pos is center coordinate.
-        player.setCentreY((short) (player.getCentreY() + 8));
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 8));
 
         // ROM: y_vel = negative value (negative = up in Y-down coordinate system)
         player.setYSpeed((short) getStrength()); // Negative = up
 
         player.setAir(true);
-        player.setGSpeed((short) 0);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -204,7 +192,6 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) -getStrength()); // Negated = positive = down
 
         player.setAir(true);
-        player.setGSpeed((short) 0);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -239,7 +226,8 @@ public class SpringObjectInstance extends BoxObjectInstance
             dir = Direction.LEFT;
         }
 
-        player.setCentreX((short) newCentreX);
+        // ROM adjusts x_pos with word-sized add/sub instructions, which preserve x_sub.
+        player.setCentreXPreserveSubpixel((short) newCentreX);
         player.setXSpeed((short) strength);
         player.setDirection(dir);
 
@@ -276,13 +264,13 @@ public class SpringObjectInstance extends BoxObjectInstance
         boolean flipped = isFlippedHorizontal();
 
         // ROM position offsets before launching
-        player.setCentreY((short) (player.getCentreY() + 6));
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 6));
         int newCentreX = player.getCentreX() + 6;
         if (!flipped) {
             // Unflipped (faces right): subtract 12 from X (net -6)
             newCentreX -= 12;
         }
-        player.setCentreX((short) newCentreX);
+        player.setCentreXPreserveSubpixel((short) newCentreX);
 
         int xStrength = flipped ? strength : -strength;
         int yStrength = up ? strength : -strength;
@@ -291,10 +279,23 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) yStrength);
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
-        player.setGSpeed((short) 0);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
+    }
+
+    /**
+     * ROM: loc_18DB4 gates diagonal spring launch on the player's centre X.
+     * Unflipped springs launch once {@code springX - 4 < playerX}; flipped springs
+     * launch while {@code playerX <= springX + 4}.
+     */
+    private boolean hasReachedDiagonalLaunchThreshold(AbstractPlayableSprite player) {
+        int springX = spawn.x() & 0xFFFF;
+        int playerX = player.getCentreX() & 0xFFFF;
+        if (isFlippedHorizontal()) {
+            return Integer.compareUnsigned((springX + 4) & 0xFFFF, playerX) >= 0;
+        }
+        return Integer.compareUnsigned((springX - 4) & 0xFFFF, playerX) < 0;
     }
 
     private void trigger(AbstractPlayableSprite player) {
@@ -433,6 +434,12 @@ public class SpringObjectInstance extends BoxObjectInstance
     @Override
     public boolean isSlopeFlipped() {
         return isFlippedHorizontal();
+    }
+
+    @Override
+    public boolean usesGroundedStandingCatchWindow() {
+        int type = getType();
+        return type == TYPE_DIAGONAL_UP || type == TYPE_DIAGONAL_DOWN;
     }
 
     @Override

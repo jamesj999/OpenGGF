@@ -26,4 +26,11 @@ public interface SidekickRespawnStrategy {
     default boolean requiresPhysics() {
         return false;
     }
+
+    /**
+     * Apply character-specific state that the ROM restores on the frame the
+     * approach completes, before the shared controller transitions to NORMAL.
+     */
+    default void onApproachComplete(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
+    }
 }

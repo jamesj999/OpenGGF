@@ -87,7 +87,7 @@ public class TestHTZBossTouchResponse {
         assertEquals(8, boss.getState().hitCount);
         objectManager.addDynamicObject(boss);
 
-        objectManager.update(0, player, List.of(), 1);
+        objectManager.update(GameServices.camera().getX(), player, List.of(), 1);
 
         assertEquals(7, boss.getState().hitCount);
         assertTrue(boss.getState().invulnerable);
@@ -116,19 +116,19 @@ public class TestHTZBossTouchResponse {
         objectManager.addDynamicObject(boss);
 
         // First frame: overlap begins while not attacking.
-        objectManager.update(0, dynamicPlayer, List.of(), 1);
+        objectManager.update(GameServices.camera().getX(), dynamicPlayer, List.of(), 1);
         assertEquals(8, boss.getState().hitCount);
 
         // Second frame: still overlapping, now attacking.
         rolling.set(true);
-        objectManager.update(0, dynamicPlayer, List.of(), 2);
+        objectManager.update(GameServices.camera().getX(), dynamicPlayer, List.of(), 2);
         assertEquals(7, boss.getState().hitCount);
     }
 
     @Test
     public void removedBossDoesNotRemainAsATouchCandidateAfterReplacement() {
         objectManager.addDynamicObject(boss);
-        objectManager.update(0, player, List.of(), 1);
+        objectManager.update(GameServices.camera().getX(), player, List.of(), 1);
         assertEquals(7, boss.getState().hitCount);
 
         objectManager.removeDynamicObject(boss);
@@ -136,7 +136,7 @@ public class TestHTZBossTouchResponse {
         Sonic2HTZBossInstance replacement = new Sonic2HTZBossInstance(
                 new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         objectManager.addDynamicObject(replacement);
-        objectManager.update(0, player, List.of(), 2);
+        objectManager.update(GameServices.camera().getX(), player, List.of(), 2);
 
         assertEquals(7, boss.getState().hitCount,
                 "Removed boss should not remain in the touch candidate set");
