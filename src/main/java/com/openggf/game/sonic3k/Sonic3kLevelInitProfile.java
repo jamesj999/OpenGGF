@@ -18,7 +18,6 @@ import com.openggf.game.GameServices;
  * S3K-specific post-load characteristics:
  * <ul>
  *   <li>Sidekick X offset: -32px (ROM: {@code $20}), not S2's -40px</li>
- *   <li>Title card skipped on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)})</li>
  * </ul>
  */
 public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
@@ -67,16 +66,12 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
             () -> GameServices.level().spawnSidekicks(-32, 4));
     }
 
-    /** S3K: skip title card on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)}). */
+    /** S3K: title card request follows the normal post-load path. */
     @Override
     protected InitStep requestTitleCardStep(LevelLoadContext ctx) {
         return new InitStep("RequestTitleCard",
-            "S3K: Obj_TitleCard — skipped on checkpoint resume",
-            () -> {
-                if (!ctx.hasCheckpoint()) {
-                    GameServices.level().requestTitleCardIfNeeded(ctx);
-                }
-            });
+            "S3K: Obj_TitleCard",
+            () -> GameServices.level().requestTitleCardIfNeeded(ctx));
     }
 
     @Override
