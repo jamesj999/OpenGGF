@@ -84,10 +84,12 @@ public final class TraceSessionLauncher {
         // sprites for this session. If we deferred the write until
         // after the handler, the session would use the pre-trace team.
         //
-        // Pre-flight the fade check so we don't mutate config and
-        // then fail at launchGameByEntry with a fade-active throw.
-        com.openggf.graphics.FadeManager fade = com.openggf.game.GameServices.fade();
-        if (fade != null && fade.isActive()) {
+        // Pre-flight the fade check via GameLoop so we don't mutate
+        // config and then fail at launchGameByEntry with a
+        // fade-active throw. GameServices.fade() isn't usable here —
+        // no GameRuntime exists at master-title time — so go through
+        // GameLoop which resolves the graphics-backed fade manager.
+        if (!loop.canLaunchGameNow()) {
             LOGGER.severe("Cannot launch trace " + entry.dir()
                     + ": a master-title fade is already in flight");
             return;
