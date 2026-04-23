@@ -1077,7 +1077,9 @@ public final class CnzMinibossInstance extends AbstractBossInstance {
     /**
      * Simulates the top-piece hit signal — equivalent to the ROM
      * {@code bset #6,status(a0)} at {@code CNZMiniboss_CheckTopHit}
-     * (sonic3k.asm:145442). Package-private — test-only.
+     * (sonic3k.asm:145442). Public for cross-package test access (T11
+     * integration test in {@code com.openggf.tests}); the {@code ForTest}
+     * suffix is the visibility marker.
      *
      * <p>T5 behaviour preserved: flipping {@link #statusBit6TopHit} is
      * what lets {@link #updateWaitHit()} transition into Closing via
