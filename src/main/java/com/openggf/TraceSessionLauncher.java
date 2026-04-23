@@ -52,6 +52,13 @@ public final class TraceSessionLauncher {
     private final TraceEntry entry;
     private final TraceData trace;
     private final Bk2Movie movie;
+    /**
+     * Snapshot of the user's gameplay-altering config taken before
+     * {@link TraceReplaySessionBootstrap#prepareConfiguration} ran.
+     * Restored in {@link #teardown()} so the picker returns to the
+     * user's own team / cross-game / S3K_SKIP_INTROS preferences.
+     */
+    private final TraceReplaySessionBootstrap.ConfigSnapshot configSnapshot;
     private LiveTraceComparator comparator;
     private TraceHudOverlay overlay;
     private TraceReplayFixture fixture;
@@ -60,10 +67,12 @@ public final class TraceSessionLauncher {
     private int completionHoldFrames;
     private boolean fadeStarted;
 
-    private TraceSessionLauncher(TraceEntry entry, TraceData trace, Bk2Movie movie) {
+    private TraceSessionLauncher(TraceEntry entry, TraceData trace, Bk2Movie movie,
+                                 TraceReplaySessionBootstrap.ConfigSnapshot configSnapshot) {
         this.entry = entry;
         this.trace = trace;
         this.movie = movie;
+        this.configSnapshot = configSnapshot;
     }
 
     public static TraceSessionLauncher active() {
@@ -94,17 +103,31 @@ public final class TraceSessionLauncher {
                     + ": a master-title fade is already in flight");
             return;
         }
+        // Snapshot the user's gameplay config BEFORE prepareConfiguration
+        // mutates it, so teardown can restore the team / cross-game /
+        // S3K_SKIP_INTROS preferences the user actually had.
+        TraceReplaySessionBootstrap.ConfigSnapshot configSnapshot =
+                TraceReplaySessionBootstrap.snapshotGameplayConfig();
+        boolean configMutated = false;
         try {
             TraceData trace = TraceData.load(entry.dir());
             Bk2Movie movie = new Bk2MovieLoader().load(entry.bk2Path());
-            TraceSessionLauncher session = new TraceSessionLauncher(entry, trace, movie);
+            TraceSessionLauncher session = new TraceSessionLauncher(
+                    entry, trace, movie, configSnapshot);
             TraceReplaySessionBootstrap.prepareConfiguration(trace, trace.metadata());
+            configMutated = true;
             loop.launchGameByEntry(
                     resolveGameEntry(entry.gameId()),
                     session::finishLaunchAfterGameBootstrap);
         } catch (Exception e) {
             LOGGER.log(java.util.logging.Level.SEVERE,
                     "Failed to launch trace " + entry.dir(), e);
+            // If we already mutated config before launchGameByEntry
+            // threw, restore the user's settings so the picker
+            // resumes with their preferences intact.
+            if (configMutated) {
+                TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
+            }
         }
     }
 
@@ -171,11 +194,13 @@ public final class TraceSessionLauncher {
             playback.setFrameObserver(comparator);
             activeSession = this;
         } catch (Exception e) {
-            // Partial bootstrap: detach playback and route back to the
-            // picker so the engine doesn't end up orphaned in LEVEL
-            // mode with no session.
+            // Partial bootstrap: detach playback, restore the user's
+            // gameplay config (we already mutated it in launch()), and
+            // route back to the picker so the engine doesn't end up
+            // orphaned in LEVEL mode with no session.
             playback.endSession();
             activeSession = null;
+            TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
             LOGGER.log(java.util.logging.Level.SEVERE,
                     "Failed to finish trace launch for " + entry.dir(), e);
             // loop is guaranteed non-null here — we early-returned at the
@@ -229,6 +254,11 @@ public final class TraceSessionLauncher {
         // half-torn-down launcher.
         activeSession = null;
         PlaybackDebugManager.getInstance().endSession();
+        // Restore the user's gameplay-altering config before we
+        // rebuild the master title. If the user re-launches the
+        // picker immediately, they see their own preferences rather
+        // than whatever the trace dictated.
+        TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
         GameLoop loop = Engine.currentGameLoop();
         if (loop != null) {
             loop.returnToMasterTitle();
