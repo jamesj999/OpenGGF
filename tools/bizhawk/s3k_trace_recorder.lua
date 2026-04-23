@@ -87,8 +87,8 @@ local OBJ_TOTAL_SLOTS       = 110
 local OBJ_DYNAMIC_START     = 3
 local OBJ_DYNAMIC_COUNT     = 90
 
-local ADDR_FRAMECOUNT       = 0xFE04
-local ADDR_VBLA_WORD        = 0xFE0E
+local ADDR_FRAMECOUNT       = 0xFE08
+local ADDR_VBLA_WORD        = 0xFE12
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 
 local INPUT_UP    = 0x01
