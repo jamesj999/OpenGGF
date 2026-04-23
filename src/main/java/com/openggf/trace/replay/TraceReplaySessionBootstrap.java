@@ -36,14 +36,77 @@ public final class TraceReplaySessionBootstrap {
     /**
      * Prepare configuration state that must be set before the level is
      * loaded. Call before the caller loads the level.
+     *
+     * <p>Isolates trace playback from any gameplay-altering settings
+     * the user may have configured for their own game (team,
+     * cross-game donation, skip-intros). Live callers should snapshot
+     * the affected keys via {@link #snapshotGameplayConfig()} before
+     * calling this, and restore them via
+     * {@link #restoreGameplayConfig(ConfigSnapshot)} when the trace
+     * session tears down.
      */
     public static void prepareConfiguration(TraceData trace, TraceMetadata meta) {
-        applyRecordedTeamConfig(meta);
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+
+        // Team: the recorded trace dictates the team. If metadata
+        // didn't record one (legacy), force Sonic-solo — the trace
+        // can't expect anything else.
+        String main = meta.recordedMainCharacter();
+        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
+                main == null || main.isBlank() ? "sonic" : main);
+        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                String.join(",", meta.recordedSidekicks()));
+
+        // Cross-game donation wasn't recorded; always force it off so
+        // trace physics/visuals match the base ROM.
+        config.setConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, false);
+
         if (TraceReplayBootstrap.requiresFreshLevelLoadForTraceReplay(trace)
                 && "s3k".equals(meta.game())) {
-            SonicConfigurationService.getInstance()
-                    .setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
         }
+    }
+
+    /**
+     * Captured view of the gameplay-altering configuration keys that
+     * {@link #prepareConfiguration} rewrites. Pass back to
+     * {@link #restoreGameplayConfig} when tearing down a trace
+     * session so the user's own config is preserved across launches.
+     */
+    public record ConfigSnapshot(
+            Object mainCharacterCode,
+            Object sidekickCharacterCode,
+            Object crossGameFeaturesEnabled,
+            Object s3kSkipIntros) {
+    }
+
+    public static ConfigSnapshot snapshotGameplayConfig() {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        return new ConfigSnapshot(
+                config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE),
+                config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE),
+                config.getConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED),
+                config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS));
+    }
+
+    public static void restoreGameplayConfig(ConfigSnapshot snapshot) {
+        if (snapshot == null) {
+            return;
+        }
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        restore(config, SonicConfiguration.MAIN_CHARACTER_CODE, snapshot.mainCharacterCode());
+        restore(config, SonicConfiguration.SIDEKICK_CHARACTER_CODE, snapshot.sidekickCharacterCode());
+        restore(config, SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, snapshot.crossGameFeaturesEnabled());
+        restore(config, SonicConfiguration.S3K_SKIP_INTROS, snapshot.s3kSkipIntros());
+    }
+
+    private static void restore(SonicConfigurationService config,
+                                SonicConfiguration key,
+                                Object value) {
+        if (value == null) {
+            return;
+        }
+        config.setConfigValue(key, value);
     }
 
     /**
@@ -143,17 +206,5 @@ public final class TraceReplaySessionBootstrap {
     public record BootstrapResult(
             TraceObjectSnapshotBinder.Result hydration,
             TraceReplayBootstrap.ReplayStartState replayStart) {
-    }
-
-    private static void applyRecordedTeamConfig(TraceMetadata meta) {
-        if (!meta.hasRecordedTeam()) {
-            return;
-        }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        String main = meta.recordedMainCharacter();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
-                main == null ? "sonic" : main);
-        config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE,
-                String.join(",", meta.recordedSidekicks()));
     }
 }
