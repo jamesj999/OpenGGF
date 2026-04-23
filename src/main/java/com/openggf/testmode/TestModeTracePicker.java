@@ -74,6 +74,16 @@ public final class TestModeTracePicker {
 
     public void render() {
         font.drawText("TRACE TEST MODE", 8, 6, SCALE, 1f, 1f, 1f, 1f);
+        if (entries.isEmpty()) {
+            font.drawText("No traces found.", 8, 24, SCALE, 1f, 0.5f, 0.5f, 1f);
+            font.drawText("Check TRACE_CATALOG_DIR in config.json", 8, 32, SCALE,
+                    0.8f, 0.8f, 0.8f, 1f);
+            font.drawText("(default: src/test/resources/traces)", 8, 40, SCALE,
+                    0.8f, 0.8f, 0.8f, 1f);
+            font.drawText("ESC to return to master title", 8, 56, SCALE,
+                    0.7f, 0.7f, 0.7f, 1f);
+            return;
+        }
         int y = 18;
         String lastGame = null;
         for (int i = 0; i < entries.size(); i++) {
@@ -129,7 +139,8 @@ public final class TestModeTracePicker {
         return sb.toString();
     }
 
-    private int nextGroupStart(int from) {
+    // Package-private for targeted unit testing.
+    int nextGroupStart(int from) {
         String current = entries.get(from).gameId();
         for (int i = from + 1; i < entries.size(); i++) {
             if (!entries.get(i).gameId().equals(current)) {
@@ -139,7 +150,8 @@ public final class TestModeTracePicker {
         return from;
     }
 
-    private int prevGroupStart(int from) {
+    // Package-private for targeted unit testing.
+    int prevGroupStart(int from) {
         String current = entries.get(from).gameId();
         // Walk backwards to find the group that precedes the current one,
         // then walk to that group's FIRST entry.
@@ -165,6 +177,11 @@ public final class TestModeTracePicker {
         Result r = pendingResult;
         pendingResult = Result.NONE;
         return r;
+    }
+
+    // Package-private for targeted unit testing.
+    int cursor() {
+        return cursor;
     }
 
     public TraceEntry selectedEntry() {

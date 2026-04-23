@@ -9,6 +9,7 @@ import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.MasterTitleScreen;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.TitleCardProvider;
 import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.testmode.TraceHudOverlay;
@@ -92,6 +93,11 @@ public final class TraceSessionLauncher {
 
     private void finishLaunchAfterGameBootstrap() {
         GameLoop loop = Engine.currentGameLoop();
+        if (loop == null) {
+            LOGGER.severe("Trace launch callback fired after engine teardown; "
+                    + "aborting for " + entry.dir());
+            return;
+        }
         PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
         try {
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
@@ -102,8 +108,12 @@ public final class TraceSessionLauncher {
             // through LevelFrameStep.execute directly, which never gates
             // gameplay on title-card state; we mirror that by dropping
             // the title card entirely so the replay starts on frame 0.
+            //
+            // Relies on TitleCardProvider.reset() being a simple state
+            // wipe that can't throw — true for all three game modules
+            // today (S1/S2/S3K TitleCardManager.reset are field resets).
             GameServices.level().consumeInLevelTitleCardRequest();
-            com.openggf.game.TitleCardProvider titleCardProvider =
+            TitleCardProvider titleCardProvider =
                     GameServices.module() != null
                             ? GameServices.module().getTitleCardProvider()
                             : null;
