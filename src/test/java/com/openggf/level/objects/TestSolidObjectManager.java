@@ -217,6 +217,31 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void optedInFullSolidRightEdgeIsInclusiveLikeRomBhiCheck() {
+        SolidObjectParams params = new SolidObjectParams(19, 14, 15);
+        TestSolidObject object = new InclusiveRightEdgeSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(38);
+        player.setAir(false);
+        player.setXSpeed((short) -0x100);
+        player.setGSpeed((short) -0x100);
+        player.setCentreX((short) (100 + params.halfWidth()));
+        player.setCentreY((short) 100);
+
+        manager.updateSolidContacts(player);
+
+        assertTrue(player.getPushing(),
+                "SolidObject_cont uses cmp/bhi, so relX == width*2 is still a side contact");
+        assertEquals(100 + params.halfWidth(), player.getCentreX(),
+                "Inclusive exact-edge contact has d0 == 0 in SolidObject_cont and must not shove X by 1px");
+        assertEquals(0, player.getXSpeed());
+        assertEquals(0, player.getGSpeed());
+    }
+
+    @Test
     public void upwardBottomCollisionPreservesGroundSpeed() {
         SolidObjectParams params = new SolidObjectParams(16, 8, 8);
         TestSolidObject object = new TestSolidObject(100, 100, params);
@@ -262,6 +287,32 @@ public class TestSolidObjectManager {
         assertEquals(0, player.getYSpeed());
         assertTrue(player.getAir());
         assertFalse(player.isOnObject());
+    }
+
+    @Test
+    public void groundedWallModeBottomCollisionPreservesGroundSpeed() {
+        SolidObjectParams params = new SolidObjectParams(0x1B, 0x10, 0x11);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        player.setWidth(28);
+        player.setHeight(38);
+        player.setAir(false);
+        player.setRolling(true);
+        player.setGroundMode(com.openggf.game.GroundMode.RIGHTWALL);
+        player.setAngle((byte) 0xC0);
+        player.setYSpeed((short) -0x0351);
+        player.setGSpeed((short) 0x0351);
+        player.setCentreX((short) 101);
+        player.setCentreY((short) 129);
+
+        manager.updateSolidContacts(player);
+
+        assertEquals(0, player.getYSpeed());
+        assertEquals(0x0351, player.getGSpeed() & 0xFFFF);
+        assertFalse(player.getAir());
     }
 
     @Test
@@ -587,7 +638,7 @@ public class TestSolidObjectManager {
         return objectManager;
     }
 
-    private static final class TestSolidObject implements ObjectInstance, SolidObjectProvider {
+    private static class TestSolidObject implements ObjectInstance, SolidObjectProvider {
         private final ObjectSpawn spawn;
         private final SolidObjectParams params;
         private final boolean topSolidOnly;
@@ -659,6 +710,17 @@ public class TestSolidObjectManager {
         @Override
         public boolean usesCollisionHalfWidthForTopLanding() {
             return useCollisionHalfWidthForTopLanding;
+        }
+    }
+
+    private static final class InclusiveRightEdgeSolidObject extends TestSolidObject {
+        private InclusiveRightEdgeSolidObject(int x, int y, SolidObjectParams params) {
+            super(x, y, params);
+        }
+
+        @Override
+        public boolean usesInclusiveRightEdge() {
+            return true;
         }
     }
 
@@ -863,5 +925,3 @@ public class TestSolidObjectManager {
         }
     }
 }
-
-

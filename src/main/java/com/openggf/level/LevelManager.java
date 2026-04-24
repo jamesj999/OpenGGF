@@ -824,6 +824,7 @@ public class LevelManager {
                    == com.openggf.game.CollisionModel.UNIFIED) {
             objectManager.enableCounterBasedRespawn();
         } else {
+            objectManager.enableExecThenLoadPlacement();
             objectManager.enforceSlotLimit();
         }
 
@@ -4177,6 +4178,7 @@ public class LevelManager {
                    == com.openggf.game.CollisionModel.UNIFIED) {
             objectManager.enableCounterBasedRespawn();
         } else {
+            objectManager.enableExecThenLoadPlacement();
             objectManager.enforceSlotLimit();
         }
         collisionSystem.setObjectManager(objectManager);

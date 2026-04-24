@@ -73,6 +73,29 @@ public class TestObjectManagerLifecycle {
                 "Post-camera placement should not execute the newly created object until next frame");
     }
 
+    @Test
+    public void execThenLoadPlacementMaterializesNewSpawnsAfterObjectExecution() {
+        ObjectSpawn streamedSpawn = new ObjectSpawn(0x02C0, 0, 0x03, 0, 0, false, 0);
+        TrackingRegistry registry = new TrackingRegistry();
+        ObjectManager manager = new ObjectManager(List.of(streamedSpawn), registry, 0, null, null);
+        manager.enableExecThenLoadPlacement();
+
+        manager.reset(0);
+        assertEquals(0, registry.createCount,
+                "Spawn should start outside the initial [0x0000,0x0280) window");
+
+        manager.update(0x0080, null, null, 1);
+
+        assertEquals(1, registry.createCount,
+                "ObjPosLoad should materialize the newly streamed spawn after ExecuteObjects");
+        assertEquals(0, registry.instances.get(streamedSpawn).updateCount,
+                "New ObjPosLoad instances should not execute until the following frame");
+
+        manager.update(0x0080, null, null, 2);
+
+        assertEquals(1, registry.instances.get(streamedSpawn).updateCount);
+    }
+
     private static final class TestRegistry implements ObjectRegistry {
         private final Set<ObjectSpawn> persistentSpawns;
         private final Map<ObjectSpawn, ObjectInstance> instances = new IdentityHashMap<>();
@@ -189,5 +212,4 @@ public class TestObjectManagerLifecycle {
         }
     }
 }
-
 

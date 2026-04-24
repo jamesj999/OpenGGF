@@ -153,6 +153,29 @@ public class TestObjectPlacementManager {
     }
 
     @Test
+    public void testDormantNonCounterSpawnSurvivesSmallBackwardCameraMotion() {
+        ObjectSpawn spawn = new ObjectSpawn(0x17C0, 0x0860, 0x41, 0, 0, false, 0x0860);
+        ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
+
+        manager.reset(0x1736);
+        assertTrue(manager.getActiveSpawns().contains(spawn));
+
+        manager.markDormant(spawn);
+        manager.update(0x16F0);
+
+        assertTrue(manager.getActiveSpawns().contains(spawn),
+                "Spawn remains inside the front/back cursor window");
+        assertTrue(manager.isDormant(spawn),
+                "Backward camera movement inside the same cursor window must not re-enable it");
+
+        manager.update(0x1540);
+        assertFalse(manager.getActiveSpawns().contains(spawn),
+                "Retreating the front cursor past the spawn removes it from the active window");
+        assertFalse(manager.isDormant(spawn),
+                "Once the cursor has passed the entry, a later scan can load it again");
+    }
+
+    @Test
     public void testBackwardCounteredNonTrackedSpawnCreatesInlineDuringUpdateAndLoad() {
         ObjectSpawn spawn = new ObjectSpawn(0x0AD0, 0, 0x32, 0, 0, false, 0);
         ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
@@ -171,5 +194,4 @@ public class TestObjectPlacementManager {
                 "Backward counter-based post-camera scan should inline-create non-tracked spawns");
     }
 }
-
 
