@@ -4,6 +4,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Sidekick CPU Parity (AIZ/CNZ Trace Replay Follow-Ups)
+
+- Gated the sidekick CPU follow-AI snap threshold by game instead of
+  hardcoding the Sonic 2 value. The ROM S2 `TailsCPU_Normal_FollowLeft`/
+  `FollowRight` override Sonic's delayed input when `|dx| >= 0x10`
+  (`s2.asm:38952` / `s2.asm:38967`), while S3K `loc_13DF2`/`loc_13E26`
+  use `|dx| >= 0x30` (`sonic3k.asm:26712` / `sonic3k.asm:26729`). Added
+  `PhysicsFeatureSet.sidekickFollowSnapThreshold` with per-game values
+  (`SIDEKICK_FOLLOW_SNAP_S2 = 0x10`, `SIDEKICK_FOLLOW_SNAP_S3K = 0x30`),
+  wired through `CrossGameFeatureProvider.buildHybridFeatureSet`, and
+  replaced the `HORIZONTAL_SNAP_THRESHOLD` constant in
+  `SidekickCpuController.updateNormal()` with a feature-set lookup. This
+  shifts the first `TestS3kAizTraceReplay` strict error past the
+  post-miniboss landing window (frame ~1943) so Tails skids with the
+  ROM-recorded delayed LEFT input when Sonic is 16-48 pixels away, and
+  lets two previously-failing `TestS3kAizReplayBootstrap` tests pass.
+- Preserved Tails's flight physics across the CNZ1 carry release.
+  `SidekickCpuController.updateCarryInit()` now mirrors ROM `loc_13FC2`
+  (`sonic3k.asm:26904`) by setting `sidekick.setDoubleJumpFlag(1)`, and
+  the landing release branch in `updateCarrying()` zeros
+  `x_vel/y_vel/ground_vel` while keeping `double_jump_flag` set, matching
+  ROM `loc_14016` (`sonic3k.asm:26923-26946`). `applyGravity()` and
+  `doObjectMoveAndFall()` in `PlayableSpriteMovement` now select flight
+  gravity (+0x08) on `sprite.getSecondaryAbility() == FLY &&
+  sprite.getDoubleJumpFlag() != 0` — the same predicate ROM
+  `Tails_Stand_Freespace` uses when branching to
+  `Tails_FlyingSwimming` (`sonic3k.asm:27553-27555`). This closes the
+  "Tails Flying-With-Cargo Physics" discrepancy; the original note is
+  updated in `docs/S3K_KNOWN_DISCREPANCIES.md` and the remaining gap
+  (catch-up/hover AI routines 0x02 and 0x04) is recorded for follow-up
+  work.
+
 ### Trace Test Mode
 
 Config-gated dev tool that lists all trace-replay tests from
