@@ -1,4 +1,5 @@
 package com.openggf.tests.trace.s3k;
+import com.openggf.trace.*;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -9,10 +10,10 @@ import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.tests.trace.AbstractTraceReplayTest;
-import com.openggf.tests.trace.TraceData;
-import com.openggf.tests.trace.TraceExecutionPhase;
-import com.openggf.tests.trace.TraceFrame;
-import com.openggf.tests.trace.TraceReplayBootstrap;
+import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceExecutionPhase;
+import com.openggf.trace.TraceFrame;
+import com.openggf.trace.TraceReplayBootstrap;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 

@@ -26,6 +26,25 @@ import com.openggf.tests.SharedLevel;
 import com.openggf.tests.TestEnvironment;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.tests.trace.s3k.S3kCheckpointProbe;
+import com.openggf.trace.DivergenceGroup;
+import com.openggf.trace.DivergenceReport;
+import com.openggf.trace.EngineDiagnostics;
+import com.openggf.trace.EngineNearbyObject;
+import com.openggf.trace.EngineNearbyObjectFormatter;
+import com.openggf.trace.ToleranceConfig;
+import com.openggf.trace.TouchResponseDebugHitFormatter;
+import com.openggf.trace.TraceBinder;
+import com.openggf.trace.TraceCharacterState;
+import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceEvent;
+import com.openggf.trace.TraceEventFormatter;
+import com.openggf.trace.TraceExecutionPhase;
+import com.openggf.trace.TraceFrame;
+import com.openggf.trace.TraceHistoryHydration;
+import com.openggf.trace.TraceMetadata;
+import com.openggf.trace.TraceObjectSnapshotBinder;
+import com.openggf.trace.TraceReplayBootstrap;
+import com.openggf.trace.replay.TraceReplaySessionBootstrap;
 import com.openggf.tests.trace.s3k.S3kElasticWindowController;
 import com.openggf.tests.trace.s3k.S3kRequiredCheckpointGuard;
 import com.openggf.tests.trace.s3k.S3kReplayCheckpointDetector;
@@ -95,11 +114,7 @@ public abstract class AbstractTraceReplayTest {
 
         // 3. Validate test configuration matches metadata
         validateMetadata(meta);
-        applyRecordedTeamConfig(meta);
-        if (requiresFreshLevelLoad && "s3k".equals(meta.game())) {
-            SonicConfigurationService.getInstance()
-                    .setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
-        }
+        TraceReplaySessionBootstrap.prepareConfiguration(trace, meta);
 
         // 4. Load level and create fixture
         SharedLevel sharedLevel = requiresFreshLevelLoad
@@ -121,51 +136,20 @@ public abstract class AbstractTraceReplayTest {
             }
             HeadlessTestFixture fixture = fixtureBuilder.build();
 
-            // 4a. ROM parity: Initialize ObjectManager's frame counter to match
-            //     v_vbla_byte at trace start. Schema v3 traces record the ROM
-            //     VBlank counter directly; older traces fall back to the
-            //     historical BK2-offset heuristic.
-            ObjectManager om = GameServices.level().getObjectManager();
-            if (om != null && shouldUseTraceStartBootstrap(trace)) {
-                om.initVblaCounter(TraceReplayBootstrap.initialVblankCounterForTraceReplay(trace) - 1);
-            }
             if (GameServices.debugOverlay() != null) {
                 GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
             }
 
-
-
-
-            // 4b. Pre-advance oscillation to match ROM phase.
-            //      The ROM runs OscillateNumDo during Level_MainLoop frames
-            //      that occur BEFORE the trace recording starts (between level
-            //      load and the Lua script trigger). The engine must advance
-            //      the oscillation by the same number of frames.
-            int preTraceOsc = overridePreTraceOscFrames() >= 0
-                    ? overridePreTraceOscFrames()
-                    : meta.preTraceOscillationFrames();
-            if (shouldUseTraceStartBootstrap(trace) && preTraceOsc > 0) {
-                for (int i = 0; i < preTraceOsc; i++) {
-                    // Use negative frame counters to avoid collisions with the
-                    // real frame counter that starts at 0 during the test loop.
-                    com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
-                }
-            }
-
-            // 4c. Hydrate object state machines from pre-trace ROM SST snapshots.
-            //     Schema v4+ aux files include one object_state_snapshot event
-            //     per occupied SST slot at frame -1. This restores routine/timer
-            //     state that the ROM accumulated during title-card and level-init
-            //     iterations before the Lua recorder began emitting trace frames.
-            //
-            //     For S2/S3K, ObjectManager defers spawn→instance conversion
-            //     until the first update() tick. Preload them now so the binder
-            //     has real engine instances to match against.
-            List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots = trace.preTraceObjectSnapshots();
-            TraceObjectSnapshotBinder.Result hydration =
-                    TraceReplayBootstrap.applyPreTraceState(trace, fixture);
-            TraceReplayBootstrap.ReplayStartState replayStart =
-                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+            // 4. Shared replay bootstrap: vblank seed, oscillation
+            //    pre-advance, object-snapshot hydration, replay start state.
+            TraceReplaySessionBootstrap.BootstrapResult boot =
+                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture,
+                            overridePreTraceOscFrames());
+            TraceObjectSnapshotBinder.Result hydration = boot.hydration();
+            TraceReplayBootstrap.ReplayStartState replayStart = boot.replayStart();
+            ObjectManager om = GameServices.level().getObjectManager();
+            List<TraceEvent.ObjectStateSnapshot> preTraceSnapshots =
+                    trace.preTraceObjectSnapshots();
             if (!preTraceSnapshots.isEmpty() && om != null) {
                 System.out.printf(
                         "Hydrated %d/%d pre-trace object snapshots (%d warnings)%n",
@@ -296,17 +280,6 @@ public abstract class AbstractTraceReplayTest {
             + " but metadata says " + meta.game() + ")");
     }
 
-    private void applyRecordedTeamConfig(TraceMetadata meta) {
-        if (!meta.hasRecordedTeam()) {
-            return;
-        }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, meta.mainCharacter());
-        config.setConfigValue(
-                SonicConfiguration.SIDEKICK_CHARACTER_CODE,
-                String.join(",", meta.recordedSidekicks()));
-    }
-
     private boolean shouldApplyMetadataStartPosition(TraceData trace, TraceMetadata meta) {
         // Power-on traces can begin before the level is actually live. In those
         // cases start_x/start_y reflect whatever was left in Player_1 RAM at the
@@ -358,6 +331,24 @@ public abstract class AbstractTraceReplayTest {
             }
             controller.alignCursorToTraceIndex(replayStart.startingTraceIndex());
         } else if (driveTraceIndex > 0) {
+            // Legacy warmup path: we skipped past every trace checkpoint that
+            // preceded strictStart (e.g. intro_begin at frame 0 for AIZ1).
+            // Seed the detector and open the relevant elastic windows so the
+            // intro cutscene is compared loosely rather than driving strict
+            // comparison against the frozen pre-gameplay player snapshot.
+            // The controller auto-closes each window once the drive cursor
+            // passes its recorded exit frame, so the engine's checkpoint
+            // timing (e.g. title-card overlay activation) does not have to
+            // align exactly with the trace for the replay loop to progress.
+            for (int frame = 0; frame < driveTraceIndex; frame++) {
+                for (TraceEvent event : trace.getEventsForFrame(frame)) {
+                    if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
+                        detector.seedCheckpoint(traceCheckpoint.name());
+                        controller.onEntryFrameValidated(traceCheckpoint);
+                        controller.onEngineCheckpoint(traceCheckpoint);
+                    }
+                }
+            }
             controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
@@ -481,10 +472,6 @@ public abstract class AbstractTraceReplayTest {
             driveTraceIndex = controller.driveTraceIndex();
             previousDriveFrame = driveFrame;
         }
-    }
-
-    private static boolean shouldUseTraceStartBootstrap(TraceData trace) {
-        return true;
     }
 
     private Map<String, Integer> loadCheckpointFrames(TraceData trace) {

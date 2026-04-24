@@ -58,7 +58,7 @@ There are currently no checked-in Sonic 2 or Sonic 3K trace fixtures under `src/
 | Name | Label | Address | Evidence |
 |---|---|---:|---|
 | gameplay frame counter | `Level_frame_counter` | `0xFE04` | `docs/s2disasm/s2.constants.asm:1663-1665` |
-| VBlank counter low word | `Vint_runcount+2` | `0xFE0C` | `docs/s2disasm/s2.constants.asm:1672` |
+| VBlank counter low word | `Vint_runcount+2` | `0xFE0E` | `docs/s2disasm/s2.constants.asm:1663-1672` (byte-wise layout: `SS_2p_Flag` word at FE00, `Level_Inactive_flag` word at FE02, `Level_frame_counter` word at FE04, `Debug_object` byte FE06, pad byte FE07, `Debug_placement_mode` byte FE08, pad byte FE09, `Debug_Accel_Timer` byte FE0A, `Debug_Speed` byte FE0B, `Vint_runcount` longword FE0C-FE0F → low word at FE0E) |
 | lag counter | n/a | n/a | Sonic 2 does not expose an explicit lag-frame counter like S3/S3K |
 
 ## Sonic 3K

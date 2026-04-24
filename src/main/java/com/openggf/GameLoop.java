@@ -185,7 +185,19 @@ public class GameLoop {
     private volatile boolean userPaused = false;  // Keyboard toggle pause
     private boolean playbackInputSuppressed = false;
     private boolean playbackForcedMaskApplied = false;
-    private boolean playbackFrameConsumed = false;
+
+    /**
+     * Callback registered by {@link #launchGameByEntry} to run once
+     * Engine.exitMasterTitleScreen has rebuilt the gameplay runtime.
+     * Staged into {@link #afterStepMasterTitleLaunchCallback} when
+     * {@link #doExitMasterTitleScreen} runs (inside the fade callback)
+     * and fired at the end of the next {@link #step()} so trace
+     * bootstrap code can safely call {@code step()} without reentering
+     * the master-title frame.
+     */
+    private Runnable pendingMasterTitleLaunchCallback;
+    private Runnable afterStepMasterTitleLaunchCallback;
+    private Runnable returnToMasterTitleHandler;
 
     public GameLoop() {
         this(RuntimeManager.currentEngineServices());
@@ -375,6 +387,14 @@ public class GameLoop {
      * Call this method at your target FPS (typically 60fps).
      */
     public void step() {
+        try {
+            stepInternal();
+        } finally {
+            runAfterStepMasterTitleLaunchCallbackIfPresent();
+        }
+    }
+
+    private void stepInternal() {
         if (inputHandler == null) {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
@@ -423,6 +443,17 @@ public class GameLoop {
                 return;
             }
             updateEditorMode();
+            inputHandler.update();
+            return;
+        }
+
+        // Trace Test Mode: Esc during a live trace session begins the
+        // early-exit fade. Checked before pause so Esc never gets eaten
+        // by another handler.
+        if (currentGameMode == GameMode.LEVEL
+                && TraceSessionLauncher.active() != null
+                && inputHandler.isKeyPressed(GLFW_KEY_ESCAPE)) {
+            TraceSessionLauncher.active().requestEarlyExit();
             inputHandler.update();
             return;
         }
@@ -692,17 +723,25 @@ public class GameLoop {
             // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
             boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
             if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition) {
-                // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
-                LevelFrameStep.execute(levelManager, camera, () -> {
-                    spriteManager.update(inputHandler);
-                    if (playbackFrameConsumed) {
-                        playbackDebugManager.onLevelFrameAdvanced();
-                    }
-                }, (name, step) -> {
-                    profiler.beginSection(name);
-                    step.run();
-                    profiler.endSection(name);
-                });
+                // LiveTraceComparator (or any PlaybackFrameObserver) may ask
+                // us to skip the gameplay tick on ROM lag frames so the
+                // engine and trace stay aligned. Cursor advance still runs
+                // via onLevelFrameAdvanced below.
+                boolean skipGameplay = playbackDebugManager.shouldSkipCurrentGameplayTick();
+                if (!skipGameplay) {
+                    // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
+                    LevelFrameStep.execute(levelManager, camera, () -> spriteManager.update(inputHandler),
+                            (name, step) -> {
+                                profiler.beginSection(name);
+                                step.run();
+                                profiler.endSection(name);
+                            });
+                }
+                // Fire the BK2-advance callback either way — on both real
+                // gameplay ticks and lag-gated skips — so the observer's
+                // cursor always matches the BK2 cursor. onLevelFrameAdvanced
+                // is a no-op when no playback session is active.
+                playbackDebugManager.onLevelFrameAdvanced();
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
@@ -713,6 +752,12 @@ public class GameLoop {
                 BonusStageType bonusRequest = levelManager.consumeBonusStageRequest();
                 if (bonusRequest != null) {
                     enterBonusStage(bonusRequest);
+                }
+
+                // Drive the trace session completion-hold + auto-fade state.
+                TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+                if (traceSession != null) {
+                    traceSession.tick();
                 }
             }
 
@@ -797,7 +842,6 @@ public class GameLoop {
     }
 
     private void syncPlaybackInputBridge() {
-        playbackFrameConsumed = false;
         boolean shouldDrive = playbackDebugManager.isDriving(currentGameMode);
         if (spriteManager == null) {
             playbackDebugManager.clearLastAppliedState();
@@ -815,7 +859,6 @@ public class GameLoop {
             player.setForcedInputMask(playbackDebugManager.getCurrentForcedInputMask());
             player.setForcedJumpPress(playbackDebugManager.isCurrentForcedJumpPress());
             playbackForcedMaskApplied = true;
-            playbackFrameConsumed = true;
             return;
         }
 
@@ -828,7 +871,12 @@ public class GameLoop {
         }
     }
 
-    private AbstractPlayableSprite getMainPlayableSprite() {
+    /**
+     * Package-private so {@code com.openggf.TraceSessionLauncher.LiveFixture}
+     * can resolve the primary playable sprite by calling the same
+     * ActiveGameplayTeamResolver path the rest of GameLoop uses.
+     */
+    AbstractPlayableSprite getMainPlayableSprite() {
         if (spriteManager == null) {
             return null;
         }
@@ -2096,6 +2144,70 @@ public class GameLoop {
     // ==================== Master Title Screen Methods ====================
 
     /**
+     * Programmatic path into {@link #exitMasterTitleScreen}. Seeds the
+     * master-title selection and runs the same post-selection bootstrap
+     * as a user pressing Enter. The callback is deferred until the next
+     * {@link #step()} unwinds, so trace bootstrap code may safely call
+     * {@code gameLoop.step()} without reentering the master-title frame.
+     */
+    /**
+     * Pre-flight check for {@link #launchGameByEntry}. Returns false when
+     * a master-title fade is already in flight (launchGameByEntry would
+     * throw in that case). Package-private so
+     * {@link TraceSessionLauncher} can refuse a launch *before* mutating
+     * the configuration service.
+     */
+    boolean canLaunchGameNow() {
+        return !resolveFadeManager().isActive();
+    }
+
+    void launchGameByEntry(MasterTitleScreen.GameEntry entry, Runnable afterGameLoaded) {
+        MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
+                ? masterTitleScreenSupplier.get() : null;
+        if (masterScreen == null) {
+            throw new IllegalStateException("No master title screen available");
+        }
+        if (resolveFadeManager().isActive()) {
+            throw new IllegalStateException(
+                    "Cannot launch game: a master-title fade is already in flight");
+        }
+        pendingMasterTitleLaunchCallback = afterGameLoaded;
+        try {
+            masterScreen.selectEntry(entry);
+            exitMasterTitleScreen(masterScreen);
+        } catch (RuntimeException e) {
+            // selectEntry / exitMasterTitleScreen failed before the fade
+            // started — the callback will never fire, so drop it rather
+            // than leaking it into an unrelated future exit.
+            pendingMasterTitleLaunchCallback = null;
+            throw e;
+        }
+    }
+
+    private void runAfterStepMasterTitleLaunchCallbackIfPresent() {
+        Runnable callback = afterStepMasterTitleLaunchCallback;
+        afterStepMasterTitleLaunchCallback = null;
+        if (callback != null) {
+            callback.run();
+        }
+    }
+
+    void setReturnToMasterTitleHandler(Runnable returnToMasterTitleHandler) {
+        this.returnToMasterTitleHandler = returnToMasterTitleHandler;
+    }
+
+    /**
+     * Tear down the current trace session and hand control back to the
+     * Engine so it can recreate the master title screen and reset
+     * gameplay state. Called by {@link TraceSessionLauncher#teardown()}.
+     */
+    void returnToMasterTitle() {
+        if (returnToMasterTitleHandler != null) {
+            returnToMasterTitleHandler.run();
+        }
+    }
+
+    /**
      * Exits the master title screen after the user selects a game.
      * Performs a fade-to-black, then initializes the selected game (Phase 2),
      * and transitions to the game-specific title screen.
@@ -2122,6 +2234,12 @@ public class GameLoop {
         if (masterTitleExitHandler != null) {
             masterTitleExitHandler.accept(selectedGameId);
         }
+        // Stage the programmatic launch callback (if any) to fire at the
+        // end of the next step() rather than inline, so trace bootstrap
+        // code can call gameLoop.step() without reentering master-title
+        // logic.
+        afterStepMasterTitleLaunchCallback = pendingMasterTitleLaunchCallback;
+        pendingMasterTitleLaunchCallback = null;
 
         // When TITLE_SCREEN_ON_STARTUP or LEVEL_SELECT_ON_STARTUP is true,
         // initializeGame() sets currentGameMode via initializeTitleScreenMode/

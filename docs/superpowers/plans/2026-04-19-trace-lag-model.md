@@ -117,7 +117,7 @@ In the same research doc, add an address table:
 | Game | Gameplay counter label | Gameplay counter address | VBlank counter label | VBlank counter address | Lag counter label | Lag counter address |
 |---|---|---:|---|---:|---|---:|
 | S1 | `v_framecount` | `0xFE04` | `v_vbla_word` | `0xFE0E` | n/a | n/a |
-| S2 | `Level_frame_counter` | `0xFE04` | `Vint_runcount+2` | `0xFE0C` | n/a | n/a |
+| S2 | `Level_frame_counter` | `0xFE04` | `Vint_runcount+2` | `0xFE0E` | n/a | n/a |
 | S3K | `Level_frame_counter` | `<fill from research>` | `V_int_run_count+2` | `<fill from research>` | `Lag_frame_count` | `<fill from research>` |
 ```
 
@@ -539,7 +539,7 @@ Create `s2_trace_recorder.lua` using the same v3 column order as the S1 recorder
 For S2 use:
 
 - `Level_frame_counter = 0xFE04`
-- `Vint_runcount+2 = 0xFE0C`
+- `Vint_runcount+2 = 0xFE0E` (low word of the `Vint_runcount` longword at `0xFE0C–0xFE0F`; see `docs/s2disasm/s2.constants.asm:1663-1672`)
 
 - [ ] **Step 3: Populate the diagnostic lag counter**
 

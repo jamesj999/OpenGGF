@@ -1,4 +1,5 @@
 package com.openggf.tests.trace;
+import com.openggf.trace.*;
 
 import com.openggf.data.Rom;
 import com.openggf.configuration.SonicConfiguration;

@@ -334,6 +334,19 @@ public enum SonicConfiguration {
 	 * Which game to use as the donor for cross-game features: "s2" or "s3k".
 	 * Only used when CROSS_GAME_FEATURES_ENABLED is true.
 	 */
-	CROSS_GAME_SOURCE;
+	CROSS_GAME_SOURCE,
+
+	/**
+	 * When true, the master title screen becomes the Trace Test Mode
+	 * picker (lists all traces under TRACE_CATALOG_DIR, plays the chosen
+	 * one back inside the live engine). Dev-only. Default false.
+	 */
+	TEST_MODE_ENABLED,
+
+	/**
+	 * Directory scanned by TraceCatalog when TEST_MODE_ENABLED is true.
+	 * Resolved against user.dir. Default "src/test/resources/traces".
+	 */
+	TRACE_CATALOG_DIR;
 
 }

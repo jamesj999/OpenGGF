@@ -101,6 +101,12 @@ local GAMEMODE_SEGA       = 0x00  -- verified from GameModes entry 0 label <Sega
 local GAMEMODE_TITLE      = 0x04  -- verified from GameModes entry 1 label <Title_Screen>      (sonic3k.asm:432)
 local GAMEMODE_LEVEL_SEL  = 0x28  -- verified from GameModes entry 10 label <LevelSelect_S2Options> (sonic3k.asm:441; reached from title via sonic3k.asm:6617)
 local GAMEMODE_LEVEL      = 0x0C  -- already defined in recorder; re-stated here for doc cross-ref (sonic3k.asm:434)
+-- Transitional level-load modes: the engine sets bit 6 ($40) or bit 7 ($80) on top of
+-- $0C while a new level is being assembled (title -> level handoff, act change,
+-- between-zone reload). These map to $4C and $8C respectively. The mask $0F
+-- isolates the underlying Game_Mode entry so we can detect the level family
+-- regardless of which transitional bit is currently set.
+local GAMEMODE_MASK       = 0x0F
 
 local ZONE_NAMES = {
     [0x00] = "aiz",
@@ -250,11 +256,25 @@ local function should_discard_and_reset(game_mode)
         or game_mode == GAMEMODE_LEVEL_SEL
 end
 
+local function is_level_family_mode(game_mode)
+    -- The Game_Mode entry for Level is $0C. The engine ORs $40 or $80 into the
+    -- byte during level-load handoff (title -> level, between-zone reload,
+    -- act change), yielding $4C or $8C. Masking away those transitional bits
+    -- gives the underlying Game_Mode entry, which must be $0C for any of
+    -- {$0C, $4C, $8C} to match. Using this instead of player_x/y avoids the
+    -- title-screen latch problem where player coords retain non-zero values
+    -- from the title demo.
+    return (game_mode & GAMEMODE_MASK) == GAMEMODE_LEVEL
+end
+
 local function should_start_recording(game_mode)
     if is_aiz_end_to_end_profile() then
-        local player_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
-        local player_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
-        return movie.isloaded() and (game_mode == GAMEMODE_LEVEL or player_x ~= 0 or player_y ~= 0)
+        -- Start the moment Game_Mode first transitions OUT of SEGA/TITLE
+        -- into the level-load family (0x0C / 0x4C / 0x8C). This captures
+        -- the AIZ1 vine-drop intro from its first frame while discarding
+        -- any preceding title-screen frames where player coords latch
+        -- non-zero demo values.
+        return movie.isloaded() and is_level_family_mode(game_mode)
     end
     local ctrl_lock_timer = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
     local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)

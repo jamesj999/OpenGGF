@@ -304,6 +304,8 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.CROSS_GAME_S2_DATA_SELECT_IMAGE_GEN_OVERRIDE, false);
 		putDefaultKey(SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_COORD_LOG_KEY, GLFW_KEY_APOSTROPHE);
 		putDefault(SonicConfiguration.CROSS_GAME_SOURCE, "s2");
+		putDefault(SonicConfiguration.TEST_MODE_ENABLED, false);
+		putDefault(SonicConfiguration.TRACE_CATALOG_DIR, "src/test/resources/traces");
 	}
 
 	private void putDefault(SonicConfiguration key, Object value) {

@@ -3638,16 +3638,6 @@ public class ObjectManager {
             // set the air flag. Letting the collision system handle air state naturally
             // preserves rolling through enemy bounces (ground roll into badnik).
             short ySpeed = player.getYSpeed();
-            // TEMPORARY DIAGNOSTIC
-            int slotIndex = instance instanceof AbstractObjectInstance aoi ? aoi.getSlotIndex() : -1;
-            System.err.printf("[ENEMY_BOUNCE] frame=%d vbla=%d obj=%s slot=%d objX=0x%04X objY=0x%04X playerX=0x%04X playerY=0x%04X ySpd=0x%04X%n",
-                currentFrameCounter, objectManager.vblaCounter,
-                instance != null ? instance.getClass().getSimpleName() : "null",
-                slotIndex,
-                instance != null ? instance.getX() : 0,
-                instance != null ? instance.getY() : 0,
-                player.getCentreX(), player.getCentreY(),
-                ySpeed & 0xFFFF);
             if (ySpeed < 0) {
                 player.setYSpeed((short) (ySpeed + 0x100));
                 return;
