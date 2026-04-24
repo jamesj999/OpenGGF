@@ -4070,7 +4070,10 @@ public class LevelManager {
 
         // 7. Restore camera bounds from new level data
         restoreCameraBoundsForCurrentLevel(cam);
-        cam.updatePosition(true);
+        applyPostTransitionCameraOverrides(request, cam);
+        if (!request.preserveOffsetCameraPosition()) {
+            cam.updatePosition(true);
+        }
 
         // 8. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
@@ -4115,6 +4118,20 @@ public class LevelManager {
         verticalWrapEnabled = cam.isVerticalWrapEnabled();
     }
 
+    private void applyPostTransitionCameraOverrides(SeamlessLevelTransitionRequest request, Camera cam) {
+        if (request == null) {
+            return;
+        }
+        Integer minY = request.postTransitionMinY();
+        if (minY != null) {
+            cam.setMinY((short) (int) minY);
+        }
+        Integer maxYTarget = request.postTransitionMaxYTarget();
+        if (maxYTarget != null) {
+            cam.setMaxYTarget((short) (int) maxYTarget);
+        }
+    }
+
     private void applySeamlessOffsets(SeamlessLevelTransitionRequest request, Camera cam) {
         if (request == null) {
             return;
@@ -4122,8 +4139,12 @@ public class LevelManager {
         if (cam.getFocusedSprite() instanceof AbstractPlayableSprite playable) {
             int newX = playable.getCentreX() + request.playerOffsetX();
             int newY = playable.getCentreY() + request.playerOffsetY();
-            playable.setCentreX((short) newX);
-            playable.setCentreY((short) newY);
+            // ROM transition offset code adjusts the position words only
+            // (for AIZ1->AIZ2: sub.w d0/d1 from x_pos/y_pos). The subpixel
+            // words must survive the reload or fixed-point motion resumes from
+            // the wrong fraction.
+            playable.setCentreXPreserveSubpixel((short) newX);
+            playable.setCentreYPreserveSubpixel((short) newY);
             // The level reload replaced the pattern buffer; force DPLC re-upload
             // so the player sprite is visible on the next draw.
             if (playable.getSpriteRenderer() != null) {
@@ -4135,14 +4156,23 @@ public class LevelManager {
                 playable.markInstaShieldForReregistration();
                 playable.getInstaShieldObject().invalidateDplcCache();
             }
+            // ROM Load_Level clears Dynamic_object_RAM. If the player was riding
+            // an act-1 transition helper, the next ExecuteObjects pass clears the
+            // stale on-object bit and produces the one-frame airborne handoff.
+            if (request.forceAirOnStaleObjectSupportLoss() && objectManager != null) {
+                objectManager.forceAirOnStaleObjectSupportLoss(playable);
+            }
         }
         for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             int newX = sidekick.getCentreX() + request.playerOffsetX();
             int newY = sidekick.getCentreY() + request.playerOffsetY();
-            sidekick.setCentreX((short) newX);
-            sidekick.setCentreY((short) newY);
+            sidekick.setCentreXPreserveSubpixel((short) newX);
+            sidekick.setCentreYPreserveSubpixel((short) newY);
             if (sidekick.getSpriteRenderer() != null) {
                 sidekick.getSpriteRenderer().invalidateDplcCache();
+            }
+            if (request.forceAirOnStaleObjectSupportLoss() && objectManager != null) {
+                objectManager.forceAirOnStaleObjectSupportLoss(sidekick);
             }
         }
         cam.setX((short) (cam.getX() + request.cameraOffsetX()));
@@ -4483,6 +4513,10 @@ public class LevelManager {
                             .deactivateLevelNow(request.deactivateLevelNow())
                             .preserveMusic(request.preserveMusic())
                             .showInLevelTitleCard(request.showInLevelTitleCard())
+                            .forceAirOnStaleObjectSupportLoss(request.forceAirOnStaleObjectSupportLoss())
+                            .preserveOffsetCameraPosition(request.preserveOffsetCameraPosition())
+                            .postTransitionMinYIfPresent(request.postTransitionMinY())
+                            .postTransitionMaxYTargetIfPresent(request.postTransitionMaxYTarget())
                             .playerOffset(request.playerOffsetX(), request.playerOffsetY())
                             .cameraOffset(request.cameraOffsetX(), request.cameraOffsetY())
                             .mutationKey(request.mutationKey())
