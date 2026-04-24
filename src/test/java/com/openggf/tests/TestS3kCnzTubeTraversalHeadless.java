@@ -225,6 +225,7 @@ class TestS3kCnzTubeTraversalHeadless {
         player.setXSpeed((short) 0x111);
         player.setYSpeed((short) 0x222);
         player.setGSpeed((short) 0x333);
+        player.setSubpixelRaw(0x5400, 0xA700);
 
         int initialXRadius = player.getXRadius();
         int initialYRadius = player.getYRadius();
@@ -233,6 +234,8 @@ class TestS3kCnzTubeTraversalHeadless {
 
         assertTrue(player.isObjectControlled(),
                 "Spiral Tube capture should set object_control=$81 via the engine's object-control flag");
+        assertTrue(tube.isPersistent(),
+                "An active Spiral Tube must survive object-window unloading while it controls the player");
         assertTrue(player.isControlLocked(),
                 "Spiral Tube capture should lock control for the captured player");
         assertFalse(player.getRolling(),
@@ -259,6 +262,10 @@ class TestS3kCnzTubeTraversalHeadless {
                 "A player captured from the right should be repositioned to objectX+$30");
         assertEquals(0x02D0, player.getCentreY(),
                 "Capture should align the player to the tube centre Y");
+        assertEquals(0x5400, player.getXSubpixelRaw(),
+                "ROM word writes to x_pos must preserve the low subpixel word");
+        assertEquals(0xA700, player.getYSubpixelRaw(),
+                "ROM word writes to y_pos must preserve the low subpixel word");
 
         int expectedTravelFrames = invokeSpiralHookInt(tube, "getExpectedTravelFramesForTest");
         int expectedExitX = invokeSpiralExitCoordinate(tube, "centerX");
@@ -277,6 +284,8 @@ class TestS3kCnzTubeTraversalHeadless {
                 "Spiral Tube should release control lock at the final route point");
         assertFalse(player.isObjectControlled(),
                 "Spiral Tube should release object control at the final route point");
+        assertFalse(tube.isPersistent(),
+                "After release the controller can return to the normal out-of-range unload path");
         assertFalse(player.isJumping(),
                 "Spiral Tube should clear jumping on release");
         assertEquals(expectedExitX, player.getCentreX(),
