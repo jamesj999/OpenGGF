@@ -236,9 +236,40 @@ Closed for the CNZ1 carry intro: ROM-accurate flight gravity (+0x08/frame) now a
 2. The ground-release branch in `updateCarrying()` now zeros Tails's `x_vel/y_vel/ground_vel` and keeps the air bit set (matching ROM `loc_14016` at sonic3k.asm:26923-26946). Crucially, it does NOT clear `double_jump_flag` — the ROM leaves it set so Tails continues in flight physics for at least one more tick while the carry-release impulse propagates to Sonic.
 3. `PlayableSpriteMovement.applyGravity()` and `doObjectMoveAndFall()` now gate flight gravity on `sprite.getSecondaryAbility() == FLY && sprite.getDoubleJumpFlag() != 0` (mirrors `Tails_Stand_Freespace` → `Tails_FlyingSwimming` branch), replacing the previous carry-only `flyingCarryingFlag` gate. The check is scoped to Tails via `SecondaryAbility.FLY`, so Sonic's insta-shield and Knuckles's glide (which also use `double_jump_flag`) keep the +0x38 air gravity from their own code paths.
 
-### Remaining Gap
+### Status (Flight AI)
 
-Tails's **post-carry catch-up/hover AI** (`Tails_Catch_Up_Flying` at `sonic3k.asm:26474`, routine 0x02, and `Tails_FlySwim_Unknown` at `sonic3k.asm:26534`, routine 0x04) is still missing. Those routines teleport Tails back to Sonic when the gap exceeds a threshold, then fly toward the Sonic_Pos_Record_Buf trail with a 5-second timer, falling through to ground AI when close. Until they exist, `TestS3kCnzTraceReplay` still diverges later in the trace (first strict error around frame 318 in the current recording), but the CNZ1 carry intro itself is ROM-accurate.
+Closed (2026-04-24). Tails CPU flight AI — `Tails_Catch_Up_Flying`
+(`sonic3k.asm:26474`, routine 0x02) and `Tails_FlySwim_Unknown`
+(`sonic3k.asm:26534`, routine 0x04) — was ported in plan
+`docs/superpowers/plans/2026-04-24-s3k-tails-cpu-flight-ai.md` and
+landed with commits covering `SidekickCpuController.CATCH_UP_FLIGHT`
+and `SidekickCpuController.FLIGHT_AUTO_RECOVERY`, plus the
+NORMAL → FLIGHT_AUTO_RECOVERY transition for a dead leader.
+
+### Residual Trace Gaps (Non-Flight-AI)
+
+The AIZ1 and CNZ1 trace replays still first diverge at frame 2150 and
+318 respectively. Neither divergence is reachable from the new flight
+AI states — Sonic doesn't die in either trace, the 64-frame catch-up
+gate never fires (Tails stays close enough to Sonic throughout), and
+the carry release at CNZ frame ~107 doesn't go through
+`CATCH_UP_FLIGHT` either.
+
+The remaining gaps are:
+
+- **AIZ1 frame 2150** — Tails rolling-airborne detects floor contact
+  one frame earlier than ROM on a `0xFA` slope. Terrain sensor/
+  radius divergence, not a CPU-AI gap. Needs a separate
+  investigation plan.
+- **CNZ1 frame 318** — Tails's ground run after the carry-release
+  shows a 0x100/frame extra deceleration vs ROM's 0x17/frame.
+  Engine presses LEFT via the CPU follow-AI override when Sonic is
+  72 px away (|dx| >= 0x30 S3K threshold), but the resulting
+  deceleration curve is steeper than ROM. Candidate causes include
+  input-cap interactions (`inputAlwaysCapsGroundSpeed = false` for
+  S3K — maybe still not applied correctly to CPU Tails), unexpected
+  skid penalty, or a slope-angle mismatch. Needs a separate ground-
+  friction/skid investigation plan.
 
 ---
 
