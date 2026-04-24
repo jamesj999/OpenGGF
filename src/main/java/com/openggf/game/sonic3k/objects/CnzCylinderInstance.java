@@ -112,6 +112,13 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getOutOfRangeReferenceX() {
+        // ROM loc_32188 calls Sprite_OnScreen_Test2 with $2E(a0), the saved
+        // placement X, after the cylinder has moved away from its current x_pos.
+        return baseX;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         standingMask = nextStandingMask;
         heldInputMask = nextHeldInputMask;

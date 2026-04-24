@@ -328,7 +328,7 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     @Override
-    protected int getBodyAnchorX() {
+    protected int getRenderAnchorX() {
         if (facingLeft == initialFacingLeft) {
             return currentX;
         }

@@ -135,6 +135,27 @@ class TestBatbotBadnikInstance {
                 "First visible frame initializes and arms x_vel; movement starts in the chase routine");
     }
 
+    @Test
+    void objWaitOffscreenRequiresVerticalVisibilityBeforeLogicStarts() {
+        AbstractObjectInstance.updateCameraBounds(0x1000, 0x0100, 0x1140, 0x01E0, 0);
+        BatbotBadnikInstance batbot = new BatbotBadnikInstance(new ObjectSpawn(0x1078,
+                0x0428, Sonic3kObjectIds.BATBOT, 0, 0, false, 0));
+        batbot.setServices(new TestObjectServices());
+        AbstractPlayableSprite player = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        player.setCentreX((short) 0x103A);
+        player.setCentreY((short) 0x0322);
+
+        batbot.update(0, player);
+
+        assertEquals(0, batbot.getCollisionFlags(),
+                "Obj_WaitOffscreen waits for Draw_Sprite to set render_flags bit 7, not just X range");
+        assertEquals(0x1078, batbot.getX());
+        assertEquals(0x0428, batbot.getY());
+    }
+
     private static void putBatbotOnScreen() {
         AbstractObjectInstance.updateCameraBounds(0x1A00, 0, 0x1B40, 0x1000, 0);
     }

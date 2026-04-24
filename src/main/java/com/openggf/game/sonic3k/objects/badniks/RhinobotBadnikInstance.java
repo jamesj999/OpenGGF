@@ -28,8 +28,8 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     private static final int FLOOR_MIN_DIST = -1;
     private static final int FLOOR_MAX_DIST = 0x0C;
 
-    private static final int DETECT_X = 0x20;             // sub_870A4 d3 compare
-    private static final int DETECT_Y = 0x60;             // sub_870A4 d2 compare
+    private static final int DETECT_X = 0x60;             // sub_870A4 d2 horizontal compare
+    private static final int DETECT_Y = 0x20;             // sub_870A4 d3 vertical compare
 
     private static final int FRAME_SLOW = 0;
     private static final int FRAME_RUN = 1;
@@ -58,7 +58,6 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     private int targetSpeed;
     private int stateTimer;
     private SpeedCallback speedCallback = SpeedCallback.REACH_TURN_POINT;
-    private boolean initCompletedOnScreen;
 
     public RhinobotBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Rhinobot",
@@ -81,15 +80,6 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
             return;
         }
         if (!isOnScreenX()) {
-            return;
-        }
-
-        // ROM entry point begins with Obj_WaitOffscreen. Once the object is
-        // finally visible, the first dispatched frame is still routine 0
-        // (SetUp_ObjAttributesSlotted + setup only); patrol movement does not
-        // begin until the following on-screen frame.
-        if (!initCompletedOnScreen) {
-            initCompletedOnScreen = true;
             return;
         }
 
@@ -161,6 +151,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
         if (player == null) {
             return false;
         }
+        // Find_SonicTails leaves horizontal distance in d2 and vertical distance in d3.
         int dx = player.getCentreX() - currentX;
         int dy = Math.abs(player.getCentreY() - currentY);
         if (Math.abs(dx) > DETECT_X || dy > DETECT_Y) {
