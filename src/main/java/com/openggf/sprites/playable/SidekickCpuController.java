@@ -49,8 +49,10 @@ public class SidekickCpuController {
         APPROACHING,
         NORMAL,
         PANIC,
-        CARRY_INIT,   // ROM routine 0x0C - first tick after trigger (teleport + pickup)
-        CARRYING      // ROM routine 0x0E / 0x20 - per-frame carry body
+        CARRY_INIT,            // ROM routine 0x0C - first tick after trigger (teleport + pickup)
+        CARRYING,              // ROM routine 0x0E / 0x20 - per-frame carry body
+        CATCH_UP_FLIGHT,       // ROM routine 0x02 (Tails_Catch_Up_Flying, sonic3k.asm:26474)
+        FLIGHT_AUTO_RECOVERY   // ROM routine 0x04 (Tails_FlySwim_Unknown, sonic3k.asm:26534)
     }
 
     private static final int SETTLED_FRAME_THRESHOLD = 15;
@@ -122,13 +124,15 @@ public class SidekickCpuController {
         }
 
         switch (state) {
-            case INIT        -> updateInit();
-            case SPAWNING    -> updateSpawning();
-            case APPROACHING -> updateApproaching();
-            case NORMAL      -> updateNormal();
-            case PANIC       -> updatePanic();
-            case CARRY_INIT  -> updateCarryInit();
-            case CARRYING    -> updateCarrying();
+            case INIT                 -> updateInit();
+            case SPAWNING             -> updateSpawning();
+            case APPROACHING          -> updateApproaching();
+            case NORMAL               -> updateNormal();
+            case PANIC                -> updatePanic();
+            case CARRY_INIT           -> updateCarryInit();
+            case CARRYING             -> updateCarrying();
+            case CATCH_UP_FLIGHT      -> updateCatchUpFlight();
+            case FLIGHT_AUTO_RECOVERY -> updateFlightAutoRecovery();
         }
     }
 
@@ -522,6 +526,34 @@ public class SidekickCpuController {
     }
 
     /**
+     * ROM {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474). Entered when
+     * {@code Tails_CPU_routine == 2}. Waits on either (a) the sidekick's Ctrl_2
+     * A/B/C/START press, or (b) a 64-frame gate firing while Sonic is not
+     * object-controlled and not super. On trigger, teleports Tails to
+     * (Sonic.x, Sonic.y - 0xC0), sets routine = 4, and enters flight AI.
+     *
+     * <p>Stubbed in Task 2; body lands in Task 4.
+     */
+    private void updateCatchUpFlight() {
+        // TODO(Task 4): port sonic3k.asm:26474-26531.
+    }
+
+    /**
+     * ROM {@code Tails_FlySwim_Unknown} (sonic3k.asm:26534). Entered when
+     * {@code Tails_CPU_routine == 4}. Per-frame: increments Tails_CPU_flight_timer;
+     * after 5*60 frames off-screen, falls back to {@code CATCH_UP_FLIGHT}.
+     * Otherwise computes the 16-frame delayed Sonic position, steers Tails toward
+     * it (X step &le; 0xC, Y step = 1 plus optional -0x20 lead), and transitions
+     * to {@code NORMAL} (routine 0x06) once Tails is close enough to Sonic and
+     * Sonic isn't hurt/dead.
+     *
+     * <p>Stubbed in Task 2; body lands in Task 5.
+     */
+    private void updateFlightAutoRecovery() {
+        // TODO(Task 5): port sonic3k.asm:26534-26653.
+    }
+
+    /**
      * Finishes the Tails-carry body after Tails has run current-frame movement.
      *
      * <p>ROM {@code Tails_FlyingSwimming} runs {@code Tails_Move_FlySwim},
@@ -825,11 +857,36 @@ public class SidekickCpuController {
         this.normalFrameCount = normalFrames;
     }
 
+    /**
+     * ROM {@code Tails_CPU_Control_Index} (sonic3k.asm:26368-26386) is an 18-entry
+     * word table indexed by {@code Tails_CPU_routine}, which the dispatcher reads at
+     * sonic3k.asm:26362-26364. Each entry value is the CPU routine byte (0x00, 0x02,
+     * 0x04, ...) — the table stride is 2 bytes, so the value equals the offset.
+     *
+     * <pre>
+     *   0x00  loc_13A10               engine State.INIT  (zone-specific init, carry gate)
+     *   0x02  Tails_Catch_Up_Flying   engine State.CATCH_UP_FLIGHT  (teleport-to-Sonic gate, sonic3k.asm:26474)
+     *   0x04  Tails_FlySwim_Unknown   engine State.FLIGHT_AUTO_RECOVERY (fly-toward-Sonic + 5s timer, sonic3k.asm:26534)
+     *   0x06  loc_13D4A               engine State.NORMAL (ground follow AI, sonic3k.asm:26656)
+     *   0x08  loc_13F40               engine State.PANIC  (idle/standing ground, sonic3k.asm:26851)
+     *   0x0A  locret_13FC0            (empty; used by Knuckles-only paths)
+     *   0x0C  loc_13FC2               engine State.CARRY_INIT (carry body init)
+     *   0x0E  loc_13FFA               engine State.CARRYING  (carry body per-frame)
+     *   0x10-0x22  super/Knuckles/2P variants — not modelled
+     * </pre>
+     *
+     * <p>Note: earlier versions of this file mapped 0x02 and 0x04 to SPAWNING and
+     * APPROACHING respectively. Those engine states are behavioural inventions
+     * (despawn-respawn flow, approach strategy) that the ROM doesn't have a
+     * matching routine for; hydrating them from a recorded CPU routine byte was
+     * never semantically correct. Prefer to leave hydration undefined for
+     * engine-only states until there's a concrete trace that exercises them.
+     */
     private static State mapRomCpuRoutine(int cpuRoutine) {
         return switch (cpuRoutine) {
             case 0x00 -> State.INIT;
-            case 0x02 -> State.SPAWNING;
-            case 0x04 -> State.APPROACHING;
+            case 0x02 -> State.CATCH_UP_FLIGHT;
+            case 0x04 -> State.FLIGHT_AUTO_RECOVERY;
             case 0x06 -> State.NORMAL;
             case 0x08 -> State.PANIC;
             case 0x0C -> State.CARRY_INIT;
