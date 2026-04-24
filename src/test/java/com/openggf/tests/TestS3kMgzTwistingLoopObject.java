@@ -10,6 +10,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kMgzTwistingLoopObject {
@@ -43,22 +45,22 @@ class TestS3kMgzTwistingLoopObject {
     }
 
     @Test
-    void mgzTwistingLoopDirectEntry_doesNotReleaseAfterOnlyAFewLoops() {
+    void mgzTwistingLoopDirectEntry_doesNotReleaseBeforeItsConfiguredThreshold() {
         MGZTwistingLoopObjectInstance loop = new MGZTwistingLoopObjectInstance(
                 new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x01, 0, false, 0));
         TestablePlayableSprite player = createDirectEntryPlayer();
 
         loop.update(0, player); // capture
-        for (int frame = 1; frame <= 6; frame++) {
+        for (int frame = 1; frame <= 3; frame++) {
             loop.update(frame, player);
         }
 
         assertTrue(player.isObjectControlled(),
-                "MGZ loop should still be carrying an on-foot entry after 6 active frames");
+                "MGZ loop should still be carrying an on-foot entry before its configured release threshold");
     }
 
     @Test
-    void mgzTwistingLoopCapture_preservesRollingStateAndSubpixelProgress() {
+    void mgzTwistingLoopRollingEntry_restoresStandingRadiiAfterFirstCarryFrame() {
         MGZTwistingLoopObjectInstance loop = new MGZTwistingLoopObjectInstance(
                 new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x10, 0, false, 0));
         TestablePlayableSprite player = createDirectEntryPlayer();
@@ -68,10 +70,28 @@ class TestS3kMgzTwistingLoopObject {
         loop.update(0, player); // capture
         loop.update(1, player); // first active frame
 
-        assertTrue(player.getRolling(),
-                "MGZ loop should preserve a rolling entry instead of forcing standing state");
+        assertFalse(player.getRolling(),
+                "MGZ loop should restore standing state after the first carried frame");
+        assertEquals(player.getStandYRadius(), player.getYRadius(),
+                "MGZ loop should restore the standing radius after the first carried frame");
         assertTrue(player.getYSubpixelRaw() != 0,
                 "MGZ loop should continue carrying subpixel progress while the player is captured");
+    }
+
+    @Test
+    void mgzTwistingLoopNegativeEntrySpeed_keepsNegativeMinimumGroundSpeed() {
+        MGZTwistingLoopObjectInstance loop = new MGZTwistingLoopObjectInstance(
+                new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x10, 0, false, 0));
+        TestablePlayableSprite player = createDirectEntryPlayer();
+        player.setGSpeed((short) -8);
+
+        loop.update(0, player); // capture
+        loop.update(1, player); // first active frame
+
+        assertEquals(-0x0400, player.getGSpeed(),
+                "MGZ loop should preserve a negative entry direction when clamping to minimum speed");
+        assertEquals(0x0400, player.getYSpeed() & 0xFFFF,
+                "MGZ loop should still use the minimum downward carry speed");
     }
 
     @Test
@@ -85,6 +105,23 @@ class TestS3kMgzTwistingLoopObject {
 
         assertTrue((player.getAngle() & 0xFF) == 0x40,
                 "MGZ loop should keep the entry wall angle while carrying the player");
+    }
+
+    @Test
+    void mgzTwistingLoopOnFootRelease_doesNotUseCompensatedHandoff() {
+        MGZTwistingLoopObjectInstance loop = new MGZTwistingLoopObjectInstance(
+                new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x00, 0, false, 0));
+        TestablePlayableSprite player = createDirectEntryPlayer();
+
+        loop.update(0, player); // capture
+        loop.update(1, player); // immediate threshold release
+
+        assertFalse(player.isObjectControlled(),
+                "Plain MGZ direct entries should release immediately at the configured threshold");
+        assertFalse(player.isStickToConvex(),
+                "Plain MGZ direct entries should not inherit the compensated convex handoff");
+        assertFalse(player.getAir(),
+                "Plain MGZ direct entries should remain grounded on release");
     }
 
     private static TestablePlayableSprite createDirectEntryPlayer() {
