@@ -195,7 +195,9 @@ public class CollisionSystem {
     }
 
     public void resolveGroundWallCollision(AbstractPlayableSprite sprite) {
-        if (sprite == null || sprite.isTunnelMode() || sprite.isStickToConvex()) {
+        if (sprite == null || sprite.isTunnelMode()
+                || sprite.isStickToConvex()
+                || sprite.isSuppressGroundWallCollision()) {
             return;
         }
         var levelManager = sprite.currentLevelManager();
@@ -294,9 +296,9 @@ public class CollisionSystem {
         // own Y positioning (MvSonicOnPtfm). The ROM resolves this by running AnglePos
         // first (probing terrain), then the platform overrides Y via MvSonicOnPtfm.
         // The engine can't replicate this order (platform riding runs after physics).
-        // Skip the full terrain attachment when on an object — the platform handles Y,
-        // and the X carry comes from the riding deltaX mechanism.
-        if (sprite.isOnObject()) {
+        // Skip the full terrain attachment only while actual object support exists.
+        // A stale on-object bit must not suppress the terrain walk-off path.
+        if (sprite.isOnObject() && hasObjectSupport.getAsBoolean()) {
             return;
         }
 
@@ -668,7 +670,8 @@ public class CollisionSystem {
             } else {
                 sprite.setAngle(lowestResult.angle());
             }
-            sprite.setAir(false);
+            updateGroundMode(sprite);
+            resetWallCeilingLandingState(sprite, ceilingAngle);
             short gSpeed = sprite.getYSpeed();
             if ((ceilingAngle & 0x80) != 0) {
                 gSpeed = (short) -gSpeed;
@@ -678,6 +681,37 @@ public class CollisionSystem {
         } else {
             sprite.setYSpeed((short) 0);
         }
+    }
+
+    private void resetWallCeilingLandingState(AbstractPlayableSprite sprite, int angle) {
+        if (sprite.isObjectControlled()) {
+            sprite.setAir(false);
+            return;
+        }
+
+        PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+        boolean preservePinballRoll = featureSet != null && featureSet.pinballLandingPreservesRoll();
+        if (sprite.getRolling() && (!sprite.getPinballMode() || !preservePinballRoll)) {
+            int oldYRadius = sprite.getYRadius();
+            int centreY = sprite.getCentreY();
+            sprite.setRolling(false);
+
+            int delta = oldYRadius - sprite.getStandYRadius();
+            if (((angle + 0x40) & 0x80) != 0) {
+                delta = -delta;
+            }
+            sprite.setCentreYPreserveSubpixel((short) (centreY + delta));
+        }
+
+        sprite.setPinballMode(false);
+        sprite.setAir(false);
+        sprite.setPushing(false);
+        sprite.setRollingJump(false);
+        sprite.setJumping(false);
+        sprite.setFlipAngle(0);
+        sprite.setFlipTurned(false);
+        sprite.setFlipsRemaining(0);
+        sprite.setLookDelayCounter((short) 0);
     }
 
     private boolean doCeilingCollisionInternal(AbstractPlayableSprite sprite, SensorResult[] results) {

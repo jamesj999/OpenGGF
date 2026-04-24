@@ -127,6 +127,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		wasCrouching = false;
 	}
 
+	public void clearJumpHeightLatch() {
+		jumpPressed = false;
+		jumpReleasedSinceJump = false;
+	}
+
+	public void setJumpHeightLatch() {
+		jumpPressed = true;
+		jumpReleasedSinceJump = false;
+	}
+
 	private Camera camera() {
 		return sprite.currentCamera();
 	}
@@ -1728,6 +1738,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 *   add.l   d0,d3                  ; Position uses OLD y_vel (d0, before gravity)
 	 */
 	private void doObjectMoveAndFall() {
+		SidekickCpuController cpu = sprite.getCpuController();
+		if (cpu != null && cpu.isFlyingCarrying()) {
+			// Tails_FlyingSwimming applies Tails_Move_FlySwim before
+			// MoveSprite_TestGravity2, so the +8 flight gravity is part of
+			// the current movement tick for the carrier.
+			applyGravity();
+			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+			return;
+		}
 		short oldYSpeed = sprite.getYSpeed();  // Save old y_vel before gravity
 		applyGravity();                         // Gated on isObjectControlled()
 		sprite.move(sprite.getXSpeed(), oldYSpeed);  // Move using OLD y_vel
@@ -1861,6 +1880,24 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
+		int angle = sprite.getAngle() & 0xFF;
+		boolean s3kSlipKick = fs != null && fs.slopeRepelUsesS3kSlipKick();
+		if (s3kSlipKick) {
+			if (((angle + 0x18) & 0xFF) < 0x30) return;
+			if (Math.abs(sprite.getGSpeed()) >= SLOPE_REPEL_MIN_SPEED) return;
+
+			sprite.setMoveLockTimer(MOVE_LOCK_FRAMES);
+			int slipAngle = (angle + 0x30) & 0xFF;
+			if (slipAngle >= 0x60) {
+				sprite.setAir(true);
+			} else if (slipAngle >= 0x30) {
+				sprite.setGSpeed((short) (sprite.getGSpeed() + 0x80));
+			} else {
+				sprite.setGSpeed((short) (sprite.getGSpeed() - 0x80));
+			}
+			return;
+		}
+
 		if (isOnFlatGround()) return;
 		if (Math.abs(sprite.getGSpeed()) >= SLOPE_REPEL_MIN_SPEED) return;
 
@@ -1898,7 +1935,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// check must be suppressed to prevent push sensors from detecting the disc's
 		// curved terrain as walls — which zeros gSpeed and disrupts traversal.
 		// In S2/S3K, objects that set stick_to_convex also set tunnelMode (caught above).
-		if (sprite.isStickToConvex()) {
+		if (sprite.isStickToConvex() || sprite.isSuppressGroundWallCollision()) {
 			return;
 		}
 		Sensor[] pushSensors = sprite.getPushSensors();
@@ -2031,9 +2068,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		if (sprite.getRolling() && !sprite.getPinballMode()) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean preservePinballRoll = featureSet != null && featureSet.pinballLandingPreservesRoll();
+		if (sprite.getRolling() && (!sprite.getPinballMode() || !preservePinballRoll)) {
+			boolean rollJumpWithRestoredRadii = sprite.getRollingJump()
+					&& sprite.getYRadius() == sprite.getStandYRadius();
 			sprite.setRolling(false);
 			sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
+			if (rollJumpWithRestoredRadii) {
+				int radiusDelta = sprite.getStandYRadius() - sprite.getRollYRadius();
+				sprite.setCentreYPreserveSubpixel((short) (sprite.getCentreY() + radiusDelta));
+			}
 		}
 		sprite.setPinballMode(false);
 		sprite.setAir(false);

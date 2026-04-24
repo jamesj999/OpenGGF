@@ -4,6 +4,7 @@ import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.CollisionSystem;
@@ -73,6 +74,12 @@ public class TestPlayableSpriteMovement {
                 } else {
                         GameModuleRegistry.reset();
                 }
+        }
+
+        private void setPhysicsFeatureSetForTest(PhysicsFeatureSet featureSet) throws Exception {
+                Field field = AbstractPlayableSprite.class.getDeclaredField("physicsFeatureSet");
+                field.setAccessible(true);
+                field.set(mockSprite, featureSet);
         }
 
         @Test
@@ -817,6 +824,22 @@ public class TestPlayableSpriteMovement {
                 assertEquals((short) -1720, mockSprite.getYSpeed(), "Velocity should remain unchanged in UpVelCap path");
         }
 
+        @Test
+        public void externalJumpingFlagPrimesJumpHeightLatch() throws Exception {
+                PlayableSpriteMovement controllerMovement =
+                                (PlayableSpriteMovement) mockSprite.getMovementManager();
+                mockSprite.setAir(true);
+                mockSprite.setYSpeed((short) -0x0450);
+                mockSprite.setJumping(true);
+
+                Method jumpHeightMethod = PlayableSpriteMovement.class.getDeclaredMethod("doJumpHeight");
+                jumpHeightMethod.setAccessible(true);
+                jumpHeightMethod.invoke(controllerMovement);
+
+                assertEquals((short) -0x0400, mockSprite.getYSpeed(),
+                                "Object releases that set jumping(a0) should use Sonic_JumpHeight release cap");
+        }
+
         /**
          * Test rolling slope physics when gSpeed is zero.
          */
@@ -1113,6 +1136,80 @@ public class TestPlayableSpriteMovement {
         // It's only used by special objects (rotating discs in S1/S3).
         // The previous tests were verifying incorrect behavior that caused
         // Sonic to never slide off slopes (doSlopeRepel was bypassed).
+
+        @Test
+        public void testSlopeRepelAddsDownhillKickBeforeMoveLock() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(false);
+                mockSprite.setOnObject(false);
+                mockSprite.setStickToConvex(false);
+                mockSprite.setAngle((byte) 0x18);
+                mockSprite.setGSpeed((short) 0x01E5);
+                mockSprite.setMoveLockTimer(0);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doSlopeRepel");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals(0x0265, mockSprite.getGSpeed() & 0xFFFF,
+                                "Player_SlopeRepel should add $80 on shallow downhill slopes");
+                assertEquals(0x1E, mockSprite.getMoveLockTimer(),
+                                "Player_SlopeRepel should arm the ROM 30-frame move_lock");
+                assertTrue(!mockSprite.getAir(), "Shallow slope repel should stay grounded");
+        }
+
+        @Test
+        public void testSlopeRepelSetsAirOnSteepSlipRange() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(false);
+                mockSprite.setOnObject(false);
+                mockSprite.setStickToConvex(false);
+                mockSprite.setAngle((byte) 0x40);
+                mockSprite.setGSpeed((short) 0x0100);
+                mockSprite.setMoveLockTimer(0);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doSlopeRepel");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals(0x0100, mockSprite.getGSpeed() & 0xFFFF,
+                                "Steep slip range should not overwrite ground velocity");
+                assertEquals(0x1E, mockSprite.getMoveLockTimer(),
+                                "Player_SlopeRepel should arm move_lock before setting air");
+                assertTrue(mockSprite.getAir(), "Steep slip range should put the player airborne");
+        }
+
+        @Test
+        public void testS3kLandingClearsRollingEvenInPinballMode() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setRolling(true);
+                mockSprite.setPinballMode(true);
+                mockSprite.setAir(true);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertTrue(!mockSprite.getRolling(),
+                                "S3K Player_TouchFloor clears Status_Roll without a spin_dash_flag guard");
+                assertTrue(!mockSprite.getPinballMode(), "Landing should clear engine pinball mode");
+        }
+
+        @Test
+        public void testS2LandingPreservesRollingInPinballMode() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+                mockSprite.setRolling(true);
+                mockSprite.setPinballMode(true);
+                mockSprite.setAir(true);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertTrue(mockSprite.getRolling(),
+                                "S2 Sonic_ResetOnFloor skips the roll-clear block when pinball_mode is set");
+                assertTrue(!mockSprite.getPinballMode(), "Landing should still clear engine pinball mode");
+        }
 
         /**
          * Test ROM-accurate speed-dependent threshold calculation.
@@ -1576,4 +1673,3 @@ public class TestPlayableSpriteMovement {
                 assertEquals(expectedThreshold, threshold, "Threshold should be based on xSpeed");
         }
 }
-
