@@ -657,7 +657,14 @@ public abstract class AbstractTraceReplayTest {
         sidekick.setDeathCountdown(0);
         sidekick.setControlLocked(false);
         sidekick.setObjectControlled(false);
-        sidekick.setMoveLockTimer(0);
+        // Do NOT reset move_lock here. ROM Player_SlopeRepel (sonic3k.asm:23907)
+        // sets move_lock=30 on its first slip activation and then decrements it
+        // for the next 30 frames, during which the routine early-returns without
+        // touching ground_vel. Resetting move_lock to 0 each frame defeats that
+        // ROM-preserved counter and causes the engine to re-apply the −$80
+        // slope-repel impulse every frame, which was the root cause of the
+        // CNZ1 F318 `tails_g_speed` divergence (ROM preserves move_lock across
+        // frames so SlopeRepel's second-and-later frames are no-ops).
         sidekick.setHurt(state.routine() == 0x04);
         sidekick.setCentreX(state.x());
         sidekick.setCentreY(state.y());
