@@ -31,12 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       not run yet)</li>
  *   <li>Frame 2: {@code Sonic.x_speed == 0x0100} and object-controlled/
  *       airborne (ROM {@code loc_13FC2} body runs, falling through to
- *       {@code loc_13FFA}; engine {@code CARRY_INIT -> CARRYING})</li>
- *   <li>Frame 20: {@code Sonic.air == 1} (still carried; ROM-parity frame
- *       is 43 per trace row #3, but engine Tails lacks carry-aware lift
- *       and grounds early — see
- *       {@code docs/S3K_KNOWN_DISCREPANCIES.md} section
- *       "Tails Flying-With-Cargo Physics")</li>
+ *       {@code loc_13FFA}; Tails movement then calls
+ *       {@code Tails_Carry_Sonic})</li>
+ *   <li>Frame 20: {@code Sonic.air == 1} (still carried)</li>
  *   <li>By frame ~200: state back to {@code NORMAL}, {@code object_control} cleared</li>
  * </ul>
  *
@@ -106,8 +103,8 @@ class TestS3kCnzCarryHeadless {
         fixture.stepFrame(false, false, false, false, false);
         assertEquals((short) 0x0100, sonic.getXSpeed(),
                 "Frame 2 Sonic.x_speed must match ROM carry velocity (loc_13FC2 write)");
-        assertEquals((short) 0, sonic.getYSpeed(),
-                "Frame 2 Sonic.y_speed (carry init)");
+        assertEquals((short) 0x0008, sonic.getYSpeed(),
+                "Frame 2 Sonic.y_speed after Tails_Move_FlySwim adds carry gravity");
         assertTrue(sonic.isObjectControlled(),
                 "Frame 2: Sonic object-controlled by Tails");
         assertTrue(sonic.getAir(),
@@ -115,11 +112,7 @@ class TestS3kCnzCarryHeadless {
     }
 
     /**
-     * At frame 20, Tails is still airborne in both ROM (until ~106) and
-     * our engine (until ~42), so Sonic remains carried. ROM-parity frame
-     * is 43 per trace row #3, but engine Tails lacks carry-aware lift
-     * and grounds early — see docs/S3K_KNOWN_DISCREPANCIES.md
-     * "Tails Flying-With-Cargo Physics".
+     * At frame 20, Tails is still airborne, so Sonic remains carried.
      */
     @Test
     void cnz1Frame20SonicStillCarried() {
@@ -132,6 +125,48 @@ class TestS3kCnzCarryHeadless {
         assertTrue(sonic.getAir(), "Frame 20: Sonic must still be airborne");
         assertTrue(sonic.isObjectControlled(),
                 "Frame 20: Sonic still object-controlled (carry has not released)");
+    }
+
+    @Test
+    void cnz1CarryVelocityAccumulatesSyntheticRightPresses() {
+        AbstractPlayableSprite sonic = fixture.sprite();
+
+        for (int i = 0; i < 96; i++) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+
+        assertEquals((short) 0x0148, sonic.getXSpeed(),
+                "Frame 96: Tails carry x_speed should accumulate three synthetic right presses");
+        assertTrue(sonic.getAir(), "Frame 96: Sonic is still airborne before the landing probe");
+        assertTrue(sonic.isObjectControlled(),
+                "Frame 96: Sonic still object-controlled by Tails");
+    }
+
+    @Test
+    void cnz1CarryGroundsOnRomLandingFrame() {
+        AbstractPlayableSprite sonic = fixture.sprite();
+
+        for (int i = 0; i < 107; i++) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+
+        assertFalse(sonic.getAir(),
+                () -> String.format(
+                        "Frame 107: post-parentage SonicKnux_DoLevelCollision clears air on landing"
+                                + " (x=%04X y=%04X xs=%04X ys=%04X gs=%04X)",
+                        sonic.getCentreX() & 0xFFFF,
+                        sonic.getCentreY() & 0xFFFF,
+                        sonic.getXSpeed() & 0xFFFF,
+                        sonic.getYSpeed() & 0xFFFF,
+                        sonic.getGSpeed() & 0xFFFF));
+        assertEquals((short) 0x06CC, sonic.getCentreY(),
+                "Frame 107: carried Sonic should snap to the CNZ1 start-floor height");
+        assertEquals(0, sonic.getYSubpixelRaw(),
+                "Frame 107: carried landing should clear Sonic's vertical subpixel remainder");
+        assertEquals((short) 0, sonic.getYSpeed(),
+                "Frame 107: landing probe should clear Sonic.y_speed");
+        assertEquals(sonic.getXSpeed(), sonic.getGSpeed(),
+                "Frame 107: landing probe should transfer x_speed to ground speed");
     }
 
     @Test
