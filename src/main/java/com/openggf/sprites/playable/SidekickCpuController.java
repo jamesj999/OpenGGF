@@ -91,6 +91,13 @@ public class SidekickCpuController {
     private boolean carryParentagePending;
     private int releaseCooldown;
 
+    // =====================================================================
+    // Tails flight/catch-up state (ROM Tails_CPU_flight_timer + steering state)
+    // =====================================================================
+    private int flightTimer;
+    private int catchUpTargetX;
+    private int catchUpTargetY;
+
     public SidekickCpuController(AbstractPlayableSprite sidekick) {
         this(sidekick, null);
     }
@@ -986,5 +993,8 @@ public class SidekickCpuController {
         carryLatchY = 0;
         flyingCarryingFlag = false;
         releaseCooldown = 0;
+        flightTimer = 0;
+        catchUpTargetX = 0;
+        catchUpTargetY = 0;
     }
 }
