@@ -666,14 +666,14 @@ public class SidekickCpuController {
             // animation is driven by the forced-anim slot already set at entry.
         }
 
-        // 3. Target = Sonic's 16-frame-delayed position.
+        // 3. Target = Sonic's 16-frame-delayed position. ROM
+        //    Tails_FlySwim_Unknown reads Pos_table directly
+        //    (sonic3k.asm:26564-26565) with NO lead offset — the `subi.w #$20, d2`
+        //    adjustment lives only in the NORMAL follow AI at loc_13DA6
+        //    (sonic3k.asm:26690-26694). An earlier iteration of this body
+        //    mis-applied that offset here and produced a chronic -0x20 X drift.
         int targetX = leader.getCentreX(ROM_FOLLOW_DELAY_FRAMES) & 0xFFFF;
         int targetY = leader.getCentreY(ROM_FOLLOW_DELAY_FRAMES) & 0xFFFF;
-        // ROM sonic3k.asm:26690-26694: if Sonic not on-object AND ground_vel < $400,
-        // lead him by $20 on X.
-        if (!leader.isOnObject() && Math.abs(leader.getGSpeed()) < LEAD_SUPPRESS) {
-            targetX -= LEAD_OFFSET;
-        }
         catchUpTargetX = targetX;
         catchUpTargetY = targetY;
 
@@ -741,6 +741,15 @@ public class SidekickCpuController {
             sidekick.setMoveLockTimer(0);
             sidekick.setForcedAnimationId(-1);
             sidekick.setAir(true);
+            // ROM loc_1384A (sonic3k.asm:26213): while object_control bit 0 is
+            // set (FLIGHT_AUTO_RECOVERY keeps it high), double_jump_flag is
+            // cleared every frame by the dispatcher. On the NORMAL transition
+            // the engine just cleared object_control, so the dispatcher's
+            // auto-clear won't fire next tick; without this explicit write,
+            // doubleJumpFlag would still be 1 and
+            // PlayableSpriteMovement.applyGravity() would keep applying the
+            // +0x08 flight gravity to a grounded Tails in NORMAL.
+            sidekick.setDoubleJumpFlag(0);
             state = State.NORMAL;
             normalFrameCount = 0;
             return;
