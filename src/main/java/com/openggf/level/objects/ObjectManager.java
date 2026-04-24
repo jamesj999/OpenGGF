@@ -3560,8 +3560,21 @@ public class ObjectManager {
                                 sidekick.setGSpeed((short) -sidekick.getGSpeed());
                             }
                         } else {
-                            // Touch_KillEnemy: position-based bounce
-                            applyEnemyBounce(sidekick, instance);
+                            // Touch_KillEnemy: position-based bounce.
+                            // ROM parity (sonic3k.asm:20953): when an enemy is destroyed by
+                            // Touch_EnemyNormal, status bit 7 is set on it. ReactToItem on
+                            // subsequent (sidekick) collision passes sees the bit and skips
+                            // the object. The collision loop here uses a pre-update snapshot
+                            // (usePreUpdateState=true), so when Sonic destroys a badnik
+                            // earlier in the same frame, Tails's snapshot still reports the
+                            // ENEMY category against an instance that was just destroyed.
+                            // Mirror the ROM by gating the bounce on a live-destroyed check.
+                            // S2 has the matching mechanism (s2.constants.asm:231 -
+                            // status.npc.no_balancing bit 7, set by Touch_Enemy_Part2).
+                            // S1 lacks a sidekick AI, so this branch is unreachable there.
+                            if (!(instance instanceof AbstractObjectInstance aoi) || !aoi.isDestroyed()) {
+                                applyEnemyBounce(sidekick, instance);
+                            }
                         }
                     } else {
                         applySidekickHurt(sidekick, instance);
