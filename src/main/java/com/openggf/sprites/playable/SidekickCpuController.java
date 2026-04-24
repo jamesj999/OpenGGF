@@ -604,7 +604,132 @@ public class SidekickCpuController {
      * <p>Stubbed in Task 2; body lands in Task 5.
      */
     private void updateFlightAutoRecovery() {
-        // TODO(Task 5): port sonic3k.asm:26534-26653.
+        // ROM Tails_FlySwim_Unknown (sonic3k.asm:26534-26653).
+        final int AUTO_LAND_FRAMES = com.openggf.game.sonic3k.constants
+                .Sonic3kConstants.TAILS_FLIGHT_AUTO_LAND_FRAMES;
+        final int MAX_X_STEP = com.openggf.game.sonic3k.constants
+                .Sonic3kConstants.TAILS_FLIGHT_MAX_X_STEP;
+        final int Y_STEP = com.openggf.game.sonic3k.constants
+                .Sonic3kConstants.TAILS_FLIGHT_Y_STEP;
+        final int LEAD_SUPPRESS = com.openggf.game.sonic3k.constants
+                .Sonic3kConstants.TAILS_FLIGHT_LEAD_SUPPRESS_GSPEED;
+        final int LEAD_OFFSET = com.openggf.game.sonic3k.constants
+                .Sonic3kConstants.TAILS_FLIGHT_LEAD_X_OFFSET;
+        final int FLIGHT_FUEL = (8 * 60) / 2;   // ROM loc_13C3A:26552 double_jump_property reload
+
+        // 1. Off-screen timer. The ROM check is `tst.b render_flags(a0); bmi.s loc_13C3A`.
+        //    Engine: hasRenderFlagOnScreenState() + isRenderFlagOnScreen() mirrors the bit.
+        boolean onScreen = sidekick.hasRenderFlagOnScreenState()
+                ? sidekick.isRenderFlagOnScreen()
+                : isCurrentlyVisible();
+        if (!onScreen) {
+            flightTimer++;
+            if (flightTimer >= AUTO_LAND_FRAMES) {
+                // ROM sonic3k.asm:26540-26547 — reset and bounce back to CATCH_UP.
+                flightTimer = 0;
+                sidekick.setCentreX((short) 0);
+                sidekick.setCentreY((short) 0);
+                sidekick.setObjectControlled(true);
+                sidekick.setAir(true);
+                sidekick.setDoubleJumpFlag(1);
+                sidekick.setDoubleJumpProperty((byte) FLIGHT_FUEL);
+                sidekick.setForcedAnimationId(flyAnimId);
+                state = State.CATCH_UP_FLIGHT;
+                return;
+            }
+        } else {
+            // ROM loc_13C3A (sonic3k.asm:26551-26555): every on-screen frame
+            // resets the flight timer AND refuels double_jump_property to
+            // (8*60)/2 = 240. The refuel is what keeps Tails's flapping
+            // animation + flight state active indefinitely while on-screen.
+            flightTimer = 0;
+            sidekick.setDoubleJumpProperty((byte) FLIGHT_FUEL);
+            // Tails_Set_Flying_Animation is normally called here; the engine's
+            // animation is driven by the forced-anim slot already set at entry.
+        }
+
+        // 3. Target = Sonic's 16-frame-delayed position.
+        int targetX = leader.getCentreX(ROM_FOLLOW_DELAY_FRAMES) & 0xFFFF;
+        int targetY = leader.getCentreY(ROM_FOLLOW_DELAY_FRAMES) & 0xFFFF;
+        // ROM sonic3k.asm:26690-26694: if Sonic not on-object AND ground_vel < $400,
+        // lead him by $20 on X.
+        if (!leader.isOnObject() && Math.abs(leader.getGSpeed()) < LEAD_SUPPRESS) {
+            targetX -= LEAD_OFFSET;
+        }
+        catchUpTargetX = targetX;
+        catchUpTargetY = targetY;
+
+        // 4. X steer: dx = Tails.x - target.x. Track residual distance AFTER
+        //    the step (ROM d0 is zeroed in the overshoot-clamp branch at
+        //    loc_13CA6/loc_13CAA, so the close-enough check uses the
+        //    post-step value, not the pre-step value).
+        int dx = (sidekick.getCentreX() & 0xFFFF) - targetX;
+        int residualX = dx;
+        if (dx != 0) {
+            int absDx = Math.abs(dx);
+            int step = absDx >> 4;
+            if (step > MAX_X_STEP) {
+                step = MAX_X_STEP;
+            }
+            // ROM sonic3k.asm:26580-26586: move.b x_vel(a1), d1 reads the HIGH
+            // byte of Sonic's 16-bit x_vel (big-endian 68000). Engine x_vel is
+            // stored in subpixels (256/px), so the ROM's "pixel velocity" byte
+            // is (xSpeed >> 8) & 0xFF. Use the signed 8-bit absolute value.
+            int sonicPixelXVel = (leader.getXSpeed() >> 8);
+            int sonicXVelMag = Math.abs((byte) sonicPixelXVel);
+            step += sonicXVelMag + 1;   // ROM addq.w #1, d2
+            if (step >= absDx) {
+                step = absDx;           // Clamp to |dx| — overshoot branch
+                residualX = 0;          //   (loc_13CA6 / loc_13CAA clear d0)
+            }
+            int newX = (dx > 0)
+                    ? (sidekick.getCentreX() & 0xFFFF) - step
+                    : (sidekick.getCentreX() & 0xFFFF) + step;
+            sidekick.setCentreXPreserveSubpixel((short) newX);
+        }
+
+        // 5. Y steer: +/-1 per frame. Same post-step residual tracking.
+        int dy = (sidekick.getCentreY() & 0xFFFF) - targetY;
+        int residualY = dy;
+        if (dy != 0) {
+            int newY = (dy > 0)
+                    ? (sidekick.getCentreY() & 0xFFFF) - Y_STEP
+                    : (sidekick.getCentreY() & 0xFFFF) + Y_STEP;
+            sidekick.setCentreYPreserveSubpixel((short) newY);
+            // Y step never overshoots (it's ±1 per frame), so residualY
+            // approaches 0 but may not reach it for many frames. That matches
+            // the ROM which only clears d1 via the beq.s loc_13CD2 at
+            // sonic3k.asm:26613 when y_pos(a0) == target before the step.
+            if (Math.abs(residualY) <= Y_STEP) {
+                residualY = 0;
+            }
+        }
+
+        // 6. Transition to NORMAL when close enough AND Sonic alive AND
+        //    Sonic not in an uninterruptible state. Close-enough uses the
+        //    post-step residuals (see residualX/residualY above).
+        boolean closeEnough = residualX == 0 && residualY == 0;
+        boolean sonicAlive = !leader.isHurt() && !leader.getDead();
+        // ROM sonic3k.asm:26624-26630: also checks a stat_table flag bit 7.
+        // Engine approximation: isObjectControlled.
+        boolean sonicFreeOfLock = !leader.isObjectControlled();
+
+        if (closeEnough && sonicAlive && sonicFreeOfLock) {
+            // ROM sonic3k.asm:26631-26648 — return to NORMAL (routine 0x06).
+            sidekick.setObjectControlled(false);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setMoveLockTimer(0);
+            sidekick.setForcedAnimationId(-1);
+            sidekick.setAir(true);
+            state = State.NORMAL;
+            normalFrameCount = 0;
+            return;
+        }
+
+        // 7. Otherwise keep object_control locked to keep flight AI active.
+        sidekick.setObjectControlled(true);
     }
 
     /**
