@@ -27,6 +27,8 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
+import com.openggf.physics.Direction;
+import com.openggf.physics.SensorResult;
 import com.openggf.level.scroll.M68KMath;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -156,6 +158,32 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
                 }
             }
         }
+    }
+
+    @Override
+    public boolean shouldTreatZeroDistanceAirLandingAsGround(AbstractPlayableSprite player,
+                                                             SensorResult support) {
+        if (player == null || support == null || support.direction() != Direction.DOWN) {
+            return false;
+        }
+        if (getFeatureZoneId() != Sonic3kZoneIds.ZONE_AIZ || getFeatureActId() != 0) {
+            return false;
+        }
+        // AIZ1's intro-refreshed rock terrain has a one-pixel contact boundary
+        // where the ROM lands while the engine's pixel-only sensor reports d1=0.
+        // Keep this scoped to flat/downward rolling landings so the shared air
+        // collision rule remains unchanged for S1/S2 and other S3K zones.
+        int angle = support.angle() & 0xFF;
+        boolean flatFloor = angle <= 0x0F || angle >= 0xF0;
+        return flatFloor
+                && player.getAir()
+                && player.getRolling()
+                && player.getYSpeed() >= 0;
+    }
+
+    protected int getFeatureZoneId() {
+        var levelManager = GameServices.levelOrNull();
+        return levelManager != null ? levelManager.getFeatureZoneId() : -1;
     }
 
     private void updateAizForestFrontPriority(AbstractPlayableSprite player, int zoneIndex) {

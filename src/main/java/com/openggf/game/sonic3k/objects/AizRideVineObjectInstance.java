@@ -9,6 +9,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PostPlayerUpdateHook;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -21,7 +22,7 @@ import java.util.List;
  * <p>Primary disassembly references:
  * Obj_AIZRideVine / Obj_AIZRideVineHandle (sonic3k.asm:46098-46748).
  */
-public class AizRideVineObjectInstance extends AbstractObjectInstance {
+public class AizRideVineObjectInstance extends AbstractObjectInstance implements PostPlayerUpdateHook {
     private static final int ROOT_FRAME = 0x21;
     private static final int HANDLE_FRAME = 0x20;
     private static final int PRIORITY_BUCKET = 4; // priority $200
@@ -133,6 +134,14 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     @Override
     public void onUnload() {
         clearGrabbedPlayers();
+    }
+
+    @Override
+    public void updatePostPlayer(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
+        AizVineHandleLogic.updatePostPlayer(handle, player, sidekick);
     }
 
     private void updateRootState() {
@@ -291,6 +300,9 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         var sidekicks = services().sidekicks();
         AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         AizVineHandleLogic.updatePlayers(handle, services(), player, sidekick, lastSegment.angle);
+        if (services().levelManager() != null && services().levelManager().usesInlineObjectSolidResolution()) {
+            AizVineHandleLogic.updatePostPlayer(handle, player, sidekick);
+        }
     }
 
     private void updateStillSprite() {

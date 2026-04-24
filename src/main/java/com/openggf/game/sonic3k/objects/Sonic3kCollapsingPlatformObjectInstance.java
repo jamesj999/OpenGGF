@@ -80,14 +80,14 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
      * Gentle slope from 0x1F (left) to 0x0E (right).
      */
     private static final byte[] AIZ_SLOPE_DATA = {
-            0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1E, 0x1E, 0x1E,
-            0x1E, 0x1D, 0x1D, 0x1D, 0x1D, 0x1C, 0x1C, 0x1C,
-            0x1C, 0x1B, 0x1B, 0x1B, 0x1B, 0x1A, 0x1A, 0x1A,
-            0x1A, 0x19, 0x19, 0x19, 0x19, 0x18, 0x18, 0x18,
-            0x18, 0x17, 0x17, 0x17, 0x17, 0x16, 0x16, 0x16,
-            0x16, 0x15, 0x15, 0x15, 0x15, 0x14, 0x14, 0x14,
-            0x14, 0x13, 0x13, 0x13, 0x13, 0x12, 0x12, 0x12,
-            0x12, 0x11, 0x11, 0x10, 0x10, 0x0F, 0x0F, 0x0E
+            0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
+            0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F,
+            0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1E, 0x1E,
+            0x1D, 0x1D, 0x1C, 0x1C, 0x1B, 0x1B, 0x1A, 0x1A,
+            0x19, 0x19, 0x18, 0x18, 0x17, 0x17, 0x16, 0x16,
+            0x15, 0x15, 0x14, 0x14, 0x13, 0x13, 0x12, 0x12,
+            0x11, 0x11, 0x10, 0x10, 0x0F, 0x0F, 0x0E, 0x0E,
+            0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E
     };
 
     /**
@@ -96,11 +96,11 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
      */
     private static final byte[] ICZ_SLOPE_DATA = {
             0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-            0x30, 0x2F, 0x2E, 0x2D, 0x2C, 0x2B, 0x2A, 0x29
+            0x30, 0x30, 0x30, 0x30, 0x2F, 0x2F, 0x2F, 0x2F,
+            0x2F, 0x2F, 0x2F, 0x2F, 0x2F, 0x2F, 0x2F, 0x2F,
+            0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E,
+            0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D,
+            0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2C, 0x2B, 0x2A
     };
 
     /** Per-zone configuration record. */
@@ -147,6 +147,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     // The parent remains solid and invisible for this many frames after fragments spawn,
     // then releases the player. (ROM: loc_205DE countdown -> sub_205FC release)
     private int solidStayTimer;
+    private boolean releasePending;
 
     // Post-fragment parent fall state
     private int velY;
@@ -192,6 +193,19 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
+    public boolean rejectsZeroDistanceTopSolidLanding() {
+        return true;
+    }
+
+    @Override
+    public boolean allowsObjectControlledSolidContacts() {
+        // S3K SolidObjCheckSloped2 only rejects negative object_control values.
+        // AIZ's sequence can hold a positive object-control state while this
+        // platform still supports the player.
+        return true;
+    }
+
+    @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid during normal, collapsing, AND solid-stay states.
@@ -204,6 +218,17 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        if (releasePending && player != null && contact.standing()) {
+            // ROM loc_205DE resolves SolidObjectTopSloped2 before sub_205FC
+            // releases the player. The engine's separate solid pass is the
+            // matching point to clear ride state after the no-movement frame.
+            state = 3;
+            releasePending = false;
+            player.setAir(true);
+            player.setOnObject(false);
+            services().objectManager().clearRidingObject(player);
+            return;
+        }
         if (contact.standing() && state == 0) {
             // Player stepped on: set trigger flag (ROM: $3A)
             triggered = true;
@@ -234,16 +259,14 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
             case 2 -> {
                 // Solid-stay: parent is invisible but still solid (ROM: loc_205DE).
                 // Player continues standing on the invisible platform while fragments
-                // fall away beneath them. Timer counts down from collapseDelays[0].
+                // fall away beneath them. ROM calls sub_205B6 before decrementing
+                // $38, so the normal solid pass must still see this object as solid.
+                if (releasePending) {
+                    break;
+                }
                 solidStayTimer--;
                 if (solidStayTimer <= 0) {
-                    // Timer expired: release the player and start falling.
-                    // ROM: sub_205FC clears Status_OnObj, Status_Push, sets Status_InAir.
-                    state = 3;
-                    if (player != null) {
-                        player.setAir(true);
-                        player.setOnObject(false);
-                    }
+                    releasePending = true;
                 }
             }
             case 3 -> {
@@ -275,7 +298,11 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         // ROM: ObjPlatformCollapse_SmashObject writes collapseDelays[0] into the parent's $38,
         // and loc_205DE counts it down while still calling SolidObjectTopSloped2.
         state = 2;
-        solidStayTimer = config.collapseDelays[0];
+        releasePending = false;
+        // ROM loc_205DE resolves SolidObjectTopSloped2 before decrementing $38.
+        // ObjectManager runs object updates before the separate solid pass, so keep
+        // one extra stored tick to expose the same number of solid frames.
+        solidStayTimer = config.collapseDelays[0] + 1;
 
         // Play collapse SFX
         if (isOnScreen()) {

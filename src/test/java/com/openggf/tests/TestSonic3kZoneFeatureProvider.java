@@ -10,6 +10,8 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.runtime.AizZoneRuntimeState;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.physics.Direction;
+import com.openggf.physics.SensorResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,8 +125,32 @@ public class TestSonic3kZoneFeatureProvider {
         assertEquals(0x3E0, provider.slotDisplayOriginY());
     }
 
+    @Test
+    public void aiz1AllowsZeroDistanceAirLandingOnlyForRollingFlatFloorContact() {
+        TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
+        provider.setFeatureZoneId(Sonic3kZoneIds.ZONE_AIZ);
+        provider.setFeatureActId(0);
+        TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0, (short) 0);
+        player.setAir(true);
+        player.setRolling(true);
+        player.setYSpeed((short) 0x0568);
+
+        assertTrue(provider.shouldTreatZeroDistanceAirLandingAsGround(
+                player, new SensorResult((byte) 0xFF, (byte) 0, 0x95, Direction.DOWN)));
+
+        player.setRolling(false);
+        assertFalse(provider.shouldTreatZeroDistanceAirLandingAsGround(
+                player, new SensorResult((byte) 0xFF, (byte) 0, 0x95, Direction.DOWN)));
+
+        provider.setFeatureZoneId(Sonic3kZoneIds.ZONE_HCZ);
+        player.setRolling(true);
+        assertFalse(provider.shouldTreatZeroDistanceAirLandingAsGround(
+                player, new SensorResult((byte) 0xFF, (byte) 0, 0x95, Direction.DOWN)));
+    }
+
     private static final class TestZoneFeatureProvider extends Sonic3kZoneFeatureProvider {
         private AizZoneRuntimeState aizState;
+        private int featureZoneId = Sonic3kZoneIds.ZONE_AIZ;
         private int featureActId = 1;
 
         void setAizEvents(Sonic3kAIZEvents aizEvents) {
@@ -137,9 +163,18 @@ public class TestSonic3kZoneFeatureProvider {
             this.featureActId = featureActId;
         }
 
+        void setFeatureZoneId(int featureZoneId) {
+            this.featureZoneId = featureZoneId;
+        }
+
         @Override
         protected AizZoneRuntimeState getAizState() {
             return aizState;
+        }
+
+        @Override
+        protected int getFeatureZoneId() {
+            return featureZoneId;
         }
 
         @Override

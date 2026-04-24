@@ -27,11 +27,6 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     private static final int CAMERA_LOCK_TIMER = 0x3C;
 
     private static final int MIN_CAPTURE_X_SPEED = 0x600;
-    private static final int TOP_EXIT_SOFT_PROGRESS_WORD = 0x3C0;
-    private static final int TOP_EXIT_PROGRESS_WORD = 0x400;
-    private static final int TOP_EXIT_X_NUDGE = 2;
-    private static final int TOP_EXIT_Y_NUDGE = 1;
-    private static final int TOP_EXIT_MIN_X_SPEED = 0x180;
 
     // AIZTree_PlayerFrames table.
     private static final int[] PLAYER_FRAMES = {
@@ -97,9 +92,6 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         }
 
         if (releaseObjectControlPending[slot]) {
-            // Engine update order runs objects before movement. Defer object-control clear
-            // until the next frame so AIZTree_FallOff release velocity applies from the
-            // same frame boundary as the ROM object list ordering.
             releaseObjectControlPending[slot] = false;
             player.setObjectControlled(false);
         }
@@ -108,6 +100,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             tryCapturePlayer(player, slot, mainPlayer);
             return;
         }
+
+        advanceRideInertia(player);
 
         int absGroundSpeed = Math.abs(player.getGSpeed());
         if (absGroundSpeed < MIN_CAPTURE_X_SPEED) {
@@ -170,8 +164,9 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setYSpeed((short) 0);
         player.setObjectMappingFrameControl(true);
         player.setForcedAnimationId(Sonic3kAnimationIds.WALK);
-        // Engine update order runs objects before player movement; keep movement disabled while
-        // riding so AIZTree_SetPlayerPos writes are not overwritten later in the frame.
+        // The tree owns the player's vertical path and animation while riding.
+        // setPlayerOnTree applies the preserved horizontal inertia before the
+        // ROM path formula so the path delta still uses the moved x_pos.
         player.setObjectControlled(true);
         player.setControlLocked(false);
         player.setAir(false);
@@ -215,13 +210,13 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         int sin = TrigLookupTable.sinHex(angle);
         int xOffset = (sin * 0x7000) >> 16;
         int newX = treeX + xOffset;
-        player.setCentreX((short) newX);
+        player.setCentreXPreserveSubpixel((short) newX);
         player.setXSpeed((short) ((newX - oldX) << 8));
 
         int oldY = player.getCentreY();
         int yOffset = 0x90 - (progressWord >>> 2);
         int newY = treeY + yOffset;
-        player.setCentreY((short) newY);
+        player.setCentreYPreserveSubpixel((short) newY);
         player.setYSpeed((short) ((newY - oldY) << 8));
 
         int frameIndex = ((progressWord >>> 1) / 0x0B);
@@ -229,19 +224,18 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setMappingFrame(PLAYER_FRAMES[frameIndex]);
     }
 
+    private void advanceRideInertia(AbstractPlayableSprite player) {
+        if (!player.isObjectControlled()) {
+            return;
+        }
+        player.setXSpeed(player.getGSpeed());
+        player.setYSpeed((short) 0);
+        player.move(player.getGSpeed(), (short) 0);
+    }
+
     private void fallOffTree(AbstractPlayableSprite player, int slot) {
-        int exitProgressWord = progressWord(progress[slot]);
-        boolean topExit = exitProgressWord >= TOP_EXIT_PROGRESS_WORD
-                || exitProgressWord >= TOP_EXIT_SOFT_PROGRESS_WORD;
         riding[slot] = false;
         progress[slot] = 0;
-
-        if (topExit) {
-            // Keep top lip clearance on hollow-tree exit to match ROM traversal envelope.
-            int xSign = player.getXSpeed() < 0 ? -1 : 1;
-            player.setCentreX((short) (player.getCentreX() + (xSign * TOP_EXIT_X_NUDGE)));
-            player.setCentreY((short) (player.getCentreY() - TOP_EXIT_Y_NUDGE));
-        }
 
         player.setAir(true);
         // Hollow-tree fall-off in ROM updates collision radius (center-based) directly.
@@ -259,16 +253,10 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setForcedAnimationId(-1);
         player.setObjectMappingFrameControl(false);
         player.setControlLocked(false);
-        // Keep these until next object tick (see updatePlayer deferred clear above).
-        releaseObjectControlPending[slot] = true;
-        if (topExit && Math.abs(player.getXSpeed()) < TOP_EXIT_MIN_X_SPEED) {
-            // Preserve forward momentum when release occurs near the top arc where
-            // geometric delta-X can quantize to near zero in one frame.
-            player.setXSpeed(player.getGSpeed());
-        }
+        player.setObjectControlled(false);
+        releaseObjectControlPending[slot] = false;
         player.setXSpeed((short) (player.getXSpeed() >> 1));
         player.setYSpeed((short) (player.getYSpeed() >> 1));
-        player.setGSpeed(player.getXSpeed());
     }
 
     // 68k move.w (a2) over a long reads the upper 16 bits (big-endian layout).
