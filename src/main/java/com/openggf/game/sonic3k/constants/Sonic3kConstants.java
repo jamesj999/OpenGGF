@@ -1810,6 +1810,38 @@ public class Sonic3kConstants {
     /** Sonic's `anim` byte while carried. ROM: sub_1459E writes 0x2200 word (high byte 0x22). */
     public static final int CARRY_SONIC_ANIM_BYTE = 0x22;
 
+    // =====================================================================
+    // S3K Tails CPU flight/catch-up constants
+    // sonic3k.asm:26474+ (Tails_Catch_Up_Flying) and 26534+ (Tails_FlySwim_Unknown)
+    // =====================================================================
+
+    /** Y offset applied when Tails teleports above Sonic on catch-up entry.
+     *  ROM sonic3k.asm:26494 (`subi.w #$C0, d0`). */
+    public static final int TAILS_CATCH_UP_Y_OFFSET = 0xC0;
+
+    /** Auto-land timeout for Tails_FlySwim_Unknown; after 5 seconds off-screen
+     *  Tails falls back to CATCH_UP_FLIGHT so the teleport re-runs.
+     *  ROM sonic3k.asm:26538 (`cmpi.w #5*60, (Tails_CPU_flight_timer).w`). */
+    public static final int TAILS_FLIGHT_AUTO_LAND_FRAMES = 5 * 60;
+
+    /** Horizontal steer step clamp for Tails_FlySwim_Unknown: the normalized
+     *  |dx| >> 4 is capped at 0xC, producing a max of 12 px/frame X movement.
+     *  ROM sonic3k.asm:26576 (`cmpi.w #$C, d2`). */
+    public static final int TAILS_FLIGHT_MAX_X_STEP = 0xC;
+
+    /** Vertical steer step for Tails_FlySwim_Unknown: always +/-1 px per frame
+     *  toward the target Y.  ROM sonic3k.asm:26612 (`moveq #1, d2`). */
+    public static final int TAILS_FLIGHT_Y_STEP = 1;
+
+    /** The "ahead of Sonic" leading offset applied to Sonic's delayed X when
+     *  he is not on an object and his ground speed is < 0x400.
+     *  ROM sonic3k.asm:26694 (`subi.w #$20, d2`). */
+    public static final int TAILS_FLIGHT_LEAD_X_OFFSET = 0x20;
+
+    /** The ground-speed threshold Sonic must exceed for the lead offset to be
+     *  suppressed.  ROM sonic3k.asm:26692 (`cmpi.w #$400, ground_vel(a1)`). */
+    public static final int TAILS_FLIGHT_LEAD_SUPPRESS_GSPEED = 0x400;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {
