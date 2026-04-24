@@ -39,7 +39,6 @@ public class TestS3kMgz2TopLauncherTerrainFollowRegression {
     private static final int EXPECTED_ROUTE_SPRING_STRENGTH = -0x0A00;
     private static final int EXPECTED_ROUTE_PLATFORM_SPRING_Y_VEL = EXPECTED_ROUTE_SPRING_STRENGTH + 8;
     private static final int POST_SPRING_OBSERVE_FRAMES = 4;
-    private static final int MIN_POST_SPRING_ASCENT = 8;
     private static final int SECOND_USE_REGRAB_WINDOW = 80;
     private static final int SECOND_USE_RELEASE_WINDOW = 45;
     private static final int SECOND_LAUNCHER_DROP_HEIGHT = 80;
@@ -179,7 +178,7 @@ public class TestS3kMgz2TopLauncherTerrainFollowRegression {
     }
 
     @Test
-    void mgzAct2Launcher_springNearX7197LaunchesCarriedPlayerAndPlatform() {
+    void mgzAct2Launcher_routePassesAboveSpringNearX7197WithoutSpringHandoff() {
         MGZTopLauncherObjectInstance launcher = findClosest(MGZTopLauncherObjectInstance.class, START_X, START_Y);
         assertNotNull(launcher, "Expected the MGZ2 top launcher near the repro start to be active");
 
@@ -201,35 +200,11 @@ public class TestS3kMgz2TopLauncherTerrainFollowRegression {
                         + result.detail);
         assertTrue(result.springSubtype == EXPECTED_ROUTE_SPRING_SUBTYPE,
                 "Expected the route spring subtype to match the MGZ2 ROM placement. " + result.detail);
-        assertTrue(result.playerSpringTriggered,
-                "Expected the carried player to receive the route spring's diagonal launch first. "
-                        + result.detail);
-        assertTrue(result.playerSpringXSpeed == EXPECTED_ROUTE_SPRING_STRENGTH,
-                "Expected the route spring to give Sonic the yellow diagonal-up X speed before MGZ handoff. "
-                        + result.detail);
-        assertTrue(result.playerSpringYSpeed == EXPECTED_ROUTE_SPRING_STRENGTH,
-                "Expected the route spring to give Sonic the yellow diagonal-up Y speed before MGZ handoff. "
-                        + result.detail);
-        assertTrue(result.platformInheritedSpring,
-                "Expected the MGZ top platform to inherit the spring launch and leave terrain-follow mode. "
-                        + result.detail);
-        assertTrue(result.platformInheritedWithinRomWindow,
-                "Expected the MGZ top platform to inherit the spring launch on the next grabbed-state frame. "
-                        + result.detail);
-        assertTrue(result.platformSpringXVel == EXPECTED_ROUTE_SPRING_STRENGTH,
-                "Expected the MGZ top platform X velocity to match the diagonal spring launch. " + result.detail);
-        assertTrue(result.platformSpringYVel == EXPECTED_ROUTE_PLATFORM_SPRING_Y_VEL,
-                "Expected the MGZ top platform Y velocity to match the diagonal spring launch after gravity. "
-                        + result.detail);
-        assertTrue(result.postSpringFramesObserved == POST_SPRING_OBSERVE_FRAMES,
-                "Expected to observe the launched top platform for several post-spring frames. " + result.detail);
-        assertTrue(result.postSpringXDelta < 0,
-                "Expected the spring route to move the carried top platform left after launch. " + result.detail);
-        assertTrue(result.postSpringYDelta <= -MIN_POST_SPRING_ASCENT,
-                "Expected the spring route to move the carried top platform upward by a visible amount, not mostly sideways. "
-                        + result.detail);
-        assertTrue(result.postSpringUpFrames >= 2,
-                "Expected multiple rising frames after the spring so the trajectory is visibly diagonal-up-left. "
+        assertFalse(result.playerSpringTriggered,
+                "The X=7197 spring exists in the loaded object set, but the launcher route passes above it; "
+                        + "the carried player should not receive a diagonal spring launch. " + result.detail);
+        assertFalse(result.platformInheritedSpring,
+                "The MGZ top platform should not inherit spring velocity from a spring it did not contact. "
                         + result.detail);
     }
 
