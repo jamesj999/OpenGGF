@@ -1842,6 +1842,9 @@ public class Sonic3kConstants {
      *  suppressed.  ROM sonic3k.asm:26692 (`cmpi.w #$400, ground_vel(a1)`). */
     public static final int TAILS_FLIGHT_LEAD_SUPPRESS_GSPEED = 0x400;
 
+    /** ROM sub_13ECA off-screen marker X for despawned Tails. sonic3k.asm:26806. */
+    public static final int TAILS_CPU_DESPAWN_X = 0x7F00;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {

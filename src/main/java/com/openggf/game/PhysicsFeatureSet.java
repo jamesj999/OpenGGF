@@ -1,5 +1,7 @@
 package com.openggf.game;
 
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+
 /**
  * Feature flags gating optional physics mechanics per game.
  *
@@ -107,7 +109,16 @@ public record PhysicsFeatureSet(
          *             s2.asm:38967 TailsCPU_Normal_FollowRight).
          *  S3K: 0x30 (sonic3k.asm:26712 loc_13DF2,
          *             sonic3k.asm:26729 loc_13E26). */
-        int sidekickFollowSnapThreshold
+        int sidekickFollowSnapThreshold,
+        /** Off-screen marker X-position written by the sidekick CPU despawn routine.
+         *  S3K: 0x7F00 (sonic3k.asm:26806 sub_13ECA writes {@code #$7F00, x_pos(a0)}).
+         *  S2:  0x4000 — engine placeholder preserved for parity with existing S2
+         *  behaviour and traces; S2's TailsCPU respawn instead resets to Sonic's
+         *  position (s2.asm: TailsCPU_RespawnTails) so this value is largely
+         *  inert there.
+         *  S1:  0x4000 — S1 has no Tails CPU sidekick, value is unreachable;
+         *  kept symmetric with S2 to avoid an "unused" sentinel. */
+        int sidekickDespawnX
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -138,6 +149,15 @@ public record PhysicsFeatureSet(
      *  (sonic3k.asm:26712 loc_13DF2, sonic3k.asm:26729 loc_13E26). */
     public static final int SIDEKICK_FOLLOW_SNAP_S3K = 0x30;
 
+    /** S1/S2: engine placeholder for the sidekick despawn off-screen X marker.
+     *  S1 has no CPU sidekick (value is unreachable). S2's TailsCPU respawn does
+     *  not consume this marker — it resets Tails to Sonic's position — so the
+     *  current 0x4000 value is preserved to avoid disturbing S2 traces. */
+    public static final int SIDEKICK_DESPAWN_X_S2 = 0x4000;
+    /** S3K: ROM sub_13ECA writes {@code #$7F00, x_pos(a0)} as the off-screen
+     *  marker X for despawned Tails (sonic3k.asm:26806). */
+    public static final int SIDEKICK_DESPAWN_X_S3K = Sonic3kConstants.TAILS_CPU_DESPAWN_X;
+
     /** Sonic 1: no spindash, single collision path, fixed AnglePos threshold, instant look scroll, water shimmer,
      *  always caps ground speed on input (s1disasm/_incObj/01 Sonic.asm:554-558),
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
@@ -146,7 +166,7 @@ public record PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
             null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
-            SIDEKICK_FOLLOW_SNAP_S2);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -157,7 +177,7 @@ public record PhysicsFeatureSet(
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
             null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
-            SIDEKICK_FOLLOW_SNAP_S2);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -172,7 +192,7 @@ public record PhysicsFeatureSet(
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
     }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
-            SIDEKICK_FOLLOW_SNAP_S3K);
+            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
