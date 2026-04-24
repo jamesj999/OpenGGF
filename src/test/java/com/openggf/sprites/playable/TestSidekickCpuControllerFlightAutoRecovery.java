@@ -125,4 +125,25 @@ class TestSidekickCpuControllerFlightAutoRecovery {
         assertFalse(tails.isObjectControlled(),
                 "Transition clears Tails's object_control");
     }
+
+    @Test
+    void normalTransitionsToFlightAutoRecoveryWhenLeaderDies() {
+        TestableSprite sonic = sonicAt(0x1000, 0x0400);
+        sonic.setDead(true);
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x0F00);
+        tails.setCentreY((short) 0x0400);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        controller.update(10);
+
+        assertSame(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, controller.getState(),
+                "Dead Sonic drives Tails into flight AI (routine 0x04)");
+        assertEquals(1, tails.getDoubleJumpFlag(),
+                "Flight transition sets double_jump_flag=1 so flight gravity applies");
+        assertTrue(tails.getAir(), "Flight transition sets air bit");
+    }
 }
