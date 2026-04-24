@@ -12,11 +12,16 @@ import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
+import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
+import com.openggf.game.sonic3k.objects.AizMinibossInstance;
+import com.openggf.game.sonic3k.objects.AizMinibossCutsceneInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.LogCaptureHandler;
@@ -561,6 +566,117 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void aiz1MinibossCutsceneLayoutSpawnLoadsAtTriggerWindow() {
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 0)
+                .startPosition((short) (0x2F10 + 152), (short) (0x0200 + 96))
+                .startPositionIsCentre()
+                .build();
+
+        fixture.stepIdleFrames(2);
+
+        LevelManager levelManager = GameServices.level();
+
+        boolean foundCutscene = levelManager.getObjectManager().getActiveObjects().stream()
+                .anyMatch(AizMinibossCutsceneInstance.class::isInstance);
+
+        assertTrue(foundCutscene,
+                "AIZ1 miniboss cutscene object should be loaded from the layout when the camera reaches its trigger window");
+        Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) GameServices.module()
+                .getLevelEventProvider()).getAizEvents();
+        assertTrue(events.isBossFlag(),
+                "AIZ1 miniboss cutscene should set Boss_flag after the trigger camera window is reached");
+    }
+
+    @Test
+    public void aiz1PostFireMinibossSpawnSurvivesUntilTriggerWindow() {
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) (0x0F50 + 152), (short) (0x0200 + 96))
+                .startPositionIsCentre()
+                .build();
+
+        Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) GameServices.module()
+                .getLevelEventProvider()).getAizEvents();
+        assertNotNull(events, "AIZ event handler should be installed for the post-fire AIZ1 miniboss path");
+
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x0F50);
+        camera.setY((short) 0x0200);
+        events.setDynamicResizeRoutine(4); // AIZ2_SonicResize2: post-fire AIZ1 miniboss spawn path.
+
+        fixture.stepIdleFrames(2);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(AizMinibossInstance.class::isInstance),
+                "Post-fire AIZ1 miniboss object should remain active before camera reaches its trigger window");
+    }
+
+    @Test
+    public void aiz2ResizeStartsBattleshipSequenceAtSonicTriggerThroughFrameStep() throws Exception {
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) (0x4160 + 152), (short) (0x0200 + 96))
+                .startPositionIsCentre()
+                .build();
+
+        Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) GameServices.module()
+                .getLevelEventProvider()).getAizEvents();
+        assertNotNull(events, "AIZ event handler should be installed for AIZ2");
+
+        fixture.stepIdleFrames(8);
+
+        assertTrue(events.isBattleshipAutoScrollActive(),
+                "AIZ2 Sonic resize routine should start the battleship bombing run at camera X $4160");
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(AizBattleshipInstance.class::isInstance),
+                "AIZ2 battleship trigger should spawn the runtime battleship controller object");
+    }
+
+    @Test
+    public void aiz2DebugLastCheckpointPathStillStartsBattleshipAtLoopTrigger() throws Exception {
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .build();
+
+        LevelManager levelManager = GameServices.level();
+        ObjectSpawn lastCheckpoint = levelManager.getCurrentLevel().getObjects().stream()
+                .filter(spawn -> spawn.objectId() == 0x34)
+                .max(java.util.Comparator.comparingInt(ObjectSpawn::x))
+                .orElseThrow();
+
+        var player = fixture.sprite();
+        player.setX((short) lastCheckpoint.x());
+        player.setY((short) lastCheckpoint.y());
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 0);
+        player.setAir(false);
+        player.setRolling(false);
+
+        Camera camera = GameServices.camera();
+        camera.setX((short) Math.max(0, lastCheckpoint.x() - 160));
+        camera.setY((short) Math.max(0, lastCheckpoint.y() - 112));
+
+        fixture.stepIdleFrames(8);
+
+        player.setCentreX((short) (0x4160 + 152));
+        player.setCentreY((short) (0x0200 + 96));
+        camera.setX((short) 0x4160);
+        camera.setY((short) 0x0200);
+
+        fixture.stepIdleFrames(8);
+
+        Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) GameServices.module()
+                .getLevelEventProvider()).getAizEvents();
+        assertTrue(events.isBattleshipAutoScrollActive(),
+                "AIZ2 Sonic resize routine should still start after using the live last-checkpoint shortcut");
+        assertTrue(levelManager.getObjectManager().getActiveObjects().stream()
+                        .anyMatch(AizBattleshipInstance.class::isInstance),
+                "AIZ2 live last-checkpoint path should spawn the battleship controller object");
+    }
+
+    @Test
     public void bossFlagDefaultsFalse() {
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
@@ -605,5 +721,3 @@ public class TestSonic3kAIZEvents {
         }
     }
 }
-
-
