@@ -542,7 +542,54 @@ public class SidekickCpuController {
      * <p>Stubbed in Task 2; body lands in Task 4.
      */
     private void updateCatchUpFlight() {
-        // TODO(Task 4): port sonic3k.asm:26474-26531.
+        // ROM Tails_Catch_Up_Flying (sonic3k.asm:26474-26531)
+        boolean trigger = false;
+
+        // Ctrl_2_logical A/B/C/START press → immediate trigger
+        if ((controller2Logical & (AbstractPlayableSprite.INPUT_JUMP | INPUT_START)) != 0) {
+            trigger = true;
+        } else {
+            // 64-frame gate, suppressed if Sonic is object-controlled (bit 7) or super.
+            if ((frameCounter & 0x3F) == 0
+                    && !leader.isObjectControlled()
+                    && !leader.isSuperSonic()) {
+                trigger = true;
+            }
+        }
+
+        if (!trigger) {
+            return;
+        }
+
+        // sonic3k.asm:26487 (loc_13B50) — teleport and enter FLIGHT_AUTO_RECOVERY.
+        int targetX = leader.getCentreX() & 0xFFFF;
+        int targetY = leader.getCentreY() & 0xFFFF;
+        catchUpTargetX = targetX;
+        catchUpTargetY = targetY;
+        sidekick.setCentreXPreserveSubpixel((short) targetX);
+        sidekick.setCentreYPreserveSubpixel(
+                (short) (targetY - com.openggf.game.sonic3k.constants.Sonic3kConstants.TAILS_CATCH_UP_Y_OFFSET));
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setAir(true);
+        sidekick.setRolling(false);
+        sidekick.setRollingJump(false);
+        sidekick.setJumping(false);
+        sidekick.setPushing(false);
+        sidekick.setOnObject(false);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setForcedAnimationId(flyAnimId);
+        // ROM writes double_jump_flag=0 then status=2 (clears all); engine separates
+        // those: we want doubleJumpFlag=1 so the FLY-gravity gate in
+        // PlayableSpriteMovement.applyGravity stays enabled immediately. The ROM
+        // gets the same effect because Tails_Stand_Freespace reads status.air AND
+        // status.underwater for its Tails_FlyingSwimming branch — but the engine's
+        // gate is explicit, so we pre-set the flag.
+        sidekick.setDoubleJumpFlag(1);
+
+        flightTimer = 0;
+        state = State.FLIGHT_AUTO_RECOVERY;
     }
 
     /**
