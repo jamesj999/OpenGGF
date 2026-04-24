@@ -5,10 +5,12 @@ import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
+import com.openggf.timer.AbstractTimer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -98,6 +100,28 @@ public class TestHeadlessTestFixture {
     }
 
     @Test
+    public void testFixtureStepsRuntimeTimersBeforeLevelFrame() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(shared)
+                .startPosition((short) 96, (short) 655)
+                .build();
+
+        AtomicBoolean fired = new AtomicBoolean(false);
+        GameServices.timers().registerTimer(new AbstractTimer("headless-step-test", 1) {
+            @Override
+            public boolean perform() {
+                fired.set(true);
+                return true;
+            }
+        });
+
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertTrue(fired.get(), "Headless frame stepping should advance runtime timers like GameLoop");
+        assertNull(GameServices.timers().getTimerForCode("headless-step-test"));
+    }
+
+    @Test
     public void testZoneAndActBuildRegistersPlayerBeforeLoad() {
         Logger logger = Logger.getLogger("com.openggf.level.LevelManager");
         LogCaptureHandler handler = new LogCaptureHandler();
@@ -156,5 +180,4 @@ public class TestHeadlessTestFixture {
         assertNotSame(fixture1.sprite(), fixture2.sprite(), "Fixtures should have different sprite instances");
     }
 }
-
 

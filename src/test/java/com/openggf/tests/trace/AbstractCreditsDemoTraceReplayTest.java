@@ -526,7 +526,8 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                         aoi.getPreUpdateY(),
                         aoi.isSkipTouchThisFrame(),
                         aoi.isSkipSolidContactThisFrame(),
-                        aoi.isOnScreenForTouch()));
+                        aoi.isOnScreenForTouch(),
+                        aoi.traceDebugDetails()));
             }
             nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
@@ -586,6 +587,5 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         };
     }
 }
-
 
 

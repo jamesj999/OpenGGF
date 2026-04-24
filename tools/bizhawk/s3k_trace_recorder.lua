@@ -20,6 +20,20 @@
 -- snapshots for hurt/death debugging.
 -- v3.0-s3k changes: rename gameplay counter column to
 -- gameplay_frame_counter and add vblank_counter plus lag_counter.
+-- v3.2-s3k changes: record initial RNG_seed in metadata so Random_Number
+-- consumers replay with the same inherited movie state.
+-- v5.0-s3k changes: append first-sidekick state to each physics row so
+-- replay can keep unrecorded Tails drift from perturbing Sonic's world.
+-- v5.1-s3k changes: emit the pre-trace Tails CPU globals so replay can
+-- resume CNZ1's scripted carry from the ROM routine that frame 0 reached.
+-- v5.2-s3k changes: emit mappable pre-trace object_state_snapshot events
+-- using S3K object ids for replay hydration of live state such as CNZ
+-- balloon random bob phases.
+-- v5.3-s3k changes: emit pre-trace CPU/object snapshots on the first
+-- recorded physics frame so snapshot state and trace frame 0 share the same
+-- end-of-frame ROM instant.
+-- v5.4-s3k changes: write pre_trace_osc_frames from Level_frame_counter so
+-- seeded replays restore the ROM's global oscillation phase.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -33,7 +47,7 @@ local TRACE_PROFILE = os.getenv("OGGF_S3K_TRACE_PROFILE") or "gameplay_unlock"
 local BK2_FRAME_COUNT = tonumber(os.getenv("OGGF_BK2_FRAME_COUNT") or "")
 local BIZHAWK_VERSION = "2.11"
 local GENESIS_CORE = "Genplus-gx"
-local AIZ_END_TO_END_ROM_CHECKSUM = "C5B1C655C19F462ADE0AC4E17A844D10"
+local S3K_ROM_CHECKSUM = "C5B1C655C19F462ADE0AC4E17A844D10"
 
 -- Sonic 3 & Knuckles 68K RAM addresses (BizHawk mainmemory strips $FF0000)
 local ADDR_GAME_MODE        = 0xF600
@@ -86,10 +100,21 @@ local OBJ_SLOT_SIZE         = 0x4A
 local OBJ_TOTAL_SLOTS       = 110
 local OBJ_DYNAMIC_START     = 3
 local OBJ_DYNAMIC_COUNT     = 90
+local SIDEKICK_BASE         = OBJ_TABLE_START + OBJ_SLOT_SIZE
+local OBJ_CNZ_BALLOON       = 0x00031754
+local OBJ_ID_CNZ_BALLOON    = 0x41
 
-local ADDR_FRAMECOUNT       = 0xFE08
-local ADDR_VBLA_WORD        = 0xFE12
+local ADDR_FRAMECOUNT       = 0xFE04
+local ADDR_VBLA_WORD        = 0xFE0E
 local ADDR_LAG_FRAME_COUNT  = 0xF628
+local ADDR_RNG_SEED         = 0xF636
+local ADDR_TAILS_CONTROL_COUNTER = 0xF702
+local ADDR_TAILS_RESPAWN_COUNTER = 0xF704
+local ADDR_TAILS_CPU_ROUTINE     = 0xF708
+local ADDR_TAILS_CPU_TARGET_X    = 0xF70A
+local ADDR_TAILS_CPU_TARGET_Y    = 0xF70C
+local ADDR_TAILS_INTERACT_ID     = 0xF70E
+local ADDR_TAILS_CPU_JUMPING     = 0xF70F
 
 local INPUT_UP    = 0x01
 local INPUT_DOWN  = 0x02
@@ -141,6 +166,8 @@ local start_y = 0
 local start_zone_id = 0
 local start_zone_name = "unknown"
 local start_act = 0
+local start_rng_seed = 0
+local start_gameplay_frame_counter = 0
 
 local prev_status = 0
 local prev_routine = 0
@@ -152,6 +179,7 @@ local emitted_checkpoints = {}
 local last_zone_act_state_key = nil
 local prev_zone_id_for_transition = nil
 local prev_act_for_transition = nil
+local pre_trace_snapshots_written = false
 
 local physics_file = nil
 local aux_file = nil
@@ -227,9 +255,13 @@ local function interact_addr_to_slot(addr)
     return math.floor(delta / OBJ_SLOT_SIZE)
 end
 
-local function read_stand_on_slot()
-    local interact_addr = mainmemory.read_u16_be(PLAYER_BASE + OFF_STAND_ON_OBJ)
+local function read_stand_on_slot_for(base)
+    local interact_addr = mainmemory.read_u16_be(base + OFF_STAND_ON_OBJ)
     return interact_addr_to_slot(interact_addr)
+end
+
+local function read_stand_on_slot()
+    return read_stand_on_slot_for(PLAYER_BASE)
 end
 
 local function is_aiz_end_to_end_profile()
@@ -367,7 +399,8 @@ local function emit_s3k_semantic_events(frame)
     if level_started ~= 0 and game_mode == GAMEMODE_LEVEL and move_lock == 0 and ctrl_locked == 0 then
         emit_checkpoint_once(frame, "gameplay_start", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
-    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 then
+    local camera_x = mainmemory.read_u16_be(ADDR_CAMERA_X)
+    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 and camera_x >= 0x2D00 then
         emit_checkpoint_once(frame, "aiz1_fire_transition_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
     if actual_zone_id == 0 and actual_act == 1 and apparent_act == 0 then
@@ -400,6 +433,8 @@ local function reset_recording_state()
     start_zone_id = 0
     start_zone_name = "unknown"
     start_act = 0
+    start_rng_seed = 0
+    start_gameplay_frame_counter = 0
     prev_status = 0
     prev_routine = 0
     prev_ctrl_lock = 0
@@ -409,6 +444,7 @@ local function reset_recording_state()
     last_zone_act_state_key = nil
     prev_zone_id_for_transition = nil
     prev_act_for_transition = nil
+    pre_trace_snapshots_written = false
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -420,17 +456,21 @@ local function open_files()
 
     physics_file:write("frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,"
         .. "x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,"
-        .. "vblank_counter,lag_counter\n")
+        .. "vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,"
+        .. "sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,"
+        .. "sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,"
+        .. "sidekick_status_byte,sidekick_stand_on_obj\n")
     physics_file:flush()
 end
 
 local function write_metadata()
     local meta_file = io.open(OUTPUT_DIR .. "metadata.json", "w")
     local fixture_notes = ""
-    local rom_checksum = ""
+    local rom_checksum = S3K_ROM_CHECKSUM
     if is_aiz_end_to_end_profile() then
         fixture_notes = "AIZ intro through HCZ handoff end-to-end fixture"
-        rom_checksum = AIZ_END_TO_END_ROM_CHECKSUM
+    elseif is_level_gated_reset_aware_profile() and start_zone_name == "cnz" then
+        fixture_notes = "CNZ1+CNZ2 Sonic+Tails playthrough from level-select BK2 (pause+A reset from AIZ)"
     end
     meta_file:write("{\n")
     meta_file:write('  "game": "s3k",\n')
@@ -439,12 +479,17 @@ local function write_metadata()
     meta_file:write('  "act": ' .. (start_act + 1) .. ',\n')
     meta_file:write('  "bk2_frame_offset": ' .. bk2_frame_offset .. ',\n')
     meta_file:write('  "trace_frame_count": ' .. trace_frame .. ',\n')
+    meta_file:write('  "pre_trace_osc_frames": ' .. start_gameplay_frame_counter .. ',\n')
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
     meta_file:write('  "start_y": "0x' .. hex(start_y) .. '",\n')
+    meta_file:write('  "characters": ["sonic", "tails"],\n')
+    meta_file:write('  "main_character": "sonic",\n')
+    meta_file:write('  "sidekicks": ["tails"],\n')
+    meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "3.1-s3k",\n')
-    meta_file:write('  "trace_schema": 3,\n')
-    meta_file:write('  "csv_version": 4,\n')
+    meta_file:write('  "lua_script_version": "5.4-s3k",\n')
+    meta_file:write('  "trace_schema": 5,\n')
+    meta_file:write('  "csv_version": 5,\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -454,6 +499,129 @@ local function write_metadata()
     meta_file:close()
     print(string.format("Metadata written. Zone: %s Act %d, Trace frames: %d",
         start_zone_name, start_act + 1, trace_frame))
+end
+
+local function write_tails_cpu_snapshot()
+    if not aux_file then return end
+
+    write_aux(string.format(
+        '{"frame":-1,"vfc":%d,"event":"cpu_state_snapshot","character":"tails",'
+            .. '"control_counter":%d,"respawn_counter":%d,"cpu_routine":%d,'
+            .. '"target_x":"0x%04X","target_y":"0x%04X","interact_id":"0x%02X","jumping":%d}',
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_TAILS_CONTROL_COUNTER),
+        mainmemory.read_u16_be(ADDR_TAILS_RESPAWN_COUNTER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_ROUTINE),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_X),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
+        mainmemory.read_u8(ADDR_TAILS_INTERACT_ID),
+        mainmemory.read_u8(ADDR_TAILS_CPU_JUMPING)))
+end
+
+local function snapshot_object_id_for_code(obj_code)
+    if obj_code == OBJ_CNZ_BALLOON then
+        return OBJ_ID_CNZ_BALLOON
+    end
+    return nil
+end
+
+local function build_object_fields(addr)
+    local parts = {}
+    for off = 0, OBJ_SLOT_SIZE - 1 do
+        parts[#parts + 1] = string.format('"off_%02X":"0x%02X"', off, mainmemory.read_u8(addr + off))
+    end
+
+    parts[#parts + 1] = string.format('"x_pos":"0x%04X"', mainmemory.read_u16_be(addr + OFF_X_POS))
+    parts[#parts + 1] = string.format('"x_sub":"0x%04X"', mainmemory.read_u16_be(addr + OFF_X_SUB))
+    parts[#parts + 1] = string.format('"y_pos":"0x%04X"', mainmemory.read_u16_be(addr + OFF_Y_POS))
+    parts[#parts + 1] = string.format('"y_sub":"0x%04X"', mainmemory.read_u16_be(addr + OFF_Y_SUB))
+
+    local x_vel_raw = mainmemory.read_s16_be(addr + OFF_X_VEL)
+    if x_vel_raw < 0 then x_vel_raw = x_vel_raw + 0x10000 end
+    parts[#parts + 1] = string.format('"x_vel":"0x%04X"', x_vel_raw)
+
+    local y_vel_raw = mainmemory.read_s16_be(addr + OFF_Y_VEL)
+    if y_vel_raw < 0 then y_vel_raw = y_vel_raw + 0x10000 end
+    parts[#parts + 1] = string.format('"y_vel":"0x%04X"', y_vel_raw)
+
+    parts[#parts + 1] = string.format('"render_flags":"0x%02X"', mainmemory.read_u8(addr + 0x04))
+    parts[#parts + 1] = string.format('"status":"0x%02X"', mainmemory.read_u8(addr + OFF_STATUS))
+    parts[#parts + 1] = string.format('"routine":"0x%02X"', mainmemory.read_u8(addr + OFF_ROUTINE))
+    parts[#parts + 1] = string.format('"mapping_frame":"0x%02X"', mainmemory.read_u8(addr + 0x22))
+    parts[#parts + 1] = string.format('"anim":"0x%02X"', mainmemory.read_u8(addr + 0x20))
+    parts[#parts + 1] = string.format('"anim_frame":"0x%02X"', mainmemory.read_u8(addr + 0x23))
+    parts[#parts + 1] = string.format('"anim_frame_timer":"0x%02X"', mainmemory.read_u8(addr + 0x24))
+    parts[#parts + 1] = string.format('"angle":"0x%02X"', mainmemory.read_u8(addr + OFF_ANGLE))
+    parts[#parts + 1] = string.format('"subtype":"0x%02X"', mainmemory.read_u8(addr + 0x2C))
+    parts[#parts + 1] = string.format('"collision_flags":"0x%02X"', mainmemory.read_u8(addr + 0x28))
+    parts[#parts + 1] = string.format('"collision_property":"0x%02X"', mainmemory.read_u8(addr + 0x29))
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local function write_object_snapshots()
+    if not aux_file then return end
+
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local count = 0
+    for slot = OBJ_DYNAMIC_START, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local obj_code = mainmemory.read_u32_be(addr)
+        local object_id = snapshot_object_id_for_code(obj_code)
+        if object_id ~= nil then
+            write_aux(string.format(
+                '{"frame":-1,"vfc":%d,"event":"object_state_snapshot",'
+                    .. '"slot":%d,"object_type":"0x%02X","object_code":"0x%08X","fields":%s}',
+                vfc, slot, object_id, obj_code, build_object_fields(addr)))
+            count = count + 1
+        end
+    end
+    print(string.format("Wrote %d pre-trace object_state_snapshot events.", count))
+end
+
+local function read_character_trace_state(base)
+    local present = mainmemory.read_u32_be(base) ~= 0
+    if not present then
+        return {
+            present = 0,
+            x = 0,
+            y = 0,
+            x_speed = 0,
+            y_speed = 0,
+            g_speed = 0,
+            angle = 0,
+            air = 0,
+            rolling = 0,
+            ground_mode = 0,
+            x_sub = 0,
+            y_sub = 0,
+            routine = 0,
+            status = 0,
+            stand_on_obj = 0,
+        }
+    end
+
+    local status = mainmemory.read_u8(base + OFF_STATUS)
+    local angle = mainmemory.read_u8(base + OFF_ANGLE)
+    local air = (status & STATUS_IN_AIR) ~= 0
+    local rolling = (status & STATUS_ROLLING) ~= 0
+
+    return {
+        present = 1,
+        x = mainmemory.read_u16_be(base + OFF_X_POS),
+        y = mainmemory.read_u16_be(base + OFF_Y_POS),
+        x_speed = read_speed(base, OFF_X_VEL),
+        y_speed = read_speed(base, OFF_Y_VEL),
+        g_speed = read_speed(base, OFF_INERTIA),
+        angle = angle,
+        air = air and 1 or 0,
+        rolling = rolling and 1 or 0,
+        ground_mode = air and 0 or angle_to_ground_mode(angle),
+        x_sub = mainmemory.read_u16_be(base + OFF_X_SUB),
+        y_sub = mainmemory.read_u16_be(base + OFF_Y_SUB),
+        routine = mainmemory.read_u8(base + OFF_ROUTINE),
+        status = status,
+        stand_on_obj = read_stand_on_slot_for(base),
+    }
 end
 
 local function close_files()
@@ -491,9 +659,15 @@ local function scan_objects(player_x, player_y)
         if obj_code ~= 0 and obj_code ~= prev_code then
             local obj_x = mainmemory.read_u16_be(addr + OFF_X_POS)
             local obj_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
+            local extra = ""
+            if obj_code == OBJ_CNZ_BALLOON then
+                local obj_angle = mainmemory.read_u8(addr + OFF_ANGLE)
+                local base_y = mainmemory.read_u16_be(addr + 0x32)
+                extra = string.format(',"angle":"0x%02X","base_y":"0x%04X"', obj_angle, base_y)
+            end
             write_aux(string.format(
-                '{"frame":%d,"vfc":%d,"event":"object_appeared","slot":%d,"object_type":"0x%08X","x":"0x%04X","y":"0x%04X"}',
-                trace_frame, vfc, slot, obj_code, obj_x, obj_y))
+                '{"frame":%d,"vfc":%d,"event":"object_appeared","slot":%d,"object_type":"0x%08X","x":"0x%04X","y":"0x%04X"%s}',
+                trace_frame, vfc, slot, obj_code, obj_x, obj_y, extra))
             any_appeared = true
         end
 
@@ -511,10 +685,16 @@ local function scan_objects(player_x, player_y)
             if dx <= OBJECT_PROXIMITY and dy <= OBJECT_PROXIMITY then
                 local obj_status = mainmemory.read_u8(addr + OFF_STATUS)
                 local obj_routine = mainmemory.read_u8(addr + OFF_ROUTINE)
+                local extra = ""
+                if obj_code == OBJ_CNZ_BALLOON then
+                    local obj_angle = mainmemory.read_u8(addr + OFF_ANGLE)
+                    local base_y = mainmemory.read_u16_be(addr + 0x32)
+                    extra = string.format(',"angle":"0x%02X","base_y":"0x%04X"', obj_angle, base_y)
+                end
                 write_aux(string.format(
                     '{"frame":%d,"vfc":%d,"event":"object_near","slot":%d,"type":"0x%08X",'
-                    .. '"x":"0x%04X","y":"0x%04X","routine":"0x%02X","status":"0x%02X"}',
-                    trace_frame, vfc, slot, obj_code, obj_x, obj_y, obj_routine, obj_status))
+                    .. '"x":"0x%04X","y":"0x%04X","routine":"0x%02X","status":"0x%02X"%s}',
+                    trace_frame, vfc, slot, obj_code, obj_x, obj_y, obj_routine, obj_status, extra))
             end
         end
 
@@ -699,6 +879,8 @@ local function on_frame_end()
             start_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
             start_zone_id = mainmemory.read_u8(ADDR_ZONE)
             start_act = mainmemory.read_u8(ADDR_ACT)
+            start_rng_seed = mainmemory.read_u32_be(ADDR_RNG_SEED)
+            start_gameplay_frame_counter = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
             start_zone_name = ZONE_NAMES[start_zone_id] or string.format("unknown_%02x", start_zone_id)
 
             open_files()
@@ -756,6 +938,12 @@ local function on_frame_end()
         end
     end
 
+    if not pre_trace_snapshots_written then
+        write_tails_cpu_snapshot()
+        write_object_snapshots()
+        pre_trace_snapshots_written = true
+    end
+
     local x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
     local y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
     local x_sub = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_SUB)
@@ -787,9 +975,11 @@ local function on_frame_end()
     local stand_on_obj = read_stand_on_slot()
     local vblank_counter = mainmemory.read_u16_be(ADDR_VBLA_WORD)
     local lag_counter = mainmemory.read_u16_be(ADDR_LAG_FRAME_COUNT)
+    local sidekick = read_character_trace_state(SIDEKICK_BASE)
 
     physics_file:write(string.format(
-        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%04X,%04X,%04X,%02X,%04X,%02X,%04X,%04X\n",
+        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%04X,%04X,%04X,%02X,%04X,%02X,%04X,%04X,"
+            .. "%d,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%02X,%02X\n",
         trace_frame, input_mask, x, y,
         uhex(x_speed), uhex(y_speed), uhex(g_speed),
         angle,
@@ -804,7 +994,22 @@ local function on_frame_end()
         gameplay_frame_counter,
         stand_on_obj,
         vblank_counter,
-        lag_counter))
+        lag_counter,
+        sidekick.present,
+        sidekick.x,
+        sidekick.y,
+        uhex(sidekick.x_speed),
+        uhex(sidekick.y_speed),
+        uhex(sidekick.g_speed),
+        sidekick.angle,
+        sidekick.air,
+        sidekick.rolling,
+        sidekick.ground_mode,
+        sidekick.x_sub,
+        sidekick.y_sub,
+        sidekick.routine,
+        sidekick.status,
+        sidekick.stand_on_obj))
 
     if trace_frame % 60 == 0 then
         physics_file:flush()
@@ -846,7 +1051,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v3.1-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v5.4-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 while true do
     on_frame_end()

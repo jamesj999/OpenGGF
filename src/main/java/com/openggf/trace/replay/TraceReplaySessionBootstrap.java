@@ -195,6 +195,16 @@ public final class TraceReplaySessionBootstrap {
                                                  TraceReplayFixture fixture,
                                                  int preTraceOscOverride) {
         TraceMetadata meta = trace.metadata();
+        Long initialRngSeed = meta.traceSchema() != null && meta.traceSchema() >= 4
+                ? meta.initialRngSeed()
+                : null;
+        if (initialRngSeed != null && GameServices.runtimeOrNull() != null) {
+            GameRng rng = GameServices.rng();
+            if (rng != null) {
+                rng.setSeed(initialRngSeed);
+            }
+        }
+
         ObjectManager om = GameServices.level().getObjectManager();
         if (om != null
                 && TraceReplayBootstrap.shouldUseTraceStartBootstrapForTraceReplay(trace)) {
@@ -214,6 +224,17 @@ public final class TraceReplaySessionBootstrap {
 
         TraceObjectSnapshotBinder.Result hydration =
                 TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+        if (initialRngSeed != null && GameServices.runtimeOrNull() != null) {
+            GameRng rng = GameServices.rng();
+            if (rng != null) {
+                // Snapshot hydration constructs engine objects that already existed
+                // when the ROM seed was captured. Constructors may call Random_Number
+                // before hydrateFromRomSnapshot restores their fields; those calls
+                // must not advance the recorded trace-start seed used by later
+                // streamed objects such as CNZ balloons.
+                rng.setSeed(initialRngSeed);
+            }
+        }
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
