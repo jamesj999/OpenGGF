@@ -232,6 +232,28 @@ public class SpriteManager {
 	}
 
 
+	/**
+	 * Returns the current frame counter (gameplay frames since level boot).
+	 * Increments at the start of each {@link #update(InputHandler)} call. Skipped
+	 * when {@code stepFrame} returns early (e.g. for seamless transitions) and
+	 * during {@code skipFrameFromRecording()} lag-frame skips, so this counter is
+	 * <em>not</em> guaranteed to track ROM's {@code Level_frame_counter} unless
+	 * the bootstrap explicitly aligns it.
+	 */
+	public int getFrameCounter() {
+		return frameCounter;
+	}
+
+	/**
+	 * Sets the gameplay frame counter. Used by trace-replay setup to align the
+	 * engine's counter with the ROM's {@code Level_frame_counter} at the start
+	 * of comparison so AI logic that gates on {@code (Level_frame_counter & MASK)}
+	 * fires on the same frames as the ROM.
+	 */
+	public void setFrameCounter(int value) {
+		this.frameCounter = value;
+	}
+
 	public void update(InputHandler handler) {
 		frameCounter++;
 		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),

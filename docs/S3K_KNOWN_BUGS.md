@@ -17,8 +17,8 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [AIZ1 Tails Rolling-Airborne Early Landing (Trace Frame 2150)](#aiz1-tails-rolling-airborne-early-landing-trace-frame-2150)
-3. [CNZ1 CPU Tails Ground Over-Deceleration (Trace Frame 318)](#cnz1-cpu-tails-ground-over-deceleration-trace-frame-318)
+2. [AIZ1 Tails Rolling-Airborne Post-Jump y_speed Divergence (Trace Frame 2202)](#aiz1-tails-rolling-airborne-post-jump-y_speed-divergence-trace-frame-2202)
+3. [CNZ1 Trace F825 — Tails Off-Screen Recovery Teleport Target Mismatch](#cnz1-trace-f825--tails-off-screen-recovery-teleport-target-mismatch)
 
 ---
 
@@ -68,50 +68,38 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F383 — Tails CPU AI Jump-Gate Frame-Counter Misalignment
+## CNZ1 Trace F825 — Tails Off-Screen Recovery Teleport Target Mismatch
 
-**Location:** `SidekickCpuController.updateNormal()` jump-trigger gate vs. `SpriteManager.frameCounter`. The engine's gate uses raw `frameCounter`, while ROM's gate reads `(Level_frame_counter & 0x3F)` and `(Level_frame_counter & 0xFF)` (sonic3k.asm:26761 `loc_13E7C`, sonic3k.asm:26775 `loc_13E9C`).
-**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 383.
+**Location:** `SidekickCpuController` flight-recovery / off-screen teleport path. ROM `sub_13ECA` (sonic3k.asm:26800) teleports Tails to `(0x7F00, 0x0000)` when the catch-up routine resets; the engine's equivalent path teleports to `(0x4000, 0x0000)` instead.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 825.
 
 ### Status (2026-04-24)
 
-Frame 318 was caused by `AbstractTraceReplayTest.applyRecordedFirstSidekickState` calling `setMoveLockTimer(0)` every frame, which defeated ROM `Player_SlopeRepel`'s 30-frame move_lock counter and caused the engine to re-apply a −0x80 slip impulse every frame instead of skipping for 30 frames after the initial slip. Fixed in commit `28940b604` (preserve the engine's own move_lock across the per-frame reseed).
+Frame 318 was caused by `AbstractTraceReplayTest.applyRecordedFirstSidekickState` calling `setMoveLockTimer(0)` every frame, defeating ROM `Player_SlopeRepel`'s 30-frame move_lock counter. Fixed in commit `28940b604`. First error moved 318 → 383.
 
-The CNZ1 trace replay's first strict error moved from frame 318 to frame 383 (+65 frames; total errors 5024 → 4997).
+Frame 383 was the Tails-CPU jump-trigger gate failing its 64-frame mask check because `SpriteManager.frameCounter` lagged `Level_frame_counter` by 1: ROM had `gfc=0x180` (mask=0, fires) at the moment the engine had `fc=0x17F` (mask=0x3F, no fire). The lag came from CNZ's seed state being recorded at `T_0.gfc=1` (gameplay starts immediately) while engine fc starts at 0 — for AIZ the seed is at `T_289.gfc=0` (still inside the intro, ROM's `Level_frame_counter` not yet incrementing) so engine fc=0 happens to align naturally. Fixed by pre-setting `SpriteManager.frameCounter = T_(K_start-1).gfc` at the trace replay loop start in `AbstractTraceReplayTest.replayS3kTrace` so engine `fc++` on each step keeps pace with ROM `Level_frame_counter` for both traces. Total errors 4997 → 4946 (−51); first error moved 383 → 825.
 
-### Symptom
+### Symptom (current)
 
-At trace frame 383, ROM takes Tails from status `0x01` (on ground, direction left) to status `0x07` (airborne, rolling, direction left). The transition is the Tails-CPU NORMAL routine's auto-jump (`sonic3k.asm:26781 loc_13E9C`) firing on a 64-frame cadence, applying a slope-rotated jump impulse:
+At trace frame 825, ROM `tails_x = 0x7F00, tails_y = 0x0000, tails_air = 1`; engine `tails_x = 0x4000, tails_y = 0x0000, tails_air = 1`. Sonic state matches the trace exactly through this and many surrounding frames (`x=0x0997, y=0x0703, x_speed=0x05BB`, on-ground, rolling). The trace shows `sidekick_routine=2` here, indicating the ROM has just entered `Tails_CPU_routine = 2` (`Tails_Catch_Up_Flying`) — which is reached via `sub_13ECA` (sonic3k.asm:26800):
 
-- F382 (both ROM and engine): Tails at `x=0x03BD, y=0x06DF, x_vel=0xFDFD, y_vel=0x00D3, g_speed=−0x022E, angle=0xF0, air=0, status=0x01`.
-- F383 ROM: `x_vel=−0x047A, y_vel=−0x052B, air=1, status=0x07` — large simultaneous push consistent with `Tails_Jump` rotated by slope angle `0xF0`.
-- F383 engine: `x_vel=−0x0199, y_vel=0x00A7, air=0, status=0x02` — engine continues ground motion; never enters the jump path.
+```
+sub_13ECA:
+    ...
+    move.w  #2,(Tails_CPU_routine).w
+    move.b  #$81,object_control(a0)
+    move.b  #1<<Status_InAir,status(a0)
+    move.w  #$7F00,x_pos(a0)
+    move.w  #0,y_pos(a0)
+    ...
+```
 
-### Diagnosed Cause
+The engine takes the same routine transition but writes `x_pos = 0x4000` instead of `0x7F00`. The teleport is a marker meaning "Tails is despawned, waiting to fly back in"; the exact value matters because the next frame's bounding/active checks use it.
 
-Instrumentation of `updateNormal()` confirms the engine reaches the gate with the right state:
-`fc=383 (0x17F) dx=9 dy=−264 air=false roll=false anim=0 duckId=8 sk=(957,1759) leader_history=(966,1495)`.
+### Suspected Cause
 
-All gate sub-conditions pass *except* the 64-frame mask:
-
-- `dy ≤ −JUMP_HEIGHT_THRESHOLD`: −264 ≤ −32 ✓
-- `|dx| < JUMP_DISTANCE_TRIGGER`: 9 < 64 ✓
-- `anim != duckAnimId`: 0 ≠ 8 ✓
-- `(frameCounter & 0x3F) == 0`: `0x17F & 0x3F = 0x3F` **≠ 0** ✗
-
-ROM at trace frame 383 has `Level_frame_counter = 0x180`, and `0x180 & 0x3F = 0`. So ROM's gate fires, the engine's does not. The engine fires its jump one frame later (`fc=384`), but by then the trace's reseed has already loaded the post-jump T_383 state, so the engine never reproduces the actual jump impulse on the comparison frame.
-
-### Why a naive `frameCounter + 1` shift does *not* fix this
-
-Replacing `frameCounter` with `frameCounter + 1` inside the jump gate makes CNZ pass the F383 mask check (engine first error advances to F825, total errors 4997 → 4962) but introduces a new AIZ regression at F2016:
-
-- AIZ baseline first error: F2202 (1510 errors).
-- AIZ with `+1` shift: F2016 (1526 errors, +16 new errors).
-
-At AIZ `fc=1983` the engine sees `sk_air=false` while ROM has Tails airborne since trace frame 1982 — a separate pre-existing parity bug in how the trace-replay reseed interacts with ground/air recomputation. Without the shift this discrepancy is silent because the gate's mask happens to fail. With the shift the gate fires on a frame where ROM did not, putting Tails into a fresh rolling jump that the rest of the trace then has to "unwind." The shift is therefore not a clean fix; the real fix has to address the engine-counter-vs-ROM-counter alignment for the trace-replay harness as a whole, not just rotate the AI gate.
-
-The proper fix likely belongs in `SpriteManager` / `LevelManager` / trace-replay setup so that the engine's `frameCounter` matches `Level_frame_counter` at AI dispatch time across all S3K traces, including ones with seamless transitions, intro skips, and per-frame `skipFrameFromRecording()` calls (which advance the trace cursor without ticking `SpriteManager.frameCounter`).
+Engine's `SidekickCpuController.CATCH_UP_FLIGHT` / `FLIGHT_AUTO_RECOVERY` enter logic, or the despawn helper that runs when Tails leaves the camera bounds long enough, hardcodes `0x4000` somewhere instead of `0x7F00`. ROM's marker is the magic value `0x7F00` at multiple sites (`sub_13ECA`, dynamic Tails respawn). Search for `0x4000` constants in the sidekick / respawn / catch-up paths, or for any place the engine clamps a teleport X to a level-bounds-derived value.
 
 ### Removal Condition
 
-Remove once `TestS3kCnzTraceReplay`'s first strict error moves past frame 383 *and* `TestS3kAizTraceReplay`'s first strict error does not regress earlier than frame 2202.
+Remove once `TestS3kCnzTraceReplay`'s first strict error moves past frame 825 AND the engine writes `tails_x = 0x7F00` on the catch-up-flight init frame.
