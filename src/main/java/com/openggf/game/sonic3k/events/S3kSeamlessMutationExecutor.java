@@ -9,6 +9,7 @@ import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.objects.AizTransitionFloorObjectInstance;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
@@ -115,9 +116,21 @@ public final class S3kSeamlessMutationExecutor {
                         AIZ_SECONDARY_ART_DEST_TILE, secondaryTileCount));
             }
             Sonic3kPlcLoader.refreshAffectedRenderers(overlayRanges, levelManager);
+            spawnAizTransitionFloor(levelManager);
             LOG.info("Applied AIZ1 fire transition overlays (128x128/16x16/8x8) and fire palette");
         } catch (Exception e) {
             LOG.warning("Failed to apply AIZ1 fire transition mutation: " + e.getMessage());
+        }
+    }
+
+    private static void spawnAizTransitionFloor(LevelManager levelManager) {
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        boolean alreadyActive = levelManager.getObjectManager().getActiveObjects().stream()
+                .anyMatch(AizTransitionFloorObjectInstance.class::isInstance);
+        if (!alreadyActive) {
+            levelManager.getObjectManager().addDynamicObject(new AizTransitionFloorObjectInstance());
         }
     }
 

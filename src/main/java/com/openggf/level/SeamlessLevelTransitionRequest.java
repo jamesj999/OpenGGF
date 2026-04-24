@@ -16,6 +16,10 @@ public final class SeamlessLevelTransitionRequest {
     private final boolean deactivateLevelNow;
     private final boolean preserveMusic;
     private final boolean showInLevelTitleCard;
+    private final boolean forceAirOnStaleObjectSupportLoss;
+    private final boolean preserveOffsetCameraPosition;
+    private final Integer postTransitionMinY;
+    private final Integer postTransitionMaxYTarget;
     private final int playerOffsetX;
     private final int playerOffsetY;
     private final int cameraOffsetX;
@@ -30,6 +34,10 @@ public final class SeamlessLevelTransitionRequest {
         this.deactivateLevelNow = builder.deactivateLevelNow;
         this.preserveMusic = builder.preserveMusic;
         this.showInLevelTitleCard = builder.showInLevelTitleCard;
+        this.forceAirOnStaleObjectSupportLoss = builder.forceAirOnStaleObjectSupportLoss;
+        this.preserveOffsetCameraPosition = builder.preserveOffsetCameraPosition;
+        this.postTransitionMinY = builder.postTransitionMinY;
+        this.postTransitionMaxYTarget = builder.postTransitionMaxYTarget;
         this.playerOffsetX = builder.playerOffsetX;
         this.playerOffsetY = builder.playerOffsetY;
         this.cameraOffsetX = builder.cameraOffsetX;
@@ -60,6 +68,22 @@ public final class SeamlessLevelTransitionRequest {
 
     public boolean showInLevelTitleCard() {
         return showInLevelTitleCard;
+    }
+
+    public boolean forceAirOnStaleObjectSupportLoss() {
+        return forceAirOnStaleObjectSupportLoss;
+    }
+
+    public boolean preserveOffsetCameraPosition() {
+        return preserveOffsetCameraPosition;
+    }
+
+    public Integer postTransitionMinY() {
+        return postTransitionMinY;
+    }
+
+    public Integer postTransitionMaxYTarget() {
+        return postTransitionMaxYTarget;
     }
 
     public int playerOffsetX() {
@@ -97,6 +121,10 @@ public final class SeamlessLevelTransitionRequest {
         private boolean deactivateLevelNow;
         private boolean preserveMusic = true;
         private boolean showInLevelTitleCard;
+        private boolean forceAirOnStaleObjectSupportLoss;
+        private boolean preserveOffsetCameraPosition;
+        private Integer postTransitionMinY;
+        private Integer postTransitionMaxYTarget;
         private int playerOffsetX;
         private int playerOffsetY;
         private int cameraOffsetX;
@@ -126,6 +154,36 @@ public final class SeamlessLevelTransitionRequest {
 
         public Builder showInLevelTitleCard(boolean showInLevelTitleCard) {
             this.showInLevelTitleCard = showInLevelTitleCard;
+            return this;
+        }
+
+        public Builder forceAirOnStaleObjectSupportLoss(boolean forceAirOnStaleObjectSupportLoss) {
+            this.forceAirOnStaleObjectSupportLoss = forceAirOnStaleObjectSupportLoss;
+            return this;
+        }
+
+        public Builder preserveOffsetCameraPosition(boolean preserveOffsetCameraPosition) {
+            this.preserveOffsetCameraPosition = preserveOffsetCameraPosition;
+            return this;
+        }
+
+        public Builder postTransitionMinY(int minY) {
+            this.postTransitionMinY = minY;
+            return this;
+        }
+
+        public Builder postTransitionMinYIfPresent(Integer minY) {
+            this.postTransitionMinY = minY;
+            return this;
+        }
+
+        public Builder postTransitionMaxYTarget(int maxYTarget) {
+            this.postTransitionMaxYTarget = maxYTarget;
+            return this;
+        }
+
+        public Builder postTransitionMaxYTargetIfPresent(Integer maxYTarget) {
+            this.postTransitionMaxYTarget = maxYTarget;
             return this;
         }
 
