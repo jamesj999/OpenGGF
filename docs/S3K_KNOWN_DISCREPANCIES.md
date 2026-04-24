@@ -223,27 +223,22 @@ OpenGGF now keeps the native S3K save-screen flow but stores saves as JSON envel
 
 ## Tails Flying-With-Cargo Physics
 
-**Location:** Tails flight physics (`SidekickCpuController`, Tails sprite physics)
-**ROM Reference:** `sonic3k.asm` `Obj_Tails_Flying` / `Tails_Fly` (flight lift when carrying Sonic)
+**Location:** Tails flight physics (`SidekickCpuController`, `PlayableSpriteMovement.applyGravity`)
+**ROM Reference:** `sonic3k.asm:27592` `Tails_Move_FlySwim` (+0x08 flight gravity), `sonic3k.asm:27553` `Tails_Stand_Freespace` (branch on `double_jump_flag`)
 
-### Original Implementation
+### Status
 
-ROM Tails, while flying and carrying Sonic, applies anti-gravity lift each frame that offsets the carry-descent gravity, keeping Tails airborne for ~106 frames during the CNZ1 intro. The combined carrier+cargo Y-velocity sums to near-neutral during active flight.
+Closed for the CNZ1 carry intro: ROM-accurate flight gravity (+0x08/frame) now applies for the whole Tails flight window. Earlier mis-reading of Tails_Move_FlySwim as "anti-gravity lift" has been corrected — the routine simply adds +0x08 to `y_vel` per tick instead of the +0x38 normal air gravity, producing the observed near-neutral carry-descent profile.
 
-### Our Implementation
+### Implementation (2026-04-24)
 
-The engine currently runs Tails on normal airborne physics (gravity applies, no carry-aware lift), so a carrying Tails falls ~6x faster than the ROM and lands around frame ~42 in CNZ1. Once Tails lands, the ROM-faithful ground-release path (added here) correctly fires and returns the pair to NORMAL state.
+1. `SidekickCpuController.updateCarryInit()` sets `sidekick.setDoubleJumpFlag(1)` at the same point ROM `loc_13FC2` writes `double_jump_flag=1` (sonic3k.asm:26904).
+2. The ground-release branch in `updateCarrying()` now zeros Tails's `x_vel/y_vel/ground_vel` and keeps the air bit set (matching ROM `loc_14016` at sonic3k.asm:26923-26946). Crucially, it does NOT clear `double_jump_flag` — the ROM leaves it set so Tails continues in flight physics for at least one more tick while the carry-release impulse propagates to Sonic.
+3. `PlayableSpriteMovement.applyGravity()` and `doObjectMoveAndFall()` now gate flight gravity on `sprite.getSecondaryAbility() == FLY && sprite.getDoubleJumpFlag() != 0` (mirrors `Tails_Stand_Freespace` → `Tails_FlyingSwimming` branch), replacing the previous carry-only `flyingCarryingFlag` gate. The check is scoped to Tails via `SecondaryAbility.FLY`, so Sonic's insta-shield and Knuckles's glide (which also use `double_jump_flag`) keep the +0x38 air gravity from their own code paths.
 
-### Impact
+### Remaining Gap
 
-- CNZ1 intro carry duration diverges: engine releases at frame ~42 vs. ROM ~106.
-- `TestS3kCnzTraceReplay` will report a large X/Y position divergence starting around frame 42 until the carry/catch-up stabilises.
-- `TestS3kCnzCarryHeadless.cnz1Frame20SonicStillCarried` deliberately asserts at frame 20 (before either engine or ROM Tails lands) to work around this gap; when the gap closes, the test can be widened back to frame 43 per the original trace row #3 reference.
-- No functional regression - carry state machine, parentage, and release paths are ROM-accurate; only Tails's lift profile is missing.
-
-### Follow-Up
-
-Implementing Tails flying-with-cargo lift is a separate workstream tracked under S3K trace-replay follow-ups. Gap first recorded as part of CNZ workstream-C (Tails-carry-Sonic intro implementation).
+Tails's **post-carry catch-up/hover AI** (`Tails_Catch_Up_Flying` at `sonic3k.asm:26474`, routine 0x02, and `Tails_FlySwim_Unknown` at `sonic3k.asm:26534`, routine 0x04) is still missing. Those routines teleport Tails back to Sonic when the gap exceeds a threshold, then fly toward the Sonic_Pos_Record_Buf trail with a 5-second timer, falling through to ground AI when close. Until they exist, `TestS3kCnzTraceReplay` still diverges later in the trace (first strict error around frame 318 in the current recording), but the CNZ1 carry intro itself is ROM-accurate.
 
 ---
 

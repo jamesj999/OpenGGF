@@ -96,7 +96,18 @@ public record PhysicsFeatureSet(
          *  sweep (Touch_Rings_Test in S2/S3K).
          *  S1: true (s1disasm 25 Rings.asm: ring is a touch-response object).
          *  S2/S3K: false (s2.asm:25034, sonic3k.asm Touch_Rings_Test: sweep in bookkeeping). */
-        boolean stageRingsUseObjectTouchCollection
+        boolean stageRingsUseObjectTouchCollection,
+        /** Pixel threshold that gates the sidekick CPU follow-AI's input override.
+         *  When {@code |delayedSonicX - tailsX| >= threshold}, the CPU forces
+         *  {@code Ctrl_2_logical} LEFT or RIGHT based on the sign; below the
+         *  threshold, the recorded delayed input is passed through unmodified,
+         *  so Tails can still skid/brake when Sonic's input disagrees with the
+         *  pure chase direction.
+         *  S2:  0x10 (s2.asm:38952 TailsCPU_Normal_FollowLeft,
+         *             s2.asm:38967 TailsCPU_Normal_FollowRight).
+         *  S3K: 0x30 (sonic3k.asm:26712 loc_13DF2,
+         *             sonic3k.asm:26729 loc_13E26). */
+        int sidekickFollowSnapThreshold
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -120,6 +131,13 @@ public record PhysicsFeatureSet(
     /** S3K: ring collision half-size 8px (x_radius/y_radius in Obj_Attracted_Ring). */
     public static final int RING_COLLISION_SIZE_S3K = 8;
 
+    /** S2: sidekick CPU follow-AI overrides leader's delayed input when |dx| >= 0x10
+     *  (s2.asm:38952 TailsCPU_Normal_FollowLeft, s2.asm:38967 TailsCPU_Normal_FollowRight). */
+    public static final int SIDEKICK_FOLLOW_SNAP_S2 = 0x10;
+    /** S3K: sidekick CPU follow-AI overrides leader's delayed input when |dx| >= 0x30
+     *  (sonic3k.asm:26712 loc_13DF2, sonic3k.asm:26729 loc_13E26). */
+    public static final int SIDEKICK_FOLLOW_SNAP_S3K = 0x30;
+
     /** Sonic 1: no spindash, single collision path, fixed AnglePos threshold, instant look scroll, water shimmer,
      *  always caps ground speed on input (s1disasm/_incObj/01 Sonic.asm:554-558),
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
@@ -127,7 +145,8 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true);
+            null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
+            SIDEKICK_FOLLOW_SNAP_S2);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -137,7 +156,8 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false);
+            null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
+            SIDEKICK_FOLLOW_SNAP_S2);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -151,7 +171,8 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false);
+    }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
+            SIDEKICK_FOLLOW_SNAP_S3K);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

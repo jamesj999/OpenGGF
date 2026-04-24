@@ -7,6 +7,7 @@ import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
@@ -23,7 +24,11 @@ public class SidekickCpuController {
     // That index points at the next free 4-byte slot, while engine historyPos points
     // at the latest written slot, so the equivalent engine lookback is 16 frames.
     static final int ROM_FOLLOW_DELAY_FRAMES = 16;
-    private static final int HORIZONTAL_SNAP_THRESHOLD = 16;
+    /** Fallback used when the sidekick sprite has no PhysicsFeatureSet resolved yet
+     *  (e.g. unit tests that bypass the full game-module bootstrap). Matches the S2
+     *  value so existing S2 behaviour is preserved. */
+    private static final int DEFAULT_HORIZONTAL_SNAP_THRESHOLD =
+            PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2;
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int DESPAWN_TIMEOUT = 300;
@@ -174,6 +179,22 @@ public class SidekickCpuController {
         sidekick.setGSpeed((short) 0);
     }
 
+    /**
+     * Per-game snap threshold for the follow-AI input override in updateNormal().
+     *
+     * <p>Read from the sidekick's physics feature set (ROM parity). Falls back
+     * to the S2 default (0x10) when no feature set is resolved yet — this only
+     * happens in unit tests that construct a standalone {@code AbstractPlayableSprite}
+     * without a game module, and those tests assert the existing S2 threshold.
+     */
+    private int resolveFollowSnapThreshold() {
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        if (fs == null) {
+            return DEFAULT_HORIZONTAL_SNAP_THRESHOLD;
+        }
+        return fs.sidekickFollowSnapThreshold();
+    }
+
     private PlayerCharacter resolvePlayerCharacter() {
         GameModule gameModule = sidekick.currentGameModule();
         if (gameModule != null) {
@@ -293,12 +314,18 @@ public class SidekickCpuController {
         boolean skipFollowSteering = sidekick.getPushing()
                 && (recordedStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         if (!skipFollowSteering) {
-            // ROM enters FollowLeft/FollowRight for any nonzero dx; the 16px gate only
-            // decides whether Tails overrides left/right input, not whether the +/-1 x_pos
-            // nudge runs.
+            // ROM enters FollowLeft/FollowRight for any nonzero dx; the per-game
+            // snap threshold only decides whether Tails overrides left/right input,
+            // not whether the +/-1 x_pos nudge runs.
+            //
+            // S2:  0x10 (s2.asm:38952 TailsCPU_Normal_FollowLeft,
+            //            s2.asm:38967 TailsCPU_Normal_FollowRight).
+            // S3K: 0x30 (sonic3k.asm:26712 loc_13DF2,
+            //            sonic3k.asm:26729 loc_13E26).
+            int snapThreshold = resolveFollowSnapThreshold();
             if (dx < 0) {
                 int absDx = -dx;
-                if (absDx >= HORIZONTAL_SNAP_THRESHOLD) {
+                if (absDx >= snapThreshold) {
                     inputLeft = true;
                     inputRight = false;
                 }
@@ -306,7 +333,7 @@ public class SidekickCpuController {
                     sidekick.shiftX(-1);
                 }
             } else if (dx > 0) {
-                if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
+                if (dx >= snapThreshold) {
                     inputRight = true;
                     inputLeft = false;
                 }
@@ -412,6 +439,13 @@ public class SidekickCpuController {
         // that input must remain visible to Tails_Move_FlySwim.
         sidekick.setControlLocked(false);
         sidekick.setForcedAnimationId(flyAnimId);
+        // ROM loc_13FC2 (sonic3k.asm:26904): move.b #1, double_jump_flag(a0)
+        // Enables Tails's flight physics (Tails_Stand_Freespace branches to
+        // Tails_FlyingSwimming when this flag is non-zero, swapping +0x38 air
+        // gravity for +0x08 flight gravity). The flag persists across carry
+        // release (ROM loc_14016 does NOT clear it) and is cleared only on
+        // landing via setAir(false).
+        sidekick.setDoubleJumpFlag(1);
 
         // Initialize the latch
         carryLatchX = carryTrigger.carryInitXVel();
@@ -451,8 +485,23 @@ public class SidekickCpuController {
 
         // 4. Ground release (release path A): Sonic in-air bit clear
         if (!leader.getAir()) {
-            // ROM loc_1445A (sonic3k.asm:27268): move.w #-$100,y_vel(a1)
-            // Small upward impulse on the ground-release path before clearing
+            // ROM loc_14016 (sonic3k.asm:26923-26946) runs BEFORE Tails_Carry_Sonic
+            // branches to loc_1445A. It resets Tails's own airborne state so the
+            // next tick runs Tails_FlyingSwimming from a freshly-zeroed velocity
+            // (y_vel=0 + Tails_Move_FlySwim's +0x08 gravity -> trace y_vel=0x008):
+            //   move.w #0, x_vel(a0)     ; Tails
+            //   move.w #0, y_vel(a0)     ; Tails
+            //   move.w #0, ground_vel(a0); Tails
+            //   move.b #1<<Status_InAir, status(a0)  ; Tails stays airborne
+            // double_jump_flag(a0) is deliberately NOT cleared here; the flight
+            // physics persist until Tails actually lands.
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setAir(true);
+
+            // ROM loc_1445A (sonic3k.asm:27268): move.w #-$100, y_vel(a1)
+            // Small upward impulse on the carried Sonic before clearing
             // object_control, matching ROM fall-through into loc_14460/loc_14466.
             leader.setYSpeed((short) -0x100);
             carryParentagePending = false;

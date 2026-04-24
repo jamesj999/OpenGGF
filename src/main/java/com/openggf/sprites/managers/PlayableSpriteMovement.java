@@ -1740,11 +1740,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 *   add.l   d0,d3                  ; Position uses OLD y_vel (d0, before gravity)
 	 */
 	private void doObjectMoveAndFall() {
-		SidekickCpuController cpu = sprite.getCpuController();
-		if (cpu != null && cpu.isFlyingCarrying()) {
-			// Tails_FlyingSwimming applies Tails_Move_FlySwim before
-			// MoveSprite_TestGravity2, so the +8 flight gravity is part of
-			// the current movement tick for the carrier.
+		if (isTailsFlightPhysicsActive(sprite)) {
+			// Tails_FlyingSwimming (sonic3k.asm:27570) applies Tails_Move_FlySwim
+			// before MoveSprite_TestGravity2. MoveSprite_TestGravity2 does not
+			// apply +$38 air gravity (that's MoveSprite_TestGravity's job), and
+			// since Tails_Move_FlySwim already advanced y_vel by +0x08, the
+			// movement step uses the post-gravity y_vel.
 			applyGravity();
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 			return;
@@ -1777,12 +1778,34 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (sprite.isObjectControlled()) {
 			return;
 		}
-		SidekickCpuController cpu = sprite.getCpuController();
-		if (cpu != null && cpu.isFlyingCarrying()) {
+		if (isTailsFlightPhysicsActive(sprite)) {
 			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x08));
 			return;
 		}
 		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
+	}
+
+	/**
+	 * ROM: Tails_Stand_Freespace (sonic3k.asm:27553-27555) branches to
+	 * Tails_FlyingSwimming whenever {@code double_jump_flag(a0) != 0},
+	 * which swaps +$38 air gravity for +$08 flight gravity (Tails_Move_FlySwim
+	 * loc_1488C at sonic3k.asm:27633).
+	 *
+	 * <p>The flag is set by {@code loc_13FC2} when Tails picks up Sonic for the
+	 * CNZ1 carry intro, and — crucially — {@code loc_14016}'s landing release
+	 * does NOT clear it. Tails therefore continues flying on the frame that
+	 * Sonic lands, producing the trace's observed {@code y_vel = 0x0008}
+	 * (0 reset + +0x08 flight gravity) instead of {@code 0x0388}
+	 * (0x0350 carry momentum + +0x38 normal gravity).
+	 *
+	 * <p>Gated on {@link SecondaryAbility#FLY} so Sonic's insta-shield and
+	 * Knuckles's glide (which both also use {@code double_jump_flag}) keep
+	 * their normal air gravity; only Tails's code path in the ROM has the
+	 * Tails_Stand_Freespace -&gt; Tails_FlyingSwimming branch.
+	 */
+	private static boolean isTailsFlightPhysicsActive(AbstractPlayableSprite sprite) {
+		return sprite.getSecondaryAbility() == SecondaryAbility.FLY
+				&& sprite.getDoubleJumpFlag() != 0;
 	}
 
 	// ========================================
