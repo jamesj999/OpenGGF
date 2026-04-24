@@ -199,6 +199,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String CNZ_CYLINDER = "cnz_cylinder";
     public static final String CNZ_VACUUM_TUBE = "cnz_vacuum_tube";
     public static final String CNZ_SPIRAL_TUBE = "cnz_spiral_tube";
+    public static final String CNZ_BUMPER = "cnz_bumper";
 
     // CNZ route/boss infrastructure:
     // - Obj_CNZTeleporter queues ArtKosM_CNZTeleport and then hands off to shared Obj_TeleporterBeam.

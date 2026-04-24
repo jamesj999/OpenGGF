@@ -83,10 +83,14 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
             return;
         }
         destroyed = true;
+        int mySlot = getSlotIndex();
+        // ROM parity: badnik destruction rewrites the current SST slot to
+        // Obj_Explosion; child animal/points objects are allocated after it.
+        setSlotIndex(-1);
         setDestroyed(true);
 
         DestructionEffects.destroyBadnik(
-                getBodyAnchorX(), getBodyAnchorY(), spawn, player, services(),
+                getBodyAnchorX(), getBodyAnchorY(), spawn, mySlot, player, services(),
                 S3K_DESTRUCTION_CONFIG);
     }
 

@@ -1,12 +1,16 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -18,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RequiresRom(SonicGame.SONIC_3K)
 public class TestCnzTraversalRegistry {
 
     @Test
@@ -48,6 +53,18 @@ public class TestCnzTraversalRegistry {
         assertObjectType(registry.create(new ObjectSpawn(0x2200, 0x0640,
                         0x4C, 0, 0, false, 0)),
                 "com.openggf.game.sonic3k.objects.CnzSpiralTubeInstance");
+    }
+
+    @Test
+    public void bumperSlotResolvesToCarnivalNightBumperInCarnivalNightContext() throws Exception {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
+        assertObjectType(registry.create(new ObjectSpawn(0x0340, 0x06BC,
+                        0x4A, 0, 0, false, 0)),
+                "com.openggf.game.sonic3k.objects.CnzBumperObjectInstance");
     }
 
     private static void assertObjectType(ObjectInstance instance, String expectedClassName)
@@ -81,6 +98,9 @@ public class TestCnzTraversalRegistry {
         assertVisibleObjectRendersExpectedInitialFrame(new CnzCylinderInstance(new ObjectSpawn(0x1E00, 0x0600,
                         0x47, 0, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_CYLINDER, 0, 0x1E00, 0x0600);
+        assertVisibleObjectRendersExpectedInitialFrame(new CnzBumperObjectInstance(new ObjectSpawn(0x0340, 0x06BC,
+                        0x4A, 0, 0, false, 0)),
+                Sonic3kObjectArtKeys.CNZ_BUMPER, 0, 0x0340, 0x06BC);
     }
 
     @Test

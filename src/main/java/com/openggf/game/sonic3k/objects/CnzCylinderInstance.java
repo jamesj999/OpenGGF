@@ -72,6 +72,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     private int heldInputMask;
     private int nextHeldInputMask;
     private int mode0Velocity;
+    private int mode0YSubpixel;
     private int currentYVelocity;
     private int angle;
     private int mappingFrame;
@@ -94,7 +95,12 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         }
         this.angleStep = step;
         this.mode0Velocity = 0;
+        this.mode0YSubpixel = 0;
         this.currentYVelocity = 0;
+        // Obj_CNZCylinder init falls through directly into loc_32188, so the
+        // first sub_321E2 motion pass has already happened by the first full
+        // engine update after spawn.
+        updateMotion();
         updateDynamicSpawn(centerX, centerY);
     }
 
@@ -155,7 +161,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         }
 
         centerX = baseX;
-        centerY += mode0Velocity >> 8;
+        moveMode0Sprite2();
 
         int offset = centerY - baseY;
         if (offset < 0) {
@@ -186,6 +192,14 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         if (Math.abs(mode0Velocity) < 0x80) {
             mode0Velocity = 0;
         }
+    }
+
+    private void moveMode0Sprite2() {
+        // ROM loc_32254 calls MoveSprite2, so y_pos carries the low byte of
+        // y_vel between frames even though the visible object centre is a word.
+        int yTotal = (mode0YSubpixel & 0xFF) + (mode0Velocity & 0xFF);
+        centerY += (mode0Velocity >> 8) + (yTotal >> 8);
+        mode0YSubpixel = yTotal & 0xFF;
     }
 
     private void updateHorizontalShift(int shift) {
@@ -290,11 +304,11 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
                 releaseSlot(slot, frameCounter, false);
                 return;
             }
+            holdSlot(slot);
             if (player.isJumpPressed()) {
                 releaseSlot(slot, frameCounter, true);
                 return;
             }
-            holdSlot(slot);
             return;
         }
 
@@ -359,8 +373,10 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         player.setObjectControlled(true);
         player.setControlLocked(true);
         player.setObjectMappingFrameControl(true);
-        player.applyRollingRadii(false);
-        player.setRolling(true);
+        // ROM sub_324C0 restores default_y_radius/default_x_radius and clears
+        // Status_Roll while the player is held in the twist animation.
+        player.restoreDefaultRadii();
+        player.setRolling(false);
         player.setAir(false);
         player.setPushing(false);
         player.setRollingJump(false);
@@ -380,13 +396,19 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             return;
         }
 
-        int xOffset = (TrigLookupTable.cosHex(slot.twistAngle) * slot.horizontalDistance) >> 8;
-        player.setCentreX((short) (centerX + xOffset));
+        int sine = TrigLookupTable.sinHex(slot.twistAngle);
+        int cosine = TrigLookupTable.cosHex(slot.twistAngle);
+        int thresholdByte = ((sine + 0x100) >> 2) & 0xFF;
+        // ROM loc_32538 stores the threshold byte at 3(a2), then reads the
+        // combined word at 2(a2) as the horizontal distance multiplier.
+        int distanceWord = ((slot.horizontalDistance & 0xFF) << 8) | thresholdByte;
+        int xOffset = (cosine * distanceWord) >> 16;
+        player.setCentreXPreserveSubpixel((short) (centerX + xOffset));
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
+        player.setPushing(false);
 
-        int thresholdByte = ((TrigLookupTable.sinHex(slot.twistAngle) + 0x100) >> 2) & 0xFF;
         int objectThreshold = slot.priorityThresholdSource & 0xFF;
         player.setPriorityBucket(thresholdByte < objectThreshold
                 ? PLAYER_TWIST_PRIORITY
@@ -412,12 +434,17 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         player.releaseFromObjectControl(frameCounter);
         player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         player.setForcedAnimationId(-1);
+        player.setPushing(false);
 
         if (jumpedOff) {
+            short releaseX = player.getCentreX();
+            short releaseY = player.getCentreY();
             player.setAir(true);
             player.setJumping(true);
             player.applyRollingRadii(false);
             player.setRolling(true);
+            player.setCentreXPreserveSubpixel(releaseX);
+            player.setCentreYPreserveSubpixel(releaseY);
             player.setAnimationId(2);
             player.setYSpeed((short) (currentYVelocity + RELEASE_Y_SPEED));
             player.setXSpeed((short) 0);
