@@ -1,6 +1,13 @@
 # Known Discrepancies from Original S3K ROM
 
-This document tracks intentional deviations from the original Sonic 3 & Knuckles ROM implementation. These are cases where we've chosen a different approach for cleaner architecture, better maintainability, or other engineering reasons, while preserving identical runtime behavior.
+This document tracks **intentional deviations** from the original Sonic 3 & Knuckles ROM. Entries here are architectural choices we've made (cleaner code, added features, deliberate corrections of known ROM bugs) that we accept and do not plan to revert. Runtime gameplay behavior is preserved unless a rationale explicitly justifies a visible change (e.g., the "Save System" entry adds JSON persistence that replaces SRAM).
+
+**What does NOT belong here:**
+- Bugs, incomplete implementations, and parity gaps that we *intend to fix* → [S3K_KNOWN_BUGS.md](S3K_KNOWN_BUGS.md)
+- General (cross-game) engine-level issues → [KNOWN_BUGS.md](KNOWN_BUGS.md)
+- General (cross-game) intentional discrepancies → [KNOWN_DISCREPANCIES.md](KNOWN_DISCREPANCIES.md)
+
+Each entry describes what the ROM does, what we do, and why — focusing on *why* the divergence is acceptable.
 
 ## Table of Contents
 
@@ -10,7 +17,6 @@ This document tracks intentional deviations from the original Sonic 3 & Knuckles
 4. [Knuckles DPLC Pre-Loading](#knuckles-dplc-pre-loading)
 5. [Save System](#save-system)
 6. [Tails Flying-With-Cargo Physics](#tails-flying-with-cargo-physics)
-7. [CNZ1 Miniboss Arena Entry — Audio Handoff](#cnz1-miniboss-arena-entry--audio-handoff)
 
 ---
 
@@ -226,72 +232,24 @@ OpenGGF now keeps the native S3K save-screen flow but stores saves as JSON envel
 **Location:** Tails flight physics (`SidekickCpuController`, `PlayableSpriteMovement.applyGravity`)
 **ROM Reference:** `sonic3k.asm:27592` `Tails_Move_FlySwim` (+0x08 flight gravity), `sonic3k.asm:27553` `Tails_Stand_Freespace` (branch on `double_jump_flag`)
 
-### Status
-
-Closed for the CNZ1 carry intro: ROM-accurate flight gravity (+0x08/frame) now applies for the whole Tails flight window. Earlier mis-reading of Tails_Move_FlySwim as "anti-gravity lift" has been corrected — the routine simply adds +0x08 to `y_vel` per tick instead of the +0x38 normal air gravity, producing the observed near-neutral carry-descent profile.
-
-### Implementation (2026-04-24)
-
-1. `SidekickCpuController.updateCarryInit()` sets `sidekick.setDoubleJumpFlag(1)` at the same point ROM `loc_13FC2` writes `double_jump_flag=1` (sonic3k.asm:26904).
-2. The ground-release branch in `updateCarrying()` now zeros Tails's `x_vel/y_vel/ground_vel` and keeps the air bit set (matching ROM `loc_14016` at sonic3k.asm:26923-26946). Crucially, it does NOT clear `double_jump_flag` — the ROM leaves it set so Tails continues in flight physics for at least one more tick while the carry-release impulse propagates to Sonic.
-3. `PlayableSpriteMovement.applyGravity()` and `doObjectMoveAndFall()` now gate flight gravity on `sprite.getSecondaryAbility() == FLY && sprite.getDoubleJumpFlag() != 0` (mirrors `Tails_Stand_Freespace` → `Tails_FlyingSwimming` branch), replacing the previous carry-only `flyingCarryingFlag` gate. The check is scoped to Tails via `SecondaryAbility.FLY`, so Sonic's insta-shield and Knuckles's glide (which also use `double_jump_flag`) keep the +0x38 air gravity from their own code paths.
-
-### Status (Flight AI)
-
-Closed (2026-04-24). Tails CPU flight AI — `Tails_Catch_Up_Flying`
-(`sonic3k.asm:26474`, routine 0x02) and `Tails_FlySwim_Unknown`
-(`sonic3k.asm:26534`, routine 0x04) — was ported in plan
-`docs/superpowers/plans/2026-04-24-s3k-tails-cpu-flight-ai.md` and
-landed with commits covering `SidekickCpuController.CATCH_UP_FLIGHT`
-and `SidekickCpuController.FLIGHT_AUTO_RECOVERY`, plus the
-NORMAL → FLIGHT_AUTO_RECOVERY transition for a dead leader.
-
-### Residual Trace Gaps (Non-Flight-AI)
-
-The AIZ1 and CNZ1 trace replays still first diverge at frame 2150 and
-318 respectively. Neither divergence is reachable from the new flight
-AI states — Sonic doesn't die in either trace, the 64-frame catch-up
-gate never fires (Tails stays close enough to Sonic throughout), and
-the carry release at CNZ frame ~107 doesn't go through
-`CATCH_UP_FLIGHT` either.
-
-The remaining gaps are:
-
-- **AIZ1 frame 2150** — Tails rolling-airborne detects floor contact
-  one frame earlier than ROM on a `0xFA` slope. Terrain sensor/
-  radius divergence, not a CPU-AI gap. Needs a separate
-  investigation plan.
-- **CNZ1 frame 318** — Tails's ground run after the carry-release
-  shows a 0x100/frame extra deceleration vs ROM's 0x17/frame.
-  Engine presses LEFT via the CPU follow-AI override when Sonic is
-  72 px away (|dx| >= 0x30 S3K threshold), but the resulting
-  deceleration curve is steeper than ROM. Candidate causes include
-  input-cap interactions (`inputAlwaysCapsGroundSpeed = false` for
-  S3K — maybe still not applied correctly to CPU Tails), unexpected
-  skid penalty, or a slope-angle mismatch. Needs a separate ground-
-  friction/skid investigation plan.
-
----
-
-## CNZ1 Miniboss Arena Entry — Audio Handoff
-
-**Location:** `Sonic3kCNZEvents.enterMinibossArena()`
-**ROM Reference:** `sonic3k.asm:144841` (`moveq #cmd_FadeOut,d0; jsr Play_Music`) plus the boss-music play-in that follows when `Obj_CNZMiniboss` becomes active.
-
 ### Original Implementation
 
-When `Obj_CNZMiniboss` crosses its camera-X gate (`$31E0`), `loc_6D9A8` first issues a music fade-out via `Play_Music` and then the engine queues the miniboss theme as part of the regular boss-music handoff.
+ROM `Tails_Stand_Freespace` at `sonic3k.asm:27553-27555` branches to `Tails_FlyingSwimming` whenever `double_jump_flag(a0)` is non-zero, swapping the normal `+0x38` air gravity for `+0x08` flight gravity from `Tails_Move_FlySwim` (sonic3k.asm:27633 `loc_1488C`). The flag is set when Tails picks up Sonic for the CNZ1 carry intro (`loc_13FC2` at sonic3k.asm:26904 writes `double_jump_flag=1`) and is NOT cleared by the ground-release path at `loc_14016` — Tails continues under flight physics until he actually touches the floor.
 
 ### Our Implementation
 
-`Sonic3kCNZEvents.enterMinibossArena()` mirrors the fade-out (`audio().fadeOutMusic()`), but the miniboss-music play-in is intentionally deferred to workstream T12 ("CNZ miniboss audio handoff"). The site is marked with an inline `TODO(T12)` comment so the replacement is easy to find.
+The engine reproduces this behavior with a feature-scoped gate rather than a flat bit check:
 
-### Impact
+1. `SidekickCpuController.updateCarryInit()` sets `sidekick.setDoubleJumpFlag(1)` at the same point ROM `loc_13FC2` writes the flag.
+2. The ground-release branch in `updateCarrying()` zeros Tails's `x_vel/y_vel/ground_vel` and keeps the air bit set (matching ROM `loc_14016` at sonic3k.asm:26923-26946). Crucially, it does NOT clear `double_jump_flag` — the ROM leaves it set so Tails continues in flight physics for at least one more tick while the carry-release impulse propagates to Sonic.
+3. `PlayableSpriteMovement.applyGravity()` and `doObjectMoveAndFall()` gate flight gravity on `sprite.getSecondaryAbility() == FLY && sprite.getDoubleJumpFlag() != 0` (mirrors `Tails_Stand_Freespace` → `Tails_FlyingSwimming` branch).
+4. Tails's CPU flight AI — `Tails_Catch_Up_Flying` (routine 0x02 at `sonic3k.asm:26474`) and `Tails_FlySwim_Unknown` (routine 0x04 at `sonic3k.asm:26534`) — is ported into `SidekickCpuController.CATCH_UP_FLIGHT` / `FLIGHT_AUTO_RECOVERY`, plus the NORMAL → `FLIGHT_AUTO_RECOVERY` transition on a dead leader.
 
-- Audio drops to silence between the fade-out and boss defeat instead of switching to the miniboss theme.
-- All other arena-entry effects (camera lock, PLC `0x5D`, `Pal_CNZMiniboss` install, `Boss_flag`, wall-grab suppression) match the ROM bit-for-bit, so visual/gameplay parity is unaffected.
-- No tests assert on music selection during the miniboss fight, so this gap does not block T8/T6/T7 coverage.
+### Rationale
 
-### Follow-Up
+1. **Feature-scoped gate over raw flag** — `double_jump_flag` is overloaded in the ROM: Sonic's insta-shield uses it (values 1-$20 during shield timing), Knuckles's glide uses it (1=gliding, 2=stopped, 3=sliding), and Tails's flight uses it (non-zero = flight-gravity). Gating the flight-gravity substitution on `SecondaryAbility.FLY` prevents Sonic's insta-shield and Knuckles's glide from accidentally acquiring the `+0x08` gravity. The ROM achieves the same scoping naturally because only Tails's code path hits `Tails_Stand_Freespace`.
+2. **Plan reference** — See `docs/superpowers/plans/2026-04-24-s3k-tails-cpu-flight-ai.md` for the full breakdown of the carry-release and flight-AI ports.
 
-Workstream T12 owns wiring `Sonic3kMusic.MINIBOSS` (or the equivalent S3K music ID) into the existing `audio()` boss-music handoff once the miniboss audio routing lands.
+### Verification
+
+`TestSidekickCpuControllerCarry`, `TestSidekickCpuControllerCatchUpFlight`, and `TestSidekickCpuControllerFlightAutoRecovery` cover the state-machine transitions. `TestS3kCnzCarryHeadless` verifies the CNZ1 intro carry-release frame window.

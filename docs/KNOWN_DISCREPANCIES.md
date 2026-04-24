@@ -1,6 +1,13 @@
-# Known Discrepancies from Original ROM
+# Known Discrepancies from Original ROMs
 
-This document tracks intentional deviations from the original Sonic 2 ROM implementation. These are cases where we've chosen a different approach for cleaner architecture, better maintainability, or other engineering reasons, while preserving identical runtime behavior.
+This document tracks **intentional deviations** from the original Sonic 1 / 2 / 3&K ROMs that apply engine-wide (cross-game) or to Sonic 1 / Sonic 2 specifically. Entries here are architectural choices we've made (cleaner code, added features, deliberate corrections of known ROM bugs) that we accept and do not plan to revert. Runtime gameplay behavior is preserved unless a rationale explicitly justifies a visible change (e.g., the multi-sidekick entry adds gameplay that the ROM never supported).
+
+**What does NOT belong here:**
+- Bugs, incomplete implementations, and parity gaps that we *intend to fix* → [KNOWN_BUGS.md](KNOWN_BUGS.md)
+- Sonic 3 & Knuckles-specific intentional discrepancies → [S3K_KNOWN_DISCREPANCIES.md](S3K_KNOWN_DISCREPANCIES.md)
+- Sonic 3 & Knuckles-specific bugs → [S3K_KNOWN_BUGS.md](S3K_KNOWN_BUGS.md)
+
+Each entry describes what the ROM does, what we do, and why — focusing on *why* the divergence is acceptable.
 
 ## Table of Contents
 
@@ -13,7 +20,6 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 7. [Sonic 1 Monitor Sidekick Guard](#sonic-1-monitor-sidekick-guard)
 8. [Bonus Stage Game Mode](#bonus-stage-game-mode)
 9. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
-10. [Trace Replay Recorder Coverage](#trace-replay-recorder-coverage)
 
 ---
 
@@ -438,46 +444,3 @@ private void capturePlayer(AbstractPlayableSprite player, PlayerBeltState state,
 ### Verification
 
 With the fix, the player is vulnerable to enemy touch responses while on the conveyor belt, matching original hardware behavior. The release path still unconditionally sets `Status_Roll`, so belt exit behavior is unaffected.
-
----
-
-## Trace Replay Recorder Coverage
-
-**Location:** `src/test/java/com/openggf/tests/trace/*`, `tools/bizhawk/*`
-**Reference:** BizHawk trace-replay tooling rather than original ROM runtime
-
-### Current Implementation
-
-The shared replay harness now understands schema v3 execution counters and uses
-`gameplay_frame_counter` plus `vblank_counter` when those columns are present.
-The Sonic 1, Sonic 2, and Sonic 3&K BizHawk recorders all emit schema v3, and
-committed synthetic v3 fixtures exercise the per-game metadata acceptance
-paths.
-
-BK2-derived fixture coverage is still incomplete across the full replay suite.
-Sonic 1 ships with established v3-native BK2 traces, and this branch also
-contains a Sonic 2 BK2-derived trace directory, but there is still no committed
-Sonic 3&K BK2-derived gameplay fixture driving replay parity in CI. Older or
-pre-v3 traces can therefore still reach the legacy heuristic path when they are
-loaded.
-
-`TraceData` now logs a one-shot notice when a pre-v3 trace directory is loaded
-so the fallback is visible during test runs.
-
-### Rationale
-
-1. **Backward compatibility first** - Existing checked-in fixtures continue to
-   parse and replay while the schema migration is still in progress.
-2. **Real fixture coverage is still uneven** - Synthetic fixtures prove the
-   parser contract, but they do not replace a real BK2-derived Sonic 3&K trace,
-   and the branch-local Sonic 2 replay trace is still parity work rather than a
-   settled baseline.
-3. **Visibility over silent fallback** - The replay harness now reports when it
-   is using the legacy heuristic so remaining migration work is explicit.
-
-### Removal Condition
-
-Remove this discrepancy entry once at least one real BK2-derived Sonic 3&K
-fixture is checked in alongside the existing S1/S2 coverage, a replay test
-parses it as schema v3, and the legacy fallback path in
-`TraceExecutionModel` / `TraceData` is deleted.
