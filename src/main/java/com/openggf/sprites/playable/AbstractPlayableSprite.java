@@ -464,6 +464,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean suppressAirCollision = false;
         /**
+         * ROM object_control bit 6 for objects that own curved/loop movement
+         * while still letting normal player movement run. Sonic_WalkSpeed skips
+         * CalcRoomInFront when this bit is set.
+         */
+        protected boolean suppressGroundWallCollision = false;
+        /**
          * When true, the airborne floor check in quadrants 0x40/0xC0 runs even
          * when ySpeed &lt; 0.  ROM equivalent: {@code WindTunnel_flag} gating
          * at sonic3k.asm:24204/24299.  Set by zone feature providers (e.g.,
@@ -633,6 +639,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.latchedSolidObjectId = 0;
                 this.sliding = false;
                 this.stickToConvex = false;
+                this.suppressGroundWallCollision = false;
                 // Reset ground mode to GROUND - critical for sensor direction on level load.
                 // Without this, if player was on a wall/ceiling when previous level ended,
                 // sensors would point in wrong direction and collision detection would fail.
@@ -1164,6 +1171,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setJumping(boolean jumping) {
+                if (controller != null) {
+                        // The ROM jumping byte is also the Sonic_JumpHeight latch.
+                        // Object releases that set jumping need the release-height cap,
+                        // while springs clear it so external launches are not capped.
+                        if (jumping && !this.jumping) {
+                                controller.getMovement().setJumpHeightLatch();
+                        } else if (!jumping) {
+                                controller.getMovement().clearJumpHeightLatch();
+                        }
+                }
                 this.jumping = jumping;
         }
 
@@ -2092,6 +2109,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.suppressAirCollision = suppress;
         }
 
+        public boolean isSuppressGroundWallCollision() {
+                return suppressGroundWallCollision;
+        }
+
+        public void setSuppressGroundWallCollision(boolean suppress) {
+                this.suppressGroundWallCollision = suppress;
+        }
+
         public boolean isForceFloorCheck() {
                 return forceFloorCheck;
         }
@@ -2621,6 +2646,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 onObject = false;           // Clear "standing on object" flag
                 latchedSolidObjectId = 0;
                 stickToConvex = false;      // Clear slope adhesion flag (set by slope-mode launches)
+                suppressGroundWallCollision = false;
         }
 
         /**
@@ -2639,16 +2665,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.gSpeed = gSpeed;
         }
 
-        private void traceS3kAizVelocityProbe(String field, short oldValue, short newValue) {
-                if (oldValue == newValue || !Boolean.getBoolean("s3k.aiz.velocityprobe")) {
-                        return;
-                }
+	private void traceS3kAizVelocityProbe(String field, short oldValue, short newValue) {
+		if (oldValue == newValue || !Boolean.getBoolean("s3k.aiz.velocityprobe")) {
+			return;
+		}
 
-                int centreX = getCentreX() & 0xFFFF;
-                int centreY = getCentreY() & 0xFFFF;
-                if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
-                        return;
-                }
+		int centreX = getCentreX() & 0xFFFF;
+		int centreY = getCentreY() & 0xFFFF;
+		if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
+			return;
+		}
 
                 int frameCounter = -1;
                 var levelManager = GameServices.levelOrNull();
@@ -2999,6 +3025,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setRollingJump(boolean rollingJump) {
                 this.rollingJump = rollingJump;
+                if (rollingJump) {
+                        // ROM Sonic_Jump restores default_y_radius/default_x_radius before
+                        // branching to Sonic_RollJump for an already-rolling jump.
+                        applyStandingRadii(false);
+                }
         }
 
         /**
@@ -3064,6 +3095,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public short getStandYRadius() {
                 return standYRadius;
+        }
+
+        public short getRollYRadius() {
+                return rollYRadius;
         }
 
         /**

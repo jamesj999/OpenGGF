@@ -42,6 +42,8 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     private static final int FLIP_INITIAL = 1;
     private static final int FLIP_SPEED = 8;
     private static final int FLIPS_REMAINING = 0x7F;
+    private static final int X_OSC_OFFSET = 0x0C;    // ROM Oscillating_table+$0E, minus control word.
+    private static final int LIFT_OSC_OFFSET = 0x14; // ROM Oscillating_table+$16, minus control word.
 
     private final int subtype;
     private final boolean activeVariant;
@@ -108,7 +110,8 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         }
 
         // ROM: loc_30F12 -> Oscillating_table+$0E - $30 + saved X.
-        return baseX + OscillationManager.getByte(0x0E) - 0x30;
+        // OscillationManager stores the table after the ROM's 2-byte control word.
+        return baseX + OscillationManager.getByte(X_OSC_OFFSET) - 0x30;
     }
 
     private boolean tryCapture(AbstractPlayableSprite player) {
@@ -125,11 +128,14 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
             return false;
         }
 
-        // ROM sub_30F84:
-        //   if band >= liftWindowMin, mirror the distance through the fan body before
-        //   converting it into a vertical nudge.
-        if (adjustedBand >= liftWindowMin) {
-            adjustedBand = ~((adjustedBand - liftWindowMin) & 0xFFFF);
+        // ROM sub_31E96:
+        //   sub.w $36,d1
+        //   bcs.s loc_31EDE
+        //   not.w d1
+        //   add.w d1,d1
+        adjustedBand = (short) ((adjustedBand - liftWindowMin) & 0xFFFF);
+        if (adjustedBand >= 0) {
+            adjustedBand = ~adjustedBand;
             adjustedBand = (adjustedBand + adjustedBand) & 0xFFFF;
         }
 
@@ -137,7 +143,7 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
         adjustedBand = (short) -adjustedBand;
         adjustedBand >>= 4;
 
-        player.setCentreY((short) (player.getCentreY() + adjustedBand));
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() + adjustedBand));
         player.setAir(true);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 1);
@@ -162,7 +168,7 @@ public final class CnzHoverFanInstance extends AbstractObjectInstance {
     }
 
     private int rawLiftBand(AbstractPlayableSprite player) {
-        int osc = OscillationManager.getByte(0x16);
+        int osc = OscillationManager.getByte(LIFT_OSC_OFFSET);
         return player.getCentreY() - baseY + osc + liftWindowMin;
     }
 

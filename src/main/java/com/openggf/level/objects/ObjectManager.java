@@ -1,5 +1,4 @@
 package com.openggf.level.objects;
-        // by postCameraPlacementUpdate(...), otherwise they reset and respawn with
 import static org.lwjgl.opengl.GL11.GL_LINES;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
@@ -305,6 +304,7 @@ public class ObjectManager {
         SolidExecutionRegistry solidExecutionRegistry = objectServices.solidExecutionRegistry();
         solidExecutionRegistry.beginFrame(frameCounter, collectActivePlayers(player, activeSidekicks));
         boolean counterBased = placement.isCounterBasedRespawn();
+        boolean execThenLoad = placement.usesExecThenLoadPlacement();
 
         if (inlineSolidResolution) {
             solidContacts.beginInlineFrame(player, activeSidekicks, solidPostMovement);
@@ -317,13 +317,11 @@ public class ObjectManager {
                         activeSidekicks,
                         inlineSolidResolution,
                         solidPostMovement);
+            } else if (execThenLoad) {
+                cleanupDestroyedDynamicObjects();
+                runExecLoop(cameraX, player, activeSidekicks, inlineSolidResolution, solidPostMovement);
             } else {
                 syncActiveSpawnsUnload();
-                // ROM parity: In the ROM, ExecuteObjects runs BEFORE ObjPosLoad.
-                // Dynamic children (e.g. GlassBlock reflections) whose parent was just
-                // unloaded in syncActiveSpawnsUnload may now be marked destroyed (via
-                // the parent's onUnload()). Free their slots before the load phase so
-                // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
                 cleanupDestroyedDynamicObjects();
                 syncActiveSpawnsLoad();
                 runExecLoop(cameraX, player, activeSidekicks, inlineSolidResolution, solidPostMovement);
@@ -355,6 +353,10 @@ public class ObjectManager {
         // the same counter values as the ROM. Defer to postCameraPlacementUpdate().
         if (!counterBased) {
             placement.update(cameraX);
+            if (execThenLoad) {
+                cleanupDestroyedDynamicObjects();
+                syncActiveSpawnsLoad();
+            }
         }
     }
 
@@ -741,6 +743,9 @@ public class ObjectManager {
     private boolean inlineCreateObject(ObjectSpawn spawn, int counterValue) {
         if (activeObjects.containsKey(spawn)) {
             return true; // Already exists
+        }
+        if (!isSpawnVerticallyEligibleForLoad(spawn)) {
+            return false;
         }
         int preSlot = allocateSlot();
         if (preSlot < 0) {
@@ -1264,6 +1269,15 @@ public class ObjectManager {
      */
     public void enableCounterBasedRespawn() {
         placement.enableCounterBasedRespawn();
+    }
+
+    /**
+     * Enables ROM object-order semantics for games that do not use the S1
+     * counter table: ExecuteObjects runs first, then ObjPosLoad materializes
+     * newly streamed spawns for the following frame.
+     */
+    public void enableExecThenLoadPlacement() {
+        placement.enableExecThenLoadPlacement();
     }
 
     /**
@@ -1916,6 +1930,9 @@ public class ObjectManager {
         // getSlotIndex() returns the correct value and allocateSlotAfter()
         // gives the child a HIGHER slot (matching ROM's FindNextFreeObj).
         for (ObjectSpawn spawn : sortedNewSpawns) {
+            if (!isSpawnVerticallyEligibleForLoad(spawn)) {
+                continue;
+            }
             // Pre-allocate parent slot — consumed by AbstractObjectInstance's
             // constructor via the PRE_ALLOCATED_SLOT ThreadLocal.
             int preSlot = allocateSlot();
@@ -1966,6 +1983,28 @@ public class ObjectManager {
     }
 
 
+
+    private boolean isSpawnVerticallyEligibleForLoad(ObjectSpawn spawn) {
+        if (spawn == null || placement.isCounterBasedRespawn() || camera == null) {
+            return true;
+        }
+        return isNonCounterSpawnVerticallyEligible(spawn, camera.getY(), camera.getMinY());
+    }
+
+    static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY) {
+        if ((spawn.rawYWord() & 0x8000) != 0) {
+            return true;
+        }
+        if ((short) cameraMinY < 0) {
+            return true;
+        }
+
+        int cameraChunkY = cameraY & 0xFF80;
+        int windowTop = Math.max(0, cameraChunkY - 0x80);
+        int windowBottom = cameraChunkY + 0x200;
+        int spawnY = spawn.rawYWord() & 0x0FFF;
+        return spawnY >= windowTop && spawnY <= windowBottom;
+    }
 
     /**
      * Enables vertical wrap Y adjustment on GraphicsManager if the camera has
@@ -2086,6 +2125,7 @@ public class ObjectManager {
         private int lastCameraChunk = Integer.MIN_VALUE;
 
         private boolean counterBasedRespawn;
+        private boolean execThenLoadPlacement;
         private java.util.function.IntSupplier usedSlotCounter;
         private int maxDynamicSlots = 96;
 
@@ -2152,6 +2192,11 @@ public class ObjectManager {
 
         void enableCounterBasedRespawn() {
             this.counterBasedRespawn = true;
+            this.execThenLoadPlacement = true;
+        }
+
+        void enableExecThenLoadPlacement() {
+            this.execThenLoadPlacement = true;
         }
 
         void enforceSlotLimit(java.util.function.IntSupplier counter) {
@@ -2314,11 +2359,16 @@ public class ObjectManager {
                 }
             } else {
                 int delta = cameraX - lastCameraX;
-                if (delta < 0 || delta > (getLoadAhead() + getUnloadBehind())) {
+                if (Math.abs(delta) > (getLoadAhead() + getUnloadBehind())) {
                     refreshWindow(cameraX);
-                } else {
+                } else if (cameraChunk > lastCameraChunk) {
                     spawnForward(cameraX);
-                    trimActive(cameraX);
+                    trimLeftNonCounter(cameraX);
+                } else if (cameraChunk < lastCameraChunk) {
+                    spawnBackwardNonCounter(cameraX);
+                    trimRightNonCounter(cameraX);
+                } else {
+                    clearDestroyedLatchOutsideWindow(getWindowStart(cameraX), getWindowEnd(cameraX));
                 }
                 lastCameraChunk = cameraChunk;
             }
@@ -2509,7 +2559,7 @@ public class ObjectManager {
             }
         }
 
-        private void trimActive(int cameraX) {
+        private void trimLeftNonCounter(int cameraX) {
             int windowStart = getWindowStart(cameraX);
             int windowEnd = getWindowEnd(cameraX);
             // ROM parity: MarkObjGone_P1 (at $164A6) checks the object's CURRENT
@@ -2524,6 +2574,13 @@ public class ObjectManager {
             // prematurely killed moving badniks like Buzzer — their engine
             // lifecycle diverged from the ROM (unload/respawn cycling) while
             // the ROM instance stayed alive continuously.
+            while (leftCursorIndex < cursorIndex
+                    && leftCursorIndex < spawns.size()
+                    && spawns.get(leftCursorIndex).x() < windowStart) {
+                active.remove(spawns.get(leftCursorIndex));
+                dormant.clear(leftCursorIndex);
+                leftCursorIndex++;
+            }
             clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
         }
 
@@ -2535,10 +2592,42 @@ public class ObjectManager {
             // lowerBound(windowEnd) gives the first index where x >= windowEnd,
             // so indices [start, end) have windowStart <= x < windowEnd.
             int end = lowerBound(windowEnd);
+            leftCursorIndex = start;
             cursorIndex = end;
             active.clear();
             for (int i = start; i < end; i++) {
                 trySpawn(i);
+            }
+            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+        }
+
+        private void spawnBackwardNonCounter(int cameraX) {
+            int windowStart = getWindowStart(cameraX);
+            while (leftCursorIndex > 0) {
+                ObjectSpawn previous = spawns.get(leftCursorIndex - 1);
+                // ROM loc_1B892 stops when the left edge is greater than or
+                // equal to the previous object's X.
+                if (windowStart >= previous.x()) {
+                    break;
+                }
+                leftCursorIndex--;
+                trySpawn(leftCursorIndex);
+            }
+        }
+
+        private void trimRightNonCounter(int cameraX) {
+            int windowStart = getWindowStart(cameraX);
+            int windowEnd = getWindowEnd(cameraX);
+            while (cursorIndex > leftCursorIndex) {
+                ObjectSpawn previous = spawns.get(cursorIndex - 1);
+                // ROM loc_1B8BC retreats the front pointer while entries are
+                // at or beyond the strict right edge.
+                if (previous.x() < windowEnd) {
+                    break;
+                }
+                cursorIndex--;
+                active.remove(previous);
+                dormant.clear(cursorIndex);
             }
             clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
         }
@@ -2802,6 +2891,10 @@ public class ObjectManager {
 
         boolean isCounterBasedRespawn() {
             return counterBasedRespawn;
+        }
+
+        boolean usesExecThenLoadPlacement() {
+            return execThenLoadPlacement;
         }
 
         /**
@@ -4959,7 +5052,10 @@ public class ObjectManager {
                     maxTop,
                     stickyX,
                     "pre-bounds");
-            if (relXRaw < -stickyX || relXRaw >= width2 + stickyX) {
+            boolean inclusiveRightEdge = instance instanceof SolidObjectProvider provider
+                    && provider.usesInclusiveRightEdge();
+            int rightLimit = width2 + stickyX;
+            if (relXRaw < -stickyX || (inclusiveRightEdge ? relXRaw > rightLimit : relXRaw >= rightLimit)) {
                 traceS3kAizObjectProbe("reject-x",
                         player,
                         instance,
@@ -4974,12 +5070,13 @@ public class ObjectManager {
                         "x-range");
                 return null;
             }
-            // Clamp back into the normal box before side/top resolution so all existing
-            // distance math keeps its established behavior.
+            // Clamp sticky overflow back into the normal box before side/top resolution.
+            // Objects that opt into the ROM's inclusive right edge must keep relX == width2:
+            // SolidObject_cont treats that as a zero-distance side contact, not a 1px shove.
             int relX = relXRaw;
             if (relX < 0) {
                 relX = 0;
-            } else if (relX >= width2) {
+            } else if (relX > width2 || (!inclusiveRightEdge && relX == width2)) {
                 relX = width2 - 1;
             }
 
@@ -5689,7 +5786,9 @@ public class ObjectManager {
                 return false;
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
-            return featureSet != null && featureSet.airBottomSolidHitClearsGroundSpeed();
+            return player.getAir()
+                    && featureSet != null
+                    && featureSet.airBottomSolidHitClearsGroundSpeed();
         }
 
         private boolean usesCurrentYRadiusOnlyForFullSolidBottomOverlap(PlayableEntity player) {

@@ -37,6 +37,8 @@ public final class Sonic3kObjectIds {
     public static final int MGZ_TWISTING_LOOP = 0x50;
     public static final int FLOATING_PLATFORM = 0x51;
     public static final int BUMPER = 0x4A;
+    // S3KL object table: Obj_CNZTriangleBumpers.
+    public static final int CNZ_TRIANGLE_BUMPER = 0x4B;
     public static final int BUBBLER = 0x54;
     public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
@@ -65,8 +67,14 @@ public final class Sonic3kObjectIds {
     public static final int CNZ_CYLINDER = 0x47;
     // S3KL object table: Obj_CNZVacuumTube. Controller-only scaffold for Task 1.
     public static final int CNZ_VACUUM_TUBE = 0x48;
+    // S3KL object table: Obj_CNZGiantWheel.
+    public static final int CNZ_GIANT_WHEEL = 0x49;
     // S3KL object table: Obj_CNZSpiralTube. Controller-only scaffold for Task 1.
     public static final int CNZ_SPIRAL_TUBE = 0x4C;
+    // S3KL object table: Obj_CNZBarberPoleSprite.
+    public static final int CNZ_BARBER_POLE = 0x4D;
+    // S3KL object table: Obj_CNZWireCage.
+    public static final int CNZ_WIRE_CAGE = 0x4E;
     public static final int MGZLBZ_SMASHING_PILLAR_ALT = 0x20;
     public static final int MGZLBZ_SMASHING_PILLAR = 0x52;
     public static final int MGZ_SWINGING_PLATFORM = 0x53;
@@ -126,6 +134,12 @@ public final class Sonic3kObjectIds {
     public static final int TUNNELBOT = 0x9E;
     public static final int HCZ_MINIBOSS = 0x99;
     public static final int HCZ_END_BOSS = 0x9A;
+    // S3KL object table: Obj_Clamer.
+    public static final int CLAMER = 0xA3;
+    // S3KL object table: Obj_Sparkle.
+    public static final int SPARKLE = 0xA4;
+    // S3KL object table: Obj_Batbot.
+    public static final int BATBOT = 0xA5;
     // S3KL object table: Obj_CNZMiniboss. SKL reuses $A6 for DEZMiniboss.
     public static final int CNZ_MINIBOSS = 0xA6;
     // S3KL object table: Obj_CNZEndBoss. SKL reuses $A7 for DEZEndBoss.

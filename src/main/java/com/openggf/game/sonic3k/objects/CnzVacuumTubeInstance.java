@@ -124,7 +124,7 @@ public final class CnzVacuumTubeInstance extends AbstractObjectInstance {
         if (!facingRight) {
             dragWord = -dragWord;
         }
-        player.setCentreX((short) (player.getCentreX() + negateLowByteAndShiftRight4(dragWord)));
+        player.setCentreXPreserveSubpixel((short) (player.getCentreX() + negateLowByteAndShiftRight4(dragWord)));
         maybePlaySfx(Sonic3kSfx.TUNNEL_BOOSTER, tunnelBoosterSfxCounter == 0);
         tunnelBoosterSfxCounter = (tunnelBoosterSfxCounter + 1) & 0x1F;
     }
@@ -145,7 +145,7 @@ public final class CnzVacuumTubeInstance extends AbstractObjectInstance {
             }
 
             activeLiftFrames.put(player, nextRemaining);
-            player.setCentreY((short) (player.getCentreY() - LIFT_SPEED_PER_FRAME));
+            player.setCentreYPreserveSubpixel((short) (player.getCentreY() - LIFT_SPEED_PER_FRAME));
             movePlayerTowardTubeCenter(player);
             player.setAir(true);
             player.setJumping(false);
@@ -179,7 +179,7 @@ public final class CnzVacuumTubeInstance extends AbstractObjectInstance {
         if (!(player instanceof Tails)) {
             liftAmount >>= 1;
         }
-        player.setCentreY((short) (player.getCentreY() - liftAmount));
+        player.setCentreYPreserveSubpixel((short) (player.getCentreY() - liftAmount));
         movePlayerTowardTubeCenter(player);
         player.setAir(true);
         player.setAnimationId(LIFT_ANIMATION_ID);
@@ -189,9 +189,9 @@ public final class CnzVacuumTubeInstance extends AbstractObjectInstance {
     private void movePlayerTowardTubeCenter(AbstractPlayableSprite player) {
         int dx = player.getCentreX() - spawn.x();
         if (dx > 0) {
-            player.setCentreX((short) (player.getCentreX() - 1));
+            player.setCentreXPreserveSubpixel((short) (player.getCentreX() - 1));
         } else if (dx < 0) {
-            player.setCentreX((short) (player.getCentreX() + 1));
+            player.setCentreXPreserveSubpixel((short) (player.getCentreX() + 1));
         }
     }
 

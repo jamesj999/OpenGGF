@@ -7,6 +7,8 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.ObjectManager;
@@ -43,27 +45,26 @@ import java.util.List;
  * test while still matching the ROM's forced rolling and release semantics.
  */
 public final class CnzCannonInstance extends AbstractObjectInstance
-        implements SolidObjectProvider {
+        implements SolidObjectProvider, SolidObjectListener {
 
     private static final int PRIORITY = 0x280;
     private static final int FRAME_IDLE = 9;
     private static final int FRAME_SPIN_MIN = 0;
     private static final int FRAME_SPIN_MAX = 8;
     private static final int STATE_IDLE = 0;
-    private static final int STATE_CAPTURED = 1;
-    private static final int STATE_COOLDOWN = 2;
+    private static final int STATE_PULLING_PLAYER = 1;
+    private static final int STATE_READY_TO_LAUNCH = 2;
+    private static final int STATE_COOLDOWN = 3;
+    private static final int CAPTURE_PULL_GRAVITY = 0x38;
 
     // ROM capture writes y_radius=$0E and x_radius=7.
     private static final int ROLL_X_RADIUS = 7;
     private static final int ROLL_Y_RADIUS = 14;
 
-    // The cannon's body is roughly a 48x48 traversal surface in-engine.
+    // ROM sub_3192C: move.w #$10,d1 / move.w #$29,d3 / jmp SolidObjectTop.
     private static final SolidObjectParams SOLID_PARAMS =
-            new SolidObjectParams(0x18, 0x18, 0x18);
+            new SolidObjectParams(0x10, 0x29, 0x29);
 
-    private static final int CAPTURE_HALF_WIDTH = 0x18;
-    private static final int CAPTURE_HALF_HEIGHT = 0x20;
-    private static final int LAUNCH_READY_DELAY_FRAMES = 8;
     private static final int LAUNCH_COOLDOWN_FRAMES = 8;
 
     private int state = STATE_IDLE;
@@ -84,7 +85,8 @@ public final class CnzCannonInstance extends AbstractObjectInstance
 
         switch (state) {
             case STATE_IDLE -> updateIdle(frameCounter, player);
-            case STATE_CAPTURED -> updateCaptured(frameCounter, player);
+            case STATE_PULLING_PLAYER -> updatePullingPlayer(player);
+            case STATE_READY_TO_LAUNCH -> updateReadyToLaunch(frameCounter, player);
             case STATE_COOLDOWN -> updateCooldown();
             default -> {
                 state = STATE_IDLE;
@@ -100,29 +102,33 @@ public final class CnzCannonInstance extends AbstractObjectInstance
             return;
         }
 
-        AbstractPlayableSprite rider = findCapturablePlayer(player);
-        if (rider == null) {
-            return;
-        }
-
-        capturePlayer(rider);
-        state = STATE_CAPTURED;
-        stateTimer = LAUNCH_READY_DELAY_FRAMES;
-        advanceSpin(frameCounter);
+        // The ROM's idle routine only runs SolidObjectTop here. Capture happens
+        // from the standing bit set by that solid check, mirrored by onSolidContact.
     }
 
-    private void updateCaptured(int frameCounter, AbstractPlayableSprite player) {
-        advanceSpin(frameCounter);
-
-        if (stateTimer > 0) {
-            stateTimer--;
-            if (capturedPlayer != null) {
-                capturedPlayer.setCentreX((short) spawn.x());
-                capturedPlayer.setOnObject(false);
-                capturedPlayer.setAir(true);
-            }
+    private void updatePullingPlayer(AbstractPlayableSprite player) {
+        AbstractPlayableSprite activePlayer = capturedPlayer != null ? capturedPlayer : player;
+        if (activePlayer == null || !activePlayer.isObjectControlled()) {
+            state = STATE_IDLE;
+            renderFrame = FRAME_IDLE;
+            capturedPlayer = null;
             return;
         }
+
+        activePlayer.setCentreXPreserveSubpixel((short) spawn.x());
+        activePlayer.move((short) 0, activePlayer.getYSpeed());
+        activePlayer.setYSpeed((short) (activePlayer.getYSpeed() + CAPTURE_PULL_GRAVITY));
+        if ((activePlayer.getCentreY() & 0xFFFF) > spawn.y()) {
+            activePlayer.setCentreYPreserveSubpixel((short) spawn.y());
+            activePlayer.setAnimationId(0x1C);
+            state = STATE_READY_TO_LAUNCH;
+        }
+        activePlayer.setOnObject(false);
+        activePlayer.setAir(true);
+    }
+
+    private void updateReadyToLaunch(int frameCounter, AbstractPlayableSprite player) {
+        advanceSpin(frameCounter);
 
         AbstractPlayableSprite activePlayer = capturedPlayer != null ? capturedPlayer : player;
         if (activePlayer == null || !activePlayer.isObjectControlled()) {
@@ -131,6 +137,11 @@ public final class CnzCannonInstance extends AbstractObjectInstance
             capturedPlayer = null;
             return;
         }
+
+        activePlayer.setCentreXPreserveSubpixel((short) spawn.x());
+        activePlayer.setCentreYPreserveSubpixel((short) spawn.y());
+        activePlayer.setOnObject(false);
+        activePlayer.setAir(true);
 
         if (activePlayer.isJumpPressed()) {
             launchPlayer(activePlayer, frameCounter);
@@ -163,14 +174,9 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         }
     }
 
-    private boolean isWithinCaptureWindow(AbstractPlayableSprite player) {
-        int dx = Math.abs(player.getCentreX() - spawn.x());
-        int dy = Math.abs(player.getCentreY() - spawn.y());
-        return dx <= CAPTURE_HALF_WIDTH && dy <= CAPTURE_HALF_HEIGHT;
-    }
-
     private void capturePlayer(AbstractPlayableSprite player) {
         capturedPlayer = player;
+        short captureY = player.getCentreY();
 
         // ROM: move.w #$81,object_control(a1) / bset #Status_Roll,status(a1)
         player.setObjectControlled(true);
@@ -179,9 +185,10 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         player.applyCustomRadii(ROLL_X_RADIUS, ROLL_Y_RADIUS);
         player.setAnimationId(2);
 
-        // Keep the player centered on the cannon while captured.
-        player.setCentreX((short) spawn.x());
-        player.setCentreY((short) (spawn.y() - 0x18));
+        // ROM: x_pos is snapped to the cannon with a word write, while y_pos
+        // is left untouched until the pull-down sub-state reaches the cannon.
+        player.setCentreXPreserveSubpixel((short) spawn.x());
+        player.setCentreYPreserveSubpixel(captureY);
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
@@ -200,8 +207,12 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         short xSpeed = (short) (TrigLookupTable.cosHex(launchAngle) << 4);
         short ySpeed = (short) (TrigLookupTable.sinHex(launchAngle) << 4);
 
-        // ROM launch: release control, keep the player in air, and inject the
-        // launch vector derived from the current cannon frame.
+        // ROM launch writes the player's x_pos to the cannon and y_pos to the
+        // cannon centre minus $18 before releasing control.
+        player.setRolling(true);
+        player.applyCustomRadii(ROLL_X_RADIUS, ROLL_Y_RADIUS);
+        player.setCentreXPreserveSubpixel((short) spawn.x());
+        player.setCentreYPreserveSubpixel((short) (spawn.y() - 0x18));
         player.setXSpeed(xSpeed);
         player.setYSpeed(ySpeed);
         player.setGSpeed(xSpeed);
@@ -209,9 +220,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         player.setControlLocked(false);
         player.releaseFromObjectControl(frameCounter);
         player.setOnObject(false);
-        player.setRolling(true);
         player.setJumping(false);
-        player.applyCustomRadii(ROLL_X_RADIUS, ROLL_Y_RADIUS);
 
         capturedPlayer = null;
         state = STATE_COOLDOWN;
@@ -219,35 +228,16 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         renderFrame = FRAME_IDLE;
     }
 
-    private AbstractPlayableSprite findCapturablePlayer(AbstractPlayableSprite mainPlayer) {
-        if (canCapture(mainPlayer)) {
-            return mainPlayer;
+    @Override
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        if (state != STATE_IDLE || !contact.standing()
+                || !(playerEntity instanceof AbstractPlayableSprite player)
+                || player.isObjectControlled() || player.isJumping()) {
+            return;
         }
 
-        try {
-            for (PlayableEntity sidekickEntity : services().sidekicks()) {
-                if (sidekickEntity instanceof AbstractPlayableSprite sidekick && canCapture(sidekick)) {
-                    return sidekick;
-                }
-            }
-        } catch (Exception ignored) {
-            // Some test fixtures do not expose sidekicks.
-        }
-
-        return null;
-    }
-
-    private boolean canCapture(AbstractPlayableSprite player) {
-        if (player == null || player.isObjectControlled() || player.isJumping()) {
-            return false;
-        }
-
-        ObjectManager objectManager = services().objectManager();
-        if (objectManager != null && objectManager.isRidingObject(player, this)) {
-            return true;
-        }
-
-        return isWithinCaptureWindow(player) && !player.getAir();
+        capturePlayer(player);
+        state = STATE_PULLING_PLAYER;
     }
 
     @Override
@@ -280,17 +270,6 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
-    }
-
-    /**
-     * Package-private test seam for launch timing.
-     *
-     * <p>The ROM uses a small post-capture spin/launch window. Tests can reduce
-     * this to zero when they need the cannon to enter the launch-ready state
-     * immediately after capture.
-     */
-    void setLaunchDelayFramesForTest(int frames) {
-        stateTimer = Math.max(0, frames);
     }
 
     int getRenderFrameForTest() {

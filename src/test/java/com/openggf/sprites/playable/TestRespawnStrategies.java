@@ -162,6 +162,7 @@ class TestRespawnStrategies {
         sk.setTopSolidBit((byte) 0x0C);
         sk.setLrbSolidBit((byte) 0x0D);
         sk.setHighPriority(false);
+        sk.setMoveLockTimer(13);
 
         ctrl.setInitialState(SidekickCpuController.State.APPROACHING);
         ctrl.update(0);
@@ -170,6 +171,8 @@ class TestRespawnStrategies {
         assertEquals(0x0E, sk.getTopSolidBit() & 0xFF);
         assertEquals(0x0F, sk.getLrbSolidBit() & 0xFF);
         assertTrue(sk.isHighPriority());
+        assertEquals(0, sk.getMoveLockTimer(),
+                "Tails_Catch_Up_Flying exit clears move_lock before normal CPU control resumes");
     }
 
     @Test
@@ -196,5 +199,4 @@ class TestRespawnStrategies {
                 "ROM uses the signed high byte of Sonic's x_vel during Tails fly-in, so 0xFF82 adds a +1 speed bonus");
     }
 }
-
 

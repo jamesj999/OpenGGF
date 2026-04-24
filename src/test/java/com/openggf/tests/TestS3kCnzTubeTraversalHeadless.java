@@ -97,6 +97,50 @@ class TestS3kCnzTubeTraversalHeadless {
     }
 
     @Test
+    void vacuumTubeHorizontalDragPreservesPlayerSubpixelsLikeWordWrites() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzVacuumTubeInstance tube = spawnVacuumTube(0x3EC0, 0x07F0, 0x00, 0x01);
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x3ED0);
+        player.setCentreY((short) 0x07D0);
+        player.setSubpixelRaw(0xDB00, 0x3200);
+        player.setAir(false);
+        player.setObjectControlled(false);
+
+        tube.update(0, player);
+
+        assertEquals(0xDB00, player.getXSubpixelRaw(),
+                "sub_31F62 changes x_pos with word arithmetic and must not clear x_sub");
+        assertEquals(0x3200, player.getYSubpixelRaw(),
+                "Horizontal vacuum drag should leave y_sub untouched");
+    }
+
+    @Test
+    void vacuumTubeLiftPreservesPlayerSubpixelsLikeWordWrites() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzVacuumTubeInstance tube = spawnVacuumTube(0x4740, 0x0828, 0x10, 0);
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x4748);
+        player.setCentreY((short) 0x0800);
+        player.setSubpixelRaw(0xABCD, 0x4321);
+        player.setAir(false);
+        player.setObjectControlled(false);
+
+        tube.update(0, player);
+
+        assertEquals(0xABCD, player.getXSubpixelRaw(),
+                "sub_32010 nudges x_pos toward the tube centre with word writes");
+        assertEquals(0x4321, player.getYSubpixelRaw(),
+                "sub_32010 raises y_pos with word writes and must preserve y_sub");
+    }
+
+    @Test
     void vacuumTubeLiftSubtypesUseSubtypeScaledTimersThenReleaseUpwardForStockPlacements() {
         verifyLiftSubtype(0x10);
         verifyLiftSubtype(0x20);
@@ -181,6 +225,7 @@ class TestS3kCnzTubeTraversalHeadless {
         player.setXSpeed((short) 0x111);
         player.setYSpeed((short) 0x222);
         player.setGSpeed((short) 0x333);
+        player.setSubpixelRaw(0x5400, 0xA700);
 
         int initialXRadius = player.getXRadius();
         int initialYRadius = player.getYRadius();
@@ -189,6 +234,8 @@ class TestS3kCnzTubeTraversalHeadless {
 
         assertTrue(player.isObjectControlled(),
                 "Spiral Tube capture should set object_control=$81 via the engine's object-control flag");
+        assertTrue(tube.isPersistent(),
+                "An active Spiral Tube must survive object-window unloading while it controls the player");
         assertTrue(player.isControlLocked(),
                 "Spiral Tube capture should lock control for the captured player");
         assertFalse(player.getRolling(),
@@ -215,6 +262,10 @@ class TestS3kCnzTubeTraversalHeadless {
                 "A player captured from the right should be repositioned to objectX+$30");
         assertEquals(0x02D0, player.getCentreY(),
                 "Capture should align the player to the tube centre Y");
+        assertEquals(0x5400, player.getXSubpixelRaw(),
+                "ROM word writes to x_pos must preserve the low subpixel word");
+        assertEquals(0xA700, player.getYSubpixelRaw(),
+                "ROM word writes to y_pos must preserve the low subpixel word");
 
         int expectedTravelFrames = invokeSpiralHookInt(tube, "getExpectedTravelFramesForTest");
         int expectedExitX = invokeSpiralExitCoordinate(tube, "centerX");
@@ -233,6 +284,8 @@ class TestS3kCnzTubeTraversalHeadless {
                 "Spiral Tube should release control lock at the final route point");
         assertFalse(player.isObjectControlled(),
                 "Spiral Tube should release object control at the final route point");
+        assertFalse(tube.isPersistent(),
+                "After release the controller can return to the normal out-of-range unload path");
         assertFalse(player.isJumping(),
                 "Spiral Tube should clear jumping on release");
         assertEquals(expectedExitX, player.getCentreX(),

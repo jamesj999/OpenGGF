@@ -1002,6 +1002,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildCnzTrapDoorSheet" -> art.buildCnzTrapDoorSheet();
             case "buildCnzHoverFanSheet" -> art.buildCnzHoverFanSheet();
             case "buildCnzCylinderSheet" -> art.buildCnzCylinderSheet();
+            case "buildCnzBumperSheet" -> art.buildCnzBumperSheet();
             case "buildCnzVacuumTubeSheet" -> art.buildCnzVacuumTubeSheet();
             case "buildCnzSpiralTubeSheet" -> art.buildCnzSpiralTubeSheet();
             default -> {

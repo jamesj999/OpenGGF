@@ -8,6 +8,7 @@ import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -125,6 +126,45 @@ class TestSonic3kSpringObjectInstance {
         assertEquals(0x1000, player.getGSpeed() & 0xFFFF);
         assertEquals(15, player.getMoveLockTimer());
         assertFalse(player.getAir(), "Horizontal springs keep the player grounded");
+    }
+
+    @Test
+    void airborneHorizontalSpringSideContactLaunchesWithoutGroundPushingFlag() throws Exception {
+        Sonic3kSpringObjectInstance spring = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.SPRING, 0x10, 0, false, 0));
+        spring.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(spring, "ensureInitialized");
+
+        TestableSprite player = new TestableSprite("sonic");
+        player.setCentreX((short) 0x0208);
+        player.setAir(true);
+        player.setRolling(true);
+        player.setXSpeed((short) -0x05CF);
+        player.setGSpeed((short) -0x05CF);
+
+        spring.onSolidContact(player, new SolidContact(false, true, false, false, false, 0, false), 0);
+
+        assertEquals(0x0200, player.getCentreX() & 0xFFFF,
+                "sub_23190 applies the horizontal spring nudge even for airborne side contact");
+        assertEquals(0x1000, player.getXSpeed() & 0xFFFF);
+        assertEquals(0x1000, player.getGSpeed() & 0xFFFF);
+    }
+
+    @Test
+    void horizontalSpringOptsIntoInclusiveSolidRightEdge() throws Exception {
+        Sonic3kSpringObjectInstance horizontal = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.SPRING, 0x10, 0, false, 0));
+        horizontal.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(horizontal, "ensureInitialized");
+
+        Sonic3kSpringObjectInstance vertical = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x0200, 0x0100, Sonic3kObjectIds.SPRING, 0x00, 0, false, 0));
+        vertical.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(vertical, "ensureInitialized");
+
+        assertEquals(true, horizontal.usesInclusiveRightEdge(),
+                "Obj_Spring_Horizontal uses SolidObjectFull2_1P, whose x-window rejects with bhi");
+        assertEquals(false, vertical.usesInclusiveRightEdge());
     }
 
     private static Object invoke(Object target, String methodName) throws Exception {

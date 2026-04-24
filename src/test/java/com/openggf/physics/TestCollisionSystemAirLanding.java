@@ -118,6 +118,34 @@ class TestCollisionSystemAirLanding {
         assertTrue(sprite.getAir(), "Exact surface contact should leave the sprite airborne");
     }
 
+    @Test
+    void staleOnObjectFlagDoesNotSuppressTerrainWalkOffWhenUnsupported() {
+        AbstractPlayableSprite sprite = newTestSprite();
+        sprite.setAir(false);
+        sprite.setOnObject(true);
+        sprite.setPushing(true);
+
+        CollisionSystem collisionSystem = new CollisionSystem(new StubTerrainCollisionManager(null, null));
+        collisionSystem.resolveGroundAttachment(sprite, 14, () -> false);
+
+        assertTrue(sprite.getAir(), "Unsupported stale on-object state must still allow terrain walk-off");
+        assertFalse(sprite.getPushing(), "Walk-off should clear pushing just like the normal terrain path");
+    }
+
+    @Test
+    void supportedOnObjectStillSkipsTerrainAttachment() {
+        AbstractPlayableSprite sprite = newTestSprite();
+        sprite.setAir(false);
+        sprite.setOnObject(true);
+
+        StubTerrainCollisionManager terrain = new StubTerrainCollisionManager(null, null);
+        CollisionSystem collisionSystem = new CollisionSystem(terrain);
+        collisionSystem.resolveGroundAttachment(sprite, 14, () -> true);
+
+        assertFalse(sprite.getAir(), "Supported object riders should not be detached by terrain probes");
+        assertEquals(0, terrain.probeCount, "Supported object riders should skip terrain attachment probes");
+    }
+
     private static AbstractPlayableSprite newTestSprite() {
         return new AbstractPlayableSprite("sonic", (short) 0, (short) 0) {
             @Override
@@ -153,5 +181,20 @@ class TestCollisionSystemAirLanding {
             landed.set(true);
             sprite.setAir(false);
         };
+    }
+
+    private static final class StubTerrainCollisionManager extends TerrainCollisionManager {
+        private final SensorResult[] results;
+        private int probeCount;
+
+        private StubTerrainCollisionManager(SensorResult left, SensorResult right) {
+            results = new SensorResult[] {left, right};
+        }
+
+        @Override
+        public SensorResult[] getSensorResult(Sensor[] sensors) {
+            probeCount++;
+            return results;
+        }
     }
 }

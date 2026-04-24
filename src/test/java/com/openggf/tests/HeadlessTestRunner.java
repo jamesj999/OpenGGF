@@ -80,6 +80,7 @@ public class HeadlessTestRunner {
             return;
         }
         startPendingInLevelTitleCardIfRequested();
+        GameServices.timers().update();
         setKeyState(upKey, up);
         setKeyState(downKey, down);
         setKeyState(leftKey, left);

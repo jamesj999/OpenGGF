@@ -81,6 +81,7 @@ public class SidekickCpuController {
     private short carryLatchX;
     private short carryLatchY;
     private boolean flyingCarryingFlag;
+    private boolean carryParentagePending;
     private int releaseCooldown;
 
     public SidekickCpuController(AbstractPlayableSprite sidekick) {
@@ -105,10 +106,12 @@ public class SidekickCpuController {
 
         if (leader == null) {
             clearInputs();
+            carryParentagePending = false;
             return;
         }
 
         clearInputs();
+        carryParentagePending = false;
         if ((controller2Held & MANUAL_HELD_MASK) != 0) {
             controlCounter = MANUAL_CONTROL_FRAMES;
         }
@@ -235,6 +238,7 @@ public class SidekickCpuController {
             sidekick.setXSpeed((short) 0);
             sidekick.setYSpeed((short) 0);
             sidekick.setGSpeed((short) 0);
+            sidekick.setMoveLockTimer(0);
             sidekick.setHurt(false);
             sidekick.setAir(true);
             state = State.NORMAL;
@@ -334,6 +338,7 @@ public class SidekickCpuController {
                 jumpingFlag = true;
             }
         }
+
     }
 
     private void updatePanic() {
@@ -402,7 +407,10 @@ public class SidekickCpuController {
         sidekick.setXSpeed(carryTrigger.carryInitXVel());
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
-        sidekick.setControlLocked(true);
+        // CNZ carry setup (loc_13A5A -> loc_13FC2) does not set
+        // object_control on Tails; the CPU routine drives Ctrl_2_logical, and
+        // that input must remain visible to Tails_Move_FlySwim.
+        sidekick.setControlLocked(false);
         sidekick.setForcedAnimationId(flyAnimId);
 
         // Initialize the latch
@@ -422,18 +430,21 @@ public class SidekickCpuController {
 
         // 1. Hurt/dead (Sonic routine >= 4)
         if (leader.isHurt() || leader.getDead()) {
+            carryParentagePending = false;
             releaseCarry(carryTrigger.carryLatchReleaseCooldownFrames());
             return;
         }
 
         // 2. External velocity change (release path C: latch mismatch)
         if (leader.getXSpeed() != carryLatchX || leader.getYSpeed() != carryLatchY) {
+            carryParentagePending = false;
             releaseCarry(carryTrigger.carryLatchReleaseCooldownFrames());
             return;
         }
 
         // 3. A/B/C just-pressed (release path B)
         if (leader.isJumpJustPressed()) {
+            carryParentagePending = false;
             performJumpRelease();
             return;
         }
@@ -444,19 +455,38 @@ public class SidekickCpuController {
             // Small upward impulse on the ground-release path before clearing
             // object_control, matching ROM fall-through into loc_14460/loc_14466.
             leader.setYSpeed((short) -0x100);
+            carryParentagePending = false;
             releaseCarry(0);
             return;
         }
 
-        // --- No release this frame; re-apply parentage ---
-
-        // Synthetic right-press injection every 32 frames (ROM: Level_frame_counter cadence)
-        if ((frameCounter & carryTrigger.carryInputInjectMask()) == 0) {
+        // Synthetic right-press injection every 32 frames (ROM:
+        // (Level_frame_counter+1)&$1F cadence in loc_13FFA).
+        if (((frameCounter + 1) & carryTrigger.carryInputInjectMask()) == 0) {
             inputRight = true;
         }
 
-        // Clamp Tails's x_vel to the carry velocity
-        sidekick.setXSpeed(carryTrigger.carryInitXVel());
+        // ROM loc_13FC2 writes x_vel=$100 only when carry starts. The
+        // loc_13FFA body only injects a right press every 32 frames, letting
+        // normal Tails flight movement raise x_vel ($118/$130/$148...).
+        carryParentagePending = true;
+    }
+
+    /**
+     * Finishes the Tails-carry body after Tails has run current-frame movement.
+     *
+     * <p>ROM {@code Tails_FlyingSwimming} runs {@code Tails_Move_FlySwim},
+     * input acceleration, {@code MoveSprite_TestGravity2}, and
+     * {@code Tails_DoLevelCollision} before calling {@code Tails_Carry_Sonic}.
+     * The controller update only prepares carry input/release checks; this hook
+     * mirrors the later {@code Tails_Carry_Sonic} parentage/probe timing.
+     */
+    public void finishCarryAfterCarrierMovement() {
+        if (!carryParentagePending || state != State.CARRYING || !flyingCarryingFlag
+                || leader == null || carryTrigger == null) {
+            return;
+        }
+        carryParentagePending = false;
 
         // Sonic parentage (Tails_Carry_Sonic steps 5 + 8):
         //   x_pos = Tails.x_pos
@@ -487,10 +517,10 @@ public class SidekickCpuController {
         //
         // NOTE: the normal landing handler (PlayableSpriteMovement.calculateLanding)
         // calls resetOnFloor(), which early-returns when isObjectControlled() is
-        // true — meaning it would NOT clear the air bit in this carry scenario.
-        // We supply a minimal inline landing handler that mirrors the subset of
-        // Player_TouchFloor (sonic3k.asm:24366-24369) needed for the
-        // next-frame release check to trip.
+        // true, so it would not apply this carried landing state. The inline
+        // handler mirrors the flat-floor result used by SonicKnux_DoLevelCollision:
+        // y_vel = 0, inertia = x_vel, then the Player_TouchFloor tail clears
+        // Status_InAir/Push/RollJump (sonic3k.asm:24366-24369).
         CollisionSystem collision = Objects.requireNonNull(
                 leader.currentCollisionSystem(),
                 "CollisionSystem must be available during CARRYING state "
@@ -501,6 +531,9 @@ public class SidekickCpuController {
             //   bclr #Status_Push,status(a0)
             //   bclr #Status_RollJump,status(a0)
             //   move.b #0,jumping(a0)
+            sprite.setSubpixelRaw(sprite.getXSubpixelRaw(), 0);
+            sprite.setYSpeed((short) 0);
+            sprite.setGSpeed(sprite.getXSpeed());
             sprite.setAir(false);
             sprite.setPushing(false);
             sprite.setRollingJump(false);
@@ -534,6 +567,7 @@ public class SidekickCpuController {
         sidekick.setControlLocked(false);
         sidekick.setForcedAnimationId(-1);
         flyingCarryingFlag = false;
+        carryParentagePending = false;
         releaseCooldown = cooldownFrames;
         state = State.NORMAL;
         normalFrameCount = 0;

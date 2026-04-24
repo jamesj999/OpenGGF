@@ -69,6 +69,7 @@ public final class TraceReplayBootstrap {
 
         ObjectManager objectManager = GameServices.level().getObjectManager();
         List<TraceEvent.ObjectStateSnapshot> snapshots = trace.preTraceObjectSnapshots();
+        applyPreTraceSidekickCpuSnapshot(trace);
         if (objectManager == null || snapshots.isEmpty()) {
             return new TraceObjectSnapshotBinder.Result(0, 0, List.of());
         }
@@ -203,7 +204,15 @@ public final class TraceReplayBootstrap {
             // controller sample cadence as the rest of trace replay.
             return trace.metadata().bk2FrameOffset() + Math.max(0, strictStartTraceIndex - 1);
         }
-        return trace.metadata().bk2FrameOffset() + replaySeedTraceIndexForTraceReplay(trace);
+        int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
+        if (shouldSeedFrameZeroForTraceReplay(trace)) {
+            // Frame 0 has already been restored as an end-of-frame snapshot.
+            // Resume movie input at the next trace frame so a newly pressed
+            // button (e.g. CNZ's first jump) affects the same frame the ROM
+            // recorded, instead of being consumed one tick late.
+            return trace.metadata().bk2FrameOffset() + seedTraceIndex + 1;
+        }
+        return trace.metadata().bk2FrameOffset() + seedTraceIndex;
     }
 
     /**
@@ -257,6 +266,25 @@ public final class TraceReplayBootstrap {
      */
     public static boolean shouldUseTraceStartBootstrapForTraceReplay(TraceData trace) {
         return true;
+    }
+
+    public static boolean shouldSeedFrameZeroForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return false;
+        }
+        if (isLegacyS3kAizIntroTrace(trace)) {
+            return false;
+        }
+        TraceMetadata metadata = trace.metadata();
+        return "s3k".equals(metadata.game())
+                && replaySeedTraceIndexForTraceReplay(trace) == 0;
+    }
+
+    public static boolean shouldSeedReplayStartStateForTraceReplay(TraceData trace,
+                                                                   int requestedSeedTraceIndex) {
+        return isLegacyS3kAizIntroTrace(trace)
+                || shouldSeedFrameZeroForTraceReplay(trace)
+                || requestedSeedTraceIndex > 0;
     }
 
     public static boolean requiresFreshLevelLoadForTraceReplay(TraceData trace) {
@@ -484,16 +512,35 @@ public final class TraceReplayBootstrap {
                 cpuSnapshot);
     }
 
+    private static void applyPreTraceSidekickCpuSnapshot(TraceData trace) {
+        if (trace == null || trace.metadata().recordedSidekicks().isEmpty()) {
+            return;
+        }
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return;
+        }
+
+        String sidekickCharacter = trace.metadata().recordedSidekicks().getFirst();
+        TraceEvent.CpuStateSnapshot cpuSnapshot = trace.preTraceCpuStateSnapshot(sidekickCharacter);
+        SidekickCpuController controller = spriteManager.getSidekicks().getFirst().getCpuController();
+        if (cpuSnapshot != null && controller != null) {
+            controller.hydrateFromRomCpuState(
+                    cpuSnapshot.cpuRoutine(),
+                    cpuSnapshot.controlCounter(),
+                    cpuSnapshot.respawnCounter(),
+                    cpuSnapshot.interactId(),
+                    cpuSnapshot.jumping());
+        }
+    }
+
     private static boolean shouldSeedFrameZero(TraceData trace,
                                                TraceReplayFixture fixture) {
         if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
             return false;
         }
-        if (!trace.preTraceObjectSnapshots().isEmpty()) {
-            return false;
-        }
 
-        return isLegacyS3kAizIntroTrace(trace);
+        return shouldSeedReplayStartStateForTraceReplay(trace, 0);
     }
 
     private static boolean shouldSeedReplayStartState(TraceData trace,
@@ -609,6 +656,7 @@ public final class TraceReplayBootstrap {
         sprite.setDirection((frame.statusByte() & 0x01) != 0 ? Direction.LEFT : Direction.RIGHT);
         sprite.setAir(frame.air());
         sprite.setRolling(frame.rolling());
+        sprite.setRollingJump((frame.statusByte() & AbstractPlayableSprite.STATUS_ROLLING_JUMP) != 0);
         sprite.setOnObject((frame.statusByte() & 0x08) != 0);
         sprite.setPushing((frame.statusByte() & 0x20) != 0);
         sprite.setGroundMode(groundMode(frame.groundMode()));

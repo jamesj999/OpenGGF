@@ -125,7 +125,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         }
 
         if (springType == TYPE_HORIZONTAL) {
-            if (!contact.pushing()) {
+            if (!contact.touchSide() || !isPlayerOnHorizontalSpringActiveSide(player)) {
                 return;
             }
             applyHorizontalSpring(player);
@@ -407,6 +407,13 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         return (spawn.renderFlags() & 0x1) != 0;
     }
 
+    private boolean isPlayerOnHorizontalSpringActiveSide(AbstractPlayableSprite player) {
+        int objectX = spawn.x() & 0xFFFF;
+        int playerX = player.getCentreX() & 0xFFFF;
+        boolean flipped = isFlippedHorizontal();
+        return flipped ? objectX >= playerX : objectX < playerX;
+    }
+
     private void traceS3kAizSpringProbe(AbstractPlayableSprite player,
                                         SolidContact contact,
                                         int frameCounter,
@@ -470,6 +477,11 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             return new SolidObjectParams(27, 8, 9);
         }
         return new SolidObjectParams(27, 8, 16);
+    }
+
+    @Override
+    public boolean usesInclusiveRightEdge() {
+        return springType == TYPE_HORIZONTAL;
     }
 
     @Override

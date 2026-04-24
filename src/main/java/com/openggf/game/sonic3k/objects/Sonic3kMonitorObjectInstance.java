@@ -7,6 +7,7 @@ import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
@@ -208,9 +209,10 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
             return;
         }
 
-        // S&K: check if player can break monitors
-        // Must be rolling (spinning), spindashing, or Knuckles gliding/sliding
-        boolean canBreak = player.getRolling() || player.getSpindash();
+        // ROM: Touch_Monitor checks anim(a0) == AniIDSonAni_Roll here, not the
+        // broader rolling status bit. The animation can lag the status byte by
+        // a frame during object releases, which affects monitor break timing.
+        boolean canBreak = player.getAnimationId() == Sonic3kAnimationIds.ROLL.id();
         // Knuckles glide/slide check requires PlayerCharacter system (not yet implemented)
         // canBreak |= (player.getCharacter() == PlayerCharacter.KNUCKLES
         //              && (player.getDoubleJumpFlag() == 1 || player.getDoubleJumpFlag() == 3));
@@ -421,8 +423,9 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         if (player == null) {
             return true;
         }
-        // Monitors are not solid when player is rolling (allows breaking from above)
-        return !player.getRolling();
+        // ROM: SolidObject_Monitor_SonicKnux also tests anim(a1) == AniIDSonAni_Roll,
+        // not the rolling status bit.
+        return player.getAnimationId() != Sonic3kAnimationIds.ROLL.id();
     }
 
     @Override
