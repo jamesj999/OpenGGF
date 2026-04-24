@@ -275,4 +275,16 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     int getRenderFrameForTest() {
         return renderFrame;
     }
+
+    /**
+     * Package-private test seam for launch timing.
+     *
+     * <p>Sets {@code stateTimer} directly so tests can drive the cannon
+     * into a known launch-ready/cooldown frame without simulating the
+     * full capture-to-launch sequence. Retained (reflectively invoked
+     * by {@code TestS3kCnzVisualCapture}) from the pre-rework API.
+     */
+    void setLaunchDelayFramesForTest(int frames) {
+        stateTimer = Math.max(0, frames);
+    }
 }

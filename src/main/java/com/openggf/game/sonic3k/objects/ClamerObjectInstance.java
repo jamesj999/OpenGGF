@@ -11,6 +11,7 @@ import com.openggf.level.objects.AnimalObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseAttackable;
@@ -155,12 +156,9 @@ public final class ClamerObjectInstance extends AbstractObjectInstance
     }
 
     private int currentFrameCounter() {
-        try {
-            if (services() != null && services().levelManager() != null) {
-                return services().levelManager().getFrameCounter();
-            }
-        } catch (Exception ignored) {
-            // Some object unit tests use minimal service doubles.
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.levelManager() != null) {
+            return svc.levelManager().getFrameCounter();
         }
         return lastObservedFrameCounter;
     }
