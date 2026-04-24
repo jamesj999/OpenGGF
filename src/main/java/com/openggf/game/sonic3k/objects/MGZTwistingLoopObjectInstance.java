@@ -48,6 +48,8 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int releaseFrames;
         int cooldownFrames;
         int convexReleaseFrames;
+        boolean compensateReleaseHandoff;
+        boolean restoreStandingAfterCarryFrame;
     }
 
     private final int centerX;
@@ -86,6 +88,9 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             player2.active = false;
             player2.releaseFrames = 0;
             player2.cooldownFrames = 0;
+            player2.convexReleaseFrames = 0;
+            player2.compensateReleaseHandoff = false;
+            player2.restoreStandingAfterCarryFrame = false;
         }
     }
 
@@ -146,6 +151,8 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         state.releaseFrames = 0;
         state.cooldownFrames = 0;
         state.convexReleaseFrames = 0;
+        state.compensateReleaseHandoff = player.getRolling();
+        state.restoreStandingAfterCarryFrame = player.getRolling();
 
         if (player.isOnObject()) {
             ObjectServices svc = tryServices();
@@ -187,7 +194,8 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         }
 
         int currentProgressPixels = state.progressFixed >> 16;
-        if (currentProgressPixels >= (captureThreshold + RELEASE_TURN_PITCH)) {
+        int releaseThreshold = captureThreshold + (state.compensateReleaseHandoff ? RELEASE_TURN_PITCH : 0);
+        if (currentProgressPixels >= releaseThreshold) {
             releaseCapturedPlayer(frameCounter, player, state, false);
             return;
         }
@@ -208,10 +216,16 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         player.setAir(false);
         player.setHighPriority(phaseBase < 0x80);
         applyTwistFrame(player, phaseBase);
+        if (state.restoreStandingAfterCarryFrame) {
+            player.setRolling(false);
+            player.restoreDefaultRadii();
+            state.restoreStandingAfterCarryFrame = false;
+        }
     }
 
     private int updateCapturedGroundMotion(AbstractPlayableSprite player) {
         int groundSpeed = player.getGSpeed();
+        int speedSign = (groundSpeed < 0) ? -1 : 1;
         // The ROM still runs the roll-speed ground-velocity step while this
         // object owns bit 6 of object_control, so decay inertia locally here.
         if (!player.isLeftPressed() && !player.isRightPressed()) {
@@ -223,7 +237,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             }
         }
 
-        int speedSign = (groundSpeed < 0) ? -1 : 1;
         int speedMagnitude = Math.abs(groundSpeed);
         if (speedMagnitude < MIN_GROUND_SPEED) {
             speedMagnitude = MIN_GROUND_SPEED;
@@ -254,9 +267,11 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         state.active = false;
         state.cooldownFrames = ACTIVE_RELEASE_COOLDOWN;
         state.releaseFrames = jumpedOut ? JUMP_RELEASE_FRAMES : 0;
-        state.convexReleaseFrames = jumpedOut ? 0 : CONVEX_RELEASE_FRAMES;
+        state.convexReleaseFrames = jumpedOut || !state.compensateReleaseHandoff ? 0 : CONVEX_RELEASE_FRAMES;
 
         if (player == null) {
+            state.compensateReleaseHandoff = false;
+            state.restoreStandingAfterCarryFrame = false;
             return;
         }
 
@@ -264,8 +279,10 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         player.setControlLocked(false);
         if (jumpedOut) {
             player.setObjectControlled(true);
-        } else {
+        } else if (state.compensateReleaseHandoff) {
             player.deferObjectControlRelease();
+        } else {
+            player.releaseFromObjectControl(frameCounter);
         }
         short centreXBeforeRelease = player.getCentreX();
         short centreYBeforeRelease = player.getCentreY();
@@ -297,8 +314,10 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             player.suppressNextJumpPress();
         } else {
             player.setAir(false);
-            player.setStickToConvex(true);
+            player.setStickToConvex(state.compensateReleaseHandoff);
         }
+        state.compensateReleaseHandoff = false;
+        state.restoreStandingAfterCarryFrame = false;
     }
 
     private void updateReleasedPlayer(int frameCounter, AbstractPlayableSprite player, PlayerState state) {
