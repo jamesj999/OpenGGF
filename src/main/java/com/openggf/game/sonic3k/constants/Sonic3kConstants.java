@@ -1194,6 +1194,7 @@ public class Sonic3kConstants {
     public static final int MAP_CNZ_TRAP_DOOR_ADDR = 0x230DCC; // Map_CNZTrapDoor (3 frames)
     public static final int MAP_CNZ_HOVER_FAN_ADDR = 0x231010; // Map_CNZHoverFan (8 frames)
     public static final int MAP_CNZ_CYLINDER_ADDR = 0x2317B0; // Map_CNZCylinder (4 frames)
+    public static final int MAP_CNZ_BUMPER_ADDR = 0x2322CE; // Map_Bumper (2 frames)
 
     // Verified final lock-on offsets for the dedicated CNZ cannon art block.
     // The Cannon.bin data lives in the S&K half of the combined ROM.
@@ -1210,6 +1211,7 @@ public class Sonic3kConstants {
     public static final int ARTTILE_CNZ_TRAP_DOOR = ARTTILE_CNZ_MISC + 0x9F;
     public static final int ARTTILE_CNZ_HOVER_FAN = ARTTILE_CNZ_MISC + 0x97;
     public static final int ARTTILE_CNZ_CYLINDER = ARTTILE_CNZ_MISC + 0x3D;
+    public static final int ARTTILE_CNZ_BUMPER = ARTTILE_CNZ_MISC + 0x13;
 
     // ===== FBZ Badnik Art =====
     public static final int ART_KOSM_FBZ_BLASTER_ADDR = 0x0DC6C2;

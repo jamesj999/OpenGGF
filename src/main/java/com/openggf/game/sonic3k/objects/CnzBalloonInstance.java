@@ -6,10 +6,12 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -34,23 +36,53 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     private static final int WIDTH_HALF = 0x10;
     private static final int HEIGHT_HALF = 0x20;
     private static final int ROM_BOUNCE_Y_SPEED = 0x700;
-    private static final int BOB_AMPLITUDE = 8;
+    private static final int OFFSCREEN_X = 0x7F00;
+    private static final int NORMAL_FRAME_DELAY = 7;
+    private static final int POP_FRAME_DELAY = 2;
+    private static final int[] NORMAL_FRAME_SEQUENCE = {0, 1, 2, 1};
+    private static final int[] POP_FRAME_SEQUENCE = {3, 4};
     private static final int[] FRAME_BY_COLOR = {0, 5, 10, 15, 20};
-    private static final int POP_RETIRE_FRAMES = 6;
-    private static final int POP_FRAME_SWITCH = 4;
+    private static final int SNAPSHOT_BASE_Y_OFFSET = 0x32;
+    private static final int SNAPSHOT_COLLISION_FLAGS_OFFSET = 0x28;
 
     private final int subtype;
-    private final int baseY;
+    private int baseY;
     private int angle;
     private boolean popped;
-    private int poppedFrames;
+    private boolean movedOffscreen;
+    private int animationTimer;
+    private int normalAnimationIndex;
+    private int popAnimationIndex;
+    private int frameOffset;
     private int lastLaunchFrame = Integer.MIN_VALUE;
 
     public CnzBalloonInstance(ObjectSpawn spawn) {
         super(spawn, "CNZBalloon");
         this.subtype = spawn.subtype();
         this.baseY = spawn.y();
-        this.angle = (spawn.x() ^ spawn.y() ^ subtype) & 0xFF;
+        this.angle = initialAngle(spawn);
+    }
+
+    @Override
+    public void hydrateFromRomSnapshot(RomObjectSnapshot snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return;
+        }
+
+        int snapshotBaseY = snapshot.wordAt(SNAPSHOT_BASE_Y_OFFSET);
+        if (snapshotBaseY != 0) {
+            baseY = snapshotBaseY;
+        }
+        angle = snapshot.angle() & 0xFF;
+        popped = snapshot.byteAt(SNAPSHOT_COLLISION_FLAGS_OFFSET) == 0;
+        movedOffscreen = snapshot.xPos() == OFFSCREEN_X;
+        updateDynamicSpawn(snapshot.xPos(), snapshot.yPos());
+
+        int colorBase = FRAME_BY_COLOR[Math.min(subtype & 0x07, FRAME_BY_COLOR.length - 1)];
+        int mappingFrame = snapshot.mappingFrame();
+        if (mappingFrame >= colorBase && mappingFrame < colorBase + 5) {
+            frameOffset = mappingFrame - colorBase;
+        }
     }
 
     @Override
@@ -59,26 +91,19 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             return;
         }
 
+        advanceAnimation();
         int bobbedY = baseY + bobOffset(angle);
-        updateDynamicSpawn(spawn.x(), bobbedY);
+        updateDynamicSpawn(movedOffscreen ? OFFSCREEN_X : spawn.x(), bobbedY);
         angle = (angle + 1) & 0xFF;
 
-        if (popped) {
-            poppedFrames++;
-            if (poppedFrames >= POP_RETIRE_FRAMES) {
-                setDestroyed(true);
-            }
-            return;
-        }
-
-        if (playerEntity != null && isTouchingPlayer(playerEntity)) {
-            launchPlayer(playerEntity, frameCounter);
-        }
+        // ROM Obj_CNZBalloon reacts only when Touch_Process sets
+        // collision_property; the shared touch-response pass invokes
+        // onTouchResponse with the Touch_Sizes hitbox.
     }
 
     @Override
     public int getCollisionFlags() {
-        if (popped) {
+        if (popped || movedOffscreen) {
             return 0;
         }
         return COLLISION_FLAGS;
@@ -119,10 +144,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         if (color >= FRAME_BY_COLOR.length) {
             color = FRAME_BY_COLOR.length - 1;
         }
-        if (!popped) {
-            return FRAME_BY_COLOR[color];
-        }
-        return FRAME_BY_COLOR[color] + (poppedFrames >= POP_FRAME_SWITCH ? 4 : 3);
+        return FRAME_BY_COLOR[color] + frameOffset;
     }
 
     private void launchPlayer(PlayableEntity playerEntity, int frameCounter) {
@@ -148,19 +170,15 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             player.setCentreY((short) getY());
         }
         popped = true;
-        poppedFrames = 0;
+        animationTimer = 0;
+        popAnimationIndex = 0;
+        frameOffset = POP_FRAME_SEQUENCE[0];
 
         try {
             services().playSfx(Sonic3kSfx.BALLOON.id);
         } catch (Exception ignored) {
             // Headless tests can omit the audio backend; launch state is still valid.
         }
-    }
-
-    private boolean isTouchingPlayer(PlayableEntity player) {
-        int dx = Math.abs(player.getCentreX() - getX());
-        int dy = Math.abs(player.getCentreY() - getY());
-        return dx <= WIDTH_HALF && dy <= HEIGHT_HALF;
     }
 
     int getRenderFrameForTest() {
@@ -171,7 +189,62 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         return popped;
     }
 
+    boolean hasMovedOffscreenForTest() {
+        return movedOffscreen;
+    }
+
+    @Override
+    public String traceDebugDetails() {
+        return String.format("ang=%02X base=%04X frame=%d%s",
+                angle & 0xFF,
+                baseY & 0xFFFF,
+                getFrameIndex(),
+                popped ? ",popped" : "");
+    }
+
+    private void advanceAnimation() {
+        if (movedOffscreen) {
+            return;
+        }
+        if (popped) {
+            advancePopAnimation();
+        } else {
+            advanceNormalAnimation();
+        }
+    }
+
+    private void advanceNormalAnimation() {
+        animationTimer--;
+        if (animationTimer >= 0) {
+            return;
+        }
+        animationTimer = NORMAL_FRAME_DELAY;
+        frameOffset = NORMAL_FRAME_SEQUENCE[normalAnimationIndex];
+        normalAnimationIndex = (normalAnimationIndex + 1) % NORMAL_FRAME_SEQUENCE.length;
+    }
+
+    private void advancePopAnimation() {
+        animationTimer--;
+        if (animationTimer >= 0) {
+            return;
+        }
+        if (popAnimationIndex < POP_FRAME_SEQUENCE.length) {
+            animationTimer = POP_FRAME_DELAY;
+            frameOffset = POP_FRAME_SEQUENCE[popAnimationIndex++];
+        } else {
+            movedOffscreen = true;
+        }
+    }
+
+    private static int initialAngle(ObjectSpawn spawn) {
+        var ctx = constructionContext();
+        if (ctx != null && ctx.rng() != null) {
+            return ctx.rng().nextByte();
+        }
+        return (spawn.x() ^ spawn.y() ^ spawn.subtype()) & 0xFF;
+    }
+
     private static int bobOffset(int angle) {
-        return (int) Math.round(Math.sin((angle & 0xFF) * (Math.PI * 2.0 / 256.0)) * BOB_AMPLITUDE);
+        return TrigLookupTable.sinHex(angle) >> 5;
     }
 }

@@ -206,4 +206,12 @@ public interface ObjectInstance {
     default void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Default no-op
     }
+
+    /**
+     * Optional compact state details for trace-replay divergence reports.
+     * Keep this to ROM-relevant fields that explain object/player mismatches.
+     */
+    default String traceDebugDetails() {
+        return "";
+    }
 }

@@ -41,7 +41,8 @@ public final class S3kReplayCheckpointDetector {
         }
         if (!emitted.contains("aiz1_fire_transition_begin")
                 && zoneActMatches(probe, 0, 0)
-                && probe.eventsFg5()) {
+                && probe.eventsFg5()
+                && probe.fireTransitionActive()) {
             return emit(probe, "aiz1_fire_transition_begin");
         }
         if (!emitted.contains("aiz2_reload_resume")

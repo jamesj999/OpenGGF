@@ -69,6 +69,39 @@ public class TestTraceDataParsing {
     }
 
     @Test
+    void metadataParsesInitialRngSeedWhenPresent() throws IOException {
+        Path dir = Files.createTempDirectory("trace-meta-rng");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 3171,
+              "trace_frame_count": 1,
+              "start_x": "0x0018",
+              "start_y": "0x0600",
+              "rng_seed": "0x89ABCDEF",
+              "recording_date": "2026-04-23",
+              "lua_script_version": "3.2-s3k",
+              "trace_schema": 3,
+              "csv_version": 4,
+              "rom_checksum": "",
+              "notes": ""
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0018,0600,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0500,0000,00,0001,00,0001,0000
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceMetadata meta = TraceData.load(dir).metadata();
+
+        assertEquals(0x89ABCDEFL, meta.initialRngSeed());
+    }
+
+    @Test
     void parsesPlayerHistorySnapshot() {
         TraceEvent event = TraceEvent.parseJsonLine(
             """
@@ -438,5 +471,4 @@ public class TestTraceDataParsing {
         assertEquals(0, state.apparentAct());
     }
 }
-
 

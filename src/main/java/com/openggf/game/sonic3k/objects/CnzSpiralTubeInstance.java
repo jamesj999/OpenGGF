@@ -75,6 +75,11 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
         }
     }
 
+    @Override
+    public boolean isPersistent() {
+        return p1State.isActive() || p2State.isActive();
+    }
+
     /**
      * Mirrors {@code sub_330EE}'s per-player state-block dispatch. The ROM uses
      * exactly two blocks ({@code $30(a0)} for Player 1, {@code $3A(a0)} for
@@ -136,8 +141,8 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
         player.setYSpeed((short) 0);
         player.setPushing(false);
         player.setAir(true);
-        player.setCentreX((short) (spawn.x() + (capturedFromRight ? CAPTURE_REPOSITION_X : -CAPTURE_REPOSITION_X)));
-        player.setCentreY((short) spawn.y());
+        writePositionWordX(player, spawn.x() + (capturedFromRight ? CAPTURE_REPOSITION_X : -CAPTURE_REPOSITION_X));
+        writePositionWordY(player, spawn.y());
 
         updateTestExpectation(player, state);
         playRollSfx();
@@ -152,7 +157,7 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
     private void updateSwayPhase(AbstractPlayableSprite player, PlayerState state) {
         int sampledAngle = state.phaseAngle;
         state.phaseAngle = (state.phaseAngle + SWAY_STEP) & 0xFF;
-        player.setCentreX((short) (spawn.x() + horizontalOffset(sampledAngle)));
+        writePositionWordX(player, spawn.x() + horizontalOffset(sampledAngle));
 
         if (state.phaseAngle == targetAngleForRingParity(player)) {
             state.phase = PHASE_DESCEND;
@@ -169,8 +174,8 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
     private void updateDescentPhase(AbstractPlayableSprite player, PlayerState state) {
         int sampledAngle = state.phaseAngle;
         state.phaseAngle = (state.phaseAngle + DESCENT_STEP) & 0xFF;
-        player.setCentreX((short) (spawn.x() + horizontalOffset(sampledAngle)));
-        player.setCentreY((short) (player.getCentreY() + DESCENT_Y_STEP));
+        writePositionWordX(player, spawn.x() + horizontalOffset(sampledAngle));
+        writePositionWordY(player, player.getCentreY() + DESCENT_Y_STEP);
 
         state.timer--;
         if (state.timer == 0) {
@@ -191,8 +196,8 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
         state.remainingBytes = CnzTubePathTables.spiralPayloadLengthBytes() - 4;
 
         CnzTubePathTables.RoutePoint first = path.point(0);
-        player.setCentreX((short) first.centerX());
-        player.setCentreY((short) first.centerY());
+        writePositionWordX(player, first.centerX());
+        writePositionWordY(player, first.centerY());
 
         applyVelocityPlan(player, state, velocityPlan(first, path.point(1)));
     }
@@ -211,8 +216,8 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
         }
 
         CnzTubePathTables.RoutePoint point = state.activePath.point(state.nextPointIndex);
-        player.setCentreX((short) point.centerX());
-        player.setCentreY((short) point.centerY());
+        writePositionWordX(player, point.centerX());
+        writePositionWordY(player, point.centerY());
         state.remainingBytes -= 4;
 
         if (state.remainingBytes == 0) {
@@ -233,7 +238,7 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
      * with the current route velocity still intact.
      */
     private void releaseAtLastPoint(AbstractPlayableSprite player, PlayerState state) {
-        player.setCentreY((short) (player.getCentreY() & 0x0FFF));
+        writePositionWordY(player, player.getCentreY() & 0x0FFF);
         player.setObjectControlled(false);
         player.setControlLocked(false);
         player.setJumping(false);
@@ -244,6 +249,14 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
         player.setXSpeed(plan.xVel());
         player.setYSpeed(plan.yVel());
         state.timer = plan.timer();
+    }
+
+    private static void writePositionWordX(AbstractPlayableSprite player, int centerX) {
+        player.setCentreXPreserveSubpixel((short) centerX);
+    }
+
+    private static void writePositionWordY(AbstractPlayableSprite player, int centerY) {
+        player.setCentreYPreserveSubpixel((short) centerY);
     }
 
     /**
@@ -355,6 +368,10 @@ public final class CnzSpiralTubeInstance extends AbstractObjectInstance {
             nextPointIndex = 0;
             remainingBytes = 0;
             activePath = null;
+        }
+
+        private boolean isActive() {
+            return phase != PHASE_DETECT;
         }
     }
 

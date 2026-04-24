@@ -157,16 +157,25 @@ class TestSidekickCpuControllerCarry {
     // --- per-frame parentage ---------------------------------------------
 
     @Test
-    void carryingCopiesTailsVelocityToSonicEachFrame() {
+    void carryingCopiesPostMovementTailsVelocityToSonicEachFrame() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
         controller.update(1);  // INIT -> CARRY_INIT
         controller.update(2);  // CARRY_INIT -> CARRYING (with x_speed write)
+        controller.finishCarryAfterCarrierMovement();
 
         for (int i = 0; i < 10; i++) {
             controller.update(3 + i);
-            assertEquals((short) 0x0100, sonic.getXSpeed(),
-                    "Sonic.x_speed must be clamped to carry x_vel on frame " + (i + 3));
+            short postMovementXSpeed = (short) (0x0100 + (i + 1) * 0x18);
+            short postMovementYSpeed = (short) ((i + 1) * 0x08);
+            tails.setXSpeed(postMovementXSpeed);
+            tails.setYSpeed(postMovementYSpeed);
+            controller.finishCarryAfterCarrierMovement();
+            assertEquals(postMovementXSpeed, sonic.getXSpeed(),
+                    "Sonic.x_speed must copy Tails's post-movement x_vel on frame " + (i + 3));
+            assertEquals(postMovementYSpeed, sonic.getYSpeed(),
+                    "Sonic.y_speed must copy Tails's post-movement y_vel on frame " + (i + 3));
             assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
         }
     }

@@ -31,6 +31,7 @@ public record TraceMetadata(
     @JsonProperty("main_character") String mainCharacter,
     @JsonProperty("sidekicks") List<String> sidekicks,
     @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames,
+    @JsonProperty("rng_seed") String rngSeedHex,
     @JsonProperty("trace_type") String traceType,
     @JsonProperty("input_source") String inputSource,
     @JsonProperty("credits_demo_index") Integer creditsDemoIndex,
@@ -45,6 +46,23 @@ public record TraceMetadata(
      */
     public int preTraceOscillationFrames() {
         return preTraceOscFrames != null ? preTraceOscFrames : 0;
+    }
+
+    /**
+     * Initial ROM RNG seed captured when the trace begins, or {@code null} for
+     * legacy traces that did not record it. S3K level-select recordings can
+     * inherit non-zero RNG state before gameplay; replay must preserve it for
+     * ROM Random_Number users such as CNZ balloons.
+     */
+    public Long initialRngSeed() {
+        if (rngSeedHex == null || rngSeedHex.isBlank()) {
+            return null;
+        }
+        String raw = rngSeedHex.trim();
+        if (raw.startsWith("0x") || raw.startsWith("0X")) {
+            raw = raw.substring(2);
+        }
+        return Long.parseUnsignedLong(raw, 16) & 0xFFFFFFFFL;
     }
 
     /** Parse start_x hex string to short. */

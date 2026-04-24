@@ -51,6 +51,17 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether the right edge of the full solid X window is inclusive.
+     * <p>
+     * Most engine objects keep the established exclusive bound. S3K horizontal
+     * springs use {@code SolidObjectFull2_1P}, whose initial X gate rejects with
+     * {@code bhi}; that makes {@code relX == width * 2} a valid contact.
+     */
+    default boolean usesInclusiveRightEdge() {
+        return false;
+    }
+
+    /**
      * Half-width of the standable top surface used by landing checks.
      * <p>
      * Defaults to the full collision half-width. Override for objects whose

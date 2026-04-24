@@ -5,6 +5,7 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameMode;
+import com.openggf.game.GroundMode;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.objects.Aiz2BossEndSequenceState;
@@ -303,6 +304,7 @@ public abstract class AbstractTraceReplayTest {
 
         if (replayStart.hasSeededTraceState()) {
             TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
+            applyRecordedFirstSidekickState(seededFrame.sidekick());
             TraceReplayBootstrap.ReplayPrimaryState seededPrimary =
                     TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
                             trace, seededFrame, fixture.sprite());
@@ -311,6 +313,10 @@ public abstract class AbstractTraceReplayTest {
                     seededFrame.hasExtendedData() ? seededFrame.formatDiagnostics() : "",
                     TraceEventFormatter.summariseFrameEvents(
                             trace.getEventsForFrame(replayStart.seededTraceIndex())));
+            TraceCharacterState seededSidekick = captureFirstSidekickState();
+            String secondaryCharacterLabel = meta.recordedSidekicks().isEmpty()
+                    ? "sidekick"
+                    : meta.recordedSidekicks().getFirst();
 
             binder.compareFrame(seededFrame,
                     seededPrimary.x(), seededPrimary.y(),
@@ -318,7 +324,9 @@ public abstract class AbstractTraceReplayTest {
                     seededPrimary.angle(),
                     seededPrimary.air(), seededPrimary.rolling(),
                     seededPrimary.groundMode(), romDiag,
-                    engineDiag);
+                    engineDiag,
+                    secondaryCharacterLabel,
+                    seededSidekick);
 
             for (int frame = 0; frame <= replayStart.seededTraceIndex(); frame++) {
                 for (TraceEvent event : trace.getEventsForFrame(frame)) {
@@ -354,11 +362,15 @@ public abstract class AbstractTraceReplayTest {
 
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
+            if (previousDriveFrame != null) {
+                applyRecordedFirstSidekickState(previousDriveFrame.sidekick());
+            }
             TraceExecutionPhase phase =
                     TraceReplayBootstrap.phaseForReplay(trace, previousDriveFrame, driveFrame);
             int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
                     ? fixture.skipFrameFromRecording()
                     : fixture.stepFrameFromRecording();
+            applyRecordedFirstSidekickState(driveFrame.sidekick());
 
             S3kCheckpointProbe probe = captureS3kProbe(driveFrame.frame(), fixture.sprite());
             var titleCardProvider = GameServices.module().getTitleCardProvider();
@@ -411,6 +423,10 @@ public abstract class AbstractTraceReplayTest {
                 String romDiag = combineDiagnostics(
                         expected.hasExtendedData() ? expected.formatDiagnostics() : "",
                         TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(strictTraceIndex)));
+                TraceCharacterState actualSidekick = captureFirstSidekickState();
+                String secondaryCharacterLabel = meta.recordedSidekicks().isEmpty()
+                        ? "sidekick"
+                        : meta.recordedSidekicks().getFirst();
 
                 binder.compareFrame(expected,
                         actualPrimary.x(), actualPrimary.y(),
@@ -418,7 +434,9 @@ public abstract class AbstractTraceReplayTest {
                         actualPrimary.angle(),
                         actualPrimary.air(), actualPrimary.rolling(),
                         actualPrimary.groundMode(), romDiag,
-                        engineDiag);
+                        engineDiag,
+                        secondaryCharacterLabel,
+                        actualSidekick);
 
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
                 if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
@@ -604,6 +622,67 @@ public abstract class AbstractTraceReplayTest {
         return captureCharacterState(spriteManager.getSidekicks().getFirst());
     }
 
+    private void applyRecordedFirstSidekickState(TraceCharacterState state) {
+        if (state == null) {
+            return;
+        }
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return;
+        }
+
+        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
+        if (!state.present()) {
+            sidekick.setHidden(true);
+            sidekick.setDead(true);
+            sidekick.setCentreX((short) 0);
+            sidekick.setCentreY((short) 0);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setSubpixelRaw(0, 0);
+            return;
+        }
+
+        sidekick.setHidden(false);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setHurt(state.routine() == 0x04);
+        sidekick.setCentreX(state.x());
+        sidekick.setCentreY(state.y());
+        sidekick.setXSpeed(state.xSpeed());
+        sidekick.setYSpeed(state.ySpeed());
+        sidekick.setGSpeed(state.gSpeed());
+        sidekick.setAngle(state.angle());
+        sidekick.setDirection((state.statusByte() & 0x01) != 0
+                ? com.openggf.physics.Direction.LEFT
+                : com.openggf.physics.Direction.RIGHT);
+        sidekick.setAir(state.air());
+        sidekick.setRolling(state.rolling());
+        sidekick.setOnObject((state.statusByte() & 0x08) != 0);
+        sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
+        sidekick.setPushing((state.statusByte() & 0x20) != 0);
+        sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()));
+        sidekick.setSubpixelRaw(state.xSub(), state.ySub());
+        sidekick.resetPositionHistory();
+
+        // Do not rewrite the CPU controller state here. CNZ's opening
+        // Sonic+Tails carry is driven by the sidekick CPU routine; the trace
+        // state supplies frame-boundary position/speed, not a replacement CPU
+        // routine stream.
+    }
+
+    private static GroundMode groundModeFromOrdinal(int ordinal) {
+        GroundMode[] values = GroundMode.values();
+        if (ordinal < 0 || ordinal >= values.length) {
+            return GroundMode.GROUND;
+        }
+        return values[ordinal];
+    }
+
     private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {
         ObjectManager om = GameServices.level() != null
                 ? GameServices.level().getObjectManager() : null;
@@ -782,7 +861,8 @@ public abstract class AbstractTraceReplayTest {
                         aoi.getPreUpdateY(),
                         aoi.isSkipTouchThisFrame(),
                         aoi.isSkipSolidContactThisFrame(),
-                        aoi.isOnScreenForTouch()));
+                        aoi.isOnScreenForTouch(),
+                        aoi.traceDebugDetails()));
             }
             nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
@@ -813,5 +893,3 @@ public abstract class AbstractTraceReplayTest {
         }
     }
 }
-
-

@@ -30,7 +30,7 @@ import java.util.List;
 public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final int HALF_WIDTH = 0x18;
+    private static final int HALF_WIDTH = 0x30;
     private static final int HALF_HEIGHT = 0x10;
     private static final int FLOOR_Y_RADIUS = 6;
     private static final int Y_ACCEL_STANDING = 0x18;
@@ -40,6 +40,7 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
 
     private final SubpixelMotion.State motion;
     private boolean armed;
+    private boolean floorSettledRoutine;
     private boolean standingThisFrame;
     private int displayFrame;
 
@@ -52,6 +53,11 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (floorSettledRoutine) {
+            updateDynamicSpawn(motion.x, motion.y);
+            return;
+        }
+
         boolean standing = standingThisFrame;
         standingThisFrame = false;
 
@@ -71,18 +77,14 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
             }
         } else if (standing) {
             moveSprite2();
-            if (displayFrame == 2) {
-                snapToFloorIfNeeded(true);
+            if (motion.yVel < Y_VELOCITY_MAX) {
+                motion.yVel += Y_ACCEL_STANDING;
+            }
+            if (snapToFloorIfNeeded(true)) {
+                floorSettledRoutine = true;
                 displayFrame = 2;
             } else {
-                if (motion.yVel < Y_VELOCITY_MAX) {
-                    motion.yVel += Y_ACCEL_STANDING;
-                }
-                if (snapToFloorIfNeeded(true)) {
-                    displayFrame = 2;
-                } else {
-                    displayFrame = 1;
-                }
+                displayFrame = 1;
             }
         } else {
             motion.yVel = -motion.yVel - 0x80;
@@ -95,10 +97,6 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
             }
             updateDynamicSpawn(motion.x, motion.y);
             return;
-        }
-
-        if (!standing && motion.yVel != 0) {
-            snapToFloorIfNeeded(false);
         }
 
         updateDynamicSpawn(motion.x, motion.y);
@@ -128,6 +126,13 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
     @Override
     public boolean isTopSolidOnly() {
         return true;
+    }
+
+    @Override
+    public boolean usesStickyContactBuffer() {
+        // ROM SolidObjectTop_1P uses only the exact d1*2 ride bounds when a
+        // standing player exits; it has no extra edge-sticky tolerance.
+        return false;
     }
 
     @Override
@@ -166,4 +171,5 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
         }
         return false;
     }
+
 }

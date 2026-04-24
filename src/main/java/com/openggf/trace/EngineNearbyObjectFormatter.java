@@ -29,6 +29,9 @@ public final class EngineNearbyObjectFormatter {
             } else {
                 sb.append(" no-touch");
             }
+            if (object.debugDetails() != null && !object.debugDetails().isBlank()) {
+                sb.append(' ').append(object.debugDetails());
+            }
             if (object.spawnX() != object.currentX() || object.spawnY() != object.currentY()) {
                 sb.append(String.format(" spawn=@%04X,%04X",
                         object.spawnX() & 0xFFFF,
