@@ -49,7 +49,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int cooldownFrames;
         int convexReleaseFrames;
         boolean compensateReleaseHandoff;
-        boolean restoreStandingAfterCarryFrame;
     }
 
     private final int centerX;
@@ -90,7 +89,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             player2.cooldownFrames = 0;
             player2.convexReleaseFrames = 0;
             player2.compensateReleaseHandoff = false;
-            player2.restoreStandingAfterCarryFrame = false;
         }
     }
 
@@ -152,7 +150,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         state.cooldownFrames = 0;
         state.convexReleaseFrames = 0;
         state.compensateReleaseHandoff = player.getRolling();
-        state.restoreStandingAfterCarryFrame = player.getRolling();
 
         if (player.isOnObject()) {
             ObjectServices svc = tryServices();
@@ -216,11 +213,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
         player.setAir(false);
         player.setHighPriority(phaseBase < 0x80);
         applyTwistFrame(player, phaseBase);
-        if (state.restoreStandingAfterCarryFrame) {
-            player.setRolling(false);
-            player.restoreDefaultRadii();
-            state.restoreStandingAfterCarryFrame = false;
-        }
     }
 
     private int updateCapturedGroundMotion(AbstractPlayableSprite player) {
@@ -271,7 +263,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
 
         if (player == null) {
             state.compensateReleaseHandoff = false;
-            state.restoreStandingAfterCarryFrame = false;
             return;
         }
 
@@ -317,7 +308,6 @@ public class MGZTwistingLoopObjectInstance extends AbstractObjectInstance {
             player.setStickToConvex(state.compensateReleaseHandoff);
         }
         state.compensateReleaseHandoff = false;
-        state.restoreStandingAfterCarryFrame = false;
     }
 
     private void updateReleasedPlayer(int frameCounter, AbstractPlayableSprite player, PlayerState state) {

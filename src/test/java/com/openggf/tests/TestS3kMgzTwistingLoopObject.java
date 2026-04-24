@@ -60,9 +60,9 @@ class TestS3kMgzTwistingLoopObject {
     }
 
     @Test
-    void mgzTwistingLoopRollingEntry_restoresStandingRadiiAfterFirstCarryFrame() {
+    void mgzTwistingLoopRollingEntry_keepsRollingRadiiUntilLoopReleases() {
         MGZTwistingLoopObjectInstance loop = new MGZTwistingLoopObjectInstance(
-                new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x10, 0, false, 0));
+                new ObjectSpawn(LOOP_X, LOOP_Y, Sonic3kObjectIds.MGZ_TWISTING_LOOP, 0x01, 0, false, 0));
         TestablePlayableSprite player = createDirectEntryPlayer();
         player.move((short) 0, (short) 0x80); // seed y_sub = $8000 without changing pixel Y
         player.setRolling(true);
@@ -70,12 +70,21 @@ class TestS3kMgzTwistingLoopObject {
         loop.update(0, player); // capture
         loop.update(1, player); // first active frame
 
-        assertFalse(player.getRolling(),
-                "MGZ loop should restore standing state after the first carried frame");
-        assertEquals(player.getStandYRadius(), player.getYRadius(),
-                "MGZ loop should restore the standing radius after the first carried frame");
+        assertTrue(player.getRolling(),
+                "MGZ loop should keep rolling state while the object is carrying the player");
+        assertEquals(14, player.getYRadius(),
+                "MGZ loop should keep using the rolling radius for spiral positioning while captured");
         assertTrue(player.getYSubpixelRaw() != 0,
                 "MGZ loop should continue carrying subpixel progress while the player is captured");
+
+        for (int frame = 2; frame <= 12 && player.isObjectControlled(); frame++) {
+            loop.update(frame, player);
+        }
+
+        assertFalse(player.getRolling(),
+                "MGZ loop should restore standing state in the shared release path");
+        assertEquals(player.getStandYRadius(), player.getYRadius(),
+                "MGZ loop should restore the standing radius in the shared release path");
     }
 
     @Test
