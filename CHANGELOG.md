@@ -4,6 +4,50 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Tails CPU Flight AI (Catch-Up + Auto-Recovery)
+
+- Ported `Tails_Catch_Up_Flying` (`sonic3k.asm:26474`, ROM CPU routine
+  0x02) to `SidekickCpuController.CATCH_UP_FLIGHT`. Triggers on either
+  the sidekick's Ctrl_2_logical A/B/C/START press or the 64-frame
+  `Level_frame_counter` gate (suppressed if Sonic is object-controlled
+  or super). On trigger, teleports Tails to (Sonic.x, Sonic.y - 0xC0),
+  zeros all three velocities, sets the air and `double_jump_flag` bits,
+  and transitions to `FLIGHT_AUTO_RECOVERY`.
+- Ported `Tails_FlySwim_Unknown` (`sonic3k.asm:26534`, ROM CPU routine
+  0x04) to `SidekickCpuController.FLIGHT_AUTO_RECOVERY`. Implements
+  the 5-second off-screen timer that rolls back to `CATCH_UP_FLIGHT`
+  on expiry, the 16-frame-delayed target with the -0x20 lead when
+  Sonic isn't on-object and isn't sprinting past 0x400, the X steer
+  of `min(|dx|>>4, 0xC) + |Sonic.x_vel (hi byte)| + 1` clamped to
+  `|dx|`, and the Y steer of +/-1 per frame. Post-step residuals
+  drive the NORMAL transition so overshoot-clamp frames match ROM's
+  `d0 = 0` at `loc_13CA6/loc_13CAA`. Every on-screen frame refuels
+  `double_jump_property` to 240 (ROM `loc_13C3A:26552`) so the flight
+  animation and gravity stay active indefinitely.
+- Routed `updateNormal()`'s dead-leader branch to
+  `FLIGHT_AUTO_RECOVERY`, replacing the `APPROACHING`/respawn-strategy
+  approximation with the ROM-accurate behaviour from `loc_13D4A`
+  (`sonic3k.asm:26656-26665`). The transition fires only on
+  `leader.getDead()` (ROM `cmpi.b #6; blo.s` tests routine >= 6);
+  hurt bounces (routine 0x04) deliberately stay in NORMAL so Tails
+  keeps following the ricocheting Sonic.
+- Corrected the `mapRomCpuRoutine` table: 0x02 now maps to
+  `CATCH_UP_FLIGHT` and 0x04 to `FLIGHT_AUTO_RECOVERY` (previously
+  misrouted to `SPAWNING` / `APPROACHING`).
+- Two new unit-test classes cover the state machine:
+  `TestSidekickCpuControllerCatchUpFlight` (3 tests — Ctrl_2 trigger,
+  64-frame gate, object-control suppression) and
+  `TestSidekickCpuControllerFlightAutoRecovery` (4 tests — X steer,
+  off-screen timeout, close-enough NORMAL transition, dead-leader
+  entry from NORMAL).
+- Current AIZ/CNZ trace replays don't exercise any dead-leader or
+  long-separation code path, so the trace-test first-divergence
+  frames (AIZ 2150, CNZ 318) are unchanged by this workstream. The
+  flight AI is a correctness fix for the "Sonic died and the game
+  keeps running" edge case and for future traces that exercise
+  post-carry catch-up (e.g., pause-menu pausing or level-edge
+  interactions where Tails goes off-screen).
+
 ### Sonic 3&K Sidekick CPU Parity (AIZ/CNZ Trace Replay Follow-Ups)
 
 - Gated the sidekick CPU follow-AI snap threshold by game instead of
