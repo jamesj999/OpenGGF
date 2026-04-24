@@ -1155,6 +1155,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Bumper: ArtTile_CNZMisc + $13, palette 2.
+        // ROM: Obj_Bumper, non-Pachinko/non-competition path.
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CNZ_BUMPER,
+                -1,
+                Sonic3kConstants.ARTTILE_CNZ_BUMPER,
+                2,
+                "buildCnzBumperSheet"
+        ));
+
         // Door (Object 0x3C) vertical: ArtTile_CNZMisc + $C5, palette 2
         // ROM: make_art_tile(ArtTile_CNZMisc+$C5, 2, 0)
         levelArt.add(new LevelArtEntry(

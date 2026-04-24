@@ -1791,6 +1791,20 @@ public class Sonic3kObjectArt {
     }
 
     /**
+     * Builds the CNZ Bumper sprite sheet.
+     *
+     * <p>ROM anchor: {@code Obj_Bumper}, non-Pachinko/non-competition path.
+     * <p>Mapping table: {@code Map_Bumper} (2 frames).
+     * <p>Art tile: {@code ArtTile_CNZMisc+$13} (palette 2).
+     */
+    public ObjectSpriteSheet buildCnzBumperSheet() {
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_CNZ_BUMPER_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_BUMPER,
+                2);
+    }
+
+    /**
      * CNZ Vacuum Tube is controller-only in this task slice.
      * The ROM object exists, but no dedicated traversal sprite sheet is claimed here.
      */

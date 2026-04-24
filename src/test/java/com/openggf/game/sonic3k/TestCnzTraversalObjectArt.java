@@ -47,6 +47,9 @@ public class TestCnzTraversalObjectArt {
         assertEquals(4, cylinder.getFrameCount());
         assertTrue(cylinder.getPatterns().length > 0,
                 "CNZ cylinder should load the ROM-parsed Map - Cylinder.asm sheet");
+        ObjectSpriteSheet bumper = provider.getSheet("cnz_bumper");
+        assertNotNull(bumper);
+        assertEquals(2, bumper.getFrameCount());
         assertNull(provider.getSheet("cnz_vacuum_tube"),
                 "Vacuum Tube stays controller-only because Obj_CNZVacuumTube has inline S&K-side logic and no mappings/make_art_tile ownership");
         assertNull(provider.getSheet("cnz_spiral_tube"),
