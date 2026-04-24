@@ -18,6 +18,42 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether this top-solid object rejects the exact surface boundary before landing.
+     * <p>
+     * Most shared top-solid callers keep the established engine/profile behavior.
+     * Some helper variants reject {@code d0 == 0}; S3K's shared
+     * {@code SolidObjectTop_1P} accepts it and only rejects positive separation
+     * or overlap below {@code -$10}.
+     */
+    default boolean rejectsZeroDistanceTopSolidLanding() {
+        return false;
+    }
+
+    /**
+     * Whether this solid can keep a grounded player attached during the
+     * pre-movement terrain attachment check used by S2/S3K inline solid
+     * resolution.
+     * <p>
+     * Normal solids rely on the previous frame's standing snapshot. ROM helper
+     * objects spawned immediately before their first {@code SolidObjectTop}
+     * call do not have a previous snapshot yet, but can still support the
+     * player in the same frame.
+     */
+    default boolean providesPreMovementGroundAttachmentSupport() {
+        return false;
+    }
+
+    /**
+     * Whether this solid should still be evaluated while the player is in an
+     * object-controlled state. Most scripted object-control states suppress
+     * generic solid contacts; a few ROM routines still call SolidObject and only
+     * reject specific signed object_control values.
+     */
+    default boolean allowsObjectControlledSolidContacts() {
+        return false;
+    }
+
+    /**
      * Whether this object uses monitor-style solidity (SPG: "Item Monitor").
      * Monitor solidity differs from normal solid objects:
      * - No +4 added during vertical overlap check

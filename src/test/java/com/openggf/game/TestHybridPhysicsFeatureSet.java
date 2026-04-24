@@ -61,6 +61,7 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // airBottomSolidHitClearsGroundSpeed - S1
                 true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
+                false,  // bossHitNegatesGroundSpeed - S1
                 true    // stageRingsUseObjectTouchCollection - S1
         );
 
