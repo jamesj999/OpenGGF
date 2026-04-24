@@ -370,7 +370,6 @@ public abstract class AbstractTraceReplayTest {
             int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
                     ? fixture.skipFrameFromRecording()
                     : fixture.stepFrameFromRecording();
-            applyRecordedFirstSidekickState(driveFrame.sidekick());
 
             S3kCheckpointProbe probe = captureS3kProbe(driveFrame.frame(), fixture.sprite());
             var titleCardProvider = GameServices.module().getTitleCardProvider();
@@ -438,6 +437,13 @@ public abstract class AbstractTraceReplayTest {
                         secondaryCharacterLabel,
                         actualSidekick);
 
+                // Keep strict comparisons honest: the sidekick state above is
+                // the engine-produced result for this frame. Re-seed only after
+                // recording the comparison so sidekick drift is reported, while
+                // later Sonic comparisons stay isolated from accumulated Tails
+                // divergence.
+                applyRecordedFirstSidekickState(driveFrame.sidekick());
+
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
                 if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
                     checkpointGuard.validateStrictEntry(
@@ -464,6 +470,8 @@ public abstract class AbstractTraceReplayTest {
                                 actualPrimary.air(), expected.air());
                     }
                 }
+            } else {
+                applyRecordedFirstSidekickState(driveFrame.sidekick());
             }
 
             boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
