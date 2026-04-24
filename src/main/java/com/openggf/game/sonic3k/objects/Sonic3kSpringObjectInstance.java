@@ -112,6 +112,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             if (!contact.standing()) {
                 return;
             }
+            if (!isPlayerOnUpDiagonalSpringLaunchSide(player)) {
+                return;
+            }
             applyDiagonalSpring(player, true);
             return;
         }
@@ -414,6 +417,19 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         return flipped ? objectX >= playerX : objectX < playerX;
     }
 
+    private boolean isPlayerOnUpDiagonalSpringLaunchSide(AbstractPlayableSprite player) {
+        int playerX = player.getCentreX() & 0xFFFF;
+        boolean flipped = isFlippedHorizontal();
+        if (flipped) {
+            // ROM sub_234E6: trigger only when x_pos(a0)+4 >= x_pos(a1).
+            int lipX = (spawn.x() + 4) & 0xFFFF;
+            return Integer.compareUnsigned(lipX, playerX) >= 0;
+        }
+        // ROM sub_234E6: trigger only when x_pos(a0)-4 < x_pos(a1).
+        int lipX = (spawn.x() - 4) & 0xFFFF;
+        return Integer.compareUnsigned(lipX, playerX) < 0;
+    }
+
     private void traceS3kAizSpringProbe(AbstractPlayableSprite player,
                                         SolidContact contact,
                                         int frameCounter,
@@ -422,7 +438,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             return;
         }
         boolean targetSpring = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
-                || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
+                || (spawn.x() == 0x1980 && spawn.y() == 0x0439)
+                || (spawn.x() == 0x26C0 && spawn.y() == 0x02CC);
         if (!targetSpring) {
             return;
         }

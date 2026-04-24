@@ -6,6 +6,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -32,7 +33,7 @@ import java.util.List;
 public final class CnzBalloonInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseListener {
 
-    private static final int COLLISION_FLAGS = 0x40 | 0x17;
+    private static final int COLLISION_FLAGS = 0xC0 | 0x17;
     private static final int WIDTH_HALF = 0x10;
     private static final int HEIGHT_HALF = 0x20;
     private static final int ROM_BOUNCE_Y_SPEED = 0x700;
@@ -50,6 +51,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     private int angle;
     private boolean popped;
     private boolean movedOffscreen;
+    private boolean initialized;
     private int animationTimer;
     private int normalAnimationIndex;
     private int popAnimationIndex;
@@ -60,7 +62,6 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         super(spawn, "CNZBalloon");
         this.subtype = spawn.subtype();
         this.baseY = spawn.y();
-        this.angle = initialAngle(spawn);
     }
 
     @Override
@@ -76,6 +77,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         angle = snapshot.angle() & 0xFF;
         popped = snapshot.byteAt(SNAPSHOT_COLLISION_FLAGS_OFFSET) == 0;
         movedOffscreen = snapshot.xPos() == OFFSCREEN_X;
+        initialized = true;
         updateDynamicSpawn(snapshot.xPos(), snapshot.yPos());
 
         int colorBase = FRAME_BY_COLOR[Math.min(subtype & 0x07, FRAME_BY_COLOR.length - 1)];
@@ -91,6 +93,9 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             return;
         }
 
+        if (!initialized) {
+            initializeFromRomRoutine();
+        }
         advanceAnimation();
         int bobbedY = baseY + bobOffset(angle);
         updateDynamicSpawn(movedOffscreen ? OFFSCREEN_X : spawn.x(), bobbedY);
@@ -103,7 +108,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
 
     @Override
     public int getCollisionFlags() {
-        if (popped || movedOffscreen) {
+        if (movedOffscreen) {
             return 0;
         }
         return COLLISION_FLAGS;
@@ -116,12 +121,17 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
 
     @Override
     public boolean requiresContinuousTouchCallbacks() {
-        return !popped;
+        return !movedOffscreen;
+    }
+
+    @Override
+    public boolean usesS3kTouchSpecialPropertyResponse() {
+        return true;
     }
 
     @Override
     public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
-        if (popped) {
+        if (movedOffscreen) {
             return;
         }
         launchPlayer(player, frameCounter);
@@ -148,7 +158,7 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
     }
 
     private void launchPlayer(PlayableEntity playerEntity, int frameCounter) {
-        if (popped || playerEntity == null || lastLaunchFrame == frameCounter) {
+        if (movedOffscreen || playerEntity == null || lastLaunchFrame == frameCounter) {
             return;
         }
         lastLaunchFrame = frameCounter;
@@ -165,6 +175,11 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         player.setJumping(false);
         player.setControlLocked(false);
         player.setObjectControlled(false);
+        ObjectManager objectManager = services().objectManager();
+        if (objectManager != null) {
+            objectManager.clearRidingObject(player);
+        }
+        player.setOnObject(false);
         if (shouldSnapToCentre) {
             player.setCentreX((short) getX());
             player.setCentreY((short) getY());
@@ -236,12 +251,10 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
         }
     }
 
-    private static int initialAngle(ObjectSpawn spawn) {
-        var ctx = constructionContext();
-        if (ctx != null && ctx.rng() != null) {
-            return ctx.rng().nextByte();
-        }
-        return (spawn.x() ^ spawn.y() ^ spawn.subtype()) & 0xFF;
+    private void initializeFromRomRoutine() {
+        initialized = true;
+        baseY = spawn.y();
+        angle = services().rng().nextByte();
     }
 
     private static int bobOffset(int angle) {
