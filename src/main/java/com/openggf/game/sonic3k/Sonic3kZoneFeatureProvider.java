@@ -171,11 +171,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         // AIZ1's intro-refreshed rock terrain has a one-pixel contact boundary
         // where the ROM lands while the engine's pixel-only sensor reports d1=0.
-        // Keep this scoped to flat/downward rolling landings so the shared air
-        // collision rule remains unchanged for S1/S2 and other S3K zones.
+        // Scope this to truly-flat floor angles only (0x00 or 0xFF). Slight
+        // downhill slopes (e.g. angle 0xFA, −6°) are NOT affected: the ROM's
+        // `bpl` at sonic3k.asm:28905 treats d1 == 0 as airborne regardless of
+        // angle, so widening the range to all ±15° angles caused the AIZ1
+        // rolling-airborne Tails trace replay to land one frame early on a
+        // 0xFA slope pixel where the ROM stayed airborne.
         int angle = support.angle() & 0xFF;
-        boolean flatFloor = angle <= 0x0F || angle >= 0xF0;
-        return flatFloor
+        boolean exactlyFlatFloor = angle == 0x00 || angle == 0xFF;
+        return exactlyFlatFloor
                 && player.getAir()
                 && player.getRolling()
                 && player.getYSpeed() >= 0;
