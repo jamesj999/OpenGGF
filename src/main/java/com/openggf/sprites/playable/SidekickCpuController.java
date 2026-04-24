@@ -282,17 +282,21 @@ public class SidekickCpuController {
     private void updateNormal() {
         normalFrameCount++;
 
-        if (leader.getDead() || leader.isHurt()) {
-            // ROM loc_13D4A (sonic3k.asm:26657-26665): `cmpi.b #6, (Player_1+
-            // routine); bhs.s loc_13D78` — fires when Sonic's routine byte is
-            // 6 (dead) or above. In the engine, Sonic's "routine >= 6" range
-            // maps to either `isHurt()` (routine 0x04/0x05 during the hurt
-            // bounce that precedes a potential death) or `getDead()`
-            // (routine 0x06+). Covering both mirrors the ROM's bhs test.
-            //
-            // The APPROACHING/respawn-strategy path was the pre-port
-            // approximation; now that FLIGHT_AUTO_RECOVERY exists we route
-            // into it directly.
+        if (leader.getDead()) {
+            // ROM loc_13D4A (sonic3k.asm:26656-26665):
+            //   cmpi.b #6, (Player_1+routine).w
+            //   blo.s  loc_13D78               ; continue NORMAL if routine < 6
+            //   move.w #4, (Tails_CPU_routine).w
+            // `blo.s` is branch-if-lower (unsigned <); the fall-through path
+            // therefore fires only when Sonic's routine byte is >= 6, which
+            // engine-side is {@code leader.getDead()}. Routine 0x04 is the
+            // hurt bounce (before a potential death) — that case is NOT
+            // covered by this ROM branch; Tails stays in NORMAL and the
+            // follow AI continues to track the bouncing Sonic. An earlier
+            // iteration of this branch also called leader.isHurt() here,
+            // which mis-routed AIZ1's Rhinobot-hurt sequence (Sonic hurt
+            // for ~43 frames at F1047+) into a spurious flight transition
+            // and caused a new first-divergence at AIZ frame 1611.
             flightTimer = 0;
             sidekick.setAir(true);
             sidekick.setDoubleJumpFlag(1);
