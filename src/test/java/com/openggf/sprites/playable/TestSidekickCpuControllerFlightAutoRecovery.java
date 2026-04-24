@@ -57,18 +57,17 @@ class TestSidekickCpuControllerFlightAutoRecovery {
         tails.setCentreY((short) 0x0400);
         tails.setAir(true);
         tails.setDoubleJumpFlag(1);
-        // Sonic is on-object to suppress the -0x20 lead offset, keeping targetX = 0x1000
-        // (otherwise targetX = 0x0FE0 and the step calculation would be against a different value).
+        // Tails_FlySwim_Unknown does NOT apply the -0x20 lead offset
+        // (that's a NORMAL-routine adjustment at loc_13DA6, not here).
         // Sonic.x_vel defaults to 0 so the test doesn't pull in the
         // "speed match" term; step = clamp(|dx|>>4, 0xC) + |0| + 1 = 0xD.
-        sonic.setOnObject(true);
 
         SidekickCpuController controller = new SidekickCpuController(tails, sonic);
         controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
 
         controller.update(10);
 
-        // targetX = 0x1000 (lead suppressed). |dx| = 0xF00, |dx| >> 4 = 0xF0, clamped to 0xC;
+        // targetX = 0x1000. |dx| = 0xF00, |dx| >> 4 = 0xF0, clamped to 0xC;
         // +0 (Sonic idle) +1 = 0xD.
         // Tails is to the right of Sonic, so X decreases by 0xD.
         assertEquals(0x1EF3, tails.getCentreX() & 0xFFFF,
@@ -108,12 +107,9 @@ class TestSidekickCpuControllerFlightAutoRecovery {
         tails.setCentreX((short) 0x1000);   // Already aligned horizontally
         tails.setCentreY((short) 0x0400);   // Already aligned vertically
         tails.setAir(true);
+        tails.setDoubleJumpFlag(1);         // Flight gravity active during catch-up
         // On-screen so the off-screen timer doesn't fire.
         tails.setRenderFlagOnScreen(true);
-        // Set Sonic on-object so the -0x20 lead offset is suppressed.
-        // Without this, targetX = 0x0FE0 and dx = 0x20 -- not close enough to transition
-        // on the first tick.
-        sonic.setOnObject(true);
 
         SidekickCpuController controller = new SidekickCpuController(tails, sonic);
         controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
@@ -124,6 +120,12 @@ class TestSidekickCpuControllerFlightAutoRecovery {
                 "Tails aligned with Sonic + Sonic alive = transition to NORMAL (routine 0x06)");
         assertFalse(tails.isObjectControlled(),
                 "Transition clears Tails's object_control");
+        assertEquals(0, tails.getDoubleJumpFlag(),
+                "Transition clears Tails's double_jump_flag so NORMAL runs with normal air "
+                        + "gravity (+0x38) instead of the FLY-gated flight gravity (+0x08). ROM "
+                        + "loc_1384A (sonic3k.asm:26213) auto-clears the flag while "
+                        + "object_control bit 0 is set; the engine's NORMAL transition clears "
+                        + "object_control, so we must clear double_jump_flag explicitly.");
     }
 
     @Test
