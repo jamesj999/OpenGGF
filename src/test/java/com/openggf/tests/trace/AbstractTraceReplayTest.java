@@ -360,6 +360,28 @@ public abstract class AbstractTraceReplayTest {
             controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
+        // Align SpriteManager.frameCounter with ROM Level_frame_counter so Tails-CPU
+        // AI gates that read (Level_frame_counter & MASK) fire on the same trace
+        // frames as the ROM (sonic3k.asm:26761 loc_13E7C dx-256-frame check,
+        // sonic3k.asm:26775 loc_13E9C 64-frame jump-cadence check, etc.).
+        //
+        // The trace records each frame's gfc. The first iteration steps fc by one,
+        // so for AI on iter K=K_start to see fc == T_K_start.gfc (== ROM's
+        // Level_frame_counter at T_K_start logic), we pre-set fc =
+        // T_(K_start-1).gfc here. The trace's gfc increments monotonically per
+        // recorded gameplay frame and stays put on lag/VBLANK_ONLY frames, while
+        // the engine's fc++/skip behaviour matches that exact pattern, so this
+        // single pre-set keeps the counters synced for the entire replay.
+        //
+        // Concrete examples:
+        //   * CNZ:  T_0.gfc=1   (gameplay starts immediately) → fc 0→1, then iter K=1
+        //                                 step fc 1→2 = ROM.gfc(T_1)=2 ✓
+        //   * AIZ:  T_289.gfc=0 (still inside intro)         → fc 0→0  (no change),
+        //                                 then iter K=290 step fc 0→1 = ROM.gfc(T_290)=1 ✓
+        if (previousDriveFrame != null && previousDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.sprites() != null) {
+            GameServices.sprites().setFrameCounter(previousDriveFrame.gameplayFrameCounter());
+        }
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
             if (previousDriveFrame != null) {
