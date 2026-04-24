@@ -1,5 +1,7 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.*;
+
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -67,8 +69,16 @@ class TestTraceExecutionModel {
     void legacyS3kAizIntroFramesReplayAsFullFramesBeforeGameplayStart() throws Exception {
         TraceData trace = TraceData.load(
                 Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
-        TraceFrame previous = trace.getFrame(0);
-        TraceFrame current = trace.getFrame(1);
+        // Frames 500/501 are well into the AIZ1 intro cutscene (past the first
+        // in-level frame at 289, before gameplay_start at 1386). The player is
+        // frozen on the vine with all speed fields zeroed, so the legacy
+        // heuristic's motion check returns FULL_LEVEL_FRAME for this window.
+        // Frames 0/1 were unsuitable for this test because the recorder samples
+        // stale Player_1 RAM (non-zero y_speed) before the level loads, which
+        // flips the heuristic into VBLANK_ONLY even though gameplay_frame_counter
+        // is pinned at 0.
+        TraceFrame previous = trace.getFrame(500);
+        TraceFrame current = trace.getFrame(501);
 
         assertEquals(previous.gameplayFrameCounter(), current.gameplayFrameCounter());
         assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,

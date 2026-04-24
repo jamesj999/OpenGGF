@@ -1,4 +1,5 @@
 package com.openggf.tests.trace;
+import com.openggf.trace.*;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;

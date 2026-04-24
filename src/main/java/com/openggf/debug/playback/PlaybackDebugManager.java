@@ -37,8 +37,26 @@ public final class PlaybackDebugManager {
     private GameMode lastObservedMode = GameMode.LEVEL;
     private int firstActiveFrame = -1;
     private int periodicLogCounter;
+    private PlaybackFrameObserver frameObserver;
+    private boolean currentTickSuppressed;
+
+    /**
+     * Observer hook that lets an external comparator classify each BK2
+     * frame as gameplay or lag and accumulate results after each tick.
+     * A null observer means no gating and no callbacks (normal BK2
+     * playback).
+     */
+    public interface PlaybackFrameObserver {
+        boolean shouldSkipGameplayTick(Bk2FrameInput frame);
+
+        void afterFrameAdvanced(Bk2FrameInput frame, boolean wasSkipped);
+    }
 
     private PlaybackDebugManager() {
+    }
+
+    public synchronized void setFrameObserver(PlaybackFrameObserver observer) {
+        this.frameObserver = observer;
     }
 
     private SonicConfigurationService configService() {
@@ -151,18 +169,92 @@ public final class PlaybackDebugManager {
 
     public synchronized void onLevelFrameAdvanced() {
         if (!enabled || movie == null || timeline == null) {
+            currentTickSuppressed = false;
             return;
         }
+        Bk2FrameInput beforeFrame = movie.getFrame(timeline.getCursorFrame());
+        boolean wasSuppressed = currentTickSuppressed;
+        currentTickSuppressed = false;
         timeline.advanceIfPlaying();
+        if (frameObserver != null) {
+            frameObserver.afterFrameAdvanced(beforeFrame, wasSuppressed);
+        }
         if (timeline.isPlaying()) {
             periodicLogCounter++;
             if (periodicLogCounter >= PERIODIC_LOG_INTERVAL_FRAMES) {
                 periodicLogCounter = 0;
-                logStatus("tick");
+                // Periodic heartbeat at FINE — default log level won't
+                // surface it; opt in via java.util.logging when
+                // debugging playback cadence.
+                logStatus("tick", Level.FINE);
             }
         } else {
             periodicLogCounter = 0;
         }
+    }
+
+    /**
+     * Called by {@link com.openggf.GameLoop} immediately before the LEVEL
+     * mode gameplay tick. Returns true when the attached observer wants
+     * the tick suppressed (ROM lag frame). The BK2 cursor still advances
+     * via {@link #onLevelFrameAdvanced()}.
+     */
+    public synchronized boolean shouldSkipCurrentGameplayTick() {
+        if (!enabled || movie == null || timeline == null || frameObserver == null) {
+            currentTickSuppressed = false;
+            return false;
+        }
+        Bk2FrameInput frame = movie.getFrame(timeline.getCursorFrame());
+        currentTickSuppressed = frameObserver.shouldSkipGameplayTick(frame);
+        return currentTickSuppressed;
+    }
+
+    /**
+     * Programmatic entrypoint used by {@code TraceSessionLauncher} to
+     * drive playback without the hotkey / config-path path.
+     */
+    public synchronized void startSession(Bk2Movie movie, int startOffsetIndex) {
+        this.movie = movie;
+        this.timeline = new PlaybackTimelineController(movie.getFrameCount());
+        this.firstActiveFrame = findFirstActiveFrame(movie);
+        this.timeline.resetTo(Math.max(0, startOffsetIndex));
+        this.periodicLogCounter = 0;
+        this.enabled = true;
+        this.timeline.setPlaying(true);
+        clearLastAppliedState();
+        setStatus("Session started (" + movie.getFrameCount() + " frames)", true);
+    }
+
+    /** Programmatic teardown for {@link #startSession}. Idempotent. */
+    public synchronized void endSession() {
+        if (timeline != null) {
+            timeline.setPlaying(false);
+        }
+        this.enabled = false;
+        this.movie = null;
+        this.timeline = null;
+        this.firstActiveFrame = -1;
+        this.frameObserver = null;
+        this.currentTickSuppressed = false;
+        clearLastAppliedState();
+        setStatus("Session ended", true);
+    }
+
+    /** Returns the frame at the current cursor without advancing it. */
+    public synchronized Bk2FrameInput currentFrameOrThrow() {
+        if (!enabled || movie == null || timeline == null) {
+            throw new IllegalStateException("No active playback session");
+        }
+        return movie.getFrame(timeline.getCursorFrame());
+    }
+
+    /** Advance the BK2 cursor without running a gameplay tick. No-op if not enabled. */
+    public synchronized void advanceCurrentFrameWithoutGameplay() {
+        if (!enabled || movie == null || timeline == null) {
+            return;
+        }
+        currentTickSuppressed = false;
+        timeline.advanceIfPlaying();
     }
 
     public synchronized void clearLastAppliedState() {
@@ -311,8 +403,15 @@ public final class PlaybackDebugManager {
     }
 
     private void logStatus(String reason) {
+        logStatus(reason, Level.INFO);
+    }
+
+    private void logStatus(String reason, Level level) {
+        if (!LOGGER.isLoggable(level)) {
+            return;
+        }
         if (movie == null || timeline == null) {
-            LOGGER.info("[Playback][" + reason + "] " + statusMessage);
+            LOGGER.log(level, "[Playback][" + reason + "] " + statusMessage);
             return;
         }
         Bk2FrameInput frame = movie.getFrame(timeline.getCursorFrame());
@@ -327,6 +426,6 @@ public final class PlaybackDebugManager {
                 formatInput(frame.p1InputMask(), frame.p1StartPressed()),
                 firstActiveFrame,
                 statusMessage);
-        LOGGER.info(summary);
+        LOGGER.log(level, summary);
     }
 }

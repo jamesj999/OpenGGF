@@ -20,6 +20,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.objects.SkidDustObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.game.ShieldType;
 import com.openggf.sprites.playable.SecondaryAbility;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
@@ -1744,9 +1745,20 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 *
 	 * <p>Mirrors the ROM behaviour where {@code object_control != 0} short-circuits
 	 * the entire movement dispatch in {@code Obj01_Control}.
+	 *
+	 * <p>While a sidekick is carrying its leader in flight, the ROM applies
+	 * Tails's flight gravity (+0x08/frame, Tails_Move_FlySwim loc_1488C at
+	 * sonic3k.asm:27633) instead of the standard +0x38 air gravity. The
+	 * carrier sprite is not {@code object_controlled} (that flag is on the
+	 * carried leader), so the regular gate doesn't cover this case.
 	 */
 	private void applyGravity() {
 		if (sprite.isObjectControlled()) {
+			return;
+		}
+		SidekickCpuController cpu = sprite.getCpuController();
+		if (cpu != null && cpu.isFlyingCarrying()) {
+			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x08));
 			return;
 		}
 		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));

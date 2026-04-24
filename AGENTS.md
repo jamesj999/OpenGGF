@@ -92,7 +92,9 @@ Git hooks in `.githooks/` and CI enforce the branch policy below. Configure the 
     *   `game.zone` / `game.palette` / `game.animation` / `game.mutation` / `game.render` - runtime-owned shared framework layers for typed zone state, palette ownership, animated tile channels, layout mutation, staged special render effects, and advanced render modes
     *   `control` – input handling
     *   `camera` – camera logic
-    *   `configuration` – game settings via `SonicConfiguration` and `SonicConfigurationService`
+    *   `configuration` – game settings via `SonicConfiguration` and `SonicConfigurationService`. Dev-only keys:
+        - `TEST_MODE_ENABLED` — replaces the master-title game-select with a trace picker (requires `TRACE_CATALOG_DIR`).
+        - `TRACE_CATALOG_DIR` — directory scanned by `TraceCatalog` (default `src/test/resources/traces`).
     *   `audio` – SMPS driver, YM2612 FM synthesis, SN76489 PSG, sequencer, DAC playback, `AbstractAudioProfile`, `AbstractSmpsLoader`
     *   `data` – ROM loading (`Rom`, `RomManager`, `RomByteReader`), game interface, art providers
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag

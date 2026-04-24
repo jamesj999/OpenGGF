@@ -244,7 +244,22 @@ further S3K parity work.
 - **Trace replay v3 execution counters:** physics CSVs and the replay harness now understand
   `gameplay_frame_counter`, `vblank_counter`, and `lag_counter`, with a one-shot notice when a
   pre-v3 fixture falls back to the legacy lag heuristic. The BizHawk v3 recorder upgrade is
-  landed for Sonic 1; Sonic 2 and Sonic 3 & Knuckles recorder migration is planned and deferred.
+  now landed for Sonic 1, Sonic 2, and Sonic 3 & Knuckles, with shared object-snapshot, sidekick,
+  and AIZ/CNZ parity probe dumps driving regression fixtures.
+- **S3K AIZ intro parity:** the AIZ1 intro now tracks the ROM for plane-explode timing,
+  cutscene-Knuckles render-flag exit, giant ride-vine activated-swing behaviour, and explicit
+  fire-transition promotion, with a new seed-at-frame-0 replay bootstrap path that lets
+  end-to-end AIZ traces start at the first live in-level frame with ObjectManager VBlank and
+  sprite state aligned to the recording.
+- **S3K CNZ miniboss and Tails-carry groundwork:** CNZ miniboss arena scaffolding, a dedicated
+  CNZ1 Sonic+Tails carry-in intro design spec, and a sidekick `CARRY_INIT` leader-position gate
+  to keep CPU Tails aligned with Sonic through the carry handoff.
+- **Sonic 1 LZ and demo parity:** wind-tunnel flat zero-distance landing, Elevator / Junction /
+  Pole / Ring parity refresh, credits-demo frame-zero seeding, and MZ1 lost-ring collection
+  order regression coverage for the ROM's first-ring-at-frame-2808 sequence.
+- **PhysicsFeatureSet collision flags:** per-game collision behaviour (including cardinal snap
+  and extended edge balance) is now flagged through `PhysicsFeatureSet` instead of ad-hoc
+  `if/else` chains, with the rule reiterated in both `AGENTS.md` and `CLAUDE.md`.
 - **Sonic 1 object-lifecycle parity:** explosion-item slot routing, lost-ring SST slot
   reservation, bounded `CHUNK_STEP` advancement, push-block two-stage out-of-range logic, and
   counter-based object-placement catch-up after large camera jumps all realigned with the ROM.

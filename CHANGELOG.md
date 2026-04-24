@@ -4,6 +4,25 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Trace Test Mode
+
+Config-gated dev tool that lists all trace-replay tests from
+`src/test/resources/traces/` on the master title screen and plays the
+chosen trace back inside the live engine with red/orange/grey divergence
+counters, BK2 input visualiser (A/B/C + U/D/L/R + S), and a rolling
+mismatch log. Session ends with a 1 s hold on `TRACE COMPLETE` then a
+default `FadeManager` fade to black; Esc during playback skips the hold
+and starts the fade immediately. Toggle via `TEST_MODE_ENABLED=true`.
+See `docs/superpowers/specs/2026-04-23-trace-test-mode-design.md`.
+
+The trace infrastructure (`TraceData`, `TraceBinder`,
+`TraceReplayBootstrap`, etc.) moved from `src/test/java/com/openggf/tests/trace/`
+to `src/main/java/com/openggf/trace/` so it is usable at runtime. A new
+`TraceReplayFixture` interface abstracts headless vs live replay;
+`PlaybackDebugManager` grew programmatic `startSession`/`endSession`
+and a `PlaybackFrameObserver` hook so `GameLoop` can suppress gameplay
+ticks on ROM lag frames.
+
 ### Performance, Parity, and Trace Replay
 
 - Reduced hot-path render and runtime churn with atlas bulk-copy cleanup,

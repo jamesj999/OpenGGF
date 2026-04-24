@@ -221,7 +221,10 @@ Current migration status is still partial on this branch. Sonic 2 already uses t
 - **Block** = 128x128 pixel area (composed of Chunks)
 
 ### Configuration
-`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM`, `DEFAULT_ROM`, `S3K_SKIP_INTROS`, `DATA_SELECT_EXTRA_PLAYER_COMBOS`, `CROSS_GAME_FEATURES_ENABLED`, `CROSS_GAME_SOURCE`.
+`SonicConfigurationService` loads from `config.json`: `DEBUG_VIEW_ENABLED`, `DEBUG_MODE_KEY` (68 = GLFW_KEY_D for free-fly debug mode), `AUDIO_ENABLED`, `SONIC_1_ROM`, `SONIC_2_ROM`, `SONIC_3K_ROM`, `DEFAULT_ROM`, `S3K_SKIP_INTROS`, `DATA_SELECT_EXTRA_PLAYER_COMBOS`, `CROSS_GAME_FEATURES_ENABLED`, `CROSS_GAME_SOURCE`, `TEST_MODE_ENABLED`, `TRACE_CATALOG_DIR`.
+
+- `TEST_MODE_ENABLED` — replaces the master-title game-select with a trace picker (dev-only; requires `TRACE_CATALOG_DIR`).
+- `TRACE_CATALOG_DIR` — directory scanned by `TraceCatalog` (default `src/test/resources/traces`).
 
 ## Level Resource Overlay System
 

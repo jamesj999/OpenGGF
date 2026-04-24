@@ -8,12 +8,12 @@ import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
-import com.openggf.tests.trace.TraceData;
-import com.openggf.tests.trace.TraceEvent;
-import com.openggf.tests.trace.TraceExecutionModel;
-import com.openggf.tests.trace.TraceExecutionPhase;
-import com.openggf.tests.trace.TraceFrame;
-import com.openggf.tests.trace.TraceMetadata;
+import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceEvent;
+import com.openggf.trace.TraceExecutionModel;
+import com.openggf.trace.TraceExecutionPhase;
+import com.openggf.trace.TraceFrame;
+import com.openggf.trace.TraceMetadata;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 

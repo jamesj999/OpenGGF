@@ -1,4 +1,5 @@
 package com.openggf.tests.trace.s3k;
+import com.openggf.trace.*;
 
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
