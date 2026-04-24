@@ -43,31 +43,28 @@ Remove once the miniboss theme plays on arena entry and a regression test assert
 
 ---
 
-## AIZ1 Tails Rolling-Airborne Early Landing (Trace Frame 2150)
+## AIZ1 Tails Rolling-Airborne Post-Jump y_speed Divergence (Trace Frame 2202)
 
-**Location:** Sensor/collision path for airborne Tails, likely `PlayableSpriteMovement.calculateLanding()` or `GroundSensor`.
-**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2150.
+**Location:** `PlayableSpriteMovement.doJumpHeight` or flight-gravity gate — the exact code path that mishandles Tails's rolling-jump airborne velocity is still open.
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2202.
+
+### Status
+
+Frame 2150 was an earlier divergence on a `0xFA` slope zero-distance landing; that was fixed by narrowing the `Sonic3kZoneFeatureProvider.shouldTreatZeroDistanceAirLandingAsGround` angle window to exactly-flat (0x00 or 0xFF) per commit `ad232cf10`. The AIZ replay's first strict error has since moved to frame 2202.
 
 ### Symptom
 
-`TestS3kAizTraceReplay.replayMatchesTrace` reports the first strict error at trace frame 2150:
+At frame 2202 the engine produces `tails_y_speed = -0x02E0` vs the ROM's expected `-0x03E0` (engine is 0x0100 subpixels less upward than the ROM). Seed state at frame 2201: Tails `y_vel = -0x0418`, rolling+airborne (status 0x07, no rolling-jump bit), jumping flag set from a frame-1947 rolling jump.
 
-- Frame 2149 (both ROM and engine): Tails at `(0x1892, 0x0456)`, vel `(0xFC08, 0x0860)`, air=1, status=0x07 (rolling+air+direction-left)
-- Frame 2150 ROM: still airborne — `(0x188E, 0x045F)`, vel `(0xFC08, 0x0898)`, air=1, status=0x07
-- Frame 2150 engine: already landed — `tails_y_speed=0x0000`, `tails_g_speed=-0x03F8`, `tails_angle=0xFA`, `tails_air=0`
-
-The engine detects floor contact one frame earlier than the ROM on a `0xFA` slope.
+The expected result is standard +0x38 air gravity: `-0x0418 + 0x38 = -0x03E0`. The engine is applying an extra ~0x0100 downward velocity somewhere in the air-movement path.
 
 ### Suspected Cause
 
-Terrain-sensor or y-radius divergence for airborne+rolling Tails, not a CPU-AI gap. Candidate causes:
-- Engine uses a different y_radius for rolling-airborne Tails than the ROM's `Tails_DoLevelCollision` path
-- Subpixel accumulator rounds differently between engine and ROM
-- Slope-angle probe reads a different chunk or block
+The extra 0x100 matches `Tails_JumpHeight`'s jump-release cap behaviour: ROM `sonic3k.asm:28592` clips `y_vel` to `-0x0400` when `jumping` is set, `y_vel < -0x0400`, and no A/B/C button is *just-pressed* this frame. After the clip, gravity adds +0x38 → `-0x03C8`, still 0x018 above the engine's observed value. The remaining difference (and the 0x100 total gap) likely comes from a layered interaction: CPU-Tails input replay (button-press vs button-held distinction), rolling-airborne animation state, or an air-collision side-effect. Needs instrumentation.
 
 ### Removal Condition
 
-Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2150, OR a separate unit test pins the exact sensor/radius divergence and a fix lands with its own entry in the discrepancies file (if the new behavior is intentional) or this entry's removal (if it's a true parity fix).
+Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, OR a unit test pins the exact per-frame y_speed divergence for CPU-Tails rolling-airborne and a fix lands.
 
 ---
 
