@@ -68,26 +68,35 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 CPU Tails Ground Over-Deceleration (Trace Frame 318)
+## CNZ1 Trace Divergence (Post-F318 Fix)
 
-**Location:** Unknown — ground physics, input-cap interaction, or slope handling. Not the Tails CPU follow AI input override (that threshold was fixed in the sidekick-follow-snap-threshold work).
-**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 318.
+**Location:** Unknown — under investigation. No longer ground-friction; now likely a missing object-collision (bumper/spring/switch) or slope-jump math.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 383.
 
-### Symptom
+### Status (2026-04-24)
 
-`TestS3kCnzTraceReplay.replayMatchesTrace` reports the first strict error at trace frame 318:
+Frame 318 was caused by `AbstractTraceReplayTest.applyRecordedFirstSidekickState` calling `setMoveLockTimer(0)` every frame, which defeated ROM `Player_SlopeRepel`'s 30-frame move_lock counter and caused the engine to re-apply a −0x80 slip impulse every frame instead of skipping for 30 frames after the initial slip. Fixed in commit `28940b604` (preserve the engine's own move_lock across the per-frame reseed).
 
-- Frame 317: Tails at x=0x0406, g_speed=0x01A9, moving right, status=0x00 (direction=right, on ground). Sonic is at x=0x03BE, to the LEFT of Tails by 72 pixels.
-- Frame 318 ROM: g_speed=0x0192 (−0x17 from F317, mild friction consistent with pressing LEFT against +g_speed).
-- Frame 318 engine: g_speed=0x0092 (−0x117 from F317 — 0x100 extra deceleration).
+The CNZ1 trace replay's first strict error moved from frame 318 to frame 383 (+65 frames; total errors 5024 → 4997).
+
+### Symptom (new)
+
+At trace frame 383, ROM takes Tails from status `0x01` (on ground, direction left) to status `0x07` (airborne, rolling, direction left) while injecting a large leftward x_vel impulse and upward y_vel:
+
+- F382 (both ROM and engine): Tails at `x=0x03BD, y=0x06DF, x_vel=0xFDFD, y_vel=0x00D3, angle=0xF0, air=0, status=0x01`
+- F383 ROM: `x_vel=0xFB86 (−0x047A), y_vel=0xFAD5 (−0x052B), air=1, status=0x07` — delta_x = −0x277, delta_y = −0x5FE (large simultaneous push)
+- F383 engine: `x_vel=−0x0199` (delta_x ≈ +0x6A, opposite sign)
+
+Engine and ROM both transition Tails to `air=1, rolling=1` on this frame, but the velocity impulse is inverted.
 
 ### Suspected Cause
 
-With `|dx|=72 >= 0x30` (S3K sidekick-follow-snap threshold), both the ROM and the engine's follow AI correctly force the LEFT press. The extra 0x100 must come from somewhere in the engine's deceleration chain. Candidate causes:
-- `inputAlwaysCapsGroundSpeed = false` for S3K may not be applied correctly to CPU-controlled Tails (double cap)
-- Unexpected skid penalty on top of the normal deceleration
-- Slope-angle mismatch contributing an extra slopeRunning/slopeRolling term
+The combined magnitude and simultaneous change of x_vel and y_vel look like a ROM-side object-collision impulse (bumper, spring, hover fan, etc.) rather than a self-jump from input. CNZ1 has many such objects in the opening area. The engine may be missing the specific object at that position, or applying the collision impulse in the wrong direction. Candidates:
+
+- A CNZ bumper that the engine hasn't placed at the right position
+- A CNZ spring with a rotated launch angle (engine's launch math may not match)
+- A slope-jump: Tails's x_vel might get rotated by the angle-0xF0 slope; if the engine computes the rotation with a different sign convention, x_vel flips
 
 ### Removal Condition
 
-Remove once `TestS3kCnzTraceReplay`'s first strict error moves past frame 318 AND the root cause is either fixed (entry deleted) or documented as intentional (moved to `S3K_KNOWN_DISCREPANCIES.md`).
+Remove once `TestS3kCnzTraceReplay`'s first strict error moves past frame 383 AND the root cause is identified.
