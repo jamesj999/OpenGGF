@@ -282,8 +282,22 @@ public class SidekickCpuController {
     private void updateNormal() {
         normalFrameCount++;
 
-        if (leader.getDead()) {
-            enterApproachingState();
+        if (leader.getDead() || leader.isHurt()) {
+            // ROM loc_13D4A (sonic3k.asm:26657-26665): `cmpi.b #6, (Player_1+
+            // routine); bhs.s loc_13D78` — fires when Sonic's routine byte is
+            // 6 (dead) or above. In the engine, Sonic's "routine >= 6" range
+            // maps to either `isHurt()` (routine 0x04/0x05 during the hurt
+            // bounce that precedes a potential death) or `getDead()`
+            // (routine 0x06+). Covering both mirrors the ROM's bhs test.
+            //
+            // The APPROACHING/respawn-strategy path was the pre-port
+            // approximation; now that FLIGHT_AUTO_RECOVERY exists we route
+            // into it directly.
+            flightTimer = 0;
+            sidekick.setAir(true);
+            sidekick.setDoubleJumpFlag(1);
+            sidekick.setForcedAnimationId(flyAnimId);
+            state = State.FLIGHT_AUTO_RECOVERY;
             return;
         }
         if (sidekick.getDead()) {
