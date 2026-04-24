@@ -29,6 +29,11 @@ public class SidekickCpuController {
      *  value so existing S2 behaviour is preserved. */
     private static final int DEFAULT_HORIZONTAL_SNAP_THRESHOLD =
             PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2;
+    /** Fallback used when the sidekick sprite has no PhysicsFeatureSet resolved yet
+     *  (e.g. unit tests that bypass the full game-module bootstrap). Matches the
+     *  S2 placeholder so existing S2 traces/tests are unaffected. */
+    private static final int DEFAULT_DESPAWN_X =
+            PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2;
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int DESPAWN_TIMEOUT = 300;
@@ -204,6 +209,23 @@ public class SidekickCpuController {
             return DEFAULT_HORIZONTAL_SNAP_THRESHOLD;
         }
         return fs.sidekickFollowSnapThreshold();
+    }
+
+    /**
+     * Per-game off-screen marker X-position written by {@link #triggerDespawn()}.
+     *
+     * <p>Read from the sidekick's physics feature set (ROM parity). Falls back
+     * to the S2 placeholder ({@code 0x4000}) when no feature set is resolved
+     * yet — this only happens in unit tests that construct a standalone
+     * {@code AbstractPlayableSprite} without a game module, and those tests
+     * assert the existing S2 placeholder value.
+     */
+    private short resolveDespawnX() {
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        if (fs == null) {
+            return (short) DEFAULT_DESPAWN_X;
+        }
+        return (short) fs.sidekickDespawnX();
     }
 
     private PlayerCharacter resolvePlayerCharacter() {
@@ -956,7 +978,13 @@ public class SidekickCpuController {
         sidekick.setLatchedSolidObjectId(0);
         sidekick.setDirection(Direction.RIGHT);
         sidekick.setAir(true);
-        sidekick.setCentreXPreserveSubpixel((short) 0x4000);
+        // Off-screen marker for despawned sidekick. ROM sub_13ECA writes
+        // x_pos=#$7F00, y_pos=#$0 (sonic3k.asm:26800-26807). S3K consumes this
+        // marker to detect a despawned sidekick; S2's TailsCPU respawn instead
+        // resets to Sonic's position so the X value there is largely inert,
+        // but we keep the historic 0x4000 placeholder via PhysicsFeatureSet
+        // to avoid disturbing S2 traces.
+        sidekick.setCentreXPreserveSubpixel(resolveDespawnX());
         sidekick.setCentreYPreserveSubpixel((short) 0);
         sidekick.setDead(false);
         sidekick.setDeathCountdown(0);

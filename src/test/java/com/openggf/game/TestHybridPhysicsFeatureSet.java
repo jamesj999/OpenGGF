@@ -63,7 +63,8 @@ public class TestHybridPhysicsFeatureSet {
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
                 false,  // bossHitNegatesGroundSpeed - S1
                 true,   // stageRingsUseObjectTouchCollection - S1
-                PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2  // sidekickFollowSnapThreshold - S1/S2 default
+                PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2,  // sidekickFollowSnapThreshold - S1/S2 default
+                PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2  // sidekickDespawnX - S1/S2 placeholder
         );
 
         // Verify spindash is enabled (donor contribution)
