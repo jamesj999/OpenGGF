@@ -346,6 +346,17 @@ public final class TraceReplayBootstrap {
         TraceFrame seededFrame = trace.getFrame(seededTraceIndex);
         AbstractPlayableSprite sprite = fixture.sprite();
         applyRecordedFrameState(sprite, seededFrame);
+        // v5 traces record the first sidekick's end-of-frame state on
+        // every row. For frame-0 seeded replays that start mid-carry
+        // (e.g. S3K CNZ, which opens with Tails already positioned for
+        // the AIZ→CNZ fly-in), the sidekick must be restored to that
+        // recorded state too — the applyPreTraceSidekickCpuSnapshot
+        // step only hydrates the Tails CPU-routine byte, and CNZ's
+        // aux_state.jsonl has no slot-1 object_state_snapshot. Without
+        // this, the engine keeps Tails at repositionSidekicks's
+        // (player_x - 32, player_y + 4) spawn offset and his first
+        // frame runs off the wrong position.
+        applySeededFirstSidekickState(seededFrame);
 
         if (GameServices.camera() != null) {
             GameServices.camera().setX((short) seededFrame.cameraX());
@@ -639,6 +650,70 @@ public final class TraceReplayBootstrap {
             }
         }
         return 0;
+    }
+
+    /**
+     * Restore the first sidekick's end-of-frame state from the recorded
+     * CSV row. Mirrors the v5 sidekick column block that
+     * {@code AbstractTraceReplayTest.applyRecordedFirstSidekickState}
+     * uses in headless comparison; exposed here so the live test-mode
+     * bootstrap path seeds Tails identically.
+     *
+     * <p>No-op when the trace has no sidekick data, the frame's sidekick
+     * block reports {@code present=false}, or the engine has no
+     * registered sidekick.
+     */
+    private static void applySeededFirstSidekickState(TraceFrame seededFrame) {
+        if (seededFrame == null) {
+            return;
+        }
+        TraceCharacterState state = seededFrame.sidekick();
+        if (state == null) {
+            return;
+        }
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+            return;
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
+
+        if (!state.present()) {
+            sidekick.setHidden(true);
+            sidekick.setDead(true);
+            sidekick.setCentreX((short) 0);
+            sidekick.setCentreY((short) 0);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setSubpixelRaw(0, 0);
+            sidekick.resetPositionHistory();
+            return;
+        }
+
+        sidekick.setHidden(false);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setHurt(state.routine() == 0x04);
+        sidekick.setCentreX(state.x());
+        sidekick.setCentreY(state.y());
+        sidekick.setXSpeed(state.xSpeed());
+        sidekick.setYSpeed(state.ySpeed());
+        sidekick.setGSpeed(state.gSpeed());
+        sidekick.setAngle(state.angle());
+        sidekick.setDirection((state.statusByte() & 0x01) != 0
+                ? Direction.LEFT
+                : Direction.RIGHT);
+        sidekick.setAir(state.air());
+        sidekick.setRolling(state.rolling());
+        sidekick.setOnObject((state.statusByte() & 0x08) != 0);
+        sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
+        sidekick.setPushing((state.statusByte() & 0x20) != 0);
+        sidekick.setGroundMode(groundMode(state.groundMode()));
+        sidekick.setSubpixelRaw(state.xSub(), state.ySub());
+        sidekick.resetPositionHistory();
     }
 
     private static void applyRecordedFrameState(AbstractPlayableSprite sprite,
