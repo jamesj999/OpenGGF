@@ -55,6 +55,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // groundWallCollisionEnabled - S1
                 false,  // airSuperspeedPreserved - S1
                 false,  // slopeRepelChecksOnObject - S1
+                false,  // slopeRepelUsesS3kSlipKick - S1
+                false,  // pinballLandingPreservesRoll - S1
                 true,   // topSolidLandingAllowsZeroDist - S1
                 false,  // airBottomSolidHitClearsGroundSpeed - S1
                 true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
@@ -135,5 +137,3 @@ public class TestHybridPhysicsFeatureSet {
         assertEquals(CollisionModel.UNIFIED, fs.collisionModel(), "S1 collision model");
     }
 }
-
-

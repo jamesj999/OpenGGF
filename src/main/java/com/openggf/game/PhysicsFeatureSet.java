@@ -51,6 +51,14 @@ public record PhysicsFeatureSet(
          *  S1: false — no isOnObject check (s1disasm/_incObj/01 Sonic.asm:1107-1135).
          *  When false, slope repel can trigger while standing on object surfaces. */
         boolean slopeRepelChecksOnObject,
+        /** Whether slope repel uses S3K's shallow-slope kick instead of S1/S2's
+         *  immediate fall/ground_vel clear.
+         *  S3K: true (sonic3k.asm:23907-23948). S1/S2: false. */
+        boolean slopeRepelUsesS3kSlipKick,
+        /** Whether landing in pinball mode preserves the rolling state.
+         *  S2: true (s2.asm:37754 skips the roll-clear block when pinball_mode is set).
+         *  S3K: false (sonic3k.asm:24348 clears Status_Roll before the floor-tail flags). */
+        boolean pinballLandingPreservesRoll,
         /** Whether top-solid landing accepts the exact edge-contact boundary.
          *  Engine terms: allow a new landing when {@code distY == 0}.
          *  S1/S3K: true for current shared platform parity.
@@ -113,7 +121,7 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false, false, true, false, true, FAST_SCROLL_CAP_S2, true);
+            null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, true);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -123,7 +131,7 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false);
+            null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -137,7 +145,7 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true, true, true, true, false, FAST_SCROLL_CAP_S3K, false);
+    }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, false);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
