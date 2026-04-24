@@ -57,6 +57,21 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         this.binder = new TraceBinder(tolerances);
         this.cursor = initialCursor;
         this.spriteProvider = spriteProvider;
+        // Seeded S3K replays resume at cursor > 0, but the
+        // gameplay_start checkpoint is typically emitted on trace
+        // frame 0. Without this sweep, shouldSuppressComparison never
+        // observes the checkpoint and silently discards every frame
+        // comparison. Scan the skipped prefix up front so replays that
+        // splice past frame 0 still unlock the comparator.
+        for (int f = 0; f < initialCursor && f < trace.frameCount(); f++) {
+            boolean seen = trace.getEventsForFrame(f).stream()
+                    .anyMatch(e -> e instanceof TraceEvent.Checkpoint cp
+                            && "gameplay_start".equals(cp.name()));
+            if (seen) {
+                gameplayStartSeen = true;
+                break;
+            }
+        }
     }
 
     @Override
