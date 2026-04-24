@@ -170,9 +170,12 @@ public abstract class AbstractSprite implements Sprite {
 		int beforeCentreX = getCentreX() & 0xFFFF;
 		int afterCentreX = getCentreX() & 0xFFFF;
 		int afterCentreY = getCentreY() & 0xFFFF;
-		if (Math.max(beforeCentreX, afterCentreX) < 0x1900
-				|| Math.min(beforeCentreX, afterCentreX) > 0x1990
-				|| Math.max(beforeCentreY & 0xFFFF, afterCentreY) < 0x0380
+		int minY = Integer.getInteger("s3k.aiz.yprobe.minY", 0x0380);
+		int minX = Integer.getInteger("s3k.aiz.yprobe.minX", 0x1900);
+		int maxX = Integer.getInteger("s3k.aiz.yprobe.maxX", 0x1990);
+		if (Math.max(beforeCentreX, afterCentreX) < minX
+				|| Math.min(beforeCentreX, afterCentreX) > maxX
+				|| Math.max(beforeCentreY & 0xFFFF, afterCentreY) < minY
 				|| Math.min(beforeCentreY & 0xFFFF, afterCentreY) > 0x03E0) {
 			return;
 		}

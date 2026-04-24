@@ -399,9 +399,8 @@ local function emit_s3k_semantic_events(frame)
     if level_started ~= 0 and game_mode == GAMEMODE_LEVEL and move_lock == 0 and ctrl_locked == 0 then
         emit_checkpoint_once(frame, "gameplay_start", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
-    local camera_x = mainmemory.read_u16_be(ADDR_CAMERA_X)
-    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 and camera_x >= 0x2D00 then
-        emit_checkpoint_once(frame, "aiz1_fire_transition_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 then
+        emit_checkpoint_once(frame, "aiz1_intro_refresh_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
     if actual_zone_id == 0 and actual_act == 1 and apparent_act == 0 then
         emit_checkpoint_once(frame, "aiz2_reload_resume", actual_zone_id, actual_act, apparent_act, game_mode, nil)

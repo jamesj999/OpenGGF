@@ -157,7 +157,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 		int centreX = sprite.getCentreX() & 0xFFFF;
-		if (centreX < 0x1940 || centreX > 0x1955) {
+		int minX = Integer.getInteger("s3k.aiz.airprobe.minX", 0x1940);
+		int maxX = Integer.getInteger("s3k.aiz.airprobe.maxX", 0x1955);
+		if (centreX < minX || centreX > maxX) {
 			return;
 		}
 		System.out.printf(
