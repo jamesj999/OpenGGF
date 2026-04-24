@@ -32,7 +32,7 @@ class TestS3kReplayCheckpointDetector {
         assertEquals("gameplay_start", detector.observe(probe(
                 10, 0, 0, 0, 12, 0, false, false, false, false, true, true)).name());
         assertEquals("aiz1_fire_transition_begin", detector.observe(probe(
-                1651, 0, 0, 0, 12, 0, false, true, false, false, false, true, false)).name());
+                1651, 0, 0, 0, 12, 0, false, true, true, false, false, true, false)).name());
         assertEquals("aiz2_reload_resume", detector.observe(probe(
                 5610, 0, 1, 0, 12, 5, true, false, false, false, true, false)).name());
 
@@ -133,7 +133,7 @@ class TestS3kReplayCheckpointDetector {
                 10, 0, 0, 0, 12, 0, false, false, false, false, true, true));
 
         TraceEvent.Checkpoint hit = detector.observe(probe(
-                1651, 0, 0, 0, 12, 0, false, true, false, false, false, true, false));
+                1651, 0, 0, 0, 12, 0, false, true, true, false, false, true, false));
 
         assertNotNull(hit);
         assertEquals("aiz1_fire_transition_begin", hit.name());
@@ -141,7 +141,21 @@ class TestS3kReplayCheckpointDetector {
     }
 
     @Test
-    void fireTransitionCheckpointTracksRecordedEventsFg5Pulse() {
+    void fireTransitionCheckpointIgnoresIntroRefreshEventsFg5Pulse() {
+        S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
+
+        detector.observe(probe(
+                0, null, null, null, 12, 0, false, false, false, false, false, false));
+        detector.observe(probe(
+                10, 0, 0, 0, 12, 0, false, false, false, false, true, true));
+
+        assertNull(detector.observe(probe(
+                1651, 0, 0, 0, 12, 0, false, true, false, false, false, true, false)));
+        assertFalse(detector.requiredCheckpointNamesReached().contains("aiz1_fire_transition_begin"));
+    }
+
+    @Test
+    void fireTransitionCheckpointTracksActiveFireTransitionEventsFg5Pulse() {
         S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
 
         detector.observe(probe(
@@ -150,7 +164,7 @@ class TestS3kReplayCheckpointDetector {
                 10, 0, 0, 0, 12, 0, false, false, false, false, true, true));
 
         TraceEvent.Checkpoint hit = detector.observe(probe(
-                1651, 0, 0, 0, 12, 0, false, true, false, false, false, true, false));
+                1651, 0, 0, 0, 12, 0, false, true, true, false, false, true, false));
 
         assertNotNull(hit);
         assertEquals("aiz1_fire_transition_begin", hit.name());
