@@ -97,6 +97,50 @@ class TestS3kCnzTubeTraversalHeadless {
     }
 
     @Test
+    void vacuumTubeHorizontalDragPreservesPlayerSubpixelsLikeWordWrites() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzVacuumTubeInstance tube = spawnVacuumTube(0x3EC0, 0x07F0, 0x00, 0x01);
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x3ED0);
+        player.setCentreY((short) 0x07D0);
+        player.setSubpixelRaw(0xDB00, 0x3200);
+        player.setAir(false);
+        player.setObjectControlled(false);
+
+        tube.update(0, player);
+
+        assertEquals(0xDB00, player.getXSubpixelRaw(),
+                "sub_31F62 changes x_pos with word arithmetic and must not clear x_sub");
+        assertEquals(0x3200, player.getYSubpixelRaw(),
+                "Horizontal vacuum drag should leave y_sub untouched");
+    }
+
+    @Test
+    void vacuumTubeLiftPreservesPlayerSubpixelsLikeWordWrites() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        CnzVacuumTubeInstance tube = spawnVacuumTube(0x4740, 0x0828, 0x10, 0);
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x4748);
+        player.setCentreY((short) 0x0800);
+        player.setSubpixelRaw(0xABCD, 0x4321);
+        player.setAir(false);
+        player.setObjectControlled(false);
+
+        tube.update(0, player);
+
+        assertEquals(0xABCD, player.getXSubpixelRaw(),
+                "sub_32010 nudges x_pos toward the tube centre with word writes");
+        assertEquals(0x4321, player.getYSubpixelRaw(),
+                "sub_32010 raises y_pos with word writes and must preserve y_sub");
+    }
+
+    @Test
     void vacuumTubeLiftSubtypesUseSubtypeScaledTimersThenReleaseUpwardForStockPlacements() {
         verifyLiftSubtype(0x10);
         verifyLiftSubtype(0x20);

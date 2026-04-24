@@ -24,6 +24,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.CustomPlayablePhysics;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.Sprite;
 import com.openggf.game.GroundMode;
@@ -873,6 +874,10 @@ public class SpriteManager {
 					levelManager, frameCounter);
 		} else {
 			playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		}
+		SidekickCpuController cpuController = playable.getCpuController();
+		if (cpuController != null) {
+			cpuController.finishCarryAfterCarrierMovement();
 		}
 		// ROM Obj01_Control: movement runs first, then Sonic_Animate, then
 		// TouchResponse. Special objects like monitors gate on anim(a0), so
