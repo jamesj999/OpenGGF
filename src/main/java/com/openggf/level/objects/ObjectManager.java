@@ -30,6 +30,8 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Knuckles;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.game.GroundMode;
 
@@ -50,6 +52,8 @@ import java.util.logging.Logger;
 
 public class ObjectManager {
     private static final int BUCKET_COUNT = RenderPriority.MAX - RenderPriority.MIN + 1;
+    private static final int ANIM_ROLL = 0x02;
+    private static final int ANIM_SPINDASH = 0x09;
 
     private final Placement placement;
     private final ObjectRegistry registry;
@@ -1595,6 +1599,14 @@ public class ObjectManager {
     /** Clear this player's riding state. */
     public void clearRidingObject(PlayableEntity player) {
         solidContacts.clearRidingObject(player);
+    }
+
+    public void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
+        solidContacts.forceAirOnStaleObjectSupportLoss(player);
+    }
+
+    public boolean hasPendingStaleObjectSupportLoss(PlayableEntity player) {
+        return solidContacts.hasPendingStaleObjectSupportLoss(player);
     }
 
     /**
@@ -3327,8 +3339,10 @@ public class ObjectManager {
          * Shared collision loop for both main player and sidekick touch responses.
          * Iterates active objects, checks touch regions and overlap, dispatches to the
          * appropriate response handler. Behavioral differences are parameterized:
-         * - Player: records debug hits, breaks after first hit (ROM: bne.w branch)
-         * - Sidekick: no debug recording, continues loop after hits
+         * - Main player: records debug hits
+         * - Sidekick: no debug recording and uses Hurt_Sidekick handling
+         * - Both players exit after the first overlapping object; the ROM's handler
+         *   returns from ReactToItem after processing one touch response.
          *
          * @param player         the playable entity to check collisions for
          * @param playerX        hitbox left edge (centreX - 8, or insta-shield adjusted)
@@ -3357,7 +3371,7 @@ public class ObjectManager {
                     boolean hit = processMultiRegionTouch(player, playerX, playerY, playerHeight,
                             instance, provider, regions, playerWidth,
                             buildingSet, overlappingSet, isSidekick);
-                    if (!isSidekick && hit) {
+                    if (hit) {
                         break;
                     }
                     continue;
@@ -3389,7 +3403,7 @@ public class ObjectManager {
                 int sizeIndex = flags & 0x3F;
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
+                TouchCategory category = decodeCategory(flags, provider);
                 if (category == TouchCategory.HURT
                         && tryShieldDeflect(player, instance, provider, width, height)) {
                     continue;
@@ -3433,15 +3447,10 @@ public class ObjectManager {
                     }
                 }
                 // ROM parity: ReactToItem ALWAYS exits after the first overlapping
-                // object, regardless of category or whether a response was triggered.
-                // The ROM's handler returns via rts which exits the entire ReactToItem
-                // subroutine. Previously the engine only broke when shouldTrigger was
-                // true, allowing already-overlapping objects to be skipped and later
-                // objects to be found — a 1-frame-early bounce when a lower-slot
-                // non-enemy blocked ReactToItem in the ROM but was skipped here.
-                if (!isSidekick) {
-                    break;
-                }
+                // object, regardless of category, player slot, or whether a response
+                // was triggered. The ROM's handler returns via rts which exits the
+                // entire ReactToItem subroutine.
+                break;
             }
         }
 
@@ -3465,7 +3474,7 @@ public class ObjectManager {
                 int sizeIndex = flags & 0x3F;
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
+                TouchCategory category = decodeCategory(flags, provider);
 
                 boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
                         region.x(), region.y(), width, height, playerWidth);
@@ -3533,7 +3542,7 @@ public class ObjectManager {
             switch (result.category()) {
                 case HURT -> applySidekickHurt(sidekick, instance);
                 case ENEMY -> {
-                    if (isPlayerAttacking(sidekick)) {
+                    if (isPlayerAttacking(sidekick, instance)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
                         int hpBeforeHit = 0;
                         if (instance instanceof TouchResponseProvider provider2) {
@@ -3543,9 +3552,13 @@ public class ObjectManager {
                             attackable.onPlayerAttack(sidekick, result);
                         }
                         if (hpBeforeHit > 0) {
-                            // Touch_Enemy_Part2: neg.w x_vel / neg.w y_vel
+                            // S3K boss-hit path also negates ground_vel; S1/S2 keep it.
                             sidekick.setXSpeed((short) -sidekick.getXSpeed());
                             sidekick.setYSpeed((short) -sidekick.getYSpeed());
+                            if (sidekick.getPhysicsFeatureSet() != null
+                                    && sidekick.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                                sidekick.setGSpeed((short) -sidekick.getGSpeed());
+                            }
                         } else {
                             // Touch_KillEnemy: position-based bounce
                             applyEnemyBounce(sidekick, instance);
@@ -3558,7 +3571,7 @@ public class ObjectManager {
                     // Listener handles object-specific logic.
                 }
                 case BOSS -> {
-                    if (isPlayerAttacking(sidekick)) {
+                    if (isPlayerAttacking(sidekick, instance)) {
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(sidekick, result);
                         }
@@ -3652,13 +3665,27 @@ public class ObjectManager {
             return true;
         }
 
-        private TouchCategory decodeCategory(int flags) {
+        private TouchCategory decodeCategory(int flags, TouchResponseProvider provider) {
             int categoryBits = flags & 0xC0;
+            int sizeIndex = flags & 0x3F;
+            if (categoryBits == 0xC0
+                    && provider != null
+                    && provider.usesS3kTouchSpecialPropertyResponse()
+                    && isS3kTouchSpecialPropertyIndex(sizeIndex)) {
+                return TouchCategory.SPECIAL;
+            }
             return switch (categoryBits) {
                 case 0x00 -> TouchCategory.ENEMY;
                 case 0x40 -> TouchCategory.SPECIAL;
                 case 0x80 -> TouchCategory.HURT;
                 default -> TouchCategory.BOSS;
+            };
+        }
+
+        private boolean isS3kTouchSpecialPropertyIndex(int sizeIndex) {
+            return switch (sizeIndex) {
+                case 0x06, 0x07, 0x0A, 0x0C, 0x15, 0x16, 0x17, 0x18, 0x21 -> true;
+                default -> false;
             };
         }
 
@@ -3674,7 +3701,7 @@ public class ObjectManager {
             switch (result.category()) {
                 case HURT -> applyHurt(player, instance);
                 case ENEMY -> {
-                    if (isPlayerAttacking(player)) {
+                    if (isPlayerAttacking(player, instance)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
                         // Capture HP before onPlayerAttack (which may decrement it).
                         int hpBeforeHit = 0;
@@ -3685,15 +3712,13 @@ public class ObjectManager {
                             attackable.onPlayerAttack(player, result);
                         }
                         if (hpBeforeHit > 0) {
-                            // Touch_Enemy_Part2: neg.w x_vel(a0) / neg.w y_vel(a0)
-                            // Then clear collision_flags and decrement HP (handled by onPlayerAttack)
-                            System.err.printf("[TOUCH_NEG] frame=%d obj=%s x=0x%04X y=0x%04X hp=%d playerX=0x%04X playerY=0x%04X xSpd=%d ySpd=%d%n",
-                                    currentFrameCounter,
-                                    instance.getClass().getSimpleName(), instance.getX(), instance.getY(),
-                                    hpBeforeHit, player.getCentreX(), player.getCentreY(),
-                                    player.getXSpeed(), player.getYSpeed());
+                            // S3K boss-hit path also negates ground_vel; S1/S2 keep it.
                             player.setXSpeed((short) -player.getXSpeed());
                             player.setYSpeed((short) -player.getYSpeed());
+                            if (player.getPhysicsFeatureSet() != null
+                                    && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                                player.setGSpeed((short) -player.getGSpeed());
+                            }
                         } else {
                             // Touch_KillEnemy: position-based bounce (one-hit kill)
                             applyEnemyBounce(player, instance);
@@ -3706,7 +3731,7 @@ public class ObjectManager {
                     // Listener handles object-specific logic.
                 }
                 case BOSS -> {
-                    if (isPlayerAttacking(player)) {
+                    if (isPlayerAttacking(player, instance)) {
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
@@ -3718,12 +3743,60 @@ public class ObjectManager {
             }
         }
 
-        private boolean isPlayerAttacking(PlayableEntity player) {
-            return player.isSuperSonic()
+        private boolean isPlayerAttacking(PlayableEntity player, ObjectInstance target) {
+            if (player == null) {
+                return false;
+            }
+            if (player.isSuperSonic()
                     || player.getInvincibleFrames() > 0
-                    || player.getRolling()
-                    || player.getSpindash()
-                    || (instaShieldActive && player == currentPlayer);
+                    || isSpinAttackAnimation(player)
+                    || (instaShieldActive && player == currentPlayer)) {
+                return true;
+            }
+
+            PhysicsFeatureSet features = player.getPhysicsFeatureSet();
+            if (features != null && features.elementalShieldsEnabled()) {
+                return isS3kAbilityAttack(player, target);
+            }
+
+            return player.getRolling() || player.getSpindash();
+        }
+
+        private boolean isSpinAttackAnimation(PlayableEntity player) {
+            int animation = player.getAnimationId();
+            return animation == ANIM_ROLL || animation == ANIM_SPINDASH;
+        }
+
+        private boolean isS3kAbilityAttack(PlayableEntity player, ObjectInstance target) {
+            if (player instanceof Knuckles) {
+                int flag = player.getDoubleJumpFlag();
+                return flag == 1 || flag == 3;
+            }
+            if (player instanceof Tails tails) {
+                return player.getDoubleJumpFlag() != 0
+                        && !tails.isInWater()
+                        && isTailsFlightAttackAngle(player, target);
+            }
+            return false;
+        }
+
+        private boolean isTailsFlightAttackAngle(PlayableEntity player, ObjectInstance target) {
+            if (target == null) {
+                return false;
+            }
+            int dx = (short) (player.getCentreX() - target.getX());
+            int dy = (short) (player.getCentreY() - target.getY());
+            int angle = segaAngle(dx, dy);
+            return ((angle - 0x20) & 0xFF) < 0x40;
+        }
+
+        private int segaAngle(int dx, int dy) {
+            if (dx == 0 && dy == 0) {
+                return 0x40;
+            }
+            double radians = Math.atan2(dy, dx);
+            int angle = (int) Math.round(radians * 128.0 / Math.PI);
+            return angle & 0xFF;
         }
 
         private void applyEnemyBounce(PlayableEntity player, ObjectInstance instance) {
@@ -3754,6 +3827,10 @@ public class ObjectManager {
         private void applyBossBounce(PlayableEntity player) {
             player.setXSpeed((short) -player.getXSpeed());
             player.setYSpeed((short) -player.getYSpeed());
+            if (player.getPhysicsFeatureSet() != null
+                    && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                player.setGSpeed((short) -player.getGSpeed());
+            }
         }
 
         private void applyHurt(PlayableEntity player, ObjectInstance instance) {
@@ -3806,6 +3883,8 @@ public class ObjectManager {
         private record RidingState(ObjectInstance object, int x, int y, int pieceIndex) {}
         private final Map<PlayableEntity, RidingState> ridingStates = new IdentityHashMap<>(2);
         private final Set<PlayableEntity> inlineSupportedPlayers =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<PlayableEntity> forceAirOnStaleSupportLoss =
                 Collections.newSetFromMap(new IdentityHashMap<>());
         private PlayableEntity currentPlayer; // set during update() for internal use
 
@@ -3861,62 +3940,6 @@ public class ObjectManager {
             perAngle.put(hexAngle & 0xFF, distance);
         }
 
-        private void traceS3kAizSolidProbe(PlayableEntity player,
-                                           ObjectInstance instance,
-                                           SolidContact contact,
-                                           SolidObjectParams params,
-                                           int anchorX,
-                                           int anchorY) {
-            if (!Boolean.getBoolean("s3k.aiz.solidprobe")
-                    || player == null
-                    || instance == null
-                    || contact == null) {
-                return;
-            }
-
-            int playerX = player.getCentreX() & 0xFFFF;
-            int playerY = player.getCentreY() & 0xFFFF;
-            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0380 || playerY > 0x03D8) {
-                return;
-            }
-
-            ObjectSpawn spawn = instance.getSpawn();
-            int spawnX = spawn != null ? spawn.x() & 0xFFFF : 0xFFFF;
-            int spawnY = spawn != null ? spawn.y() & 0xFFFF : 0xFFFF;
-            int objectId = spawn != null ? spawn.objectId() & 0xFF : 0xFF;
-            int subtype = spawn != null ? spawn.subtype() & 0xFF : 0xFF;
-
-            System.out.printf(
-                    "s3k-aiz-solidprobe frame=%d obj=%s spawn=(%04X,%04X) id=%02X subtype=%02X "
-                            + "anchor=(%04X,%04X) params=(%d,%d,%d) contact=[stand=%s side=%s bottom=%s top=%s push=%s] "
-                            + "player=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s roll=%s onObj=%s angle=%02X%n",
-                    frameCounter,
-                    instance.getClass().getSimpleName(),
-                    spawnX,
-                    spawnY,
-                    objectId,
-                    subtype,
-                    anchorX & 0xFFFF,
-                    anchorY & 0xFFFF,
-                    params.halfWidth(),
-                    params.airHalfHeight(),
-                    params.groundHalfHeight(),
-                    contact.standing(),
-                    contact.touchSide(),
-                    contact.touchBottom(),
-                    contact.touchTop(),
-                    contact.pushing(),
-                    playerX,
-                    playerY,
-                    player.getXSpeed() & 0xFFFF,
-                    player.getYSpeed() & 0xFFFF,
-                    player.getGSpeed() & 0xFFFF,
-                    player.getAir(),
-                    player.getRolling(),
-                    player.isOnObject(),
-                    player.getAngle() & 0xFF);
-        }
-
         boolean isRidingObject(PlayableEntity player) {
             if (player == null) return false;
             RidingState state = ridingStates.get(player);
@@ -3947,7 +3970,18 @@ public class ObjectManager {
             if (player != null) {
                 ridingStates.remove(player);
                 latestStandingSnapshots.remove(player);
+                forceAirOnStaleSupportLoss.remove(player);
             }
+        }
+
+        void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
+            if (player != null) {
+                forceAirOnStaleSupportLoss.add(player);
+            }
+        }
+
+        boolean hasPendingStaleObjectSupportLoss(PlayableEntity player) {
+            return player != null && forceAirOnStaleSupportLoss.contains(player);
         }
 
         void markObjectSupportThisFrame(PlayableEntity player) {
@@ -3983,6 +4017,10 @@ public class ObjectManager {
 
         private boolean blocksSolidContacts(PlayableEntity player, ObjectInstance candidate) {
             if (!player.isObjectControlled()) {
+                return false;
+            }
+            if (candidate instanceof SolidObjectProvider provider
+                    && provider.allowsObjectControlledSolidContacts()) {
                 return false;
             }
             // Most object-controlled states skip SolidObject entirely. MGZ top-platform
@@ -4048,7 +4086,7 @@ public class ObjectManager {
                 return false;
             }
             RidingState state = ridingStates.get(player);
-            return (state != null && state.object != null) || player.isOnObject();
+            return state != null && state.object != null;
         }
 
         private void finalizeInlinePlayer(PlayableEntity player) {
@@ -4058,11 +4096,16 @@ public class ObjectManager {
             if (player.getDead() || player.isDebugMode()) {
                 ridingStates.remove(player);
                 latestStandingSnapshots.remove(player);
+                forceAirOnStaleSupportLoss.remove(player);
                 return;
             }
             if (!inlineSupportedPlayers.contains(player)) {
+                boolean forceAir = forceAirOnStaleSupportLoss.remove(player);
                 ridingStates.remove(player);
                 player.setOnObject(false);
+                if (forceAir) {
+                    player.setAir(true);
+                }
                 latestStandingSnapshots.remove(player);
             }
         }
@@ -4243,7 +4286,7 @@ public class ObjectManager {
                 return null;
             }
             applyNonUnifiedTopSolidLandingHeightOverride(
-                    player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
+                    player, contact, instance, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
             if ((contact.standing() || contact.touchTop())
                     && instance.getSpawn() != null
                     && player instanceof AbstractPlayableSprite sprite) {
@@ -4437,7 +4480,37 @@ public class ObjectManager {
                 return false;
             }
             PlayerStandingState snapshot = latestStandingSnapshots.get(player);
-            return snapshot != null && snapshot.standing();
+            return (snapshot != null && snapshot.standing())
+                    || hasPreMovementGroundAttachmentSupport(player);
+        }
+
+        private boolean hasPreMovementGroundAttachmentSupport(PlayableEntity player) {
+            int playerCenterX = player.getCentreX();
+            int playerCenterY = player.getCentreY();
+            int playerYRadius = player.getYRadius();
+            for (ObjectInstance instance : objectManager.getSolidProviderObjects()) {
+                if (!(instance instanceof SolidObjectProvider provider)
+                        || !provider.providesPreMovementGroundAttachmentSupport()
+                        || !provider.isSolidFor(player)
+                        || !provider.isTopSolidOnly()
+                        || blocksSolidContacts(player, instance)) {
+                    continue;
+                }
+                SolidObjectParams params = provider.getSolidParams();
+                int anchorX = instance.getX() + params.offsetX();
+                int anchorY = instance.getY() + params.offsetY();
+                int halfWidth = params.halfWidth();
+                int relX = playerCenterX - anchorX + halfWidth;
+                if (relX < 0 || relX >= halfWidth * 2) {
+                    continue;
+                }
+                int maxTop = params.airHalfHeight() + playerYRadius;
+                int relY = playerCenterY - anchorY + 4 + maxTop;
+                if (relY >= -0x10 && relY <= 0x10) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean hasStandingContactMultiPiece(PlayableEntity player,
@@ -4848,8 +4921,7 @@ public class ObjectManager {
                     continue;
                 }
                 applyNonUnifiedTopSolidLandingHeightOverride(
-                        player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
-                traceS3kAizSolidProbe(player, instance, contact, params, anchorX, anchorY);
+                        player, contact, instance, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
@@ -4994,19 +5066,6 @@ public class ObjectManager {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
-            traceS3kAizObjectProbe("start",
-                    player,
-                    instance,
-                    anchorX,
-                    anchorY,
-                    halfWidth,
-                    halfHeight,
-                    0,
-                    0,
-                    0,
-                    0,
-                    "entry");
-
             int width2 = halfWidth * 2;
             int relXRaw = playerCenterX - anchorX + halfWidth;
 
@@ -5040,34 +5099,10 @@ public class ObjectManager {
             // ridden piece. Without this, fast moving platforms (ObjB2 Tornado, etc.)
             // can drop contact for one frame at edges.
             int stickyX = ridingThisPiece ? 16 : 0;
-            traceS3kAizObjectProbe("window",
-                    player,
-                    instance,
-                    anchorX,
-                    anchorY,
-                    halfWidth,
-                    halfHeight,
-                    relXRaw,
-                    relY,
-                    maxTop,
-                    stickyX,
-                    "pre-bounds");
             boolean inclusiveRightEdge = instance instanceof SolidObjectProvider provider
                     && provider.usesInclusiveRightEdge();
             int rightLimit = width2 + stickyX;
             if (relXRaw < -stickyX || (inclusiveRightEdge ? relXRaw > rightLimit : relXRaw >= rightLimit)) {
-                traceS3kAizObjectProbe("reject-x",
-                        player,
-                        instance,
-                        anchorX,
-                        anchorY,
-                        halfWidth,
-                        halfHeight,
-                        relXRaw,
-                        relY,
-                        maxTop,
-                        stickyX,
-                        "x-range");
                 return null;
             }
             // Clamp sticky overflow back into the normal box before side/top resolution.
@@ -5083,18 +5118,6 @@ public class ObjectManager {
             int minRelY = ridingThisPiece ? -16 : 0;
 
             if (relY < minRelY || relY >= totalHeight) {
-                traceS3kAizObjectProbe("reject-y",
-                        player,
-                        instance,
-                        anchorX,
-                        anchorY,
-                        halfWidth,
-                        halfHeight,
-                        relX,
-                        relY,
-                        maxTop,
-                        minRelY,
-                        "y-range");
                 return null;
             }
 
@@ -5107,64 +5130,6 @@ public class ObjectManager {
                     topSolidOnly, riding, apply, instance, true);
         }
 
-        private void traceS3kAizObjectProbe(String stage,
-                                            PlayableEntity player,
-                                            ObjectInstance instance,
-                                            int anchorX,
-                                            int anchorY,
-                                            int halfWidth,
-                                            int halfHeight,
-                                            int relX,
-                                            int relY,
-                                            int maxTop,
-                                            int aux,
-                                            String reason) {
-            if (!Boolean.getBoolean("s3k.aiz.objectprobe")
-                    || player == null
-                    || instance == null
-                    || instance.getSpawn() == null) {
-                return;
-            }
-
-            ObjectSpawn spawn = instance.getSpawn();
-            boolean targetObject = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
-                    || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
-            if (!targetObject) {
-                return;
-            }
-
-            int playerX = player.getCentreX() & 0xFFFF;
-            int playerY = player.getCentreY() & 0xFFFF;
-            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0390 || playerY > 0x03C0) {
-                return;
-            }
-
-            System.out.printf(
-                    "s3k-aiz-objectprobe frame=%d stage=%s obj=%s spawn=(%04X,%04X) player=(%04X,%04X) "
-                            + "anchor=(%04X,%04X) params=(w=%d,h=%d,maxTop=%d) rel=(%d,%d) aux=%d reason=%s spd=(%04X,%04X,%04X) air=%s roll=%s%n",
-                    frameCounter,
-                    stage,
-                    instance.getClass().getSimpleName(),
-                    spawn.x() & 0xFFFF,
-                    spawn.y() & 0xFFFF,
-                    playerX,
-                    playerY,
-                    anchorX & 0xFFFF,
-                    anchorY & 0xFFFF,
-                    halfWidth,
-                    halfHeight,
-                    maxTop,
-                    relX,
-                    relY,
-                    aux,
-                    reason,
-                    player.getXSpeed() & 0xFFFF,
-                    player.getYSpeed() & 0xFFFF,
-                    player.getGSpeed() & 0xFFFF,
-                    player.getAir(),
-                    player.getRolling());
-        }
-
         private int getSolidTopYRadius(PlayableEntity player) {
             if (player instanceof AbstractPlayableSprite sprite) {
                 return sprite.getStandYRadius();
@@ -5173,12 +5138,13 @@ public class ObjectManager {
         }
 
         private void applyNonUnifiedTopSolidLandingHeightOverride(PlayableEntity player,
-                SolidContact contact, boolean topSolidOnly, boolean wasAirborne, boolean wasRidingObject,
-                int anchorY, SolidObjectParams params) {
+                SolidContact contact, ObjectInstance instance, boolean topSolidOnly,
+                boolean wasAirborne, boolean wasRidingObject, int anchorY, SolidObjectParams params) {
             if (contact != SolidContact.STANDING
                     || !topSolidOnly
                     || !wasAirborne
                     || wasRidingObject
+                    || instance instanceof SlopedSolidProvider
                     || usesUnifiedCollisionModel(player)) {
                 return;
             }
@@ -5329,7 +5295,12 @@ public class ObjectManager {
 
             int playerYRadius = player.getYRadius();
             int maxTop = halfHeight + playerYRadius;
-            int relY = playerCenterY - baseY + 4 + maxTop;
+            // ROM SolidObjCheckSloped2 samples an absolute surface Y
+            // (objectY - slopeSample), then compares it directly against
+            // playerY + yRadius + 4. Do not add the object's half-height here:
+            // baseY is already the sampled top surface, unlike flat solids where
+            // anchorY still refers to the object's centre.
+            int relY = playerCenterY - baseY + 4 + playerYRadius;
 
             if (relY < minRelY || relY >= maxTop * 2) {
                 return null;
@@ -5374,13 +5345,11 @@ public class ObjectManager {
             SolidContact result = resolveContactInternal(player, relX, relY, halfWidth, maxTop, maxTop * 2,
                     playerCenterX, playerCenterY, topSolidOnly, riding, apply, instance, true);
 
-            // ROM parity: SlopeObject2 uses absolute Y positioning for continued riding.
-            // The generic resolveContactInternal formula (playerCenterY - distY + 3) is a
-            // relative adjustment that is 1px too high for sloped contacts when
-            // slopeData[0] == halfHeight. Override with the ROM's absolute formula:
-            //   playerCentreY = objectY - slopeData[idx] - playerYRadius
-            // This only applies to continued riding (sticky=true); initial landing uses
-            // Solid_Landed which the generic formula approximates correctly.
+            // Continued riding uses SolidObjSloped2/SlopeObject2 to re-sample
+            // the absolute surface after the generic standing check. New
+            // landings already matched loc_1C100 above; reapplying here after
+            // Player_TouchFloor has cleared rolling would use the new standing
+            // radius and push roll landings down by 5 px.
             if (result == SolidContact.STANDING && apply && riding) {
                 int rawSample = sampleSlopeY(player, anchorX, halfWidth, slopedProvider);
                 if (rawSample != Integer.MIN_VALUE) {
@@ -5422,7 +5391,9 @@ public class ObjectManager {
                 if (player.getYSpeed() < 0) {
                     return null;
                 }
-                if (distY < 0 || distY >= 0x10) {
+                boolean rejectsZeroDistanceTopLanding = distY == 0
+                        && rejectsZeroDistanceTopSolidLanding(instance);
+                if (distY < 0 || distY >= 0x10 || rejectsZeroDistanceTopLanding) {
                     return null;
                 }
                 // ROM: Solid_Landed uses narrow obActWid for NEW landings only.
@@ -5634,8 +5605,13 @@ public class ObjectManager {
                 // S2's PlatformObject_ChkYRange excludes d0==0, which maps to
                 // distY==0 here, while the current S1/S3K shared path keeps that
                 // boundary as a valid landing.
+                boolean rejectsZeroDistanceTopLanding = topSolidOnly
+                        && distY == 0
+                        && rejectsZeroDistanceTopSolidLanding(instance);
                 if (topSolidOnly
-                        ? distY > 0x10 || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                        ? distY > 0x10
+                                || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                                || rejectsZeroDistanceTopLanding
                         : distY >= 0x10) {
                     return null;
                 }
@@ -5779,6 +5755,11 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet == null || featureSet.topSolidLandingAllowsZeroDist();
+        }
+
+        private boolean rejectsZeroDistanceTopSolidLanding(ObjectInstance instance) {
+            return instance instanceof SolidObjectProvider provider
+                    && provider.rejectsZeroDistanceTopSolidLanding();
         }
 
         private boolean clearsGroundSpeedOnAirBottomSolidHit(PlayableEntity player) {

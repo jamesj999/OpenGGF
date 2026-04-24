@@ -297,8 +297,11 @@ public class CollisionSystem {
         // first (probing terrain), then the platform overrides Y via MvSonicOnPtfm.
         // The engine can't replicate this order (platform riding runs after physics).
         // Skip the full terrain attachment only while actual object support exists.
-        // A stale on-object bit must not suppress the terrain walk-off path.
-        if (sprite.isOnObject() && hasObjectSupport.getAsBoolean()) {
+        // A stale on-object bit alone must not suppress the terrain walk-off path;
+        // real support can come either from the previous riding snapshot or from a
+        // same-frame ROM helper object that has opted into pre-movement support.
+        if (hasObjectSupport.getAsBoolean()
+                || (objectManager != null && objectManager.hasPendingStaleObjectSupportLoss(sprite))) {
             return;
         }
 

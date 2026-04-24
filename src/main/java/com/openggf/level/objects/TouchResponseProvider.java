@@ -18,6 +18,15 @@ public interface TouchResponseProvider {
     }
 
     /**
+     * Returns whether S3K {@code Touch_Special} property-style {@code 0xC0}
+     * collision flags should dispatch as listener-only special callbacks instead
+     * of boss touch handling.
+     */
+    default boolean usesS3kTouchSpecialPropertyResponse() {
+        return false;
+    }
+
+    /**
      * Optional multi-region touch collision for objects with multiple independent
      * collision areas (e.g., spiked pole helix where each spike has its own hitbox).
      * <p>

@@ -515,6 +515,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.airBottomSolidHitClearsGroundSpeed(), // airBottomSolidHitClearsGroundSpeed (from base game)
                 baseFeatureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly(), // fullSolidBottomOverlapUsesCurrentYRadiusOnly (from base game)
                 baseFeatureSet.fastScrollCap(),                 // fastScrollCap (from base game)
+                baseFeatureSet.bossHitNegatesGroundSpeed(),     // bossHitNegatesGroundSpeed (from base game)
                 baseFeatureSet.stageRingsUseObjectTouchCollection() // stageRingsUseObjectTouchCollection (from base game)
         );
     }
