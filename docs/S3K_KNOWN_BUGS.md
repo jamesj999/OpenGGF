@@ -19,7 +19,7 @@ Entries should include:
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
 2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
 3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
-4. [CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition](#cnz1-trace-f1758--wire-cage-recapture-vs-slope-repel-race-condition)
+4. [CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition (PARTIAL FIX)](#cnz1-trace-f1758--wire-cage-recapture-vs-slope-repel-race-condition-partial-fix)
 5. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
@@ -70,12 +70,20 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition
+## CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition (PARTIAL FIX)
 
-**Location:** `CnzWireCageObjectInstance.continueRide()` cooldown branch / `Player_SlopeRepel` / cage capture-vs-slope-repel ordering.
+**Location:** `CnzWireCageObjectInstance.restoreObjectLatchIfTerrainClearedIt` / `Player_SlopeRepel` (sonic3k.asm:23907).
 **Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1758 (after F1740 fix in iter-11).
 
-### Status (2026-04-25 iter-12)
+### Status (2026-04-25 iter-13)
+
+Iter-13 refined the iter-11 F1740 fix by replacing the `move_lock > 0` short-circuit in `restoreObjectLatchIfTerrainClearedIt` with a new `slopeRepelJustSlipped` per-tick flag. The flag is cleared at the start of every `handleMovement` call and set inside `Player_SlopeRepel` only on the frame where `bset #Status_InAir` actually fires.
+
+Result: F1758's `tails_angle` (0x40), `tails_x` (0x134F — cage orbit position), `tails_y` (0x0709), `tails_air` (0), and `tails_ground_mode` (1) all match expected. First error field shifted from `tails_angle mismatch` to `tails_y_speed mismatch` (expected 0x0147, actual 0x0291). Total errors 4678 → 4625.
+
+The remaining `tails_g_speed`/`tails_y_speed` divergence (engine 0x291, expected 0x271 at F1758 onward) is a slope-resist suppression issue: ROM appears to skip `Player_SlopeResist` for Tails on the cage from F1758 onward (no `+0x20` per frame at angle 0x40), while the engine adds `+0x20` per frame. Likely cause: ROM has set `bit 0` of `object_control(a0)` from the cage's `loc_339B6: bset #0, object_control(a1)` path (line 69958), which gates the entire physics dispatch in `loc_10BFC` (sonic3k.asm:21973-21976) and skips `Sonic_Modes`. Without per-frame `object_control(a0)` recording, can't verify this hypothesis directly.
+
+### Pre-iter-13 Status (preserved for context)
 
 The F1740 fix advanced the first strict error to F1758. ROM trace F1757 → F1758:
 - **F1756**: Tails airborne (air=1, angle=0, mode=0), engine matches.

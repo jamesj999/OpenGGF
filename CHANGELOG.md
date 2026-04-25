@@ -4,6 +4,14 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Slope-Repel Per-Tick `slopeRepelJustSlipped` Flag (CNZ1 F1758 partial)
+
+- Added `AbstractPlayableSprite.slopeRepelJustSlipped` per-tick flag, cleared at the start of `PlayableSpriteMovement.handleMovement` and set inside `Player_SlopeRepel` only on the frame where the slip actually fires (`bset #Status_InAir`, sonic3k.asm:23929 / 23856).
+- Replaced the `move_lock > 0` short-circuit in `CnzWireCageObjectInstance.restoreObjectLatchIfTerrainClearedIt` (introduced in iter-11 for F1740) with the new `isSlopeRepelJustSlipped()` check.
+- `move_lock` lingers for 30 frames after a slip, so when the wire cage recaptured Tails 18 frames later (F1758), `move_lock` was still 12 -- the cage's restore-hack short-circuited spuriously, letting an engine-side stale-terrain-probe `air = true` propagate through the cage's release logic and detach Tails one frame too soon. The new flag fires only on the actual slip frame.
+- CNZ1 trace partial advancement: F1758 first error stays at F1758 but field changes `tails_angle mismatch` → `tails_y_speed mismatch` (engine now matches `tails_x`, `tails_y`, `tails_angle`, `tails_air`, `tails_ground_mode` at F1758; only `tails_g_speed` and `tails_y_speed` still diverge by 0x20 due to slope-resist running on engine where ROM appears to skip it -- per-frame `Tails_CPU_routine`/`object_control` data needed to verify ROM behaviour). Total errors 4678 → 4625.
+- F1740 still resolved (the F1740 fix keeps working with the new flag because the slip happens in the same physics tick).
+
 ### Sonic 3&K CnzWireCage: Don't Override Slope-Repel Slip (CNZ1 F1740)
 
 - `CnzWireCageObjectInstance.restoreObjectLatchIfTerrainClearedIt` now
