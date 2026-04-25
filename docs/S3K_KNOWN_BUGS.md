@@ -68,30 +68,43 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering
+## CNZ1 Trace F1685 — Wire-Cage Ride Physics Not Producing y_vel from gSpeed
 
-**Location:** `CnzWireCageObjectInstance.latch()` interaction with `LevelFrameStep` execution order, downstream of the on-screen detection issue above.
-**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685 with the iter-5 fixes in place.
+**Location:** `CnzWireCageObjectInstance` ride update / engine ground physics integration.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685.
 
-### Status (2026-04-25)
+### Status (2026-04-25 iter-9)
 
-Two related parity gaps converge here:
-
-1. The engine's `LevelFrameStep` inline-solid path runs player physics BEFORE cage object updates; ROM `ExecuteObjects` runs the cage's latch logic before `Tails_Control` → `Tails_InputAcceleration_Path`. So the engine's first-on-cage frame misses one application of slope-resist + CPU-input acceleration that ROM applies at angle 0xC0.
-
-2. Independently, the engine's despawn detection (see entry above) parks Tails at the despawn marker around F1380, so by the time the cage frame F1685 is compared, Tails has been despawned and `objectControlled=true` short-circuits all physics.
+Re-investigation showed the prior diagnosis (latch-frame-ordering) was incomplete. Trace data shows Tails is on-ground (`air=0`, `status=0x08`) for many frames before the latch frame F0694, transitioning between angle 0xD8 (slope) and 0xC0 (cage). The cage IS latching correctly. The bug is in the engine's per-frame ground physics not producing the expected y_vel from gSpeed at angle 0xC0.
 
 ### Symptom
 
-`tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685. ROM y_speed evolves from -0xB22 to -0xD51 (delta -0x22F) via slope-resist + CPU-input accel at angle 0xC0; engine y_speed is frozen at -0xB22 because physics never runs (objectControlled set by despawn).
+`tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685.
 
-### Suspected Cause
+ROM at F0694: gSpeed=0xD71, y_speed=-0xB22, ang=0xC0, on_object=true.
+ROM at F0695: applies slope-resist (gSpeed → 0xD51, delta -0x20) then `loc_14B5C`'s gSpeed→y_vel conversion: `y_vel = (gSpeed × sin(0xC0)) / 256 = -0xD51`.
 
-The despawn cascade dominates: even if the cage latch ordering were fixed, the engine has already despawned Tails so the latch path never executes. The on-screen-detection fix above must land first; only then will the cage-latch ordering issue surface as a real divergence (and only then can we tell whether the latch-ordering also needs a fix).
+Engine at F0695: y_speed stays at -0xB22 (the F0694 reseed value). The engine's `modeNormal()`'s `calculateXYFromGSpeed()` is not running OR is running but the result is being overwritten.
+
+### Diagnosed Cause
+
+Per the iter-9 deep-dive: the cage's `setOnObject(true)` does not register Tails through `ObjectManager.SolidContacts`, so `hasObjectSupport()` returns false during `resolveGroundAttachment()`. Without object support, the engine probes terrain sensors at angle 0xC0 (vertical wall), finds no real terrain (cage is invisible level art), and re-sets `air=true`. Then on the next frame `modeAirborne()` runs gravity; this should produce `-0xB22 + 0x38 = -0xAEA`, but the trace shows `-0xB22` unchanged — suggesting an additional path is suppressing physics (likely `objectControlled=true` from the cage's `beginLatchedCooldown`).
+
+### Attempted Fix (iter-9, reverted)
+
+Adding gSpeed→y_speed seeding inside `CnzWireCageObjectInstance.latch()` (with `wasAirborneOnEntry` parameter to capture pre-`setAir(false)` state) had no measurable effect. The latch frame's airborne path is not being hit because Tails is already on-ground (`air=0`) when the latch fires — Tails was on a different ground/slope object the previous frame and transitions to the cage with `air=0` throughout.
+
+### Required Investigation / Fix
+
+Two complementary fixes likely needed:
+
+1. **Make CnzWireCage register through `ObjectManager.SolidContacts`** so `hasObjectSupport()` returns true while latched. This would let `resolveGroundAttachment()` keep `air=false` instead of probing for non-existent terrain, allowing `modeNormal()`'s `calculateXYFromGSpeed()` to run and produce the correct y_vel.
+
+2. **Verify the engine's per-frame ground physics at angle 0xC0** computes `y_vel = -gSpeed` correctly. Slope-resist should apply (`gSpeed += sin(0xC0) × 0x20 / 256 = -0x20`) and `calculateXYFromGSpeed` should yield `y_vel = -gSpeed`.
 
 ### Removal Condition
 
-Remove once `TestS3kCnzTraceReplay`'s engine no longer despawns Tails before F1685 AND the F1685 `tails_y_speed` mismatch is resolved (either passes or moves further into the trace).
+Remove once `TestS3kCnzTraceReplay`'s F1685 `tails_y_speed` mismatch is resolved.
 
 ---
 
@@ -112,19 +125,25 @@ Iter-8 implemented BK2 P2 controller-input parsing (commit 33bfcc78d) and a fix 
 
 `tails_y_speed mismatch (expected=-0400, actual=0x02D8)` at F2590. ROM's CSV at trace frame 0x0A1E shows `sk_routine` transitioning 02 (CATCH_UP_FLIGHT) → 04 (FLIGHT_AUTO_RECOVERY) with y_speed=-0x0400 (the `Tails_JumpHeight` cap value). Engine still in CATCH_UP_FLIGHT with continued downward gravity (y_speed=+0x02D8 at +0x38/frame).
 
-### Diagnosed Cause (open)
+### Diagnosed Cause (UPDATED iter-9)
 
-ROM's `Tails_Catch_Up_Flying` (sonic3k.asm:26474) has two trigger paths:
+**The trace `sidekick_routine` field is NOT `Tails_CPU_routine`** — it is the sprite OST routine byte (offset 5 of the object slot). The 02→04 transition at frame 2590 represents the SPRITE routine moving from "alive, normal" (2) to "hurt" (4), via `HurtCharacter` after Tails contacts a Spike object (slot 22 in the AIZ trace, type `loc_24090`).
 
-1. Ctrl_2 A/B/C/START press → immediate `loc_13B50`
-2. 64-frame `(Level_frame_counter & $3F) == 0` gate → `loc_13B50`
+ROM path: `loc_24090` (Spikes) → `SolidObjectFull` → `SolidObject_cont` → `sub_24280` → `HurtCharacter(Tails)` → sets sprite routine = HURT (4) and `y_vel = -0x0400` (the standard upward hurt-bounce).
 
-The engine fires path 2 at gfc=0x0900 (= AIZ frame 2593, three frames AFTER the ROM transitioned). At gfc=0x08FD/0x08FE (AIZ frames 2589/2590), `mask & 0x3F` is non-zero — the 64-frame gate does NOT fire. Path 1 fails because the BK2 has no P2 input.
+Engine equivalent: `Sonic3kSpikeObjectInstance` → `AbstractSpikeObjectInstance.onSolidContact()` → `applyHurt(currentX)` → `y_speed = -0x400`.
 
-This means ROM is triggering via a third path the engine doesn't model — possibly:
-- `Tails_FlySwim_Unknown` (routine 0x04) is reached via a different route the engine misses
-- The ROM's `Level_frame_counter` differs slightly from the engine's `frameCounter` at this point (alignment drift over 2400+ frames)
-- A different sub-routine sets `Tails_CPU_routine = 4` directly
+The path exists in the engine but doesn't fire at F2590 because of a 1-pixel geometric miss in the descending-player vs. top-solid-surface contact test in `ObjectManager.SolidContacts.processInlineObjectForPlayer()` / its inner `resolveContact()`. Engine's Tails centreY ≈ 0x03AF; spike top surface ≈ 0x03B0; the engine's overlap threshold rejects this 1-pixel contact while ROM accepts it.
+
+### Suspected Cause
+
+The engine's vertical overlap test for descending players hitting a top-solid surface uses a strict `>` rather than `>=` (or is missing a 1-pixel lookahead) that ROM's `SolidObject_cont` overlap test does not. Verified via the agent's frame-by-frame gravity trace: Tails is in free-fall (objectControlled=false, gSpeed=0) accumulating +0x38/frame, and the rejected contact is exactly the moment Tails would touch the spike top.
+
+### Candidate Fix
+
+`ObjectManager.SolidContacts.resolveContact()` or `processInlineObjectForPlayer()` — descending-player landing geometry. A `≥`-vs-`>` change OR a 1-pixel lookahead on the bottom-of-player vs. top-of-spike test.
+
+Cross-game risk: the contact code is shared across all three games. Any change must be verified against S1/S2 traces. ROM disassemblies for `s1disasm` and `s2disasm` should be consulted to confirm the exact overlap-threshold semantics before changing.
 
 ### Removal Condition
 
