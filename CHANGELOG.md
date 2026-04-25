@@ -4,6 +4,18 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Regenerated AIZ Trace with v6.0-s3k Recorder
+
+- Regenerated `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+  (metadata.json, aux_state.jsonl) using the v6.0-s3k recorder so the trace
+  carries per-frame Tails CPU state events. New
+  `aux_schema_extras: ["cpu_state_per_frame"]` field opts parsers in.
+- physics.csv is byte-identical to the previous recording (deterministic ROM
+  emulation). aux_state.jsonl gained 20798 per-frame `cpu_state` events.
+- BK2 unchanged; ROM unchanged; `pre_trace_osc_frames=0` unchanged.
+  Test baseline (TestS3kAizTraceReplay#replayMatchesTrace at F2667 with 1208
+  errors) is preserved.
+
 ### Regenerated CNZ Trace with v6.0-s3k Recorder
 
 - Regenerated `src/test/resources/traces/s3k/cnz/` (metadata.json, physics.csv,
