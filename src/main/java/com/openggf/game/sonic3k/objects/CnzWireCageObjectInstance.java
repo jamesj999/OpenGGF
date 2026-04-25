@@ -268,7 +268,22 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
          * mark the player airborne because this invisible controller is not a
          * generic SolidObject. If the latch still belongs to this cage and no
          * jump is active, restore the object-owned status before loc_339A0.
+         *
+         * Exception: when {@code Player_SlopeRepel} (sonic3k.asm:23907) has
+         * just slipped the player (set {@code move_lock = 30} and {@code
+         * Status_InAir = 1} because |gSpeed| dropped below $280 at a steep
+         * angle), the air state is not from a stale terrain probe -- it's
+         * the legitimate "slope slip" detach the ROM uses to release players
+         * from low-speed wall climbs. Preserve it so the cage's released-path
+         * (loc_33ADE -> loc_33B1E -> bne loc_33B62) can honour the in_air
+         * flag and run a proper release. Without this exception, CNZ1 trace
+         * F1740 (Tails on cage at angle 0xC0, gSpeed 0x271 < 0x280) is
+         * spuriously kept on the cage by the engine while the ROM has
+         * already released Tails to airborne with y_vel = -gSpeed.
          */
+        if (player.getMoveLockTimer() > 0) {
+            return;
+        }
         if (player.getLatchedSolidObjectId() == Sonic3kObjectIds.CNZ_WIRE_CAGE && !player.isJumping()) {
             player.setAir(false);
             player.setOnObject(true);
