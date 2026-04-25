@@ -56,6 +56,7 @@ Current architectural priority is to uplift implemented Sonic 1 and Sonic 2 cont
     *   `feature/ai-` for new features.
     *   `bugfix/ai-` for bug fixes.
 2.  **Code Structure:** Keep logic within existing or new manager classes. Avoid putting all logic into `Engine.java` to maintain a strong object-oriented design.
+3.  **Trace replay tests:** Use the **`trace-replay-bug-fixing`** skill when investigating or fixing failures in any `*TraceReplay` test. It covers the comparison-only invariant (trace data is read-only — engine state must never be hydrated/synced from the trace in committed test code), the recorder/parser/comparator pipeline, the regeneration workflow, and cross-game parity rules.
 
 ## Branch Documentation Policy
 
