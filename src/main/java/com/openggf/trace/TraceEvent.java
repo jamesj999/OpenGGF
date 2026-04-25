@@ -59,6 +59,32 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame snapshot of the Tails CPU global block (sonic3k.constants.asm:618-626)
+     * plus {@code Ctrl_2_logical} (held + pressed). Emitted on every recorded trace
+     * frame by the v6+ recorder so engine replay can hydrate
+     * {@link com.openggf.sprites.playable.SidekickCpuController} state from
+     * authoritative ROM values rather than relying on the engine's CPU state
+     * machine staying in sync. Older traces (schema &lt; 6) never emit this event.
+     *
+     * <p>Field layout:
+     * <ul>
+     * <li>{@code interact} - {@code Tails_CPU_interact} (RAM address of last object Tails stood on)</li>
+     * <li>{@code idleTimer} - {@code Tails_CPU_idle_timer} (counts down while Ctrl_2 idle)</li>
+     * <li>{@code flightTimer} - {@code Tails_CPU_flight_timer} (counts up during respawn)</li>
+     * <li>{@code cpuRoutine} - {@code Tails_CPU_routine} (current AI routine index)</li>
+     * <li>{@code targetX}/{@code targetY} - flight steering targets</li>
+     * <li>{@code autoFlyTimer} - {@code Tails_CPU_auto_fly_timer} (MGZ2 boss carry)</li>
+     * <li>{@code autoJumpFlag} - {@code Tails_CPU_auto_jump_flag} (set when AI fires jump)</li>
+     * <li>{@code ctrl2Held}/{@code ctrl2Pressed} - {@code Ctrl_2_held_logical}/{@code Ctrl_2_pressed_logical}</li>
+     * </ul>
+     */
+    record CpuState(int frame, String character, int interact,
+                    int idleTimer, int flightTimer, int cpuRoutine,
+                    short targetX, short targetY, int autoFlyTimer,
+                    int autoJumpFlag, int ctrl2Held, int ctrl2Pressed)
+        implements TraceEvent {}
+
+    /**
      * Pre-trace snapshot of a single ROM SST slot emitted by the Lua recorder
      * at the instant gameplay begins (before trace frame 0 is written).
      * The {@link #frame()} is -1 to keep it out of the frame-0 event bucket,
@@ -159,6 +185,20 @@ public sealed interface TraceEvent {
                     parseHexShort(node, "target_y"),
                     parseHexInt(node, "interact_id"),
                     node.has("jumping") && node.get("jumping").asInt() != 0
+                );
+                case "cpu_state" -> new CpuState(
+                    frame,
+                    node.has("character") ? node.get("character").asText() : "",
+                    parseHexInt(node, "interact"),
+                    node.has("idle_timer") ? node.get("idle_timer").asInt() : 0,
+                    node.has("flight_timer") ? node.get("flight_timer").asInt() : 0,
+                    node.has("cpu_routine") ? node.get("cpu_routine").asInt() : 0,
+                    parseHexShort(node, "target_x"),
+                    parseHexShort(node, "target_y"),
+                    node.has("auto_fly_timer") ? node.get("auto_fly_timer").asInt() : 0,
+                    node.has("auto_jump_flag") ? node.get("auto_jump_flag").asInt() : 0,
+                    parseHexInt(node, "ctrl2_held"),
+                    parseHexInt(node, "ctrl2_pressed")
                 );
                 case "object_state_snapshot" -> new ObjectStateSnapshot(
                     frame,

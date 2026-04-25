@@ -215,7 +215,21 @@ further S3K parity work.
   objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
   collapsing solids.
 - **Trace replay tooling:** S2/S3K trace recorder and replay fixtures now capture BK2-backed frame
-  data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work.
+  data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work. The
+  trace recorder is now at v6.0-s3k with per-frame Tails CPU state events; AIZ and CNZ traces are
+  rerecorded against it. The new `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/`
+  and `.agents/skills/`) codifies the comparison-only invariant, the four mission rules, the
+  diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
+- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 (per-game sidekick fly-back
+  exit gate, S2 keeps 0xD2 mask / S3K uses 0x80 + leader-alive at sonic3k.asm:26625-26630). CNZ
+  first-error advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in
+  CnzWireCage release, per-tick `slopeRepelJustSlipped` flag). All gated via `PhysicsFeatureSet`,
+  S1/S2 baselines preserved.
+- **CNZ object unit tests:** 60/71 → 71/71 passing. Multiple test assertions corrected to match
+  ROM (`sub_324C0` clears Status_Roll at cylinder capture, hover-fan placement at fan centre,
+  cannon test player Y standing on top, balloon launch via TouchResponseListener). Engine
+  tweaks: cannon test seam restored, balloon pop animation flips destroyed flag, rising platform
+  retains step-off bounce.
 - **S3K CNZ and MGZ expansion:** Carnival Night now has a much larger traversal/object pass
   including tubes, teleporters, balloons, cannons, hover fans, trap doors, water helpers, and
   miniboss/boss scaffolding, while Marble Garden gains more event/object coverage and supporting
