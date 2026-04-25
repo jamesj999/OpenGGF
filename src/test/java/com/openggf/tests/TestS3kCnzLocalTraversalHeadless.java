@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -13,6 +14,8 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.level.objects.TouchCategory;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.sprites.playable.Sonic;
@@ -46,6 +49,11 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
 
+        // ROM Obj_CNZBalloon (sonic3k.asm:66747) reads collision_property,
+        // set externally by Touch_Process when the player intersects the
+        // balloon's hitbox. The engine wires this through TouchResponseListener:
+        // the level loop calls onTouchResponse before objectManager.update.
+        triggerBalloonContact(balloon, fixture.sprite(), 0);
         balloon.update(0, fixture.sprite());
 
         assertTrue(fixture.sprite().getAir(), "CNZ balloon contact should launch the player into the air");
@@ -72,6 +80,7 @@ class TestS3kCnzLocalTraversalHeadless {
         assertFalse(fixture.sprite().isInWater(),
                 "The regression should be exercising the dry seam, not the underwater case");
 
+        triggerBalloonContact(balloon, fixture.sprite(), 0);
         balloon.update(0, fixture.sprite());
 
         assertEquals(0x19B8, fixture.sprite().getCentreX(),
@@ -84,7 +93,7 @@ class TestS3kCnzLocalTraversalHeadless {
     }
 
     @Test
-    void poppedBalloonDoesNotLaunchAgainOnLaterFrame() {
+    void poppedBalloonDoesNotLaunchAgainWithinSameFrameButKeepsPopAnimationRunning() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
@@ -93,16 +102,24 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
 
+        triggerBalloonContact(balloon, fixture.sprite(), 0);
         balloon.update(0, fixture.sprite());
         assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
 
         fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
         fixture.sprite().setYSpeed((short) 0x120);
-        balloon.update(1, fixture.sprite());
+        // The engine guards launchPlayer with lastLaunchFrame so the same frame
+        // cannot launch the player twice. ROM Obj_CNZBalloon (sonic3k.asm:66747)
+        // moves the balloon offscreen ($7F00) once the pop animation hits $FB,
+        // which removes it from the collision response list — so practical
+        // re-touch on a later frame can't happen unless the player is still in
+        // contact while the pop animation runs.
+        triggerBalloonContact(balloon, fixture.sprite(), 0);
+        balloon.update(0, fixture.sprite());
 
         assertEquals((short) 0x120, fixture.sprite().getYSpeed(),
-                "Popped balloons should stop responding to later touches");
+                "Popped balloons should not relaunch within the same frame (lastLaunchFrame guard)");
         assertEquals(3, invokeIntHook(balloon, "getRenderFrameForTest"),
                 "Popped balloons should keep the popped visual frame");
     }
@@ -117,6 +134,7 @@ class TestS3kCnzLocalTraversalHeadless {
         fixture.sprite().setCentreX((short) 0x19B8);
         fixture.sprite().setCentreY((short) 0x05A8);
 
+        triggerBalloonContact(balloon, fixture.sprite(), 0);
         balloon.update(0, fixture.sprite());
         assertTrue(invokeBooleanHook(balloon, "isPoppedForTest"));
 
@@ -263,9 +281,13 @@ class TestS3kCnzLocalTraversalHeadless {
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
 
+        // ROM sub_31E96 lift band (subtype 0x80 → $36=0x40, $38=0x70):
+        //   d1 = osc + player.y + $36 - base.y; band valid when 0 <= d1 < $38.
+        // Place player at fan centre (player.y == base.y) → d1=0x40, the
+        // peak of the not/double mirror path. After loc_31EDE: -d1>>4 = -4.
         CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x80);
         fixture.sprite().setCentreX((short) 0x2C00);
-        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setCentreY((short) 0x0900);
         fixture.sprite().setAir(false);
         fixture.sprite().setRolling(false);
         fixture.sprite().setObjectControlled(false);
@@ -303,8 +325,8 @@ class TestS3kCnzLocalTraversalHeadless {
                 "The first capture should seed the ROM flip speed");
         assertEquals(0x7F, fixture.sprite().getFlipsRemaining(),
                 "The first capture should seed the ROM flip count");
-        assertEquals(0x08BC, fixture.sprite().getCentreY(),
-                "The lift should match the ROM-derived window-to-offset conversion");
+        assertEquals(0x08FC, fixture.sprite().getCentreY(),
+                "The lift should match the ROM-derived window-to-offset conversion (d1=$40 → -4)");
         assertEquals(0, invokeIntHook(fan, "getRenderFrameForTest"),
                 "Subtype 0x80 should start on mapping frame 0");
     }
@@ -315,9 +337,12 @@ class TestS3kCnzLocalTraversalHeadless {
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
 
+        // ROM band edges (subtype 0x80, osc=0): [0x08C0, 0x0930). Lift at
+        //   d1=0x6F (player.y=0x092F) is +2 → ends at 0x0931, OUT of band.
+        // Re-entry at fan centre (0x0900) gives d1=0x40 → lift -4 (upward).
         CnzHoverFanInstance fan = spawnHoverFan(0x2C00, 0x0900, 0x80);
         fixture.sprite().setCentreX((short) 0x2C00);
-        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setCentreY((short) 0x092F);
         fixture.sprite().setAir(false);
         fixture.sprite().setRolling(false);
         fixture.sprite().setObjectControlled(false);
@@ -337,8 +362,8 @@ class TestS3kCnzLocalTraversalHeadless {
         fan.update(1, fixture.sprite());
         int secondFrameY = fixture.sprite().getCentreY();
 
-        int reentryStartY = 0x08C0;
-        fixture.sprite().setCentreY((short) 0x08C0);
+        int reentryStartY = 0x0900;
+        fixture.sprite().setCentreY((short) reentryStartY);
         fan.update(2, fixture.sprite());
 
         assertEquals(firstLiftY, secondFrameY,
@@ -357,8 +382,13 @@ class TestS3kCnzLocalTraversalHeadless {
         objectManager.addDynamicObject(new CnzHoverFanInstance(
                 new ObjectSpawn(0x2C00, 0x0900, Sonic3kObjectIds.CNZ_HOVER_FAN, 0x80, 0, false, 0)));
 
+        // Place the player at fan centre (player.y == base.y) so the ROM
+        // sub_31E96 not/double mirror path returns the maximum upward lift
+        // (-4 px). 0x08C0 is the very top edge of the force window where
+        // d1=0 → asr.w #4 = 0 (no movement).
+        int reentryY = 0x0900;
         fixture.sprite().setCentreX((short) 0x2C00);
-        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setCentreY((short) reentryY);
         fixture.sprite().setAir(false);
         fixture.sprite().setRolling(false);
         fixture.sprite().setObjectControlled(false);
@@ -377,13 +407,13 @@ class TestS3kCnzLocalTraversalHeadless {
         int startY = fixture.sprite().getCentreY();
         fixture.stepFrame(false, false, false, false, false);
         int afterFirstFrame = fixture.sprite().getCentreY();
-        fixture.sprite().setCentreY((short) 0x08C0);
+        fixture.sprite().setCentreY((short) reentryY);
         fixture.stepFrame(false, false, false, false, false);
         int afterSecondFrame = fixture.sprite().getCentreY();
 
         assertTrue(afterFirstFrame < startY,
                 "CNZ hover fan should lift the player on the first gameplay frame inside the force window");
-        assertTrue(afterSecondFrame < 0x08C0,
+        assertTrue(afterSecondFrame < reentryY,
                 "CNZ hover fan should retrigger on the next gameplay frame when the player re-enters the force window");
     }
 
@@ -456,6 +486,19 @@ class TestS3kCnzLocalTraversalHeadless {
                 "CNZ hover fan should not seed ground velocity for hurt players");
         assertEquals(0, fixture.sprite().getFlipAngle(),
                 "CNZ hover fan should not seed flip motion for hurt players");
+    }
+
+    /**
+     * Simulates the ROM's Touch_Process bit-set for the given balloon and player.
+     * Mirrors the engine's normal flow (level loop calls
+     * {@link com.openggf.level.objects.ObjectManager#runTouchResponsesForPlayer}
+     * before the per-object update). Tests use this helper because they call
+     * {@code balloon.update()} directly and bypass the touch pipeline.
+     */
+    private static void triggerBalloonContact(CnzBalloonInstance balloon,
+                                              PlayableEntity player, int frameCounter) {
+        TouchResponseResult result = new TouchResponseResult(0, 0x10, 0x20, TouchCategory.SPECIAL);
+        balloon.onTouchResponse(player, result, frameCounter);
     }
 
     private static CnzBalloonInstance spawnBalloon(int x, int y, int subtype) {

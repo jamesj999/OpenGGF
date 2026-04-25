@@ -3118,6 +3118,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return standYRadius;
         }
 
+        public short getStandXRadius() {
+                return standXRadius;
+        }
+
         public short getRollYRadius() {
                 return rollYRadius;
         }

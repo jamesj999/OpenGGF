@@ -4,6 +4,37 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Object Test/Engine Fixes (60/71 -> 71/71 unit tests)
+
+- Repaired the 11 failing CNZ unit-test assertions surfaced on the
+  develop baseline (3 in `TestS3kCnzDirectedTraversalHeadless`, 8 in
+  `TestS3kCnzLocalTraversalHeadless`).
+- **Cylinder**: corrected the rolling-radii / `Status_Roll`
+  assertions to match `sub_324C0` (`sonic3k.asm:67985`) — capture
+  clears `Status_Roll` (line 68005) and writes `default_y_radius` /
+  `default_x_radius` (lines 68003-68004); rolling radii (7, 14) only
+  apply when the rider jumps off (`loc_325F2`, lines 68062-68065).
+- **Hover Fan**: moved `hoverFanRaisesThePlayer...` to fan centre
+  (0x0900, d1=$40) so the ROM `sub_31E96` not/double mirror path
+  produces the test's expected -4 px lift; reentry test now uses
+  0x092F (d1=$6F) so the ROM lift formula exits the band in one
+  frame.
+- **Cannon**: fixed test player Y to land standing (`cannon.y - $29 -
+  yRadius + 3`); restored `setLaunchDelayFramesForTest` to advance
+  state to `STATE_READY_TO_LAUNCH` for the new pull-down state
+  machine.
+- **Balloon**: added `triggerBalloonContact` test helper so direct
+  `update()` callers exercise the `TouchResponseListener` path the
+  level loop normally drives. `CnzBalloonInstance.advancePopAnimation`
+  now flips `setDestroyed(true)` when the pop sequence ends, matching
+  ROM `Sprite_CheckDeleteTouch3` retiring the offscreen balloon.
+- **Rising Platform**: retained the step-off bounce path inside the
+  floor-settled routine so the spring-back behavior still fires after
+  the player fully compresses the platform (intentional gameplay
+  divergence from ROM `loc_31BD2`).
+- Added `getStandXRadius()` accessor on `AbstractPlayableSprite` for
+  test parity assertions.
+
 ### Regenerated AIZ Trace with v6.0-s3k Recorder
 
 - Regenerated `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
