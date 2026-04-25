@@ -53,13 +53,28 @@ public final class CnzRisingPlatformInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        boolean standing = standingThisFrame;
+        standingThisFrame = false;
+
         if (floorSettledRoutine) {
+            // ROM loc_31BD2 stops calling sub_31C0A once the floor snap fires,
+            // but the engine retains the step-off bounce here so the platform
+            // springs back when the player jumps off after fully compressing —
+            // matching the gameplay-visible spring-back behavior.
+            if (armed && !standing) {
+                motion.yVel = -motion.yVel - 0x80;
+                armed = false;
+                floorSettledRoutine = false;
+                displayFrame = 2;
+                try {
+                    services().playSfx(Sonic3kSfx.BALLOON_PLATFORM.id);
+                } catch (Exception ignored) {
+                    // Headless tests can omit the audio backend; motion state still updates.
+                }
+            }
             updateDynamicSpawn(motion.x, motion.y);
             return;
         }
-
-        boolean standing = standingThisFrame;
-        standingThisFrame = false;
 
         if (!armed) {
             if (standing) {

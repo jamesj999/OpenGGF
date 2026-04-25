@@ -247,7 +247,12 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             animationTimer = POP_FRAME_DELAY;
             frameOffset = POP_FRAME_SEQUENCE[popAnimationIndex++];
         } else {
+            // ROM Anim - Balloon.asm pop sequences end with $FB. The S3K animator
+            // ($FB code) increments routine and the next frame moves x_pos to
+            // $7F00, where Sprite_CheckDeleteTouch3 (sonic3k.asm:37369) calls
+            // Delete_Current_Sprite when the balloon is past the camera margin.
             movedOffscreen = true;
+            setDestroyed(true);
         }
     }
 
