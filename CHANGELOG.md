@@ -4,6 +4,22 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Regenerated CNZ Trace with v6.0-s3k Recorder
+
+- Regenerated `src/test/resources/traces/s3k/cnz/` (metadata.json, physics.csv,
+  aux_state.jsonl) using the v6.0-s3k recorder so the trace carries per-frame
+  Tails CPU state events. New `aux_schema_extras: ["cpu_state_per_frame"]`
+  field opts parsers in.
+- BK2 unchanged; ROM unchanged. Recording produces
+  `start_gameplay_frame_counter=0` (vs old=1) due to a one-tick offset at
+  recording start; engine frame indexing shifts by 1 vs the previous trace.
+  First strict error now surfaces at F850 (y_speed mismatch on Sonic) instead
+  of F1758 (tails_y_speed) — same engine surface, different frame indexing,
+  but now with ROM-side per-frame `Tails_CPU_routine` / `Ctrl_2_logical` /
+  `Tails_CPU_idle_timer` / `Tails_CPU_flight_timer` / `Tails_CPU_target_X/Y` /
+  `Tails_CPU_auto_fly_timer` / `Tails_CPU_auto_jump_flag` data available for
+  divergence analysis.
+
 ### Sonic 3&K Tails CPU Fly-Back Exit Gate (per-game ROM parity, AIZ1 F2590)
 
 - Split the sidekick CPU's `TailsRespawnStrategy.updateApproaching`
