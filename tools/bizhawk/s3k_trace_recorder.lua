@@ -1036,6 +1036,19 @@ local function on_frame_end()
         write_tails_cpu_snapshot()
         write_object_snapshots()
         pre_trace_snapshots_written = true
+        -- v6.1-s3k: capture Level_frame_counter at the moment the first
+        -- physics row is recorded. The engine's seeded-frame-0 mode
+        -- teleports sprite state to trace frame 0 without running its
+        -- own LevelLoop, so OscillationManager must be pre-advanced by
+        -- this many ticks for the engine's first natural tick to land
+        -- on the same lfc as ROM's trace frame 1. Profiles that arm
+        -- and immediately return (level_gated_reset_aware) record the
+        -- NEXT BizHawk frame as trace frame 0, so this value is one
+        -- larger than start_gameplay_frame_counter. Profiles that arm
+        -- and continue recording the arm-frame (aiz_end_to_end) record
+        -- the SAME frame as trace frame 0, so this value matches the
+        -- arm-time lfc. Capturing here unifies both paths.
+        start_gameplay_frame_counter = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     end
 
     local x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)

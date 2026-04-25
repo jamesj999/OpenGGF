@@ -300,7 +300,9 @@ public abstract class AbstractTraceReplayTest {
                 new S3kElasticWindowController(loadCheckpointFrames(trace));
         S3kRequiredCheckpointGuard checkpointGuard = new S3kRequiredCheckpointGuard();
         int firstSubDivFrame = -1;
+        int firstOscDivFrame = -1;
         Boolean lastEventsFg5 = null;
+        boolean hasPerFrameOsc = meta.hasPerFrameOscillationState();
 
         boolean hydrateCpuState = meta.hasPerFrameCpuState();
         String cpuStateCharacter = meta.recordedSidekicks().isEmpty()
@@ -452,6 +454,29 @@ public abstract class AbstractTraceReplayTest {
             }
             controller.onEngineTick();
             controller.assertWithinDriftBudget();
+
+            // Diagnostic-only: when the trace carries per-frame oscillation
+            // snapshots (v6.1+ S3K recorder), compare engine OscillationManager
+            // state to ROM Oscillating_table state at this frame and print the
+            // first divergence. Engine must produce the correct phase
+            // natively — never hydrate from these values.
+            if (hasPerFrameOsc && firstOscDivFrame < 0) {
+                TraceEvent.OscillationState romOsc = trace.oscillationStateForFrame(driveFrame.frame());
+                if (romOsc != null && romOsc.oscTable() != null && romOsc.oscTable().length == 0x42) {
+                    byte[] eng = com.openggf.game.OscillationManager.snapshotRomFormatBytes();
+                    byte[] rom = romOsc.oscTable();
+                    if (eng.length == rom.length) {
+                        for (int b = 0; b < eng.length; b++) {
+                            if (eng[b] != rom[b]) {
+                                firstOscDivFrame = driveFrame.frame();
+                                System.out.printf("FIRST OSC DIVERGENCE at frame %d (idx=%d): byte %d ROM=0x%02X ENG=0x%02X%n",
+                                        driveFrame.frame(), b, b, rom[b] & 0xFF, eng[b] & 0xFF);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
 
             if (controller.isStrictComparisonEnabled()) {
                 int strictTraceIndex = controller.strictTraceIndex();

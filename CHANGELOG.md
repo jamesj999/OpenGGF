@@ -22,6 +22,39 @@ All notable changes to the OpenGGF project are documented in this file.
   `OscillationManager` from these values; the engine must produce the
   correct oscillator phase natively from the same inputs as the ROM.
 
+### Sonic 3&K CNZ Trace Replay F850 Hover Fan Trigger Fix
+
+- Fixed the long-standing CNZ Hover Fan one-frame trigger lag (engine
+  fired one frame later than ROM at every repetition) by correcting the
+  recorder's `pre_trace_osc_frames` metadata field to capture
+  `Level_frame_counter` at the moment the first physics row is recorded
+  rather than at the moment recording arms.
+- Root cause: `level_gated_reset_aware` profiles arm and immediately
+  return, recording the NEXT BizHawk frame as trace frame 0 — so the lfc
+  at the first physics row is `start_gameplay_frame_counter + 1`. The
+  engine's seeded-frame-0 mode teleports sprite state to trace frame 0
+  without running its own LevelLoop, so the bootstrap's pre-tick advance
+  (`for i in preTraceOsc: OscillationManager.update`) needs the lfc at
+  trace frame 0, not at arm time. With the corrected value (1 instead
+  of 0 for CNZ), the engine `OscillationManager` matches ROM's
+  `Oscillating_table` byte-for-byte for the first 16668 frames and the
+  Hover Fan triggers on the same frames as ROM (verified via
+  `oscillation_state` per-frame snapshots).
+- Added diagnostic accessors on `OscillationManager`
+  (`snapshotRomFormatBytes`, `controlForTest`, `valuesForTest`,
+  `deltasForTest`) so trace replay tests can compare engine state to
+  ROM state byte-for-byte without hydration.
+- Added a `firstOscDivFrame` reporter in `AbstractTraceReplayTest` that
+  prints the first frame where engine `OscillationManager` state
+  diverges from the recorded ROM `Oscillating_table` (only fires when
+  the trace has v6.1+ per-frame oscillation snapshots).
+- CNZ trace replay error count dropped from 5351 to 4885 and the
+  first-error frame moved from F850 (Sonic y_speed mismatch from late
+  Hover Fan trigger) to F854 (Tails y_speed mismatch — separate, not
+  oscillator-related, root cause).
+- Cross-game parity verified: S1 GHZ remains green; S1 MZ, S2 EHZ, and
+  S3K AIZ all show pre-existing failure modes unchanged by this fix.
+
 ### Sonic 3&K CNZ Object Test/Engine Fixes (60/71 -> 71/71 unit tests)
 
 - Repaired the 11 failing CNZ unit-test assertions surfaced on the
