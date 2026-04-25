@@ -965,7 +965,33 @@ public class SidekickCpuController {
             return false;
         }
 
-        if (sidekick.isOnObject()
+        // Object-id-mismatch despawn path. ROM semantics differ across games:
+        //
+        //   S2 (s2.asm:39051 TailsCPU_CheckDespawn): cmp.b id(a3),d0 — compare
+        //       Tails_interact_ID byte against the object's id field. The object
+        //       ID is the per-game object-pointer-table index, so different
+        //       object types compare differently. Engine's existing behaviour
+        //       (compare 8-bit object IDs) matches this byte-for-byte.
+        //
+        //   S3K (sonic3k.asm:26823 sub_13EFC): cmp.w (a3),d0 — compare cached
+        //       Tails_CPU_interact word against the FIRST WORD of the object's
+        //       structure (the high word of its routine pointer). For S3K all
+        //       gameplay objects live in ROM 0x0001xxxx-0x0007xxxx, so the high
+        //       word is identical (0x0000-0x0007) for virtually every object
+        //       type encountered in normal play. The check therefore almost
+        //       never fires in S3K — it is effectively a sanity guard against
+        //       wholly different code regions, which CNZ-style barber-pole →
+        //       wire-cage transitions do NOT trigger (both routines live in
+        //       0x000338xx, same high word 0x0003).
+        //
+        // Gate the path via PhysicsFeatureSet so S2 keeps its existing semantics
+        // and S3K stops despawning Tails on legitimate same-region object
+        // transitions (CNZ1 trace F1685 barber-pole → wire-cage divergence).
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        boolean useObjectIdMismatchDespawn = fs == null
+                || fs.sidekickDespawnUsesObjectIdMismatch();
+        if (useObjectIdMismatchDespawn
+                && sidekick.isOnObject()
                 && currentInteractObjectId != 0
                 && lastInteractObjectId != 0
                 && currentInteractObjectId != lastInteractObjectId) {
@@ -1111,6 +1137,65 @@ public class SidekickCpuController {
         this.jumpingFlag = jumping;
         this.normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
         clearInputs();
+    }
+
+    /**
+     * Per-frame hydration entry point used by trace replay (v6+ recorder
+     * extension). Restores the engine's {@code SidekickCpuController} state
+     * from authoritative ROM globals captured each recorded frame so engine
+     * CPU drift doesn't mask physics divergences.
+     *
+     * <p>Differences from the pre-trace {@link #hydrateFromRomCpuState}:
+     * <ul>
+     * <li>Tolerates ROM CPU routine values the engine doesn't model yet
+     *   (e.g. Knuckles-only routines, super-state variants) by leaving the
+     *   {@code state} unchanged when the value isn't mappable.</li>
+     * <li>Stores the {@code Ctrl_2_logical} byte pair so the next AI tick
+     *   can read the ROM-recorded controller-2 input rather than the engine's
+     *   inferred input.</li>
+     * </ul>
+     *
+     * @param cpuRoutine ROM {@code Tails_CPU_routine} word
+     * @param idleTimer ROM {@code Tails_CPU_idle_timer} word (was previously
+     *     misnamed "control_counter" in the engine's hydrate signature)
+     * @param flightTimer ROM {@code Tails_CPU_flight_timer} word (despawn timer)
+     * @param autoFlyTimer ROM {@code Tails_CPU_auto_fly_timer} byte
+     * @param autoJumpFlag ROM {@code Tails_CPU_auto_jump_flag} byte
+     * @param ctrl2Held ROM {@code Ctrl_2_held_logical} byte
+     * @param ctrl2Pressed ROM {@code Ctrl_2_pressed_logical} byte
+     */
+    public void hydrateFromRomCpuStatePerFrame(int cpuRoutine, int idleTimer,
+                                               int flightTimer, int autoFlyTimer,
+                                               int autoJumpFlag,
+                                               int ctrl2Held, int ctrl2Pressed) {
+        State mapped = tryMapRomCpuRoutine(cpuRoutine);
+        if (mapped != null) {
+            state = mapped;
+            normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
+        }
+        controlCounter = Math.max(0, idleTimer);
+        despawnCounter = Math.max(0, flightTimer);
+        jumpingFlag = autoJumpFlag != 0;
+        controller2Held = ctrl2Held & 0xFF;
+        controller2Logical = ctrl2Pressed & 0xFF;
+    }
+
+    /**
+     * Variant of {@link #mapRomCpuRoutine} that returns {@code null} for
+     * unmapped routines instead of throwing — used for per-frame hydration
+     * where partial ROM-engine routine coverage shouldn't crash the replay.
+     */
+    private static State tryMapRomCpuRoutine(int cpuRoutine) {
+        return switch (cpuRoutine) {
+            case 0x00 -> State.INIT;
+            case 0x02 -> State.CATCH_UP_FLIGHT;
+            case 0x04 -> State.FLIGHT_AUTO_RECOVERY;
+            case 0x06 -> State.NORMAL;
+            case 0x08 -> State.PANIC;
+            case 0x0C -> State.CARRY_INIT;
+            case 0x0E, 0x20 -> State.CARRYING;
+            default -> null;
+        };
     }
 
     /**

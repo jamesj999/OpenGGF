@@ -17,8 +17,10 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering](#cnz1-trace-f1685--wire-cage-latch-frame-ordering)
-3. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
+2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
+3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
+4. [CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition (PARTIAL FIX)](#cnz1-trace-f1758--wire-cage-recapture-vs-slope-repel-race-condition-partial-fix)
+5. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
 
@@ -68,43 +70,81 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F1685 — Wire-Cage Ride Physics Not Producing y_vel from gSpeed
+## CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition (PARTIAL FIX)
 
-**Location:** `CnzWireCageObjectInstance` ride update / engine ground physics integration.
-**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685.
+**Location:** `CnzWireCageObjectInstance.restoreObjectLatchIfTerrainClearedIt` / `Player_SlopeRepel` (sonic3k.asm:23907).
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1758 (after F1740 fix in iter-11).
 
-### Status (2026-04-25 iter-9)
+### Status (2026-04-25 iter-13)
 
-Re-investigation showed the prior diagnosis (latch-frame-ordering) was incomplete. Trace data shows Tails is on-ground (`air=0`, `status=0x08`) for many frames before the latch frame F0694, transitioning between angle 0xD8 (slope) and 0xC0 (cage). The cage IS latching correctly. The bug is in the engine's per-frame ground physics not producing the expected y_vel from gSpeed at angle 0xC0.
+Iter-13 refined the iter-11 F1740 fix by replacing the `move_lock > 0` short-circuit in `restoreObjectLatchIfTerrainClearedIt` with a new `slopeRepelJustSlipped` per-tick flag. The flag is cleared at the start of every `handleMovement` call and set inside `Player_SlopeRepel` only on the frame where `bset #Status_InAir` actually fires.
 
-### Symptom
+Result: F1758's `tails_angle` (0x40), `tails_x` (0x134F — cage orbit position), `tails_y` (0x0709), `tails_air` (0), and `tails_ground_mode` (1) all match expected. First error field shifted from `tails_angle mismatch` to `tails_y_speed mismatch` (expected 0x0147, actual 0x0291). Total errors 4678 → 4625.
 
-`tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685.
+The remaining `tails_g_speed`/`tails_y_speed` divergence (engine 0x291, expected 0x271 at F1758 onward) is a slope-resist suppression issue: ROM appears to skip `Player_SlopeResist` for Tails on the cage from F1758 onward (no `+0x20` per frame at angle 0x40), while the engine adds `+0x20` per frame. Likely cause: ROM has set `bit 0` of `object_control(a0)` from the cage's `loc_339B6: bset #0, object_control(a1)` path (line 69958), which gates the entire physics dispatch in `loc_10BFC` (sonic3k.asm:21973-21976) and skips `Sonic_Modes`. Without per-frame `object_control(a0)` recording, can't verify this hypothesis directly.
 
-ROM at F0694: gSpeed=0xD71, y_speed=-0xB22, ang=0xC0, on_object=true.
-ROM at F0695: applies slope-resist (gSpeed → 0xD51, delta -0x20) then `loc_14B5C`'s gSpeed→y_vel conversion: `y_vel = (gSpeed × sin(0xC0)) / 256 = -0xD51`.
+### Pre-iter-13 Status (preserved for context)
 
-Engine at F0695: y_speed stays at -0xB22 (the F0694 reseed value). The engine's `modeNormal()`'s `calculateXYFromGSpeed()` is not running OR is running but the result is being overwritten.
+The F1740 fix advanced the first strict error to F1758. ROM trace F1757 → F1758:
+- **F1756**: Tails airborne (air=1, angle=0, mode=0), engine matches.
+- **F1757**: Tails LANDS on slope at angle 0x40, mode 1, air=0. Engine matches.
+- **F1758**: ROM teleports Tails x: 0x1309 → 0x134F (Δ +0x46) with x_speed=0, status=0x08 (on_object only, NO in_air). Engine releases Tails to airborne (angle=0, air=1) instead of staying on cage orbit.
+
+The +0x46 x teleport at F1758 with x_speed=0 is the cage's `loc_33A50/loc_33BBA` orbit positioning (`x = cage.x + cosine(phase)/4 + y_radius * cosine(phase) / 256`). For phase ≈ 0x04 with cage.x = 0x1300 and y_radius = 19, that yields x ≈ 0x1352, which matches the trace 0x134F within rounding. So the cage RECAPTURED Tails between F1740 and F1757 (cooldown $10 expired by F1756), then ran the orbit at F1758.
 
 ### Diagnosed Cause
 
-Per the iter-9 deep-dive: the cage's `setOnObject(true)` does not register Tails through `ObjectManager.SolidContacts`, so `hasObjectSupport()` returns false during `resolveGroundAttachment()`. Without object support, the engine probes terrain sensors at angle 0xC0 (vertical wall), finds no real terrain (cage is invisible level art), and re-sets `air=true`. Then on the next frame `modeAirborne()` runs gravity; this should produce `-0xB22 + 0x38 = -0xAEA`, but the trace shows `-0xB22` unchanged — suggesting an additional path is suppressing physics (likely `objectControlled=true` from the cage's `beginLatchedCooldown`).
+The engine's slope-repel correctly slips Tails into air at F1758 (angle 0x40 + gSpeed 0x271 < 0x280 sets Status_InAir, move_lock=30). Engine's cage `continueRide` then sees:
+- `state.cooldown == 0` (latched at F1757, no release yet)
+- `player.getAir() == true` (slope-repel slip)
+- `gSpeed < MIN_SPEED_TO_CONTINUE (0x300)`
+- → enters cooldown branch → `updateReleaseRide(player, state)` → in_air → `release()`
 
-### Attempted Fix (iter-9, reverted)
+ROM appears to take a different path. By manual trace of `loc_339A0` with `gSpeed < 0x300 → loc_339B6 → set cooldown → bra loc_33ADE → loc_33B1E → in_air → bne loc_33B62 → release`, ROM should ALSO release. But the trace shows ROM at F1758 has status=0x08 (on_object only, NO in_air). That status pattern is inconsistent with both the slope-repel slip path AND the cage release path — one or both didn't fire in ROM at this frame.
 
-Adding gSpeed→y_speed seeding inside `CnzWireCageObjectInstance.latch()` (with `wasAirborneOnEntry` parameter to capture pre-`setAir(false)` state) had no measurable effect. The latch frame's airborne path is not being hit because Tails is already on-ground (`air=0`) when the latch fires — Tails was on a different ground/slope object the previous frame and transitions to the cage with `air=0` throughout.
+Without per-frame `Tails_CPU_routine`, `Ctrl_2_logical`, and `move_lock` recording, pinpointing why ROM kept Tails on cage at F1758 (while engine releases) requires either (a) regenerating the trace with the v6 recorder extension that's already committed, or (b) stepping through ROM in BizHawk for F1755-F1760 to capture the exact ROM path firing.
 
 ### Required Investigation / Fix
 
-Two complementary fixes likely needed:
-
-1. **Make CnzWireCage register through `ObjectManager.SolidContacts`** so `hasObjectSupport()` returns true while latched. This would let `resolveGroundAttachment()` keep `air=false` instead of probing for non-existent terrain, allowing `modeNormal()`'s `calculateXYFromGSpeed()` to run and produce the correct y_vel.
-
-2. **Verify the engine's per-frame ground physics at angle 0xC0** computes `y_vel = -gSpeed` correctly. Slope-resist should apply (`gSpeed += sin(0xC0) × 0x20 / 256 = -0x20`) and `calculateXYFromGSpeed` should yield `y_vel = -gSpeed`.
+1. **Regenerate the CNZ trace** with the v6 recorder extension committed in commit `4e6a2b77a` (`feat(trace): add per-frame Tails CPU state recorder + parser plumbing`). The new per-frame `cpu_state` events would expose `Tails_CPU_routine`, `move_lock`, `Status_InAir`, and `Ctrl_2_logical` at every frame so the F1758 ROM path can be observed directly. Trace regeneration was attempted but blocked by a BizHawk chromeless headless emulation issue in this environment.
+2. Without per-frame CPU state, alternative is to step through ROM in BizHawk for F1755-F1760 with breakpoints on `Player_SlopeRepel`, `sub_338C4`, and `loc_33ADE` to capture the exact ROM path firing.
 
 ### Removal Condition
 
-Remove once `TestS3kCnzTraceReplay`'s F1685 `tails_y_speed` mismatch is resolved.
+Remove once `TestS3kCnzTraceReplay`'s first strict error advances past F1758.
+
+---
+
+## CNZ1 Trace F1740 — Wire Cage `restoreObjectLatchIfTerrainClearedIt` Overrode Slope-Repel Slip (FIXED)
+
+**Status:** Fixed in iter-11 by short-circuiting `restoreObjectLatchIfTerrainClearedIt` when `move_lock > 0`.
+
+ROM `Player_SlopeRepel` (sonic3k.asm:23907) has NO `Status_OnObj` gate — it runs even when on object, and slips the player into air (`bset #Status_InAir`) when |gSpeed| < `$280` at a steep angle. The cage's released path (`loc_33ADE` → `loc_33B1E` → `bne loc_33B62`) then honours the in_air bit and runs a simple release that preserves `y_vel = -gSpeed` (no launch impulse — that's `loc_339CC` which only fires from the active-ride branch when gSpeed >= `$300`).
+
+Engine's slope repel did fire and set `air = true` correctly (S3K's `slopeRepelChecksOnObject = false` ensured the on-object gate didn't block it). But the cage's `restoreObjectLatchIfTerrainClearedIt` hack — added to compensate for the engine's terrain-probe being too aggressive about marking the player airborne under invisible level art — reverted it, keeping Tails on the cage. Adding a `move_lock > 0` short-circuit lets the cage honour the slope-repel slip while preserving the original hack's behaviour for the terrain-probe case (terrain probes don't set move_lock).
+
+First strict error advanced F1740 → F1758.
+
+---
+
+## CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)
+
+**Status:** Fixed in iter-10 by gating the engine's despawn-on-object-id-mismatch path behind `PhysicsFeatureSet.sidekickDespawnUsesObjectIdMismatch`. S3K disables the path because ROM's `sub_13EFC` (`sonic3k.asm:26823`) compares the high word of the cached vs current object's routine pointer (`cmp.w (a3),d0`), and all S3K gameplay objects share the same high word `0x0003`, making the ROM check effectively dormant. Engine was comparing 8-bit object IDs (`0x4D` barber pole vs `0x4E` wire cage) and triggering despawn on legitimate same-region transitions. S2 keeps the existing behaviour because `TailsCPU_CheckDespawn` (`s2.asm:39067`) genuinely does compare object id bytes.
+
+**Location:** `SidekickCpuController.checkDespawn()`, `PhysicsFeatureSet.sidekickDespawnUsesObjectIdMismatch`.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685.
+
+### Symptom (pre-fix)
+
+`tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685, plus a cluster of cascading mismatches because the engine had Tails despawned to `(0x7F00, 0)` while the ROM kept Tails alive on the wire cage.
+
+### Diagnosed Cause
+
+ROM `sub_13EFC` reads the FIRST WORD of the object's data structure (`(a3)` = high 16 bits of the routine pointer) and compares against the cached `Tails_CPU_interact`. For S3K, all gameplay objects live in `0x0001xxxx-0x0007xxxx`, so the high word is identical for virtually every object the player can be on; the check therefore almost never fires in real ROM play. Engine instead compared 8-bit object IDs, which DO differ between any two distinct object types — at F1685 Tails legitimately moved from the CNZ barber pole (id `0x4D`, routine `loc_335A8`) to a CNZ wire cage (id `0x4E`, routine `loc_3385E`). Both routines live at `0x000338xx`, so ROM's high-word comparison would yield `0x0003 == 0x0003` (no despawn); engine's id comparison yielded `0x4D != 0x4E` (spurious despawn).
+
+### Removal Condition
+
+Removed when `TestS3kCnzTraceReplay`'s first strict error advanced past F1685.
 
 ---
 

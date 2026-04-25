@@ -34,6 +34,12 @@
 -- end-of-frame ROM instant.
 -- v5.4-s3k changes: write pre_trace_osc_frames from Level_frame_counter so
 -- seeded replays restore the ROM's global oscillation phase.
+-- v6.0-s3k changes: emit per-frame cpu_state events with the full Tails CPU
+-- global block plus Ctrl_2_logical so engine SidekickCpuController state can
+-- be hydrated each frame in trace replay (closes the visibility gap that
+-- blocked CNZ1 trace F1740 root-cause analysis -- the trace's sidekick OST
+-- routine byte is not Tails_CPU_routine and Ctrl_2_logical was never recorded).
+-- Bumps trace_schema 5 -> 6.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -108,13 +114,35 @@ local ADDR_FRAMECOUNT       = 0xFE04
 local ADDR_VBLA_WORD        = 0xFE0E
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 local ADDR_RNG_SEED         = 0xF636
-local ADDR_TAILS_CONTROL_COUNTER = 0xF702
-local ADDR_TAILS_RESPAWN_COUNTER = 0xF704
-local ADDR_TAILS_CPU_ROUTINE     = 0xF708
-local ADDR_TAILS_CPU_TARGET_X    = 0xF70A
-local ADDR_TAILS_CPU_TARGET_Y    = 0xF70C
-local ADDR_TAILS_INTERACT_ID     = 0xF70E
-local ADDR_TAILS_CPU_JUMPING     = 0xF70F
+-- Tails CPU global block. Layout from sonic3k.constants.asm:618-626:
+--   $F700 Tails_CPU_interact     (word) - RAM addr of object Tails stood on
+--   $F702 Tails_CPU_idle_timer   (word) - counts down while Ctrl_2 idle
+--   $F704 Tails_CPU_flight_timer (word) - counts up while respawning
+--   $F706 (unused)
+--   $F708 Tails_CPU_routine      (word) - current Tails AI routine index
+--   $F70A Tails_CPU_target_X     (word)
+--   $F70C Tails_CPU_target_Y     (word)
+--   $F70E Tails_CPU_auto_fly_timer  (byte)
+--   $F70F Tails_CPU_auto_jump_flag  (byte)
+local ADDR_TAILS_CPU_INTERACT       = 0xF700
+local ADDR_TAILS_CPU_IDLE_TIMER     = 0xF702
+local ADDR_TAILS_CPU_FLIGHT_TIMER   = 0xF704
+local ADDR_TAILS_CPU_ROUTINE        = 0xF708
+local ADDR_TAILS_CPU_TARGET_X       = 0xF70A
+local ADDR_TAILS_CPU_TARGET_Y       = 0xF70C
+local ADDR_TAILS_CPU_AUTO_FLY_TIMER = 0xF70E
+local ADDR_TAILS_CPU_AUTO_JUMP_FLAG = 0xF70F
+-- Legacy aliases (kept for compatibility with the historical pre-trace snapshot
+-- field names; the new per-frame snapshot uses the disassembly-correct names).
+local ADDR_TAILS_CONTROL_COUNTER = ADDR_TAILS_CPU_IDLE_TIMER
+local ADDR_TAILS_RESPAWN_COUNTER = ADDR_TAILS_CPU_FLIGHT_TIMER
+local ADDR_TAILS_INTERACT_ID     = ADDR_TAILS_CPU_AUTO_FLY_TIMER
+local ADDR_TAILS_CPU_JUMPING     = ADDR_TAILS_CPU_AUTO_JUMP_FLAG
+-- Ctrl_2_logical block. Layout from sonic3k.constants.asm:589-591:
+--   $F66A Ctrl_2_held_logical    (byte)
+--   $F66B Ctrl_2_pressed_logical (byte)
+local ADDR_CTRL2_HELD_LOGICAL    = 0xF66A
+local ADDR_CTRL2_PRESSED_LOGICAL = 0xF66B
 
 local INPUT_UP    = 0x01
 local INPUT_DOWN  = 0x02
@@ -486,9 +514,13 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "5.4-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.0-s3k",\n')
+    -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
+    -- cpu_state aux events are detected by parsers via the absence/presence
+    -- of the cpu_state event in aux_state.jsonl rather than a schema bump.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -515,6 +547,33 @@ local function write_tails_cpu_snapshot()
         mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
         mainmemory.read_u8(ADDR_TAILS_INTERACT_ID),
         mainmemory.read_u8(ADDR_TAILS_CPU_JUMPING)))
+end
+
+-- Per-frame CPU state event. Emitted once per recorded trace frame so engine
+-- replay can hydrate SidekickCpuController state at known ROM-checkpoint
+-- instants. Captures the full Tails CPU global block plus Ctrl_2_logical
+-- (held + pressed) which together determine the AI's per-frame decisions.
+local function write_tails_cpu_per_frame()
+    if not aux_file then return end
+
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"cpu_state","character":"tails",'
+            .. '"interact":"0x%04X","idle_timer":%d,"flight_timer":%d,'
+            .. '"cpu_routine":%d,"target_x":"0x%04X","target_y":"0x%04X",'
+            .. '"auto_fly_timer":%d,"auto_jump_flag":%d,'
+            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X"}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_INTERACT),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_IDLE_TIMER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_FLIGHT_TIMER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_ROUTINE),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_X),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
+        mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_FLY_TIMER),
+        mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_JUMP_FLAG),
+        mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
+        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL)))
 end
 
 local function snapshot_object_id_for_code(obj_code)
@@ -1021,6 +1080,11 @@ local function on_frame_end()
     emit_player_mode_event()
     check_mode_changes(status, routine)
     prev_status = status
+
+    -- Per-frame CPU snapshot (v6 schema). Always emit so the trace replay can
+    -- hydrate engine SidekickCpuController state from authoritative ROM values
+    -- and rule out CPU-state drift as a source of divergence.
+    write_tails_cpu_per_frame()
 
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()

@@ -216,6 +216,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
 
+		// Reset per-tick slope-repel slip flag at the very start. Set by
+		// doSlopeRepel when it slips the player into air this frame; consumed
+		// by per-object hooks (e.g. CnzWireCageObjectInstance) that need to
+		// distinguish "fresh slip honour the air state" from "stale move_lock
+		// from an earlier slip".
+		sprite.setSlopeRepelJustSlipped(false);
+
 		if (sprite.isDebugMode()) {
 			handleDebugMovement(up, down, left, right, speedUp, slowDown);
 			return;
@@ -1915,6 +1922,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			int slipAngle = (angle + 0x30) & 0xFF;
 			if (slipAngle >= 0x60) {
 				sprite.setAir(true);
+				sprite.setSlopeRepelJustSlipped(true);
 			} else if (slipAngle >= 0x30) {
 				sprite.setGSpeed((short) (sprite.getGSpeed() + 0x80));
 			} else {
@@ -1928,6 +1936,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.setGSpeed((short) 0);
 		sprite.setAir(true);
+		sprite.setSlopeRepelJustSlipped(true);
 		sprite.setMoveLockTimer(MOVE_LOCK_FRAMES);
 	}
 

@@ -161,7 +161,31 @@ public record PhysicsFeatureSet(
          * <p>S1/S2: {@code false}. They have no {@code Screen_Y_wrap_value}
          * mechanism and the existing 32-margin matches their trace baselines.
          */
-        boolean useScreenYWrapValueForVisibility
+        boolean useScreenYWrapValueForVisibility,
+        /**
+         * Whether the sidekick CPU despawn check fires on an object-id mismatch
+         * (Tails moves between two distinct object types while off-screen).
+         * <p>S2: {@code true} — {@code TailsCPU_CheckDespawn}
+         * (s2.asm:39051-39068) does {@code cmp.b id(a3),d0}, comparing the
+         * cached {@code Tails_interact_ID} byte to the current object's
+         * {@code id} byte. Different object types have different ID bytes, so
+         * the engine's per-id mismatch check models this faithfully.
+         * <p>S3K: {@code false} — {@code sub_13EFC} (sonic3k.asm:26823) does
+         * {@code cmp.w (a3),d0}, comparing the cached {@code Tails_CPU_interact}
+         * word to the FIRST WORD of the object's structure (the high word of
+         * its routine pointer). All S3K gameplay objects live in ROM
+         * {@code 0x0001xxxx-0x0007xxxx}, so the high word is identical
+         * (typically {@code 0x0003}) for virtually every object encountered in
+         * normal play — the ROM check therefore almost never fires. The CNZ1
+         * trace F1685 barber-pole-to-wire-cage transition (object IDs
+         * {@code 0x4D} → {@code 0x4E}, both routines at {@code 0x000338xx}) is
+         * a concrete example: ROM cached/current high words are both
+         * {@code 0x0003}, no despawn; engine compares 8-bit object IDs and
+         * spuriously despawns Tails.
+         * <p>S1: unreachable (no Tails CPU). {@code true} keeps symmetry with
+         * S2.
+         */
+        boolean sidekickDespawnUsesObjectIdMismatch
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -218,7 +242,8 @@ public record PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
             null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
-            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
+            true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -229,7 +254,8 @@ public record PhysicsFeatureSet(
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
             null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
-            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
+            true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -244,7 +270,8 @@ public record PhysicsFeatureSet(
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
     }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
-            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */);
+            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
+            false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
