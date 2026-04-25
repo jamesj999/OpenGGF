@@ -35,8 +35,12 @@ public class TestS3kCnzDirectedTraversalHeadless {
                 .build();
 
         AbstractPlayableSprite player = fixture.sprite();
+        // ROM Obj_CNZCannon (sonic3k.asm:66870) calls SolidObjectTop with
+        // d1=$10 (half-width) and d3=$29 (top offset). MvSonicOnPtfm puts the
+        // player feet at cannon.y - $29, so player centre Y must be
+        // cannon.y - $29 - yRadius + small overlap to land standing.
         player.setCentreX((short) CANNON_X);
-        player.setCentreY((short) (CANNON_Y - 0x20));
+        player.setCentreY((short) (CANNON_Y - 0x29 - player.getYRadius() + 3));
         player.setAir(false);
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
@@ -241,9 +245,18 @@ public class TestS3kCnzDirectedTraversalHeadless {
 
         assertTrue(captured, "CNZ cylinder should capture the player before traversal");
         assertTrue(player.isControlLocked(), "CNZ cylinder should lock player control while captured");
-        assertTrue(player.getRolling(), "CNZ cylinder should force rolling state while captured");
-        assertEquals(7, player.getXRadius(), "CNZ cylinder should use the ROM rolling x-radius");
-        assertEquals(14, player.getYRadius(), "CNZ cylinder should use the ROM rolling y-radius");
+        // ROM sub_324C0 (sonic3k.asm:67985) at capture explicitly does
+        // bclr #Status_Roll, status(a1) (line 68005) and writes
+        // default_y_radius / default_x_radius to y_radius / x_radius
+        // (lines 68003-68004). Rolling radii (7, 14) and Status_Roll are
+        // only set when the rider jumps OFF the cylinder (loc_325F2 path,
+        // lines 68062-68065).
+        assertFalse(player.getRolling(),
+                "CNZ cylinder must clear Status_Roll on capture per sub_324C0:68005");
+        assertEquals(player.getStandXRadius(), player.getXRadius(),
+                "CNZ cylinder must restore default_x_radius on capture per sub_324C0:68004");
+        assertEquals(player.getStandYRadius(), player.getYRadius(),
+                "CNZ cylinder must restore default_y_radius on capture per sub_324C0:68003");
 
         int capturedX = player.getCentreX();
         int capturedY = player.getCentreY();
@@ -465,12 +478,21 @@ public class TestS3kCnzDirectedTraversalHeadless {
         assertTrue(captured, "CNZ cylinder should capture both riders before testing rider-state parity");
         assertTrue(player.isControlLocked(), "CNZ cylinder should lock player control while captured");
         assertTrue(sidekick.isControlLocked(), "CNZ cylinder should lock sidekick control while captured");
-        assertTrue(player.getRolling(), "CNZ cylinder should force the player into a rolling state");
-        assertTrue(sidekick.getRolling(), "CNZ cylinder should force the sidekick into a rolling state");
-        assertEquals(7, player.getXRadius(), "CNZ cylinder should use the ROM rolling x-radius for the player");
-        assertEquals(7, sidekick.getXRadius(), "CNZ cylinder should use the ROM rolling x-radius for the sidekick");
-        assertEquals(14, player.getYRadius(), "CNZ cylinder should use the ROM rolling y-radius for the player");
-        assertEquals(14, sidekick.getYRadius(), "CNZ cylinder should use the ROM rolling y-radius for the sidekick");
+        // ROM sub_324C0 (sonic3k.asm:67985) at capture explicitly does
+        // bclr #Status_Roll, status(a1) (line 68005) and writes
+        // default_y_radius / default_x_radius (lines 68003-68004).
+        assertFalse(player.getRolling(),
+                "CNZ cylinder must clear Status_Roll on capture per sub_324C0:68005 (player)");
+        assertFalse(sidekick.getRolling(),
+                "CNZ cylinder must clear Status_Roll on capture per sub_324C0:68005 (sidekick)");
+        assertEquals(player.getStandXRadius(), player.getXRadius(),
+                "CNZ cylinder must restore default_x_radius on capture per sub_324C0:68004 (player)");
+        assertEquals(sidekick.getStandXRadius(), sidekick.getXRadius(),
+                "CNZ cylinder must restore default_x_radius on capture per sub_324C0:68004 (sidekick)");
+        assertEquals(player.getStandYRadius(), player.getYRadius(),
+                "CNZ cylinder must restore default_y_radius on capture per sub_324C0:68003 (player)");
+        assertEquals(sidekick.getStandYRadius(), sidekick.getYRadius(),
+                "CNZ cylinder must restore default_y_radius on capture per sub_324C0:68003 (sidekick)");
         assertFalse(player.getCentreX() == sidekick.getCentreX()
                         && player.getCentreY() == sidekick.getCentreY(),
                 "CNZ cylinder should preserve distinct world-space rider positions instead of collapsing both riders together");

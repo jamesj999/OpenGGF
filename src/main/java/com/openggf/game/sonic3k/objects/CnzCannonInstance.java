@@ -279,12 +279,24 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     /**
      * Package-private test seam for launch timing.
      *
-     * <p>Sets {@code stateTimer} directly so tests can drive the cannon
-     * into a known launch-ready/cooldown frame without simulating the
-     * full capture-to-launch sequence. Retained (reflectively invoked
-     * by {@code TestS3kCnzVisualCapture}) from the pre-rework API.
+     * <p>Drives the cannon into the launch-ready state without simulating
+     * the full pull-down phase. When {@code frames <= 0}, advances state
+     * directly to {@link #STATE_READY_TO_LAUNCH} so callers can press jump
+     * and observe the launch on the very next frame. When {@code frames > 0}
+     * sets {@code stateTimer} for any pending cooldown countdown.
+     *
+     * <p>Reflectively invoked by {@code TestS3kCnzVisualCapture} and
+     * {@code TestS3kCnzDirectedTraversalHeadless}.
      */
     void setLaunchDelayFramesForTest(int frames) {
+        if (frames <= 0 && state == STATE_PULLING_PLAYER && capturedPlayer != null) {
+            // ROM loc_31A4C snaps player to cannon.y when pull-down ends.
+            capturedPlayer.setCentreYPreserveSubpixel((short) spawn.y());
+            capturedPlayer.setAnimationId(0x1C);
+            state = STATE_READY_TO_LAUNCH;
+            stateTimer = 0;
+            return;
+        }
         stateTimer = Math.max(0, frames);
     }
 }
