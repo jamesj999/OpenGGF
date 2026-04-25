@@ -353,6 +353,25 @@ public class SidekickCpuController {
         byte recordedStatus = effectiveLeader.getStatusHistory(ROM_FOLLOW_DELAY_FRAMES);
         int targetX = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES);
         int targetY = effectiveLeader.getCentreY(ROM_FOLLOW_DELAY_FRAMES);
+
+        // ROM loc_13DA6 (sonic3k.asm:26688-26694): bias the leader-x history
+        // target a fixed amount to the LEFT before computing dx, so Tails
+        // tracks slightly behind Sonic on flat ground. Suppressed when:
+        //   - leader is riding an object (Status_OnObj bit set,
+        //     sonic3k.asm:26690-26691) — no useful position to lead to.
+        //   - leader.ground_vel >= $400 (sonic3k.asm:26692-26693) — leader
+        //     is already faster than the follower can chase.
+        // S2 has no equivalent (s2.asm:38933 reads d2 directly), so the
+        // offset is gated by PhysicsFeatureSet.sidekickFollowLeadOffset().
+        int leadOffset = sidekick.getPhysicsFeatureSet() != null
+                ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
+                : 0;
+        if (leadOffset > 0
+                && !effectiveLeader.isOnObject()
+                && effectiveLeader.getGSpeed() < 0x400) {
+            targetX -= leadOffset;
+        }
+
         int dx = targetX - sidekick.getCentreX();
         int dy = targetY - sidekick.getCentreY();
 
