@@ -965,7 +965,33 @@ public class SidekickCpuController {
             return false;
         }
 
-        if (sidekick.isOnObject()
+        // Object-id-mismatch despawn path. ROM semantics differ across games:
+        //
+        //   S2 (s2.asm:39051 TailsCPU_CheckDespawn): cmp.b id(a3),d0 — compare
+        //       Tails_interact_ID byte against the object's id field. The object
+        //       ID is the per-game object-pointer-table index, so different
+        //       object types compare differently. Engine's existing behaviour
+        //       (compare 8-bit object IDs) matches this byte-for-byte.
+        //
+        //   S3K (sonic3k.asm:26823 sub_13EFC): cmp.w (a3),d0 — compare cached
+        //       Tails_CPU_interact word against the FIRST WORD of the object's
+        //       structure (the high word of its routine pointer). For S3K all
+        //       gameplay objects live in ROM 0x0001xxxx-0x0007xxxx, so the high
+        //       word is identical (0x0000-0x0007) for virtually every object
+        //       type encountered in normal play. The check therefore almost
+        //       never fires in S3K — it is effectively a sanity guard against
+        //       wholly different code regions, which CNZ-style barber-pole →
+        //       wire-cage transitions do NOT trigger (both routines live in
+        //       0x000338xx, same high word 0x0003).
+        //
+        // Gate the path via PhysicsFeatureSet so S2 keeps its existing semantics
+        // and S3K stops despawning Tails on legitimate same-region object
+        // transitions (CNZ1 trace F1685 barber-pole → wire-cage divergence).
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        boolean useObjectIdMismatchDespawn = fs == null
+                || fs.sidekickDespawnUsesObjectIdMismatch();
+        if (useObjectIdMismatchDespawn
+                && sidekick.isOnObject()
                 && currentInteractObjectId != 0
                 && lastInteractObjectId != 0
                 && currentInteractObjectId != lastInteractObjectId) {
