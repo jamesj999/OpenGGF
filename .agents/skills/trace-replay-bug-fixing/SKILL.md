@@ -5,6 +5,8 @@ description: Use when investigating or fixing any *TraceReplay test failure acro
 
 # Trace Replay Bug Fixing
 
+> Mirrored at `.claude/skills/trace-replay-bug-fixing/skill.md` (Claude Code, lowercase) and `.agents/skills/trace-replay-bug-fixing/SKILL.md` (other agent harnesses, uppercase). When editing, update both files.
+
 Recorded BizHawk traces verify that the engine plays back ROM behaviour pixel-for-pixel given the same controller input. When a `*TraceReplay` test diverges, this skill describes how to diagnose, fix, and (when needed) regenerate traces — without taking shortcuts that mask engine bugs.
 
 ## Core Mission Rules (apply to all trace work)
