@@ -17,9 +17,8 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [Sidekick CPU On-Screen Detection — `checkDespawn` False Positives/Negatives](#sidekick-cpu-on-screen-detection--checkdespawn-false-positivesnegatives)
-3. [CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering / Despawn Cascade](#cnz1-trace-f1685--wire-cage-latch-frame-ordering--despawn-cascade)
-4. [AIZ1 Trace F2405 — Tails Flight-Timer Despawn Not Firing](#aiz1-trace-f2405--tails-flight-timer-despawn-not-firing)
+2. [CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering](#cnz1-trace-f1685--wire-cage-latch-frame-ordering)
+3. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
 
@@ -69,35 +68,7 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## Sidekick CPU On-Screen Detection — `checkDespawn` False Positives/Negatives
-
-**Location:** `SidekickCpuController.checkDespawn()` (`src/main/java/com/openggf/sprites/playable/SidekickCpuController.java` lines 957–984) — `onScreen` test uses `Camera.isVisibleForRenderFlag()` (geometric bounding-box test) while ROM `sub_13EFC` (sonic3k.asm:26816–26847) reads `render_flags(a0)` bit 7 set by `Draw_Sprite` after the VDP visibility test.
-
-### Symptom
-
-Two failure modes appear with the same root cause:
-
-- **CNZ1 F1685 (engine despawns when ROM doesn't):** Around F1380–F1685, the engine treats Tails as off-screen for ≥300 consecutive frames and triggers `triggerDespawn()`, parking Tails at `(0x7F00, 0x0000)`. ROM's render flag never clears for that long, so ROM keeps Tails in the level. The reported error `tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685 is the engine's stale velocity from the despawn marker; once the engine despawns, the cage-latch and ground physics never re-run, so y_speed sits at whatever the per-frame reseed leaves on the marker frame.
-
-- **AIZ1 F2405 (engine doesn't despawn when ROM does):** Tails goes off-screen at AIZ trace F0x839 (decimal 2105). ROM's `Tails_CPU_flight_timer` reaches `5*60 = 300` exactly at F0x965 (decimal 2405) and `sub_13EFC` calls `sub_13ECA` to despawn (parking at `(0x7F00, 0x0000)`). Engine's `despawnCounter` reaches only 25–40 because `Camera.isVisibleForRenderFlag()` returns `true` on frames where ROM's `render_flags` bit 7 was never set this frame, repeatedly resetting the counter.
-
-### Diagnosed Cause
-
-The engine's `Camera.isVisibleForRenderFlag(sprite)` does a geometric "is the sprite's bounding box inside the camera viewport" test using `renderFlagWidthPixels = 0x18` (24). ROM's `render_flags` bit 7 is set/cleared by `Draw_Sprite` in the per-frame VDP build pass, which uses the actual sprite mappings' bounding box and rejection thresholds. The two are equivalent on most frames but diverge in edge cases: very tall sprites (Tails rolling/flight), camera-shake/scroll deformation, and one-frame timing differences as the camera and sprite both move.
-
-The divergence accumulates over hundreds of frames in a single trace, so even a small per-frame mismatch eventually causes one side to (a) reset its timer when the other side wouldn't (engine in CNZ) or (b) keep the timer running when the other side would reset (engine in AIZ — opposite direction).
-
-### Removal Condition
-
-Remove once `SidekickCpuController.checkDespawn()` consumes a render-flag value that exactly mirrors ROM's `render_flags` bit 7 — either by:
-- routing through `SpriteManager.refreshPlayableRenderFlags()`'s cached value with verified ROM-equivalent semantics (sprite bounds taken from active mapping frame, not a fixed `renderFlagWidthPixels`), or
-- recomputing the visibility test from VDP/Draw_Sprite-equivalent geometry rather than `Camera.isVisibleForRenderFlag()`.
-
-Verification: `TestS3kCnzTraceReplay`'s engine no longer despawns Tails before F1685, AND `TestS3kAizTraceReplay`'s engine despawns Tails by F2405 (matching ROM in both directions).
-
----
-
-## CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering / Despawn Cascade
+## CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering
 
 **Location:** `CnzWireCageObjectInstance.latch()` interaction with `LevelFrameStep` execution order, downstream of the on-screen detection issue above.
 **Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685 with the iter-5 fixes in place.
@@ -124,24 +95,40 @@ Remove once `TestS3kCnzTraceReplay`'s engine no longer despawns Tails before F16
 
 ---
 
-## AIZ1 Trace F2405 — Tails Flight-Timer Despawn Not Firing
+## AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch
 
-**Location:** `SidekickCpuController.checkDespawn()` — `despawnCounter` does not accumulate to 300 because the engine's `onScreen` test resets it on frames ROM's `render_flags` says off-screen.
-**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2405.
+**Location:** `SidekickCpuController.updateCatchUpFlight()` 64-frame gate vs. ROM's actual trigger-path used at this frame.
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2590 (after iter-7 fixes).
+
+### Status (2026-04-25)
+
+Iter-6 fixed F2405 (engine never despawning Tails) by aligning the render-flag visibility Y-margin with ROM `Render_Sprites` (24 instead of 32). First error advanced F2405 → F2465.
+
+Iter-7 fixed F2465 (stale x_speed=-0x01F9 carried across the despawn) by zeroing velocities on `TailsRespawnStrategy.beginApproach()` per ROM `loc_13B50`. First error advanced F2465 → F2590.
+
+Iter-8 implemented BK2 P2 controller-input parsing (commit 33bfcc78d) and a fix for the pre-existing `p2Logical = p2Held` bug, but inspection of all three trace BK2 movies (S3K AIZ, S3K CNZ, S2 EHZ) showed **zero P2 input frames**. So F2590 is not driven by the Ctrl_2 A/B/C/START button-press path and another mechanism is responsible.
 
 ### Symptom
 
-`tails_y mismatch (expected=0x0000, actual=0x0454)` at F2405. ROM despawns Tails to `(0x7F00, 0x0000)` via `sub_13EFC` (sonic3k.asm:26816) → `sub_13ECA` once `Tails_CPU_flight_timer` hits `5*60 = 300`. The 300-frame off-screen count starts at AIZ trace F0x839 (decimal 2105) and expires exactly at F0x965 (decimal 2405). Engine's `despawnCounter` only reaches ~25-40 in the same window.
+`tails_y_speed mismatch (expected=-0400, actual=0x02D8)` at F2590. ROM's CSV at trace frame 0x0A1E shows `sk_routine` transitioning 02 (CATCH_UP_FLIGHT) → 04 (FLIGHT_AUTO_RECOVERY) with y_speed=-0x0400 (the `Tails_JumpHeight` cap value). Engine still in CATCH_UP_FLIGHT with continued downward gravity (y_speed=+0x02D8 at +0x38/frame).
 
-### Diagnosed Cause
+### Diagnosed Cause (open)
 
-Same as the on-screen detection entry above: the engine's `Camera.isVisibleForRenderFlag()` returns `true` on a non-trivial fraction of the off-screen window because ROM's `render_flags` bit 7 stays clear (Draw_Sprite never sets it). The geometric vs. VDP-build test divergence repeatedly resets `despawnCounter`.
+ROM's `Tails_Catch_Up_Flying` (sonic3k.asm:26474) has two trigger paths:
 
-This is the AIZ side of the same bug as the CNZ F1685 entry — opposite direction (engine misses despawn ROM does, vs. engine misfires despawn ROM doesn't). Both are blocked on the same render-flag-parity fix.
+1. Ctrl_2 A/B/C/START press → immediate `loc_13B50`
+2. 64-frame `(Level_frame_counter & $3F) == 0` gate → `loc_13B50`
+
+The engine fires path 2 at gfc=0x0900 (= AIZ frame 2593, three frames AFTER the ROM transitioned). At gfc=0x08FD/0x08FE (AIZ frames 2589/2590), `mask & 0x3F` is non-zero — the 64-frame gate does NOT fire. Path 1 fails because the BK2 has no P2 input.
+
+This means ROM is triggering via a third path the engine doesn't model — possibly:
+- `Tails_FlySwim_Unknown` (routine 0x04) is reached via a different route the engine misses
+- The ROM's `Level_frame_counter` differs slightly from the engine's `frameCounter` at this point (alignment drift over 2400+ frames)
+- A different sub-routine sets `Tails_CPU_routine = 4` directly
 
 ### Removal Condition
 
-Remove once `TestS3kAizTraceReplay`'s engine despawns Tails by AIZ trace F0x965 (frame 2405) matching ROM, AND the first strict error advances past F2405.
+Remove once `TestS3kAizTraceReplay`'s first strict error advances past F2590 AND the engine's CATCH_UP_FLIGHT → FLIGHT_AUTO_RECOVERY transition fires on the same trace frame as the ROM (verified by tracking `sidekick_routine` in the trace).
 
 ---
 
