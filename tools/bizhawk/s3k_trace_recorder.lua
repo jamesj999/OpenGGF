@@ -40,6 +40,12 @@
 -- blocked CNZ1 trace F1740 root-cause analysis -- the trace's sidekick OST
 -- routine byte is not Tails_CPU_routine and Ctrl_2_logical was never recorded).
 -- Bumps trace_schema 5 -> 6.
+-- v6.1-s3k changes: emit per-frame oscillation_state events with the full
+-- Oscillating_table contents ($42 bytes at $FFFFFE6E) and Level_frame_counter
+-- so trace replay can ROM-verify global oscillator phase. Closes the
+-- visibility gap that blocks CNZ1 F850 root-cause analysis where the engine's
+-- OscillationManager.getByte(LIFT_OSC_OFFSET=$14) reads osc[5] one tick
+-- behind ROM's Oscillating_table+$16 high byte.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -111,6 +117,13 @@ local OBJ_CNZ_BALLOON       = 0x00031754
 local OBJ_ID_CNZ_BALLOON    = 0x41
 
 local ADDR_FRAMECOUNT       = 0xFE04
+-- Oscillating_table address ($FFFFFE6E in S3K RAM, $42 bytes total).
+-- First word ($FE6E/$FE6F) is the control bitfield (Osc_Data $0000 first dc.w),
+-- followed by 16 (value, delta) word pairs. Computed from
+-- docs/skdisasm/sonic3k.constants.asm sequential `ds.b` walk: RAM_start
+-- $FFFF0000 -> CrossResetRAM at $FFFFFE00 -> Oscillating_table at offset $6E.
+local ADDR_OSC_TABLE        = 0xFE6E
+local OSC_TABLE_SIZE        = 0x42
 local ADDR_VBLA_WORD        = 0xFE0E
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 local ADDR_RNG_SEED         = 0xF636
@@ -514,13 +527,13 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.0-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.1-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
-    -- cpu_state aux events are detected by parsers via the absence/presence
-    -- of the cpu_state event in aux_state.jsonl rather than a schema bump.
+    -- cpu_state and oscillation_state aux events are detected by parsers
+    -- via aux_schema_extras rather than a schema bump.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame"],\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -547,6 +560,29 @@ local function write_tails_cpu_snapshot()
         mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
         mainmemory.read_u8(ADDR_TAILS_INTERACT_ID),
         mainmemory.read_u8(ADDR_TAILS_CPU_JUMPING)))
+end
+
+-- Per-frame oscillation_state event. Emitted once per recorded trace frame
+-- with the full Oscillating_table contents ($42 bytes) plus the running
+-- Level_frame_counter so engine replay can ROM-verify global oscillator
+-- phase. Bytes are encoded as a single hex string for compactness.
+-- Reads the table AFTER the frame's OscillateNumDo has run (recorder reads
+-- happen in `on_frame_end`, after BizHawk's emu.frameadvance() ticked the
+-- ROM's full main loop including OscillateNumDo).
+local function write_oscillation_per_frame()
+    if not aux_file then return end
+
+    local parts = {}
+    for i = 0, OSC_TABLE_SIZE - 1 do
+        parts[#parts + 1] = string.format('%02X', mainmemory.read_u8(ADDR_OSC_TABLE + i))
+    end
+
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"oscillation_state","level_frame_counter":%d,"osc_table":"%s"}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        table.concat(parts)))
 end
 
 -- Per-frame CPU state event. Emitted once per recorded trace frame so engine
@@ -1000,6 +1036,19 @@ local function on_frame_end()
         write_tails_cpu_snapshot()
         write_object_snapshots()
         pre_trace_snapshots_written = true
+        -- v6.1-s3k: capture Level_frame_counter at the moment the first
+        -- physics row is recorded. The engine's seeded-frame-0 mode
+        -- teleports sprite state to trace frame 0 without running its
+        -- own LevelLoop, so OscillationManager must be pre-advanced by
+        -- this many ticks for the engine's first natural tick to land
+        -- on the same lfc as ROM's trace frame 1. Profiles that arm
+        -- and immediately return (level_gated_reset_aware) record the
+        -- NEXT BizHawk frame as trace frame 0, so this value is one
+        -- larger than start_gameplay_frame_counter. Profiles that arm
+        -- and continue recording the arm-frame (aiz_end_to_end) record
+        -- the SAME frame as trace frame 0, so this value matches the
+        -- arm-time lfc. Capturing here unifies both paths.
+        start_gameplay_frame_counter = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     end
 
     local x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
@@ -1085,6 +1134,11 @@ local function on_frame_end()
     -- hydrate engine SidekickCpuController state from authoritative ROM values
     -- and rule out CPU-state drift as a source of divergence.
     write_tails_cpu_per_frame()
+
+    -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
+    -- replay can ROM-verify the global oscillator phase used by HoverFan,
+    -- platforms, and other oscillating objects.
+    write_oscillation_per_frame()
 
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
