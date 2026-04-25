@@ -4,6 +4,25 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Tails CPU Despawn Object-ID Mismatch Path (CNZ1 F1685)
+
+- Gated the sidekick CPU's despawn-on-object-id-mismatch path behind a
+  new `PhysicsFeatureSet.sidekickDespawnUsesObjectIdMismatch` flag.
+- S2 keeps the existing engine behaviour (`true`) — `TailsCPU_CheckDespawn`
+  (`s2.asm:39067`) does `cmp.b id(a3),d0`, comparing the cached object's
+  id byte to the current object's id, so different object types
+  legitimately trigger despawn there.
+- S3K disables the path (`false`) — `sub_13EFC` (`sonic3k.asm:26823`)
+  does `cmp.w (a3),d0`, comparing the high word of the cached and
+  current object's routine pointers. For S3K all gameplay objects live
+  in ROM `0x0001xxxx-0x0007xxxx` (typically `0x0003xxxx`), so the high
+  word is identical for virtually every object encountered in normal
+  play. The check almost never fires in ROM. CNZ1 trace F1685
+  (barber-pole `0x4D` → wire-cage `0x4E`, both routines at
+  `0x000338xx`) was a concrete example of engine-vs-ROM divergence: ROM
+  cached/current high words both `0x0003`, no despawn; engine compared
+  8-bit IDs and spuriously despawned Tails.
+
 ### Sonic 3&K Tails CPU Flight AI (Catch-Up + Auto-Recovery)
 
 - Ported `Tails_Catch_Up_Flying` (`sonic3k.asm:26474`, ROM CPU routine
