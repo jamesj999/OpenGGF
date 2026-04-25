@@ -224,6 +224,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected int latchedSolidObjectId = 0;
 
         /**
+         * Set when {@code Player_SlopeRepel} slipped the player into air on the
+         * current physics frame (sonic3k.asm:23929 {@code bset #Status_InAir}).
+         * Cleared at the start of each player update tick. Used by per-object
+         * release-vs-restore decisions (e.g. {@code CnzWireCageObjectInstance})
+         * to distinguish "slope-repel just slipped, honour the air state" from
+         * "stale terrain probe spuriously set air, restore the on-object
+         * status".
+         */
+        protected boolean slopeRepelJustSlipped = false;
+
+        /**
          * Whether to stick to convex surfaces even at low speeds.
          * ROM: stick_to_convex status bit
          * When true, prevents slope repel/detachment on convex terrain.
@@ -1222,6 +1233,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setLatchedSolidObjectId(int latchedSolidObjectId) {
                 this.latchedSolidObjectId = latchedSolidObjectId & 0xFF;
+        }
+
+        /** True when {@code Player_SlopeRepel} slipped the player into air on
+         * the current physics tick. Cleared at the start of each tick. */
+        public boolean isSlopeRepelJustSlipped() {
+                return slopeRepelJustSlipped;
+        }
+
+        public void setSlopeRepelJustSlipped(boolean value) {
+                this.slopeRepelJustSlipped = value;
         }
 
         public boolean isSliding() {
