@@ -678,7 +678,6 @@ public abstract class AbstractTraceReplayTest {
         sidekick.setDead(false);
         sidekick.setDeathCountdown(0);
         sidekick.setControlLocked(false);
-        sidekick.setObjectControlled(false);
         // Do NOT reset move_lock here. ROM Player_SlopeRepel (sonic3k.asm:23907)
         // sets move_lock=30 on its first slip activation and then decrements it
         // for the next 30 frames, during which the routine early-returns without
@@ -687,6 +686,37 @@ public abstract class AbstractTraceReplayTest {
         // slope-repel impulse every frame, which was the root cause of the
         // CNZ1 F318 `tails_g_speed` divergence (ROM preserves move_lock across
         // frames so SlopeRepel's second-and-later frames are no-ops).
+        //
+        // Preserve object_control only when the engine's CPU controller is in
+        // SPAWNING state AND the engine still has Tails parked at the ROM
+        // despawn marker (#$7F00). ROM sub_13ECA (sonic3k.asm:26800) writes
+        // object_control=$81 atomically with x_pos=#$7F00 / y_pos=#$0 to enter
+        // Tails_Catch_Up_Flying / Tails_FlySwim_Unknown after a despawn. Bit 7
+        // of object_control suppresses the entire sprite-movement dispatch in
+        // the ROM (Obj_Routines reads object_control before dispatching to the
+        // per-character movement handler), so clearing it every frame defeats
+        // the engine's flight-physics suppression and lets
+        // PlayableSpriteMovement.modeNormal() run full ground physics (slope
+        // decomposition flips y_speed from −0x33 to +0x05) — that was the
+        // CNZ1 F826 `tails_y_speed` divergence. The trace CSV does NOT capture
+        // object_control, so we infer it from the engine's own
+        // SidekickCpuController state plus the ROM-atomic x==marker signal.
+        // The gate intentionally does not extend past the marker frames: in
+        // AIZ the engine's state machine parks in SPAWNING for tens of
+        // thousands of frames after upstream divergence (with Tails at a real
+        // x), so the marker-only gate keeps the AIZ replay from accumulating
+        // object_control-suppressed frames the recording does not expect. Same
+        // precedent as the move_lock preservation directly above.
+        SidekickCpuController cpu = sidekick.getCpuController();
+        int xBeforeReseed = sidekick.getCentreX() & 0xFFFF;
+        int despawnX =
+                com.openggf.game.PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S3K & 0xFFFF;
+        boolean preserveObjectControl = cpu != null
+                && cpu.getState() == SidekickCpuController.State.SPAWNING
+                && xBeforeReseed == despawnX;
+        if (!preserveObjectControl) {
+            sidekick.setObjectControlled(false);
+        }
         sidekick.setHurt(state.routine() == 0x04);
         sidekick.setCentreX(state.x());
         sidekick.setCentreY(state.y());
