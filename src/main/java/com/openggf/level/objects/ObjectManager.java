@@ -4278,6 +4278,41 @@ public class ObjectManager {
             boolean wasAirborne = player.getAir();
             boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
+            // ROM parity: SolidObject_cont (s2.asm:35140-35145 SolidObject_OnScreenTest,
+            // sonic3k.asm:41390-41392 loc_1DF88, s1disasm/_incObj/sub SolidObject.asm:124-126
+            // Solid_ChkEnter and 86-87 SolidObject2F) gates the side/top/bottom contact
+            // path on the object's render_flags bit 7. Render_Sprites clears bit 7 each
+            // frame (sonic3k.asm:36338) and re-sets it only when the object's bounding
+            // box overlaps the screen (sonic3k.asm:36370). When clear, ROM jumps to
+            // SolidObject_TestClearPush / loc_1E0A2 which only cleans up push state and
+            // exits without zeroing player ground_vel/x_vel. The S2 disasm documents
+            // this as an optimisation: "if Sonic outruns the screen then he can phase
+            // through solid objects".
+            //
+            // Without this gate, AIZ trace F2667 saw the engine zero Tails's
+            // x_vel/g_speed when the camera had already scrolled past slot 22's spike
+            // (camera.x=0x1C99, spike right edge at 0x1C90 -> off screen left), while
+            // the ROM correctly preserved the velocity.
+            //
+            // Gated by PhysicsFeatureSet.solidObjectOffscreenGate so we can roll out
+            // the engine-wide ROM-parity behaviour incrementally without disturbing
+            // existing S1/S2 trace baselines that depend on the prior (more
+            // permissive) collision semantics.  See PhysicsFeatureSet definitions.
+            //
+            // The riding-state branch above (processInlineRidingObject) is unaffected:
+            // ROM platform-ride (MvSonicOnPtfm via SolidObjectFull_1P standing branch)
+            // runs BEFORE the on-screen test, so off-screen platforms still carry the
+            // rider. Only the new-contact resolveContact path is gated here.
+            if (isSolidObjectOffscreenGateEnabled(player)
+                    && !instance.isWithinSolidContactBounds()) {
+                // ROM sub_1E0C2 (sonic3k.asm:41528-41532): off-screen / no-contact
+                // path clears the player's push status and the object's pushing-bit
+                // bookkeeping but does not touch ground_vel/x_vel. Matches both
+                // S2 SolidObject_TestClearPush and S1 Solid_NotPushing.
+                provider.setPlayerPushing(player, false);
+                return null;
+            }
+
             SolidContact contact;
             byte[] slopeData = null;
             if (instance instanceof SlopedSolidProvider sloped) {
@@ -5791,6 +5826,14 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly();
+        }
+
+        private boolean isSolidObjectOffscreenGateEnabled(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.solidObjectOffscreenGate();
         }
 
         private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {

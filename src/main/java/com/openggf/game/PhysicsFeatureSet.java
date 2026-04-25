@@ -213,7 +213,25 @@ public record PhysicsFeatureSet(
          * without checking Sonic's routine (s2.asm:38870-38883).
          * <p>S1:  {@code false} (no CPU sidekick).
          */
-        boolean sidekickFlyLandRequiresLeaderAlive
+        boolean sidekickFlyLandRequiresLeaderAlive,
+        /**
+         * Whether {@code SolidObject_cont}'s on-screen gate
+         * (s2.asm:35140-35145 SolidObject_OnScreenTest, sonic3k.asm:41390-41392
+         * loc_1DF88, s1disasm/_incObj/sub SolidObject.asm:124-126
+         * Solid_ChkEnter / 86-87 SolidObject2F) skips side / top / bottom contact
+         * resolution when the object's render_flags bit 7 is clear (i.e. the
+         * camera has scrolled the object's bounding box off-screen).  Off-screen
+         * spike-vs-Tails interactions in AIZ depend on this gate to preserve
+         * Tails's velocity at trace F2667 when slot 22's spike center is past
+         * the camera's left edge.
+         *
+         * <p>S3K: {@code true} -- AIZ trace replay relies on the gate to match
+         * ROM behaviour. S1/S2: {@code false} for now to keep current trace
+         * baselines stable while the gate's on-screen semantic (engine
+         * cameraBounds.contains vs ROM Render_Sprites bounding-box overlap) is
+         * tuned.
+         */
+        boolean solidObjectOffscreenGate
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -282,7 +300,7 @@ public record PhysicsFeatureSet(
             null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
-            SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */);
+            SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -295,7 +313,7 @@ public record PhysicsFeatureSet(
             null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
-            SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */);
+            SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -312,7 +330,7 @@ public record PhysicsFeatureSet(
     }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
             SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
             false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
-            SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */);
+            SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
