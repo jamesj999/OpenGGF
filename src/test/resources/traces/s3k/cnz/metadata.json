@@ -5,7 +5,7 @@
   "act": 1,
   "bk2_frame_offset": 3171,
   "trace_frame_count": 42253,
-  "pre_trace_osc_frames": 0,
+  "pre_trace_osc_frames": 1,
   "start_x": "0x0018",
   "start_y": "0x0600",
   "characters": ["sonic", "tails"],
