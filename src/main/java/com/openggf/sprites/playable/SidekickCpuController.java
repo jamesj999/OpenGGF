@@ -1140,6 +1140,65 @@ public class SidekickCpuController {
     }
 
     /**
+     * Per-frame hydration entry point used by trace replay (v6+ recorder
+     * extension). Restores the engine's {@code SidekickCpuController} state
+     * from authoritative ROM globals captured each recorded frame so engine
+     * CPU drift doesn't mask physics divergences.
+     *
+     * <p>Differences from the pre-trace {@link #hydrateFromRomCpuState}:
+     * <ul>
+     * <li>Tolerates ROM CPU routine values the engine doesn't model yet
+     *   (e.g. Knuckles-only routines, super-state variants) by leaving the
+     *   {@code state} unchanged when the value isn't mappable.</li>
+     * <li>Stores the {@code Ctrl_2_logical} byte pair so the next AI tick
+     *   can read the ROM-recorded controller-2 input rather than the engine's
+     *   inferred input.</li>
+     * </ul>
+     *
+     * @param cpuRoutine ROM {@code Tails_CPU_routine} word
+     * @param idleTimer ROM {@code Tails_CPU_idle_timer} word (was previously
+     *     misnamed "control_counter" in the engine's hydrate signature)
+     * @param flightTimer ROM {@code Tails_CPU_flight_timer} word (despawn timer)
+     * @param autoFlyTimer ROM {@code Tails_CPU_auto_fly_timer} byte
+     * @param autoJumpFlag ROM {@code Tails_CPU_auto_jump_flag} byte
+     * @param ctrl2Held ROM {@code Ctrl_2_held_logical} byte
+     * @param ctrl2Pressed ROM {@code Ctrl_2_pressed_logical} byte
+     */
+    public void hydrateFromRomCpuStatePerFrame(int cpuRoutine, int idleTimer,
+                                               int flightTimer, int autoFlyTimer,
+                                               int autoJumpFlag,
+                                               int ctrl2Held, int ctrl2Pressed) {
+        State mapped = tryMapRomCpuRoutine(cpuRoutine);
+        if (mapped != null) {
+            state = mapped;
+            normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
+        }
+        controlCounter = Math.max(0, idleTimer);
+        despawnCounter = Math.max(0, flightTimer);
+        jumpingFlag = autoJumpFlag != 0;
+        controller2Held = ctrl2Held & 0xFF;
+        controller2Logical = ctrl2Pressed & 0xFF;
+    }
+
+    /**
+     * Variant of {@link #mapRomCpuRoutine} that returns {@code null} for
+     * unmapped routines instead of throwing — used for per-frame hydration
+     * where partial ROM-engine routine coverage shouldn't crash the replay.
+     */
+    private static State tryMapRomCpuRoutine(int cpuRoutine) {
+        return switch (cpuRoutine) {
+            case 0x00 -> State.INIT;
+            case 0x02 -> State.CATCH_UP_FLIGHT;
+            case 0x04 -> State.FLIGHT_AUTO_RECOVERY;
+            case 0x06 -> State.NORMAL;
+            case 0x08 -> State.PANIC;
+            case 0x0C -> State.CARRY_INIT;
+            case 0x0E, 0x20 -> State.CARRYING;
+            default -> null;
+        };
+    }
+
+    /**
      * Package-private test helper: sets both state and normalFrameCount directly.
      */
     void forceStateForTest(State state, int normalFrames) {

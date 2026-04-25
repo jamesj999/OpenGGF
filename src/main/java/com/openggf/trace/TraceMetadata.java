@@ -25,6 +25,7 @@ public record TraceMetadata(
     @JsonProperty("recording_date") String recordingDate,
     @JsonProperty("lua_script_version") String luaScriptVersion,
     @JsonProperty("trace_schema") Integer traceSchema,
+    @JsonProperty("aux_schema_extras") List<String> auxSchemaExtras,
     @JsonProperty("rom_checksum") String romChecksum,
     @JsonProperty("notes") String notes,
     @JsonProperty("characters") List<String> characters,
@@ -105,6 +106,16 @@ public record TraceMetadata(
     /** Returns whether this trace metadata explicitly records a gameplay team. */
     public boolean hasRecordedTeam() {
         return !recordedCharacters().isEmpty();
+    }
+
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame {@code cpu_state}
+     * events (the v6+ recorder extension that snapshots the full Tails CPU
+     * global block plus {@code Ctrl_2_logical} on every recorded frame).
+     */
+    public boolean hasPerFrameCpuState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("cpu_state_per_frame");
     }
 
     /** Load metadata from a metadata.json file. */
