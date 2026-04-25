@@ -19,7 +19,8 @@ Entries should include:
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
 2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
 3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
-4. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
+4. [CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition](#cnz1-trace-f1758--wire-cage-recapture-vs-slope-repel-race-condition)
+5. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
 
@@ -66,6 +67,43 @@ The extra 0x100 matches `Tails_JumpHeight`'s jump-release cap behaviour: ROM `so
 ### Removal Condition
 
 Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, OR a unit test pins the exact per-frame y_speed divergence for CPU-Tails rolling-airborne and a fix lands.
+
+---
+
+## CNZ1 Trace F1758 — Wire Cage Recapture vs Slope-Repel Race Condition
+
+**Location:** `CnzWireCageObjectInstance.continueRide()` cooldown branch / `Player_SlopeRepel` / cage capture-vs-slope-repel ordering.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1758 (after F1740 fix in iter-11).
+
+### Status (2026-04-25 iter-12)
+
+The F1740 fix advanced the first strict error to F1758. ROM trace F1757 → F1758:
+- **F1756**: Tails airborne (air=1, angle=0, mode=0), engine matches.
+- **F1757**: Tails LANDS on slope at angle 0x40, mode 1, air=0. Engine matches.
+- **F1758**: ROM teleports Tails x: 0x1309 → 0x134F (Δ +0x46) with x_speed=0, status=0x08 (on_object only, NO in_air). Engine releases Tails to airborne (angle=0, air=1) instead of staying on cage orbit.
+
+The +0x46 x teleport at F1758 with x_speed=0 is the cage's `loc_33A50/loc_33BBA` orbit positioning (`x = cage.x + cosine(phase)/4 + y_radius * cosine(phase) / 256`). For phase ≈ 0x04 with cage.x = 0x1300 and y_radius = 19, that yields x ≈ 0x1352, which matches the trace 0x134F within rounding. So the cage RECAPTURED Tails between F1740 and F1757 (cooldown $10 expired by F1756), then ran the orbit at F1758.
+
+### Diagnosed Cause
+
+The engine's slope-repel correctly slips Tails into air at F1758 (angle 0x40 + gSpeed 0x271 < 0x280 sets Status_InAir, move_lock=30). Engine's cage `continueRide` then sees:
+- `state.cooldown == 0` (latched at F1757, no release yet)
+- `player.getAir() == true` (slope-repel slip)
+- `gSpeed < MIN_SPEED_TO_CONTINUE (0x300)`
+- → enters cooldown branch → `updateReleaseRide(player, state)` → in_air → `release()`
+
+ROM appears to take a different path. By manual trace of `loc_339A0` with `gSpeed < 0x300 → loc_339B6 → set cooldown → bra loc_33ADE → loc_33B1E → in_air → bne loc_33B62 → release`, ROM should ALSO release. But the trace shows ROM at F1758 has status=0x08 (on_object only, NO in_air). That status pattern is inconsistent with both the slope-repel slip path AND the cage release path — one or both didn't fire in ROM at this frame.
+
+Without per-frame `Tails_CPU_routine`, `Ctrl_2_logical`, and `move_lock` recording, pinpointing why ROM kept Tails on cage at F1758 (while engine releases) requires either (a) regenerating the trace with the v6 recorder extension that's already committed, or (b) stepping through ROM in BizHawk for F1755-F1760 to capture the exact ROM path firing.
+
+### Required Investigation / Fix
+
+1. **Regenerate the CNZ trace** with the v6 recorder extension committed in commit `4e6a2b77a` (`feat(trace): add per-frame Tails CPU state recorder + parser plumbing`). The new per-frame `cpu_state` events would expose `Tails_CPU_routine`, `move_lock`, `Status_InAir`, and `Ctrl_2_logical` at every frame so the F1758 ROM path can be observed directly. Trace regeneration was attempted but blocked by a BizHawk chromeless headless emulation issue in this environment.
+2. Without per-frame CPU state, alternative is to step through ROM in BizHawk for F1755-F1760 with breakpoints on `Player_SlopeRepel`, `sub_338C4`, and `loc_33ADE` to capture the exact ROM path firing.
+
+### Removal Condition
+
+Remove once `TestS3kCnzTraceReplay`'s first strict error advances past F1758.
 
 ---
 
