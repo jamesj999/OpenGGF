@@ -108,6 +108,37 @@ Remove once `TestS3kCnzTraceReplay`'s F1685 `tails_y_speed` mismatch is resolved
 
 ---
 
+## AIZ1 Trace F2667 — Sidekick Riding-State Not Re-Established by Per-Frame Trace Seed
+
+**Location:** `AbstractTraceReplayTest.applyRecordedFirstSidekickState` per-frame sidekick state seed; interaction with `ObjectManager.SolidContacts.ridingStates`.
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2667 (after the iter-10 F2590 fix).
+
+### Status (2026-04-25 iter-11)
+
+The F2590 fly-back-exit-gate fix advanced the first-divergence frame to F2667. ROM at F2667: Tails has been standing on Spike object slot 22 (top-facing, `loc_24090`) since the post-hurt-bounce landing at F2640, walking right with `g_speed = 0x01BC, x_speed = 0x01BC, status_byte = 0x00, stand_on_obj = 22`. ROM `SolidObjectFull_1P` takes the standing path (`p2_standing_bit` set on the spike from the F2640 `RideObject_SetRide` call) and dispatches to `MvSonicOnPtfm` — no bounding-box test, no side push, speed preserved.
+
+### Symptom
+
+`tails_x_speed mismatch (expected=0x01BC, actual=0x0000)` and matching `tails_g_speed` mismatch at F2667. Diagnostic side-log probe (`AizF2667SideLog` — temporary, removed) showed engine Tails position is correct (matches ROM through F2666) but `ObjectManager.getRidingObject(sidekick) == null` for the entire post-landing window. At F2667 the sidekick walks rightward into the spike's left collision edge (`relX_raw = 2`) and the engine's `resolveContactInternal` side path zeroes both `xSpeed` and `gSpeed` because the player is "moving into" the object.
+
+### Diagnosed Cause
+
+The trace replay's per-frame sidekick state seed (`applyRecordedFirstSidekickState`) writes position, velocity, `air`, `onObject` etc. directly. At F2640 (the actual landing frame) ROM Tails transitions airborne→grounded via the spike's `SolidObject_cont` → `RideObject_SetRide`, which both sets `p2_standing_bit` on the spike object and registers Tails as riding via `interact(a1)`. The engine seed bypasses this transition: when CSV F2640 has `air=0`, the seed simply writes `setAir(false)` directly. The engine's `SolidContacts.ridingStates` map is never populated for the sidekick+spike pair, so on subsequent frames the spike's solid resolution falls through to the bounding-box test and triggers a side push.
+
+### Required Fix (deferred)
+
+The trace's `sidekick_stand_on_obj` field carries the ROM `interact(a0)` slot index. Mapping that ROM slot to an engine `ObjectInstance` and registering it via `SolidContacts.ridingStates` from the seed is the cleanest fix. It requires:
+- A ROM-slot → `ObjectInstance` lookup on the engine side (the engine doesn't currently expose ROM-equivalent slot indexing for sidekick seeding).
+- A new package-private `ObjectManager` API to register a sidekick's riding state without running the full collision pipeline.
+
+This is a trace-replay infrastructure change; deferring until after the AIZ trace test reaches frame parity at the 5K+ frame range or the trace recorder gains per-frame riding-state capture.
+
+### Removal Condition
+
+Remove once `TestS3kAizTraceReplay`'s first strict error advances past F2667 AND the engine's sidekick `ObjectManager.getRidingObject(sk)` returns the AIZ1 spike instance during the F2640-F2680 invulnerability window.
+
+---
+
 ## AIZ1 Trace F2590 — Tails Fly-Back Exit Gate Per-Game Mask Mismatch (FIXED)
 
 **Status:** Fixed in iter-10 by splitting `TailsRespawnStrategy.updateApproaching`'s exit-gate mask per game via `PhysicsFeatureSet.sidekickFlyLandStatusBlockerMask` and `sidekickFlyLandRequiresLeaderAlive`. Kept here for context — the F2590 entry rolled forward through several investigations before the per-game divergence was identified.
