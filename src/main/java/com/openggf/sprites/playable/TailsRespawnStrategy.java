@@ -25,6 +25,16 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
     public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         sidekick.setCentreXPreserveSubpixel(leader.getCentreX());
         sidekick.setCentreYPreserveSubpixel((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
+        // ROM Tails_Catch_Up_Flying loc_13B50 (sonic3k.asm:26503-26506) zeroes
+        // x_vel, y_vel, and ground_vel via `moveq #0,d0` followed by three
+        // `move.w d0,*_vel(a0)` writes immediately after the position teleport.
+        // Without this the engine retains the stale velocity from before the
+        // despawn (objectControlled blocked applyGravity / move handlers from
+        // touching them for the entire 60-frame parked-at-marker window),
+        // surfacing as the AIZ trace F2465 tails_x_speed -0x01F9 mismatch.
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
         sidekick.setAir(true);
         sidekick.setDead(false);
         sidekick.setHurt(false);
