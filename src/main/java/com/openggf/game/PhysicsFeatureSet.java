@@ -131,7 +131,25 @@ public record PhysicsFeatureSet(
          *  Sonic position directly into {@code d2} and subtracts {@code x_pos}
          *  with no intermediate adjustment (s2.asm:38933, 38945); S1 has no
          *  CPU sidekick. */
-        int sidekickFollowLeadOffset
+        int sidekickFollowLeadOffset,
+        /**
+         * Whether the sidekick CPU's SPAWNING-state catch-up trigger requires
+         * the leader to be on the ground / not in water / not roll-jumping
+         * before respawning.
+         * <p>S2: {@code true} — {@code TailsCPU_Spawning} (s2.asm:38751-38762)
+         * checks {@code Status_OnGround}, {@code Status_Underwater},
+         * {@code Status_RollJump} and skips respawn while any are blocking.
+         * <p>S3K: {@code false} — {@code Tails_Catch_Up_Flying}
+         * (sonic3k.asm:26474-26486) does NOT check those; it only honours the
+         * 64-frame {@code (Level_frame_counter & $3F) == 0} gate, the leader's
+         * {@code object_control} bit 7, and the leader's {@code Status_Super}
+         * bit. The engine's {@code SPAWNING} state needs the leader-grounded
+         * checks gated off for S3K so the catch-up handover fires when ROM
+         * does (e.g. CNZ where Sonic is airborne the whole time after the
+         * carry release).
+         * <p>S1: {@code true} (no Tails CPU; value unreachable).
+         */
+        boolean sidekickSpawningRequiresGroundedLeader
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -188,7 +206,7 @@ public record PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
             null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
-            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -199,7 +217,7 @@ public record PhysicsFeatureSet(
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
             null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
-            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE);
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -214,7 +232,7 @@ public record PhysicsFeatureSet(
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
     }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
-            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K);
+            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
