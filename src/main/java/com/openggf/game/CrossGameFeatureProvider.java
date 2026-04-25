@@ -519,7 +519,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.stageRingsUseObjectTouchCollection(), // stageRingsUseObjectTouchCollection (from base game)
                 baseFeatureSet.sidekickFollowSnapThreshold(),   // sidekickFollowSnapThreshold (from base game)
                 baseFeatureSet.sidekickDespawnX(),              // sidekickDespawnX (from base game)
-                baseFeatureSet.sidekickFollowLeadOffset()       // sidekickFollowLeadOffset (from base game)
+                baseFeatureSet.sidekickFollowLeadOffset(),      // sidekickFollowLeadOffset (from base game)
+                baseFeatureSet.sidekickSpawningRequiresGroundedLeader() // sidekickSpawningRequiresGroundedLeader (from base game)
         );
     }
 

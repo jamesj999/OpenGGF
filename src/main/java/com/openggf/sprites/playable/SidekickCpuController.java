@@ -257,8 +257,19 @@ public class SidekickCpuController {
         if (target.isObjectControlled()) {
             return;
         }
-        if (target.getAir() || target.getRollingJump() || target.isInWater() || target.isPreventTailsRespawn()) {
-            return;
+        // Per-game grounded-leader gate: S2 TailsCPU_Spawning checks for
+        // grounded / not in water / not roll-jumping (s2.asm:38751-38762);
+        // S3K Tails_Catch_Up_Flying does NOT (sonic3k.asm:26474-26486) —
+        // it only honours the 64-frame gate, leader.object_control bit 7,
+        // and leader.Status_Super. Without gating, CNZ's catch-up handover
+        // never fires because Sonic stays airborne after the carry release
+        // and the engine's SPAWNING state would block forever.
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        boolean strictGate = fs == null || fs.sidekickSpawningRequiresGroundedLeader();
+        if (strictGate) {
+            if (target.getAir() || target.getRollingJump() || target.isInWater() || target.isPreventTailsRespawn()) {
+                return;
+            }
         }
         respawnToApproaching(target);
     }
