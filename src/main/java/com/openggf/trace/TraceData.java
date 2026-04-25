@@ -203,6 +203,31 @@ public class TraceData {
         return null;
     }
 
+    /**
+     * Returns the per-frame {@link TraceEvent.CpuState} event for the requested
+     * trace frame and character, or {@code null} when the trace was recorded
+     * without v6+ per-frame CPU snapshots or when no event is present for that
+     * frame/character.
+     *
+     * <p>Used by the trace replay test to hydrate {@link
+     * com.openggf.sprites.playable.SidekickCpuController} state from
+     * authoritative ROM values each frame, eliminating CPU-state drift as a
+     * divergence source while leaving physics divergences fully visible.
+     */
+    public TraceEvent.CpuState cpuStateForFrame(int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.CpuState state
+                    && characterCode.equalsIgnoreCase(state.character())) {
+                return state;
+            }
+        }
+        return null;
+    }
+
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)
             throws IOException {
         List<TraceFrame> frames = new ArrayList<>();

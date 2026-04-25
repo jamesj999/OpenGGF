@@ -4,6 +4,30 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Trace Recorder v6: Per-Frame Tails CPU State Events
+
+- Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit a per-frame
+  `cpu_state` aux event capturing the full Tails CPU global block
+  (`Tails_CPU_interact`, `Tails_CPU_idle_timer`,
+  `Tails_CPU_flight_timer`, `Tails_CPU_routine`,
+  `Tails_CPU_target_X/Y`, `Tails_CPU_auto_fly_timer`,
+  `Tails_CPU_auto_jump_flag`) plus `Ctrl_2_held_logical` and
+  `Ctrl_2_pressed_logical`.
+- Bumped recorder version to `6.0-s3k`. CSV schema unchanged
+  (`trace_schema: 5`); new field `aux_schema_extras:
+  ["cpu_state_per_frame"]` lets parsers opt-in without breaking older
+  traces.
+- Java side: new `TraceEvent.CpuState` record, parsing in
+  `TraceEvent.parseJsonLine`, `TraceMetadata.auxSchemaExtras`,
+  `TraceMetadata.hasPerFrameCpuState()`,
+  `TraceData.cpuStateForFrame()`,
+  `SidekickCpuController.hydrateFromRomCpuStatePerFrame()` (tolerates
+  unmapped ROM routines).
+- Closes the visibility gap that blocked CNZ1 trace F1740 root cause
+  analysis: the existing trace's `sidekick_routine` field is the
+  sprite OST routine byte, not `Tails_CPU_routine` at `$F708`, and
+  `Ctrl_2_logical` was never recorded.
+
 ### Sonic 3&K Tails CPU Despawn Object-ID Mismatch Path (CNZ1 F1685)
 
 - Gated the sidekick CPU's despawn-on-object-id-mismatch path behind a

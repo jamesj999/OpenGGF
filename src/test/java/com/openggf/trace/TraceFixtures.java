@@ -33,6 +33,7 @@ public final class TraceFixtures {
                 null,
                 null,
                 3,
+                null /* aux_schema_extras */,
                 null,
                 null,
                 null,
