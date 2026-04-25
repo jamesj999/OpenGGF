@@ -64,7 +64,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // bossHitNegatesGroundSpeed - S1
                 true,   // stageRingsUseObjectTouchCollection - S1
                 PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2,  // sidekickFollowSnapThreshold - S1/S2 default
-                PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2  // sidekickDespawnX - S1/S2 placeholder
+                PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2,  // sidekickDespawnX - S1/S2 placeholder
+                PhysicsFeatureSet.SIDEKICK_FOLLOW_LEAD_OFFSET_NONE  // sidekickFollowLeadOffset - S1/S2 (no offset)
         );
 
         // Verify spindash is enabled (donor contribution)
