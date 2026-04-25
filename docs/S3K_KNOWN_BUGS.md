@@ -17,8 +17,9 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [AIZ1 Tails Rolling-Airborne Post-Jump y_speed Divergence (Trace Frame 2202)](#aiz1-tails-rolling-airborne-post-jump-y_speed-divergence-trace-frame-2202)
-3. [CNZ1 Trace F825 — Tails Off-Screen Recovery Teleport Target Mismatch](#cnz1-trace-f825--tails-off-screen-recovery-teleport-target-mismatch)
+2. [Sidekick CPU On-Screen Detection — `checkDespawn` False Positives/Negatives](#sidekick-cpu-on-screen-detection--checkdespawn-false-positivesnegatives)
+3. [CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering / Despawn Cascade](#cnz1-trace-f1685--wire-cage-latch-frame-ordering--despawn-cascade)
+4. [AIZ1 Trace F2405 — Tails Flight-Timer Despawn Not Firing](#aiz1-trace-f2405--tails-flight-timer-despawn-not-firing)
 
 ---
 
@@ -68,7 +69,85 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F825 — Tails Off-Screen Recovery Teleport Target Mismatch
+## Sidekick CPU On-Screen Detection — `checkDespawn` False Positives/Negatives
+
+**Location:** `SidekickCpuController.checkDespawn()` (`src/main/java/com/openggf/sprites/playable/SidekickCpuController.java` lines 957–984) — `onScreen` test uses `Camera.isVisibleForRenderFlag()` (geometric bounding-box test) while ROM `sub_13EFC` (sonic3k.asm:26816–26847) reads `render_flags(a0)` bit 7 set by `Draw_Sprite` after the VDP visibility test.
+
+### Symptom
+
+Two failure modes appear with the same root cause:
+
+- **CNZ1 F1685 (engine despawns when ROM doesn't):** Around F1380–F1685, the engine treats Tails as off-screen for ≥300 consecutive frames and triggers `triggerDespawn()`, parking Tails at `(0x7F00, 0x0000)`. ROM's render flag never clears for that long, so ROM keeps Tails in the level. The reported error `tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685 is the engine's stale velocity from the despawn marker; once the engine despawns, the cage-latch and ground physics never re-run, so y_speed sits at whatever the per-frame reseed leaves on the marker frame.
+
+- **AIZ1 F2405 (engine doesn't despawn when ROM does):** Tails goes off-screen at AIZ trace F0x839 (decimal 2105). ROM's `Tails_CPU_flight_timer` reaches `5*60 = 300` exactly at F0x965 (decimal 2405) and `sub_13EFC` calls `sub_13ECA` to despawn (parking at `(0x7F00, 0x0000)`). Engine's `despawnCounter` reaches only 25–40 because `Camera.isVisibleForRenderFlag()` returns `true` on frames where ROM's `render_flags` bit 7 was never set this frame, repeatedly resetting the counter.
+
+### Diagnosed Cause
+
+The engine's `Camera.isVisibleForRenderFlag(sprite)` does a geometric "is the sprite's bounding box inside the camera viewport" test using `renderFlagWidthPixels = 0x18` (24). ROM's `render_flags` bit 7 is set/cleared by `Draw_Sprite` in the per-frame VDP build pass, which uses the actual sprite mappings' bounding box and rejection thresholds. The two are equivalent on most frames but diverge in edge cases: very tall sprites (Tails rolling/flight), camera-shake/scroll deformation, and one-frame timing differences as the camera and sprite both move.
+
+The divergence accumulates over hundreds of frames in a single trace, so even a small per-frame mismatch eventually causes one side to (a) reset its timer when the other side wouldn't (engine in CNZ) or (b) keep the timer running when the other side would reset (engine in AIZ — opposite direction).
+
+### Removal Condition
+
+Remove once `SidekickCpuController.checkDespawn()` consumes a render-flag value that exactly mirrors ROM's `render_flags` bit 7 — either by:
+- routing through `SpriteManager.refreshPlayableRenderFlags()`'s cached value with verified ROM-equivalent semantics (sprite bounds taken from active mapping frame, not a fixed `renderFlagWidthPixels`), or
+- recomputing the visibility test from VDP/Draw_Sprite-equivalent geometry rather than `Camera.isVisibleForRenderFlag()`.
+
+Verification: `TestS3kCnzTraceReplay`'s engine no longer despawns Tails before F1685, AND `TestS3kAizTraceReplay`'s engine despawns Tails by F2405 (matching ROM in both directions).
+
+---
+
+## CNZ1 Trace F1685 — Wire-Cage Latch Frame Ordering / Despawn Cascade
+
+**Location:** `CnzWireCageObjectInstance.latch()` interaction with `LevelFrameStep` execution order, downstream of the on-screen detection issue above.
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1685 with the iter-5 fixes in place.
+
+### Status (2026-04-25)
+
+Two related parity gaps converge here:
+
+1. The engine's `LevelFrameStep` inline-solid path runs player physics BEFORE cage object updates; ROM `ExecuteObjects` runs the cage's latch logic before `Tails_Control` → `Tails_InputAcceleration_Path`. So the engine's first-on-cage frame misses one application of slope-resist + CPU-input acceleration that ROM applies at angle 0xC0.
+
+2. Independently, the engine's despawn detection (see entry above) parks Tails at the despawn marker around F1380, so by the time the cage frame F1685 is compared, Tails has been despawned and `objectControlled=true` short-circuits all physics.
+
+### Symptom
+
+`tails_y_speed mismatch (expected=-0D51, actual=-0B22)` at F1685. ROM y_speed evolves from -0xB22 to -0xD51 (delta -0x22F) via slope-resist + CPU-input accel at angle 0xC0; engine y_speed is frozen at -0xB22 because physics never runs (objectControlled set by despawn).
+
+### Suspected Cause
+
+The despawn cascade dominates: even if the cage latch ordering were fixed, the engine has already despawned Tails so the latch path never executes. The on-screen-detection fix above must land first; only then will the cage-latch ordering issue surface as a real divergence (and only then can we tell whether the latch-ordering also needs a fix).
+
+### Removal Condition
+
+Remove once `TestS3kCnzTraceReplay`'s engine no longer despawns Tails before F1685 AND the F1685 `tails_y_speed` mismatch is resolved (either passes or moves further into the trace).
+
+---
+
+## AIZ1 Trace F2405 — Tails Flight-Timer Despawn Not Firing
+
+**Location:** `SidekickCpuController.checkDespawn()` — `despawnCounter` does not accumulate to 300 because the engine's `onScreen` test resets it on frames ROM's `render_flags` says off-screen.
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2405.
+
+### Symptom
+
+`tails_y mismatch (expected=0x0000, actual=0x0454)` at F2405. ROM despawns Tails to `(0x7F00, 0x0000)` via `sub_13EFC` (sonic3k.asm:26816) → `sub_13ECA` once `Tails_CPU_flight_timer` hits `5*60 = 300`. The 300-frame off-screen count starts at AIZ trace F0x839 (decimal 2105) and expires exactly at F0x965 (decimal 2405). Engine's `despawnCounter` only reaches ~25-40 in the same window.
+
+### Diagnosed Cause
+
+Same as the on-screen detection entry above: the engine's `Camera.isVisibleForRenderFlag()` returns `true` on a non-trivial fraction of the off-screen window because ROM's `render_flags` bit 7 stays clear (Draw_Sprite never sets it). The geometric vs. VDP-build test divergence repeatedly resets `despawnCounter`.
+
+This is the AIZ side of the same bug as the CNZ F1685 entry — opposite direction (engine misses despawn ROM does, vs. engine misfires despawn ROM doesn't). Both are blocked on the same render-flag-parity fix.
+
+### Removal Condition
+
+Remove once `TestS3kAizTraceReplay`'s engine despawns Tails by AIZ trace F0x965 (frame 2405) matching ROM, AND the first strict error advances past F2405.
+
+---
+
+## CNZ1 Trace F825 — Tails Off-Screen Recovery Teleport Target Mismatch (FIXED)
+
+**Status:** Fixed in commit `19ed59532`. Kept in this doc as the F825 entry rolled forward through several follow-up fixes (despawn-X marker, fc alignment, SPAWNING-gate) that consumed it.
 
 **Location:** `SidekickCpuController` flight-recovery / off-screen teleport path. ROM `sub_13ECA` (sonic3k.asm:26800) teleports Tails to `(0x7F00, 0x0000)` when the catch-up routine resets; the engine's equivalent path teleports to `(0x4000, 0x0000)` instead.
 **Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 825.
