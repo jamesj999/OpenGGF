@@ -270,18 +270,23 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
          * jump is active, restore the object-owned status before loc_339A0.
          *
          * Exception: when {@code Player_SlopeRepel} (sonic3k.asm:23907) has
-         * just slipped the player (set {@code move_lock = 30} and {@code
-         * Status_InAir = 1} because |gSpeed| dropped below $280 at a steep
-         * angle), the air state is not from a stale terrain probe -- it's
-         * the legitimate "slope slip" detach the ROM uses to release players
-         * from low-speed wall climbs. Preserve it so the cage's released-path
-         * (loc_33ADE -> loc_33B1E -> bne loc_33B62) can honour the in_air
-         * flag and run a proper release. Without this exception, CNZ1 trace
-         * F1740 (Tails on cage at angle 0xC0, gSpeed 0x271 < 0x280) is
-         * spuriously kept on the cage by the engine while the ROM has
-         * already released Tails to airborne with y_vel = -gSpeed.
+         * just slipped the player on the CURRENT physics tick (set {@code
+         * Status_InAir = 1} and {@code move_lock = 30} because |gSpeed|
+         * dropped below $280 at a steep angle), the air state is the
+         * legitimate ROM slip-detach for low-speed wall climbs. Preserve it
+         * so the cage's released-path (loc_33ADE -> loc_33B1E -> bne
+         * loc_33B62) can honour the in_air flag and run a proper release.
+         * Use the {@code slopeRepelJustSlipped} per-tick flag rather than
+         * {@code move_lock > 0} -- {@code move_lock} can be non-zero from a
+         * slip many frames in the past (still counting down) when the cage
+         * recaptures the player, in which case the air bit is from the
+         * engine's terrain probe (stale) rather than a fresh slip and SHOULD
+         * be restored. The CNZ1 trace F1740 fix originally used move_lock,
+         * but F1758 (cage recapture 18 frames after the F1740 slip while
+         * move_lock=12 was still counting down) showed that condition was
+         * too coarse.
          */
-        if (player.getMoveLockTimer() > 0) {
+        if (player.isSlopeRepelJustSlipped()) {
             return;
         }
         if (player.getLatchedSolidObjectId() == Sonic3kObjectIds.CNZ_WIRE_CAGE && !player.isJumping()) {
