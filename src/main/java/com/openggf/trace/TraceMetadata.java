@@ -118,6 +118,18 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("cpu_state_per_frame");
     }
 
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame
+     * {@code oscillation_state} events (the v6.1+ S3K recorder extension that
+     * snapshots the full {@code Oscillating_table} bytes plus
+     * {@code Level_frame_counter} on every recorded frame). Used by trace
+     * replay diagnostics to ROM-verify global oscillator phase.
+     */
+    public boolean hasPerFrameOscillationState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("oscillation_state_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

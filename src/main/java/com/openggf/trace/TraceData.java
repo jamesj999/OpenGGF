@@ -228,6 +228,27 @@ public class TraceData {
         return null;
     }
 
+    /**
+     * Returns the per-frame {@link TraceEvent.OscillationState} event for the
+     * requested trace frame, or {@code null} when the trace was recorded
+     * without v6.1+ per-frame oscillation snapshots or when no event is
+     * present for that frame.
+     *
+     * <p><strong>Diagnostic only.</strong> Used by trace replay tests to
+     * compare engine {@code OscillationManager} state against authoritative
+     * ROM values per frame. The engine must NOT hydrate its oscillator from
+     * these values; it must produce the correct phase natively.
+     */
+    public TraceEvent.OscillationState oscillationStateForFrame(int frame) {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.OscillationState state) {
+                return state;
+            }
+        }
+        return null;
+    }
+
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)
             throws IOException {
         List<TraceFrame> frames = new ArrayList<>();

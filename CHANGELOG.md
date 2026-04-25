@@ -4,6 +4,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Trace Recorder v6.1-s3k (per-frame Oscillating_table snapshots)
+
+- Extended the BizHawk S3K trace recorder with a per-frame
+  `oscillation_state` aux event capturing the full $42-byte
+  `Oscillating_table` (sonic3k.constants.asm:853 at $FFFFFE6E) plus
+  `Level_frame_counter`. This gives trace replay diagnostics direct
+  visibility into the ROM's global oscillator phase, used by HoverFan,
+  swinging platforms, and other oscillating objects.
+- Bumped the recorder version 6.0-s3k -> 6.1-s3k and added
+  `oscillation_state_per_frame` to `aux_schema_extras` (additive — keeps
+  `cpu_state_per_frame` too). Java parser additions:
+  `TraceEvent.OscillationState` record,
+  `TraceData.oscillationStateForFrame(frame)` accessor, and
+  `TraceMetadata.hasPerFrameOscillationState()` capability check.
+- **Diagnostic only**: tests must not hydrate the engine's
+  `OscillationManager` from these values; the engine must produce the
+  correct oscillator phase natively from the same inputs as the ROM.
+
 ### Sonic 3&K CNZ Object Test/Engine Fixes (60/71 -> 71/71 unit tests)
 
 - Repaired the 11 failing CNZ unit-test assertions surfaced on the
