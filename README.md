@@ -216,15 +216,19 @@ further S3K parity work.
   collapsing solids.
 - **Trace replay tooling:** S2/S3K trace recorder and replay fixtures now capture BK2-backed frame
   data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work. The
-  trace recorder is now at v6.0-s3k with per-frame Tails CPU state events; AIZ and CNZ traces are
-  rerecorded against it. The new `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/`
-  and `.agents/skills/`) codifies the comparison-only invariant, the four mission rules, the
+  trace recorder is now at v6.1-s3k with per-frame Tails CPU state events plus per-frame
+  `oscillation_state` snapshots; AIZ and CNZ traces are rerecorded against it. The recorder also
+  re-captures `Level_frame_counter` at the first physics row instead of arm time, fixing a
+  one-tick bootstrap drift that affected `level_gated_reset_aware` profiles. The new
+  `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
+  `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 (per-game sidekick fly-back
   exit gate, S2 keeps 0xD2 mask / S3K uses 0x80 + leader-alive at sonic3k.asm:26625-26630). CNZ
-  first-error advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in
-  CnzWireCage release, per-tick `slopeRepelJustSlipped` flag). All gated via `PhysicsFeatureSet`,
-  S1/S2 baselines preserved.
+  first-error advanced 1685 → 1740 → 1758 → 854 (despawn-on-id-mismatch gating, slope-repel slip
+  in CnzWireCage release, per-tick `slopeRepelJustSlipped` flag, plus v6.1-s3k recorder
+  pre-trace-osc semantic correction that resolved F850 Hover Fan one-frame trigger lag). Engine
+  fixes gated via `PhysicsFeatureSet`, S1/S2 baselines preserved.
 - **CNZ object unit tests:** 60/71 → 71/71 passing. Multiple test assertions corrected to match
   ROM (`sub_324C0` clears Status_Roll at cylinder capture, hover-fan placement at fan centre,
   cannon test player Y standing on top, balloon launch via TouchResponseListener). Engine
