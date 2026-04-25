@@ -4,6 +4,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CnzWireCage: Don't Override Slope-Repel Slip (CNZ1 F1740)
+
+- `CnzWireCageObjectInstance.restoreObjectLatchIfTerrainClearedIt` now
+  short-circuits when `move_lock > 0`. The cage's "restore on-object"
+  hack was a compensation for the engine's terrain-probe being too
+  aggressive about marking the player airborne under invisible level
+  art -- but the same `setAir(true)` is also produced by ROM-accurate
+  `Player_SlopeRepel` (sonic3k.asm:23907) when |gSpeed| drops below
+  `$280` at a steep angle, and that slip is a legitimate ROM detach
+  that the cage must honour. `move_lock = 30` was just set by the
+  same SlopeRepel, so it's a reliable signal that the air state is
+  not from a stale terrain probe.
+- CNZ1 trace F1740 (Tails on cage at angle 0xC0, gSpeed 0x271 < 0x280)
+  was a concrete divergence: ROM ran `Player_SlopeRepel` (no
+  Status_OnObj gate exists in S3K's slope repel), set
+  `Status_InAir = 1`, then the cage's released path
+  (`loc_33ADE` → `loc_33B1E` → `bne loc_33B62`) ran a simple release
+  that preserved `y_vel = -gSpeed = -0x271`. Engine's slope repel did
+  fire and set air=true, but the cage's restore-hack reverted it,
+  keeping Tails on the cage instead.
+- First strict error in `TestS3kCnzTraceReplay` advances F1740 → F1758
+  (18 more frames of correctness).
+
 ### Trace Recorder v6: Per-Frame Tails CPU State Events
 
 - Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit a per-frame

@@ -18,7 +18,7 @@ Entries should include:
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
 2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
-3. [CNZ1 Trace F1740 — Tails CPU on Wire Cage Doesn't Release When ROM Releases](#cnz1-trace-f1740--tails-cpu-on-wire-cage-doesnt-release-when-rom-releases)
+3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
 4. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
@@ -69,40 +69,15 @@ Remove once `TestS3kAizTraceReplay`'s first strict error moves past frame 2202, 
 
 ---
 
-## CNZ1 Trace F1740 — Tails CPU on Wire Cage Doesn't Release When ROM Releases
+## CNZ1 Trace F1740 — Wire Cage `restoreObjectLatchIfTerrainClearedIt` Overrode Slope-Repel Slip (FIXED)
 
-**Location:** `CnzWireCageObjectInstance.continueRide()` / Tails CPU AI auto-jump path / `loc_339A0` cooldown→`loc_33ADE` jump-button release path.
-**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict error at frame 1740 (after F1685 despawn fix in iter-10).
+**Status:** Fixed in iter-11 by short-circuiting `restoreObjectLatchIfTerrainClearedIt` when `move_lock > 0`.
 
-### Status (2026-04-25 iter-10)
+ROM `Player_SlopeRepel` (sonic3k.asm:23907) has NO `Status_OnObj` gate — it runs even when on object, and slips the player into air (`bset #Status_InAir`) when |gSpeed| < `$280` at a steep angle. The cage's released path (`loc_33ADE` → `loc_33B1E` → `bne loc_33B62`) then honours the in_air bit and runs a simple release that preserves `y_vel = -gSpeed` (no launch impulse — that's `loc_339CC` which only fires from the active-ride branch when gSpeed >= `$300`).
 
-The F1685 fix advanced the first strict error to F1740. ROM has Tails airborne (`tails_air=1, tails_angle=0, tails_ground_mode=0`) at F1740 while engine has Tails on the wire cage (`tails_air=0, tails_angle=0xC0, tails_ground_mode=3`). Investigation showed:
+Engine's slope repel did fire and set `air = true` correctly (S3K's `slopeRepelChecksOnObject = false` ensured the on-object gate didn't block it). But the cage's `restoreObjectLatchIfTerrainClearedIt` hack — added to compensate for the engine's terrain-probe being too aggressive about marking the player airborne under invisible level art — reverted it, keeping Tails on the cage. Adding a `move_lock > 0` short-circuit lets the cage honour the slope-repel slip while preserving the original hack's behaviour for the terrain-probe case (terrain probes don't set move_lock).
 
-- Frame-by-frame trace: Tails y_speed deltas are consistently +0xA0 from F1735-F1740 (slope physics on cage angle 0xC0). Frame 1741 onward Δ = +0x38 (free-fall gravity).
-- ROM trace at F1740: tails_y_speed=-0x271, tails_g_speed=0x271 — same magnitudes (consistent with `y_speed = -gSpeed` for angle 0xC0).
-- Engine analysis: cage's `continueRide` checks `gSpeed < 0x300` (sets cooldown) and `vertical < 0 || vertical >= verticalRange`. At F1740 entry, gSpeed=0x311 (>=0x300), vertical=149 (well within range 640) — engine continues ride.
-- ROM `sub_13EFC` Tails CPU normal AI 64-frame jump-cadence gate: `(Level_frame_counter+1) & 0x3F == 0`. At gfc=0x06CD, low byte=0xCD, mask=0x0D ≠ 0, so AI auto-jump should NOT fire.
-
-### Symptom
-
-First strict error: `tails_air mismatch (expected=1, actual=0)` at F1740. Plus cascading `tails_angle` and `tails_ground_mode` mismatches as Tails stays on cage in engine.
-
-### Suspected Cause
-
-Either:
-- ROM has a `Tails_CPU_routine` value at F1740 that the engine isn't tracking (the trace `sidekick_routine` is the sprite OST routine not Tails_CPU_routine). The `Tails_Catch_Up_Flying` routine 0x02 sets status=0x02 (in_air) and zeros velocities at `loc_13B50` — but trace shows Tails y_speed=-0x271, not 0, so this exact path didn't fire.
-- ROM cage logic at `loc_33ADE` (cooldown set + jump button check) — if Ctrl_2_logical had button bits set this frame, the path sets Status_InAir, x_vel=-$800, y_vel=-$200 (trace shows y_vel=-$271, close but not exact match — could be the `loc_33B56` edge case where x_vel=-$100, y_vel=0 + then physics?).
-- Some other mechanism setting Status_InAir between Tails physics and end-of-frame snapshot.
-
-### Required Investigation / Fix
-
-1. Add per-frame `cpu_state_snapshot` recording (Tails_CPU_routine, idle_timer, flight_timer, auto_jump_flag, Ctrl_2_logical) to `tools/bizhawk/s3k_trace_recorder.lua` and regenerate the CNZ trace. This would let the test hydrate `SidekickCpuController` state each frame, eliminating drift as a false-failure source.
-2. Without per-frame CPU state, the alternative is to step through ROM in BizHawk for frames 1735-1745 and capture the exact sequence of `Tails_CPU_routine` and `Ctrl_2_logical` values to determine the exact code path firing at F1740.
-3. Engine-side: the cage's `continueRide` cooldown path (`gSpeed < 0x300`) currently calls `updateReleaseRide` which positions Tails on cage as if continuing — but ROM's `loc_33ADE` instead checks Tails's input for jump-button release. The engine may need a Ctrl_2-button check at this point to mirror `loc_33ADE`'s `andi.w #button_A|B|C, d5; bne...` release-with-launch path.
-
-### Removal Condition
-
-Remove once `TestS3kCnzTraceReplay`'s first strict error advances past F1740 AND the engine's cage-release-on-cooldown-with-button path matches ROM frame-for-frame.
+First strict error advanced F1740 → F1758.
 
 ---
 
