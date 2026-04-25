@@ -493,8 +493,20 @@ public class Camera {
 	/**
 	 * Computes the current-frame BuildSprites visibility that feeds
 	 * {@code render_flags.on_screen}.
-	 * Mirrors the common path: X uses {@code width_pixels}, while the approximate
-	 * Y path keeps sprites visible 32 pixels beyond the bottom edge.
+	 * <p>S3K {@code Render_Sprites} (sonic3k.asm:36336) does:
+	 * <pre>
+	 *   d1 = (y_pos - Camera_Y) + height_pixels  ; height_pixels = 0x18 = 24
+	 *   d1 &= Screen_Y_wrap_value                ; default 0xFFFF (no mask)
+	 *   if d1 &gt;= 2*height_pixels + 224:           ; threshold = 272
+	 *       off-screen
+	 * </pre>
+	 * With the default {@code Screen_Y_wrap_value = 0xFFFF}, this is equivalent
+	 * to {@code relY in [-24, 248)} — i.e., Y margin = {@code height_pixels = 24}
+	 * symmetrically, NOT 32.
+	 * <p>S1/S2 don't have a {@code Screen_Y_wrap_value} mechanism and the ROM
+	 * routines use slightly different margins. Gate the S3K-specific 24-margin
+	 * via {@link com.openggf.game.PhysicsFeatureSet#useScreenYWrapValueForVisibility()}
+	 * so existing S1/S2 traces keep their 32-margin behaviour.
 	 */
 	public boolean isVisibleForRenderFlag(AbstractPlayableSprite sprite) {
 		int widthPixels = sprite.getRenderFlagWidthPixels();
@@ -503,7 +515,10 @@ public class Camera {
 			return false;
 		}
 		int relY = sprite.getRenderCentreY() - y;
-		return relY >= -32 && relY < height + 32;
+		com.openggf.game.PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		boolean useS3kMargin = fs != null && fs.useScreenYWrapValueForVisibility();
+		int yMargin = useS3kMargin ? widthPixels : 32;
+		return relY >= -yMargin && relY < height + yMargin;
 	}
 
 	public void setFocusedSprite(AbstractPlayableSprite sprite) {
