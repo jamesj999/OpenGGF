@@ -4,6 +4,40 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F2667 Fix: SolidObject_cont On-Screen Gate
+
+- Fixed `TestS3kAizTraceReplay#replayMatchesTrace` first strict
+  divergence at frame 2667 (Tails-vs-spike side-push triggered in
+  engine where ROM's `SolidObject_cont` skipped the side path due
+  to the spike being off-screen left of the camera).
+- Added ROM `SolidObject_cont` on-screen gate to
+  `ObjectManager.SolidContacts.processInlineObjectForPlayer` (citing
+  `s2.asm:35140-35145 SolidObject_OnScreenTest`,
+  `sonic3k.asm:41390-41392 loc_1DF88`,
+  `s1disasm/_incObj/sub SolidObject.asm:124-126 Solid_ChkEnter`).
+  When the gate fires it only clears player push state and exits
+  (mirroring ROM `sub_1E0C2` at sonic3k.asm:41528) without zeroing
+  ground_vel / x_vel.
+- Added `ObjectInstance.isWithinSolidContactBounds()` (default true)
+  with `AbstractObjectInstance` override that uses
+  `cameraBounds.contains(getX(), getY(), 16)` to mirror ROM
+  Render_Sprites bit-7 semantics (16-px margin matches typical
+  `width_pixels`).
+- Added `PhysicsFeatureSet.solidObjectOffscreenGate` flag (S3K=true,
+  S1/S2=false for now) so the gate rolls out incrementally.
+- Bumped trace recorder to `6.2-s3k`: per-frame `object_state` (one
+  event per OST slot within OBJECT_PROXIMITY) and `interact_state`
+  (per-player interact field, resolved slot, object_control byte)
+  diagnostic events. The events made the ROM control-flow at F2667
+  directly inspectable. Recorder version is read-only diagnostic
+  data, NOT hydrated into engine state.
+- Regenerated `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+  with the v6.2-s3k recorder.
+- AIZ trace replay first error advanced from F2667 (1633 errors) to
+  F2721 (1638 errors). The new F2721 first-error is a Tails CPU AI
+  jump-trigger divergence, separate from the on-screen gate fix.
+- S1 GHZ1 / S1 MZ1 / S2 EHZ1 / S3K CNZ trace baselines unchanged.
+
 ### Sonic 3&K CNZ Object Test/Engine Fixes (60/71 -> 71/71 unit tests)
 
 - Repaired the 11 failing CNZ unit-test assertions surfaced on the

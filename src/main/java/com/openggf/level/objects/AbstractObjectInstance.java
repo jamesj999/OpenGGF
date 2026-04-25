@@ -448,6 +448,31 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * ROM parity for SolidObject_OnScreenTest (s2.asm:35140-35145,
+     * sonic3k.asm:41390-41392 loc_1DF88, s1disasm/_incObj/sub SolidObject.asm
+     * Solid_ChkEnter / SolidObject2F): returns true when the object's render
+     * box currently overlaps the camera viewport. ROM equivalent is render_flags
+     * bit 7 which Render_Sprites sets each frame based on bounding-box
+     * overlap. Used by the inline solid contact path to skip side / top / bottom
+     * resolution for objects the camera has already scrolled past, matching the
+     * ROM's "if Sonic outruns the screen then he can phase through solid objects"
+     * optimisation that the S2 disassembly explicitly documents.
+     */
+    public boolean isWithinSolidContactBounds() {
+        // ROM Render_Sprites (sonic3k.asm:36336-36370 SolidObject_OnScreenTest,
+        // s2.asm:35140-35145, s1disasm Solid_ChkEnter / SolidObject2F) sets
+        // render_flags bit 7 when the object's bounding box overlaps the
+        // 320x224 screen rectangle. Engines mirror this with a center+margin
+        // viewport test using ROM's typical width_pixels (16 px) as the
+        // margin: that matches the spike, monitor, and small block sprite
+        // sizes used throughout the gameplay objects without depending on
+        // SolidObjectParams.halfWidth (which mirrors collision halfwidth, a
+        // larger value and would let the gate stay open for objects ROM
+        // already culls).
+        return cameraBounds.contains(getX(), getY(), 16);
+    }
+
+    /**
      * ROM parity for ReactToItem: returns true if the object was on-screen
      * as of the pre-update snapshot (equivalent to obRender bit 7 from
      * the previous frame's DisplaySprite). Uses pre-update X position since

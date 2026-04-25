@@ -148,7 +148,16 @@ Removed when `TestS3kCnzTraceReplay`'s first strict error advanced past F1685.
 
 ---
 
-## AIZ1 Trace F2667 — Sidekick vs. Spike Side-Push Triggers Where ROM Does Not
+## AIZ1 Trace F2667 — Sidekick vs. Spike Side-Push Triggers Where ROM Does Not (FIXED)
+
+**Status:** Fixed in iter-12 by adding the ROM `SolidObject_cont` on-screen
+gate to `ObjectManager.SolidContacts.processInlineObjectForPlayer`,
+gated for S3K via `PhysicsFeatureSet.solidObjectOffscreenGate`. The v6.2-s3k
+recorder added per-frame `object_state` and `interact_state` events that
+made the camera-vs-spike geometry directly inspectable; with those events
+the ROM control flow at F2667 became unambiguous. First strict error
+advanced from F2667 to F2721 (a downstream Tails CPU-AI jump-trigger
+divergence) without touching S1/S2 trace baselines.
 
 **Location:** `ObjectManager.SolidContacts.processInlineObjectForPlayer` /
 `resolveContactInternal` side-path zeroing on the AIZ1 top-spike
@@ -157,7 +166,71 @@ sonic3k.asm:49011).
 **Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
 first strict error at frame 2667 (after the iter-10 F2590 fix).
 
-### Status (2026-04-25 iter-11)
+### Iter-12 Diagnosis (correct)
+
+The v6.2-s3k recorder per-frame events at F2667 showed:
+
+* Slot 22 spike: `x=0x1C80, y=0x03C0, status=0x00` (no p2_standing bit).
+* Tails: `interact=0xB65C` (= slot 22, sticky from prior `sub_24280` hurt
+  path), `object_control=0x00`.
+* Camera at F2667: `x=0x1C99, y=0x035A`.
+* Spike right edge in screen space: `0x1C80 + 0x10 - 0x1C99 = -9` -- the
+  spike is fully off-screen left.
+
+Hand-tracing ROM `Render_Sprites` (sonic3k.asm:36336-36370) confirms that
+when the spike was last rendered (end of F2666) its bounding-box right
+edge was already to the left of `Camera_X_pos_copy`, so Render_Sprites
+cleared `render_flags` bit 7 via `bmi.s Render_Sprites_NextObj`.
+
+At F2667 Obj_Spikes runs `loc_24090 -> SolidObjectFull -> SolidObjectFull_1P`
+for Player_2.  With slot 22's standing bit clear, control reaches
+`loc_1DF88` (sonic3k.asm:41390) which executes `tst.b render_flags(a0);
+bpl.w loc_1E0A2`. Bit 7 is clear -> the branch is taken to
+`loc_1E0A2 -> sub_1E0C2` (sonic3k.asm:41528) which only clears the
+push-state bookkeeping and exits with `moveq #0, d4`. The collision /
+side-push branches (`SolidObject_cont` at 41394, `loc_1E042` at 41468)
+are not entered, so ROM never zeroes Tails's `ground_vel` or `x_vel`.
+ROM CSV is consistent: tails_x_speed accelerates uninterrupted through
+0x01B0 -> 0x01BC -> 0x01C8 across F2666-F2668 with no zeroing.
+
+The S2 disassembly even documents this gate:
+
+> SolidObject_OnScreenTest:
+>   ; If the object is not on-screen, then don't try to collide with it.
+>   ; This is presumably an optimisation, but this means that if Sonic
+>   ; outruns the screen then he can phase through solid objects.
+>   _btst #render_flags.on_screen,render_flags(a0)
+>   _beq.w SolidObject_TestClearPush
+
+(s2.asm:35140-35145.) S1 has the same shape via `Solid_ChkEnter` at
+`s1disasm/_incObj/sub SolidObject.asm:124-126`.
+
+### Iter-12 Fix
+
+* Added `ObjectInstance.isWithinSolidContactBounds()` (default true) and an
+  `AbstractObjectInstance` override that mirrors ROM `Render_Sprites`'s
+  bit-7 semantic via `cameraBounds.contains(getX(), getY(), 16)` -- the
+  16-pixel margin matches the typical ROM `width_pixels` for gameplay
+  solids and avoids depending on `SolidObjectParams.halfWidth` (which
+  reflects collision halfwidth, not render extent).
+* Added `PhysicsFeatureSet.solidObjectOffscreenGate` (S3K=true, S1/S2=false
+  for now to keep current trace baselines stable while the on-screen
+  semantic is validated game-by-game).
+* Inserted the gate in
+  `ObjectManager.SolidContacts.processInlineObjectForPlayer`, after the
+  riding-state branch (so MvSonicOnPtfm-equivalent platform carry stays
+  unaffected) and before `resolveContact`. When the gate fires, only
+  `provider.setPlayerPushing(player, false)` runs, mirroring ROM
+  `sub_1E0C2`.
+
+### Removal Condition
+
+This entry remains as the iter-12 retrospective; the F2667 entry can be
+deleted in a later cleanup pass. The S1/S2 false setting on
+`solidObjectOffscreenGate` is intentional and should be revisited when
+the S1 GHZ1 / MZ1 / S2 EHZ1 trace baselines are re-grounded.
+
+### Recorder Inputs (iter-12)
 
 The F2590 fly-back-exit-gate fix advanced the first-divergence frame to
 F2667. Side-log probe instrumentation (temporary, removed) confirmed:
@@ -228,18 +301,31 @@ The discrepancy implies one of:
   at the divergent frame still routes to the standard
   `distX != 0 && movingInto` zero. Reverted.
 
-### Required Investigation
+The v6.2-s3k recorder bumped from v6.0-s3k by adding two diagnostic
+event types (additive, no schema bump):
 
-Live BizHawk trace of the ROM-side spike collision at F2667 (single-step
-through `loc_24090` / `SolidObjectFull_1P` for Player_2) to determine
-which branch ROM actually takes. Until that captures ground truth,
-hand-tracing the disassembly cannot resolve the divergence.
+* `object_state` -- per-frame snapshot for every OST slot within
+  `OBJECT_PROXIMITY` (160 px) of either Player_1 or Player_2: routine
+  pointer, status byte (offset $22), subtype (offset $1C), x_pos /
+  y_pos / x_radius / y_radius. For the Obj_Spikes top-facing variant
+  ($24090) bits 3 and 4 of `status` reflect `p1_standing` /
+  `p2_standing` (sonic3k.constants.asm
+  `standing_mask = p1_standing|p2_standing`).
+* `interact_state` -- per-frame snapshot per active player: `interact`
+  field at offset $42 (RAM address of last object stood on, set by
+  `RideObject_SetRide` / `loc_1E154`), the resolved OST slot index,
+  and `object_control` (offset $2A) -- bit 7 set causes ROM
+  `SolidObject_cont` (sonic3k.asm:41439) to take the `bmi.w loc_1E0A2`
+  branch which skips side-push velocity zeroing.
 
-### Removal Condition
-
-Remove once `TestS3kAizTraceReplay`'s first strict error advances past
-F2667 AND the engine's spike-Tails interaction matches ROM through the
-F2640-F2680 post-hurt invulnerability window.
+The diagnostic events are advertised via `aux_schema_extras`
+(`object_state_per_frame`, `interact_state_per_frame`) so parsers can
+query them with `TraceMetadata.hasPerFrameObjectState()` /
+`hasPerFrameInteractState()`. The events are READ-ONLY diagnostic input
+to the trace-replay test; they are NOT hydrated into engine object state
+(per the comparison-only invariant of trace replay). The fix uses them
+to identify the ROM control-flow divergence and then matches ROM
+natively in engine code.
 
 ---
 
