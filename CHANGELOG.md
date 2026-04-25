@@ -4,6 +4,36 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K Tails CPU Fly-Back Exit Gate (per-game ROM parity)
+
+- Split the sidekick CPU's `TailsRespawnStrategy.updateApproaching`
+  fly-back-to-leader exit gate by game so each ROM's TailsCPU_Flying /
+  Tails_FlySwim_Unknown landing condition is honoured exactly:
+  - **S2** keeps `andi.b #$D2,d2 / bne return` (s2.asm:38872-38873) —
+    bits 1+4+6+7 (in_air | roll_jump | underwater | bit7) of the
+    16-frame-delayed leader status block exit.
+  - **S3K** moves to `andi.b #$80,d2` (sonic3k.asm:26625) plus the
+    leader-alive check `cmpi.b #6,(Player_1+routine).w / bhs`
+    (sonic3k.asm:26629-26630). Bit 7 isn't a standard player status
+    flag, so this gate practically never blocks; landing is decided
+    by position residuals + Sonic-alive only.
+  Wired through two new `PhysicsFeatureSet` fields:
+  `sidekickFlyLandStatusBlockerMask` and
+  `sidekickFlyLandRequiresLeaderAlive`. S1 (no CPU sidekick) sets the
+  mask to 0 and the leader-alive check to false.
+- Effect on `TestS3kAizTraceReplay#replayMatchesTrace`: first strict
+  divergence advances from F2590 → F2667 (errors 1558 → 1208,
+  warnings 2010 → 1633). At F2590 ROM Tails had just landed from the
+  fly-back, fell off the giant ride vine, contacted Spike object
+  slot 22 (`loc_24090`) and applied the standard hurt-bounce
+  (`sub_24280` → `HurtCharacter`, sonic3k.asm:49011 / 49200 / 21065).
+  The engine had Tails locked in APPROACHING with
+  `object_controlled = true` for the entire descent because the
+  S2-derived 0xD2 mask saw Sonic's airborne bit set and refused to
+  land. The S3K-correct 0x80 mask lets Tails land as soon as
+  residuals reach zero, exposing him to the spike at the same trace
+  frame as the ROM.
+
 ### Sonic 3&K Tails CPU Flight AI (Catch-Up + Auto-Recovery)
 
 - Ported `Tails_Catch_Up_Flying` (`sonic3k.asm:26474`, ROM CPU routine

@@ -67,7 +67,9 @@ public class TestHybridPhysicsFeatureSet {
                 PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2,  // sidekickDespawnX - S1/S2 placeholder
                 PhysicsFeatureSet.SIDEKICK_FOLLOW_LEAD_OFFSET_NONE,  // sidekickFollowLeadOffset - S1/S2 (no offset)
                 true,  // sidekickSpawningRequiresGroundedLeader - S1/S2 default (matches s2.asm:38751-38762)
-                false  // useScreenYWrapValueForVisibility - S1/S2 keep 32-margin
+                false,  // useScreenYWrapValueForVisibility - S1/S2 keep 32-margin
+                PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_NONE,  // sidekickFlyLandStatusBlockerMask - S1 has no CPU sidekick
+                false  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
         );
 
         // Verify spindash is enabled (donor contribution)

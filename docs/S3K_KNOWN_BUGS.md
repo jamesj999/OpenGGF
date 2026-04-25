@@ -108,46 +108,61 @@ Remove once `TestS3kCnzTraceReplay`'s F1685 `tails_y_speed` mismatch is resolved
 
 ---
 
-## AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch
+## AIZ1 Trace F2590 — Tails Fly-Back Exit Gate Per-Game Mask Mismatch (FIXED)
 
-**Location:** `SidekickCpuController.updateCatchUpFlight()` 64-frame gate vs. ROM's actual trigger-path used at this frame.
-**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2590 (after iter-7 fixes).
+**Status:** Fixed in iter-10 by splitting `TailsRespawnStrategy.updateApproaching`'s exit-gate mask per game via `PhysicsFeatureSet.sidekickFlyLandStatusBlockerMask` and `sidekickFlyLandRequiresLeaderAlive`. Kept here for context — the F2590 entry rolled forward through several investigations before the per-game divergence was identified.
 
-### Status (2026-04-25)
+**Location:** `TailsRespawnStrategy.updateApproaching` (engine APPROACHING → NORMAL transition, equivalent to ROM `Tails_FlySwim_Unknown` exit at sonic3k.asm:26622-26648 / s2.asm:38870-38883).
 
-Iter-6 fixed F2405 (engine never despawning Tails) by aligning the render-flag visibility Y-margin with ROM `Render_Sprites` (24 instead of 32). First error advanced F2405 → F2465.
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2590.
 
-Iter-7 fixed F2465 (stale x_speed=-0x01F9 carried across the despawn) by zeroing velocities on `TailsRespawnStrategy.beginApproach()` per ROM `loc_13B50`. First error advanced F2465 → F2590.
+### Symptom (pre-fix)
 
-Iter-8 implemented BK2 P2 controller-input parsing (commit 33bfcc78d) and a fix for the pre-existing `p2Logical = p2Held` bug, but inspection of all three trace BK2 movies (S3K AIZ, S3K CNZ, S2 EHZ) showed **zero P2 input frames**. So F2590 is not driven by the Ctrl_2 A/B/C/START button-press path and another mechanism is responsible.
+`tails_y_speed mismatch (expected=-0400, actual=0x02D8)` at F2590.
 
-### Symptom
+### Iter-10 Diagnosis (correct)
 
-`tails_y_speed mismatch (expected=-0400, actual=0x02D8)` at F2590. ROM's CSV at trace frame 0x0A1E shows `sk_routine` transitioning 02 (CATCH_UP_FLIGHT) → 04 (FLIGHT_AUTO_RECOVERY) with y_speed=-0x0400 (the `Tails_JumpHeight` cap value). Engine still in CATCH_UP_FLIGHT with continued downward gravity (y_speed=+0x02D8 at +0x38/frame).
+Side-log probe (`AizF2590SideLog` — temporary, removed after the fix
+landed) showed engine Tails was permanently locked in
+`SidekickCpuController.State.APPROACHING` with `object_controlled = true`
+through the entire descent that culminated in F2590, so
+`processInlineObjectForPlayer` short-circuited every spike
+`onSolidContact` callback and Tails never received the standard
+hurt-bounce.
 
-### Diagnosed Cause (UPDATED iter-9)
+`updateApproaching` could not exit because its status-blocker mask
+was hard-coded to `0xD2`, the **S2** value (s2.asm:38872-38873
+`andi.b #$D2,d2 / bne return`). Bit 1 (in_air) of Sonic's recorded
+status was set throughout the descent, so the gate refused to land.
 
-**The trace `sidekick_routine` field is NOT `Tails_CPU_routine`** — it is the sprite OST routine byte (offset 5 of the object slot). The 02→04 transition at frame 2590 represents the SPRITE routine moving from "alive, normal" (2) to "hurt" (4), via `HurtCharacter` after Tails contacts a Spike object (slot 22 in the AIZ trace, type `loc_24090`).
+ROM **S3K** at the same call site (sonic3k.asm:26625) uses
+`andi.b #$80,d2` — bit 7 only, which is not a real Sonic status flag.
+S3K's gate practically never blocks, and lands as soon as residuals
+are zero. ROM S3K also adds a leader-alive check that S2 lacks
+(sonic3k.asm:26629-26630 `cmpi.b #6,(Player_1+routine).w / bhs`).
 
-ROM path: `loc_24090` (Spikes) → `SolidObjectFull` → `SolidObject_cont` → `sub_24280` → `HurtCharacter(Tails)` → sets sprite routine = HURT (4) and `y_vel = -0x0400` (the standard upward hurt-bounce).
+### Iter-10 Fix
 
-Engine equivalent: `Sonic3kSpikeObjectInstance` → `AbstractSpikeObjectInstance.onSolidContact()` → `applyHurt(currentX)` → `y_speed = -0x400`.
+- `PhysicsFeatureSet`: added two fields:
+  - `sidekickFlyLandStatusBlockerMask` — `0xD2` (S2) / `0x80` (S3K) /
+    `0` (S1, no CPU sidekick).
+  - `sidekickFlyLandRequiresLeaderAlive` — `false` (S1/S2) / `true`
+    (S3K, ROM `cmpi.b #6,(Player_1+routine).w`).
+- `TailsRespawnStrategy.updateApproaching` now reads both fields off
+  `sidekick.getPhysicsFeatureSet()`. The legacy `0xD2` mask is kept
+  as a fallback when no feature set is resolved (legacy unit tests
+  that build a sprite without a game module).
+- `CrossGameFeatureProvider` and `TestHybridPhysicsFeatureSet`
+  threaded through the new fields.
 
-The path exists in the engine but doesn't fire at F2590 because of a 1-pixel geometric miss in the descending-player vs. top-solid-surface contact test in `ObjectManager.SolidContacts.processInlineObjectForPlayer()` / its inner `resolveContact()`. Engine's Tails centreY ≈ 0x03AF; spike top surface ≈ 0x03B0; the engine's overlap threshold rejects this 1-pixel contact while ROM accepts it.
+### Effect on AIZ trace replay
 
-### Suspected Cause
+- First strict divergence frame moved 2590 → 2667.
+- Errors 1558 → 1208. Warnings 2010 → 1633.
 
-The engine's vertical overlap test for descending players hitting a top-solid surface uses a strict `>` rather than `>=` (or is missing a 1-pixel lookahead) that ROM's `SolidObject_cont` overlap test does not. Verified via the agent's frame-by-frame gravity trace: Tails is in free-fall (objectControlled=false, gSpeed=0) accumulating +0x38/frame, and the rejected contact is exactly the moment Tails would touch the spike top.
-
-### Candidate Fix
-
-`ObjectManager.SolidContacts.resolveContact()` or `processInlineObjectForPlayer()` — descending-player landing geometry. A `≥`-vs-`>` change OR a 1-pixel lookahead on the bottom-of-player vs. top-of-spike test.
-
-Cross-game risk: the contact code is shared across all three games. Any change must be verified against S1/S2 traces. ROM disassemblies for `s1disasm` and `s2disasm` should be consulted to confirm the exact overlap-threshold semantics before changing.
-
-### Removal Condition
-
-Remove once `TestS3kAizTraceReplay`'s first strict error advances past F2590 AND the engine's CATCH_UP_FLIGHT → FLIGHT_AUTO_RECOVERY transition fires on the same trace frame as the ROM (verified by tracking `sidekick_routine` in the trace).
+ROM at F2667 has Tails getting hurt-bounced again and recovering;
+the engine doesn't yet — that's a separate divergence that surfaces
+once the F2590 spike landing actually fires in the engine.
 
 ---
 
