@@ -108,34 +108,98 @@ Remove once `TestS3kCnzTraceReplay`'s F1685 `tails_y_speed` mismatch is resolved
 
 ---
 
-## AIZ1 Trace F2667 — Sidekick Riding-State Not Re-Established by Per-Frame Trace Seed
+## AIZ1 Trace F2667 — Sidekick vs. Spike Side-Push Triggers Where ROM Does Not
 
-**Location:** `AbstractTraceReplayTest.applyRecordedFirstSidekickState` per-frame sidekick state seed; interaction with `ObjectManager.SolidContacts.ridingStates`.
-**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error at frame 2667 (after the iter-10 F2590 fix).
+**Location:** `ObjectManager.SolidContacts.processInlineObjectForPlayer` /
+`resolveContactInternal` side-path zeroing on the AIZ1 top-spike
+(`Sonic3kSpikeObjectInstance` slot 22, ROM `loc_24090` at
+sonic3k.asm:49011).
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
+first strict error at frame 2667 (after the iter-10 F2590 fix).
 
 ### Status (2026-04-25 iter-11)
 
-The F2590 fly-back-exit-gate fix advanced the first-divergence frame to F2667. ROM at F2667: Tails has been standing on Spike object slot 22 (top-facing, `loc_24090`) since the post-hurt-bounce landing at F2640, walking right with `g_speed = 0x01BC, x_speed = 0x01BC, status_byte = 0x00, stand_on_obj = 22`. ROM `SolidObjectFull_1P` takes the standing path (`p2_standing_bit` set on the spike from the F2640 `RideObject_SetRide` call) and dispatches to `MvSonicOnPtfm` — no bounding-box test, no side push, speed preserved.
+The F2590 fly-back-exit-gate fix advanced the first-divergence frame to
+F2667. Side-log probe instrumentation (temporary, removed) confirmed:
 
-### Symptom
+* Engine Tails position matches ROM exactly from the F2640 hurt-bounce
+  landing through F2666 (running rightward with the same accelerating
+  `g_speed`/`x_speed = 0x01B0 → 0x01A4 → ...` per frame).
+* At engine fc=2378 (= trace F2667), engine sees Tails enter the spike's
+  collision box at `playerX = 0x1C67` (spike x = 0x1C80, halfWidth = 27,
+  `relX_raw = 2`). `resolveContactInternal` classifies as side contact
+  (X-overlap = 2, Y-overlap = 31, Y > X) → side path → zeroes both
+  `xSpeed` and `gSpeed`, snaps player back to `0x1C65`, sets `pushing=true`.
+* ROM CSV at F2667 shows Tails kept moving (`x_speed = 0x01BC`,
+  `g_speed = 0x01BC`) with no stop — implying ROM took a code path that
+  preserved velocity.
 
-`tails_x_speed mismatch (expected=0x01BC, actual=0x0000)` and matching `tails_g_speed` mismatch at F2667. Diagnostic side-log probe (`AizF2667SideLog` — temporary, removed) showed engine Tails position is correct (matches ROM through F2666) but `ObjectManager.getRidingObject(sidekick) == null` for the entire post-landing window. At F2667 the sidekick walks rightward into the spike's left collision edge (`relX_raw = 2`) and the engine's `resolveContactInternal` side path zeroes both `xSpeed` and `gSpeed` because the player is "moving into" the object.
+### Open question
 
-### Diagnosed Cause
+Hand-tracing ROM `SolidObject_cont` (sonic3k.asm:41394) with the same
+inputs (`d0=2, d1=halfW=27, d2=height=16, d3=pY-oY+4=4, d4=spikeX,
+default_y_radius=15, y_radius=15`) follows the same algebra to
+`loc_1E034` and falls into `loc_1E042` (side path). At `tst.w d0` the
+register is non-zero (positive, 2), `bmi` not taken, `tst.w x_vel`
+positive, so `bra loc_1E056` zeros `ground_vel` and `x_vel` — exactly
+the engine's behaviour. ROM's `interact(a0)` is set to slot 22 from
+F2590's `sub_24280` hurt path (the recorder reports
+`sidekick_stand_on_obj=22` continuously through F2640-F2670), but
+`Status_OnObj` (bit 3) is cleared in the recorded `sidekick_status_byte`
+at every post-landing frame.
 
-The trace replay's per-frame sidekick state seed (`applyRecordedFirstSidekickState`) writes position, velocity, `air`, `onObject` etc. directly. At F2640 (the actual landing frame) ROM Tails transitions airborne→grounded via the spike's `SolidObject_cont` → `RideObject_SetRide`, which both sets `p2_standing_bit` on the spike object and registers Tails as riding via `interact(a1)`. The engine seed bypasses this transition: when CSV F2640 has `air=0`, the seed simply writes `setAir(false)` directly. The engine's `SolidContacts.ridingStates` map is never populated for the sidekick+spike pair, so on subsequent frames the spike's solid resolution falls through to the bounding-box test and triggers a side push.
+The discrepancy implies one of:
+1. ROM's spike (slot 22) is not running its `loc_24090` body at F2667
+   (some out-of-range / proximity gate the engine doesn't replicate;
+   `Sprite_OnScreen_Test2` at sonic3k.asm:37281 deletes the sprite when
+   `(x_pos & 0xFF80) - Camera_X_pos_coarse_back > 0x280`, but the
+   trace's `object_appeared`/`object_removed` events on slot 22 show it
+   alive from F2474 to F2774, spanning F2667).
+2. ROM has the spike's `p2_standing_bit` set from a path I haven't
+   traced (e.g. an earlier frame's `loc_1E154` landing branch with
+   `d3 ∈ [0, 0x10)` and player y_vel ≥ 0 calling `RideObject_SetRide`).
+   Hand-tracing F2640 onwards the d3 transformations stay negative
+   (Tails y > spike y), so the standing path is never entered through
+   the conventional landing flow visible in the disassembly.
+3. The `Sonic_AnglePos` re-grounding pass between Tails' physics and
+   the spike's update sets `interact` and the spike's standing-bit via
+   a path outside `SolidObjectFull` (e.g. ground collision detecting
+   the spike as a solid surface and routing through a different solid
+   handler).
 
-### Required Fix (deferred)
+### Attempted Fixes (reverted)
 
-The trace's `sidekick_stand_on_obj` field carries the ROM `interact(a0)` slot index. Mapping that ROM slot to an engine `ObjectInstance` and registering it via `SolidContacts.ridingStates` from the seed is the cleanest fix. It requires:
-- A ROM-slot → `ObjectInstance` lookup on the engine side (the engine doesn't currently expose ROM-equivalent slot indexing for sidekick seeding).
-- A new package-private `ObjectManager` API to register a sidekick's riding state without running the full collision pipeline.
+- **Iter-11a:** Added `ObjectManager.getObjectAtSlot(int)` and
+  `ObjectManager.setRidingObject(player, instance, pieceIndex)` plus a
+  call from `applyRecordedFirstSidekickState` that hydrates engine
+  `SolidContacts.ridingStates` from the recorded
+  `sidekick_stand_on_obj` slot whenever the recorded
+  `Status_OnObj` bit (`statusByte & 0x08`) is set. The bit is never
+  set for Tails post-F2640 in this trace, so the gate never fired —
+  no measurable effect on F2667. Reverted to keep the diff minimal.
+- **Iter-11b:** Same hydration with the gate dropped (always set when
+  `standOnObj > 0`). Made things slightly worse (1208 → 1212 errors)
+  by registering riding state during the F2590-F2640 hurt-bounce when
+  ROM's `interact` field still pointed at the spike from `sub_24280`
+  but Tails was airborne. Reverted.
+- **Iter-11c:** Removed the `distX==0 && movingInto → zero speed`
+  block in `resolveContactInternal`'s pre-movement side path (S2/S3K
+  branch only). Did not affect F2667 because the `relX = 2` (not 0)
+  at the divergent frame still routes to the standard
+  `distX != 0 && movingInto` zero. Reverted.
 
-This is a trace-replay infrastructure change; deferring until after the AIZ trace test reaches frame parity at the 5K+ frame range or the trace recorder gains per-frame riding-state capture.
+### Required Investigation
+
+Live BizHawk trace of the ROM-side spike collision at F2667 (single-step
+through `loc_24090` / `SolidObjectFull_1P` for Player_2) to determine
+which branch ROM actually takes. Until that captures ground truth,
+hand-tracing the disassembly cannot resolve the divergence.
 
 ### Removal Condition
 
-Remove once `TestS3kAizTraceReplay`'s first strict error advances past F2667 AND the engine's sidekick `ObjectManager.getRidingObject(sk)` returns the AIZ1 spike instance during the F2640-F2680 invulnerability window.
+Remove once `TestS3kAizTraceReplay`'s first strict error advances past
+F2667 AND the engine's spike-Tails interaction matches ROM through the
+F2640-F2680 post-hurt invulnerability window.
 
 ---
 
