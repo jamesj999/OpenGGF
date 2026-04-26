@@ -29,7 +29,7 @@ Entries should include:
 11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
 13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-resolved)
-14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (OPEN)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-open)
+14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
 
 ---
 
@@ -1122,7 +1122,7 @@ Resolve once `TestS3kAizTraceReplay`'s first strict error advances past F6255, w
 
 ---
 
-## CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (OPEN)
+## CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)
 
 **Location:** `Sonic3kSpringObjectInstance.onSolidContact`, `Sonic3kSpringObjectInstance.checkHorizontalApproach`, `ObjectManager.SolidContacts.processInlineObjectForPlayer`
 **ROM Reference:** `sub_23190` (sonic3k.asm:47890), `sub_2326C` (sonic3k.asm:47957), `Obj_Spring_Horizontal` (sonic3k.asm:47771), `word_22EF0` (sonic3k.asm:47651) — yellow horizontal spring strength `-$A00`.
@@ -1170,14 +1170,31 @@ The yellow horizontal spring strength `-$A00` matches the trace `tails_x_speed =
 
 The CNZ test resources `physics.csv`/`aux_state.jsonl` in `src/test/resources/traces/s3k/cnz/` were **not** regenerated against this schema — the existing trace remains the reference for replay. The new diagnostic schema is for ad-hoc bug-hunt regenerations only.
 
-### Fix Strategy (Not Landed)
+### Fix Landed
 
-The clean ROM-aligned fix has two parts; neither lands here pending a wider review of the engine's spring-vs-multi-player and air-to-ground-contact handling:
+`Sonic3kSpringObjectInstance.update()` now mirrors ROM `sub_2326C` (sonic3k.asm:47957)
+over the leader **and** every active sidekick.  The previous code passed only
+`playerEntity` (always the leader) to `checkHorizontalApproach`, so a CPU-controlled
+Tails landing on a horizontal spring while sitting just outside the side-push
+collision box never received the proactive-zone fire that the ROM gives Player_2
+at sonic3k.asm:47999-48020.  After the fix the spring fires on Tails at F3649,
+giving her `x_vel=-$0A00` like ROM, and the +8 px X bump from `sub_23190`
+(sonic3k.asm:47893) puts her at `0x1D29` matching ROM trace.
 
-1. **Mirror ROM `sub_2326C` over both players.** `Sonic3kSpringObjectInstance.update()` should iterate the leader and all CPU sidekicks (or `update()` should be invoked once per active player by `ObjectManager.executeObjectWithSolidContext`). The proactive-zone trigger fires for any player on the correct side of a horizontal spring, regardless of which player is the leader.
-
-2. **Switch horizontal-spring `onSolidContact` to fire on the standing flag, not `touchSide`.** ROM `Obj_Spring_Horizontal` (sonic3k.asm:47780) tests the `p[12]_standing` bit returned by `SolidObjectFull2_1P`. The engine analog should be `contact.standing()` (mapping to the same flag set by the engine's solid-contact resolver), with `isPlayerOnHorizontalSpringActiveSide` retained as the side-arbitration check that ROM does at sonic3k.asm:47783-47791. Cross-game review needed because S2's Obj_Spring_Horizontal at s2.asm uses the same standing-flag pattern, and the engine currently shares `Sonic3kSpringObjectInstance`-style contact handling across S2/S3K.
+The diagnosis's secondary suggestion ("switch horizontal-spring `onSolidContact`
+to fire on the standing flag, not `touchSide`") was based on a misreading of the
+d6 swap test at sonic3k.asm:47780-47782.  Re-derived: `p1_standing_bit = 3`
+(sonic3k.constants.asm:133), so when `SolidObjectFull2_1P` calls
+`addi.b #$D,d4 / bset d4,d6` on the side-push branch
+(sonic3k.asm:41497-41498 / 41506-41507) it sets bit `3 + 0xD = 0x10`
+of d6 (= bit 16).  After `swap d6 / andi.w #1,d6` the spring is testing
+bit 16, which is the **side-push flag**, not the standing flag.  The engine's
+existing `contact.touchSide()` gate is therefore the correct ROM equivalent;
+the proactive zone is the only piece that was missing.
 
 ### Removal Condition
 
-Resolve once `TestS3kCnzTraceReplay`'s first strict error advances past F3649 (engine Tails reaches `x_speed=-$0A00` at F3649 like ROM), with cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6255.
+Removed.  `TestS3kCnzTraceReplay`'s first strict error advanced from F3649
+to F3845 (a 196-frame advance into a different, sidekick-physics divergence
+already on the open list).  Cross-game baselines unchanged: S1 GHZ green,
+S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6313.
