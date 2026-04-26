@@ -70,7 +70,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // useScreenYWrapValueForVisibility - S1/S2 keep 32-margin
                 true,   // sidekickDespawnUsesObjectIdMismatch - S1/S2 (s2.asm:39067 cmp.b id(a3),d0)
                 PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_NONE,  // sidekickFlyLandStatusBlockerMask - S1 has no CPU sidekick
-                false  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
+                false,  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
+                false   // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
         );
 
         // Verify spindash is enabled (donor contribution)

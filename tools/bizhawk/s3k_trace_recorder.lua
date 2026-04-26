@@ -46,6 +46,12 @@
 -- visibility gap that blocks CNZ1 F850 root-cause analysis where the engine's
 -- OscillationManager.getByte(LIFT_OSC_OFFSET=$14) reads osc[5] one tick
 -- behind ROM's Oscillating_table+$16 high byte.
+-- v6.2-s3k changes: emit per-frame object_state events (one per nearby OST
+-- slot within OBJECT_PROXIMITY of either player) and interact_state events
+-- (per player) with object_control byte (offset $2A) plus interact slot
+-- resolved from offset $42. Used to root-cause AIZ F2667 spike-vs-Tails
+-- collision divergence: ROM's SolidObject_cont path early-exits when
+-- object_control bit 7 is set on the player (sonic3k.asm:41439).
 ------------------------------------------------------------------------------
 
 -----------------
@@ -527,13 +533,14 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.1-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.2-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
-    -- cpu_state and oscillation_state aux events are detected by parsers
-    -- via aux_schema_extras rather than a schema bump.
+    -- cpu_state, oscillation_state, object_state, and interact_state aux
+    -- events are detected by parsers via aux_schema_extras rather than a
+    -- schema bump.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame"],\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -917,6 +924,76 @@ local function check_mode_changes(status, routine)
     prev_routine = routine
 end
 
+-- Per-frame OBJECT STATE events. Emit one event per OST slot within
+-- OBJECT_PROXIMITY of either Player_1 or Player_2 each frame. Captures
+-- routine pointer first byte, status byte (offset $22), subtype (offset
+-- $1C), x_pos / y_pos / x_radius / y_radius. For Obj_Spikes ($24090)
+-- the status byte's bit 3 is p1_standing and bit 4 is p2_standing per
+-- sonic3k.constants.asm "standing_mask = p1_standing|p2_standing".
+local function write_object_states_per_frame(player1_x, player1_y, player2_present,
+                                              player2_x, player2_y)
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for slot = 1, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local obj_code = mainmemory.read_u32_be(addr)
+        if obj_code ~= 0 then
+            local obj_x = mainmemory.read_u16_be(addr + OFF_X_POS)
+            local obj_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
+            local near_p1 = math.abs(obj_x - player1_x) <= OBJECT_PROXIMITY
+                and math.abs(obj_y - player1_y) <= OBJECT_PROXIMITY
+            local near_p2 = player2_present
+                and math.abs(obj_x - player2_x) <= OBJECT_PROXIMITY
+                and math.abs(obj_y - player2_y) <= OBJECT_PROXIMITY
+            if near_p1 or near_p2 then
+                local status_byte = mainmemory.read_u8(addr + OFF_STATUS)
+                local subtype = mainmemory.read_u8(addr + 0x1C)
+                local x_radius = mainmemory.read_u8(addr + OFF_RADIUS_X)
+                local y_radius = mainmemory.read_u8(addr + OFF_RADIUS_Y)
+                local routine_byte = mainmemory.read_u8(addr + OFF_ROUTINE)
+                write_aux(string.format(
+                    '{"frame":%d,"vfc":%d,"event":"object_state","slot":%d,'
+                        .. '"object_code":"0x%08X","routine":"0x%02X",'
+                        .. '"status":"0x%02X","subtype":"0x%02X",'
+                        .. '"x":"0x%04X","y":"0x%04X",'
+                        .. '"x_radius":%d,"y_radius":%d}',
+                    trace_frame, vfc, slot, obj_code, routine_byte,
+                    status_byte, subtype, obj_x, obj_y,
+                    x_radius, y_radius))
+            end
+        end
+    end
+end
+
+-- Per-frame INTERACT STATE events. Emit one per active player capturing
+-- the interact field (offset $42, RAM address of the object the player
+-- is "linked" to via RideObject_SetRide or loc_1E154) resolved to OST
+-- slot index, and object_control (offset $2A). When object_control bit
+-- 7 is set on a player, ROM SolidObject_cont (sonic3k.asm:41439) takes
+-- the bmi.w loc_1E0A2 branch which skips side-push velocity zeroing --
+-- the very mechanism the engine ObjectManager.SolidContacts side-path
+-- must mirror in S3K. Used to diagnose AIZ F2667 spike-vs-Tails divergence.
+local function write_interact_state_per_frame(player2_present)
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local p1_interact_addr = mainmemory.read_u16_be(PLAYER_BASE + OFF_STAND_ON_OBJ)
+    local p1_interact_slot = interact_addr_to_slot(p1_interact_addr)
+    local p1_object_control = mainmemory.read_u8(PLAYER_BASE + 0x2A)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"interact_state","character":"sonic",'
+            .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
+        trace_frame, vfc, p1_interact_addr, p1_interact_slot, p1_object_control))
+    if player2_present then
+        local p2_interact_addr = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_STAND_ON_OBJ)
+        local p2_interact_slot = interact_addr_to_slot(p2_interact_addr)
+        local p2_object_control = mainmemory.read_u8(SIDEKICK_BASE + 0x2A)
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"interact_state","character":"tails",'
+                .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
+            trace_frame, vfc, p2_interact_addr, p2_interact_slot, p2_object_control))
+    end
+end
+
 -----------------
 --- Main Loop ---
 -----------------
@@ -1140,6 +1217,13 @@ local function on_frame_end()
     -- platforms, and other oscillating objects.
     write_oscillation_per_frame()
 
+    -- Per-frame OBJECT STATE / INTERACT STATE (v6.2 schema). Emitted as
+    -- diagnostics for ROM-side spike object state and player object_control
+    -- / interact fields at AIZ F2667-style player-vs-spike divergent frames.
+    local sk_present = sidekick.present == 1
+    write_object_states_per_frame(x, y, sk_present, sidekick.x, sidekick.y)
+    write_interact_state_per_frame(sk_present)
+
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
     end
@@ -1168,7 +1252,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v5.4-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.2-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 while true do
     on_frame_end()
