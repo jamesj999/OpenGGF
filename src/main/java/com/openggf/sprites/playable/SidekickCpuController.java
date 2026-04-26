@@ -101,6 +101,43 @@ public class SidekickCpuController {
     private int maxXBound = Integer.MIN_VALUE;
     private int maxYBound = Integer.MIN_VALUE;
     private int lastInteractObjectId;
+    /**
+     * ROM analog of {@code Tails_CPU_interact} (sonic3k.asm:FFB058 reservation;
+     * read at sonic3k.asm:26823 via {@code move.w (Tails_CPU_interact).w,d0}).
+     *
+     * <p>ROM stores the FIRST WORD of the SST that {@code interact(a0)} pointed
+     * to on the previous frame. Each frame {@code sub_13EFC} (sonic3k.asm:26816)
+     * compares that cached word against the CURRENT {@code (a3)} read; if they
+     * differ, ROM falls into {@code sub_13ECA} (sonic3k.asm:26800) which warps
+     * Tails to the despawn marker {@code (0x7F00, 0)} and resets
+     * {@code Tails_CPU_routine=2}.
+     *
+     * <p>The mismatch fires in two situations:
+     * <ol>
+     *   <li>The slot Tails was riding has been freed by
+     *       {@code Delete_Referenced_Sprite} (sonic3k.asm:36116) — the SST
+     *       gets zeroed, so {@code (a3)} reads 0 and the cached
+     *       {@code Tails_CPU_interact} (the high word of the previous routine
+     *       pointer, e.g. {@code 0x0002}) no longer matches.</li>
+     *   <li>The slot has been re-populated with a different live object whose
+     *       routine pointer is in a different ROM region (different high word).
+     *       In practice this is rare for S3K because virtually every gameplay
+     *       object lives in {@code 0x0001xxxx-0x0007xxxx}, sharing the same
+     *       high word.</li>
+     * </ol>
+     *
+     * <p>Engine analog: cache the {@link com.openggf.level.objects.ObjectInstance}
+     * reference Tails was riding on the previous frame. When the current
+     * frame's resolution returns {@code null} or a destroyed instance while we
+     * previously had a live reference, that mirrors ROM case (1) — slot freed.
+     * Object-id-based detection is insufficient because the engine's
+     * {@code latchedSolidObjectId} is sticky across destruction, and IDs alone
+     * can collide between live objects of the same type.
+     *
+     * <p>Kept as an instance reference (not just a hash) so identity comparison
+     * is unambiguous regardless of object-pool reuse.
+     */
+    private com.openggf.level.objects.ObjectInstance lastRidingInstance;
     private int normalFrameCount;
     private int sidekickCount = 1;
 
@@ -206,6 +243,7 @@ public class SidekickCpuController {
         normalFrameCount = 0;
         jumpingFlag = false;
         lastInteractObjectId = 0;
+        lastRidingInstance = null;
         sidekick.setForcedAnimationId(-1);
         sidekick.setControlLocked(false);
         sidekick.setObjectControlled(false);
@@ -1014,8 +1052,18 @@ public class SidekickCpuController {
                 ? sidekick.isRenderFlagOnScreen()
                 : isCurrentlyVisible();
         int currentInteractObjectId = sidekick.getLatchedSolidObjectId() & 0xFF;
+        com.openggf.level.objects.ObjectInstance currentRidingInstance = resolveCurrentRidingInstance();
         if (onScreen) {
             lastInteractObjectId = currentInteractObjectId;
+            // ROM sub_13EFC's loc_13F2E (sonic3k.asm:26839): on-screen path
+            // also refreshes Tails_CPU_interact when on-object. Mirror by
+            // updating our cached riding instance so a later off-screen
+            // frame compares against the most recent live ride.
+            if (sidekick.isOnObject()) {
+                lastRidingInstance = currentRidingInstance;
+            } else {
+                lastRidingInstance = null;
+            }
             despawnCounter = 0;
             return false;
         }
@@ -1051,17 +1099,71 @@ public class SidekickCpuController {
                 && lastInteractObjectId != 0
                 && currentInteractObjectId != lastInteractObjectId) {
             lastInteractObjectId = currentInteractObjectId;
+            lastRidingInstance = currentRidingInstance;
+            triggerDespawn(DespawnCause.OBJECT_ID_MISMATCH);
+            return true;
+        }
+
+        // ROM (a3)=0 branch: when the slot Tails was riding has been freed by
+        // Delete_Referenced_Sprite (sonic3k.asm:36116-36124, which zeros the
+        // entire SST), sub_13EFC's cmp.w reads 0 and falls into sub_13ECA
+        // (the despawn marker warp at sonic3k.asm:26800). Engine equivalent:
+        // detect the riding ObjectInstance disappearing while we're still
+        // off-screen and the sprite's Status_OnObj is still set — which is
+        // exactly what AIZ trace replay F6255 hits when the AIZ collapsing
+        // platform (Obj_CollapsingPlatform routine loc_20594, sonic3k.asm:44814)
+        // finishes its falling-fragment lifecycle and is removed from the
+        // dynamic-object list.
+        //
+        // Engine's latchedSolidObjectId byte is sticky across destruction
+        // (the ID stays set even after the underlying SolidObjectProvider
+        // instance is gone) so a pure id-byte compare cannot detect the case.
+        // Track the instance reference instead. Gate via PhysicsFeatureSet so
+        // S2 keeps its 8-bit id semantics (id(a3) on a freed slot is also 0
+        // there, but S2's id-mismatch path already covers it via object-pool
+        // ID changes).
+        boolean useRidingInstanceLossDespawn = fs != null
+                && fs.sidekickDespawnUsesRidingInstanceLoss();
+        if (useRidingInstanceLossDespawn
+                && sidekick.isOnObject()
+                && lastRidingInstance != null
+                && (currentRidingInstance == null
+                        || currentRidingInstance != lastRidingInstance
+                        || currentRidingInstance.isDestroyed())) {
+            lastRidingInstance = currentRidingInstance;
+            lastInteractObjectId = currentInteractObjectId;
             triggerDespawn(DespawnCause.OBJECT_ID_MISMATCH);
             return true;
         }
 
         despawnCounter++;
         lastInteractObjectId = currentInteractObjectId;
+        if (sidekick.isOnObject()) {
+            lastRidingInstance = currentRidingInstance;
+        } else {
+            lastRidingInstance = null;
+        }
         if (despawnCounter >= DESPAWN_TIMEOUT) {
             triggerDespawn(DespawnCause.OFF_SCREEN_TIMEOUT);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Resolves the {@link com.openggf.level.objects.ObjectInstance} the sidekick
+     * is currently latched onto. Sourced from
+     * {@link AbstractPlayableSprite#getLatchedSolidObjectInstance()}, which
+     * is set by both the SolidObject framework
+     * ({@link com.openggf.level.objects.ObjectManager} contact paths) and the
+     * latch-and-own controllers ({@code CnzBarberPoleObjectInstance},
+     * {@code CnzWireCageObjectInstance}). This is broader than
+     * {@code SolidContacts.getRidingObject()} (which only tracks
+     * SolidObjectProvider rides) so the riding-instance loss check covers both
+     * styles of object Tails can be glued to.
+     */
+    private com.openggf.level.objects.ObjectInstance resolveCurrentRidingInstance() {
+        return sidekick.getLatchedSolidObjectInstance();
     }
 
     private boolean isCurrentlyVisible() {
@@ -1135,6 +1237,7 @@ public class SidekickCpuController {
         // NOT object_controlled - DEAD_FALLING is its own dispatch state
         // so updateDeadFalling fires on the next tick regardless.
         lastInteractObjectId = 0;
+        lastRidingInstance = null;
     }
 
     /**
@@ -1192,6 +1295,7 @@ public class SidekickCpuController {
         // Kill_Character (sonic3k.asm:21148-21151) phase, which runs
         // before this marker warp on Frame N+1.
         lastInteractObjectId = 0;
+        lastRidingInstance = null;
     }
 
     private void clearInputs() {
@@ -1465,6 +1569,7 @@ public class SidekickCpuController {
         // construction time, not per-level state. Clearing it would break the sidekick
         // permanently since findLeader() scanning was removed in favor of explicit assignment.
         lastInteractObjectId = 0;
+        lastRidingInstance = null;
         minXBound = Integer.MIN_VALUE;
         maxXBound = Integer.MIN_VALUE;
         maxYBound = Integer.MIN_VALUE;

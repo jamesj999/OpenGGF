@@ -4,6 +4,43 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F6255: Sidekick CPU Freed-Slot Despawn Infrastructure (PARTIAL)
+
+- Added engine analog of ROM `Tails_CPU_interact` (sonic3k.asm:26823)
+  via `AbstractPlayableSprite.latchedSolidObjectInstance` —
+  `ObjectInstance` reference tracking the live object the sidekick is
+  latched onto, paralleling the existing 8-bit
+  `latchedSolidObjectId` byte. The instance is set whenever the
+  SolidObject framework binds a contact (`ObjectManager.SolidContacts`
+  inline paths) and by latch-and-own controllers
+  (`CnzBarberPoleObjectInstance`, `CnzWireCageObjectInstance`). It
+  auto-clears when `setLatchedSolidObjectId(0)` is called. The
+  `setLatchedSolidObject(int, ObjectInstance)` convenience setter binds
+  both atomically.
+- Added `SidekickCpuController.lastRidingInstance` per-frame cache and
+  the freed-slot despawn analog of ROM `sub_13EFC`
+  (sonic3k.asm:26816-26847). When off-screen + on-object and the cached
+  instance is no longer alive (null, replaced, or `isDestroyed()`),
+  triggers `triggerDespawn(OBJECT_ID_MISMATCH)` — mirroring ROM's
+  `cmp.w (a3),d0` mismatch on a slot freed by
+  `Delete_Referenced_Sprite` (sonic3k.asm:36116).
+- Added `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss` flag
+  to gate the new path. S3K=true, S2=false (8-bit-id mismatch path
+  already covers the freed-slot case for S2's `cmp.b id(a3),d0` because
+  id of a freed slot is also 0), S1=false (no Tails CPU).
+- Architectural blocker documented in `docs/S3K_KNOWN_BUGS.md`: the
+  AIZ collapsing platform's lifecycle desynchronises from ROM under
+  the trace replay's per-frame sidekick re-seed, so the engine's
+  platform never reaches `isDestroyed()` at the same frame ROM
+  deletes its slot. Without that timing match, the new despawn path
+  is correctly wired but doesn't fire at F6255. F6255 fix requires
+  resolving the deeper platform-timing divergence.
+- Test result: TestS3kAizTraceReplay#replayMatchesTrace first strict
+  error UNCHANGED at F6255 (6782 errors, 5773 warnings). Cross-game
+  baselines stay green/unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F2222. TestSidekickCpuDespawnParity (4 tests) and
+  TestHybridPhysicsFeatureSet (10 tests) all pass.
+
 ### Sonic 3&K CNZ Trace v6.2-s3k Regeneration & F2222 Architectural Blocker Documentation
 
 - Regenerated `src/test/resources/traces/s3k/cnz` with the v6.2-s3k
