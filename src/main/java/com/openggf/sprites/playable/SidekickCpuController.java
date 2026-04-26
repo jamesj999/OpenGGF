@@ -347,7 +347,22 @@ public class SidekickCpuController {
             applyManualControl();
             return;
         }
-        if (sidekick.isObjectControlled()) {
+        // ROM Tails_Normal Part 2 entry sonic3k.asm:26672:
+        //   tst.b   object_control(a0)
+        //   bmi.w   loc_13EBE          ; only branch on sign bit (bit 7)
+        // ROM's `bmi.w` only suppresses the CPU controller when bit 7 of
+        // object_control is set (flight $81, despawn $81, super $83, debug
+        // $83). Bits 0-6 (CNZ wire cage's $42, MGZ twisting loop's $43,
+        // etc.) leave Tails_CPU_Control running so the auto-jump trigger
+        // at loc_13E9C can still fire while the player is "stuck" on the
+        // controlling object — that's how ROM launches Tails off the CNZ
+        // wire cage (CNZ1 trace F1791: cage's loc_33ADE reads
+        // Ctrl_2_logical=$78 set by the auto-jump trigger).
+        // Engine's setObjectControlled(true) maps to ANY bit set, so the
+        // ROM-bit-7 distinction is carried via objectControlAllowsCpu —
+        // bit-7 callers leave it false (default), bits 0-6 callers set
+        // it true. See AbstractPlayableSprite#setObjectControlAllowsCpu.
+        if (sidekick.isObjectControlled() && !sidekick.isObjectControlAllowsCpu()) {
             return;
         }
 

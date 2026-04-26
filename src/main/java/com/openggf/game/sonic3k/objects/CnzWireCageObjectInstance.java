@@ -173,6 +173,12 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         state.cooldown = 1;
         player.setControlLocked(true);
         player.setObjectControlled(true);
+        // ROM Obj_CNZWireCage sets bits 6 and 1 of object_control (sonic3k.asm:69937-69938),
+        // and bit 0 in the air-recapture branch (sonic3k.asm:69921 loc_3394C). None of
+        // those is bit 7, so ROM keeps Tails_CPU_Control running each frame — that is
+        // what lets the auto-jump trigger fire at the cage and feed Ctrl_2_logical=$78
+        // to loc_33ADE for the cage's launch-with-A/B/C path. (CNZ1 trace F1791.)
+        player.setObjectControlAllowsCpu(true);
     }
 
     private void latch(AbstractPlayableSprite player, CageState state, boolean touchFloorDuringLatch) {
@@ -250,6 +256,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                 return;
             }
             player.setObjectControlled(true);
+            // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
+            // air-recapture), never bit 7, so the sidekick CPU keeps running.
+            player.setObjectControlAllowsCpu(true);
             restoreObjectLatchIfTerrainClearedIt(player);
             updateReleaseRide(player, state);
             return;
@@ -267,6 +276,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             state.cooldown = 1;
             player.setControlLocked(true);
             player.setObjectControlled(true);
+            // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
+            // air-recapture), never bit 7, so the sidekick CPU keeps running.
+            player.setObjectControlAllowsCpu(true);
             updateReleaseRide(player, state);
             return;
         }

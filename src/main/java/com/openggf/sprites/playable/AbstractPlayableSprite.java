@@ -477,6 +477,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean objectControlled = false;
         /**
+         * Companion flag to {@link #objectControlled}: when {@code true} the
+         * controlling object owns physics (object_control bits 0-6 in ROM) but
+         * the sidekick CPU AI dispatcher is allowed to run, matching ROM's
+         * {@code bmi.w} (bit 7) check at {@code sonic3k.asm:26672}. Default
+         * {@code false} preserves existing engine behaviour for the bit-7
+         * (flight / despawn / super state / debug) callers. Cleared whenever
+         * {@link #setObjectControlled(boolean)} is set to {@code false}.
+         */
+        protected boolean objectControlAllowsCpu = false;
+        /**
          * Narrow seam for MGZ top-platform carry. That object uses object control for
          * ownership but still needs SolidObject side/top feedback from its controlling
          * platform instance while the carry is active.
@@ -701,6 +711,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.queuedForceInputRight = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
+                this.objectControlAllowsCpu = false;
                 this.mgzTopPlatformCarrySolidContactObject = null;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
@@ -2114,7 +2125,30 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 } else {
                         this.mgzTopPlatformCarrySolidContactObject = null;
                         clearMgzTopPlatformSpringHandoff();
+                        this.objectControlAllowsCpu = false;
                 }
+        }
+
+        /**
+         * ROM-bit-7 ({@code bmi.w}) test for {@link SidekickCpuController#updateNormal}'s
+         * early-out gate. When {@code true}, the controlling object holds the player via
+         * ROM {@code object_control} bits 0-6 only (e.g. CNZ wire cage's bits 1+6, MGZ
+         * twisting loop's bit 0+1+6) — ROM lets {@code Tails_CPU_Control} keep generating
+         * input in this case (sonic3k.asm:26672 {@code bmi.w} only branches when the sign
+         * bit is set). When {@code false} (default), the controlling object is the
+         * ROM-bit-7 case (flight, super state, despawn marker, debug) and the engine's
+         * CPU controller skips its NORMAL state body to match ROM's {@code bmi.w} skip.
+         *
+         * <p>Cleared automatically when {@link #setObjectControlled(boolean)} is set to
+         * {@code false}; the controlling object must re-assert the flag every time it
+         * re-asserts {@link #setObjectControlled}{@code (true)}.
+         */
+        public boolean isObjectControlAllowsCpu() {
+                return objectControlAllowsCpu;
+        }
+
+        public void setObjectControlAllowsCpu(boolean objectControlAllowsCpu) {
+                this.objectControlAllowsCpu = objectControlAllowsCpu;
         }
 
         /**
