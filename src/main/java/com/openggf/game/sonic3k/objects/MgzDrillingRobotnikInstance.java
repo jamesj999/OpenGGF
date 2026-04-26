@@ -159,28 +159,62 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
      * spawned from loc_6BFCA at these offsets, using the listed mapping frames
      * of {@code Map_MGZEndBoss}. Format: {mappingFrame, offX, offY}.
      */
-    private static final int[][] DRILL_PIECES = {
-            {1, -0x14, 0x0F},   // ChildObjDat_6D7C0 entry 0 / word_6D77C
-            {4, 0x14, -0x14},   // loc_6C948 at angle $C via byte_6D24A/byte_6D284
-            {6, 0x08, 0x18},    // ChildObjDat_6D7C0 entry 2 / word_6D79A
-            {6, -0x0C, 0x18},   // ChildObjDat_6D7C0 entry 3 / word_6D79A
+    private static final int[] STATIC_DRILL_PIECE = {1, -0x14, 0x0F};
+    /** ROM: byte_6D24A / byte_6D284, indexed by angle(a0) / 2. */
+    private static final int[][] ANGLED_DRILL_PIECE_POSES = {
+            {2, -0x1C, 0x10},
+            {3, -0x0A, 0x18},
+            {0x1E, 0x0C, 0x1C},
+            {0x1F, 0x18, 0x14},
+            {5, 0x2C, 0x08},
+            {3, 0x20, -0x0C},
+            {4, 0x14, -0x14},
+            {2, -0x1C, 0x10},
     };
-    private static final int FRAME_DRILL_HEAD = 0x0F;
-    private static final int DRILL_HEAD_OFFSET_X = 0x14;
-    private static final int DRILL_HEAD_OFFSET_Y = -0x34;
+    /** ROM: byte_6D25A / byte_6D294, drill-tip child of loc_6C948. */
+    private static final int[][] DRILL_HEAD_POSES = {
+            {9, -0x17, 0},
+            {0x0C, -0x11, 0x16},
+            {0x20, 0, 0x20},
+            {0x14, 0x10, 0x0F},
+            {0x13, 0x11, 0},
+            {0x12, 0x10, -0x10},
+            {0x0F, 0, -0x20},
+            {9, -0x17, 0},
+    };
+    /** ROM: byte_6D2D2, indexed by the parent's $3A child-pose byte. */
+    private static final int[][] LOWER_DRILL_PIECE_POSES = {
+            {0x06, 0x08, 0x18},
+            {0x07, -0x08, 0x14},
+            {0x08, 0x18, 0x14},
+            {0x18, 0x18, 0x08},
+            {0x23, 0x18, -0x04},
+    };
+    /** ROM: byte_6D2E6, flame/hurt child of each lower drill piece. */
+    private static final int[][] THRUSTER_FLAME_POSES = {
+            {0x19, 0, 0x10},
+            {0x1A, -0x08, 0x08},
+            {0x24, 0x08, 0x08},
+            {0x1B, 0x10, 0},
+            {0x25, 0x09, -0x07},
+    };
+    /** ROM: byte_6D708, stored through sub_6D6CC for loc_6D710. */
+    private static final int[] AIR_ATTACK_PATTERN_SEQUENCE = {0, 8, 4, 0, 0, 4, 0, 8};
+    /** ROM: word_6D744, word_6D754, word_6D764, byte_6D76C. */
+    private static final int[][] AIR_ATTACK_PATTERNS = {
+            {-0x40, 0x70, 0x200, 0, 0, 6},
+            {0xA0, 0x120, 0x80, -0x200, 0x0C, 4},
+            {0xA0, -0x50, 0x80, 0x200, 4, 8},
+            {-0x40, 0x70, 0x200, 0, 0, 6},
+    };
     /** word_6D788 collision_flags = $8B (HURT category, size $0B). */
     private static final int DRILL_HEAD_COLLISION_FLAGS = 0x8B;
     /** loc_6CF20 uses word_6D7A0: make_art_tile(ArtTile_MGZEndBoss,0,0). */
-    private static final int FRAME_THRUSTER_FLAME = 0x19;
     private static final int THRUSTER_FLAME_PALETTE_LINE = 0;
     /** word_6D7A0 collision_flags = $9A (HURT category, size $1A). */
     private static final int THRUSTER_FLAME_COLLISION_FLAGS = 0x9A;
     /** loc_6CF20: bset #4,shield_reaction(a0). */
     private static final int THRUSTER_FLAME_SHIELD_REACTION = 0x10;
-    private static final int[][] THRUSTER_FLAMES = {
-            {0x08, 0x28},
-            {-0x0C, 0x28},
-    };
 
     private static final int[] FLASH_COLOR_INDICES = {11, 13, 14};
     private static final int[] FLASH_COLORS_NORMAL = {0x0020, 0x0866, 0x0644};
@@ -230,8 +264,12 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private int swingHalfCyclesRemaining;
     private boolean swingDirectionDown;
     private int endBossAngle;
+    /** Mirrors the ROM's $3A child-pose byte used by loc_6CEB0/loc_6CF20. */
+    private int drillChildPose;
     private int escapeTimer;
     private int airAttackPhase;
+    private int airAttackPatternCounter;
+    private int airAttackPatternOffset;
     /** True once the 10 falling-debris chunks have been initialised (ROM: bset #7,$38). */
     private boolean fallingDebrisSpawned;
     /** 10 × 16:8 fixed-point (x, y, xVel, yVel) rows; last slot is `alive` flag. */
@@ -274,8 +312,11 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         swingHalfCyclesRemaining = SWING_HALF_CYCLES;
         swingDirectionDown = false;
         endBossAngle = 0x0C;
+        drillChildPose = 0;
         escapeTimer = ESCAPE_TIMER;
         airAttackPhase = 0;
+        airAttackPatternCounter = 0;
+        airAttackPatternOffset = 0;
         fallingDebrisSpawned = false;
     }
 
@@ -488,6 +529,8 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private void enterAirAttackWait() {
         waitTimer = 0x9F;
         airAttackPhase = 0;
+        airAttackPatternOffset = AIR_ATTACK_PATTERN_SEQUENCE[airAttackPatternCounter];
+        airAttackPatternCounter = (airAttackPatternCounter + 1) & 7;
         state.routine = ROUTINE_END_ATTACK_WAIT;
     }
 
@@ -508,13 +551,15 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         Camera camera = services().camera();
         int cameraX = camera != null ? camera.getX() & 0xFFFF : 0;
         int cameraY = camera != null ? camera.getY() & 0xFFFF : 0;
-        state.x = (cameraX - 0x40) & 0xFFFF;
-        state.y = (cameraY + 0x70) & 0xFFFF;
+        int[] pattern = airAttackPattern();
+        state.x = (cameraX + pattern[0]) & 0xFFFF;
+        state.y = (cameraY + pattern[1]) & 0xFFFF;
         xSubpixel = 0;
         ySubpixel = 0;
-        xVel = 0x200;
-        yVel = 0;
-        endBossAngle = 0;
+        xVel = pattern[2];
+        yVel = pattern[3];
+        endBossAngle = pattern[4];
+        drillChildPose = pattern[5];
     }
 
     private void enterAirApproach() {
@@ -525,6 +570,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         xVel = -0x80;
         flipX = true;
         state.routine = ROUTINE_END_AIR_APPROACH;
+        drillChildPose = 6;
         setupSwing();
     }
 
@@ -827,24 +873,24 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             return null;
         }
 
-        int drillHeadOffX = flipX ? -DRILL_HEAD_OFFSET_X : DRILL_HEAD_OFFSET_X;
-        int firstFlameOffX = flipX ? -THRUSTER_FLAMES[0][0] : THRUSTER_FLAMES[0][0];
-        int secondFlameOffX = flipX ? -THRUSTER_FLAMES[1][0] : THRUSTER_FLAMES[1][0];
+        DrillPart drillHead = drillHeadPart();
+        DrillPart firstFlame = thrusterFlamePart(0);
+        DrillPart secondFlame = thrusterFlamePart(1);
         int flameFlags = shouldDrawThrusterFlames() ? THRUSTER_FLAME_COLLISION_FLAGS : 0;
         return new TouchResponseProvider.TouchRegion[] {
                 new TouchResponseProvider.TouchRegion(state.x, state.y, getCollisionFlags()),
                 new TouchResponseProvider.TouchRegion(
-                        state.x + drillHeadOffX,
-                        state.y + DRILL_HEAD_OFFSET_Y,
+                        state.x + renderOffsetX(drillHead.offX()),
+                        state.y + drillHead.offY(),
                         DRILL_HEAD_COLLISION_FLAGS),
                 new TouchResponseProvider.TouchRegion(
-                        state.x + firstFlameOffX,
-                        state.y + THRUSTER_FLAMES[0][1],
+                        state.x + renderOffsetX(firstFlame.offX()),
+                        state.y + firstFlame.offY(),
                         flameFlags,
                         THRUSTER_FLAME_SHIELD_REACTION),
                 new TouchResponseProvider.TouchRegion(
-                        state.x + secondFlameOffX,
-                        state.y + THRUSTER_FLAMES[1][1],
+                        state.x + renderOffsetX(secondFlame.offX()),
+                        state.y + secondFlame.offY(),
                         flameFlags,
                         THRUSTER_FLAME_SHIELD_REACTION),
         };
@@ -925,26 +971,25 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         //    (loc_6C9E8), while the lower thruster housings each have a flame/
         //    drill-tip child (loc_6CF20).
         if (drillRenderer != null) {
-            for (int[] spec : DRILL_PIECES) {
-                int frame = spec[0];
-                int offX = flipX ? -spec[1] : spec[1];
-                int offY = spec[2];
-                drillRenderer.drawFrameIndex(frame, state.x + offX, state.y + offY, flipX, false);
-            }
-            int drillHeadOffX = flipX ? -DRILL_HEAD_OFFSET_X : DRILL_HEAD_OFFSET_X;
+            drawDrillPart(drillRenderer, STATIC_DRILL_PIECE[0], STATIC_DRILL_PIECE[1], STATIC_DRILL_PIECE[2]);
+            DrillPart angledPiece = angledDrillPiece();
+            drawDrillPart(drillRenderer, angledPiece);
+            drawDrillPart(drillRenderer, lowerDrillPart(0));
+            drawDrillPart(drillRenderer, lowerDrillPart(1));
+            DrillPart drillHead = drillHeadPart();
             drillRenderer.drawFrameIndex(
-                    FRAME_DRILL_HEAD,
-                    state.x + drillHeadOffX,
-                    state.y + DRILL_HEAD_OFFSET_Y,
+                    drillHead.frame(),
+                    state.x + renderOffsetX(drillHead.offX()),
+                    state.y + drillHead.offY(),
                     flipX,
                     false);
             if (shouldDrawThrusterFlames()) {
-                for (int[] flameSpec : THRUSTER_FLAMES) {
-                    int offX = flipX ? -flameSpec[0] : flameSpec[0];
+                for (int i = 0; i < 2; i++) {
+                    DrillPart flame = thrusterFlamePart(i);
                     drillRenderer.drawFrameIndex(
-                            FRAME_THRUSTER_FLAME,
-                            state.x + offX,
-                            state.y + flameSpec[1],
+                            flame.frame(),
+                            state.x + renderOffsetX(flame.offX()),
+                            state.y + flame.offY(),
                             flipX,
                             false,
                             THRUSTER_FLAME_PALETTE_LINE);
@@ -992,6 +1037,72 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         // parent keeps Map_MGZEndBoss frame 0 while the extra air-phase pieces
         // are rendered as child sprites.
         return FRAME_DRILL_POSE;
+    }
+
+    private void drawDrillPart(PatternSpriteRenderer drillRenderer, DrillPart part) {
+        drawDrillPart(drillRenderer, part.frame(), part.offX(), part.offY());
+    }
+
+    private void drawDrillPart(PatternSpriteRenderer drillRenderer, int frame, int offX, int offY) {
+        drillRenderer.drawFrameIndex(frame, state.x + renderOffsetX(offX), state.y + offY, flipX, false);
+    }
+
+    private int renderOffsetX(int offX) {
+        return flipX ? -offX : offX;
+    }
+
+    private DrillPart angledDrillPiece() {
+        return partFromTable(ANGLED_DRILL_PIECE_POSES, endBossAngleIndex());
+    }
+
+    private DrillPart drillHeadPart() {
+        DrillPart base = angledDrillPiece();
+        DrillPart head = partFromTable(DRILL_HEAD_POSES, endBossAngleIndex());
+        return new DrillPart(head.frame(), base.offX() + head.offX(), base.offY() + head.offY());
+    }
+
+    private DrillPart lowerDrillPart(int index) {
+        DrillPart pose = partFromTable(LOWER_DRILL_PIECE_POSES, drillChildPoseIndex());
+        int offX = pose.offX();
+        if (index == 1) {
+            offX -= 0x14;
+        }
+        return new DrillPart(pose.frame(), offX, pose.offY());
+    }
+
+    private DrillPart thrusterFlamePart(int lowerIndex) {
+        DrillPart lower = lowerDrillPart(lowerIndex);
+        DrillPart flame = partFromTable(THRUSTER_FLAME_POSES, drillChildPoseIndex());
+        return new DrillPart(flame.frame(), lower.offX() + flame.offX(), lower.offY() + flame.offY());
+    }
+
+    private int endBossAngleIndex() {
+        return tableIndex(endBossAngle, ANGLED_DRILL_PIECE_POSES.length);
+    }
+
+    private int drillChildPoseIndex() {
+        return tableIndex(drillChildPose, LOWER_DRILL_PIECE_POSES.length);
+    }
+
+    private int[] airAttackPattern() {
+        int index = Math.min((airAttackPatternOffset & 0x0C) / 4, AIR_ATTACK_PATTERNS.length - 1);
+        return AIR_ATTACK_PATTERNS[index];
+    }
+
+    private static int tableIndex(int value, int length) {
+        int index = (value & 0xFE) / 2;
+        if (index < 0) {
+            return 0;
+        }
+        return Math.min(index, length - 1);
+    }
+
+    private static DrillPart partFromTable(int[][] table, int index) {
+        int[] row = table[index];
+        return new DrillPart(row[0], row[1], row[2]);
+    }
+
+    private record DrillPart(int frame, int offX, int offY) {
     }
 
     private boolean isEscapePodActive() {

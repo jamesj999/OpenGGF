@@ -432,6 +432,50 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
+    void endBossDrillHeadRenderAndTouchFollowRomAngleTables() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        boss.update(0, null);
+        setPrivateInt(boss, "waitTimer", 0);
+        setPrivateInt(boss, "endBossAngle", 4);
+        boss.getState().routine = staticInt("ROUTINE_END_ANGLE_SETTLE");
+
+        boss.appendRenderCommands(new ArrayList<>());
+        TouchResponseProvider.TouchRegion[] regions = boss.getMultiTouchRegions();
+
+        verify(services.drillRenderer).drawFrameIndex(eq(0x1E), eq(0x3D2C), eq(0x0684), eq(false), eq(false));
+        verify(services.drillRenderer).drawFrameIndex(eq(0x20), eq(0x3D2C), eq(0x06A4), eq(false), eq(false));
+        assertEquals(0x3D2C, regions[1].x(),
+                "loc_6C948/loc_6C9E8 derive the drill-tip child from angle-indexed ROM tables");
+        assertEquals(0x06A4, regions[1].y());
+        assertEquals(0x8B, regions[1].collisionFlags());
+    }
+
+    @Test
+    void enteringAirPhaseUsesRomChildPoseForLowerDrillPiecesAndHurtRegions() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        boss.update(0, null);
+        setPrivateInt(boss, "waitTimer", 0);
+        setPrivateInt(boss, "yVel", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_RISE");
+
+        boss.update(1, null);
+        boss.appendRenderCommands(new ArrayList<>());
+        TouchResponseProvider.TouchRegion[] regions = boss.getMultiTouchRegions();
+
+        verify(services.drillRenderer, times(2))
+                .drawFrameIndex(eq(0x18), anyInt(), anyInt(), eq(true), eq(false));
+        verify(services.drillRenderer, times(2))
+                .drawFrameIndex(eq(0x1B), anyInt(), anyInt(), eq(true), eq(false), eq(0));
+        assertEquals(0x3E58, regions[2].x(),
+                "loc_6D710 sets $3A=6; loc_6CEB0/loc_6CF20 use that pose for flame hurtboxes");
+        assertEquals(0x0708, regions[2].y());
+        assertEquals(0x3E6C, regions[3].x());
+        assertEquals(0x0708, regions[3].y());
+    }
+
+    @Test
     void endBossAirAttackWaitRepositionsFromCameraForNextSweep() throws Exception {
         camera.setX((short) 0x3C80);
         camera.setY((short) 0x0600);
@@ -450,6 +494,37 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(0x0670, boss.getState().y);
         assertEquals(0x0200, getPrivateInt(boss, "xVel"));
         assertEquals(0, getPrivateInt(boss, "yVel"));
+    }
+
+    @Test
+    void successiveAirAttackSetupsUseRomPatternSequence() throws Exception {
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_SWEEP");
+        boss.getState().x = 0x3E00;
+
+        boss.update(1, null); // loc_6C614 creates the first scaled warning child
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.update(2, null); // loc_6D710 uses byte_6D708 entry 0
+        assertEquals(0x3C40, boss.getState().x);
+        assertEquals(0x0670, boss.getState().y);
+
+        boss.getState().routine = staticInt("ROUTINE_END_AIR_SWEEP");
+        boss.getState().x = 0x3E00;
+        boss.update(3, null); // next byte_6D708 entry is 8
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.update(4, null);
+
+        assertEquals(0x3D20, boss.getState().x,
+                "byte_6D708's second entry selects word_6D744 offset 8 for the next air attack");
+        assertEquals(0x05B0, boss.getState().y);
+        assertEquals(0x0080, getPrivateInt(boss, "xVel"));
+        assertEquals(0x0200, getPrivateInt(boss, "yVel"));
+        assertEquals(4, getPrivateInt(boss, "endBossAngle"));
+        assertEquals(8, getPrivateInt(boss, "drillChildPose"));
     }
 
     private static MgzDrillingRobotnikInstance createBoss(RecordingServices services) {
