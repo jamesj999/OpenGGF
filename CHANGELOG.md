@@ -4,6 +4,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F1791 Fix: Tails CPU Auto-Jump Trigger Bit-7 Gate
+
+- Fixed `TestS3kCnzTraceReplay#replayMatchesTrace` first strict
+  divergence at frame 1791 (Tails riding the wire cage with
+  `tails_x_speed=-0x800`/`tails_y_speed=-0x200` ROM-side, but engine
+  Tails staying on the cage with `x_speed=0`).
+- The ROM Tails CPU AI's auto-jump trigger (`sonic3k.asm:26775
+  loc_13E9C`) writes `Ctrl_2_logical = 0x7878` (jump pressed) on the
+  64-frame cadence at this frame, and the cage's `loc_33ADE` reads
+  that and launches Tails with `x_vel=-0x800, y_vel=-0x200`. The
+  engine was suppressing the trigger because
+  `SidekickCpuController.updateNormal()` early-exited on
+  `sidekick.isObjectControlled()`, but ROM only suppresses the CPU
+  dispatcher when bit 7 of `object_control` is set (`sonic3k.asm:26672
+  bmi.w`); the cage uses bits 1+6 (sonic3k.asm:69937-69938) and
+  optionally bit 0 (`sonic3k.asm:69921 loc_3394C`) — never bit 7.
+- Added `AbstractPlayableSprite.objectControlAllowsCpu` flag (default
+  `false` to preserve existing engine behaviour). Bit-7 callers
+  (flight, super state, despawn marker, debug) leave the flag at the
+  default; bits-0-6 callers (CNZ wire cage, MGZ twisting loop, etc.)
+  set it to `true` when re-asserting `setObjectControlled(true)`.
+  `setObjectControlled(false)` clears the flag automatically.
+- `SidekickCpuController.updateNormal()` early-exit now tests
+  `isObjectControlled() && !isObjectControlAllowsCpu()` to mirror
+  ROM's `bmi.w` (sign-bit-only) skip.
+- `CnzWireCageObjectInstance` sets the flag in
+  `beginLatchedCooldown()` and the two `continueRide()` cooldown
+  paths so Tails CPU keeps running while Tails rides the cage.
+- First strict error advances F1791 → F1815 (5144 → 5080 errors).
+  Cross-game baselines unchanged (S1 GHZ pass, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F2919).
+
 ### Sonic 3&K CNZ Trace F1758 Fix: Wire Cage Airborne-Capture object_control Bit 0
 
 - Fixed `TestS3kCnzTraceReplay#replayMatchesTrace` first strict
