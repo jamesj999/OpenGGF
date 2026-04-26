@@ -820,9 +820,10 @@ F1151, S3K CNZ F2222.
 
 ---
 
-## CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)
+## CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (FIXED via ROM `d6` register corruption-by-`Perform_Player_DPLC` model)
 
-**Status:** Open architectural blocker after iter-9 (F2175 fix). Engine
+**Status:** FIXED in v6.3-s3k iteration via post-leader-release sidekick
+gate in `CnzWireCageObjectInstance`. Engine
 Tails gets launched off the cage with `x_vel=-0x800, y_vel=-0x200`
 (`JUMP_RELEASE_X/Y_SPEED`) at F2222 while ROM Tails stays on the cage.
 
@@ -965,3 +966,85 @@ before the diagnostic is reliable for object_control gating.
 Resolve once `TestS3kCnzTraceReplay`'s first strict error advances
 past F2222, with a fix backed by ROM-confirmed (not assumed) cage
 execution path for the iter K=2221/K=2222 boundary.
+
+### Resolution (v6.3-s3k Recorder + ROM-Side Memoryexecute Hook Diagnostics)
+
+The fix landed when the v6.3-s3k recorder added BizHawk Lua
+`event.onmemoryexecute` hooks at every cage routine entry
+(`sub_338C4=0x338C4`, `loc_339A0=0x339A0`, `loc_33ADE=0x33ADE`,
+`loc_33B1E=0x33B1E`, `loc_33B62=0x33B62`) and emitted a `cage_execution`
+aux event per frame with the captured M68K register state
+(`a0/a1/a2/d5/d6`), the per-player state byte `1(a2)`, and the
+player's status / `object_control` bytes. Inspection of those events
+across F2136-F2222 revealed:
+
+1. **The cage's `d6` register is corrupted by the original ROM
+   `Obj_CNZWireCage` bug.** With `FixBugs` disabled (the original ROM),
+   the second `bsr.s sub_338C4` call uses
+   `addq.b #p2_standing_bit-p1_standing_bit,d6` (sonic3k.asm:69843)
+   to derive the Player_2 standing-bit mask rather than reloading
+   `d6` cleanly. This carries whatever value `d6` had after the
+   Player_1 call's `Perform_Player_DPLC` corruption. While the
+   leader is actively rotating in `loc_33A6A` (sonic3k.asm:70016) /
+   `loc_33BAA` (sonic3k.asm:70121), `Perform_Player_DPLC` runs and
+   corrupts `d6 = 0`; the `addq.b #1,d6` then makes
+   `d6 = 1` for Tails so `bset d6,status(a0)` in `sub_33C34`
+   (sonic3k.asm:70181) sets bit 1 of the cage's status rather than
+   `p2_standing_bit = 4`.
+2. **F2136 capture of Tails:** `cage_execution` shows the cage hits
+   `sub_338C4_entry` for Tails with `d6=0x01` and the resulting
+   `bset d6,status(a0)` writes bit 1 to the cage's status byte
+   (`cage_status` transitions from `0x09 = bits 0+3` to
+   `0x0B = bits 0+1+3` over two frames). Tails's `object_control`
+   becomes `0x42` (bits 6+1, set by `loc_3397A` at sonic3k.asm:69937).
+3. **F2200 last cage-process for Tails:** while the leader was still
+   in `loc_33B1E_continue` mode (sonic3k.asm:70070), `Perform_Player_DPLC`
+   could still corrupt `d6` to 1 on some frames and the cage would
+   process Tails through `loc_339A0_mounted` → `loc_33ADE_cooldown` →
+   `loc_33B1E_continue`. F2200 was the last such frame; after that,
+   Sonic's cage state byte hit `loc_33B62_release` (sonic3k.asm:70092)
+   at F2205 and the cage's per-frame entry for Sonic switched to
+   the cooldown-decrement-only path that does not call
+   `Perform_Player_DPLC`.
+4. **F2206-F2222 "ghost" state:** `cage_execution` shows the cage
+   only hits `sub_338C4_entry` for Tails with `d6=0x04` (the
+   correct `p2_standing_bit` value, no `Perform_Player_DPLC`
+   corruption). `btst d6,status(a0)` reads bit 4 of `cage_status`
+   which is clear (the cage's Tails standing flag is at bit 1, set
+   by the `d6=1` corruption-bit at original capture). `bne.w loc_339A0`
+   is not taken; falls through to capture-attempt at `loc_338D8`
+   (sonic3k.asm:69881). The capture-attempt's
+   `tst.b object_control(a1); bne.w locret_3399E`
+   (sonic3k.asm:69896) exits immediately because Tails's
+   `object_control = 0x43` retains the bits 6+1+0 from the
+   F2136 capture sequence. ROM cage does **nothing** for Tails on
+   these frames.
+5. **F2262 ROM exit from stuck state:** `Tails_CPU_flight_timer`
+   reaches `5*60 = 300` (per sonic3k.asm:26829), `sub_13ECA` warps
+   Tails to `(0x7F00, 0)` and resets the CPU routine.
+
+The engine doesn't model `Perform_Player_DPLC`'s `d6` corruption
+side-effect, so the engine cage's mounted-mode logic ran every frame
+the cage was loaded and `state.latched=true`. When `Tails_CPU`'s
+auto-jump fired at F2221, the engine cage's `tryJumpRelease` saw
+`isJumpJustPressed()=true` and fired `releaseWithJumpImpulse` at
+F2222.
+
+**Fix landed:** `CnzWireCageObjectInstance` now tracks
+`leaderHasReleased` (set when the leader's per-frame processing
+transitions `state.latched` from true to false). When the leader has
+released and the engine is processing the sidekick, `continueRide`
+short-circuits with `setObjectControlled(true)` /
+`setObjectControlAllowsCpu(true)` preserved (matching ROM's persistent
+`object_control = 0x43` marker on Tails). The sidekick stays in
+stuck-frozen state, awaiting the `Tails_CPU_flight_timer` despawn
+warp that frees her.
+
+`TestS3kCnzTraceReplay` first strict error advances F2222 → F2262.
+The new error is the `Tails_CPU` despawn warp at F2262 — engine's
+`SidekickCpuController.despawnCounter` does not match ROM's
+`Tails_CPU_flight_timer` because the engine resets the counter
+whenever the sidekick is on-screen, while ROM checks
+`render_flags bit 7` which can be cleared even for an on-screen
+sidekick. That is the next iteration's concern, separate from the
+F2222 cage bug.

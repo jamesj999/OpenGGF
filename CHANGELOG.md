@@ -4,6 +4,70 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ F2222 — Wire Cage Sidekick Spurious Release Fix (v6.3-s3k Recorder + ROM-Side Memoryexecute Hook Diagnostics)
+
+- **Fix:** `CnzWireCageObjectInstance` now tracks whether the leader has
+  released this cage and gates the sidekick's cooldown-branch input
+  release on that flag. Once the leader has released, the sidekick's
+  `continueRide` short-circuits with object-control flags preserved,
+  matching ROM's stuck-frozen state. Cf. `sonic3k.asm:69873-69897`.
+  Root cause: ROM cage's `sub_338C4` uses register `d6` as the
+  player-standing bit position. With `FixBugs` disabled (the original
+  ROM), `Obj_CNZWireCage` does
+  `addq.b #p2_standing_bit-p1_standing_bit,d6` (sonic3k.asm:69843)
+  rather than re-loading `d6` cleanly, so the d6 used for the
+  Player_2 call to `sub_338C4` carries whatever value `d6` had after
+  the Player_1 call's `Perform_Player_DPLC`. While the leader is
+  actively rotating in `loc_33A6A` / `loc_33BAA`,
+  `Perform_Player_DPLC` runs and corrupts `d6` to 0; the
+  `addq.b #1,d6` then makes `d6 = 1` for Tails so
+  `bset d6,status(a0)` in `sub_33C34` (sonic3k.asm:70181) sets bit 1
+  of the cage's status rather than `p2_standing_bit = 4`. Once the
+  leader has released the cage, `Perform_Player_DPLC` no longer runs
+  from the cage path so `d6 = 3` (clean) and the
+  `addq.b #1,d6` produces the correct `d6 = 4`. The cage's
+  `btst d6,status(a0)` test now reads bit 4 of the cage status,
+  which is clear because the original capture stored Tails at bit 1
+  (the corrupted-d6 value). Net effect: ROM cage falls through to
+  the capture-attempt path each frame and exits at
+  `tst.b object_control(a1)` because Tails's `object_control = 0x43`
+  remains from the `loc_3397A` capture markers. ROM Tails stays
+  frozen at the capture position until `Tails_CPU_flight_timer`
+  reaches the despawn threshold. Engine previously fired the cage's
+  jump-release on the sidekick's first auto-jump press because the
+  cage's `state.latched` for Tails was still true and `continueRide`
+  ran the cooldown-branch input check. CNZ1 trace `replayMatchesTrace`
+  first error advances F2222 → F2262 (40 frames; new error is the
+  `Tails_CPU` despawn warp that the engine doesn't yet trigger
+  in-sync with ROM).
+- **Recorder v6.3-s3k.** Bumped `lua_script_version` to `6.3-s3k` and
+  added two diagnostic-only aux event types: `cage_state` (one event
+  per active CNZ wire cage object per frame, including the cage
+  status byte and both per-player phase/state bytes from
+  `$30/$31/$34/$35`) and `cage_execution` (one summary event per
+  frame containing the M68K execution-hook hits inside the cage's
+  per-player handler `sub_338C4` plus the released-mode branches
+  `loc_339A0`, `loc_33ADE`, `loc_33B1E`, `loc_33B62`). Each hit
+  records the entry-point register state (`a0/a1/a2/d5/d6`), the
+  per-player state byte at `1(a2)`, the player's status and
+  `object_control` bytes, and the cage's status byte. Used to
+  pinpoint which of the cage's branches the M68K CPU actually
+  executes for each player on each frame, which was load-bearing
+  to root-cause the d6-corruption-by-`Perform_Player_DPLC` bug
+  documented above.
+- **Recorder bug fix.** The v6.2 `interact_state` event read
+  `mainmemory.read_u8(PLAYER_BASE + 0x2A)` and labelled the result
+  `object_control`. Offset `0x2A` is `status` (per
+  `sonic3k.constants.asm:30`); the real `object_control` byte is at
+  `0x2E` (`sonic3k.constants.asm:57`). The v6.3 emission now
+  records `status`, `status_secondary`, and `object_control` as
+  three separate JSON fields. The `TraceEvent.InteractState` parser
+  on the engine side preserves the existing field for the rare
+  consumers that already keyed off the (mislabelled) byte and adds
+  fields for the corrected ones.
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F6255.
+
 ### Sonic 3&K CNZ Trace v6.2-s3k Regeneration & F2222 Architectural Blocker Documentation
 
 - Regenerated `src/test/resources/traces/s3k/cnz` with the v6.2-s3k
