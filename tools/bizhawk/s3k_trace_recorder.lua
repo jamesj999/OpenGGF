@@ -52,6 +52,17 @@
 -- resolved from offset $42. Used to root-cause AIZ F2667 spike-vs-Tails
 -- collision divergence: ROM's SolidObject_cont path early-exits when
 -- object_control bit 7 is set on the player (sonic3k.asm:41439).
+-- v6.3-s3k changes: (1) Fix recorder bug -- interact_state's
+-- "object_control" field was reading offset $2A (status byte) instead of
+-- offset $2E (real object_control). The new emission also splits status
+-- and status_secondary into their own JSON fields so consumers don't
+-- have to disambiguate. (2) Add CNZ wire cage diagnostic events:
+-- cage_state (per cage object, per frame, with per-player phase/state
+-- bytes plus cage status) and cage_execution (per frame, with the list
+-- of cage-routine branches the CPU entered along with M68K register
+-- state at entry). Used to root-cause CNZ1 trace F2222 release-cooldown
+-- divergence where the engine fires Tails's release one frame earlier
+-- than ROM despite both seeing Ctrl_2_pressed_logical=$48.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -95,6 +106,8 @@ local OFF_RADIUS_Y          = 0x1E
 local OFF_RADIUS_X          = 0x1F
 local OFF_ANIM_ID           = 0x20
 local OFF_STATUS            = 0x2A
+local OFF_STATUS_SECONDARY  = 0x2B
+local OFF_OBJECT_CONTROL    = 0x2E
 local OFF_ROUTINE           = 0x05
 local OFF_ANGLE             = 0x26
 local OFF_STICK_CONVEX      = 0x3C
@@ -200,6 +213,24 @@ local ZONE_NAMES = {
 local SNAPSHOT_INTERVAL = 60
 local OBJECT_PROXIMITY = 160
 
+-- CNZ Wire Cage (Obj_CNZWireCage / sub_338C4) per-frame execution hook
+-- ROM addresses. Verified from sonic3k.asm label positions:
+--   sub_338C4   = 0x338C4 (per-player cage handler entry)
+--   loc_339A0   = 0x339A0 (mounted-mode entry: tst.b 1(a2); bne loc_33ADE)
+--   loc_33ADE   = 0x33ADE (released-cooldown entry: andi.w #$70,d5; beq loc_33B1E)
+--   loc_33B1E   = 0x33B1E (in-vertical-range continue branch)
+--   loc_33B62   = 0x33B62 (release-and-unmount cleanup)
+-- The cage main routine entry per frame is loc_3385E = 0x3385E (set by
+-- move.l #loc_3385E,(a0) on init at 0x33854 / sonic3k.asm:69827).
+-- Used to root-cause CNZ1 trace F2222 cage release-cooldown divergence
+-- where engine fires release one frame ahead of ROM.
+local CAGE_HOOK_LOC_3385E = 0x3385E
+local CAGE_HOOK_SUB_338C4 = 0x338C4
+local CAGE_HOOK_LOC_339A0 = 0x339A0
+local CAGE_HOOK_LOC_33ADE = 0x33ADE
+local CAGE_HOOK_LOC_33B1E = 0x33B1E
+local CAGE_HOOK_LOC_33B62 = 0x33B62
+
 -----------------
 --- State     ---
 -----------------
@@ -227,6 +258,20 @@ local last_zone_act_state_key = nil
 local prev_zone_id_for_transition = nil
 local prev_act_for_transition = nil
 local pre_trace_snapshots_written = false
+
+-- Per-frame accumulator for cage execution hits. Reset at start of each
+-- on_frame_end and flushed as cage_execution events. We can't write directly
+-- to aux_file from within the memoryexecute callback because we'd interleave
+-- with the main scan loop, and we want one summary event per frame.
+local cage_hits = {}
+
+-- Track cage state byte (1(a2)) per player across frames. Emit a
+-- cage_state_change event when a transition is detected. We poll this
+-- inside on_frame_end since memoryexecute can't read $30(a0) without
+-- running CPU. The state bytes are at OST slot offset $31 (P1) and $35 (P2).
+local prev_cage_state_p1 = -1
+local prev_cage_state_p2 = -1
+local prev_cage_status = -1
 
 local physics_file = nil
 local aux_file = nil
@@ -533,14 +578,15 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.2-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.3-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
-    -- schema bump.
+    -- schema bump. v6.3 adds cage_state_per_frame and cage_execution
+    -- (both diagnostic-only, never hydrated into engine state).
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame"],\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -968,29 +1014,212 @@ end
 -- Per-frame INTERACT STATE events. Emit one per active player capturing
 -- the interact field (offset $42, RAM address of the object the player
 -- is "linked" to via RideObject_SetRide or loc_1E154) resolved to OST
--- slot index, and object_control (offset $2A). When object_control bit
--- 7 is set on a player, ROM SolidObject_cont (sonic3k.asm:41439) takes
--- the bmi.w loc_1E0A2 branch which skips side-push velocity zeroing --
--- the very mechanism the engine ObjectManager.SolidContacts side-path
--- must mirror in S3K. Used to diagnose AIZ F2667 spike-vs-Tails divergence.
+-- slot index, the player's status byte (offset $2A), the player's
+-- status_secondary byte (offset $2B), and the player's object_control
+-- byte (offset $2E). When object_control bit 7 is set on a player, ROM
+-- SolidObject_cont (sonic3k.asm:41439) takes the bmi.w loc_1E0A2 branch
+-- which skips side-push velocity zeroing -- the very mechanism the engine
+-- ObjectManager.SolidContacts side-path must mirror in S3K. Used to
+-- diagnose AIZ F2667 spike-vs-Tails divergence and CNZ F2222 cage
+-- release-cooldown branch divergence.
+--
+-- v6.3-s3k fix: previously this routine read offset $2A and labelled it
+-- "object_control" -- that was actually the status byte (Status_OnObj
+-- bit 3, etc). The CNZ cage diagnosis at F2222 needs the real
+-- object_control byte (offset $2E) so we can distinguish between cage
+-- riders ($42 bit 1 set), CPU-controlled ($80 bit 7 set), or normal
+-- physics paths.
 local function write_interact_state_per_frame(player2_present)
     if not aux_file then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local p1_interact_addr = mainmemory.read_u16_be(PLAYER_BASE + OFF_STAND_ON_OBJ)
     local p1_interact_slot = interact_addr_to_slot(p1_interact_addr)
-    local p1_object_control = mainmemory.read_u8(PLAYER_BASE + 0x2A)
+    local p1_status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
+    local p1_status_secondary = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS_SECONDARY)
+    local p1_object_control = mainmemory.read_u8(PLAYER_BASE + OFF_OBJECT_CONTROL)
     write_aux(string.format(
         '{"frame":%d,"vfc":%d,"event":"interact_state","character":"sonic",'
-            .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
-        trace_frame, vfc, p1_interact_addr, p1_interact_slot, p1_object_control))
+            .. '"interact":"0x%04X","interact_slot":%d,"status":"0x%02X",'
+            .. '"status_secondary":"0x%02X","object_control":"0x%02X"}',
+        trace_frame, vfc, p1_interact_addr, p1_interact_slot,
+        p1_status, p1_status_secondary, p1_object_control))
     if player2_present then
         local p2_interact_addr = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_STAND_ON_OBJ)
         local p2_interact_slot = interact_addr_to_slot(p2_interact_addr)
-        local p2_object_control = mainmemory.read_u8(SIDEKICK_BASE + 0x2A)
+        local p2_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
+        local p2_status_secondary = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS_SECONDARY)
+        local p2_object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL)
         write_aux(string.format(
             '{"frame":%d,"vfc":%d,"event":"interact_state","character":"tails",'
-                .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
-            trace_frame, vfc, p2_interact_addr, p2_interact_slot, p2_object_control))
+                .. '"interact":"0x%04X","interact_slot":%d,"status":"0x%02X",'
+                .. '"status_secondary":"0x%02X","object_control":"0x%02X"}',
+            trace_frame, vfc, p2_interact_addr, p2_interact_slot,
+            p2_status, p2_status_secondary, p2_object_control))
+    end
+end
+
+-- =====================================================================
+-- CNZ Wire Cage execution hooks (v6.3-s3k)
+-- =====================================================================
+-- Diagnostic hooks for the CNZ cage's per-player handler (sub_338C4 and
+-- the mounted/cooldown/release branches). For each hit we capture the
+-- M68K register state at entry: a0 (cage object addr), a1 (player addr),
+-- a2 (per-player state addr), d5 (input mask), d6 (player_standing_bit).
+-- We also read the cage's state byte 1(a2) directly via mainmemory at the
+-- captured a2 address, because that's what the cage's mounted-mode
+-- branches at loc_339A0/loc_33ADE test against.
+--
+-- The hooks accumulate to cage_hits[] which is flushed at the start of
+-- each on_frame_end into a single cage_execution event listing each
+-- branch entered with its register state. This minimises aux file size
+-- (typically ~6 hits/frame when both players interact with one cage)
+-- while preserving the per-branch diagnostic data needed for CNZ1
+-- F2222 release-cooldown root-cause analysis.
+
+local function cage_record_hit(branch)
+    if not aux_file then return end
+    if not started then return end
+    local a0 = emu.getregister("M68K A0") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local a2 = emu.getregister("M68K A2") or 0
+    local d5 = emu.getregister("M68K D5") or 0
+    local d6 = emu.getregister("M68K D6") or 0
+    local pc = emu.getregister("M68K PC") or 0
+
+    local cage_addr = a0 % 0x10000
+    local player_addr = a1 % 0x10000
+    local state_addr = a2 % 0x10000
+    local d5_w = d5 % 0x10000
+    local d6_b = d6 % 0x100
+
+    -- 1(a2) is the per-player state byte. Read directly from mainmemory.
+    -- Bizhawk mainmemory addresses strip the leading $FF0000 prefix.
+    local state_byte = 0xFF
+    if state_addr >= 0x0000 and state_addr <= 0xFFFE then
+        state_byte = mainmemory.read_u8(state_addr + 1)
+    end
+
+    -- Read a few key player fields directly so we can correlate with
+    -- the cage's branch decisions: status (0x2A), object_control (0x2E).
+    local player_status = 0xFF
+    local player_obj_ctrl = 0xFF
+    if player_addr >= 0x0000 and player_addr <= 0xFFFF - 0x4A then
+        player_status = mainmemory.read_u8(player_addr + OFF_STATUS)
+        player_obj_ctrl = mainmemory.read_u8(player_addr + OFF_OBJECT_CONTROL)
+    end
+
+    -- Cage status byte at OST offset $2A.
+    local cage_status = 0xFF
+    if cage_addr >= 0x0000 and cage_addr <= 0xFFFF - 0x4A then
+        cage_status = mainmemory.read_u8(cage_addr + OFF_STATUS)
+    end
+
+    table.insert(cage_hits, {
+        branch = branch,
+        pc = pc,
+        cage_addr = cage_addr,
+        player_addr = player_addr,
+        state_addr = state_addr,
+        d5 = d5_w,
+        d6 = d6_b,
+        state_byte = state_byte,
+        player_status = player_status,
+        player_obj_ctrl = player_obj_ctrl,
+        cage_status = cage_status,
+    })
+end
+
+local cage_hooks_registered = false
+
+local function register_cage_hooks()
+    if cage_hooks_registered then return end
+    cage_hooks_registered = true
+
+    -- Hook the entry of each branch we care about. The execution order
+    -- is: 3385E -> sub_338C4 -> [loc_339A0|capture-attempt] -> [loc_33ADE
+    -- |loc_33B1E|release-jump-path]. We hook the LATER branches (after
+    -- the test-and-branch decisions) so the hit record captures the
+    -- branch the cage actually took.
+    --
+    -- IMPORTANT: hooks fire on PRE-fetch of the instruction at the address.
+    -- Register state captures the pre-instruction register file.
+    event.onmemoryexecute(function() cage_record_hit("sub_338C4_entry") end,
+        CAGE_HOOK_SUB_338C4)
+    event.onmemoryexecute(function() cage_record_hit("loc_339A0_mounted") end,
+        CAGE_HOOK_LOC_339A0)
+    event.onmemoryexecute(function() cage_record_hit("loc_33ADE_cooldown") end,
+        CAGE_HOOK_LOC_33ADE)
+    event.onmemoryexecute(function() cage_record_hit("loc_33B1E_continue") end,
+        CAGE_HOOK_LOC_33B1E)
+    event.onmemoryexecute(function() cage_record_hit("loc_33B62_release") end,
+        CAGE_HOOK_LOC_33B62)
+
+    print(string.format(
+        "Cage execution hooks registered: sub_338C4=0x%05X, loc_339A0=0x%05X, "
+            .. "loc_33ADE=0x%05X, loc_33B1E=0x%05X, loc_33B62=0x%05X",
+        CAGE_HOOK_SUB_338C4, CAGE_HOOK_LOC_339A0, CAGE_HOOK_LOC_33ADE,
+        CAGE_HOOK_LOC_33B1E, CAGE_HOOK_LOC_33B62))
+end
+
+local function flush_cage_hits()
+    if not aux_file then return end
+    if #cage_hits == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local parts = {}
+    for _, hit in ipairs(cage_hits) do
+        parts[#parts + 1] = string.format(
+            '{"branch":"%s","pc":"0x%05X","cage_addr":"0x%04X",'
+                .. '"player_addr":"0x%04X","state_addr":"0x%04X",'
+                .. '"d5":"0x%04X","d6":"0x%02X","state_byte":"0x%02X",'
+                .. '"player_status":"0x%02X","player_obj_ctrl":"0x%02X",'
+                .. '"cage_status":"0x%02X"}',
+            hit.branch, hit.pc, hit.cage_addr, hit.player_addr,
+            hit.state_addr, hit.d5, hit.d6, hit.state_byte,
+            hit.player_status, hit.player_obj_ctrl, hit.cage_status)
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"cage_execution","hits":[%s]}',
+        trace_frame, vfc, table.concat(parts, ",")))
+    cage_hits = {}
+end
+
+-- Per-frame poll for cage state-byte transitions. Walks all OST slots
+-- looking for the cage routine pointer at offset 0. The cage's first-frame
+-- init writes 0x0003385E (loc_3385E, the per-frame entry) to offset 0;
+-- before init runs offset 0 is 0x00033836 (Obj_CNZWireCage init entry).
+-- We accept either as the cage signature. Emits a cage_state event
+-- per active cage with the per-player phase/state bytes ($30/$31 for P1,
+-- $34/$35 for P2) plus the cage's status byte and position.
+local CAGE_INIT_PTR = 0x00033836       -- Obj_CNZWireCage (label at sonic3k.asm:69813)
+local CAGE_FRAME_PTR = 0x0003385E      -- loc_3385E (per-frame entry at sonic3k.asm:69829)
+
+local function emit_cage_state_per_frame()
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for slot = 0, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local code = mainmemory.read_u32_be(addr)
+        if code == CAGE_INIT_PTR or code == CAGE_FRAME_PTR then
+            local p1_state = mainmemory.read_u8(addr + 0x31)
+            local p2_state = mainmemory.read_u8(addr + 0x35)
+            local cage_status = mainmemory.read_u8(addr + OFF_STATUS)
+            local p1_phase = mainmemory.read_u8(addr + 0x30)
+            local p2_phase = mainmemory.read_u8(addr + 0x34)
+            local cage_x = mainmemory.read_u16_be(addr + OFF_X_POS)
+            local cage_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
+            local cage_subtype = mainmemory.read_u8(addr + 0x2C)
+            -- Always emit the cage_state event for diagnostics (small
+            -- volume because there are typically 1-2 active cages near
+            -- the players).
+            write_aux(string.format(
+                '{"frame":%d,"vfc":%d,"event":"cage_state","slot":%d,'
+                    .. '"x":"0x%04X","y":"0x%04X","subtype":"0x%02X",'
+                    .. '"status":"0x%02X","p1_phase":"0x%02X",'
+                    .. '"p1_state":"0x%02X","p2_phase":"0x%02X",'
+                    .. '"p2_state":"0x%02X"}',
+                trace_frame, vfc, slot, cage_x, cage_y, cage_subtype,
+                cage_status, p1_phase, p1_state, p2_phase, p2_state))
+        end
     end
 end
 
@@ -1224,6 +1453,23 @@ local function on_frame_end()
     write_object_states_per_frame(x, y, sk_present, sidekick.x, sidekick.y)
     write_interact_state_per_frame(sk_present)
 
+    -- Per-frame CNZ wire cage state (v6.3 schema). Emits one cage_state
+    -- event per active cage object (per OST slot containing 0x0001365C)
+    -- with the cage's status, both player phase/state bytes, and pos.
+    -- Used to root-cause CNZ1 trace F2222 release-cooldown divergence.
+    emit_cage_state_per_frame()
+
+    -- Per-frame CNZ wire cage execution hits (v6.3 schema). The
+    -- memoryexecute hooks accumulate hits during frame processing into
+    -- cage_hits[]; we flush them as a single event per frame so the
+    -- aux stream stays tidy. Each hit captures the cage branch entered
+    -- (sub_338C4 entry, loc_339A0 mounted, loc_33ADE cooldown,
+    -- loc_33B1E continue, loc_33B62 release) plus register state
+    -- (a0/a1/a2/d5/d6) and the per-player state byte and player
+    -- object_control. This lets us trace exactly which path the cage
+    -- took for each player on each frame.
+    flush_cage_hits()
+
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
     end
@@ -1252,7 +1498,13 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.2-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.3-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+
+-- Register the CNZ wire cage execution hooks. Done once at script load
+-- before the main loop runs so the memoryexecute callbacks are armed for
+-- every frame the script processes. Only active when 'started' so we
+-- don't accumulate hits during pre-trace level loading.
+register_cage_hooks()
 
 while true do
     on_frame_end()
