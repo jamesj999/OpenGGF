@@ -4,6 +4,46 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F6255: Collapsing Platform Off-Screen Lifecycle ROM-Aligned (PARTIAL)
+
+- Aligned `Sonic3kCollapsingPlatformObjectInstance`'s off-screen delete
+  with ROM `Sprite_OnScreen_Test` (sonic3k.asm:37262). ROM reads
+  `Camera_X_pos_coarse_back`, which `Load_Sprites` (sonic3k.asm:37545
+  `loc_1B7F2`) updates AFTER `Process_Sprites` each frame, so the value
+  used during a given frame's object pass reflects the camera's X at the
+  END of the previous frame. The engine's
+  `ObjectManager.unloadCounterBasedOutOfRange` (S3K runExecLoop after-
+  update path) reproduces the formula but feeds the CURRENT frame's
+  `cameraX`, which collapsed the platform one frame earlier than ROM
+  and prevented the F6255 freed-slot despawn analog from firing.
+- The platform now opts out of `unloadCounterBasedOutOfRange` via
+  `isPersistent()=true` and runs an in-instance
+  `spriteOnScreenTestPasses()` that consults a per-instance
+  `previousFrameCameraX` cache (the camera_x observed at the end of the
+  prior `update()`). Distance threshold $280, unsigned 16-bit wrap;
+  exactly matches ROM. Runs in states 0/1/2 mirroring `loc_20594` /
+  `loc_205DE` calling `sub_205B6` -> `Sprite_OnScreen_Test` every frame
+  (sonic3k.asm:44814, 44830, 44851, 37262). State 3 keeps the existing
+  `isOnScreen(128)` matching `loc_20620` (sonic3k.asm:44879).
+- Effect on `TestS3kAizTraceReplay`: error count 6782 -> 1959 (-71%),
+  warning count 5773 -> 2034 (-65%). Platform now reaches
+  `setDestroyed` at gfc=0x1746 / F6254, matching ROM's
+  `Delete_Current_Sprite` event exactly.
+- Architectural blocker still open: AIZ first error remains F6255.
+  Tails never lands on platform x=0x08B0 in the engine's solid-contact
+  framework. ROM transitions Tails from terrain to platform at F6251
+  (sk_y 0x033F -> 0x033A, status 0x00 -> 0x08); the engine keeps her on
+  terrain and never fires `onSolidContact(standing=true)` for slot 16.
+  Without `setLatchedSolidObject(slot=16)` firing, the freed-slot
+  detection in `SidekickCpuController.checkDespawn` has no
+  `lastRidingInstance` to compare against. See `docs/S3K_KNOWN_BUGS.md`
+  "AIZ Trace F6255" entry for the next investigation steps
+  (terrain-vs-object handover at the slope-data top surface).
+- Cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F3649 (post-cnz-merge). Required-green S3K tests stay
+  green (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`).
+
 ### Sonic 3&K CNZ Trace F2262 → F3649: Wire-Cage Reap-By-Camera-Distance Despawn Trigger
 
 - **Fix:** `CnzWireCageObjectInstance.onUnload()` now flips the cage's

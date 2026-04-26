@@ -28,6 +28,7 @@ Entries should include:
 10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
 11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
+13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn; Lifecycle ROM-Aligned, Tails Never Latches In Engine (PARTIAL)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-architecturally-available-lifecycle-now-rom-aligned-but-tails-never-latches-in-engine-partial)
 
 ---
 
@@ -1051,92 +1052,59 @@ F2222 cage bug.
 
 ---
 
-## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn Detection Architecturally Available But Unfired (PARTIAL)
+## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn Architecturally Available; Lifecycle Now ROM-Aligned But Tails Never Latches In Engine (PARTIAL)
 
-**Status:** Engine infrastructure landed (instance-tracked latch + `sub_13EFC` `(a3)=0` despawn path); does not yet fire because the AIZ collapsing platform's lifecycle is desynchronised from ROM under the trace replay's per-frame sidekick re-seed. AIZ first strict error stays at F6255.
+**Status:** Platform lifecycle now matches ROM frame-for-frame (engine destroys at the same frame ROM does, gfc=0x1746 / F6254). Despawn cascade reduced from 6782 → 1959 errors / 5773 → 2034 warnings — most downstream errors gone. AIZ first strict error stays at F6255 because Tails is **never latched onto the AIZ2 collapsing platform at x=0x08B0** in the engine, so `lastRidingInstance` is null at the despawn check time.
 
-**Location:** `SidekickCpuController.checkDespawn()` (S3K freed-slot path),
-`AbstractPlayableSprite.latchedSolidObjectInstance`,
-`PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`,
-`Sonic3kCollapsingPlatformObjectInstance` (timing source).
+**Location:** `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` (lifecycle now ROM-aligned via `isPersistent()=true` + lagged-camera check), `SidekickCpuController.checkDespawn()` (S3K freed-slot path, infrastructure ready), `ObjectManager.SolidContacts.processInline*` (Tails-vs-platform contact resolution — root cause area), AIZ2 terrain-vs-object collision interaction.
 
 **Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
 first strict error at frame 6255 (`tails_y mismatch expected=0x0000 actual=0x033B`).
 
 ### Symptom
 
-Sequence around the divergence (CSV / aux from v6.2 recorder):
+Sequence around the divergence (CSV / aux from v6.3-s3k recorder):
 
-| K     | gfc    | Tails state                                        | ROM platform (slot 16)                |
-|-------|--------|----------------------------------------------------|---------------------------------------|
-| 6253  | 0x1745 | sk_x=0x0875 sk_status=0x08 (OnObj) sk_stand=10     | `loc_205DE`, status=0x90 (standing)   |
-| 6254  | 0x1746 | sk_x=0x087A sk_status=0x08 sk_stand=10              | object_removed                        |
-| 6255  | 0x1747 | sk_x=0x7F00 sk_y=0x0000 sk_status=0x02 (in_air)     | (slot freed; SST zeroed)              |
+| K     | gfc    | Tails state (ROM)                                  | ROM slot 16 (CollapsingPlatform x=0x08B0) |
+|-------|--------|----------------------------------------------------|-------------------------------------------|
+| 6250  | 0x1742 | sk_x=0x0870 sk_y=0x033F sk_air=0 sk_status=0x00     | status=0x80 (alive, no one standing)      |
+| 6251  | 0x1743 | sk_x=0x0875 sk_y=0x033A sk_air=0 sk_status=0x08 (OnObj) | status=0x90 (Tails standing, $3A set)  |
+| 6252  | 0x1744 | sk_x=0x087A sk_y=0x033B                              | status=0x90, $38 countdown decrementing   |
+| 6253  | 0x1745 | sk_x=0x0880 sk_y=0x033B sk_status=0x08              | status=0x90, alive (cam_back=0x0880, diff=0) |
+| 6254  | 0x1746 | sk_x=0x0885 sk_y=0x033B (still alive, still on slot) | object_removed (cam_back=0x0900, Sprite_OnScreen_Test deletes) |
+| 6255  | 0x1747 | sk_x=0x7F00 sk_y=0x0000 sk_status=0x02 (in_air)     | (slot freed; SST zeroed)                  |
 
-ROM `sub_13EFC` (sonic3k.asm:26823) at F6255 reads `(a3)=0` from the freed slot, mismatches the cached `Tails_CPU_interact=0x0002`, falls into `sub_13ECA` (sonic3k.asm:26800) which warps Tails to `(0x7F00, 0)`.
+In ROM, Tails transitions from terrain to platform at F6251 — note the `sk_y` step from 0x033F down to 0x033A (which on the y-axis-down convention means UP 5 px) and the status flip from 0x00 → 0x08 (`OnObj` set). She rides the platform through F6254. At F6255 the slot was freed during F6254 by `Sprite_OnScreen_Test` (sonic3k.asm:37262); `sub_13EFC` (sonic3k.asm:26823) reads `(a3)=0`, mismatches cached `Tails_CPU_interact=0x0002`, falls into `sub_13ECA` (sonic3k.asm:26800) which warps Tails to `(0x7F00, 0)`.
 
-Engine produces `(0x088A, 0x033B)` — Tails kept alive, drifting through her CPU NORMAL state. The cascade runs for 6782 errors / 5773 warnings until end of trace.
+In the engine, Tails has matching `(sk_x, sk_y)` up to F6254 but **never has `onSolidContact(standing=true)` fire for platform 0x08B0** — only platforms at x=0x05B0 and x=0x0E70 get Tails contacts in the entire trace. Without the standing contact, `setLatchedSolidObject` (ObjectManager.java:4431) never runs for slot 16, so `latchedSolidObjectInstance` stays unset and the freed-slot detection has no `lastRidingInstance` to compare against.
 
 ### Diagnosed Cause
 
-Two layers, both real:
+Three layers — first two now resolved, third remains:
 
-1. **Engine SidekickCpuController had no `(a3)=0` analog.** ROM's
-   `cmp.w (a3),d0` mismatch fires on slot deletion (the SST is zeroed by
-   `Delete_Referenced_Sprite` sonic3k.asm:36116). The engine's existing
-   `OBJECT_ID_MISMATCH` path compares the 8-bit
-   `latchedSolidObjectId` and is gated off for S3K via
-   `sidekickDespawnUsesObjectIdMismatch=false` (CNZ F1685 fix).
-   `latchedSolidObjectId` is sticky across destruction, so the byte
-   alone cannot detect a freed-slot event.
+1. **Engine SidekickCpuController had no `(a3)=0` analog.** [Resolved in commit 2b8cd723f.] ROM's `cmp.w (a3),d0` mismatch fires on slot deletion (the SST is zeroed by `Delete_Referenced_Sprite` sonic3k.asm:36116). The engine added `latchedSolidObjectInstance` (`AbstractPlayableSprite`), `setLatchedSolidObject(int, ObjectInstance)` (ObjectManager wires this on `processInline*` standing/touchTop), `SidekickCpuController.lastRidingInstance` per-frame cache, and the `sub_13EFC` `(a3)=0` analog gated by `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`.
 
-2. **Engine's collapsing platform lifecycle desynchronises from ROM.**
-   `Obj_CollapsingPlatform`'s lifetime is driven by `$3A` (standing
-   trigger) + `$38` (countdown) + `Sprite_OnScreen_Test`
-   (sonic3k.asm:37262 off-screen delete). In the engine, with the
-   trace's per-frame sidekick re-seed, the platform's
-   `triggered`/`state`/`solidStayTimer` state machine doesn't follow
-   ROM's standing-driven countdown — Sonic's physics dragging or earlier
-   collision can advance the engine's countdown earlier than ROM's.
-   Concretely, attempting to drive `state=2 -> state=3` unconditionally
-   after `releasePending` plus tightening the destroy check to
-   `isWithinSolidContactBounds()` (16-px viewport) fired engine
-   destruction at gfc=0x170A — 59 frames before ROM's gfc=0x1746.
+2. **Engine collapsing-platform lifecycle was off by one frame.** [Resolved in this commit.] `ObjectManager.unloadCounterBasedOutOfRange()` (ObjectManager.java:1842) reproduces ROM's `Sprite_OnScreen_Test` formula but feeds the **current** frame's `cameraX`. ROM's S3K `Sprite_OnScreen_Test` (sonic3k.asm:37262) uses `Camera_X_pos_coarse_back`, which `Load_Sprites` (sonic3k.asm:37545 `loc_1B7F2`) updates **after** `Process_Sprites` each frame — so the value seen during a given frame's object pass reflects the camera's X at the **end of the previous frame**. The engine's eager check destroyed the platform at frame K (cam_x=0x0985), one frame before ROM's frame K+1 deletion (using `Camera_X_pos_coarse_back` = end-of-K value = 0x0900, distance=0xFF80 > 0x280 → delete). Fix: `Sonic3kCollapsingPlatformObjectInstance.isPersistent()` returns `true` to bypass the eager engine OOR, plus `spriteOnScreenTestPasses()` runs the lagged-camera variant inside `update()` using `previousFrameCameraX` cached from the prior tick. With this, the platform now reaches `setDestroyed(true)` at gfc=0x1746 / F6254 — matching ROM exactly.
+
+3. **Tails never lands on platform x=0x08B0 in the engine.** [Architectural blocker, current state.] ROM Tails transitions from terrain to platform at F6251 (sk_y 0x033F → 0x033A, status 0x00 → 0x08). Engine Tails has matching X/Y but never gets a `standing()` contact recorded for platform 0x08B0. Hypothesis: AIZ2 layout has terrain underneath the platform at a Y close to the platform's slope-data top surface, and the engine's solid-contact framework doesn't perform the terrain → object handover that ROM's `SolidObjectTopSloped2` (sonic3k.asm:41826) manages. Without a `standing()` contact, `setLatchedSolidObject` never runs, `latchedSolidObjectInstance` stays null, and the freed-slot detection in `SidekickCpuController.checkDespawn()` lines 1127-1137 has no `lastRidingInstance` to detect the loss of.
 
 ### Fix (Partial)
 
-Landed:
+Landed in this commit:
 
-- `AbstractPlayableSprite.latchedSolidObjectInstance` (`ObjectInstance`
-  reference) — analog of ROM `Tails_CPU_interact`'s "first word"
-  identity. Auto-cleared when `setLatchedSolidObjectId(0)` is called.
-- `setLatchedSolidObject(int, ObjectInstance)` convenience setter to
-  bind id+instance atomically. Wired through
-  `ObjectManager.SolidContacts.processInline*` (3 sites),
-  `CnzBarberPoleObjectInstance.latch`, and
-  `CnzWireCageObjectInstance.latch`.
-- `SidekickCpuController.lastRidingInstance` per-frame cache + new
-  `sub_13EFC` `(a3)=0` analog: when off-screen + on-object +
-  `lastRidingInstance != null` and the current latched instance is
-  null, different, or `isDestroyed()`, fire
-  `triggerDespawn(OBJECT_ID_MISMATCH)`.
-- `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss` flag —
-  S3K=true, S2/S1=false (S2's existing 8-bit-id check covers freed-slot
-  case there).
+- `Sonic3kCollapsingPlatformObjectInstance.isPersistent()` returns `true` so `ObjectManager.unloadCounterBasedOutOfRange()` (eager, current-frame) does not destroy the platform. Lifecycle now governed exclusively by the in-instance `spriteOnScreenTestPasses()`.
+- `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` ports ROM `Sprite_OnScreen_Test` (sonic3k.asm:37262) using a per-instance `previousFrameCameraX` cache — at end of `update()` we save the camera_x observed during this tick; next tick's `spriteOnScreenTestPasses()` reads it as the analog of ROM's `Camera_X_pos_coarse_back`. Distance threshold $280, unsigned 16-bit wrap, exactly matching ROM.
+- `update()` runs `spriteOnScreenTestPasses()` in states 0/1/2, mirroring ROM's `loc_20594` → `sub_205B6` → `Sprite_OnScreen_Test` chain (sonic3k.asm:44814, 44830, 37262) which fires every frame in pre-collapse and solid-stay states. State 3 (post-fragment fall) keeps its existing `isOnScreen(128)` check matching ROM `loc_20620` `tst.b render_flags / bpl Delete_Current_Sprite` (sonic3k.asm:44879).
+
+Effect: AIZ trace replay error count 6782 → 1959 (-71%), warning count 5773 → 2034 (-65%). All downstream cascades from premature platform destruction are gone. Cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2262.
 
 Not landed (architectural blocker):
 
-- ROM-faithful collapsing-platform lifecycle. The `Obj_CollapsingPlatform`
-  state machine and the offscreen-delete check both diverge from ROM
-  under the AIZ trace replay flow, so the engine's platform never
-  reaches `isDestroyed()` at the same frame ROM does. Either the engine
-  needs platform timing to mirror ROM's `$3A`/`$38`/`Sprite_OnScreen_Test`
-  pattern exactly under the trace re-seed flow, or the trace replay
-  must stop hydrating sidekick state per frame so the engine's
-  collision pass actually drives the platform's standing trigger.
+- **Tails-vs-collapsing-platform standing contact in the engine.** Engine `ObjectManager.SolidContacts.processInline*` paths never fire `onSolidContact(standing=true)` for slot 16 / platform x=0x08B0 with Tails, even though Tails' position matches ROM frame-for-frame up to F6254. Investigation needed into:
+  - Whether AIZ2 terrain immediately under the platform footprint masks the platform's top surface (terrain Y ≈ platform slope-data Y).
+  - Whether the engine performs the equivalent of ROM `SolidObjectTopSloped2`'s "step UP onto the object" handover (sonic3k.asm:41826) when the player runs from terrain onto a sloped solid object whose top is slightly above terrain.
+  - Whether the per-frame ordering (Tails physics resolves terrain collision **before** the object solid pass) causes Tails' Y to be locked to terrain before her body intersects the platform.
 
 ### Removal Condition
 
-Resolve once `TestS3kAizTraceReplay`'s first strict error advances past
-F6255, with the engine's collapsing platform reaching `isDestroyed()`
-at the frame matching ROM's `Delete_Current_Sprite` event.
+Resolve once `TestS3kAizTraceReplay`'s first strict error advances past F6255, with engine Tails landing on the AIZ2 collapsing platform at x=0x08B0 (visible as `setLatchedSolidObject(slot=16)` firing for Tails around F6251) and the freed-slot detection then warping her to `(0x7F00, 0)` at F6255 like ROM.
