@@ -254,17 +254,31 @@ further S3K parity work.
   default-radii reset in `resetOnFloor` mirroring ROM `Player_TouchFloor` —
   sonic3k.asm:69986/70095 cage release uses hardcoded y_radius=19/x_radius=9 regardless of
   character, and Tails's default y_radius=15 was causing 4-px hitbox drift after release that
-  cascaded into terrain-miss). AIZ also gained a sidekick level-boundary kill split (ROM
+  cascaded into terrain-miss; F2222 → F2262 lands the sidekick-cage release-gating fix —
+  ROM `Obj_CNZWireCage` carries the original `FixBugs`-disabled `addq.b #1, d6` corruption
+  at sonic3k.asm:69843 so once the leader releases, the cage does nothing for the sidekick;
+  `CnzWireCageObjectInstance` now tracks `leaderHasReleased` and short-circuits the
+  sidekick's `continueRide` after release while preserving `object_control` ghost-state
+  markers, so the engine no longer fires `releaseWithJumpImpulse` on Tails-CPU's
+  auto-jump). AIZ also gained a sidekick level-boundary kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
   produce ROM-correct values natively.
-- **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
-  `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
-  `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
-  state per the comparison-only invariant captured by the `trace-replay-bug-fixing` skill. AIZ
-  and CNZ traces are both rerecorded against v6.2-s3k.
+- **Trace recorder v6.3-s3k:** adds two per-frame diagnostic event types on top of v6.2
+  (`object_state`, `interact_state`) and v6.1 (`oscillation_state`) and v6.0 (`cpu_state`):
+  `cage_state` (one event per active CNZ Wire Cage object per frame, including the cage
+  status byte and both per-player phase/state bytes) and `cage_execution` (per-frame summary
+  of M68K execution-hook hits at `sub_338C4` / `loc_339A0` / `loc_33ADE` / `loc_33B1E` /
+  `loc_33B62`, with entry-point register state captured via BizHawk Lua
+  `event.onmemoryexecute`). All event types are read-only diagnostic input — never hydrated
+  into engine state per the comparison-only invariant captured by the
+  `trace-replay-bug-fixing` skill. CNZ trace is rerecorded against v6.3-s3k. The v6.3
+  emission also fixes a recorder bug: the v6.2 `interact_state` event read player offset
+  `0x2A` and labelled the result `object_control`; per `sonic3k.constants.asm:30/57` `0x2A`
+  is `status` and the real `object_control` byte is at `0x2E`. v6.3 emits `status`,
+  `status_secondary`, and `object_control` as three separate JSON fields.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
