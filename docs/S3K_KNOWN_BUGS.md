@@ -24,6 +24,7 @@ Entries should include:
 6. [CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)](#cnz1-trace-f1791--tails-cpu-auto-jump-trigger-bit-7-object-control-gate-fixed)
 7. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
+9. [AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)](#aiz1-trace-f5497--sidekick-cpu-bound-override-stale-after-act-transition-fixed)
 
 ---
 
@@ -129,9 +130,69 @@ the velocities. The engine collapsed both into one path.
 
 - AIZ first strict error advances F4679 -> F5497 (1190 -> 1185 errors).
   F5497 is in AIZ act 2 reload territory (downstream divergence, not
-  related to the kill-plane semantic gap).
+  related to the kill-plane semantic gap; subsequently fixed — see
+  "AIZ1 Trace F5497" entry below).
 - Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151,
   S3K CNZ F1815.
+
+---
+
+## AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)
+
+**Location:** `LevelManager.executeActTransition()` (`src/main/java/com/openggf/level/LevelManager.java`).
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`, first strict error was at frame 5497 prior to fix.
+
+### Symptom
+
+At frame 5497 the engine produced `tails_x = 0x2F20` vs the ROM's
+expected `tails_x = 0x00B1` — a 0x2E6F (≈11887 px) jump in a single
+frame, immediately after the AIZ1 → AIZ2 seamless reload checkpoint
+(`aiz2_reload_resume`) at frame 5496.
+
+### Root Cause
+
+`SidekickCpuController` keeps its own `minXBound`/`maxXBound`/
+`maxYBound` overrides that `PlayableSpriteMovement.doLevelBoundary`
+prefers over the live camera bounds for CPU sidekicks (mirroring ROM
+`sonic3k.asm:36925/36945` Player_Boundary_Check_*). Per-zone event
+handlers — notably `Sonic3kAIZEvents` boss arena lock — populate
+those overrides during AIZ1; `Sonic3kLevelEventManager
+.syncSidekickBoundsToCamera()` then refreshes them every frame at the
+END of `update()`.
+
+When the AIZ1 → AIZ2 seamless act transition fires (ROM
+`AIZ1BGE_Finish` at `sonic3k.asm:104722-104771`), the engine's
+`executeActTransition()` ran `restoreCameraBoundsForCurrentLevel()`
+to pick up AIZ2 camera bounds but did NOT refresh the CPU bound
+overrides. The next frame's `doLevelBoundary` therefore saw stale
+AIZ1-boss-arena bounds (`minXBound = maxXBound = 0x2F10`),
+computed `leftBoundary = 0x2F20`, found `predictedX = 0x00B2 < 0x2F20`,
+and clamped Tails to `0x2F20` — teleporting the sidekick across the
+entire AIZ2 reload offset (-0x2F00).
+
+ROM has no analogous bug: its act-2 reload resets
+`Camera_min_X_pos` / `Camera_min_Y_pos` (sonic3k.asm:104758-104762),
+and Tails-CPU code reads those camera fields directly — there is no
+separate "Tails CPU bounds" storage to fall out of sync.
+
+### Fix
+
+Step 7b in `executeActTransition()` now iterates
+`spriteManager.getSidekicks()` after the camera bounds restore and
+calls `cpu.setLevelBounds(cam.getMinX(), cam.getMaxX(),
+max(cam.getMaxY(), cam.getMaxYTarget()))` to refresh each sidekick's
+CPU bound override to the new act's camera bounds. This matches the
+ROM semantics (camera reset = sidekick bound reset) without affecting
+the per-frame `syncSidekickBoundsToCamera()` flow that was already
+running successfully on every non-transition frame.
+
+### Result
+
+- AIZ first strict error advances F5497 → F5736 (1185 → 1184 errors).
+  F5736 is a fresh tails_x_speed divergence in the AIZ2 main gameplay
+  region.
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F2175.
 
 
 ---

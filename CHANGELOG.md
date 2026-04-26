@@ -4,6 +4,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ1 Trace F5497: Refresh Sidekick CPU Bounds on Act Transition
+
+- Fixed `LevelManager.executeActTransition()` to refresh
+  `SidekickCpuController.minXBound/maxXBound/maxYBound` to the new
+  camera bounds after `restoreCameraBoundsForCurrentLevel()`. The CPU
+  bound overrides are populated by per-zone event handlers (e.g.
+  `Sonic3kAIZEvents` boss arena lock at AIZ1 stage) and refreshed each
+  frame by `Sonic3kLevelEventManager.syncSidekickBoundsToCamera()` at
+  the END of `update()`. Without an in-transition resync, the next
+  frame's `PlayableSpriteMovement.doLevelBoundary` reads stale AIZ1
+  boss-arena bounds and clamps the post-transition Tails to that
+  arena's left edge, teleporting Tails across the AIZ2 reload offset.
+- ROM context: `sonic3k.asm:104722-104771` (`AIZ1BGE_Finish`) resets
+  `Camera_min_X_pos` / `Camera_min_Y_pos` (lines 104758-104762) as part
+  of the act 2 reload. ROM Tails reads those camera fields directly —
+  there is no separate Tails-CPU bounds storage in the ROM, so the
+  engine's mirror must be refreshed alongside the camera reset.
+- AIZ trace F5497 was: stale `minXBound = 0x2F10` produced
+  `leftBoundary = 0x2F20`; `predictedX = 0x00B2 < 0x2F20`, so
+  `doLevelBoundary` clamped Tails to `0x2F20`. With the fix
+  `minXBound = 0x10` (AIZ2 camera min) and Tails stays at the post-
+  offset 0x00B1.
+- TestS3kAizTraceReplay#replayMatchesTrace: first error advances
+  F5497 → F5736 (1185 → 1184 errors).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F2175.
+
 ### Sonic 3&K AIZ1 Trace F4679: Sidekick Level-Boundary Kill Velocity Zeroing
 
 - Fixed `SidekickCpuController.despawn()` to model ROM's two-phase

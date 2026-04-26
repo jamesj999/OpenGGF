@@ -224,7 +224,9 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 (the F3834 sidekick-enemy-bounce fix uncovered F2202's phantom-respawn divergence
+  → 4679 → 5497 → 5736 (Act 1 substantially clean, now into Act 2 reload territory; act
+  transition refreshes the CPU sidekick bounds so a previous boss-arena lock can't poison
+  the new act's level boundary check) (the F3834 sidekick-enemy-bounce fix uncovered F2202's phantom-respawn divergence
   that elastic-window comparison had been masking — that's now fixed too via permanent
   destroyed-badnik latching matching ROM `Object_respawn_table` bit 7 (sonic3k.asm:loc_1BA40/
   loc_1BA64), gated S3K-only since S1/S2 use the existing `remembered`-flag pattern; plus an
