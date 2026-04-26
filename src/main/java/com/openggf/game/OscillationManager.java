@@ -217,4 +217,42 @@ public final class OscillationManager {
         int word = (within < 2) ? values[index] : deltas[index];
         return (short) word; // Sign-extend to int
     }
+
+    /**
+     * Returns the full ROM-format {@code Oscillating_table} bytes for
+     * diagnostic comparison against trace data. Layout matches ROM
+     * sonic3k.constants.asm:853 — control word followed by 16x (value word,
+     * delta word). Total 66 bytes ($42).
+     *
+     * <p>Used by trace replay diagnostics to ROM-verify engine oscillator
+     * phase. <strong>Do not use for hydration:</strong> the engine must
+     * produce the correct oscillator phase natively.
+     */
+    public static byte[] snapshotRomFormatBytes() {
+        byte[] out = new byte[2 + OSC_COUNT * 4];
+        out[0] = (byte) ((control >> 8) & 0xFF);
+        out[1] = (byte) (control & 0xFF);
+        for (int i = 0; i < OSC_COUNT; i++) {
+            out[2 + i * 4] = (byte) ((values[i] >> 8) & 0xFF);
+            out[2 + i * 4 + 1] = (byte) (values[i] & 0xFF);
+            out[2 + i * 4 + 2] = (byte) ((deltas[i] >> 8) & 0xFF);
+            out[2 + i * 4 + 3] = (byte) (deltas[i] & 0xFF);
+        }
+        return out;
+    }
+
+    /** Diagnostic-only access to the control bitfield (S1/S2/S3K shared). */
+    public static int controlForTest() {
+        return control;
+    }
+
+    /** Diagnostic-only access to oscillator value words (post-tick). */
+    public static int[] valuesForTest() {
+        return values.clone();
+    }
+
+    /** Diagnostic-only access to oscillator delta words (post-tick). */
+    public static int[] deltasForTest() {
+        return deltas.clone();
+    }
 }

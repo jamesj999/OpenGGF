@@ -112,6 +112,13 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getOutOfRangeReferenceX() {
+        // ROM loc_32188 calls Sprite_OnScreen_Test2 with $2E(a0), the saved
+        // placement X, after the cylinder has moved away from its current x_pos.
+        return baseX;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         standingMask = nextStandingMask;
         heldInputMask = nextHeldInputMask;
@@ -152,7 +159,18 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         if (standingMask != standingMaskCache) {
             int delta = standingMask - standingMaskCache;
             standingMaskCache = standingMask;
-            if (delta > 0 && Math.abs(mode0Velocity) < 0x200) {
+            // ROM sonic3k.asm:67725-67729 (loc_32208): only apply the +0x400
+            // player-landing boost when the cylinder is within ±0x40 pixels of
+            // its base. The ROM check is `addi.w #$40, d0; cmpi.w #$80, d0; bhs`
+            // i.e. the boost only fires when (centerY - baseY) is in [-0x40, 0x40).
+            // Without this gate the engine over-injects downward velocity when
+            // Tails lands during the cylinder's return upswing, which was the
+            // root cause of CNZ trace F1685 tails_y_speed mismatch (the cylinder's
+            // upward velocity at jump-release was 0x22F too low).
+            // Applied BEFORE moveMode0Sprite2() to match ROM ordering at loc_32254.
+            int preMoveOffset = (centerY - baseY) + 0x40;
+            boolean withinBoostBand = preMoveOffset >= 0 && preMoveOffset < 0x80;
+            if (delta > 0 && Math.abs(mode0Velocity) < 0x200 && withinBoostBand) {
                 mode0Velocity += 0x400;
                 if (mode0Velocity > speedCap) {
                     mode0Velocity = speedCap;

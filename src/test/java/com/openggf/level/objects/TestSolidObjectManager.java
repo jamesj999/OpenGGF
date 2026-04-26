@@ -10,6 +10,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
+import com.openggf.game.sonic3k.objects.CnzTrapDoorInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -416,6 +417,49 @@ public class TestSolidObjectManager {
         } finally {
             GameModuleRegistry.setCurrent(previous);
         }
+    }
+
+    @Test
+    public void cnzTrapDoorSolidObjectTopRejectsExactSurfaceBoundaryAndLandsOnePixelInside() {
+        ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x44, 0, 0, false, 0);
+        CnzTrapDoorInstance object = new CnzTrapDoorInstance(spawn);
+        ObjectManager manager = buildManager(object);
+        object.snapshotPreUpdatePosition();
+        SolidObjectParams params = object.getSolidParams();
+
+        TestPlayableSprite exactBoundary = new TestPlayableSprite((short) 0, (short) 0);
+        exactBoundary.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        exactBoundary.setWidth(20);
+        exactBoundary.setHeight(38);
+        exactBoundary.setAir(true);
+        exactBoundary.setYSpeed((short) 0x100);
+        exactBoundary.setCentreX((short) 100);
+        int maxTop = params.groundHalfHeight() + exactBoundary.getYRadius();
+        exactBoundary.setCentreY((short) (100 - 4 - maxTop));
+
+        manager.updateSolidContacts(exactBoundary);
+
+        assertFalse(exactBoundary.isOnObject(),
+                "CNZ trap door SolidObjectTop should reject the ROM d0 == 0 boundary");
+        assertTrue(exactBoundary.getAir());
+        assertEquals(0x100, exactBoundary.getYSpeed());
+
+        TestPlayableSprite insideBoundary = new TestPlayableSprite((short) 0, (short) 0);
+        insideBoundary.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        insideBoundary.setWidth(20);
+        insideBoundary.setHeight(38);
+        insideBoundary.setAir(true);
+        insideBoundary.setYSpeed((short) 0x100);
+        insideBoundary.setCentreX((short) 100);
+        insideBoundary.setCentreY((short) (100 - 4 - maxTop + 1));
+
+        manager.updateSolidContacts(insideBoundary);
+
+        assertTrue(insideBoundary.isOnObject());
+        assertFalse(insideBoundary.getAir());
+        assertEquals(0, insideBoundary.getYSpeed());
+        assertEquals(100 - params.groundHalfHeight() - insideBoundary.getYRadius() - 1,
+                insideBoundary.getCentreY());
     }
 
     @Test

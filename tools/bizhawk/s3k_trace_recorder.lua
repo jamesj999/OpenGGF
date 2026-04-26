@@ -34,6 +34,24 @@
 -- end-of-frame ROM instant.
 -- v5.4-s3k changes: write pre_trace_osc_frames from Level_frame_counter so
 -- seeded replays restore the ROM's global oscillation phase.
+-- v6.0-s3k changes: emit per-frame cpu_state events with the full Tails CPU
+-- global block plus Ctrl_2_logical so engine SidekickCpuController state can
+-- be hydrated each frame in trace replay (closes the visibility gap that
+-- blocked CNZ1 trace F1740 root-cause analysis -- the trace's sidekick OST
+-- routine byte is not Tails_CPU_routine and Ctrl_2_logical was never recorded).
+-- Bumps trace_schema 5 -> 6.
+-- v6.1-s3k changes: emit per-frame oscillation_state events with the full
+-- Oscillating_table contents ($42 bytes at $FFFFFE6E) and Level_frame_counter
+-- so trace replay can ROM-verify global oscillator phase. Closes the
+-- visibility gap that blocks CNZ1 F850 root-cause analysis where the engine's
+-- OscillationManager.getByte(LIFT_OSC_OFFSET=$14) reads osc[5] one tick
+-- behind ROM's Oscillating_table+$16 high byte.
+-- v6.2-s3k changes: emit per-frame object_state events (one per nearby OST
+-- slot within OBJECT_PROXIMITY of either player) and interact_state events
+-- (per player) with object_control byte (offset $2A) plus interact slot
+-- resolved from offset $42. Used to root-cause AIZ F2667 spike-vs-Tails
+-- collision divergence: ROM's SolidObject_cont path early-exits when
+-- object_control bit 7 is set on the player (sonic3k.asm:41439).
 ------------------------------------------------------------------------------
 
 -----------------
@@ -105,16 +123,45 @@ local OBJ_CNZ_BALLOON       = 0x00031754
 local OBJ_ID_CNZ_BALLOON    = 0x41
 
 local ADDR_FRAMECOUNT       = 0xFE04
+-- Oscillating_table address ($FFFFFE6E in S3K RAM, $42 bytes total).
+-- First word ($FE6E/$FE6F) is the control bitfield (Osc_Data $0000 first dc.w),
+-- followed by 16 (value, delta) word pairs. Computed from
+-- docs/skdisasm/sonic3k.constants.asm sequential `ds.b` walk: RAM_start
+-- $FFFF0000 -> CrossResetRAM at $FFFFFE00 -> Oscillating_table at offset $6E.
+local ADDR_OSC_TABLE        = 0xFE6E
+local OSC_TABLE_SIZE        = 0x42
 local ADDR_VBLA_WORD        = 0xFE0E
 local ADDR_LAG_FRAME_COUNT  = 0xF628
 local ADDR_RNG_SEED         = 0xF636
-local ADDR_TAILS_CONTROL_COUNTER = 0xF702
-local ADDR_TAILS_RESPAWN_COUNTER = 0xF704
-local ADDR_TAILS_CPU_ROUTINE     = 0xF708
-local ADDR_TAILS_CPU_TARGET_X    = 0xF70A
-local ADDR_TAILS_CPU_TARGET_Y    = 0xF70C
-local ADDR_TAILS_INTERACT_ID     = 0xF70E
-local ADDR_TAILS_CPU_JUMPING     = 0xF70F
+-- Tails CPU global block. Layout from sonic3k.constants.asm:618-626:
+--   $F700 Tails_CPU_interact     (word) - RAM addr of object Tails stood on
+--   $F702 Tails_CPU_idle_timer   (word) - counts down while Ctrl_2 idle
+--   $F704 Tails_CPU_flight_timer (word) - counts up while respawning
+--   $F706 (unused)
+--   $F708 Tails_CPU_routine      (word) - current Tails AI routine index
+--   $F70A Tails_CPU_target_X     (word)
+--   $F70C Tails_CPU_target_Y     (word)
+--   $F70E Tails_CPU_auto_fly_timer  (byte)
+--   $F70F Tails_CPU_auto_jump_flag  (byte)
+local ADDR_TAILS_CPU_INTERACT       = 0xF700
+local ADDR_TAILS_CPU_IDLE_TIMER     = 0xF702
+local ADDR_TAILS_CPU_FLIGHT_TIMER   = 0xF704
+local ADDR_TAILS_CPU_ROUTINE        = 0xF708
+local ADDR_TAILS_CPU_TARGET_X       = 0xF70A
+local ADDR_TAILS_CPU_TARGET_Y       = 0xF70C
+local ADDR_TAILS_CPU_AUTO_FLY_TIMER = 0xF70E
+local ADDR_TAILS_CPU_AUTO_JUMP_FLAG = 0xF70F
+-- Legacy aliases (kept for compatibility with the historical pre-trace snapshot
+-- field names; the new per-frame snapshot uses the disassembly-correct names).
+local ADDR_TAILS_CONTROL_COUNTER = ADDR_TAILS_CPU_IDLE_TIMER
+local ADDR_TAILS_RESPAWN_COUNTER = ADDR_TAILS_CPU_FLIGHT_TIMER
+local ADDR_TAILS_INTERACT_ID     = ADDR_TAILS_CPU_AUTO_FLY_TIMER
+local ADDR_TAILS_CPU_JUMPING     = ADDR_TAILS_CPU_AUTO_JUMP_FLAG
+-- Ctrl_2_logical block. Layout from sonic3k.constants.asm:589-591:
+--   $F66A Ctrl_2_held_logical    (byte)
+--   $F66B Ctrl_2_pressed_logical (byte)
+local ADDR_CTRL2_HELD_LOGICAL    = 0xF66A
+local ADDR_CTRL2_PRESSED_LOGICAL = 0xF66B
 
 local INPUT_UP    = 0x01
 local INPUT_DOWN  = 0x02
@@ -399,9 +446,8 @@ local function emit_s3k_semantic_events(frame)
     if level_started ~= 0 and game_mode == GAMEMODE_LEVEL and move_lock == 0 and ctrl_locked == 0 then
         emit_checkpoint_once(frame, "gameplay_start", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
-    local camera_x = mainmemory.read_u16_be(ADDR_CAMERA_X)
-    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 and camera_x >= 0x2D00 then
-        emit_checkpoint_once(frame, "aiz1_fire_transition_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
+    if actual_zone_id == 0 and actual_act == 0 and events_fg_5 ~= 0 then
+        emit_checkpoint_once(frame, "aiz1_intro_refresh_begin", actual_zone_id, actual_act, apparent_act, game_mode, nil)
     end
     if actual_zone_id == 0 and actual_act == 1 and apparent_act == 0 then
         emit_checkpoint_once(frame, "aiz2_reload_resume", actual_zone_id, actual_act, apparent_act, game_mode, nil)
@@ -487,9 +533,14 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "5.4-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.2-s3k",\n')
+    -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
+    -- cpu_state, oscillation_state, object_state, and interact_state aux
+    -- events are detected by parsers via aux_schema_extras rather than a
+    -- schema bump.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -516,6 +567,56 @@ local function write_tails_cpu_snapshot()
         mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
         mainmemory.read_u8(ADDR_TAILS_INTERACT_ID),
         mainmemory.read_u8(ADDR_TAILS_CPU_JUMPING)))
+end
+
+-- Per-frame oscillation_state event. Emitted once per recorded trace frame
+-- with the full Oscillating_table contents ($42 bytes) plus the running
+-- Level_frame_counter so engine replay can ROM-verify global oscillator
+-- phase. Bytes are encoded as a single hex string for compactness.
+-- Reads the table AFTER the frame's OscillateNumDo has run (recorder reads
+-- happen in `on_frame_end`, after BizHawk's emu.frameadvance() ticked the
+-- ROM's full main loop including OscillateNumDo).
+local function write_oscillation_per_frame()
+    if not aux_file then return end
+
+    local parts = {}
+    for i = 0, OSC_TABLE_SIZE - 1 do
+        parts[#parts + 1] = string.format('%02X', mainmemory.read_u8(ADDR_OSC_TABLE + i))
+    end
+
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"oscillation_state","level_frame_counter":%d,"osc_table":"%s"}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        table.concat(parts)))
+end
+
+-- Per-frame CPU state event. Emitted once per recorded trace frame so engine
+-- replay can hydrate SidekickCpuController state at known ROM-checkpoint
+-- instants. Captures the full Tails CPU global block plus Ctrl_2_logical
+-- (held + pressed) which together determine the AI's per-frame decisions.
+local function write_tails_cpu_per_frame()
+    if not aux_file then return end
+
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"cpu_state","character":"tails",'
+            .. '"interact":"0x%04X","idle_timer":%d,"flight_timer":%d,'
+            .. '"cpu_routine":%d,"target_x":"0x%04X","target_y":"0x%04X",'
+            .. '"auto_fly_timer":%d,"auto_jump_flag":%d,'
+            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X"}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_INTERACT),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_IDLE_TIMER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_FLIGHT_TIMER),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_ROUTINE),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_X),
+        mainmemory.read_u16_be(ADDR_TAILS_CPU_TARGET_Y),
+        mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_FLY_TIMER),
+        mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_JUMP_FLAG),
+        mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
+        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL)))
 end
 
 local function snapshot_object_id_for_code(obj_code)
@@ -823,6 +924,76 @@ local function check_mode_changes(status, routine)
     prev_routine = routine
 end
 
+-- Per-frame OBJECT STATE events. Emit one event per OST slot within
+-- OBJECT_PROXIMITY of either Player_1 or Player_2 each frame. Captures
+-- routine pointer first byte, status byte (offset $22), subtype (offset
+-- $1C), x_pos / y_pos / x_radius / y_radius. For Obj_Spikes ($24090)
+-- the status byte's bit 3 is p1_standing and bit 4 is p2_standing per
+-- sonic3k.constants.asm "standing_mask = p1_standing|p2_standing".
+local function write_object_states_per_frame(player1_x, player1_y, player2_present,
+                                              player2_x, player2_y)
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for slot = 1, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local obj_code = mainmemory.read_u32_be(addr)
+        if obj_code ~= 0 then
+            local obj_x = mainmemory.read_u16_be(addr + OFF_X_POS)
+            local obj_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
+            local near_p1 = math.abs(obj_x - player1_x) <= OBJECT_PROXIMITY
+                and math.abs(obj_y - player1_y) <= OBJECT_PROXIMITY
+            local near_p2 = player2_present
+                and math.abs(obj_x - player2_x) <= OBJECT_PROXIMITY
+                and math.abs(obj_y - player2_y) <= OBJECT_PROXIMITY
+            if near_p1 or near_p2 then
+                local status_byte = mainmemory.read_u8(addr + OFF_STATUS)
+                local subtype = mainmemory.read_u8(addr + 0x1C)
+                local x_radius = mainmemory.read_u8(addr + OFF_RADIUS_X)
+                local y_radius = mainmemory.read_u8(addr + OFF_RADIUS_Y)
+                local routine_byte = mainmemory.read_u8(addr + OFF_ROUTINE)
+                write_aux(string.format(
+                    '{"frame":%d,"vfc":%d,"event":"object_state","slot":%d,'
+                        .. '"object_code":"0x%08X","routine":"0x%02X",'
+                        .. '"status":"0x%02X","subtype":"0x%02X",'
+                        .. '"x":"0x%04X","y":"0x%04X",'
+                        .. '"x_radius":%d,"y_radius":%d}',
+                    trace_frame, vfc, slot, obj_code, routine_byte,
+                    status_byte, subtype, obj_x, obj_y,
+                    x_radius, y_radius))
+            end
+        end
+    end
+end
+
+-- Per-frame INTERACT STATE events. Emit one per active player capturing
+-- the interact field (offset $42, RAM address of the object the player
+-- is "linked" to via RideObject_SetRide or loc_1E154) resolved to OST
+-- slot index, and object_control (offset $2A). When object_control bit
+-- 7 is set on a player, ROM SolidObject_cont (sonic3k.asm:41439) takes
+-- the bmi.w loc_1E0A2 branch which skips side-push velocity zeroing --
+-- the very mechanism the engine ObjectManager.SolidContacts side-path
+-- must mirror in S3K. Used to diagnose AIZ F2667 spike-vs-Tails divergence.
+local function write_interact_state_per_frame(player2_present)
+    if not aux_file then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local p1_interact_addr = mainmemory.read_u16_be(PLAYER_BASE + OFF_STAND_ON_OBJ)
+    local p1_interact_slot = interact_addr_to_slot(p1_interact_addr)
+    local p1_object_control = mainmemory.read_u8(PLAYER_BASE + 0x2A)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"interact_state","character":"sonic",'
+            .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
+        trace_frame, vfc, p1_interact_addr, p1_interact_slot, p1_object_control))
+    if player2_present then
+        local p2_interact_addr = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_STAND_ON_OBJ)
+        local p2_interact_slot = interact_addr_to_slot(p2_interact_addr)
+        local p2_object_control = mainmemory.read_u8(SIDEKICK_BASE + 0x2A)
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"interact_state","character":"tails",'
+                .. '"interact":"0x%04X","interact_slot":%d,"object_control":"0x%02X"}',
+            trace_frame, vfc, p2_interact_addr, p2_interact_slot, p2_object_control))
+    end
+end
+
 -----------------
 --- Main Loop ---
 -----------------
@@ -942,6 +1113,19 @@ local function on_frame_end()
         write_tails_cpu_snapshot()
         write_object_snapshots()
         pre_trace_snapshots_written = true
+        -- v6.1-s3k: capture Level_frame_counter at the moment the first
+        -- physics row is recorded. The engine's seeded-frame-0 mode
+        -- teleports sprite state to trace frame 0 without running its
+        -- own LevelLoop, so OscillationManager must be pre-advanced by
+        -- this many ticks for the engine's first natural tick to land
+        -- on the same lfc as ROM's trace frame 1. Profiles that arm
+        -- and immediately return (level_gated_reset_aware) record the
+        -- NEXT BizHawk frame as trace frame 0, so this value is one
+        -- larger than start_gameplay_frame_counter. Profiles that arm
+        -- and continue recording the arm-frame (aiz_end_to_end) record
+        -- the SAME frame as trace frame 0, so this value matches the
+        -- arm-time lfc. Capturing here unifies both paths.
+        start_gameplay_frame_counter = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     end
 
     local x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
@@ -1023,6 +1207,23 @@ local function on_frame_end()
     check_mode_changes(status, routine)
     prev_status = status
 
+    -- Per-frame CPU snapshot (v6 schema). Always emit so the trace replay can
+    -- hydrate engine SidekickCpuController state from authoritative ROM values
+    -- and rule out CPU-state drift as a source of divergence.
+    write_tails_cpu_per_frame()
+
+    -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
+    -- replay can ROM-verify the global oscillator phase used by HoverFan,
+    -- platforms, and other oscillating objects.
+    write_oscillation_per_frame()
+
+    -- Per-frame OBJECT STATE / INTERACT STATE (v6.2 schema). Emitted as
+    -- diagnostics for ROM-side spike object state and player object_control
+    -- / interact fields at AIZ F2667-style player-vs-spike divergent frames.
+    local sk_present = sidekick.present == 1
+    write_object_states_per_frame(x, y, sk_present, sidekick.x, sidekick.y)
+    write_interact_state_per_frame(sk_present)
+
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
     end
@@ -1051,7 +1252,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v5.4-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.2-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 while true do
     on_frame_end()

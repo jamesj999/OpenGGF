@@ -157,7 +157,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 		int centreX = sprite.getCentreX() & 0xFFFF;
-		if (centreX < 0x1940 || centreX > 0x1955) {
+		int minX = Integer.getInteger("s3k.aiz.airprobe.minX", 0x1940);
+		int maxX = Integer.getInteger("s3k.aiz.airprobe.maxX", 0x1955);
+		if (centreX < minX || centreX > maxX) {
 			return;
 		}
 		System.out.printf(
@@ -213,6 +215,24 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Note: Raw input state for objects is now stored in SpriteManager BEFORE filtering,
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
+
+		// Reset per-tick slope-repel slip flag at the very start. Set by
+		// doSlopeRepel when it slips the player into air this frame; consumed
+		// by per-object hooks (e.g. CnzWireCageObjectInstance) that need to
+		// distinguish "fresh slip honour the air state" from "stale move_lock
+		// from an earlier slip".
+		sprite.setSlopeRepelJustSlipped(false);
+
+		// Snapshot pre-physics state for per-object hooks running AFTER
+		// physics in the engine's frame order. ROM order runs cage/object
+		// updates AFTER player physics in slot order, but the cage's
+		// capture decision (sonic3k.asm:69905-69921 loc_33922 → loc_3394C)
+		// is based on the air/angle state ROM saw at the start of that
+		// frame. Engine cage code reads these snapshots to mirror ROM's
+		// branch selection.
+		sprite.capturePrePhysicsSnapshot();
+
+		traceCnzMovementEntry();
 
 		if (sprite.isDebugMode()) {
 			handleDebugMovement(up, down, left, right, speedUp, slowDown);
@@ -333,6 +353,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
+		traceCnzModeDispatch();
 		if (sprite.getAir()) {
 			modeAirborne();
 		} else if (sprite.getRolling()) {
@@ -1747,6 +1768,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 			return;
 		}
+		if (isTailsFlightPhysicsActive(sprite)) {
+			// Tails_FlyingSwimming (sonic3k.asm:27570) applies Tails_Move_FlySwim
+			// before MoveSprite_TestGravity2. MoveSprite_TestGravity2 does not
+			// apply +$38 air gravity (that's MoveSprite_TestGravity's job), and
+			// since Tails_Move_FlySwim already advanced y_vel by +0x08, the
+			// movement step uses the post-gravity y_vel.
+			applyGravity();
+			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+			return;
+		}
 		short oldYSpeed = sprite.getYSpeed();  // Save old y_vel before gravity
 		applyGravity();                         // Gated on isObjectControlled()
 		sprite.move(sprite.getXSpeed(), oldYSpeed);  // Move using OLD y_vel
@@ -1777,10 +1808,37 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		SidekickCpuController cpu = sprite.getCpuController();
 		if (cpu != null && cpu.usesFlyingCarryMovement()) {
+			cpu.applyFlyingCarryVerticalVelocity();
+			return;
+		}
+		if (isTailsFlightPhysicsActive(sprite)) {
 			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x08));
 			return;
 		}
 		sprite.setYSpeed((short) (sprite.getYSpeed() + sprite.getGravity()));
+	}
+
+	/**
+	 * ROM: Tails_Stand_Freespace (sonic3k.asm:27553-27555) branches to
+	 * Tails_FlyingSwimming whenever {@code double_jump_flag(a0) != 0},
+	 * which swaps +$38 air gravity for +$08 flight gravity (Tails_Move_FlySwim
+	 * loc_1488C at sonic3k.asm:27633).
+	 *
+	 * <p>The flag is set by {@code loc_13FC2} when Tails picks up Sonic for the
+	 * CNZ1 carry intro, and — crucially — {@code loc_14016}'s landing release
+	 * does NOT clear it. Tails therefore continues flying on the frame that
+	 * Sonic lands, producing the trace's observed {@code y_vel = 0x0008}
+	 * (0 reset + +0x08 flight gravity) instead of {@code 0x0388}
+	 * (0x0350 carry momentum + +0x38 normal gravity).
+	 *
+	 * <p>Gated on {@link SecondaryAbility#FLY} so Sonic's insta-shield and
+	 * Knuckles's glide (which both also use {@code double_jump_flag}) keep
+	 * their normal air gravity; only Tails's code path in the ROM has the
+	 * Tails_Stand_Freespace -&gt; Tails_FlyingSwimming branch.
+	 */
+	private static boolean isTailsFlightPhysicsActive(AbstractPlayableSprite sprite) {
+		return sprite.getSecondaryAbility() == SecondaryAbility.FLY
+				&& sprite.getDoubleJumpFlag() != 0;
 	}
 
 	// ========================================
@@ -1847,7 +1905,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					// the normal camera bottom. ROM runs Tails_Check_Screen_Boundaries
 					// in that path without returning to the generic CPU respawn state.
 					if (!cpuController.usesFlyingCarryMovement()) {
-						cpuController.despawn();
+						// ROM Player_LevelBound (sonic3k.asm:23172) jumps to
+						// Kill_Character (sonic3k.asm:21136) for both player and
+						// sidekick when the bottom kill plane is crossed. The
+						// LEVEL_BOUNDARY cause selects the engine's
+						// Kill_Character-equivalent path (zero velocities + one-
+						// frame DEAD_FALLING state) so the trace's end-of-frame
+						// (vels=0, routine=6) sample matches at AIZ F4679.
+						cpuController.despawn(
+							com.openggf.sprites.playable.SidekickCpuController.DespawnCause.LEVEL_BOUNDARY);
 					}
 				} else {
 					// ROM: Sonic_LevelBound checks for zone-specific intercepts
@@ -1896,6 +1962,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			int slipAngle = (angle + 0x30) & 0xFF;
 			if (slipAngle >= 0x60) {
 				sprite.setAir(true);
+				sprite.setSlopeRepelJustSlipped(true);
 			} else if (slipAngle >= 0x30) {
 				sprite.setGSpeed((short) (sprite.getGSpeed() + 0x80));
 			} else {
@@ -1909,6 +1976,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.setGSpeed((short) 0);
 		sprite.setAir(true);
+		sprite.setSlopeRepelJustSlipped(true);
 		sprite.setMoveLockTimer(MOVE_LOCK_FRAMES);
 	}
 
@@ -1917,7 +1985,63 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
 		Consumer<AbstractPlayableSprite> landingHandler =
 				usesDirectHitFloorLanding(quadrant) ? this::calculateDirectFloorLanding : this::calculateLanding;
+		traceCnzDoLevelCollisionEntry(forceFloorCheck, quadrant);
 		collisionSystem().resolveAirCollision(sprite, landingHandler, forceFloorCheck);
+	}
+
+	/**
+	 * CNZ probe — entry-of-handleMovement instrumentation.
+	 * Enable via -Dcnz.collisionprobe=true or -Ds3k.cnz.collisionprobe=true.
+	 * Logs every Tails handleMovement entry near the F1815 region so we can see
+	 * which dispatch path Tails actually took.
+	 */
+	private void traceCnzMovementEntry() {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		System.out.printf("cnz-mvEntry who=%s pos=(%04X,%04X) ys=%04X air=%b objCtrl=%b ctrlLock=%b dead=%b hidden=%b%n",
+				who, cx, cy, sprite.getYSpeed() & 0xFFFF, sprite.getAir(),
+				sprite.isObjectControlled(), sprite.isControlLocked(), sprite.getDead(),
+				sprite.isHidden());
+	}
+
+	private void traceCnzModeDispatch() {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		String mode = sprite.getAir() ? "air" : (sprite.getRolling() ? "roll" : "normal");
+		System.out.printf("cnz-modeDispatch who=%s pos=(%04X,%04X) spd=(xs=%04X,ys=%04X,gs=%04X) mode=%s air=%b objCtrl=%b ctrlLock=%b suppressAir=%b%n",
+				who, cx, cy, sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF, sprite.getGSpeed() & 0xFFFF,
+				mode, sprite.getAir(),
+				sprite.isObjectControlled(), sprite.isControlLocked(), sprite.isSuppressAirCollision());
+	}
+
+	private void traceCnzDoLevelCollisionEntry(boolean forceFloorCheck, int quadrant) {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		System.out.printf("cnz-doLevelColl who=%s pos=(%04X,%04X) spd=(xs=%04X,ys=%04X) quad=%02X air=%b force=%b objCtrl=%b suppress=%b%n",
+				who, cx, cy, sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF,
+				quadrant, sprite.getAir(), forceFloorCheck,
+				sprite.isObjectControlled(), sprite.isSuppressAirCollision());
 	}
 
 	private static boolean usesDirectHitFloorLanding(int quadrant) {
@@ -2085,6 +2209,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				int radiusDelta = sprite.getStandYRadius() - sprite.getRollYRadius();
 				sprite.setCentreYPreserveSubpixel((short) (sprite.getCentreY() + radiusDelta));
 			}
+		} else if (sprite.getYRadius() != sprite.getStandYRadius()
+				|| sprite.getXRadius() != sprite.getStandXRadius()) {
+			// ROM Player_TouchFloor (sonic3k.asm:24341-24343 Sonic, 29134-29136 Tails)
+			// unconditionally resets y_radius/x_radius to defaults on landing,
+			// before the Status_Roll check. The roll branch only adjusts y_pos.
+			//
+			// Engine's setRolling(false) above covers the rolling case via
+			// applyStandingRadii. For non-rolling sprites whose radii were set
+			// to non-default values by an object hook (e.g. CnzWireCage's
+			// release path writes y_radius=$13/x_radius=9 unconditionally per
+			// sonic3k.asm:69986-69987 / 70095-70096), engine landing must
+			// likewise restore standing defaults so subsequent ground physics
+			// uses Tails's own radii (CNZ1 trace post-F1815: ROM resets Tails
+			// y_radius from $13 to $F at landing, leaving y_pos unchanged;
+			// without this engine accumulates a 4-pixel y_pos drift).
+			sprite.applyStandingRadii(false);
 		}
 		sprite.setPinballMode(false);
 		sprite.setAir(false);

@@ -181,6 +181,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean air = false;
 
         /**
+         * Pre-physics snapshot of physics state, captured at the start of
+         * each {@code handleMovement} tick (before any physics mutates the
+         * player). Used by per-object hooks that run AFTER physics in the
+         * engine's frame order but BEFORE physics in the ROM frame order
+         * (e.g. {@code CnzWireCageObjectInstance} which captures the player
+         * based on the airborne state ROM saw before player physics gated
+         * via {@code object_control} bit 0). The fields snapshot
+         * {@code air}, {@code angle}, {@code groundVel}, {@code xSpeed},
+         * {@code ySpeed} as ROM would have read them at the start of
+         * {@code Tails_Control}/{@code Sonic_Control} dispatch.
+         */
+        protected boolean prePhysicsAir = false;
+        protected byte prePhysicsAngle = 0;
+        protected short prePhysicsGSpeed = 0;
+        protected short prePhysicsXSpeed = 0;
+        protected short prePhysicsYSpeed = 0;
+
+        /**
          * Whether this sprite is currently jumping (ROM: jumping(a0) status bit).
          * Distinct from 'air' - you can be airborne without having jumped
          * (e.g., walked off an edge, hit by enemy, launched by spring).
@@ -222,6 +240,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * which persists even after {@code status.on_object} is cleared.
          */
         protected int latchedSolidObjectId = 0;
+
+        /**
+         * Set when {@code Player_SlopeRepel} slipped the player into air on the
+         * current physics frame (sonic3k.asm:23929 {@code bset #Status_InAir}).
+         * Cleared at the start of each player update tick. Used by per-object
+         * release-vs-restore decisions (e.g. {@code CnzWireCageObjectInstance})
+         * to distinguish "slope-repel just slipped, honour the air state" from
+         * "stale terrain probe spuriously set air, restore the on-object
+         * status".
+         */
+        protected boolean slopeRepelJustSlipped = false;
 
         /**
          * Whether to stick to convex surfaces even at low speeds.
@@ -448,6 +477,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean objectControlled = false;
         /**
+         * Companion flag to {@link #objectControlled}: when {@code true} the
+         * controlling object owns physics (object_control bits 0-6 in ROM) but
+         * the sidekick CPU AI dispatcher is allowed to run, matching ROM's
+         * {@code bmi.w} (bit 7) check at {@code sonic3k.asm:26672}. Default
+         * {@code false} preserves existing engine behaviour for the bit-7
+         * (flight / despawn / super state / debug) callers. Cleared whenever
+         * {@link #setObjectControlled(boolean)} is set to {@code false}.
+         */
+        protected boolean objectControlAllowsCpu = false;
+        /**
          * Narrow seam for MGZ top-platform carry. That object uses object control for
          * ownership but still needs SolidObject side/top feedback from its controlling
          * platform instance while the carry is active.
@@ -672,6 +711,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.queuedForceInputRight = false;
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
+                this.objectControlAllowsCpu = false;
                 this.mgzTopPlatformCarrySolidContactObject = null;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
@@ -1222,6 +1262,57 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setLatchedSolidObjectId(int latchedSolidObjectId) {
                 this.latchedSolidObjectId = latchedSolidObjectId & 0xFF;
+        }
+
+        /** True when {@code Player_SlopeRepel} slipped the player into air on
+         * the current physics tick. Cleared at the start of each tick. */
+        public boolean isSlopeRepelJustSlipped() {
+                return slopeRepelJustSlipped;
+        }
+
+        public void setSlopeRepelJustSlipped(boolean value) {
+                this.slopeRepelJustSlipped = value;
+        }
+
+        /**
+         * Captures the player's state at the start of the current physics
+         * tick. Called by {@link com.openggf.sprites.managers.PlayableSpriteMovement#handleMovement}
+         * before any physics mutations. Per-object hooks running after
+         * physics (e.g. {@code CnzWireCageObjectInstance}) read these
+         * snapshots to make ROM-correct decisions based on the state ROM
+         * would have observed before player physics ran in slot order.
+         */
+        public void capturePrePhysicsSnapshot() {
+                this.prePhysicsAir = this.air;
+                this.prePhysicsAngle = this.angle;
+                this.prePhysicsGSpeed = this.gSpeed;
+                this.prePhysicsXSpeed = (short) this.xSpeed;
+                this.prePhysicsYSpeed = (short) this.ySpeed;
+        }
+
+        /** Pre-physics air state from {@link #capturePrePhysicsSnapshot()}. */
+        public boolean wasPrePhysicsAir() {
+                return prePhysicsAir;
+        }
+
+        /** Pre-physics angle from {@link #capturePrePhysicsSnapshot()}. */
+        public byte getPrePhysicsAngle() {
+                return prePhysicsAngle;
+        }
+
+        /** Pre-physics ground velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsGSpeed() {
+                return prePhysicsGSpeed;
+        }
+
+        /** Pre-physics X velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsXSpeed() {
+                return prePhysicsXSpeed;
+        }
+
+        /** Pre-physics Y velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsYSpeed() {
+                return prePhysicsYSpeed;
         }
 
         public boolean isSliding() {
@@ -2034,7 +2125,30 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 } else {
                         this.mgzTopPlatformCarrySolidContactObject = null;
                         clearMgzTopPlatformSpringHandoff();
+                        this.objectControlAllowsCpu = false;
                 }
+        }
+
+        /**
+         * ROM-bit-7 ({@code bmi.w}) test for {@link SidekickCpuController#updateNormal}'s
+         * early-out gate. When {@code true}, the controlling object holds the player via
+         * ROM {@code object_control} bits 0-6 only (e.g. CNZ wire cage's bits 1+6, MGZ
+         * twisting loop's bit 0+1+6) — ROM lets {@code Tails_CPU_Control} keep generating
+         * input in this case (sonic3k.asm:26672 {@code bmi.w} only branches when the sign
+         * bit is set). When {@code false} (default), the controlling object is the
+         * ROM-bit-7 case (flight, super state, despawn marker, debug) and the engine's
+         * CPU controller skips its NORMAL state body to match ROM's {@code bmi.w} skip.
+         *
+         * <p>Cleared automatically when {@link #setObjectControlled(boolean)} is set to
+         * {@code false}; the controlling object must re-assert the flag every time it
+         * re-asserts {@link #setObjectControlled}{@code (true)}.
+         */
+        public boolean isObjectControlAllowsCpu() {
+                return objectControlAllowsCpu;
+        }
+
+        public void setObjectControlAllowsCpu(boolean objectControlAllowsCpu) {
+                this.objectControlAllowsCpu = objectControlAllowsCpu;
         }
 
         /**
@@ -3095,6 +3209,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public short getStandYRadius() {
                 return standYRadius;
+        }
+
+        public short getStandXRadius() {
+                return standXRadius;
         }
 
         public short getRollYRadius() {

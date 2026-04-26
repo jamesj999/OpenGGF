@@ -45,6 +45,12 @@ public class HeadlessTestRunner {
     private final int leftKey = GameServices.configuration().getInt(SonicConfiguration.LEFT);
     private final int rightKey = GameServices.configuration().getInt(SonicConfiguration.RIGHT);
     private final int jumpKey = GameServices.configuration().getInt(SonicConfiguration.JUMP);
+    private final int p2UpKey = GameServices.configuration().getInt(SonicConfiguration.P2_UP);
+    private final int p2DownKey = GameServices.configuration().getInt(SonicConfiguration.P2_DOWN);
+    private final int p2LeftKey = GameServices.configuration().getInt(SonicConfiguration.P2_LEFT);
+    private final int p2RightKey = GameServices.configuration().getInt(SonicConfiguration.P2_RIGHT);
+    private final int p2JumpKey = GameServices.configuration().getInt(SonicConfiguration.P2_JUMP);
+    private final int p2StartKey = GameServices.configuration().getInt(SonicConfiguration.P2_START);
     private int frameCounter = 0;
 
     // BK2 recording playback fields
@@ -74,6 +80,25 @@ public class HeadlessTestRunner {
      * @param jump  Jump input pressed
      */
     public void stepFrame(boolean up, boolean down, boolean left, boolean right, boolean jump) {
+        stepFrame(up, down, left, right, jump, /* p2Mask */ 0, /* p2Start */ false);
+    }
+
+    /**
+     * Steps one frame with both P1 and P2 input. The P2 input is delivered by
+     * pressing/releasing the configured P2 keybindings in the same shared
+     * {@link InputHandler} instance, so {@code SpriteManager.update} reads it
+     * via the same path it uses in interactive play.
+     *
+     * @param up      P1 Up
+     * @param down    P1 Down
+     * @param left    P1 Left
+     * @param right   P1 Right
+     * @param jump    P1 Jump (A/B/C)
+     * @param p2Mask  P2 input mask combining {@code INPUT_UP/DOWN/LEFT/RIGHT/JUMP}
+     * @param p2Start whether P2 Start is pressed
+     */
+    public void stepFrame(boolean up, boolean down, boolean left, boolean right, boolean jump,
+                          int p2Mask, boolean p2Start) {
         frameCounter++;
         updateActiveTitleCardOverlay();
         if (applyPendingSeamlessTransition()) {
@@ -86,6 +111,12 @@ public class HeadlessTestRunner {
         setKeyState(leftKey, left);
         setKeyState(rightKey, right);
         setKeyState(jumpKey, jump);
+        setKeyState(p2UpKey, (p2Mask & AbstractPlayableSprite.INPUT_UP) != 0);
+        setKeyState(p2DownKey, (p2Mask & AbstractPlayableSprite.INPUT_DOWN) != 0);
+        setKeyState(p2LeftKey, (p2Mask & AbstractPlayableSprite.INPUT_LEFT) != 0);
+        setKeyState(p2RightKey, (p2Mask & AbstractPlayableSprite.INPUT_RIGHT) != 0);
+        setKeyState(p2JumpKey, (p2Mask & AbstractPlayableSprite.INPUT_JUMP) != 0);
+        setKeyState(p2StartKey, p2Start);
 
         LevelFrameStep.execute(levelManager, GameServices.camera(),
                 () -> GameServices.sprites().update(inputHandler));
@@ -212,13 +243,24 @@ public class HeadlessTestRunner {
             mask |= AbstractPlayableSprite.INPUT_JUMP;
         }
 
+        // P2 input: directional + jump (any of A/B/C). Start handled separately.
+        // ROM Ctrl_2_held is "currently pressed"; Ctrl_2_logical (just-pressed)
+        // is computed downstream by InputHandler.update() comparing this frame's
+        // keys against the previous frame's, so we only need to deliver "held"
+        // here. SpriteManager forwards both to SidekickCpuController.
+        int p2Mask = frameInput.p2InputMask();
+        if (frameInput.p2ActionMask() != 0) {
+            p2Mask |= AbstractPlayableSprite.INPUT_JUMP;
+        }
+        boolean p2Start = frameInput.p2StartPressed();
+
         boolean up = (mask & AbstractPlayableSprite.INPUT_UP) != 0;
         boolean down = (mask & AbstractPlayableSprite.INPUT_DOWN) != 0;
         boolean left = (mask & AbstractPlayableSprite.INPUT_LEFT) != 0;
         boolean right = (mask & AbstractPlayableSprite.INPUT_RIGHT) != 0;
         boolean jump = (mask & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
-        stepFrame(up, down, left, right, jump);
+        stepFrame(up, down, left, right, jump, p2Mask, p2Start);
         currentBk2Index++;
 
         return mask;

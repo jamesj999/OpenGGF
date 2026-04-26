@@ -215,7 +215,62 @@ further S3K parity work.
   objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
   collapsing solids.
 - **Trace replay tooling:** S2/S3K trace recorder and replay fixtures now capture BK2-backed frame
-  data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work.
+  data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work. The
+  trace recorder is now at v6.1-s3k with per-frame Tails CPU state events plus per-frame
+  `oscillation_state` snapshots; AIZ and CNZ traces are rerecorded against it. The recorder also
+  re-captures `Level_frame_counter` at the first physics row instead of arm time, fixing a
+  one-tick bootstrap drift that affected `level_gated_reset_aware` profiles. The new
+  `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
+  `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
+  diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
+- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
+  → 4679 → 5497 → 5736 (Act 1 substantially clean, now into Act 2 reload territory; act
+  transition refreshes the CPU sidekick bounds so a previous boss-arena lock can't poison
+  the new act's level boundary check) (the F3834 sidekick-enemy-bounce fix uncovered F2202's phantom-respawn divergence
+  that elastic-window comparison had been masking — that's now fixed too via permanent
+  destroyed-badnik latching matching ROM `Object_respawn_table` bit 7 (sonic3k.asm:loc_1BA40/
+  loc_1BA64), gated S3K-only since S1/S2 use the existing `remembered`-flag pattern; plus an
+  AIZ1 dynamic-resize one-frame ordering fix using `Camera.previewNextX()` to match
+  `Do_ResizeEvents` running after `MoveCameraX` per sonic3k.asm:38303-38316; per-game
+  sidekick fly-back exit gate at sonic3k.asm:26625-26630; ROM `SolidObject_cont` on-screen
+  render-flags gate at `s2.asm:35140-35145` / `sonic3k.asm:41390-41392`, S3K-only via
+  `PhysicsFeatureSet.solidObjectOffscreenGate`; Tails CPU auto-jump pushing-bypass at
+  sonic3k.asm:26702-26705 / s2.asm:38943-38946 universal across S2/S3K; bonus removal of an
+  engine-spurious `controlLocked` write on AIZ vine grab that was poisoning Sonic's recorded
+  inputHistory and feeding wrong inputs to Tails CPU 16 frames later; opt-out from the
+  off-screen solid-contact gate for springs because ROM `SolidObjectFull2_1P` at
+  sonic3k.asm:41065 does not test render_flags bit 7, advancing F2919 → F3834). CNZ first-error
+  advanced 1685 → 1740 → 1758 → 1791 → 1815 → 2175 (despawn-on-id-mismatch gating, slope-repel slip
+  in CnzWireCage release, per-tick `slopeRepelJustSlipped` flag, v6.1-s3k recorder
+  pre-trace-osc semantic correction that resolved a separate F850 Hover Fan one-frame trigger
+  lag, `CnzWireCage` airborne-capture `object_control` bit 0 set per ROM `loc_3394C` at
+  sonic3k.asm:69921 with a matching pre-physics state snapshot pattern on
+  `AbstractPlayableSprite`, a Tails CPU bit-7 gate so the auto-jump trigger keeps firing
+  while ROM cage holds the rider with bits 0-6 set (`sonic3k.asm:26672 bmi.w` is sign-bit-only),
+  and a cage-release-radii fix matching ROM `loc_33A0E`/`loc_33B62` plus an unconditional
+  default-radii reset in `resetOnFloor` mirroring ROM `Player_TouchFloor` —
+  sonic3k.asm:69986/70095 cage release uses hardcoded y_radius=19/x_radius=9 regardless of
+  character, and Tails's default y_radius=15 was causing 4-px hitbox drift after release that
+  cascaded into terrain-miss). AIZ also gained a sidekick level-boundary kill split (ROM
+  `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
+  then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
+  `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
+  reverted as a violation of the comparison-only invariant — engine state machines now
+  produce ROM-correct values natively.
+- **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
+  `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
+  `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
+  state per the comparison-only invariant captured by the `trace-replay-bug-fixing` skill.
+- **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
+  pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
+  a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
+  load divergence (engine block 159 tile (4,3) descriptor reads as `primMode=NO_COLLISION`
+  while ROM treats it as solid; level loader / chunk descriptor mask suspected).
+- **CNZ object unit tests:** 60/71 → 71/71 passing. Multiple test assertions corrected to match
+  ROM (`sub_324C0` clears Status_Roll at cylinder capture, hover-fan placement at fan centre,
+  cannon test player Y standing on top, balloon launch via TouchResponseListener). Engine
+  tweaks: cannon test seam restored, balloon pop animation flips destroyed flag, rising platform
+  retains step-off bounce.
 - **S3K CNZ and MGZ expansion:** Carnival Night now has a much larger traversal/object pass
   including tubes, teleporters, balloons, cannons, hover fans, trap doors, water helpers, and
   miniboss/boss scaffolding, while Marble Garden gains more event/object coverage and supporting

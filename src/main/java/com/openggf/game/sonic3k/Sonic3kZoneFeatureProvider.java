@@ -27,6 +27,8 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
+import com.openggf.physics.Direction;
+import com.openggf.physics.SensorResult;
 import com.openggf.level.scroll.M68KMath;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -179,6 +181,36 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
                 }
             }
         }
+    }
+
+    @Override
+    public boolean shouldTreatZeroDistanceAirLandingAsGround(AbstractPlayableSprite player,
+                                                             SensorResult support) {
+        if (player == null || support == null || support.direction() != Direction.DOWN) {
+            return false;
+        }
+        if (getFeatureZoneId() != Sonic3kZoneIds.ZONE_AIZ || getFeatureActId() != 0) {
+            return false;
+        }
+        // AIZ1's intro-refreshed rock terrain has a one-pixel contact boundary
+        // where the ROM lands while the engine's pixel-only sensor reports d1=0.
+        // Scope this to truly-flat floor angles only (0x00 or 0xFF). Slight
+        // downhill slopes (e.g. angle 0xFA, −6°) are NOT affected: the ROM's
+        // `bpl` at sonic3k.asm:28905 treats d1 == 0 as airborne regardless of
+        // angle, so widening the range to all ±15° angles caused the AIZ1
+        // rolling-airborne Tails trace replay to land one frame early on a
+        // 0xFA slope pixel where the ROM stayed airborne.
+        int angle = support.angle() & 0xFF;
+        boolean exactlyFlatFloor = angle == 0x00 || angle == 0xFF;
+        return exactlyFlatFloor
+                && player.getAir()
+                && player.getRolling()
+                && player.getYSpeed() >= 0;
+    }
+
+    protected int getFeatureZoneId() {
+        var levelManager = GameServices.levelOrNull();
+        return levelManager != null ? levelManager.getFeatureZoneId() : -1;
     }
 
     private void updateAizForestFrontPriority(AbstractPlayableSprite player, int zoneIndex) {

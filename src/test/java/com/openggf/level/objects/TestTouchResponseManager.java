@@ -7,6 +7,8 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import org.mockito.Mockito;
 import com.openggf.game.DamageCause;
+import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugOverlayManager;
@@ -207,6 +209,21 @@ public class TestTouchResponseManager {
         assertEquals(TouchCategory.BOSS, obj.lastResult.category(), "Category should be BOSS for flags 0xC0-0xFF");
     }
 
+    @Test
+    public void testS3kTouchSpecialPropertyFlagDecoding() {
+        // S3K Touch_Special treats 0xC0|$17 as collision_property signaling,
+        // not boss damage/bounce handling.
+        MockS3kTouchSpecialObject obj = new MockS3kTouchSpecialObject(160, 112, 0xD7);
+        setupTableSize(0x17, 8, 8);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.update(0, player, List.of(), 1);
+
+        assertEquals(TouchCategory.SPECIAL, obj.lastResult.category(),
+                "S3K Touch_Special property indices must dispatch as listener-only special callbacks");
+        assertEquals(0x17, obj.lastResult.sizeIndex());
+    }
+
     // ==================== Player State Tests ====================
 
     @Test
@@ -250,6 +267,61 @@ public class TestTouchResponseManager {
         objectManager.update(0, player, List.of(), 1);
 
         assertTrue(enemy.wasAttacked, "Enemy should have been attacked when player is rolling");
+    }
+
+    @Test
+    public void testS3kSidekickRollingStatusWithoutRollAnimationDoesNotAttackEnemy() {
+        when(player.getCentreX()).thenReturn((short) 500);
+
+        AbstractPlayableSprite sidekick = mock(AbstractPlayableSprite.class);
+        when(sidekick.getCentreX()).thenReturn((short) 160);
+        when(sidekick.getCentreY()).thenReturn((short) 112);
+        when(sidekick.getYRadius()).thenReturn((short) 20);
+        when(sidekick.getCrouching()).thenReturn(false);
+        when(sidekick.getDead()).thenReturn(false);
+        when(sidekick.getInvulnerable()).thenReturn(false);
+        when(sidekick.getInvincibleFrames()).thenReturn(0);
+        when(sidekick.getPhysicsFeatureSet()).thenReturn(PhysicsFeatureSet.SONIC_3K);
+        when(sidekick.getRolling()).thenReturn(true);
+        when(sidekick.getAnimationId()).thenReturn(Sonic3kAnimationIds.WALK.id());
+
+        MockAttackableEnemy enemy = new MockAttackableEnemy(160, 112, 0x08);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(enemy);
+
+        objectManager.update(0, player, List.of(sidekick), 1);
+
+        assertFalse(enemy.wasAttacked,
+                "S3K Touch_Enemy uses anim=$02/$09, so a stale rolling status bit alone must not kill enemies");
+        verify(sidekick).applyHurt(anyInt());
+    }
+
+    @Test
+    public void testSidekickTouchResponseStopsAfterFirstOverlappingObject() {
+        when(player.getCentreX()).thenReturn((short) 500);
+
+        AbstractPlayableSprite sidekick = mock(AbstractPlayableSprite.class);
+        when(sidekick.getCentreX()).thenReturn((short) 160);
+        when(sidekick.getCentreY()).thenReturn((short) 112);
+        when(sidekick.getYRadius()).thenReturn((short) 20);
+        when(sidekick.getCrouching()).thenReturn(false);
+        when(sidekick.getDead()).thenReturn(false);
+        when(sidekick.getInvulnerable()).thenReturn(false);
+        when(sidekick.getInvincibleFrames()).thenReturn(0);
+        when(sidekick.getPhysicsFeatureSet()).thenReturn(PhysicsFeatureSet.SONIC_3K);
+        when(sidekick.getAnimationId()).thenReturn(Sonic3kAnimationIds.ROLL.id());
+
+        MockTouchObject firstOverlap = new MockTouchObject(160, 112, 0x48);
+        MockAttackableEnemy laterEnemy = new MockAttackableEnemy(160, 112, 0x08);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(firstOverlap);
+        objectManager.addDynamicObject(laterEnemy);
+
+        objectManager.update(0, player, List.of(sidekick), 1);
+
+        assertTrue(firstOverlap.wasTouched, "Sidekick should process the first overlapping object");
+        assertFalse(laterEnemy.wasAttacked,
+                "ReactToItem returns after the first overlap, so later enemies must not be scanned");
     }
 
     @Test
@@ -519,6 +591,17 @@ public class TestTouchResponseManager {
 
         @Override
         public boolean requiresContinuousTouchCallbacks() {
+            return true;
+        }
+    }
+
+    private static class MockS3kTouchSpecialObject extends MockTouchObject {
+        public MockS3kTouchSpecialObject(int x, int y, int flags) {
+            super(x, y, flags);
+        }
+
+        @Override
+        public boolean usesS3kTouchSpecialPropertyResponse() {
             return true;
         }
     }

@@ -40,7 +40,7 @@ public final class BatbotBadnikInstance extends AbstractS3kBadnikInstance {
 
         // Obj_Batbot enters through Obj_WaitOffscreen. The ROM does not run
         // the Batbot state machine until DisplaySprite has marked it visible.
-        if (!isOnScreenX()) {
+        if (!isOnScreen()) {
             updateDynamicSpawn(currentX, currentY);
             return;
         }

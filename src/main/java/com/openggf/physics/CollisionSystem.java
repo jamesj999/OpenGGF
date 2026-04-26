@@ -297,8 +297,11 @@ public class CollisionSystem {
         // first (probing terrain), then the platform overrides Y via MvSonicOnPtfm.
         // The engine can't replicate this order (platform riding runs after physics).
         // Skip the full terrain attachment only while actual object support exists.
-        // A stale on-object bit must not suppress the terrain walk-off path.
-        if (sprite.isOnObject() && hasObjectSupport.getAsBoolean()) {
+        // A stale on-object bit alone must not suppress the terrain walk-off path;
+        // real support can come either from the previous riding snapshot or from a
+        // same-frame ROM helper object that has opted into pre-movement support.
+        if (hasObjectSupport.getAsBoolean()
+                || (objectManager != null && objectManager.hasPendingStaleObjectSupportLoss(sprite))) {
             return;
         }
 
@@ -426,24 +429,29 @@ public class CollisionSystem {
                                     boolean forceFloorCheck) {
         int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
         traceS3kAizAirCollisionProbe(sprite, "start", quadrant, null, null, false);
+        traceS3kCnzCollisionProbe(sprite, "start", quadrant, null, null, false);
         switch (quadrant) {
             case 0x00 -> {
                 doWallCheckBoth(sprite);
                 SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
                 traceS3kAizAirCollisionProbe(sprite, "ground-00", quadrant, groundResult, null, false);
+                traceS3kCnzCollisionProbe(sprite, "ground-00", quadrant, groundResult, null, false);
                 doTerrainCollisionAir(sprite, groundResult, landingHandler);
             }
             case 0x40 -> {
                 if (doWallCheck(sprite, 0)) {
                     traceS3kAizAirCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
+                    traceS3kCnzCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
                     return;
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
                 traceS3kAizAirCollisionProbe(sprite, "ceiling-40", quadrant, null, ceilingResult, ceilingHit);
+                traceS3kCnzCollisionProbe(sprite, "ceiling-40", quadrant, null, ceilingResult, ceilingHit);
                 if (!ceilingHit) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
                     traceS3kAizAirCollisionProbe(sprite, "ground-40", quadrant, groundResult, null, false);
+                    traceS3kCnzCollisionProbe(sprite, "ground-40", quadrant, groundResult, null, false);
                     doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
@@ -451,19 +459,23 @@ public class CollisionSystem {
                 doWallCheckBoth(sprite);
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 traceS3kAizAirCollisionProbe(sprite, "ceiling-80", quadrant, null, ceilingResult, false);
+                traceS3kCnzCollisionProbe(sprite, "ceiling-80", quadrant, null, ceilingResult, false);
                 doCeilingCollision(sprite, ceilingResult);
             }
             case 0xC0 -> {
                 if (doWallCheck(sprite, 1)) {
                     traceS3kAizAirCollisionProbe(sprite, "wall-C0", quadrant, null, null, true);
+                    traceS3kCnzCollisionProbe(sprite, "wall-C0", quadrant, null, null, true);
                     return;
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
                 traceS3kAizAirCollisionProbe(sprite, "ceiling-C0", quadrant, null, ceilingResult, ceilingHit);
+                traceS3kCnzCollisionProbe(sprite, "ceiling-C0", quadrant, null, ceilingResult, ceilingHit);
                 if (!ceilingHit) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
                     traceS3kAizAirCollisionProbe(sprite, "ground-C0", quadrant, groundResult, null, false);
+                    traceS3kCnzCollisionProbe(sprite, "ground-C0", quadrant, groundResult, null, false);
                     doTerrainCollisionAirDirect(sprite, groundResult, landingHandler, forceFloorCheck);
                 }
             }
@@ -503,6 +515,58 @@ public class CollisionSystem {
                 sprite.getGSpeed() & 0xFFFF,
                 formatProbeResults(groundResult),
                 formatProbeResults(ceilingResult),
+                collisionResolved);
+    }
+
+    /**
+     * CNZ collision probe — analog to {@link #traceS3kAizAirCollisionProbe}.
+     * Logs every air-collision sensor result + landing decision when the player is in
+     * the F1815 region (X in [0x1200..0x1300], Y in [0x0680..0x0780]).
+     *
+     * Enable via system property {@code -Ds3k.cnz.collisionprobe=true} or
+     * {@code -Dcnz.collisionprobe=true}.
+     */
+    private void traceS3kCnzCollisionProbe(AbstractPlayableSprite sprite,
+                                           String stage,
+                                           int quadrant,
+                                           SensorResult[] groundResult,
+                                           SensorResult[] ceilingResult,
+                                           boolean collisionResolved) {
+        if (!Boolean.getBoolean("s3k.cnz.collisionprobe") && !Boolean.getBoolean("cnz.collisionprobe")) {
+            return;
+        }
+        com.openggf.level.LevelManager levelManager = com.openggf.game.GameServices.level();
+        if (levelManager == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        int frameCounter = levelManager.getObjectManager().getFrameCounter();
+        int centreX = sprite.getCentreX() & 0xFFFF;
+        int centreY = sprite.getCentreY() & 0xFFFF;
+        if (centreX < 0x1200 || centreX > 0x1300 || centreY < 0x0680 || centreY > 0x0780) {
+            return;
+        }
+        int xRadius = sprite.getXRadius();
+        int yRadius = sprite.getYRadius();
+        int footL_x = (centreX - xRadius) & 0xFFFF;
+        int footR_x = (centreX + xRadius) & 0xFFFF;
+        int foot_y  = (centreY + yRadius) & 0xFFFF;
+        int xSub = sprite.getXSubpixelRaw() & 0xFFFF;
+        int ySub = sprite.getYSubpixelRaw() & 0xFFFF;
+        String who = sprite.isCpuControlled() ? "tails" : "sonic";
+        System.out.printf(
+                "s3k-cnz-probe frame=%d who=%s stage=%s quad=%02X pos=(%04X,%04X) sub=(%04X,%04X) " +
+                "spd=(xs=%04X ys=%04X gs=%04X) air=%d ang=%02X gm=%s rolling=%b objCtrl=%b latchSolid=%d " +
+                "topBit=%d lrbBit=%d xRad=%d yRad=%d foot=(L=%04X,R=%04X,Y=%04X) " +
+                "ground=[%s] ceiling=[%s] resolved=%s%n",
+                frameCounter, who, stage, quadrant & 0xFF,
+                centreX, centreY, xSub, ySub,
+                sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF, sprite.getGSpeed() & 0xFFFF,
+                sprite.getAir() ? 1 : 0, sprite.getAngle() & 0xFF,
+                sprite.getGroundMode(), sprite.getRolling(),
+                sprite.isObjectControlled(), sprite.getLatchedSolidObjectId(),
+                sprite.getTopSolidBit(), sprite.getLrbSolidBit(),
+                xRadius, yRadius, footL_x, footR_x, foot_y,
+                formatProbeResults(groundResult), formatProbeResults(ceilingResult),
                 collisionResolved);
     }
 
@@ -643,6 +707,7 @@ public class CollisionSystem {
     /** Shared landing logic: snap to floor surface, set angle, invoke landing handler. */
     private void landOnFloor(AbstractPlayableSprite sprite, SensorResult result,
                              Consumer<AbstractPlayableSprite> landingHandler) {
+        traceS3kCnzCollisionProbe(sprite, "land-pre", 0, new SensorResult[]{result}, null, false);
         moveForSensorResult(sprite, result);
         if ((result.angle() & 0x01) != 0) {
             sprite.setAngle((byte) 0x00);

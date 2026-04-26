@@ -1,6 +1,7 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.physics.Direction;
 
 /**
@@ -12,7 +13,11 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
     private static final int RESPAWN_Y_OFFSET = 192;
     private static final int MAX_FLY_ACCEL = 12;
     private final int flyAnimId;
-    private static final int FLY_LAND_BLOCKERS = 0xD2;
+    /** S2 fallback if no PhysicsFeatureSet is resolved (legacy unit-test sidekicks). */
+    private static final int FLY_LAND_BLOCKERS_FALLBACK = PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_S2;
+    /** Sonic OST routine value at/above which the leader is considered dead/dying.
+     *  ROM: {@code cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42} (sonic3k.asm:26629-26630). */
+    private static final int LEADER_DEAD_ROUTINE_THRESHOLD = 6;
 
     private final SidekickCpuController controller;
 
@@ -25,6 +30,16 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
     public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         sidekick.setCentreXPreserveSubpixel(leader.getCentreX());
         sidekick.setCentreYPreserveSubpixel((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
+        // ROM Tails_Catch_Up_Flying loc_13B50 (sonic3k.asm:26503-26506) zeroes
+        // x_vel, y_vel, and ground_vel via `moveq #0,d0` followed by three
+        // `move.w d0,*_vel(a0)` writes immediately after the position teleport.
+        // Without this the engine retains the stale velocity from before the
+        // despawn (objectControlled blocked applyGravity / move handlers from
+        // touching them for the entire 60-frame parked-at-marker window),
+        // surfacing as the AIZ trace F2465 tails_x_speed -0x01F9 mismatch.
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
         sidekick.setAir(true);
         sidekick.setDead(false);
         sidekick.setHurt(false);
@@ -83,7 +98,23 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
         //   in this frame after applying the x_vel-based speed bonus), and
         // - the pre-vertical residual d1 was already zero (vertical +/-1 movement
         //   does NOT allow same-frame completion because d1 is tested before the move).
-        if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && dy == 0) {
+        //
+        // The status-blocker mask AND leader-alive check differ per game:
+        //   * S2 (s2.asm:38872-38873) andi.b #$D2,d2 / bne return — bits 1+4+6+7
+        //     (in_air|roll_jump|underwater|bit7). NO leader-routine check; transitions
+        //     to NORMAL even if Sonic is hurt or dead.
+        //   * S3K (sonic3k.asm:26625, 26629-26630) andi.b #$80,d2 (bit 7 only) AND
+        //     cmpi.b #6,(Player_1+routine).w / bhs (skip if Sonic dead).
+        // Resolved through PhysicsFeatureSet so each game's ROM behavior is preserved.
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        int statusBlockerMask = fs != null
+                ? fs.sidekickFlyLandStatusBlockerMask()
+                : FLY_LAND_BLOCKERS_FALLBACK;
+        boolean requireLeaderAlive = fs != null && fs.sidekickFlyLandRequiresLeaderAlive();
+        if ((recordedStatus & statusBlockerMask) == 0 && remainingDx == 0 && dy == 0) {
+            if (requireLeaderAlive && leader.getDead()) {
+                return false;
+            }
             return true;
         }
         return false;

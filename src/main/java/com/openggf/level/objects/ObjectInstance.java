@@ -107,6 +107,22 @@ public interface ObjectInstance {
         return false;
     }
 
+    /**
+     * Returns true when this object is currently within the camera viewport (ROM
+     * render_flags bit 7 equivalent, set by Render_Sprites).  Solid contact
+     * resolution is gated on this in ROM SolidObject_cont (s2.asm:35140-35145
+     * SolidObject_OnScreenTest, sonic3k.asm:41390-41392 loc_1DF88,
+     * s1disasm/_incObj/sub SolidObject.asm:124-126 Solid_ChkEnter / line 86-87
+     * SolidObject2F).  Off-screen objects skip the side / top / bottom path so
+     * the player keeps their velocity even when the camera has scrolled past.
+     * Defaults to {@code true} so test stubs and pre-existing implementations
+     * stay opt-in; {@link AbstractObjectInstance} provides the camera-bounds
+     * check for production objects.
+     */
+    default boolean isWithinSolidContactBounds() {
+        return true;
+    }
+
     void update(int frameCounter, PlayableEntity player);
 
     void appendRenderCommands(List<GLCommand> commands);

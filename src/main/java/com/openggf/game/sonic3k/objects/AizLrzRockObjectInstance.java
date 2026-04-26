@@ -201,9 +201,9 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
                 player.setXSpeed((short) savedPreContactXSpeed);
                 int playerX = player.getCentreX();
                 if (playerX < currentX) {
-                    player.setCentreX((short) (playerX - 4));
+                    player.setCentreXPreserveSubpixel((short) (playerX - 4));
                 } else {
-                    player.setCentreX((short) (playerX + 4));
+                    player.setCentreXPreserveSubpixel((short) (playerX + 4));
                 }
                 player.setGSpeed(player.getXSpeed());
                 player.setPushing(false);

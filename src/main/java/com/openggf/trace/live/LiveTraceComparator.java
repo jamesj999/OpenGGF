@@ -57,6 +57,21 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         this.binder = new TraceBinder(tolerances);
         this.cursor = initialCursor;
         this.spriteProvider = spriteProvider;
+        // Seeded S3K replays resume at cursor > 0, but the
+        // gameplay_start checkpoint is typically emitted on trace
+        // frame 0. Without this sweep, shouldSuppressComparison never
+        // observes the checkpoint and silently discards every frame
+        // comparison. Scan the skipped prefix up front so replays that
+        // splice past frame 0 still unlock the comparator.
+        for (int f = 0; f < initialCursor && f < trace.frameCount(); f++) {
+            boolean seen = trace.getEventsForFrame(f).stream()
+                    .anyMatch(e -> e instanceof TraceEvent.Checkpoint cp
+                            && "gameplay_start".equals(cp.name()));
+            if (seen) {
+                gameplayStartSeen = true;
+                break;
+            }
+        }
     }
 
     @Override
@@ -196,6 +211,14 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             if (!(inst instanceof AbstractObjectInstance aoi)) {
                 continue;
             }
+            // Dynamic effects/projectiles can legitimately have a null
+            // spawn (see AbstractObjectInstance.snapshotPreUpdatePosition);
+            // the interface getX()/getY() default would NPE on them. They
+            // also have no meaningful placement coordinate to show in a
+            // "nearby objects" summary, so skip them.
+            if (aoi.getSpawn() == null) {
+                continue;
+            }
             int ox = aoi.getX() & 0xFFFF;
             int oy = aoi.getY() & 0xFFFF;
             int dx = Math.abs(ox - px);
@@ -206,7 +229,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             if (dx > 0x180 || dy > 0x100) {
                 continue;
             }
-            int id = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
+            int id = aoi.getSpawn().objectId();
             sb.append(String.format(
                     "    slot=%3d id=0x%02X %s @%04X,%04X (dx=%d dy=%d)%n",
                     aoi.getSlotIndex(),

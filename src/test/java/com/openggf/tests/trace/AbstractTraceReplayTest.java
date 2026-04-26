@@ -300,7 +300,9 @@ public abstract class AbstractTraceReplayTest {
                 new S3kElasticWindowController(loadCheckpointFrames(trace));
         S3kRequiredCheckpointGuard checkpointGuard = new S3kRequiredCheckpointGuard();
         int firstSubDivFrame = -1;
+        int firstOscDivFrame = -1;
         Boolean lastEventsFg5 = null;
+        boolean hasPerFrameOsc = meta.hasPerFrameOscillationState();
 
         if (replayStart.hasSeededTraceState()) {
             TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
@@ -360,6 +362,28 @@ public abstract class AbstractTraceReplayTest {
             controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
+        // Align SpriteManager.frameCounter with ROM Level_frame_counter so Tails-CPU
+        // AI gates that read (Level_frame_counter & MASK) fire on the same trace
+        // frames as the ROM (sonic3k.asm:26761 loc_13E7C dx-256-frame check,
+        // sonic3k.asm:26775 loc_13E9C 64-frame jump-cadence check, etc.).
+        //
+        // The trace records each frame's gfc. The first iteration steps fc by one,
+        // so for AI on iter K=K_start to see fc == T_K_start.gfc (== ROM's
+        // Level_frame_counter at T_K_start logic), we pre-set fc =
+        // T_(K_start-1).gfc here. The trace's gfc increments monotonically per
+        // recorded gameplay frame and stays put on lag/VBLANK_ONLY frames, while
+        // the engine's fc++/skip behaviour matches that exact pattern, so this
+        // single pre-set keeps the counters synced for the entire replay.
+        //
+        // Concrete examples:
+        //   * CNZ:  T_0.gfc=1   (gameplay starts immediately) → fc 0→1, then iter K=1
+        //                                 step fc 1→2 = ROM.gfc(T_1)=2 ✓
+        //   * AIZ:  T_289.gfc=0 (still inside intro)         → fc 0→0  (no change),
+        //                                 then iter K=290 step fc 0→1 = ROM.gfc(T_290)=1 ✓
+        if (previousDriveFrame != null && previousDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.sprites() != null) {
+            GameServices.sprites().setFrameCounter(previousDriveFrame.gameplayFrameCounter());
+        }
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
             if (previousDriveFrame != null) {
@@ -370,7 +394,6 @@ public abstract class AbstractTraceReplayTest {
             int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
                     ? fixture.skipFrameFromRecording()
                     : fixture.stepFrameFromRecording();
-            applyRecordedFirstSidekickState(driveFrame.sidekick());
 
             S3kCheckpointProbe probe = captureS3kProbe(driveFrame.frame(), fixture.sprite());
             var titleCardProvider = GameServices.module().getTitleCardProvider();
@@ -413,6 +436,29 @@ public abstract class AbstractTraceReplayTest {
             controller.onEngineTick();
             controller.assertWithinDriftBudget();
 
+            // Diagnostic-only: when the trace carries per-frame oscillation
+            // snapshots (v6.1+ S3K recorder), compare engine OscillationManager
+            // state to ROM Oscillating_table state at this frame and print the
+            // first divergence. Engine must produce the correct phase
+            // natively — never hydrate from these values.
+            if (hasPerFrameOsc && firstOscDivFrame < 0) {
+                TraceEvent.OscillationState romOsc = trace.oscillationStateForFrame(driveFrame.frame());
+                if (romOsc != null && romOsc.oscTable() != null && romOsc.oscTable().length == 0x42) {
+                    byte[] eng = com.openggf.game.OscillationManager.snapshotRomFormatBytes();
+                    byte[] rom = romOsc.oscTable();
+                    if (eng.length == rom.length) {
+                        for (int b = 0; b < eng.length; b++) {
+                            if (eng[b] != rom[b]) {
+                                firstOscDivFrame = driveFrame.frame();
+                                System.out.printf("FIRST OSC DIVERGENCE at frame %d (idx=%d): byte %d ROM=0x%02X ENG=0x%02X%n",
+                                        driveFrame.frame(), b, b, rom[b] & 0xFF, eng[b] & 0xFF);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
             if (controller.isStrictComparisonEnabled()) {
                 int strictTraceIndex = controller.strictTraceIndex();
                 TraceFrame expected = trace.getFrame(strictTraceIndex);
@@ -437,6 +483,13 @@ public abstract class AbstractTraceReplayTest {
                         engineDiag,
                         secondaryCharacterLabel,
                         actualSidekick);
+
+                // Keep strict comparisons honest: the sidekick state above is
+                // the engine-produced result for this frame. Re-seed only after
+                // recording the comparison so sidekick drift is reported, while
+                // later Sonic comparisons stay isolated from accumulated Tails
+                // divergence.
+                applyRecordedFirstSidekickState(driveFrame.sidekick());
 
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
                 if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
@@ -464,6 +517,8 @@ public abstract class AbstractTraceReplayTest {
                                 actualPrimary.air(), expected.air());
                     }
                 }
+            } else {
+                applyRecordedFirstSidekickState(driveFrame.sidekick());
             }
 
             boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
@@ -648,8 +703,57 @@ public abstract class AbstractTraceReplayTest {
         sidekick.setDead(false);
         sidekick.setDeathCountdown(0);
         sidekick.setControlLocked(false);
-        sidekick.setObjectControlled(false);
-        sidekick.setMoveLockTimer(0);
+        // Do NOT reset move_lock here. ROM Player_SlopeRepel (sonic3k.asm:23907)
+        // sets move_lock=30 on its first slip activation and then decrements it
+        // for the next 30 frames, during which the routine early-returns without
+        // touching ground_vel. Resetting move_lock to 0 each frame defeats that
+        // ROM-preserved counter and causes the engine to re-apply the −$80
+        // slope-repel impulse every frame, which was the root cause of the
+        // CNZ1 F318 `tails_g_speed` divergence (ROM preserves move_lock across
+        // frames so SlopeRepel's second-and-later frames are no-ops).
+        //
+        // Preserve object_control only when the engine's CPU controller is in
+        // SPAWNING state AND the engine still has Tails parked at the ROM
+        // despawn marker (#$7F00). ROM sub_13ECA (sonic3k.asm:26800) writes
+        // object_control=$81 atomically with x_pos=#$7F00 / y_pos=#$0 to enter
+        // Tails_Catch_Up_Flying / Tails_FlySwim_Unknown after a despawn. Bit 7
+        // of object_control suppresses the entire sprite-movement dispatch in
+        // the ROM (Obj_Routines reads object_control before dispatching to the
+        // per-character movement handler), so clearing it every frame defeats
+        // the engine's flight-physics suppression and lets
+        // PlayableSpriteMovement.modeNormal() run full ground physics (slope
+        // decomposition flips y_speed from −0x33 to +0x05) — that was the
+        // CNZ1 F826 `tails_y_speed` divergence. The trace CSV does NOT capture
+        // object_control, so we infer it from the engine's own
+        // SidekickCpuController state plus the ROM-atomic x==marker signal.
+        // The gate intentionally does not extend past the marker frames: in
+        // AIZ the engine's state machine parks in SPAWNING for tens of
+        // thousands of frames after upstream divergence (with Tails at a real
+        // x), so the marker-only gate keeps the AIZ replay from accumulating
+        // object_control-suppressed frames the recording does not expect. Same
+        // precedent as the move_lock preservation directly above.
+        SidekickCpuController cpu = sidekick.getCpuController();
+        int xBeforeReseed = sidekick.getCentreX() & 0xFFFF;
+        int despawnX =
+                com.openggf.game.PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S3K & 0xFFFF;
+        boolean preserveObjectControl = cpu != null
+                && cpu.getState() == SidekickCpuController.State.SPAWNING
+                && xBeforeReseed == despawnX;
+        // Also preserve object_control when a per-object hook (e.g. CNZ wire
+        // cage at sonic3k.asm:69921 loc_3394C) has just set bit 0 on the
+        // sidekick. ROM cage's loc_339B6 (sonic3k.asm:69958) also writes
+        // bit 0 each frame the rider's |ground_vel| < $300, so the trace's
+        // tails_g_speed series is consistent with bit 0 being set across
+        // the captured run. The trace CSV does not capture object_control,
+        // so infer the cage-captured case from the engine's
+        // latchedSolidObjectId state (set by CnzWireCageObjectInstance.latch
+        // and continueRide) plus the engine's own objectControlled signal.
+        boolean cagePreserveObjectControl = sidekick.isObjectControlled()
+                && sidekick.getLatchedSolidObjectId()
+                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_WIRE_CAGE;
+        if (!preserveObjectControl && !cagePreserveObjectControl) {
+            sidekick.setObjectControlled(false);
+        }
         sidekick.setHurt(state.routine() == 0x04);
         sidekick.setCentreX(state.x());
         sidekick.setCentreY(state.y());

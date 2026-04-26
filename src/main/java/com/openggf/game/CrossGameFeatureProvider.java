@@ -515,7 +515,17 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.airBottomSolidHitClearsGroundSpeed(), // airBottomSolidHitClearsGroundSpeed (from base game)
                 baseFeatureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly(), // fullSolidBottomOverlapUsesCurrentYRadiusOnly (from base game)
                 baseFeatureSet.fastScrollCap(),                 // fastScrollCap (from base game)
-                baseFeatureSet.stageRingsUseObjectTouchCollection() // stageRingsUseObjectTouchCollection (from base game)
+                baseFeatureSet.bossHitNegatesGroundSpeed(),     // bossHitNegatesGroundSpeed (from base game)
+                baseFeatureSet.stageRingsUseObjectTouchCollection(), // stageRingsUseObjectTouchCollection (from base game)
+                baseFeatureSet.sidekickFollowSnapThreshold(),   // sidekickFollowSnapThreshold (from base game)
+                baseFeatureSet.sidekickDespawnX(),              // sidekickDespawnX (from base game)
+                baseFeatureSet.sidekickFollowLeadOffset(),      // sidekickFollowLeadOffset (from base game)
+                baseFeatureSet.sidekickSpawningRequiresGroundedLeader(), // sidekickSpawningRequiresGroundedLeader (from base game)
+                baseFeatureSet.useScreenYWrapValueForVisibility(),  // useScreenYWrapValueForVisibility (from base game)
+                baseFeatureSet.sidekickDespawnUsesObjectIdMismatch(), // sidekickDespawnUsesObjectIdMismatch (from base game)
+                baseFeatureSet.sidekickFlyLandStatusBlockerMask(),  // sidekickFlyLandStatusBlockerMask (from base game)
+                baseFeatureSet.sidekickFlyLandRequiresLeaderAlive(), // sidekickFlyLandRequiresLeaderAlive (from base game)
+                baseFeatureSet.solidObjectOffscreenGate()        // solidObjectOffscreenGate (from base game)
         );
     }
 

@@ -232,6 +232,28 @@ public class SpriteManager {
 	}
 
 
+	/**
+	 * Returns the current frame counter (gameplay frames since level boot).
+	 * Increments at the start of each {@link #update(InputHandler)} call. Skipped
+	 * when {@code stepFrame} returns early (e.g. for seamless transitions) and
+	 * during {@code skipFrameFromRecording()} lag-frame skips, so this counter is
+	 * <em>not</em> guaranteed to track ROM's {@code Level_frame_counter} unless
+	 * the bootstrap explicitly aligns it.
+	 */
+	public int getFrameCounter() {
+		return frameCounter;
+	}
+
+	/**
+	 * Sets the gameplay frame counter. Used by trace-replay setup to align the
+	 * engine's counter with the ROM's {@code Level_frame_counter} at the start
+	 * of comparison so AI logic that gates on {@code (Level_frame_counter & MASK)}
+	 * fires on the same frames as the ROM.
+	 */
+	public void setFrameCounter(int value) {
+		this.frameCounter = value;
+	}
+
 	public void update(InputHandler handler) {
 		frameCounter++;
 		// Note: bucketsDirty is already marked in addSprite()/removeSprite(),
@@ -246,14 +268,28 @@ public class SpriteManager {
 		boolean left = !suppressInput && handler.isKeyDown(leftKey);
 		boolean right = !suppressInput && handler.isKeyDown(rightKey);
 		boolean space = !suppressInput && handler.isKeyDown(jumpKey);
+		// Controller 2 input (Tails CPU manual override / sidekick respawn).
+		// ROM convention:
+		//   Ctrl_2_held    = bits currently pressed THIS frame
+		//   Ctrl_2_logical = bits that just transitioned from up to down ("just-pressed")
+		// SidekickCpuController treats them differently: e.g. updateCatchUpFlight
+		// uses controller2Logical (edge-detect) to fire the early A/B/C/START
+		// trigger, while the manual-control timer uses controller2Held.
 		int p2Held = 0;
-		if (!suppressInput && handler.isKeyDown(p2UpKey)) p2Held |= AbstractPlayableSprite.INPUT_UP;
-		if (!suppressInput && handler.isKeyDown(p2DownKey)) p2Held |= AbstractPlayableSprite.INPUT_DOWN;
-		if (!suppressInput && handler.isKeyDown(p2LeftKey)) p2Held |= AbstractPlayableSprite.INPUT_LEFT;
-		if (!suppressInput && handler.isKeyDown(p2RightKey)) p2Held |= AbstractPlayableSprite.INPUT_RIGHT;
-		if (!suppressInput && handler.isKeyDown(p2JumpKey)) p2Held |= AbstractPlayableSprite.INPUT_JUMP;
-		int p2Logical = p2Held;
-		if (!suppressInput && handler.isKeyDown(p2StartKey)) p2Logical |= 0x20;
+		int p2Logical = 0;
+		if (!suppressInput) {
+			if (handler.isKeyDown(p2UpKey))    p2Held |= AbstractPlayableSprite.INPUT_UP;
+			if (handler.isKeyDown(p2DownKey))  p2Held |= AbstractPlayableSprite.INPUT_DOWN;
+			if (handler.isKeyDown(p2LeftKey))  p2Held |= AbstractPlayableSprite.INPUT_LEFT;
+			if (handler.isKeyDown(p2RightKey)) p2Held |= AbstractPlayableSprite.INPUT_RIGHT;
+			if (handler.isKeyDown(p2JumpKey))  p2Held |= AbstractPlayableSprite.INPUT_JUMP;
+			if (handler.isKeyPressed(p2UpKey))    p2Logical |= AbstractPlayableSprite.INPUT_UP;
+			if (handler.isKeyPressed(p2DownKey))  p2Logical |= AbstractPlayableSprite.INPUT_DOWN;
+			if (handler.isKeyPressed(p2LeftKey))  p2Logical |= AbstractPlayableSprite.INPUT_LEFT;
+			if (handler.isKeyPressed(p2RightKey)) p2Logical |= AbstractPlayableSprite.INPUT_RIGHT;
+			if (handler.isKeyPressed(p2JumpKey))  p2Logical |= AbstractPlayableSprite.INPUT_JUMP;
+			if (handler.isKeyPressed(p2StartKey)) p2Logical |= 0x20;
+		}
 		boolean testButton = !suppressInput && handler.isKeyDown(testKey);
 		boolean speedUp = isDebugSpeedUpModifierDown(handler);
 		boolean slowDown = isDebugSlowDownModifierDown(handler);

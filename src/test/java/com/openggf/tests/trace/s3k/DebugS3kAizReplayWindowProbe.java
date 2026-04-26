@@ -36,7 +36,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-class DebugS3kAizReplayWindowProbe {
+public class DebugS3kAizReplayWindowProbe {
 
     private static final Path TRACE_DIR =
             Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun");
@@ -787,6 +787,11 @@ class DebugS3kAizReplayWindowProbe {
             TraceReplayBootstrap.applyPreTraceState(trace, fixture);
             TraceReplayBootstrap.ReplayStartState replayStart =
                     TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+            System.out.printf("full-trace-window replayStart=%d seeded=%b seed=%d end=%d%n",
+                    replayStart.startingTraceIndex(),
+                    replayStart.hasSeededTraceState(),
+                    replayStart.seededTraceIndex(),
+                    endFrame);
 
             TraceFrame previous = replayStart.hasSeededTraceState()
                     ? trace.getFrame(replayStart.seededTraceIndex())
@@ -810,7 +815,7 @@ class DebugS3kAizReplayWindowProbe {
                                     + "exp=(%04X,%04X) act=(%04X,%04X) d=(%d,%d) "
                                     + "expCam=(%04X,%04X) actCam=(%04X,%04X) dCam=(%d,%d) "
                                     + "zone=%d act=%d apparent=%d levelStarted=%b moveLock=%d ctrl=%b objCtrl=%b hidden=%b "
-                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s%n",
+                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s objs=%s%n",
                             current.frame(),
                             phase,
                             current.input(),
@@ -838,7 +843,8 @@ class DebugS3kAizReplayWindowProbe {
                             eventsFg5(),
                             isFireTransitionActive(),
                             dynamicResizeRoutine(),
-                            trace.latestCheckpointAtOrBefore(traceIndex));
+                            trace.latestCheckpointAtOrBefore(traceIndex),
+                            nearbyActiveObjects(fixture.sprite()));
                     int windowStart = Math.max(replayStart.startingTraceIndex(), current.frame() - 6);
                     int windowEnd = Math.min(endFrame, current.frame() + 6);
                     dumpFullTraceReplayWindow(trace, windowStart, windowEnd);
@@ -855,7 +861,9 @@ class DebugS3kAizReplayWindowProbe {
                         startFrame, endFrame, xBudget, yBudget, camBudget);
             }
         } finally {
-            sharedLevel.dispose();
+            if (!Boolean.getBoolean("s3k.aiz.full.window.skipDispose")) {
+                sharedLevel.dispose();
+            }
         }
     }
 
@@ -895,9 +903,11 @@ class DebugS3kAizReplayWindowProbe {
                     System.out.printf(
                             "full-trace-window frame=%d phase=%s expIn=%04X bk2In=%04X "
                                     + "exp=(%04X,%04X) act=(%04X,%04X) "
+                                    + "expSpd=(%04X,%04X,%04X) actSpd=(%04X,%04X,%04X) "
+                                    + "expSub=(%04X,%04X) actSub=(%04X,%04X) "
                                     + "expCam=(%04X,%04X) actCam=(%04X,%04X) "
-                                    + "zone=%d act=%d apparent=%d lvlStarted=%b moveLock=%d ctrl=%b objCtrl=%b hidden=%b "
-                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s%n",
+                                    + "zone=%d act=%d apparent=%d lvlStarted=%b moveLock=%d ctrl=%b objCtrl=%b hidden=%b y=%04X h=%d yr=%d "
+                                    + "eventsFg5=%b fire=%b resize=%d checkpoint=%s objs=%s%n",
                             current.frame(),
                             phase,
                             current.input(),
@@ -906,6 +916,16 @@ class DebugS3kAizReplayWindowProbe {
                             current.y() & 0xFFFF,
                             fixture.sprite().getCentreX() & 0xFFFF,
                             fixture.sprite().getCentreY() & 0xFFFF,
+                            current.xSpeed() & 0xFFFF,
+                            current.ySpeed() & 0xFFFF,
+                            current.gSpeed() & 0xFFFF,
+                            fixture.sprite().getXSpeed() & 0xFFFF,
+                            fixture.sprite().getYSpeed() & 0xFFFF,
+                            fixture.sprite().getGSpeed() & 0xFFFF,
+                            current.xSub() & 0xFFFF,
+                            current.ySub() & 0xFFFF,
+                            fixture.sprite().getXSubpixelRaw() & 0xFFFF,
+                            fixture.sprite().getYSubpixelRaw() & 0xFFFF,
                             current.cameraX() & 0xFFFF,
                             current.cameraY() & 0xFFFF,
                             GameServices.camera().getX() & 0xFFFF,
@@ -918,10 +938,14 @@ class DebugS3kAizReplayWindowProbe {
                             fixture.sprite().isControlLocked(),
                             fixture.sprite().isObjectControlled(),
                             fixture.sprite().isHidden(),
+                            fixture.sprite().getY() & 0xFFFF,
+                            fixture.sprite().getHeight(),
+                            fixture.sprite().getYRadius(),
                             eventsFg5(),
                             isFireTransitionActive(),
                             dynamicResizeRoutine(),
-                            trace.latestCheckpointAtOrBefore(traceIndex));
+                            trace.latestCheckpointAtOrBefore(traceIndex),
+                            nearbyActiveObjects(fixture.sprite()));
                 }
                 previous = current;
             }

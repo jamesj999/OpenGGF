@@ -320,7 +320,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * is no decompression overhead.  This constant approximates the ROM's
      * visual duration by pausing fire advance for the equivalent frames.
      */
-    private static final int FIRE_LINGER_FRAMES = 48;
+    // ROM: AIZ1BGE_Finish waits for Kos_modules_left == 0 after queuing the
+    // AIZ2 128x128/16x16/8x8 art. The engine applies the decoded art eagerly
+    // and does not expose the module queue, so keep the fire-covered finish
+    // stage alive for the observed drain time of that exact queued workload.
+    private static final int FIRE_LINGER_FRAMES = 64;
     private static final int FIRE_TRANSITION_FALLBACK_FRAMES = 240;
     private static final int FIRE_REDRAW_FRAMES = 16;
     private static final int FIRE_OVERLAY_STAGE_X = 0x2E00;
@@ -559,8 +563,18 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     + (isFireTransitionActive() ? ", skipped palette (fire active)" : ", re-applied main palette"));
         }
         if (boundariesUnlocked) {
-            resizeMaxYFromX(cameraX);
-            applyResizePaletteMutation(cameraX);
+            // ROM: Do_ResizeEvents runs *inside* DeformBgLayer (sonic3k.asm:38303-38316),
+            // AFTER MoveCameraX/MoveCameraY have committed the new Camera_X_pos. So the
+            // resize threshold scan sees the same Camera_X_pos that Process_Sprites will
+            // observe on the *next* main-loop iteration.
+            //
+            // Our LevelFrameStep runs events (step 4) BEFORE the camera step (step 5),
+            // so camera().getX() here is the previous frame's value. Use the predicted
+            // end-of-frame camera X so resize thresholds fire on the same trace frame
+            // ROM does — otherwise Camera_max_Y_pos lags by one frame, which delays the
+            // sidekick kill-plane fire by one frame at AIZ1 cam_x crossing $2D80.
+            resizeMaxYFromX(frameEndCameraX);
+            applyResizePaletteMutation(frameEndCameraX);
         }
 
         updateFireTransition();
@@ -1588,12 +1602,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     applyFireTransitionMutation();
                     fireSequencePhase = FireSequencePhase.AIZ1_FIRE_REFRESH;
                     firePhaseFrames = 0;
-                    setTransitionControlLock(true);
                 } else if (fireTransitionFrames >= FIRE_TRANSITION_FALLBACK_FRAMES) {
                     applyFireTransitionMutation();
                     fireSequencePhase = FireSequencePhase.AIZ1_FIRE_REFRESH;
                     firePhaseFrames = 0;
-                    setTransitionControlLock(true);
                 }
             }
             case AIZ1_FIRE_REFRESH -> {
@@ -1651,8 +1663,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionMutationRequested = false;
         act2TransitionRequested = false;
         postFireHazeActive = false;
-        // ROM: AIZ1_AIZ2_Transition does NOT lock controls at fire start.
-        // Controls are locked later when the fire covers the full screen (REFRESH phase).
+        // ROM: AIZ1/AIZ2 background fire routines do not write Ctrl_1_locked;
+        // player physics keeps running behind the fire curtain.
         // ROM: AIZ1_AIZ2_Transition writes 6 fire words to Normal_palette_line_4+$2
         // at the START of the fire transition. The full fire palette (PalPointers #$0B)
         // is loaded later by the mutation executor when bgY >= $190.
@@ -1716,14 +1728,22 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         // deactivateLevelNow(true) freezes the game loop, killing all
                         // fire state machine updates.  Keep the level active so the
                         // fire overlay continues rendering through the transition.
-                        // Player controls are already locked (set during REFRESH).
                         .deactivateLevelNow(false)
                         .preserveMusic(false)
                         .showInLevelTitleCard(false)
+                        .forceAirOnStaleObjectSupportLoss(true)
                         .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2)
                         .musicOverrideId(Sonic3kMusic.AIZ1.id)
                         .playerOffset(-0x2F00, -0x80)
                         .cameraOffset(-0x2F00, -0x80)
+                        // ROM: AIZ1BGE_Finish subtracts the same offsets from
+                        // Camera_X/Y_pos, then writes long #$00000260 at
+                        // Camera_min_Y_pos and word $260 to Camera_target_max_Y_pos.
+                        // That leaves minY at 0 while targeting the $260 vertical
+                        // boundary; the camera is not recentered from the player.
+                        .preserveOffsetCameraPosition(true)
+                        .postTransitionMinY(0)
+                        .postTransitionMaxYTarget(0x260)
                         .build());
         LOG.info("AIZ1: requested seamless in-place post-miniboss reload");
     }
@@ -1800,7 +1820,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         act2WaitFireDrawActive = pending.act2WaitFireDrawActive();
         postFireHazeActive = false;
         act2TransitionRequested = false;
-        setTransitionControlLock(true);
+        setTransitionControlLock(false);
         // Reload fire overlay tiles from ROM — they were lost during the act 2 level reload.
         fireOverlayTilesLoaded = false;
         ensureFireOverlayTilesLoaded();

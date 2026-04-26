@@ -415,6 +415,10 @@ runner.stepIdleFrames(5);
 - `TestObjectServicesMigrationGuard` — Scanner-based guard preventing singleton regression in objects
 - `TestNoServicesInObjectConstructors` — Ensures objects don't call `services()` during construction
 
+## Trace Replay Tests
+
+When working on trace replay test bugs, use the **`trace-replay-bug-fixing`** skill. It covers the comparison-only invariant (trace data is read-only diagnostic input — engine state must never be hydrated/synced from the trace in committed test code), the recorder/parser/comparator pipeline, the regeneration workflow, and cross-game parity rules.
+
 ## Coordinate System & Rendering
 
 ### Player Sprite Coordinates

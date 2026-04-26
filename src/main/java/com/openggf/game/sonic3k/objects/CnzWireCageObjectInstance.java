@@ -115,15 +115,39 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             player.setCentreYPreserveSubpixel((short) (player.getCentreY() - adjustedVertical));
         }
 
+        // ROM (sonic3k.asm:69905-69921) at loc_33922 branches on the
+        // player's Status_InAir bit when cage runs. ROM runs player physics
+        // first then objects (slot order), but ROM physics doesn't always
+        // ground the player at the cage rim — sub_33C34 calls
+        // Player_TouchFloor as part of cage capture (sonic3k.asm:70170).
+        // The engine's terrain collision can be more aggressive about
+        // grounding the player on the cage's invisible solid-controller
+        // area, masking the ROM "still airborne when cage ran" signal.
+        //
+        // Treat the player as airborne for the capture branch if EITHER
+        // the pre-physics snapshot was airborne OR the post-physics state
+        // is still airborne. This keeps unit tests that bypass the
+        // physics tick (and call setAir(true) directly) working, and
+        // mirrors ROM at F1757 where Tails was still airborne when ROM
+        // cage ran (engine's terrain pass had grounded her by then —
+        // CNZ1 trace F1758 divergence).
+        boolean wasAirborne = player.wasPrePhysicsAir() || player.getAir();
+        int captureAngle = player.wasPrePhysicsAir()
+                ? (player.getPrePhysicsAngle() & 0xFF)
+                : (player.getAngle() & 0xFF);
+        int captureGSpeed = player.wasPrePhysicsAir()
+                ? player.getPrePhysicsGSpeed()
+                : player.getGSpeed();
         boolean touchFloorDuringLatch = false;
-        if (player.getAir()) {
-            if ((player.getAngle() & 0xFF) == 0) {
+        if (wasAirborne) {
+            if (captureAngle == 0) {
+                // ROM loc_3394C: bset #0, object_control(a1) - physics gated next frame.
                 beginLatchedCooldown(player, state);
                 touchFloorDuringLatch = true;
             } else {
-                player.setAir(false);
-                if (Math.abs(player.getGSpeed()) < MIN_AIR_ATTACH_SPEED) {
-                    player.setAir(true);
+                if (Math.abs(captureGSpeed) < MIN_AIR_ATTACH_SPEED) {
+                    // ROM loc_33940 → bhs.s loc_33958 path - low-speed
+                    // recapture re-enters loc_3394C and sets bit 0.
                     beginLatchedCooldown(player, state);
                     touchFloorDuringLatch = true;
                 }
@@ -149,6 +173,12 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         state.cooldown = 1;
         player.setControlLocked(true);
         player.setObjectControlled(true);
+        // ROM Obj_CNZWireCage sets bits 6 and 1 of object_control (sonic3k.asm:69937-69938),
+        // and bit 0 in the air-recapture branch (sonic3k.asm:69921 loc_3394C). None of
+        // those is bit 7, so ROM keeps Tails_CPU_Control running each frame — that is
+        // what lets the auto-jump trigger fire at the cage and feed Ctrl_2_logical=$78
+        // to loc_33ADE for the cage's launch-with-A/B/C path. (CNZ1 trace F1791.)
+        player.setObjectControlAllowsCpu(true);
     }
 
     private void latch(AbstractPlayableSprite player, CageState state, boolean touchFloorDuringLatch) {
@@ -226,6 +256,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                 return;
             }
             player.setObjectControlled(true);
+            // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
+            // air-recapture), never bit 7, so the sidekick CPU keeps running.
+            player.setObjectControlAllowsCpu(true);
             restoreObjectLatchIfTerrainClearedIt(player);
             updateReleaseRide(player, state);
             return;
@@ -243,6 +276,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             state.cooldown = 1;
             player.setControlLocked(true);
             player.setObjectControlled(true);
+            // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
+            // air-recapture), never bit 7, so the sidekick CPU keeps running.
+            player.setObjectControlAllowsCpu(true);
             updateReleaseRide(player, state);
             return;
         }
@@ -268,7 +304,27 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
          * mark the player airborne because this invisible controller is not a
          * generic SolidObject. If the latch still belongs to this cage and no
          * jump is active, restore the object-owned status before loc_339A0.
+         *
+         * Exception: when {@code Player_SlopeRepel} (sonic3k.asm:23907) has
+         * just slipped the player on the CURRENT physics tick (set {@code
+         * Status_InAir = 1} and {@code move_lock = 30} because |gSpeed|
+         * dropped below $280 at a steep angle), the air state is the
+         * legitimate ROM slip-detach for low-speed wall climbs. Preserve it
+         * so the cage's released-path (loc_33ADE -> loc_33B1E -> bne
+         * loc_33B62) can honour the in_air flag and run a proper release.
+         * Use the {@code slopeRepelJustSlipped} per-tick flag rather than
+         * {@code move_lock > 0} -- {@code move_lock} can be non-zero from a
+         * slip many frames in the past (still counting down) when the cage
+         * recaptures the player, in which case the air bit is from the
+         * engine's terrain probe (stale) rather than a fresh slip and SHOULD
+         * be restored. The CNZ1 trace F1740 fix originally used move_lock,
+         * but F1758 (cage recapture 18 frames after the F1740 slip while
+         * move_lock=12 was still counting down) showed that condition was
+         * too coarse.
          */
+        if (player.isSlopeRepelJustSlipped()) {
+            return;
+        }
         if (player.getLatchedSolidObjectId() == Sonic3kObjectIds.CNZ_WIRE_CAGE && !player.isJumping()) {
             player.setAir(false);
             player.setOnObject(true);
@@ -381,7 +437,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         short centreY = player.getCentreY();
         player.setAngle((byte) 0);
         player.setRolling(false);
-        player.restoreDefaultRadii();
+        // ROM (sonic3k.asm:69986-69987 loc_33A0E and sonic3k.asm:70095-70096
+        // loc_33B62) hardcodes y_radius=$13 (19) and x_radius=9 on cage release,
+        // regardless of character. Tails's default standing y_radius is $F (15)
+        // (sonic3k.asm:26103 Tails_Init), but ROM cage's release does NOT
+        // restore Tails-specific defaults — it writes Sonic-style 19/9 to the
+        // player's radii. The taller hitbox lets Tails detect terrain landing
+        // sooner after the cage's A/B/C launch, matching ROM at CNZ1 trace
+        // F1815 (foot at y=0x0742 with y_radius=19 hits floor; foot at y=0x073E
+        // with y_radius=15 misses the same floor by 1 pixel).
+        player.applyCustomRadii(9, 19);
         player.setCentreXPreserveSubpixel(centreX);
         player.setCentreYPreserveSubpixel(centreY);
         player.setAnimationId(RELEASE_ANIMATION);

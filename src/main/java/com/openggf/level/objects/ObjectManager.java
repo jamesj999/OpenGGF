@@ -30,6 +30,8 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Knuckles;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.game.GroundMode;
 
@@ -50,6 +52,8 @@ import java.util.logging.Logger;
 
 public class ObjectManager {
     private static final int BUCKET_COUNT = RenderPriority.MAX - RenderPriority.MIN + 1;
+    private static final int ANIM_ROLL = 0x02;
+    private static final int ANIM_SPINDASH = 0x09;
 
     private final Placement placement;
     private final ObjectRegistry registry;
@@ -1281,6 +1285,21 @@ public class ObjectManager {
     }
 
     /**
+     * Enables the permanent destroy-latch on {@code destroyedInWindow}, matching
+     * S3K's ROM behavior where bit 7 of {@code Object_respawn_table} stays set
+     * for the rest of the level after a player kill (see
+     * {@link Placement#permanentDestroyLatch}).
+     * <p>
+     * Call this once at level setup when the active game module is S3K. S1 and
+     * S2 must NOT enable it because their ROM only latches respawn-tracked
+     * spawns (modeled by the engine's {@code remembered} flag); non-tracked
+     * spawns must be allowed to re-spawn on cursor re-entry.
+     */
+    public void enablePermanentDestroyLatch() {
+        placement.enablePermanentDestroyLatch();
+    }
+
+    /**
      * Adjusts the placement system's tracking state after a camera wrap-back.
      * <p>
      * ROM parity: when Level_repeat_offset is non-zero, the ROM's ObjPosLoad
@@ -1595,6 +1614,14 @@ public class ObjectManager {
     /** Clear this player's riding state. */
     public void clearRidingObject(PlayableEntity player) {
         solidContacts.clearRidingObject(player);
+    }
+
+    public void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
+        solidContacts.forceAirOnStaleObjectSupportLoss(player);
+    }
+
+    public boolean hasPendingStaleObjectSupportLoss(PlayableEntity player) {
+        return solidContacts.hasPendingStaleObjectSupportLoss(player);
     }
 
     /**
@@ -2126,6 +2153,27 @@ public class ObjectManager {
 
         private boolean counterBasedRespawn;
         private boolean execThenLoadPlacement;
+        /**
+         * ROM parity: when true, destroyedInWindow stays latched permanently
+         * after a spawn is destroyed by the player (ROM's bit 7 of
+         * Object_respawn_table; see sonic3k.asm loc_1BA40 / loc_1BA64
+         * `bset #7,(a3)` which is set on every spawn and cleared only by
+         * Sprite_OnScreen_Test family on the live instance going off-screen
+         * -- so a player kill, which routes through Obj_Explosion +
+         * Delete_Current_Sprite, leaves bit 7 set forever).
+         * <p>
+         * S3K: true. Every layout entry has its own respawn-table slot and
+         * the cursor's spawn helpers always set bit 7, so destroyed badniks
+         * never come back until level init wipes the table at loc_1B784.
+         * <p>
+         * S1 / S2: false. ROM's ObjPosLoad / ObjectsManager_Main only set
+         * the bit-7 latch for spawns that explicitly opt in via the
+         * "respawn-tracked" flag (S1 obj-id-byte bit 7;
+         * S2 yWord bit 15 -- {@code tst.b 2(a0); bpl.s +} in
+         * docs/s2disasm/s2.asm:33402); non-tracked spawns always re-spawn on
+         * cursor entry. The engine models that opt-in via {@code remembered}.
+         */
+        private boolean permanentDestroyLatch;
         private java.util.function.IntSupplier usedSlotCounter;
         private int maxDynamicSlots = 96;
 
@@ -2197,6 +2245,11 @@ public class ObjectManager {
 
         void enableExecThenLoadPlacement() {
             this.execThenLoadPlacement = true;
+        }
+
+        /** See {@link #permanentDestroyLatch}. Enable for S3K only. */
+        void enablePermanentDestroyLatch() {
+            this.permanentDestroyLatch = true;
         }
 
         void enforceSlotLimit(java.util.function.IntSupplier counter) {
@@ -2367,9 +2420,17 @@ public class ObjectManager {
                 } else if (cameraChunk < lastCameraChunk) {
                     spawnBackwardNonCounter(cameraX);
                     trimRightNonCounter(cameraX);
-                } else {
-                    clearDestroyedLatchOutsideWindow(getWindowStart(cameraX), getWindowEnd(cameraX));
                 }
+                // ROM parity: bit 7 of Object_respawn_table (sonic3k.asm
+                // Touch_EnemyNormal line 20945; S2/S1 RememberState in
+                // sub RememberState.asm) is set by spawn (loc_1BA40 et al.)
+                // and cleared only by Sprite_OnScreen_Test family routines
+                // when the OBJECT INSTANCE goes off-screen. Cursor advancement
+                // and simple window-leave never clear it, so destroyed-by-
+                // player badniks stay permanently absent for the rest of the
+                // level (until level-init wipes Object_respawn_table at
+                // sonic3k.asm loc_1B784). The dormant flag handles the
+                // alive-offscreen case; destroyedInWindow stays latched.
                 lastCameraChunk = cameraChunk;
             }
 
@@ -2425,7 +2486,7 @@ public class ObjectManager {
                 }
             }
 
-            clearDestroyedLatchOutsideWindow(Math.max(0, cameraChunk - UNLOAD_BEHIND), cameraChunk + LOAD_AHEAD);
+            // ROM parity: do NOT clear destroyedInWindow on window-leave (see update()).
             lastCameraX = cameraX;
             lastCameraChunk = cameraChunk;
         }
@@ -2489,15 +2550,29 @@ public class ObjectManager {
         }
 
         /**
-         * Removes a spawn from the active set without marking it as remembered.
-         * The spawn won't respawn until it leaves the camera window entirely.
-         * Used for badniks which should respawn on camera re-entry but not immediately.
+         * Removes a spawn from the active set.
+         * <p>
+         * When {@link #permanentDestroyLatch} is enabled (S3K), also latches
+         * {@code destroyedInWindow} so the spawn can never re-spawn until
+         * level reset. This mirrors ROM bit 7 of {@code Object_respawn_table}
+         * (sonic3k.asm Touch_EnemyNormal line 20945; cursor helpers set the bit
+         * on spawn at loc_1BA40 / loc_1BA64 and only the alive-offscreen
+         * Sprite_OnScreen_Test family clears it -- a player kill leaves bit 7
+         * set permanently because the badnik becomes Obj_Explosion which
+         * never walks that path).
+         * <p>
+         * When the flag is disabled (S1 / S2), no latch is set: ROM's
+         * ObjectsManager_Main only latches respawn-tracked spawns
+         * (docs/s2disasm/s2.asm:33402 {@code tst.b 2(a0); bpl.s +}); the engine
+         * models that opt-in via {@code remembered}.
          */
         void removeFromActive(ObjectSpawn spawn) {
             active.remove(spawn);
-            int index = getSpawnIndex(spawn);
-            if (index >= 0) {
-                destroyedInWindow.set(index);
+            if (permanentDestroyLatch) {
+                int index = getSpawnIndex(spawn);
+                if (index >= 0) {
+                    destroyedInWindow.set(index);
+                }
             }
         }
 
@@ -2581,7 +2656,7 @@ public class ObjectManager {
                 dormant.clear(leftCursorIndex);
                 leftCursorIndex++;
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow here (see update()).
         }
 
         private void refreshWindow(int cameraX) {
@@ -2598,7 +2673,7 @@ public class ObjectManager {
             for (int i = start; i < end; i++) {
                 trySpawn(i);
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow on refresh (see update()).
         }
 
         private void spawnBackwardNonCounter(int cameraX) {
@@ -2629,7 +2704,7 @@ public class ObjectManager {
                 active.remove(previous);
                 dormant.clear(cursorIndex);
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow here (see update()).
         }
 
         private void trySpawn(int index) {
@@ -2735,11 +2810,15 @@ public class ObjectManager {
                 }
                 // ROM: loc_DA24 only advances cursor and bwdCounter.
                 // Do NOT remove from active — objects stay alive until out_of_range.
-                if (destroyedInWindow.get(leftCursorIndex)) {
-                    destroyedInWindow.clear(leftCursorIndex);
-                }
-                // Spawn leaving the cursor window — clear dormant so it can
-                // be normally re-loaded when the cursor re-enters this region.
+                // ROM parity: destroyedInWindow models bit 7 of v_objstate /
+                // objState[], which RememberState (sub RememberState.asm:14)
+                // clears only via Sprite_OnScreen_Test on a LIVE object's
+                // offscreen check. Cursor advancement past a destroyed badnik
+                // must NOT clear the bit; ROM keeps it set permanently after
+                // a player kill.
+                // Spawn leaving the cursor window — clear dormant so a
+                // non-destroyed spawn can be normally re-loaded when the
+                // cursor re-enters.
                 dormant.clear(leftCursorIndex);
                 leftCursorIndex++;
             }
@@ -2818,11 +2897,14 @@ public class ObjectManager {
                 }
                 // ROM: loc_D9DE only retreats cursor and fwdCounter.
                 // Do NOT remove from active — objects stay alive until out_of_range.
-                if (destroyedInWindow.get(cursorIndex)) {
-                    destroyedInWindow.clear(cursorIndex);
-                }
-                // Spawn leaving the cursor window — clear dormant so it can
-                // be normally re-loaded when the cursor re-enters this region.
+                // ROM parity: destroyedInWindow models bit 7 of v_objstate /
+                // objState[], which RememberState clears only via
+                // Sprite_OnScreen_Test on a LIVE object's offscreen check.
+                // Cursor retreat past a destroyed badnik must NOT clear the
+                // bit; ROM keeps it set permanently after a kill.
+                // Spawn leaving the cursor window — clear dormant so a
+                // non-destroyed spawn can be normally re-loaded when the
+                // cursor re-enters.
                 dormant.clear(cursorIndex);
             }
         }
@@ -2984,16 +3066,6 @@ public class ObjectManager {
         }
 
 
-        private void clearDestroyedLatchOutsideWindow(int windowStart, int windowEnd) {
-            // Clear destroyed-in-window latch once the spawn fully leaves the current stream window.
-            // ROM parity: window is [windowStart, windowEnd) — strict < on right boundary.
-            for (int i = destroyedInWindow.nextSetBit(0); i >= 0; i = destroyedInWindow.nextSetBit(i + 1)) {
-                ObjectSpawn spawn = spawns.get(i);
-                if (spawn.x() < windowStart || spawn.x() >= windowEnd) {
-                    destroyedInWindow.clear(i);
-                }
-            }
-        }
     }
 
     static final class PlaneSwitchers {
@@ -3327,8 +3399,10 @@ public class ObjectManager {
          * Shared collision loop for both main player and sidekick touch responses.
          * Iterates active objects, checks touch regions and overlap, dispatches to the
          * appropriate response handler. Behavioral differences are parameterized:
-         * - Player: records debug hits, breaks after first hit (ROM: bne.w branch)
-         * - Sidekick: no debug recording, continues loop after hits
+         * - Main player: records debug hits
+         * - Sidekick: no debug recording and uses Hurt_Sidekick handling
+         * - Both players exit after the first overlapping object; the ROM's handler
+         *   returns from ReactToItem after processing one touch response.
          *
          * @param player         the playable entity to check collisions for
          * @param playerX        hitbox left edge (centreX - 8, or insta-shield adjusted)
@@ -3369,7 +3443,7 @@ public class ObjectManager {
                     boolean hit = processMultiRegionTouch(player, playerX, playerY, playerHeight,
                             instance, provider, regions, playerWidth,
                             buildingSet, overlappingSet, isSidekick);
-                    if (!isSidekick && hit) {
+                    if (hit) {
                         break;
                     }
                     continue;
@@ -3388,7 +3462,7 @@ public class ObjectManager {
                 int sizeIndex = flags & 0x3F;
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
+                TouchCategory category = decodeCategory(flags, provider);
                 if (category == TouchCategory.HURT
                         && tryShieldDeflect(player, instance, provider, width, height)) {
                     continue;
@@ -3433,15 +3507,10 @@ public class ObjectManager {
                     }
                 }
                 // ROM parity: ReactToItem ALWAYS exits after the first overlapping
-                // object, regardless of category or whether a response was triggered.
-                // The ROM's handler returns via rts which exits the entire ReactToItem
-                // subroutine. Previously the engine only broke when shouldTrigger was
-                // true, allowing already-overlapping objects to be skipped and later
-                // objects to be found — a 1-frame-early bounce when a lower-slot
-                // non-enemy blocked ReactToItem in the ROM but was skipped here.
-                if (!isSidekick) {
-                    break;
-                }
+                // object, regardless of category, player slot, or whether a response
+                // was triggered. The ROM's handler returns via rts which exits the
+                // entire ReactToItem subroutine.
+                break;
             }
         }
 
@@ -3465,7 +3534,7 @@ public class ObjectManager {
                 int sizeIndex = flags & 0x3F;
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
+                TouchCategory category = decodeCategory(flags, provider);
                 if (category == TouchCategory.HURT
                         && tryShieldDeflectRegion(player, provider, region.x(), region.y(),
                         width, height, region.shieldReactionFlags())) {
@@ -3558,21 +3627,38 @@ public class ObjectManager {
             switch (result.category()) {
                 case HURT -> applySidekickHurt(sidekick, instance);
                 case ENEMY -> {
-                    if (isPlayerAttacking(sidekick)) {
+                    if (isPlayerAttacking(sidekick, instance)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
                         int hpBeforeHit = 0;
                         if (instance instanceof TouchResponseProvider provider2) {
                             hpBeforeHit = provider2.getCollisionProperty();
                         }
+                        // ROM parity (sonic3k.asm:20945-20990): Touch_EnemyNormal sets
+                        // status bit 7 on the badnik AND applies +/-$100 bounce to the
+                        // attacking player in the SAME function. The skip-when-destroyed
+                        // behaviour only applies to a SUBSEQUENT collision pass (e.g. after
+                        // P1 destroys a badnik in P1's TouchResponse, P2's pass naturally
+                        // skips because the object's (a0) was rewritten to Obj_Explosion).
+                        // We mirror that by capturing the pre-attack destroyed state and
+                        // gating the bounce only on prior destruction - never on the
+                        // sidekick's own kill (which would suppress her +/-$100 bounce).
+                        boolean wasAlreadyDestroyed = instance instanceof AbstractObjectInstance preAoi
+                                && preAoi.isDestroyed();
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(sidekick, result);
                         }
                         if (hpBeforeHit > 0) {
-                            // Touch_Enemy_Part2: neg.w x_vel / neg.w y_vel
+                            // S3K boss-hit path also negates ground_vel; S1/S2 keep it.
                             sidekick.setXSpeed((short) -sidekick.getXSpeed());
                             sidekick.setYSpeed((short) -sidekick.getYSpeed());
-                        } else {
-                            // Touch_KillEnemy: position-based bounce
+                            if (sidekick.getPhysicsFeatureSet() != null
+                                    && sidekick.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                                sidekick.setGSpeed((short) -sidekick.getGSpeed());
+                            }
+                        } else if (!wasAlreadyDestroyed) {
+                            // Touch_EnemyNormal bounce: ROM applies +$100 (moving up),
+                            // -$100 (player above), or negate (otherwise). Always fires
+                            // when this player's pass is the one performing the kill.
                             applyEnemyBounce(sidekick, instance);
                         }
                     } else {
@@ -3583,7 +3669,7 @@ public class ObjectManager {
                     // Listener handles object-specific logic.
                 }
                 case BOSS -> {
-                    if (isPlayerAttacking(sidekick)) {
+                    if (isPlayerAttacking(sidekick, instance)) {
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(sidekick, result);
                         }
@@ -3677,13 +3763,27 @@ public class ObjectManager {
             return true;
         }
 
-        private TouchCategory decodeCategory(int flags) {
+        private TouchCategory decodeCategory(int flags, TouchResponseProvider provider) {
             int categoryBits = flags & 0xC0;
+            int sizeIndex = flags & 0x3F;
+            if (categoryBits == 0xC0
+                    && provider != null
+                    && provider.usesS3kTouchSpecialPropertyResponse()
+                    && isS3kTouchSpecialPropertyIndex(sizeIndex)) {
+                return TouchCategory.SPECIAL;
+            }
             return switch (categoryBits) {
                 case 0x00 -> TouchCategory.ENEMY;
                 case 0x40 -> TouchCategory.SPECIAL;
                 case 0x80 -> TouchCategory.HURT;
                 default -> TouchCategory.BOSS;
+            };
+        }
+
+        private boolean isS3kTouchSpecialPropertyIndex(int sizeIndex) {
+            return switch (sizeIndex) {
+                case 0x06, 0x07, 0x0A, 0x0C, 0x15, 0x16, 0x17, 0x18, 0x21 -> true;
+                default -> false;
             };
         }
 
@@ -3699,7 +3799,7 @@ public class ObjectManager {
             switch (result.category()) {
                 case HURT -> applyHurt(player, instance, result);
                 case ENEMY -> {
-                    if (isPlayerAttacking(player)) {
+                    if (isPlayerAttacking(player, instance)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
                         // Capture HP before onPlayerAttack (which may decrement it).
                         int hpBeforeHit = 0;
@@ -3710,15 +3810,13 @@ public class ObjectManager {
                             attackable.onPlayerAttack(player, result);
                         }
                         if (hpBeforeHit > 0) {
-                            // Touch_Enemy_Part2: neg.w x_vel(a0) / neg.w y_vel(a0)
-                            // Then clear collision_flags and decrement HP (handled by onPlayerAttack)
-                            System.err.printf("[TOUCH_NEG] frame=%d obj=%s x=0x%04X y=0x%04X hp=%d playerX=0x%04X playerY=0x%04X xSpd=%d ySpd=%d%n",
-                                    currentFrameCounter,
-                                    instance.getClass().getSimpleName(), instance.getX(), instance.getY(),
-                                    hpBeforeHit, player.getCentreX(), player.getCentreY(),
-                                    player.getXSpeed(), player.getYSpeed());
+                            // S3K boss-hit path also negates ground_vel; S1/S2 keep it.
                             player.setXSpeed((short) -player.getXSpeed());
                             player.setYSpeed((short) -player.getYSpeed());
+                            if (player.getPhysicsFeatureSet() != null
+                                    && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                                player.setGSpeed((short) -player.getGSpeed());
+                            }
                         } else {
                             // Touch_KillEnemy: position-based bounce (one-hit kill)
                             applyEnemyBounce(player, instance);
@@ -3731,7 +3829,7 @@ public class ObjectManager {
                     // Listener handles object-specific logic.
                 }
                 case BOSS -> {
-                    if (isPlayerAttacking(player)) {
+                    if (isPlayerAttacking(player, instance)) {
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
@@ -3743,12 +3841,60 @@ public class ObjectManager {
             }
         }
 
-        private boolean isPlayerAttacking(PlayableEntity player) {
-            return player.isSuperSonic()
+        private boolean isPlayerAttacking(PlayableEntity player, ObjectInstance target) {
+            if (player == null) {
+                return false;
+            }
+            if (player.isSuperSonic()
                     || player.getInvincibleFrames() > 0
-                    || player.getRolling()
-                    || player.getSpindash()
-                    || (instaShieldActive && player == currentPlayer);
+                    || isSpinAttackAnimation(player)
+                    || (instaShieldActive && player == currentPlayer)) {
+                return true;
+            }
+
+            PhysicsFeatureSet features = player.getPhysicsFeatureSet();
+            if (features != null && features.elementalShieldsEnabled()) {
+                return isS3kAbilityAttack(player, target);
+            }
+
+            return player.getRolling() || player.getSpindash();
+        }
+
+        private boolean isSpinAttackAnimation(PlayableEntity player) {
+            int animation = player.getAnimationId();
+            return animation == ANIM_ROLL || animation == ANIM_SPINDASH;
+        }
+
+        private boolean isS3kAbilityAttack(PlayableEntity player, ObjectInstance target) {
+            if (player instanceof Knuckles) {
+                int flag = player.getDoubleJumpFlag();
+                return flag == 1 || flag == 3;
+            }
+            if (player instanceof Tails tails) {
+                return player.getDoubleJumpFlag() != 0
+                        && !tails.isInWater()
+                        && isTailsFlightAttackAngle(player, target);
+            }
+            return false;
+        }
+
+        private boolean isTailsFlightAttackAngle(PlayableEntity player, ObjectInstance target) {
+            if (target == null) {
+                return false;
+            }
+            int dx = (short) (player.getCentreX() - target.getX());
+            int dy = (short) (player.getCentreY() - target.getY());
+            int angle = segaAngle(dx, dy);
+            return ((angle - 0x20) & 0xFF) < 0x40;
+        }
+
+        private int segaAngle(int dx, int dy) {
+            if (dx == 0 && dy == 0) {
+                return 0x40;
+            }
+            double radians = Math.atan2(dy, dx);
+            int angle = (int) Math.round(radians * 128.0 / Math.PI);
+            return angle & 0xFF;
         }
 
         private void applyEnemyBounce(PlayableEntity player, ObjectInstance instance) {
@@ -3779,6 +3925,10 @@ public class ObjectManager {
         private void applyBossBounce(PlayableEntity player) {
             player.setXSpeed((short) -player.getXSpeed());
             player.setYSpeed((short) -player.getYSpeed());
+            if (player.getPhysicsFeatureSet() != null
+                    && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
+                player.setGSpeed((short) -player.getGSpeed());
+            }
         }
 
         private void applyHurt(PlayableEntity player, ObjectInstance instance, TouchResponseResult result) {
@@ -3830,6 +3980,8 @@ public class ObjectManager {
         private record RidingState(ObjectInstance object, int x, int y, int pieceIndex) {}
         private final Map<PlayableEntity, RidingState> ridingStates = new IdentityHashMap<>(2);
         private final Set<PlayableEntity> inlineSupportedPlayers =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<PlayableEntity> forceAirOnStaleSupportLoss =
                 Collections.newSetFromMap(new IdentityHashMap<>());
         private PlayableEntity currentPlayer; // set during update() for internal use
 
@@ -3885,62 +4037,6 @@ public class ObjectManager {
             perAngle.put(hexAngle & 0xFF, distance);
         }
 
-        private void traceS3kAizSolidProbe(PlayableEntity player,
-                                           ObjectInstance instance,
-                                           SolidContact contact,
-                                           SolidObjectParams params,
-                                           int anchorX,
-                                           int anchorY) {
-            if (!Boolean.getBoolean("s3k.aiz.solidprobe")
-                    || player == null
-                    || instance == null
-                    || contact == null) {
-                return;
-            }
-
-            int playerX = player.getCentreX() & 0xFFFF;
-            int playerY = player.getCentreY() & 0xFFFF;
-            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0380 || playerY > 0x03D8) {
-                return;
-            }
-
-            ObjectSpawn spawn = instance.getSpawn();
-            int spawnX = spawn != null ? spawn.x() & 0xFFFF : 0xFFFF;
-            int spawnY = spawn != null ? spawn.y() & 0xFFFF : 0xFFFF;
-            int objectId = spawn != null ? spawn.objectId() & 0xFF : 0xFF;
-            int subtype = spawn != null ? spawn.subtype() & 0xFF : 0xFF;
-
-            System.out.printf(
-                    "s3k-aiz-solidprobe frame=%d obj=%s spawn=(%04X,%04X) id=%02X subtype=%02X "
-                            + "anchor=(%04X,%04X) params=(%d,%d,%d) contact=[stand=%s side=%s bottom=%s top=%s push=%s] "
-                            + "player=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s roll=%s onObj=%s angle=%02X%n",
-                    frameCounter,
-                    instance.getClass().getSimpleName(),
-                    spawnX,
-                    spawnY,
-                    objectId,
-                    subtype,
-                    anchorX & 0xFFFF,
-                    anchorY & 0xFFFF,
-                    params.halfWidth(),
-                    params.airHalfHeight(),
-                    params.groundHalfHeight(),
-                    contact.standing(),
-                    contact.touchSide(),
-                    contact.touchBottom(),
-                    contact.touchTop(),
-                    contact.pushing(),
-                    playerX,
-                    playerY,
-                    player.getXSpeed() & 0xFFFF,
-                    player.getYSpeed() & 0xFFFF,
-                    player.getGSpeed() & 0xFFFF,
-                    player.getAir(),
-                    player.getRolling(),
-                    player.isOnObject(),
-                    player.getAngle() & 0xFF);
-        }
-
         boolean isRidingObject(PlayableEntity player) {
             if (player == null) return false;
             RidingState state = ridingStates.get(player);
@@ -3971,7 +4067,18 @@ public class ObjectManager {
             if (player != null) {
                 ridingStates.remove(player);
                 latestStandingSnapshots.remove(player);
+                forceAirOnStaleSupportLoss.remove(player);
             }
+        }
+
+        void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
+            if (player != null) {
+                forceAirOnStaleSupportLoss.add(player);
+            }
+        }
+
+        boolean hasPendingStaleObjectSupportLoss(PlayableEntity player) {
+            return player != null && forceAirOnStaleSupportLoss.contains(player);
         }
 
         void markObjectSupportThisFrame(PlayableEntity player) {
@@ -4007,6 +4114,10 @@ public class ObjectManager {
 
         private boolean blocksSolidContacts(PlayableEntity player, ObjectInstance candidate) {
             if (!player.isObjectControlled()) {
+                return false;
+            }
+            if (candidate instanceof SolidObjectProvider provider
+                    && provider.allowsObjectControlledSolidContacts()) {
                 return false;
             }
             // Most object-controlled states skip SolidObject entirely. MGZ top-platform
@@ -4072,7 +4183,7 @@ public class ObjectManager {
                 return false;
             }
             RidingState state = ridingStates.get(player);
-            return (state != null && state.object != null) || player.isOnObject();
+            return state != null && state.object != null;
         }
 
         private void finalizeInlinePlayer(PlayableEntity player) {
@@ -4082,11 +4193,16 @@ public class ObjectManager {
             if (player.getDead() || player.isDebugMode()) {
                 ridingStates.remove(player);
                 latestStandingSnapshots.remove(player);
+                forceAirOnStaleSupportLoss.remove(player);
                 return;
             }
             if (!inlineSupportedPlayers.contains(player)) {
+                boolean forceAir = forceAirOnStaleSupportLoss.remove(player);
                 ridingStates.remove(player);
                 player.setOnObject(false);
+                if (forceAir) {
+                    player.setAir(true);
+                }
                 latestStandingSnapshots.remove(player);
             }
         }
@@ -4246,6 +4362,53 @@ public class ObjectManager {
             boolean wasAirborne = player.getAir();
             boolean wasRidingObject = useStickyBuffer && isRidingCurrentPlayerObject(instance);
 
+            // ROM parity: SolidObject_cont (s2.asm:35140-35145 SolidObject_OnScreenTest,
+            // sonic3k.asm:41390-41392 loc_1DF88, s1disasm/_incObj/sub SolidObject.asm:124-126
+            // Solid_ChkEnter and 86-87 SolidObject2F) gates the side/top/bottom contact
+            // path on the object's render_flags bit 7. Render_Sprites clears bit 7 each
+            // frame (sonic3k.asm:36338) and re-sets it only when the object's bounding
+            // box overlaps the screen (sonic3k.asm:36370). When clear, ROM jumps to
+            // SolidObject_TestClearPush / loc_1E0A2 which only cleans up push state and
+            // exits without zeroing player ground_vel/x_vel. The S2 disasm documents
+            // this as an optimisation: "if Sonic outruns the screen then he can phase
+            // through solid objects".
+            //
+            // Without this gate, AIZ trace F2667 saw the engine zero Tails's
+            // x_vel/g_speed when the camera had already scrolled past slot 22's spike
+            // (camera.x=0x1C99, spike right edge at 0x1C90 -> off screen left), while
+            // the ROM correctly preserved the velocity.
+            //
+            // Gated by PhysicsFeatureSet.solidObjectOffscreenGate so we can roll out
+            // the engine-wide ROM-parity behaviour incrementally without disturbing
+            // existing S1/S2 trace baselines that depend on the prior (more
+            // permissive) collision semantics.  See PhysicsFeatureSet definitions.
+            //
+            // The riding-state branch above (processInlineRidingObject) is unaffected:
+            // ROM platform-ride (MvSonicOnPtfm via SolidObjectFull_1P standing branch)
+            // runs BEFORE the on-screen test, so off-screen platforms still carry the
+            // rider. Only the new-contact resolveContact path is gated here.
+            //
+            // Per-object opt-out (bypassesOffscreenSolidGate): the ROM gate at
+            // loc_1DF88 lives only in SolidObjectFull_1P (sonic3k.asm:41016-41018).
+            // Spring variants and several other objects route through the sibling
+            // helper SolidObjectFull2_1P (sonic3k.asm:41065-41067) which falls
+            // through directly to SolidObject_cont without the bit-7 test, so
+            // they must continue to resolve push/side contact even when their
+            // bounding box has scrolled off-screen.  Without this opt-out, the
+            // AIZ trace replay F2919 horizontal spring at (0x1F39, 0x04A0)
+            // failed to launch Tails because the spring's bounding box sits
+            // ~0xAA px below the camera viewport at that frame.
+            if (isSolidObjectOffscreenGateEnabled(player)
+                    && !provider.bypassesOffscreenSolidGate()
+                    && !instance.isWithinSolidContactBounds()) {
+                // ROM sub_1E0C2 (sonic3k.asm:41528-41532): off-screen / no-contact
+                // path clears the player's push status and the object's pushing-bit
+                // bookkeeping but does not touch ground_vel/x_vel. Matches both
+                // S2 SolidObject_TestClearPush and S1 Solid_NotPushing.
+                provider.setPlayerPushing(player, false);
+                return null;
+            }
+
             SolidContact contact;
             byte[] slopeData = null;
             if (instance instanceof SlopedSolidProvider sloped) {
@@ -4267,7 +4430,7 @@ public class ObjectManager {
                 return null;
             }
             applyNonUnifiedTopSolidLandingHeightOverride(
-                    player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
+                    player, contact, instance, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
             if ((contact.standing() || contact.touchTop())
                     && instance.getSpawn() != null
                     && player instanceof AbstractPlayableSprite sprite) {
@@ -4461,7 +4624,37 @@ public class ObjectManager {
                 return false;
             }
             PlayerStandingState snapshot = latestStandingSnapshots.get(player);
-            return snapshot != null && snapshot.standing();
+            return (snapshot != null && snapshot.standing())
+                    || hasPreMovementGroundAttachmentSupport(player);
+        }
+
+        private boolean hasPreMovementGroundAttachmentSupport(PlayableEntity player) {
+            int playerCenterX = player.getCentreX();
+            int playerCenterY = player.getCentreY();
+            int playerYRadius = player.getYRadius();
+            for (ObjectInstance instance : objectManager.getSolidProviderObjects()) {
+                if (!(instance instanceof SolidObjectProvider provider)
+                        || !provider.providesPreMovementGroundAttachmentSupport()
+                        || !provider.isSolidFor(player)
+                        || !provider.isTopSolidOnly()
+                        || blocksSolidContacts(player, instance)) {
+                    continue;
+                }
+                SolidObjectParams params = provider.getSolidParams();
+                int anchorX = instance.getX() + params.offsetX();
+                int anchorY = instance.getY() + params.offsetY();
+                int halfWidth = params.halfWidth();
+                int relX = playerCenterX - anchorX + halfWidth;
+                if (relX < 0 || relX >= halfWidth * 2) {
+                    continue;
+                }
+                int maxTop = params.airHalfHeight() + playerYRadius;
+                int relY = playerCenterY - anchorY + 4 + maxTop;
+                if (relY >= -0x10 && relY <= 0x10) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private boolean hasStandingContactMultiPiece(PlayableEntity player,
@@ -4872,8 +5065,7 @@ public class ObjectManager {
                     continue;
                 }
                 applyNonUnifiedTopSolidLandingHeightOverride(
-                        player, contact, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
-                traceS3kAizSolidProbe(player, instance, contact, params, anchorX, anchorY);
+                        player, contact, instance, provider.isTopSolidOnly(), wasAirborne, wasRidingObject, anchorY, params);
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
@@ -5018,19 +5210,6 @@ public class ObjectManager {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
-            traceS3kAizObjectProbe("start",
-                    player,
-                    instance,
-                    anchorX,
-                    anchorY,
-                    halfWidth,
-                    halfHeight,
-                    0,
-                    0,
-                    0,
-                    0,
-                    "entry");
-
             int width2 = halfWidth * 2;
             int relXRaw = playerCenterX - anchorX + halfWidth;
 
@@ -5064,34 +5243,10 @@ public class ObjectManager {
             // ridden piece. Without this, fast moving platforms (ObjB2 Tornado, etc.)
             // can drop contact for one frame at edges.
             int stickyX = ridingThisPiece ? 16 : 0;
-            traceS3kAizObjectProbe("window",
-                    player,
-                    instance,
-                    anchorX,
-                    anchorY,
-                    halfWidth,
-                    halfHeight,
-                    relXRaw,
-                    relY,
-                    maxTop,
-                    stickyX,
-                    "pre-bounds");
             boolean inclusiveRightEdge = instance instanceof SolidObjectProvider provider
                     && provider.usesInclusiveRightEdge();
             int rightLimit = width2 + stickyX;
             if (relXRaw < -stickyX || (inclusiveRightEdge ? relXRaw > rightLimit : relXRaw >= rightLimit)) {
-                traceS3kAizObjectProbe("reject-x",
-                        player,
-                        instance,
-                        anchorX,
-                        anchorY,
-                        halfWidth,
-                        halfHeight,
-                        relXRaw,
-                        relY,
-                        maxTop,
-                        stickyX,
-                        "x-range");
                 return null;
             }
             // Clamp sticky overflow back into the normal box before side/top resolution.
@@ -5107,18 +5262,6 @@ public class ObjectManager {
             int minRelY = ridingThisPiece ? -16 : 0;
 
             if (relY < minRelY || relY >= totalHeight) {
-                traceS3kAizObjectProbe("reject-y",
-                        player,
-                        instance,
-                        anchorX,
-                        anchorY,
-                        halfWidth,
-                        halfHeight,
-                        relX,
-                        relY,
-                        maxTop,
-                        minRelY,
-                        "y-range");
                 return null;
             }
 
@@ -5131,64 +5274,6 @@ public class ObjectManager {
                     topSolidOnly, riding, apply, instance, true);
         }
 
-        private void traceS3kAizObjectProbe(String stage,
-                                            PlayableEntity player,
-                                            ObjectInstance instance,
-                                            int anchorX,
-                                            int anchorY,
-                                            int halfWidth,
-                                            int halfHeight,
-                                            int relX,
-                                            int relY,
-                                            int maxTop,
-                                            int aux,
-                                            String reason) {
-            if (!Boolean.getBoolean("s3k.aiz.objectprobe")
-                    || player == null
-                    || instance == null
-                    || instance.getSpawn() == null) {
-                return;
-            }
-
-            ObjectSpawn spawn = instance.getSpawn();
-            boolean targetObject = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
-                    || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
-            if (!targetObject) {
-                return;
-            }
-
-            int playerX = player.getCentreX() & 0xFFFF;
-            int playerY = player.getCentreY() & 0xFFFF;
-            if (playerX < 0x1920 || playerX > 0x1960 || playerY < 0x0390 || playerY > 0x03C0) {
-                return;
-            }
-
-            System.out.printf(
-                    "s3k-aiz-objectprobe frame=%d stage=%s obj=%s spawn=(%04X,%04X) player=(%04X,%04X) "
-                            + "anchor=(%04X,%04X) params=(w=%d,h=%d,maxTop=%d) rel=(%d,%d) aux=%d reason=%s spd=(%04X,%04X,%04X) air=%s roll=%s%n",
-                    frameCounter,
-                    stage,
-                    instance.getClass().getSimpleName(),
-                    spawn.x() & 0xFFFF,
-                    spawn.y() & 0xFFFF,
-                    playerX,
-                    playerY,
-                    anchorX & 0xFFFF,
-                    anchorY & 0xFFFF,
-                    halfWidth,
-                    halfHeight,
-                    maxTop,
-                    relX,
-                    relY,
-                    aux,
-                    reason,
-                    player.getXSpeed() & 0xFFFF,
-                    player.getYSpeed() & 0xFFFF,
-                    player.getGSpeed() & 0xFFFF,
-                    player.getAir(),
-                    player.getRolling());
-        }
-
         private int getSolidTopYRadius(PlayableEntity player) {
             if (player instanceof AbstractPlayableSprite sprite) {
                 return sprite.getStandYRadius();
@@ -5197,12 +5282,13 @@ public class ObjectManager {
         }
 
         private void applyNonUnifiedTopSolidLandingHeightOverride(PlayableEntity player,
-                SolidContact contact, boolean topSolidOnly, boolean wasAirborne, boolean wasRidingObject,
-                int anchorY, SolidObjectParams params) {
+                SolidContact contact, ObjectInstance instance, boolean topSolidOnly,
+                boolean wasAirborne, boolean wasRidingObject, int anchorY, SolidObjectParams params) {
             if (contact != SolidContact.STANDING
                     || !topSolidOnly
                     || !wasAirborne
                     || wasRidingObject
+                    || instance instanceof SlopedSolidProvider
                     || usesUnifiedCollisionModel(player)) {
                 return;
             }
@@ -5353,7 +5439,12 @@ public class ObjectManager {
 
             int playerYRadius = player.getYRadius();
             int maxTop = halfHeight + playerYRadius;
-            int relY = playerCenterY - baseY + 4 + maxTop;
+            // ROM SolidObjCheckSloped2 samples an absolute surface Y
+            // (objectY - slopeSample), then compares it directly against
+            // playerY + yRadius + 4. Do not add the object's half-height here:
+            // baseY is already the sampled top surface, unlike flat solids where
+            // anchorY still refers to the object's centre.
+            int relY = playerCenterY - baseY + 4 + playerYRadius;
 
             if (relY < minRelY || relY >= maxTop * 2) {
                 return null;
@@ -5398,13 +5489,11 @@ public class ObjectManager {
             SolidContact result = resolveContactInternal(player, relX, relY, halfWidth, maxTop, maxTop * 2,
                     playerCenterX, playerCenterY, topSolidOnly, riding, apply, instance, true);
 
-            // ROM parity: SlopeObject2 uses absolute Y positioning for continued riding.
-            // The generic resolveContactInternal formula (playerCenterY - distY + 3) is a
-            // relative adjustment that is 1px too high for sloped contacts when
-            // slopeData[0] == halfHeight. Override with the ROM's absolute formula:
-            //   playerCentreY = objectY - slopeData[idx] - playerYRadius
-            // This only applies to continued riding (sticky=true); initial landing uses
-            // Solid_Landed which the generic formula approximates correctly.
+            // Continued riding uses SolidObjSloped2/SlopeObject2 to re-sample
+            // the absolute surface after the generic standing check. New
+            // landings already matched loc_1C100 above; reapplying here after
+            // Player_TouchFloor has cleared rolling would use the new standing
+            // radius and push roll landings down by 5 px.
             if (result == SolidContact.STANDING && apply && riding) {
                 int rawSample = sampleSlopeY(player, anchorX, halfWidth, slopedProvider);
                 if (rawSample != Integer.MIN_VALUE) {
@@ -5446,7 +5535,9 @@ public class ObjectManager {
                 if (player.getYSpeed() < 0) {
                     return null;
                 }
-                if (distY < 0 || distY >= 0x10) {
+                boolean rejectsZeroDistanceTopLanding = distY == 0
+                        && rejectsZeroDistanceTopSolidLanding(instance);
+                if (distY < 0 || distY >= 0x10 || rejectsZeroDistanceTopLanding) {
                     return null;
                 }
                 // ROM: Solid_Landed uses narrow obActWid for NEW landings only.
@@ -5658,8 +5749,13 @@ public class ObjectManager {
                 // S2's PlatformObject_ChkYRange excludes d0==0, which maps to
                 // distY==0 here, while the current S1/S3K shared path keeps that
                 // boundary as a valid landing.
+                boolean rejectsZeroDistanceTopLanding = topSolidOnly
+                        && distY == 0
+                        && rejectsZeroDistanceTopSolidLanding(instance);
                 if (topSolidOnly
-                        ? distY > 0x10 || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                        ? distY > 0x10
+                                || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
+                                || rejectsZeroDistanceTopLanding
                         : distY >= 0x10) {
                     return null;
                 }
@@ -5805,6 +5901,11 @@ public class ObjectManager {
             return featureSet == null || featureSet.topSolidLandingAllowsZeroDist();
         }
 
+        private boolean rejectsZeroDistanceTopSolidLanding(ObjectInstance instance) {
+            return instance instanceof SolidObjectProvider provider
+                    && provider.rejectsZeroDistanceTopSolidLanding();
+        }
+
         private boolean clearsGroundSpeedOnAirBottomSolidHit(PlayableEntity player) {
             if (player == null) {
                 return false;
@@ -5821,6 +5922,14 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly();
+        }
+
+        private boolean isSolidObjectOffscreenGateEnabled(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.solidObjectOffscreenGate();
         }
 
         private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {

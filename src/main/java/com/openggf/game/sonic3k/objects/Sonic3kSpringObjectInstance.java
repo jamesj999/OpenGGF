@@ -112,6 +112,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             if (!contact.standing()) {
                 return;
             }
+            if (!isPlayerOnUpDiagonalSpringLaunchSide(player)) {
+                return;
+            }
             applyDiagonalSpring(player, true);
             return;
         }
@@ -414,6 +417,19 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         return flipped ? objectX >= playerX : objectX < playerX;
     }
 
+    private boolean isPlayerOnUpDiagonalSpringLaunchSide(AbstractPlayableSprite player) {
+        int playerX = player.getCentreX() & 0xFFFF;
+        boolean flipped = isFlippedHorizontal();
+        if (flipped) {
+            // ROM sub_234E6: trigger only when x_pos(a0)+4 >= x_pos(a1).
+            int lipX = (spawn.x() + 4) & 0xFFFF;
+            return Integer.compareUnsigned(lipX, playerX) >= 0;
+        }
+        // ROM sub_234E6: trigger only when x_pos(a0)-4 < x_pos(a1).
+        int lipX = (spawn.x() - 4) & 0xFFFF;
+        return Integer.compareUnsigned(lipX, playerX) < 0;
+    }
+
     private void traceS3kAizSpringProbe(AbstractPlayableSprite player,
                                         SolidContact contact,
                                         int frameCounter,
@@ -422,7 +438,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             return;
         }
         boolean targetSpring = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
-                || (spawn.x() == 0x1980 && spawn.y() == 0x0439);
+                || (spawn.x() == 0x1980 && spawn.y() == 0x0439)
+                || (spawn.x() == 0x26C0 && spawn.y() == 0x02CC);
         if (!targetSpring) {
             return;
         }
@@ -482,6 +499,26 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     @Override
     public boolean usesInclusiveRightEdge() {
         return springType == TYPE_HORIZONTAL;
+    }
+
+    /**
+     * ROM divergence: every {@code Obj_Spring} variant routes through
+     * {@code SolidObjectFull2_1P} (sonic3k.asm:47664/47673/47692/47701/
+     * 47779/47798/47829/47848/48036/48045/48064/48074), and that helper's
+     * non-standing branch falls through directly to {@code SolidObject_cont}
+     * (sonic3k.asm:41067) without the {@code render_flags} bit-7 gate at
+     * {@code loc_1DF88} (sonic3k.asm:41390-41392).  S2 mirrors this: every
+     * spring variant uses {@code SolidObject_Always_SingleCharacter}
+     * (s2.asm:33709/33718/33784/33802) which jumps straight to
+     * {@code SolidObject_cont} without the {@code SolidObject_OnScreenTest}
+     * gate at s2.asm:35140-35145.  Off-screen springs therefore still
+     * resolve push and side contact in the ROM (AIZ trace replay F2919's
+     * horizontal spring at (0x1F39, 0x04A0) sits ~0xAA px below the camera
+     * viewport at the trigger frame).
+     */
+    @Override
+    public boolean bypassesOffscreenSolidGate() {
+        return true;
     }
 
     @Override

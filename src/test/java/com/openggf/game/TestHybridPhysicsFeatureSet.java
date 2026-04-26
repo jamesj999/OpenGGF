@@ -61,7 +61,17 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // airBottomSolidHitClearsGroundSpeed - S1
                 true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
-                true    // stageRingsUseObjectTouchCollection - S1
+                false,  // bossHitNegatesGroundSpeed - S1
+                true,   // stageRingsUseObjectTouchCollection - S1
+                PhysicsFeatureSet.SIDEKICK_FOLLOW_SNAP_S2,  // sidekickFollowSnapThreshold - S1/S2 default
+                PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2,  // sidekickDespawnX - S1/S2 placeholder
+                PhysicsFeatureSet.SIDEKICK_FOLLOW_LEAD_OFFSET_NONE,  // sidekickFollowLeadOffset - S1/S2 (no offset)
+                true,  // sidekickSpawningRequiresGroundedLeader - S1/S2 default (matches s2.asm:38751-38762)
+                false,  // useScreenYWrapValueForVisibility - S1/S2 keep 32-margin
+                true,   // sidekickDespawnUsesObjectIdMismatch - S1/S2 (s2.asm:39067 cmp.b id(a3),d0)
+                PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_NONE,  // sidekickFlyLandStatusBlockerMask - S1 has no CPU sidekick
+                false,  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
+                false   // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
         );
 
         // Verify spindash is enabled (donor contribution)

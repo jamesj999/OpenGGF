@@ -1,5 +1,7 @@
 package com.openggf.game;
 
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+
 /**
  * Feature flags gating optional physics mechanics per game.
  *
@@ -85,12 +87,151 @@ public record PhysicsFeatureSet(
          *  S1/S2: 16 (0x10) pixels/frame (s2.asm:18190 ".doScroll_fast").
          *  S3K:   24 (0x18) pixels/frame (sonic3k.asm:loc_1C1B0; s2.asm:18189 "S3K uses 24 instead of 16"). */
         int fastScrollCap,
+        /** Whether the boss/special-enemy hit bounce also negates ground velocity.
+         *  S3K: true for the {@code boss_hitcount2} path in Touch_Enemy
+         *  (sonic3k.asm:20913-20915 negates x_vel, y_vel, and ground_vel).
+         *  S1/S2: false; S2's corresponding boss and collision_property paths
+         *  only negate x_vel/y_vel (s2.asm:84815-84829). */
+        boolean bossHitNegatesGroundSpeed,
         /** Whether stage rings are collected through the object-touch-response
          *  pipeline (Obj25 Ring in S1) instead of the RingManager bounding-box
          *  sweep (Touch_Rings_Test in S2/S3K).
          *  S1: true (s1disasm 25 Rings.asm: ring is a touch-response object).
          *  S2/S3K: false (s2.asm:25034, sonic3k.asm Touch_Rings_Test: sweep in bookkeeping). */
-        boolean stageRingsUseObjectTouchCollection
+        boolean stageRingsUseObjectTouchCollection,
+        /** Pixel threshold that gates the sidekick CPU follow-AI's input override.
+         *  When {@code |delayedSonicX - tailsX| >= threshold}, the CPU forces
+         *  {@code Ctrl_2_logical} LEFT or RIGHT based on the sign; below the
+         *  threshold, the recorded delayed input is passed through unmodified,
+         *  so Tails can still skid/brake when Sonic's input disagrees with the
+         *  pure chase direction.
+         *  S2:  0x10 (s2.asm:38952 TailsCPU_Normal_FollowLeft,
+         *             s2.asm:38967 TailsCPU_Normal_FollowRight).
+         *  S3K: 0x30 (sonic3k.asm:26712 loc_13DF2,
+         *             sonic3k.asm:26729 loc_13E26). */
+        int sidekickFollowSnapThreshold,
+        /** Off-screen marker X-position written by the sidekick CPU despawn routine.
+         *  S3K: 0x7F00 (sonic3k.asm:26806 sub_13ECA writes {@code #$7F00, x_pos(a0)}).
+         *  S2:  0x4000 — engine placeholder preserved for parity with existing S2
+         *  behaviour and traces; S2's TailsCPU respawn instead resets to Sonic's
+         *  position (s2.asm: TailsCPU_RespawnTails) so this value is largely
+         *  inert there.
+         *  S1:  0x4000 — S1 has no Tails CPU sidekick, value is unreachable;
+         *  kept symmetric with S2 to avoid an "unused" sentinel. */
+        int sidekickDespawnX,
+        /** Pixel offset subtracted from the sidekick CPU follow-AI's leader-x
+         *  history target so the sidekick steers a fixed bias to the LEFT of
+         *  the leader.
+         *  <p>S3K: 0x20 (sonic3k.asm:26694 {@code subi.w #$20, d2}). The offset
+         *  is suppressed when the leader is riding an object
+         *  ({@code Status_OnObj} bit set, sonic3k.asm:26690-26691) or is moving
+         *  faster than the follower could chase ({@code ground_vel >= $400},
+         *  sonic3k.asm:26692-26693).
+         *  <p>S1/S2: 0 — S2's {@code TailsCPU_Normal} reads the recorded
+         *  Sonic position directly into {@code d2} and subtracts {@code x_pos}
+         *  with no intermediate adjustment (s2.asm:38933, 38945); S1 has no
+         *  CPU sidekick. */
+        int sidekickFollowLeadOffset,
+        /**
+         * Whether the sidekick CPU's SPAWNING-state catch-up trigger requires
+         * the leader to be on the ground / not in water / not roll-jumping
+         * before respawning.
+         * <p>S2: {@code true} — {@code TailsCPU_Spawning} (s2.asm:38751-38762)
+         * checks {@code Status_OnGround}, {@code Status_Underwater},
+         * {@code Status_RollJump} and skips respawn while any are blocking.
+         * <p>S3K: {@code false} — {@code Tails_Catch_Up_Flying}
+         * (sonic3k.asm:26474-26486) does NOT check those; it only honours the
+         * 64-frame {@code (Level_frame_counter & $3F) == 0} gate, the leader's
+         * {@code object_control} bit 7, and the leader's {@code Status_Super}
+         * bit. The engine's {@code SPAWNING} state needs the leader-grounded
+         * checks gated off for S3K so the catch-up handover fires when ROM
+         * does (e.g. CNZ where Sonic is airborne the whole time after the
+         * carry release).
+         * <p>S1: {@code true} (no Tails CPU; value unreachable).
+         */
+        boolean sidekickSpawningRequiresGroundedLeader,
+        /**
+         * Whether the engine's render-flag visibility test should use the S3K
+         * Render_Sprites Y-margin of {@code height_pixels = 0x18 = 24} (matching
+         * sonic3k.asm:36336-36370) instead of the legacy engine default of 32.
+         * <p>S3K: {@code true}. ROM's check is
+         * {@code (relY + 24) & Screen_Y_wrap_value >= 2*24 + 224 = 272}; with
+         * the default {@code Screen_Y_wrap_value = 0xFFFF} this reduces to
+         * {@code relY in [-24, 248)}.
+         * <p>S1/S2: {@code false}. They have no {@code Screen_Y_wrap_value}
+         * mechanism and the existing 32-margin matches their trace baselines.
+         */
+        boolean useScreenYWrapValueForVisibility,
+        /**
+         * Whether the sidekick CPU despawn check fires on an object-id mismatch
+         * (Tails moves between two distinct object types while off-screen).
+         * <p>S2: {@code true} — {@code TailsCPU_CheckDespawn}
+         * (s2.asm:39051-39068) does {@code cmp.b id(a3),d0}, comparing the
+         * cached {@code Tails_interact_ID} byte to the current object's
+         * {@code id} byte. Different object types have different ID bytes, so
+         * the engine's per-id mismatch check models this faithfully.
+         * <p>S3K: {@code false} — {@code sub_13EFC} (sonic3k.asm:26823) does
+         * {@code cmp.w (a3),d0}, comparing the cached {@code Tails_CPU_interact}
+         * word to the FIRST WORD of the object's structure (the high word of
+         * its routine pointer). All S3K gameplay objects live in ROM
+         * {@code 0x0001xxxx-0x0007xxxx}, so the high word is identical
+         * (typically {@code 0x0003}) for virtually every object encountered in
+         * normal play — the ROM check therefore almost never fires. The CNZ1
+         * trace F1685 barber-pole-to-wire-cage transition (object IDs
+         * {@code 0x4D} → {@code 0x4E}, both routines at {@code 0x000338xx}) is
+         * a concrete example: ROM cached/current high words are both
+         * {@code 0x0003}, no despawn; engine compares 8-bit object IDs and
+         * spuriously despawns Tails.
+         * <p>S1: unreachable (no Tails CPU). {@code true} keeps symmetry with
+         * S2.
+         */
+        boolean sidekickDespawnUsesObjectIdMismatch,
+        /**
+         * Mask applied to the recorded leader status byte during the sidekick
+         * CPU's "fly-back to leader" exit gate (engine APPROACHING state -&gt;
+         * NORMAL). When any masked bit is set in the recorded leader status,
+         * the sidekick stays in flight; when all masked bits are clear AND
+         * position residuals are zero, the sidekick lands and resumes ground
+         * follow AI.
+         * <p>S2:  {@code 0xD2} (s2.asm:38872-38873 {@code andi.b #$D2,d2}).
+         * Bits 1+4+6+7 = in_air + roll_jump + underwater + bit7. Effectively
+         * blocks landing while Sonic is airborne.
+         * <p>S3K: {@code 0x80} (sonic3k.asm:26625 {@code andi.b #$80,d2}).
+         * Bit 7 only. Bit 7 is not a standard Sonic status flag, so this gate
+         * almost never blocks in practice — landing is decided by position
+         * residuals + leader-alive only.
+         * <p>S1: 0 (no CPU sidekick; value unreachable).
+         */
+        int sidekickFlyLandStatusBlockerMask,
+        /**
+         * Whether the sidekick CPU's fly-back exit gate also requires the
+         * leader's sprite routine to be {@code &lt; 6} (alive, not dead/death-
+         * sequence) before transitioning back to NORMAL.
+         * <p>S3K: {@code true} (sonic3k.asm:26629-26630
+         * {@code cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42}).
+         * <p>S2:  {@code false} — TailsCPU_Flying_Part2 transitions to NORMAL
+         * without checking Sonic's routine (s2.asm:38870-38883).
+         * <p>S1:  {@code false} (no CPU sidekick).
+         */
+        boolean sidekickFlyLandRequiresLeaderAlive,
+        /**
+         * Whether {@code SolidObject_cont}'s on-screen gate
+         * (s2.asm:35140-35145 SolidObject_OnScreenTest, sonic3k.asm:41390-41392
+         * loc_1DF88, s1disasm/_incObj/sub SolidObject.asm:124-126
+         * Solid_ChkEnter / 86-87 SolidObject2F) skips side / top / bottom contact
+         * resolution when the object's render_flags bit 7 is clear (i.e. the
+         * camera has scrolled the object's bounding box off-screen).  Off-screen
+         * spike-vs-Tails interactions in AIZ depend on this gate to preserve
+         * Tails's velocity at trace F2667 when slot 22's spike center is past
+         * the camera's left edge.
+         *
+         * <p>S3K: {@code true} -- AIZ trace replay relies on the gate to match
+         * ROM behaviour. S1/S2: {@code false} for now to keep current trace
+         * baselines stable while the gate's on-screen semantic (engine
+         * cameraBounds.contains vs ROM Render_Sprites bounding-box overlap) is
+         * tuned.
+         */
+        boolean solidObjectOffscreenGate
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -114,6 +255,41 @@ public record PhysicsFeatureSet(
     /** S3K: ring collision half-size 8px (x_radius/y_radius in Obj_Attracted_Ring). */
     public static final int RING_COLLISION_SIZE_S3K = 8;
 
+    /** S2: sidekick CPU follow-AI overrides leader's delayed input when |dx| >= 0x10
+     *  (s2.asm:38952 TailsCPU_Normal_FollowLeft, s2.asm:38967 TailsCPU_Normal_FollowRight). */
+    public static final int SIDEKICK_FOLLOW_SNAP_S2 = 0x10;
+    /** S3K: sidekick CPU follow-AI overrides leader's delayed input when |dx| >= 0x30
+     *  (sonic3k.asm:26712 loc_13DF2, sonic3k.asm:26729 loc_13E26). */
+    public static final int SIDEKICK_FOLLOW_SNAP_S3K = 0x30;
+
+    /** S1/S2: engine placeholder for the sidekick despawn off-screen X marker.
+     *  S1 has no CPU sidekick (value is unreachable). S2's TailsCPU respawn does
+     *  not consume this marker — it resets Tails to Sonic's position — so the
+     *  current 0x4000 value is preserved to avoid disturbing S2 traces. */
+    public static final int SIDEKICK_DESPAWN_X_S2 = 0x4000;
+    /** S3K: ROM sub_13ECA writes {@code #$7F00, x_pos(a0)} as the off-screen
+     *  marker X for despawned Tails (sonic3k.asm:26806). */
+    public static final int SIDEKICK_DESPAWN_X_S3K = Sonic3kConstants.TAILS_CPU_DESPAWN_X;
+
+    /** S1/S2: no follow lead-offset; sidekick CPU steers directly toward the
+     *  recorded leader position (S1 has no CPU sidekick, S2 reads {@code d2}
+     *  from the position record without bias — s2.asm:38933, 38945). */
+    public static final int SIDEKICK_FOLLOW_LEAD_OFFSET_NONE = 0;
+    /** S3K: 0x20-pixel left-of-leader bias on the recorded x history before
+     *  the {@code sub.w x_pos(a0), d2} step (sonic3k.asm:26694
+     *  {@code subi.w #$20, d2}). */
+    public static final int SIDEKICK_FOLLOW_LEAD_OFFSET_S3K = 0x20;
+
+    /** S2: sidekick CPU fly-land status-blocker mask. Bits 1+4+6+7 =
+     *  in_air + roll_jump + underwater + bit7. {@code andi.b #$D2,d2} at
+     *  s2.asm:38872-38873. */
+    public static final int SIDEKICK_FLY_LAND_BLOCKERS_S2 = 0xD2;
+    /** S3K: sidekick CPU fly-land status-blocker mask. Bit 7 only.
+     *  {@code andi.b #$80,d2} at sonic3k.asm:26625. */
+    public static final int SIDEKICK_FLY_LAND_BLOCKERS_S3K = 0x80;
+    /** S1: no CPU sidekick — value unreachable. */
+    public static final int SIDEKICK_FLY_LAND_BLOCKERS_NONE = 0;
+
     /** Sonic 1: no spindash, single collision path, fixed AnglePos threshold, instant look scroll, water shimmer,
      *  always caps ground speed on input (s1disasm/_incObj/01 Sonic.asm:554-558),
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
@@ -121,7 +297,10 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, true);
+            null, (short) 0, true, false, false, false, false, true, false, true, FAST_SCROLL_CAP_S2, false, true,
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
+            true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
+            SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -131,7 +310,10 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false);
+            null, (short) 0, true, false, true, false, true, false, false, false, FAST_SCROLL_CAP_S2, false, false,
+            SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
+            true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
+            SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -145,7 +327,10 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, false);
+    }, (short) 0x100, true, true, false, true, false, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
+            SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
+            false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
+            SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
