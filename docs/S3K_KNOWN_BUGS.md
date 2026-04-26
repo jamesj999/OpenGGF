@@ -17,12 +17,13 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
-3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
-4. [CNZ1 Trace F1758 — Wire Cage Airborne-Capture object_control Bit 0 Missing (FIXED)](#cnz1-trace-f1758--wire-cage-airborne-capture-object_control-bit-0-missing-fixed)
-5. [CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)](#cnz1-trace-f1791--tails-cpu-auto-jump-trigger-bit-7-object-control-gate-fixed)
-6. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
-7. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
+2. [AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap](#aiz1-trace-f4679--sidekick-despawn-velocity--position-semantic-gap)
+3. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
+4. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
+5. [CNZ1 Trace F1758 — Wire Cage Airborne-Capture object_control Bit 0 Missing (FIXED)](#cnz1-trace-f1758--wire-cage-airborne-capture-object_control-bit-0-missing-fixed)
+6. [CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)](#cnz1-trace-f1791--tails-cpu-auto-jump-trigger-bit-7-object-control-gate-fixed)
+7. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
+8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
 
 ---
 
@@ -44,6 +45,44 @@ No tests assert on music selection during the miniboss fight, so this gap does n
 ### Removal Condition
 
 Remove once the miniboss theme plays on arena entry and a regression test asserts on the active music ID between fade-out and boss defeat.
+
+---
+
+## AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap
+
+**Location:** `SidekickCpuController.despawn()` / `triggerDespawn()`
+**ROM Reference:** `sonic3k.asm:21136` (`Kill_Character`), `sonic3k.asm:26800` (`sub_13ECA`), `sonic3k.asm:23172` (`Player_LevelBound`)
+
+### Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first error at trace frame 4679:
+```
+tails_y_speed mismatch (expected=0x0000, actual=0x0198)
+```
+
+The kill-plane *trigger* is now correctly aligned with ROM (the `Camera_max_Y_pos` resize timing fix in `Sonic3kAIZEvents` lands `Camera_max_Y_pos = 0x02E0` on trace frame 4679, the same frame ROM does, so engine sidekick `getY()` correctly tests above kill plane `0x03C0`). However, the engine's `SidekickCpuController.despawn()` immediately warps Tails to the despawn marker `(0x7F00, 0)` and leaves `(x_vel, y_vel, ground_vel)` carrying the live-physics values from the previous frame.
+
+ROM's flow is two-phase:
+1. **Frame N (`Kill_Character` runs):** `routine` → 6, `x_vel = 0`, `y_vel = -$700`, `ground_vel = 0`, then `Player_TouchFloor` adjusts `y_pos` (de-rolling y-radius increase). Trace records the post-`Kill_Character` end-of-frame state with velocities zeroed (the trace samples *after* the next physics tick where the death routine takes over and the velocities the recorder captures are the post-death-routine values).
+2. **Frame N+1 (death routine runs):** `loc_1578E` runs `MoveSprite_TestGravity` which adds gravity ($38) to `y_vel`. After several frames a CPU AI cleanup path (likely via `Tails_Catch_Up_Flying` despawn branch or `sub_13ECA`) warps to the marker.
+
+Engine collapses both frames into a single instant: `triggerDespawn()` warps to the marker AND skips the velocity zeroing, so on frame 4679 the engine has `tails_y_speed = 0x0198` (carry-over from the rolling-airborne descent) where ROM has `0x0000`.
+
+### Suspected Cause
+
+`SidekickCpuController.triggerDespawn()` was written to model `sub_13ECA` only (the marker warp), not the full `Player_LevelBound` → `Kill_Character` → death-routine → marker chain. When the kill source is the level boundary, ROM zeroes velocities in `Kill_Character`; the engine path skips that step.
+
+### Plan
+
+Either:
+1. Add a `Kill_Character`-equivalent code path that runs first when `doLevelBoundary` triggers a sidekick despawn — zero `xSpeed`/`ySpeed`/`gSpeed`, set routine to a death-marker state, then on the next frame let CPU controller transition to the despawn marker via the existing `triggerDespawn()` call. This matches the ROM's two-frame sequence exactly.
+2. Or: zero velocities inside `triggerDespawn()` *only* when the despawn cause is `LEVEL_BOUNDARY`, not the other despawn paths (off-screen, off-screen-recovery, etc.) which preserve velocity.
+
+Option 1 is closer to ROM parity and avoids special-casing the despawn API. Option 2 is a smaller diff but introduces a despawn-cause enum.
+
+### Removal Condition
+
+Remove once `TestS3kAizTraceReplay#replayMatchesTrace` advances past trace frame 4679 (sidekick state matches ROM at the kill-plane fire) and CNZ/AIZ off-screen-recovery despawn flows still pass their checkpoints. Cross-game baselines (S1 GHZ/MZ1, S2 EHZ, S3K CNZ) must remain unchanged.
 
 ---
 
