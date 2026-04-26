@@ -507,7 +507,7 @@ public class SidekickCpuController {
             }
         }
 
-        if (!jumpingFlag && !sidekick.getAir()) {
+        if (!jumpingFlag) {
             // ROM sonic3k.asm:26702-26705 (loc_13DD0) and s2.asm:38943-38946
             // (TailsCPU_Normal): if Tails is currently pushing AND the leader was
             // NOT pushing 16 frames ago, branch directly to the auto-jump trigger
@@ -524,6 +524,24 @@ public class SidekickCpuController {
             // The same condition gates the engine's earlier `skipFollowSteering`
             // block above (lines 395-396); reuse that condition here so steering
             // skip and jump-trigger bypass stay in sync.
+            //
+            // ROM `loc_13E64` (sonic3k.asm:26752-26758) only skips the
+            // distance/height/64-frame trigger block when `Tails_CPU_auto_jump_flag`
+            // is already set AND Tails is airborne. When the flag is clear, the
+            // trigger block runs every frame regardless of airborne state. This is
+            // critical for the case where Tails jumps via Sonic-history pressed-bits
+            // (Ctrl_2_pressed_logical inherited from Sonic's Stat_table 16 frames
+            // ago) BEFORE the 64-frame trigger has fired: ROM still fires the
+            // trigger one frame later (mid-air), setting the flag. The flag's
+            // held-bit OR at line 503-508 above then keeps `Ctrl_2_held_logical`'s
+            // jump bits set every airborne frame, which Tails_JumpHeight reads to
+            // skip the -$400 release cap (sonic3k.asm:28602-28605). Without this
+            // mid-air trigger, the engine cap fires once Sonic-history's jump bit
+            // expires (16 frames after Sonic released), clamping Tails's y_vel to
+            // -$400 and producing CNZ trace F3845 divergence (engine -$3C8 vs ROM
+            // -$4F8; the cap clamps -$4F8 to -$400, then +$38 gravity yields -$3C8).
+            // Removing the `!sidekick.getAir()` gate matches ROM and lets the flag
+            // get set on the F3839 trigger even though Tails went airborne at F3838.
             boolean pushingBypass = skipFollowSteering;
             boolean passesDistanceGate = pushingBypass
                     || (frameCounter & 0xFF) == 0

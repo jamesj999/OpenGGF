@@ -4,6 +4,45 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F3845: Tails CPU Auto-Jump Flag Now Sets Mid-Air (RESOLVED)
+
+- `SidekickCpuController.updateNormal()` no longer gates the auto-jump
+  trigger block on `!sidekick.getAir()`. ROM `loc_13E64` (sonic3k.asm:
+  26752-26758) only skips the distance/height/64-frame trigger block
+  when `Tails_CPU_auto_jump_flag` is **already set** AND Tails is
+  airborne; when the flag is clear the trigger block runs every frame
+  regardless of airborne state. S2 has identical structure at
+  `TailsCPU_Normal_FilterAction` (s2.asm:38994-39022).
+- The previous engine gate `if (!jumpingFlag && !sidekick.getAir())`
+  prevented the flag from ever being set in the case where Tails went
+  airborne via Sonic-history pressed-bits **before** the 64-frame
+  trigger fired. CNZ trace F3845 reproduces this: at trace F3838 Tails
+  jumps via `recordedInput=0x14` (Sonic's `Ctrl_1_logical` from F3822
+  including the JUMP bit) without our explicit auto-jump trigger having
+  fired yet. At F3839 the 64-frame trigger condition is met
+  (`(frameCounter & 0x3F) == 0`) but the engine's airborne gate blocks
+  the trigger, so `jumpingFlag` stays false. Sixteen frames later
+  (F3845) Sonic-history's JUMP bit ages out (Sonic released jump at
+  F3829), `inputJump` flips false, and `Sonic_JumpHeight`'s -$400
+  release cap (sonic3k.asm:28602-28605) clamps Tails's `y_vel = -$4F8`
+  to `-$400`; the +$38 air gravity step then yields the diverging
+  `-$3C8` engine value vs ROM's natural `-$4F8`. ROM avoids this because
+  the F3839 trigger sets the auto-jump flag mid-air, and the flag's
+  held-bit OR every airborne frame keeps `Ctrl_2_held_logical`'s A/B/C
+  bits set, which the cap reads to skip the clamp entirely.
+- Removing the `!sidekick.getAir()` gate matches ROM exactly: when
+  `jumpingFlag` is already set we skip the trigger block (mirroring
+  ROM's "branch to send-action" path at sonic3k.asm:26757); when the
+  flag is clear the trigger runs and may set the flag mid-air. The
+  existing flag-driven held-OR at lines 503-508 already mirrors ROM's
+  every-frame held-bit refresh.
+- Effect on `TestS3kCnzTraceReplay`: first strict error advances from
+  F3845 to F3901 (a 56-frame advance into a separate
+  Tails-x-velocity-from-spring divergence already on the open list).
+  Cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F6313. The fix applies to both S2 and S3K via shared
+  controller code; S2 EHZ trace stays at F1151.
+
 ### Sonic 3&K CNZ Trace F3649: Horizontal-Spring Proactive Zone Now Iterates Sidekicks (RESOLVED)
 
 - `Sonic3kSpringObjectInstance.update()` now mirrors ROM `sub_2326C`
