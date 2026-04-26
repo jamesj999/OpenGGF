@@ -250,6 +250,11 @@ further S3K parity work.
   `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
   `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
   state per the comparison-only invariant captured by the `trace-replay-bug-fixing` skill.
+- **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
+  pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
+  a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
+  load divergence (engine block 159 tile (4,3) descriptor reads as `primMode=NO_COLLISION`
+  while ROM treats it as solid; level loader / chunk descriptor mask suspected).
 - **CNZ object unit tests:** 60/71 → 71/71 passing. Multiple test assertions corrected to match
   ROM (`sub_324C0` clears Status_Roll at cylinder capture, hover-fan placement at fan centre,
   cannon test player Y standing on top, balloon launch via TouchResponseListener). Engine
