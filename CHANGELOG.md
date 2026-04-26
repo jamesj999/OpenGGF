@@ -4,6 +4,42 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### S3K CNZ: Clear Sidekick Wall-Suppress on Cage Stuck-Frozen Path (F3901)
+
+- `CnzWireCageObjectInstance.processPlayer()` and `continueRide()` now clear
+  `setSuppressGroundWallCollision(false)` on the sidekick whenever the cage
+  enters its "leader-released" stuck-frozen branch. Previously, the cage's
+  earlier `latch()` (sonic3k.asm:69937-69938 loc_3394C path) set the suppress
+  flag for ROM-accurate cage-ride behaviour, but neither the stuck-frozen
+  path (CNZ1 trace F2200-F2256, sonic3k.asm:69873-69878 sub_338C4 d6 path)
+  nor a stale tryLatch-from-bounding-box path ever called `release()` to
+  clear it again. With the flag still set, `CollisionSystem.resolveGroundWallCollision`
+  short-circuits at the `isSuppressGroundWallCollision()` gate, masking the
+  ROM left-wall correction inside `Tails_InputAcceleration_Path` (sonic3k.asm:27957-28001
+  loc_14B7A → loc_14BCA → default left-wall branch).
+- CNZ1 trace F3901 reproduces: Tails lands at (0x1C35, 0x09B0) on flat
+  terrain inside the cage's bounding box. ROM probes the left wall via
+  `sub_F61C` from `loc_14B7A`, finds 1 px penetration (d1 = -1 → -0x100
+  subpixels), runs the default left-wall branch (`add.w d1, x_vel` →
+  `move.w #0, ground_vel`, `bset Status_Push`), so x_vel becomes 0x18 + (-0x100)
+  = -0x00E8 and Status_Push is set. The engine's wall-collision short-
+  circuit produced x_vel=0x18 with Status_Push clear, so Tails clipped
+  one pixel right each chase tick (engine x=0x1C36 vs ROM 0x1C35) and
+  the wall-correction sub-cycle never fired.
+- Also skip `tryLatch` for the sidekick once `leaderHasReleased` is set,
+  mirroring ROM's d6-corruption-by-Perform_Player_DPLC contract: the
+  leader's `Perform_Player_DPLC` corrupts the d6 register that gates
+  the cage's btst-against-cage-status capture test (sonic3k.asm:69873-69921),
+  but Perform_Player_DPLC stops running once the leader has released, so
+  d6 stays uncorrupted at 3 (then +1 = 4 for the sidekick) and the cage's
+  btst test fails. Without this skip, the engine re-captures Tails on
+  every frame she enters the cage's bounding box and re-arms the suppress
+  flag.
+- CNZ1 trace `replayMatchesTrace` first error advances from F3901 to
+  F4490 (advance of 589 frames). Cross-game baselines unchanged: AIZ
+  F6313, S2 EHZ F1151, S1 MZ1 F311, S1 GHZ1 PASS. CnzWireCageObjectInstance
+  unit tests (5/5) still green.
+
 ### Cross-Game Touch Response: Honor `object_control` Bit-7 Skip Gate
 
 - `ObjectManager.TouchResponses.update()` and `updateSidekick()` now
