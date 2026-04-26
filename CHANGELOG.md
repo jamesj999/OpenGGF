@@ -4,6 +4,50 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F6255: Tails Freed-Slot Despawn Resolved (RESOLVED)
+
+- `ObjectManager.processInlineObjectForPlayer` now exempts top-only
+  solid providers from the `solidObjectOffscreenGate`. ROM's gate at
+  `loc_1DF88` (sonic3k.asm:41390-41392) lives only in
+  `SolidObjectFull_1P` (sonic3k.asm:41016-41018); the top-only routines
+  `SolidObjectTop_1P` / `SolidObjectTopSloped_1P` /
+  `SolidObjectTopSloped2_1P` (sonic3k.asm:41793, 41887, 41840) all
+  branch directly into the bbox-relative `loc_1E42E` /
+  `SolidObjCheckSloped` / `SolidObjCheckSloped2` (sonic3k.asm:41982,
+  42095, 42071) without testing `render_flags(a0)`. The S2 sloped path
+  (`SlopedSolid_SingleCharacter` -> `SlopedSolid_cont`,
+  s2.asm:34927-34952, 35066) bypasses the on-screen test the same way.
+  Without the exemption the universal off-screen gate dropped Tails'
+  contact with the AIZ2 collapsing platform at (0x08B0, 0x0369) -- the
+  platform's bbox right edge (0x90C) sat 0xD5 px past the camera left
+  edge (0x985) at the moment Tails should land -- so
+  `setLatchedSolidObject(slot=16)` never fired and the freed-slot
+  despawn detection had no `lastRidingInstance` to compare against.
+- `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses`
+  now reads the camera position directly via `services().camera()`
+  instead of consulting a per-instance `previousFrameCameraX` cache.
+  Round 13's cache was based on the mistaken premise that ROM
+  `Load_Sprites` runs AFTER `Process_Sprites`; the actual order in the
+  level main loop (sonic3k.asm:7893 `jsr Load_Sprites`; 7894 `jsr
+  Process_Sprites`; 7897 `jsr DeformBgLayer`) is Load_Sprites ->
+  Process_Sprites -> DeformBgLayer, so `Camera_X_pos_coarse_back` at
+  frame N's `Process_Sprites` already reflects `Camera_X_pos` at the
+  start of frame N (= end of frame N-1, since `DeformBgLayer` is the
+  per-frame camera tracker). The engine's `LevelFrameStep` mirrors the
+  same ordering by-construction (object exec is step 4, camera tracking
+  is step 5), so a direct camera read at the platform's `update()`
+  already provides the correct ROM-equivalent value. The cache pulled
+  cam_X from too far in the past and let the platform's destruction
+  lag ROM by one frame, which in turn delayed the AIZ trace F6255
+  freed-slot despawn by one frame.
+- Effect on `TestS3kAizTraceReplay`: first strict error advances from
+  F6255 to F6313 (a downstream sidekick AI divergence). Total errors
+  hold steady (1960 vs 1959). Cross-game baselines unchanged: S1 GHZ
+  green, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F3649. S3K must-keep-green
+  tests stay green (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`, `TestS3kCollapsingBridgeParity`).
+
 ### Sonic 3&K AIZ Trace F6255: Collapsing Platform Off-Screen Lifecycle ROM-Aligned (PARTIAL)
 
 - Aligned `Sonic3kCollapsingPlatformObjectInstance`'s off-screen delete
