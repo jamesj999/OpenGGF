@@ -142,7 +142,25 @@ final class AizVineHandleLogic {
         player.setObjectMappingFrameControl(true);
         player.setSpindash(false);
         player.setObjectControlled(true);
-        player.setControlLocked(true);
+        // ROM grab path (sonic3k.asm:46739-46743 loc_22302) writes only:
+        //   move.b #3, object_control(a1)
+        //   andi.b #$FD, render_flags(a1)
+        //   move.b #1, (a2)
+        // No Ctrl_1_locked write. ROM Sonic_Control still runs the input
+        // mirror (sonic3k.asm:21970 loc_10BF0 → move.w (Ctrl_1).w,
+        // (Ctrl_1_logical).w), so Sonic_RecordPos at sonic3k.asm:22132
+        // captures the live BK2 input into Stat_table. Tails CPU then sees
+        // that input 16 frames later via getInputHistory(16).
+        //
+        // Setting controlLocked here suppressed the engine's logical input
+        // (SpriteManager.publishInputState gates effective inputs on
+        // !controlLocked, line 388-392), which zeroed inputHistory and
+        // caused Tails to lose all air-acceleration cues during AIZ
+        // GiantRideVine grab sequences. AIZ trace F2878 reproduces this:
+        // Sonic was grabbed at F285x while pressing right; ROM-side Tails
+        // saw the right input via Stat_table 16 frames later and applied
+        // 0x18/frame air-acceleration; engine-side Tails saw zero input
+        // and accumulated -0x14 instead of the expected +0x03 at F2878.
         player.setRenderFlips(player.getDirection() == Direction.LEFT, false);
         playerState.grabFlag = 1;
         playerState.jumpHeldSinceGrab = player.isJumpPressed();
