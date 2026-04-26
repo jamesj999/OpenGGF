@@ -223,6 +223,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// from an earlier slip".
 		sprite.setSlopeRepelJustSlipped(false);
 
+		// Snapshot pre-physics state for per-object hooks running AFTER
+		// physics in the engine's frame order. ROM order runs cage/object
+		// updates AFTER player physics in slot order, but the cage's
+		// capture decision (sonic3k.asm:69905-69921 loc_33922 → loc_3394C)
+		// is based on the air/angle state ROM saw at the start of that
+		// frame. Engine cage code reads these snapshots to mirror ROM's
+		// branch selection.
+		sprite.capturePrePhysicsSnapshot();
+
 		if (sprite.isDebugMode()) {
 			handleDebugMovement(up, down, left, right, speedUp, slowDown);
 			return;

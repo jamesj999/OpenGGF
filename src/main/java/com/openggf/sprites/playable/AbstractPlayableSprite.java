@@ -181,6 +181,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean air = false;
 
         /**
+         * Pre-physics snapshot of physics state, captured at the start of
+         * each {@code handleMovement} tick (before any physics mutates the
+         * player). Used by per-object hooks that run AFTER physics in the
+         * engine's frame order but BEFORE physics in the ROM frame order
+         * (e.g. {@code CnzWireCageObjectInstance} which captures the player
+         * based on the airborne state ROM saw before player physics gated
+         * via {@code object_control} bit 0). The fields snapshot
+         * {@code air}, {@code angle}, {@code groundVel}, {@code xSpeed},
+         * {@code ySpeed} as ROM would have read them at the start of
+         * {@code Tails_Control}/{@code Sonic_Control} dispatch.
+         */
+        protected boolean prePhysicsAir = false;
+        protected byte prePhysicsAngle = 0;
+        protected short prePhysicsGSpeed = 0;
+        protected short prePhysicsXSpeed = 0;
+        protected short prePhysicsYSpeed = 0;
+
+        /**
          * Whether this sprite is currently jumping (ROM: jumping(a0) status bit).
          * Distinct from 'air' - you can be airborne without having jumped
          * (e.g., walked off an edge, hit by enemy, launched by spring).
@@ -1243,6 +1261,47 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setSlopeRepelJustSlipped(boolean value) {
                 this.slopeRepelJustSlipped = value;
+        }
+
+        /**
+         * Captures the player's state at the start of the current physics
+         * tick. Called by {@link com.openggf.sprites.managers.PlayableSpriteMovement#handleMovement}
+         * before any physics mutations. Per-object hooks running after
+         * physics (e.g. {@code CnzWireCageObjectInstance}) read these
+         * snapshots to make ROM-correct decisions based on the state ROM
+         * would have observed before player physics ran in slot order.
+         */
+        public void capturePrePhysicsSnapshot() {
+                this.prePhysicsAir = this.air;
+                this.prePhysicsAngle = this.angle;
+                this.prePhysicsGSpeed = this.gSpeed;
+                this.prePhysicsXSpeed = (short) this.xSpeed;
+                this.prePhysicsYSpeed = (short) this.ySpeed;
+        }
+
+        /** Pre-physics air state from {@link #capturePrePhysicsSnapshot()}. */
+        public boolean wasPrePhysicsAir() {
+                return prePhysicsAir;
+        }
+
+        /** Pre-physics angle from {@link #capturePrePhysicsSnapshot()}. */
+        public byte getPrePhysicsAngle() {
+                return prePhysicsAngle;
+        }
+
+        /** Pre-physics ground velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsGSpeed() {
+                return prePhysicsGSpeed;
+        }
+
+        /** Pre-physics X velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsXSpeed() {
+                return prePhysicsXSpeed;
+        }
+
+        /** Pre-physics Y velocity from {@link #capturePrePhysicsSnapshot()}. */
+        public short getPrePhysicsYSpeed() {
+                return prePhysicsYSpeed;
         }
 
         public boolean isSliding() {
