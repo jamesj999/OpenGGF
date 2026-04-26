@@ -437,7 +437,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         short centreY = player.getCentreY();
         player.setAngle((byte) 0);
         player.setRolling(false);
-        player.restoreDefaultRadii();
+        // ROM (sonic3k.asm:69986-69987 loc_33A0E and sonic3k.asm:70095-70096
+        // loc_33B62) hardcodes y_radius=$13 (19) and x_radius=9 on cage release,
+        // regardless of character. Tails's default standing y_radius is $F (15)
+        // (sonic3k.asm:26103 Tails_Init), but ROM cage's release does NOT
+        // restore Tails-specific defaults — it writes Sonic-style 19/9 to the
+        // player's radii. The taller hitbox lets Tails detect terrain landing
+        // sooner after the cage's A/B/C launch, matching ROM at CNZ1 trace
+        // F1815 (foot at y=0x0742 with y_radius=19 hits floor; foot at y=0x073E
+        // with y_radius=15 misses the same floor by 1 pixel).
+        player.applyCustomRadii(9, 19);
         player.setCentreXPreserveSubpixel(centreX);
         player.setCentreYPreserveSubpixel(centreY);
         player.setAnimationId(RELEASE_ANIMATION);

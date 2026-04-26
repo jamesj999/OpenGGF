@@ -4,6 +4,30 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Wire Cage Release Radii + Landing Reset Fix
+
+- `CnzWireCageObjectInstance.release` now applies `(x_radius=9, y_radius=19)`
+  via `applyCustomRadii` instead of `restoreDefaultRadii`. Mirrors ROM
+  `Obj_CNZWireCage` release paths `loc_33A0E`/`loc_33B62`
+  (`sonic3k.asm:69986-69987` / `70095-70096`), which hardcode `move.b
+  #$13,y_radius(a1) / move.b #9,x_radius(a1)` regardless of character.
+  Tails default standing y_radius is `$F` (15), but ROM cage release
+  writes Sonic-style 19/9 — required for the post-launch terrain
+  landing detection to match ROM at CNZ1 trace F1815.
+- `PlayableSpriteMovement.resetOnFloor` now restores standing
+  collision radii when the sprite is not rolling and its
+  `x/yRadius` differs from stand defaults. Matches ROM
+  `Player_TouchFloor` (`sonic3k.asm:24341-24343` Sonic /
+  `29134-29136` Tails), which unconditionally writes
+  `default_y_radius`/`default_x_radius` before the `Status_Roll`
+  branch. The roll branch then only adjusts `y_pos`. Previously the
+  engine only reset radii via `setRolling(false)`, leaving Tails with
+  a Sonic-sized hitbox forever after a CNZ wire-cage release and
+  accumulating a 4-pixel y_pos drift over hundreds of frames
+  (CNZ1 F2030+).
+- TestS3kCnzTraceReplay first error advances 1815 → 2175
+  (+360 frames). Cross-game baselines unchanged.
+
 ### Sonic 3&K AIZ1 Resize Timing Fix
 
 - Fixed `Sonic3kAIZEvents.updateAct1` to scan the AIZ1 dynamic-resize table
