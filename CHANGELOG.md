@@ -4,6 +4,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Cross-Game Touch Response: Honor `object_control` Bit-7 Skip Gate
+
+- `ObjectManager.TouchResponses.update()` and `updateSidekick()` now
+  short-circuit the per-frame touch-collision pass when the active
+  player has `isTouchResponseSuppressedByObjectControl()` set. ROM
+  Sonic_Display (sonic3k.asm:22019-22021) and Tails_Display
+  (sonic3k.asm:26263-26266) skip `jsr (TouchResponse).l` when
+  `object_control & $A0 != 0`; S2 (s2.asm:35962-35964) and S1
+  (`_incObj/01 Sonic.asm:88-89`) use the equivalent `bmi.s` test on
+  bit 7. ROM only ever sets bit 7 in practice (object_control values
+  `$81` for flight/CATCH_UP_FLIGHT/FLIGHT_AUTO_RECOVERY/despawn-marker,
+  `$83` for super state and debug placement).
+- `PlayableEntity` gains a default `isTouchResponseSuppressedByObjectControl()`
+  method (default `false`) overridden in `AbstractPlayableSprite` to return
+  `objectControlled && !objectControlAllowsCpu`, which is the engine's
+  encoding of "ROM bit-7-style object_control" (see existing
+  `setObjectControlAllowsCpu` doc — bits 0-6-only callers like CNZ wire
+  cage `$42` and MGZ twisting loop `$43` set the flag `true` so they
+  keep running TouchResponse, matching the ROM dispatcher's behaviour).
+- Latent CNZ-balloon false-positive fix surfaced by the AIZ F6313 round-16
+  retry: with ROM-accurate Tails position via `FLIGHT_AUTO_RECOVERY`,
+  Tails would overlap CNZ balloon slot 8 in the engine geometrically,
+  but ROM never ran TouchResponse for her in that state because
+  `Tails_FlySwim_Unknown` (sonic3k.asm:26534) is dispatched from
+  `Tails_CPU_Control` and bypasses the `Tails_Display` TouchResponse
+  call entirely. Now the engine honours that ROM control-flow gate.
+
 ### Sonic 3&K CNZ Trace F3649: Horizontal-Spring Proactive Zone Now Iterates Sidekicks (RESOLVED)
 
 - `Sonic3kSpringObjectInstance.update()` now mirrors ROM `sub_2326C`
