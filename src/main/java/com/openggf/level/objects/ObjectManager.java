@@ -3308,6 +3308,20 @@ public class ObjectManager {
                 return;
             }
 
+            // ROM Sonic_Display (sonic3k.asm:22019-22021) and S2/S1 equivalents
+            // skip TouchResponse when object_control's bit 7 (or $A0 in S3K) is
+            // set — i.e. flight/CATCH_UP_FLIGHT/FLIGHT_AUTO_RECOVERY/super/debug
+            // states where the controlling object owns the sprite. Without this
+            // gate, balloons and other touch objects fire false positives
+            // against a sprite that ROM never collides during these states.
+            // See PlayableEntity#isTouchResponseSuppressedByObjectControl() for
+            // the cross-game ROM citations.
+            if (player.isTouchResponseSuppressedByObjectControl()) {
+                overlapping.clear();
+                debugState.clear();
+                return;
+            }
+
             int playerX = player.getCentreX() - 8;
             int baseYRadius = Math.max(1, player.getYRadius() - 3);
             // ROM: playerY = y_pos - (y_radius - 3). Do NOT subtract 8 from Y (only X).
@@ -3373,6 +3387,20 @@ public class ObjectManager {
             }
 
             if (sidekick.isDebugMode()) {
+                buffers.overlapping.clear();
+                return;
+            }
+
+            // ROM Tails_Display (sonic3k.asm:26263-26266) and S2/S1 equivalents
+            // skip TouchResponse when object_control's bit 7 (or $A0 in S3K) is
+            // set. For S3K this is critical for Tails_CPU_routine 2/4
+            // (Tails_Catch_Up_Flying / Tails_FlySwim_Unknown) which ROM enters
+            // with object_control=$81 (sonic3k.asm:26511, 26542) — both
+            // routines run from Tails_CPU_Control, NOT from Tails_Display, so
+            // ROM never reaches the TouchResponse call in those states. Engine
+            // must mirror the skip to avoid balloon/spike/etc. false-positive
+            // collisions during catch-up flight.
+            if (sidekick.isTouchResponseSuppressedByObjectControl()) {
                 buffers.overlapping.clear();
                 return;
             }
