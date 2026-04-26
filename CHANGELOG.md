@@ -4,6 +4,34 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F5736: Tick Level_frame_counter Across Seamless Act Reload
+
+- Fixed `LevelManager.applySeamlessTransition()` to bump
+  `SpriteManager.frameCounter` by 1 on RELOAD_SAME_LEVEL and
+  RELOAD_TARGET_LEVEL transitions. ROM `Level_frame_counter`
+  (incremented in `VInt_0_Main` every gameplay frame) keeps ticking
+  through the act-reload frame, but both `GameLoop` and
+  `HeadlessTestRunner` `return` after applying a seamless transition,
+  skipping `SpriteManager.update()` — the only path that increments
+  `SpriteManager.frameCounter`. After AIZ act 1 → act 2 reload (F5496)
+  the engine counter ran one frame behind ROM's, so Tails-CPU gates
+  reading `(Level_frame_counter & MASK)` —
+  `sonic3k.asm:26775 loc_13E9C` 64-frame jump cadence — fired one frame
+  off the ROM cadence.
+- AIZ trace F5736 ROM `Level_frame_counter = 0x1540`, `& 0x3F == 0`,
+  triggers Tails's auto-jump out of his pushing-stuck state
+  (`y_speed = -0x680`, `x_speed = -0x00C4`). Engine `frameCounter =
+  0x153F`, `& 0x3F == 0x3F`, gate stayed shut, Tails remained grounded
+  with `x_speed = 0x000C`.
+- The fix is restricted to RELOAD types. `MUTATE_ONLY` transitions
+  (e.g. AIZ1 fire-transition art overlay) execute mid-frame and do not
+  skip the rest of the gameplay loop, so they must not double-tick the
+  counter.
+- TestS3kAizTraceReplay#replayMatchesTrace: first error advances
+  F5736 → F6066 (1184 → 1178 errors).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F2175.
+
 ### Sonic 3&K AIZ1 Trace F5497: Refresh Sidekick CPU Bounds on Act Transition
 
 - Fixed `LevelManager.executeActTransition()` to refresh
