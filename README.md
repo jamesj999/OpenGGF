@@ -223,7 +223,9 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
-- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 (per-game
+- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
+  (the F3834 sidekick-enemy-bounce fix uncovered an earlier-frame phantom-respawn divergence
+  that elastic-window comparison had been masking; per-game
   sidekick fly-back exit gate at sonic3k.asm:26625-26630; ROM `SolidObject_cont` on-screen
   render-flags gate at `s2.asm:35140-35145` / `sonic3k.asm:41390-41392`, S3K-only via
   `PhysicsFeatureSet.solidObjectOffscreenGate`; Tails CPU auto-jump pushing-bypass at

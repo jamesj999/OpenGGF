@@ -3548,6 +3548,17 @@ public class ObjectManager {
                         if (instance instanceof TouchResponseProvider provider2) {
                             hpBeforeHit = provider2.getCollisionProperty();
                         }
+                        // ROM parity (sonic3k.asm:20945-20990): Touch_EnemyNormal sets
+                        // status bit 7 on the badnik AND applies +/-$100 bounce to the
+                        // attacking player in the SAME function. The skip-when-destroyed
+                        // behaviour only applies to a SUBSEQUENT collision pass (e.g. after
+                        // P1 destroys a badnik in P1's TouchResponse, P2's pass naturally
+                        // skips because the object's (a0) was rewritten to Obj_Explosion).
+                        // We mirror that by capturing the pre-attack destroyed state and
+                        // gating the bounce only on prior destruction - never on the
+                        // sidekick's own kill (which would suppress her +/-$100 bounce).
+                        boolean wasAlreadyDestroyed = instance instanceof AbstractObjectInstance preAoi
+                                && preAoi.isDestroyed();
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(sidekick, result);
                         }
@@ -3559,22 +3570,11 @@ public class ObjectManager {
                                     && sidekick.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
                                 sidekick.setGSpeed((short) -sidekick.getGSpeed());
                             }
-                        } else {
-                            // Touch_KillEnemy: position-based bounce.
-                            // ROM parity (sonic3k.asm:20953): when an enemy is destroyed by
-                            // Touch_EnemyNormal, status bit 7 is set on it. ReactToItem on
-                            // subsequent (sidekick) collision passes sees the bit and skips
-                            // the object. The collision loop here uses a pre-update snapshot
-                            // (usePreUpdateState=true), so when Sonic destroys a badnik
-                            // earlier in the same frame, Tails's snapshot still reports the
-                            // ENEMY category against an instance that was just destroyed.
-                            // Mirror the ROM by gating the bounce on a live-destroyed check.
-                            // S2 has the matching mechanism (s2.constants.asm:231 -
-                            // status.npc.no_balancing bit 7, set by Touch_Enemy_Part2).
-                            // S1 lacks a sidekick AI, so this branch is unreachable there.
-                            if (!(instance instanceof AbstractObjectInstance aoi) || !aoi.isDestroyed()) {
-                                applyEnemyBounce(sidekick, instance);
-                            }
+                        } else if (!wasAlreadyDestroyed) {
+                            // Touch_EnemyNormal bounce: ROM applies +$100 (moving up),
+                            // -$100 (player above), or negate (otherwise). Always fires
+                            // when this player's pass is the one performing the kill.
+                            applyEnemyBounce(sidekick, instance);
                         }
                     } else {
                         applySidekickHurt(sidekick, instance);

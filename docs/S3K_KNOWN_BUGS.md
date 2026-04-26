@@ -22,6 +22,7 @@ Entries should include:
 4. [CNZ1 Trace F1758 — Wire Cage Airborne-Capture object_control Bit 0 Missing (FIXED)](#cnz1-trace-f1758--wire-cage-airborne-capture-object_control-bit-0-missing-fixed)
 5. [CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)](#cnz1-trace-f1791--tails-cpu-auto-jump-trigger-bit-7-object-control-gate-fixed)
 6. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
+7. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce)
 
 ---
 
@@ -452,3 +453,41 @@ Engine's `SidekickCpuController.CATCH_UP_FLIGHT` / `FLIGHT_AUTO_RECOVERY` enter 
 ### Removal Condition
 
 Remove once `TestS3kCnzTraceReplay`'s first strict error moves past frame 825 AND the engine writes `tails_x = 0x7F00` on the catch-up-flight init frame.
+
+
+---
+
+## AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce
+
+**Location:** `ObjectManager.Placement` (S3K spawn windowing) /
+`AbstractS3kBadnikInstance.defeat` -> `removeFromActiveSpawns`.
+
+**Symptom:** `TestS3kAizTraceReplay#replayMatchesTrace` first strict
+divergence at frame 2202: `tails_y_speed expected=-0x3E0, actual=-0x2E0`
+(delta `+0x100` = an extra enemy-defeat bounce). Tails is at
+`(0x1845, 0x0421)` flying past a MonkeyDude that ROM destroyed at
+F1722 via Sonic. ROM has the MonkeyDude permanently absent from this
+spawn point through F2202; the engine has it alive again, so when Tails
+overlaps it, the engine applies the `+0x100` bounce ROM never fires.
+
+**Suspected cause:** The engine's placement system marks the destroyed
+spawn `destroyedInWindow` (preventing re-spawn while still in window),
+but the `dormant`/`destroyedInWindow` clear path triggers when the
+placement cursor passes the spawn position again. Camera position
+changes between F1722 and F2202 (Y from `0x03B0` to `0x0244`, X from
+`0x179D` to `0x177A`) appear to be enough for the engine's cursor to
+sweep past and re-enable the MonkeyDude spawn, while ROM's ObjPosLoad
+cursor (X-only window) does not re-trigger the spawn at this point.
+Investigation needed in `ObjectManager.Placement.spawnForward` /
+`spawnBackward` and the `destroyedInWindow` clear logic at lines 2750,
+2834 (sonic-engine `ObjectManager.java`).
+
+**Discovered via:** Fix for AIZ trace F3834 (sidekick enemy-bounce
+self-destroy gating) which previously masked this divergence by
+incorrectly skipping the bounce whenever Tails herself destroyed the
+phantom badnik.
+
+**Removal condition:** `TestS3kAizTraceReplay`'s first strict error
+moves past frame 2202, AND the engine does not have a MonkeyDude
+instance at `(0x1838, 0x0410)` between F1722 and the next legitimate
+respawn window-leave/re-enter cycle.
