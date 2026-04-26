@@ -41,6 +41,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
 
     private int bgRiseRoutine;
     private int bgRiseOffset;
+    private int bossBgScrollOffset = Integer.MIN_VALUE;
     /**
      * Cached BG camera X for {@link #getBgCameraX()}. {@link Integer#MIN_VALUE}
      * means "no override" — the dual-path collision uses the FG cameraX as the
@@ -64,6 +65,17 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         this.bgRiseRoutine = routine;
         this.bgRiseOffset = offset;
         primeBgCollisionStateFromCurrentCamera();
+    }
+
+    /**
+     * ROM: MGZ2SE_MoveBG advances Events_bg+$0C after the boss floor collapse
+     * and uses it as the BG camera copy for DrawTilesAsYouMove.
+     */
+    public void setBossBgScrollOffset(int offset) {
+        bossBgScrollOffset = offset & 0xFFFF;
+        if (bgRiseRoutine != BG_RISE_SONIC_STATE) {
+            lastBgCameraX = bossBgScrollOffset;
+        }
     }
 
     @Override
@@ -137,6 +149,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         short fgScroll = negWord(cameraX);
 
         if (actId == 0) {
+            bossBgScrollOffset = Integer.MIN_VALUE;
             lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) 0);
             buildMgz1HScrollTable(cameraX, mgz1HScrollTable);
@@ -177,7 +190,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             int bgY = bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
                     ? computeMgz2BgY(cameraY - MGZ2_AFTER_MOVE_Y_BASE)
                     : computeMgz2BgY(cameraY);
-            lastBgCameraX = Integer.MIN_VALUE;
+            lastBgCameraX = bossBgScrollOffset;
             composer.setVscrollFactorBG((short) bgY);
             buildMgz2HScrollTable(cameraX, shouldAutoMoveMgz2Clouds(),
                     mgz2HScrollTable, mgz2ScatterSource);
@@ -331,7 +344,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             vscrollFactorBG = (short) ((((short) camera.getY()) - MGZ2_SONIC_RISE_Y_BASE) + bgRiseOffset);
             return;
         }
-        lastBgCameraX = Integer.MIN_VALUE;
+        lastBgCameraX = bossBgScrollOffset;
         vscrollFactorBG = (short) (bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
                 ? computeMgz2BgY(camera.getY() - MGZ2_AFTER_MOVE_Y_BASE)
                 : computeMgz2BgY(camera.getY()));

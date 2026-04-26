@@ -333,6 +333,24 @@ public class TestTouchResponseManager {
     }
 
     @Test
+    public void testMultiRegionTouchRespectsOnScreenSnapshotGate() {
+        MockMultiRegionAbstractObject obj = new MockMultiRegionAbstractObject(160, 112, 0x48);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.runTouchResponsesForPlayer(player, 1);
+
+        assertFalse(obj.wasTouched,
+                "Multi-region touch should match ReactToItem's obRender gate and skip AbstractObjectInstance before a displayed snapshot exists");
+
+        obj.snapshotPreUpdatePosition();
+        objectManager.runTouchResponsesForPlayer(player, 2);
+
+        assertTrue(obj.wasTouched,
+                "After the object has a pre-update display snapshot, its multi-region touch can participate");
+    }
+
+    @Test
     public void testRunTouchResponsesForPlayerUsesLiveCurrentObjectPosition() {
         // Current position barely overlaps; pre-update position does not.
         MockTrackedTouchObject obj = new MockTrackedTouchObject(174, 112, 176, 112, 0x48);
@@ -516,6 +534,55 @@ public class TestTouchResponseManager {
         }
     }
 
+    private static class MockMultiRegionAbstractObject extends AbstractObjectInstance
+            implements TouchResponseProvider, TouchResponseListener {
+        private final int collisionFlags;
+        boolean wasTouched = false;
+
+        MockMultiRegionAbstractObject(int x, int y, int flags) {
+            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "MockMultiRegion");
+            this.collisionFlags = flags;
+        }
+
+        @Override
+        public int getCollisionFlags() {
+            return 0;
+        }
+
+        @Override
+        public int getCollisionProperty() {
+            return 0;
+        }
+
+        @Override
+        public TouchRegion[] getMultiTouchRegions() {
+            return new TouchRegion[] { new TouchRegion(getX(), getY(), collisionFlags) };
+        }
+
+        @Override
+        public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
+            wasTouched = true;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity player) {
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return false;
+        }
+
+        @Override
+        public boolean isDestroyed() {
+            return false;
+        }
+    }
+
     private static class MockTrackedTouchObject extends MockTouchObject {
         private final int currentX;
         private final int currentY;
@@ -604,6 +671,5 @@ public class TestTouchResponseManager {
         }
     }
 }
-
 
 

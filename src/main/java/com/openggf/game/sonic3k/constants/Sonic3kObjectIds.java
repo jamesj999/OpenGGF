@@ -110,6 +110,8 @@ public final class Sonic3kObjectIds {
     public static final int SPIKER = 0x9C;
     public static final int MANTIS = 0x9D;
     public static final int MGZ_MINIBOSS = 0x9F;
+    public static final int MGZ_END_BOSS = 0xA1;
+    public static final int MGZ_END_BOSS_KNUX = 0xA2;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
     public static final int HIDDEN_MONITOR = 0x80;

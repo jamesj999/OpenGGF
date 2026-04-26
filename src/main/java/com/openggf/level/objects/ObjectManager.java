@@ -3351,6 +3351,18 @@ public class ObjectManager {
                     continue;
                 }
 
+                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
+                // for each object. If obRender bit 7 is clear (object not yet displayed
+                // by DisplaySprite), the entire object is skipped. This must also apply
+                // to engine-side multi-region composites that stand in for ROM child
+                // objects.
+                if (instance.isSkipSolidContactThisFrame()) {
+                    continue;
+                }
+                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
+                    continue;
+                }
+
                 // Multi-region providers (e.g., spiked pole helix) check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
@@ -3363,19 +3375,6 @@ public class ObjectManager {
                     continue;
                 }
 
-                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
-                // for each object. If obRender bit 7 is clear (object not yet displayed
-                // by DisplaySprite), the entire object is skipped. This covers:
-                // (a) First-frame objects whose DisplaySprite hasn't run yet
-                // (b) Objects that were offscreen on the previous frame
-                // (c) Objects created by higher-slot makers that haven't run yet
-                // Use isOnScreen() as the engine's equivalent of obRender bit 7.
-                if (instance.isSkipSolidContactThisFrame()) {
-                    continue;
-                }
-                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
-                    continue;
-                }
                 int flags;
                 if (usePreUpdateState) {
                     int preFlags = instance.getPreUpdateCollisionFlags();
@@ -3424,7 +3423,8 @@ public class ObjectManager {
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
+                    TouchResponseResult result = new TouchResponseResult(
+                            sizeIndex, width, height, category, provider.getShieldReactionFlags());
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     if (isSidekick) {
                         handleTouchResponseSidekick(player, instance, listener, result);
@@ -3466,6 +3466,11 @@ public class ObjectManager {
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
+                if (category == TouchCategory.HURT
+                        && tryShieldDeflectRegion(player, provider, region.x(), region.y(),
+                        width, height, region.shieldReactionFlags())) {
+                    continue;
+                }
 
                 boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
                         region.x(), region.y(), width, height, playerWidth);
@@ -3480,7 +3485,8 @@ public class ObjectManager {
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
+                    TouchResponseResult result = new TouchResponseResult(
+                            sizeIndex, width, height, category, region.shieldReactionFlags());
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     if (isSidekick) {
                         handleTouchResponseSidekick(player, instance, listener, result);
@@ -3509,6 +3515,25 @@ public class ObjectManager {
             int shieldTop = player.getCentreY() - SHIELD_TOUCH_HALF_SIZE;
             boolean overlap = isRectOverlapping(shieldLeft, shieldTop, SHIELD_TOUCH_SIZE, SHIELD_TOUCH_SIZE,
                     instance.getX(), instance.getY(), objectWidth, objectHeight);
+            if (!overlap) {
+                return false;
+            }
+            return provider.onShieldDeflect(player);
+        }
+
+        private boolean tryShieldDeflectRegion(PlayableEntity player, TouchResponseProvider provider,
+                int regionX, int regionY, int objectWidth, int objectHeight, int shieldReactionFlags) {
+            if (player == null || !player.hasShield()) {
+                return false;
+            }
+            if ((shieldReactionFlags & SHIELD_REACTION_BOUNCE_BIT) == 0) {
+                return false;
+            }
+
+            int shieldLeft = player.getCentreX() - SHIELD_TOUCH_HALF_SIZE;
+            int shieldTop = player.getCentreY() - SHIELD_TOUCH_HALF_SIZE;
+            boolean overlap = isRectOverlapping(shieldLeft, shieldTop, SHIELD_TOUCH_SIZE, SHIELD_TOUCH_SIZE,
+                    regionX, regionY, objectWidth, objectHeight);
             if (!overlap) {
                 return false;
             }
@@ -3672,7 +3697,7 @@ public class ObjectManager {
             }
 
             switch (result.category()) {
-                case HURT -> applyHurt(player, instance);
+                case HURT -> applyHurt(player, instance, result);
                 case ENEMY -> {
                     if (isPlayerAttacking(player)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
@@ -3699,7 +3724,7 @@ public class ObjectManager {
                             applyEnemyBounce(player, instance);
                         }
                     } else {
-                        applyHurt(player, instance);
+                        applyHurt(player, instance, result);
                     }
                 }
                 case SPECIAL -> {
@@ -3712,7 +3737,7 @@ public class ObjectManager {
                         }
                         applyBossBounce(player);
                     } else {
-                        applyHurt(player, instance);
+                        applyHurt(player, instance, result);
                     }
                 }
             }
@@ -3756,7 +3781,7 @@ public class ObjectManager {
             player.setYSpeed((short) -player.getYSpeed());
         }
 
-        private void applyHurt(PlayableEntity player, ObjectInstance instance) {
+        private void applyHurt(PlayableEntity player, ObjectInstance instance, TouchResponseResult result) {
             if (player.getInvulnerable()) {
                 return;
             }
@@ -3771,8 +3796,7 @@ public class ObjectManager {
             boolean spikeHit = instance != null && instance.getSpawn().objectId() == 0x36;
 
             // S3K shield_reaction bit 4: fire shield blocks fire damage
-            boolean fireHit = !spikeHit && instance instanceof TouchResponseProvider trp
-                    && (trp.getShieldReactionFlags() & 0x10) != 0;
+            boolean fireHit = !spikeHit && (result.shieldReactionFlags() & 0x10) != 0;
 
             DamageCause cause = spikeHit
                     ? DamageCause.SPIKE

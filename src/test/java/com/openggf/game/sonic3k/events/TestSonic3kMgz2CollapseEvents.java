@@ -12,6 +12,8 @@ import com.openggf.level.ChunkDesc;
 import com.openggf.level.Map;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
+import com.openggf.level.LevelGeometry;
+import com.openggf.level.LevelTilemapManager;
 import com.openggf.level.SolidTile;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingSpawn;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -45,7 +48,7 @@ class TestSonic3kMgz2CollapseEvents {
     }
 
     @Test
-    void collapseTrigger_clearsOpeningRegionOnFirstUpdate() {
+    void collapseTrigger_runsTimedShakeBeforeOpeningClear() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         events.triggerCollapseForTest();
@@ -54,15 +57,72 @@ class TestSonic3kMgz2CollapseEvents {
 
         SyntheticMgzCollapseLevel level = (SyntheticMgzCollapseLevel) GameServices.level().getCurrentLevel();
         assertTrue(events.isCollapseActive());
-        assertEquals(1, events.getCollapseMutationCount());
+        assertEquals(0, events.getCollapseMutationCount());
         assertEquals(4, events.getScreenEventRoutine());
+        assertEquals(0, events.getCollapseSolidCountForTest());
+        assertFilled(level.getMap(), 121, 14, 3, 3, 1);
+    }
+
+    @Test
+    void collapseStartupShakeClearsOpeningAndCreatesCollapseSolids() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.triggerCollapseForTest();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+
+        SyntheticMgzCollapseLevel level = (SyntheticMgzCollapseLevel) GameServices.level().getCurrentLevel();
+        assertTrue(events.isCollapseActive());
+        assertEquals(1, events.getCollapseMutationCount());
+        assertEquals(20, events.getCollapseSolidCountForTest());
         assertCleared(level.getMap(), 121, 14, 3, 3);
+    }
+
+    @Test
+    void collapseStartupClearDoesNotInvalidateForegroundTilemap() throws Exception {
+        SyntheticMgzCollapseLevel level = (SyntheticMgzCollapseLevel) GameServices.level().getCurrentLevel();
+        LevelTilemapManager tilemaps = installTilemapManager(level);
+        tilemaps.setForegroundTilemapDirty(false);
+
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.triggerCollapseForTest();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+
+        assertCleared(level.getMap(), 121, 14, 3, 3);
+        assertFalse(tilemaps.isForegroundTilemapDirty(),
+                "MGZ2 collapse startup must clear layout RAM without redrawing the visible foreground plane");
+    }
+
+    @Test
+    void collapseStartupClearSnapshotsForegroundTilemapIfItWasDirty() throws Exception {
+        SyntheticMgzCollapseLevel level = (SyntheticMgzCollapseLevel) GameServices.level().getCurrentLevel();
+        LevelTilemapManager tilemaps = installTilemapManager(level);
+        tilemaps.setForegroundTilemapDirty(true);
+
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.triggerCollapseForTest();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+
+        assertCleared(level.getMap(), 121, 14, 3, 3);
+        assertFalse(tilemaps.isForegroundTilemapDirty(),
+                "If the FG tilemap is dirty at impact, the engine must snapshot the visible plane before clearing layout RAM");
     }
 
     @Test
     void collapseProgression_finishesAndClearsLowerRegion() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
+        GameServices.camera().setX((short) 0x3C80);
         events.triggerCollapseForTest();
 
         for (int frame = 0; frame < 512 && !events.isCollapseFinished(); frame++) {
@@ -74,17 +134,111 @@ class TestSonic3kMgz2CollapseEvents {
         assertFalse(events.isCollapseActive());
         assertEquals(8, events.getScreenEventRoutine());
         assertEquals(2, events.getCollapseMutationCount());
+        assertEquals(0, events.getBossBgScrollVelocityForTest());
+        assertEquals(0x3C80, events.getBossBgScrollOffsetForTest(),
+                "ROM loc_51484 seeds Events_bg+$0C from Camera_X_pos_copy when collapse finishes");
+        assertCleared(level.getMap(), 121, 14, 3, 3);
         assertCleared(level.getMap(), 121, 11, 3, 3);
     }
 
+    @Test
+    void moveBgScrollAcceleratesAfterCollapseCompletes() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        GameServices.camera().setX((short) 0x3C80);
+        events.triggerCollapseForTest();
+
+        int frame = 0;
+        for (; frame < 512 && !events.isCollapseFinished(); frame++) {
+            events.update(1, frame);
+        }
+        assertEquals(8, events.getScreenEventRoutine());
+        assertEquals(0, events.getBossBgScrollVelocityForTest());
+        assertEquals(0x3C80, events.getBossBgScrollOffsetForTest());
+
+        for (int i = 0; i < 40; i++) {
+            events.update(1, frame + i);
+        }
+
+        assertEquals(0x14000, events.getBossBgScrollVelocityForTest(),
+                "MGZ2SE_MoveBG should add $800 to Events_bg+$08 each frame until $50000");
+        assertTrue(events.getBossBgScrollOffsetForTest() > 0x3C80,
+                "MGZ2SE_MoveBG swaps the velocity longword and adds its high word into Events_bg+$0C");
+    }
+
+    @Test
+    void collapseProgressionContributesPerColumnForegroundVScroll() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.triggerCollapseForTest();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+        events.update(1, 0x14); // first active tick: column 6 has zero delay
+
+        short[] override = events.buildCollapseForegroundVScrollOverride(0x3C80);
+
+        assertEquals(20, override.length);
+        assertEquals(0, override[0],
+                "the tilemap shader expects per-column VScroll deltas, so delayed columns need no extra offset");
+        assertTrue(override[12] < 0,
+                "falling collapse columns should use a negative delta so preserved tiles appear to move down");
+        assertEquals(override[12], override[13],
+                "each 32px collapse block uses two 16px VScroll columns");
+    }
+
+    @Test
+    void collapseVScrollLeavesNonCollapseScreenColumnsUnshifted() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.triggerCollapseForTest();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+        events.update(1, 0x14);
+
+        short[] override = events.buildCollapseForegroundVScrollOverride(0x3C70);
+
+        assertEquals(0, override[0],
+                "per-column VScroll overrides are deltas; columns outside the collapsing floor must not inherit absolute camera scroll");
+    }
+
     private static void assertCleared(Map map, int startX, int startY, int width, int height) {
+        assertFilled(map, startX, startY, width, height, 0);
+    }
+
+    private static void assertFilled(Map map, int startX, int startY, int width, int height, int expected) {
         for (int y = startY; y < startY + height; y++) {
             for (int x = startX; x < startX + width; x++) {
-                assertEquals(0, map.getValue(0, x, y),
-                        "expected cleared foreground block at (" + x + "," + y + ")");
+                assertEquals(expected, map.getValue(0, x, y),
+                        "unexpected foreground block at (" + x + "," + y + ")");
             }
         }
     }
+
+    private static LevelTilemapManager installTilemapManager(SyntheticMgzCollapseLevel level)
+            throws NoSuchFieldException, IllegalAccessException {
+        LevelGeometry geometry = new LevelGeometry(
+                level,
+                level.getMap().getWidth() * 128,
+                level.getMap().getHeight() * 128,
+                level.getMap().getWidth() * 128,
+                level.getMap().getWidth() * 128,
+                level.getMap().getHeight() * 128,
+                level.getBlockPixelSize(),
+                level.getChunksPerBlockSide());
+        LevelTilemapManager tilemaps = new LevelTilemapManager(
+                geometry,
+                GameServices.graphics(),
+                GameServices.gameState());
+        Field field = GameServices.level().getClass().getDeclaredField("tilemapManager");
+        field.setAccessible(true);
+        field.set(GameServices.level(), tilemaps);
+        return tilemaps;
+    }
+
     private static final class SyntheticMgzCollapseLevel extends AbstractLevel {
 
         private SyntheticMgzCollapseLevel() {

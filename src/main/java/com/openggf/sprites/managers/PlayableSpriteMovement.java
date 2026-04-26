@@ -1739,11 +1739,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void doObjectMoveAndFall() {
 		SidekickCpuController cpu = sprite.getCpuController();
-		if (cpu != null && cpu.isFlyingCarrying()) {
+		if (cpu != null && cpu.usesFlyingCarryMovement()) {
 			// Tails_FlyingSwimming applies Tails_Move_FlySwim before
-			// MoveSprite_TestGravity2, so the +8 flight gravity is part of
-			// the current movement tick for the carrier.
-			applyGravity();
+			// MoveSprite_TestGravity2, so the carry controller owns the
+			// carrier's per-frame vertical flight velocity here.
+			cpu.applyFlyingCarryVerticalVelocity();
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 			return;
 		}
@@ -1776,7 +1776,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 		SidekickCpuController cpu = sprite.getCpuController();
-		if (cpu != null && cpu.isFlyingCarrying()) {
+		if (cpu != null && cpu.usesFlyingCarryMovement()) {
 			sprite.setYSpeed((short) (sprite.getYSpeed() + 0x08));
 			return;
 		}
@@ -1841,8 +1841,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (camera.isLevelStarted()) {
 			short effectiveMaxY = (short) maxY;
 			if (sprite.getY() > effectiveMaxY + 224) {
-				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-					sprite.getCpuController().despawn();
+				SidekickCpuController cpuController = sprite.getCpuController();
+				if (sprite.isCpuControlled() && cpuController != null) {
+					// MGZ2 boss transition starts Tails's scripted carry below
+					// the normal camera bottom. ROM runs Tails_Check_Screen_Boundaries
+					// in that path without returning to the generic CPU respawn state.
+					if (!cpuController.usesFlyingCarryMovement()) {
+						cpuController.despawn();
+					}
 				} else {
 					// ROM: Sonic_LevelBound checks for zone-specific intercepts
 					// (e.g. SBZ2 fall -> SBZ3 transition) before applying death.

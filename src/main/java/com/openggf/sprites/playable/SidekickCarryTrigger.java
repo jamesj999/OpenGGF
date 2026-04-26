@@ -60,6 +60,26 @@ public interface SidekickCarryTrigger {
      *  Engine injects when {@code (frameCounter & mask) == 0}. ROM CNZ: {@code 0x1F}. */
     int carryInputInjectMask();
 
+    /**
+     * Returns true when the carry body should pulse A/B/C instead of Right on
+     * the cadence from {@link #carryInputInjectMask()}. ROM MGZ rescue routine
+     * $16 pulses A/B/C every 8 frames so Tails keeps flying upward; CNZ keeps
+     * the default synthetic-right pulse.
+     */
+    default boolean carryInjectsJump() {
+        return false;
+    }
+
+    /**
+     * MGZ2 boss-transition carry uses ROM routines $16/$18 instead of the CNZ
+     * routine-$20 body: first Tails pulses A/B/C every 8 frames until he reaches
+     * Camera_Y+$90, then P1 left/right steer Tails and up/down alter the flap
+     * cadence.
+     */
+    default boolean usesMgzBossTransitionControl() {
+        return false;
+    }
+
     /** Cooldown frames after A/B/C jump release. ROM CNZ: {@code 0x12} (~18 frames). */
     int carryJumpReleaseCooldownFrames();
 

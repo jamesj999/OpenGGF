@@ -1,19 +1,26 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.camera.Camera;
+import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.S3kPaletteOwners;
 import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TerrainCheckResult;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.SwingMotion;
 
@@ -58,7 +65,7 @@ import java.util.logging.Logger;
  *       2 (hurt face) / 3 (defeated), at offset (0, -$1C) from the pod.</li>
  * </ol>
  */
-public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
+public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final Logger LOG = Logger.getLogger(MgzDrillingRobotnikInstance.class.getName());
 
     /** ROM: Obj_MGZ2DrillingRobotnik $2E(a0) = 2*60 — initial wait frames. */
@@ -70,6 +77,23 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int ROUTINE_HANG = 6;
     private static final int ROUTINE_CEILING_ESCAPE = 0x16;
     private static final int ROUTINE_ESCAPE_WAIT = 0x18;
+    private static final int ROUTINE_END_DESCEND = 0x30;
+    private static final int ROUTINE_END_SWING = 0x32;
+    private static final int ROUTINE_END_ANGLE_SETTLE = 0x33;
+    private static final int ROUTINE_END_PRE_FLOOR_DROP = 0x35;
+    private static final int ROUTINE_END_FLOOR_DROP = 0x34;
+    private static final int ROUTINE_END_IMPACT_WAIT = 0x37;
+    private static final int ROUTINE_END_RECOVER = 0x36;
+    private static final int ROUTINE_END_ACTIVE = 0x38;
+    private static final int ROUTINE_END_POST_RECOVER_WAIT = 0x3C;
+    private static final int ROUTINE_END_POST_RECOVER_SETTLE = 0x3E;
+    private static final int ROUTINE_END_AIR_WAIT = 0x40;
+    private static final int ROUTINE_END_AIR_RISE = 0x42;
+    private static final int ROUTINE_END_AIR_APPROACH = 0x44;
+    private static final int ROUTINE_END_AIR_SWEEP = 0x46;
+    private static final int ROUTINE_END_ATTACK_WAIT = 0x48;
+    private static final int ROUTINE_END_ATTACK_MOVE = 0x20;
+    private static final int ROUTINE_END_DEFEATED = 0x3A;
 
     /** ROM: move.w #-$800,y_vel — initial upward velocity into ceiling. */
     private static final int INITIAL_Y_VEL = -0x800;
@@ -105,6 +129,8 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int FRAME_DRILL_POSE = 0;
 
     private static final int Y_RADIUS_OFFSCREEN = 0x24;
+    /** ROM: loc_6C354 sets y_radius(a0) = $1C for ObjHitFloor_DoRoutine. */
+    private static final int END_BOSS_Y_RADIUS = 0x1C;
     private static final int FLEE_ABOVE_CAMERA_MARGIN = 0x60;
 
     /** ROM: Child1_MakeRoboShip3 pod-child offset (-6, +4). */
@@ -142,9 +168,15 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int FRAME_DRILL_HEAD = 0x0F;
     private static final int DRILL_HEAD_OFFSET_X = 0x14;
     private static final int DRILL_HEAD_OFFSET_Y = -0x34;
+    /** word_6D788 collision_flags = $8B (HURT category, size $0B). */
+    private static final int DRILL_HEAD_COLLISION_FLAGS = 0x8B;
     /** loc_6CF20 uses word_6D7A0: make_art_tile(ArtTile_MGZEndBoss,0,0). */
     private static final int FRAME_THRUSTER_FLAME = 0x19;
     private static final int THRUSTER_FLAME_PALETTE_LINE = 0;
+    /** word_6D7A0 collision_flags = $9A (HURT category, size $1A). */
+    private static final int THRUSTER_FLAME_COLLISION_FLAGS = 0x9A;
+    /** loc_6CF20: bset #4,shield_reaction(a0). */
+    private static final int THRUSTER_FLAME_SHIELD_REACTION = 0x10;
     private static final int[][] THRUSTER_FLAMES = {
             {0x08, 0x28},
             {-0x0C, 0x28},
@@ -182,6 +214,8 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int DEBRIS_OFFSCREEN_MARGIN = 0x40;
 
     private int yVel;
+    private int xVel;
+    private int xSubpixel;
     private int ySubpixel;
     private int waitTimer;
     private boolean flipX;
@@ -189,11 +223,15 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private boolean palettesLoaded;
     private boolean bossMusicPlayed;
     private boolean hit;
+    private boolean endBossMode;
+    private boolean floorImpactTriggered;
     /** Per-render counter that drives head blink / i-frame flash. */
     private int renderTick;
     private int swingHalfCyclesRemaining;
     private boolean swingDirectionDown;
+    private int endBossAngle;
     private int escapeTimer;
+    private int airAttackPhase;
     /** True once the 10 falling-debris chunks have been initialised (ROM: bset #7,$38). */
     private boolean fallingDebrisSpawned;
     /** 10 × 16:8 fixed-point (x, y, xVel, yVel) rows; last slot is `alive` flag. */
@@ -215,6 +253,7 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         // all false) once their initializers do fire. Do NOT index the arrays
         // here — that would NPE. Primitive field resets are safe because JVM
         // already zero-initialised them.
+        endBossMode = spawn.objectId() == Sonic3kObjectIds.MGZ_END_BOSS;
         state.x = spawn.x();
         state.y = spawn.y();
         state.xFixed = state.x << 16;
@@ -222,21 +261,29 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         state.routine = ROUTINE_INIT;
         state.hitCount = getInitialHitCount();
         yVel = INITIAL_Y_VEL;
+        xVel = 0;
+        xSubpixel = 0;
         ySubpixel = 0;
         waitTimer = INIT_WAIT_FRAMES;
         artQueued = false;
         palettesLoaded = false;
         bossMusicPlayed = false;
         hit = false;
+        floorImpactTriggered = false;
         renderTick = 0;
         swingHalfCyclesRemaining = SWING_HALF_CYCLES;
         swingDirectionDown = false;
+        endBossAngle = 0x0C;
         escapeTimer = ESCAPE_TIMER;
+        airAttackPhase = 0;
         fallingDebrisSpawned = false;
     }
 
     @Override
     protected int getInitialHitCount() {
+        if (endBossMode) {
+            return 8;
+        }
         // ROM: collision_property = -1; mini-event HP is refreshed on every fatal
         // hit, so Robotnik can be hit many times but never "defeated" by the player.
         return 0xFF;
@@ -248,23 +295,33 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
         // ROM: Obj_MGZ2DrillingRobotnik init queues art + PLC #$6D + palette and
         // sits in Obj_Wait for 120 frames before becoming DrillingRobotnikStart.
-        if (waitTimer > 0) {
+        if (state.routine == ROUTINE_INIT && waitTimer > 0) {
             waitTimer--;
             if (waitTimer == 0) {
                 playBossMusicOnce();
-                state.routine = ROUTINE_START_DROP;
+                if (endBossMode) {
+                    state.routine = ROUTINE_END_DESCEND;
+                    yVel = 0x80;
+                    waitTimer = 0xBF;
+                } else {
+                    state.routine = ROUTINE_START_DROP;
+                }
             }
             updateCustomFlash();
             return;
         }
 
-        switch (state.routine) {
-            case ROUTINE_START_DROP -> updateStartDrop();
-            case ROUTINE_DRILL_DROP -> updateDrillDrop();
-            case ROUTINE_HANG -> updateHang();
-            case ROUTINE_CEILING_ESCAPE -> updateCeilingEscape();
-            case ROUTINE_ESCAPE_WAIT -> updateEscapeWait();
-            default -> {
+        if (endBossMode) {
+            updateEndBossRoutine(playerEntity);
+        } else {
+            switch (state.routine) {
+                case ROUTINE_START_DROP -> updateStartDrop();
+                case ROUTINE_DRILL_DROP -> updateDrillDrop();
+                case ROUTINE_HANG -> updateHang();
+                case ROUTINE_CEILING_ESCAPE -> updateCeilingEscape();
+                case ROUTINE_ESCAPE_WAIT -> updateEscapeWait();
+                default -> {
+                }
             }
         }
 
@@ -273,6 +330,214 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
         state.xFixed = state.x << 16;
         state.yFixed = state.y << 16;
+    }
+
+    private void updateEndBossRoutine(PlayableEntity playerEntity) {
+        switch (state.routine) {
+            case ROUTINE_END_DESCEND -> {
+                applyYVelocity();
+                if (--waitTimer < 0) {
+                    setupSwing();
+                    waitTimer = 0x3F;
+                    state.routine = ROUTINE_END_SWING;
+                }
+            }
+            case ROUTINE_END_SWING -> {
+                SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                yVel = swing.velocity();
+                swingDirectionDown = swing.directionDown();
+                applyYVelocity();
+                if (--waitTimer < 0) {
+                    waitTimer = 3;
+                    state.routine = ROUTINE_END_ANGLE_SETTLE;
+                }
+            }
+            case ROUTINE_END_ANGLE_SETTLE -> {
+                SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                yVel = swing.velocity();
+                swingDirectionDown = swing.directionDown();
+                applyYVelocity();
+                if (--waitTimer >= 0) {
+                    return;
+                }
+                waitTimer = 3;
+                endBossAngle -= 2;
+                if (endBossAngle <= 4) {
+                    waitTimer = 0x5F;
+                    state.routine = ROUTINE_END_PRE_FLOOR_DROP;
+                }
+            }
+            case ROUTINE_END_PRE_FLOOR_DROP -> {
+                if (--waitTimer < 0) {
+                    yVel = 0x400;
+                    state.routine = ROUTINE_END_FLOOR_DROP;
+                }
+            }
+            case ROUTINE_END_FLOOR_DROP -> {
+                applyYVelocity();
+                TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, END_BOSS_Y_RADIUS);
+                if (floor.hasCollision()) {
+                    state.y += floor.distance();
+                    ySubpixel = 0;
+                    triggerFloorImpact();
+                    waitTimer = 0x3F;
+                    state.routine = ROUTINE_END_IMPACT_WAIT;
+                }
+            }
+            case ROUTINE_END_IMPACT_WAIT -> {
+                if (--waitTimer < 0) {
+                    yVel = -0x400;
+                    waitTimer = 0x17;
+                    state.routine = ROUTINE_END_RECOVER;
+                }
+            }
+            case ROUTINE_END_RECOVER -> {
+                applyYVelocity();
+                if (--waitTimer < 0) {
+                    setupSwing();
+                    waitTimer = 0x7F;
+                    state.routine = ROUTINE_END_POST_RECOVER_WAIT;
+                }
+            }
+            case ROUTINE_END_ACTIVE -> {
+                SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                yVel = swing.velocity();
+                swingDirectionDown = swing.directionDown();
+                applyYVelocity();
+            }
+            case ROUTINE_END_POST_RECOVER_WAIT -> {
+                if (--waitTimer < 0) {
+                    waitTimer = 3;
+                    state.routine = ROUTINE_END_POST_RECOVER_SETTLE;
+                }
+            }
+            case ROUTINE_END_POST_RECOVER_SETTLE -> {
+                SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                yVel = swing.velocity();
+                swingDirectionDown = swing.directionDown();
+                applyYVelocity();
+                if (--waitTimer >= 0) {
+                    return;
+                }
+                waitTimer = 3;
+                endBossAngle -= 2;
+                if (endBossAngle <= 0) {
+                    waitTimer = 0x3F;
+                    state.routine = ROUTINE_END_AIR_WAIT;
+                }
+            }
+            case ROUTINE_END_AIR_WAIT -> {
+                if (--waitTimer < 0) {
+                    yVel = -0x400;
+                    waitTimer = 0x1F;
+                    state.routine = ROUTINE_END_AIR_RISE;
+                }
+            }
+            case ROUTINE_END_AIR_RISE -> {
+                applyYVelocity();
+                if (--waitTimer < 0) {
+                    enterAirApproach();
+                }
+            }
+            case ROUTINE_END_AIR_APPROACH -> {
+                applyXVelocity();
+                if (playerEntity != null && (playerEntity.getCentreX() & 0xFFFF) >= state.x) {
+                    xVel = 0x200;
+                    state.routine = ROUTINE_END_AIR_SWEEP;
+                } else {
+                    SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                    yVel = swing.velocity();
+                    swingDirectionDown = swing.directionDown();
+                    applyYVelocity();
+                    applyXVelocity();
+                }
+            }
+            case ROUTINE_END_AIR_SWEEP -> {
+                SwingMotion.Result swing = SwingMotion.update(SWING_ACCEL, yVel, SWING_MAX_SPEED, swingDirectionDown);
+                yVel = swing.velocity();
+                swingDirectionDown = swing.directionDown();
+                applyYVelocity();
+                applyXVelocity();
+                if (state.x >= 0x3E00) {
+                    enterAirAttackWait();
+                }
+            }
+            case ROUTINE_END_ATTACK_WAIT -> {
+                if (--waitTimer < 0) {
+                    advanceAirAttackWait();
+                }
+            }
+            case ROUTINE_END_ATTACK_MOVE -> {
+                applyYVelocity();
+                applyXVelocity();
+                if (--waitTimer < 0) {
+                    enterAirAttackWait();
+                }
+            }
+            case ROUTINE_END_DEFEATED -> {
+                restoreMgzPalette();
+                services().gameState().setCurrentBossId(0);
+                setGenericBossFlag(false);
+                setDestroyed(true);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void enterAirAttackWait() {
+        waitTimer = 0x9F;
+        airAttackPhase = 0;
+        state.routine = ROUTINE_END_ATTACK_WAIT;
+    }
+
+    private void advanceAirAttackWait() {
+        if (airAttackPhase == 0) {
+            waitTimer = 0x1F;
+            airAttackPhase = 1;
+            configureAirAttackFromCamera();
+            return;
+        }
+
+        waitTimer = 0xFF;
+        airAttackPhase = 0;
+        state.routine = ROUTINE_END_ATTACK_MOVE;
+    }
+
+    private void configureAirAttackFromCamera() {
+        Camera camera = services().camera();
+        int cameraX = camera != null ? camera.getX() & 0xFFFF : 0;
+        int cameraY = camera != null ? camera.getY() & 0xFFFF : 0;
+        state.x = (cameraX - 0x40) & 0xFFFF;
+        state.y = (cameraY + 0x70) & 0xFFFF;
+        xSubpixel = 0;
+        ySubpixel = 0;
+        xVel = 0x200;
+        yVel = 0;
+        endBossAngle = 0;
+    }
+
+    private void enterAirApproach() {
+        xSubpixel = 0;
+        ySubpixel = 0;
+        state.x = 0x3E80;
+        state.y = 0x0700;
+        xVel = -0x80;
+        flipX = true;
+        state.routine = ROUTINE_END_AIR_APPROACH;
+        setupSwing();
+    }
+
+    private void triggerFloorImpact() {
+        if (floorImpactTriggered) {
+            return;
+        }
+        floorImpactTriggered = true;
+        services().playSfx(Sonic3kSfx.BOSS_HIT_FLOOR.id);
+        if (services().levelEventProvider() instanceof Sonic3kLevelEventManager manager
+                && manager.getMgzEvents() != null) {
+            manager.getMgzEvents().triggerBossCollapseHandoff();
+        }
     }
 
     /** ROM: loc_6C014 — play collapse SFX, then enter the drill drop. */
@@ -406,6 +671,13 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         ySubpixel = fixedY & 0xFF;
     }
 
+    private void applyXVelocity() {
+        int fixedX = (state.x << 8) | (xSubpixel & 0xFF);
+        fixedX += xVel;
+        state.x = fixedX >> 8;
+        xSubpixel = fixedX & 0xFF;
+    }
+
     /**
      * ROM init-time side effects (sonic3k.asm:142384-142401):
      * queue MGZ end-boss art, load PLC #$6D (shared Robotnik ship art), and
@@ -468,6 +740,17 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         }
     }
 
+    private void setGenericBossFlag(boolean active) {
+        try {
+            GameModule module = services().gameModule();
+            if (module != null && module.getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
+                manager.setBossActive(active);
+            }
+        } catch (Exception e) {
+            LOG.fine(() -> "MgzDrillingRobotnikInstance.setGenericBossFlag: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void onHitTaken(int remainingHits) {
         // No-op: the mini-event never advances on HP change.
@@ -481,6 +764,18 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     @Override
     public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
         if (state.invulnerable || state.defeated || waitTimer > 0) {
+            return;
+        }
+        if (endBossMode) {
+            state.hitCount = Math.max(0, state.hitCount - 1);
+            hit = true;
+            state.invulnerable = true;
+            state.invulnerabilityTimer = INVULNERABILITY_TIME;
+            services().playSfx(Sonic3kSfx.BOSS_HIT.id);
+            if (state.hitCount == 0) {
+                state.defeated = true;
+                state.routine = ROUTINE_END_DEFEATED;
+            }
             return;
         }
         hit = true;
@@ -523,13 +818,49 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     }
 
     @Override
+    public TouchResponseProvider.TouchRegion[] getMultiTouchRegions() {
+        if (isHidden()
+                || state.routine == ROUTINE_CEILING_ESCAPE
+                || state.routine == ROUTINE_ESCAPE_WAIT
+                || state.defeated
+                || isDestroyed()) {
+            return null;
+        }
+
+        int drillHeadOffX = flipX ? -DRILL_HEAD_OFFSET_X : DRILL_HEAD_OFFSET_X;
+        int firstFlameOffX = flipX ? -THRUSTER_FLAMES[0][0] : THRUSTER_FLAMES[0][0];
+        int secondFlameOffX = flipX ? -THRUSTER_FLAMES[1][0] : THRUSTER_FLAMES[1][0];
+        int flameFlags = shouldDrawThrusterFlames() ? THRUSTER_FLAME_COLLISION_FLAGS : 0;
+        return new TouchResponseProvider.TouchRegion[] {
+                new TouchResponseProvider.TouchRegion(state.x, state.y, getCollisionFlags()),
+                new TouchResponseProvider.TouchRegion(
+                        state.x + drillHeadOffX,
+                        state.y + DRILL_HEAD_OFFSET_Y,
+                        DRILL_HEAD_COLLISION_FLAGS),
+                new TouchResponseProvider.TouchRegion(
+                        state.x + firstFlameOffX,
+                        state.y + THRUSTER_FLAMES[0][1],
+                        flameFlags,
+                        THRUSTER_FLAME_SHIELD_REACTION),
+                new TouchResponseProvider.TouchRegion(
+                        state.x + secondFlameOffX,
+                        state.y + THRUSTER_FLAMES[1][1],
+                        flameFlags,
+                        THRUSTER_FLAME_SHIELD_REACTION),
+        };
+    }
+
+    @Override
     public int getCollisionProperty() {
+        if (endBossMode) {
+            return state.hitCount;
+        }
         return ROM_COLLISION_PROPERTY;
     }
 
     /** True while Obj_Wait holds Robotnik invisible before the drill drop. */
     public boolean isHidden() {
-        return waitTimer > 0;
+        return state.routine == ROUTINE_INIT && waitTimer > 0;
     }
 
     @Override
@@ -562,7 +893,7 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         //    made up of piece 1 (y=-32, 32×24) plus the drill-bit children
         //    overlaid on top of it).
         if (drillRenderer != null) {
-            drillRenderer.drawFrameIndex(FRAME_DRILL_POSE, state.x, state.y, flipX, false);
+            drillRenderer.drawFrameIndex(currentDrillBodyFrame(), state.x, state.y, flipX, false);
         }
 
         // 2) Robotnik pod + head (ROM: Child1_MakeRoboShip3 + Child1_MakeRoboHead).
@@ -653,6 +984,14 @@ public final class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     private int currentPodFrame() {
         return isEscapePodActive() ? POD_ESCAPE_FRAME : POD_FRAME;
+    }
+
+    private int currentDrillBodyFrame() {
+        // ROM loc_6C598 writes #6 to $3A(a0), the SST child-sprite count
+        // (mainspr_childsprites), not the parent's mapping_frame. The end-boss
+        // parent keeps Map_MGZEndBoss frame 0 while the extra air-phase pieces
+        // are rendered as child sprites.
+        return FRAME_DRILL_POSE;
     }
 
     private boolean isEscapePodActive() {

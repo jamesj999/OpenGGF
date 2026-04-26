@@ -44,6 +44,7 @@ public class SidekickCpuController {
         APPROACHING,
         NORMAL,
         PANIC,
+        MGZ_RESCUE_WAIT, // ROM Tails_CPU_routine $12: parked by Obj_MGZ2_BossTransition
         CARRY_INIT,   // ROM routine 0x0C - first tick after trigger (teleport + pickup)
         CARRYING      // ROM routine 0x0E / 0x20 - per-frame carry body
     }
@@ -83,6 +84,11 @@ public class SidekickCpuController {
     private boolean flyingCarryingFlag;
     private boolean carryParentagePending;
     private int releaseCooldown;
+    private boolean mgzCarryIntroAscend;
+    private int mgzCarryFlapTimer;
+    private boolean mgzReleasedChaseLatched;
+    private short mgzReleasedChaseXAccel;
+    private short mgzReleasedChaseYAccel;
 
     public SidekickCpuController(AbstractPlayableSprite sidekick) {
         this(sidekick, null);
@@ -99,8 +105,16 @@ public class SidekickCpuController {
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
+        boolean mgzReleasedCarryCooldown =
+                state == State.CARRYING
+                        && carryTrigger != null
+                        && carryTrigger.usesMgzBossTransitionControl()
+                        && !flyingCarryingFlag;
+
         // Decrement release cooldown every frame regardless of state (applies after carry).
-        if (releaseCooldown > 0) {
+        // MGZ's released carry path decrements inside routine $18 and returns for
+        // that frame, matching loc_14534's byte 1(a2) cooldown gate.
+        if (releaseCooldown > 0 && !mgzReleasedCarryCooldown) {
             releaseCooldown--;
         }
 
@@ -122,6 +136,7 @@ public class SidekickCpuController {
             case APPROACHING -> updateApproaching();
             case NORMAL      -> updateNormal();
             case PANIC       -> updatePanic();
+            case MGZ_RESCUE_WAIT -> clearInputs();
             case CARRY_INIT  -> updateCarryInit();
             case CARRYING    -> updateCarrying();
         }
@@ -389,34 +404,24 @@ public class SidekickCpuController {
 
     /** ROM routine 0x0C. Mirrors sub_1459E (pickup) then falls through to 0x20. */
     private void updateCarryInit() {
-        // sub_1459E semantics on Sonic (leader = cargo)
-        leader.setObjectControlled(true);
-        leader.setAir(true);
-        leader.setRolling(false);
-        leader.setRollingJump(false);
-        leader.setGSpeed((short) 0);
-        leader.setXSpeed(carryTrigger.carryInitXVel());
-        leader.setYSpeed((short) 0);
-        // Forced animation id: high-byte 0x22 per ROM sub_1459E; the sprite's
-        // animation table maps the "carried" id. If the mapping is not yet wired
-        // (see risk 9.2), this is a no-op for physics parity.
-        leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.TAILS_CARRIED));
-
         // Tails's per-carry state
         sidekick.setAir(true);
         sidekick.setXSpeed(carryTrigger.carryInitXVel());
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
+        sidekick.setDoubleJumpFlag(1);
+        sidekick.setDoubleJumpProperty((byte) 0xF0);
         // CNZ carry setup (loc_13A5A -> loc_13FC2) does not set
         // object_control on Tails; the CPU routine drives Ctrl_2_logical, and
         // that input must remain visible to Tails_Move_FlySwim.
         sidekick.setControlLocked(false);
         sidekick.setForcedAnimationId(flyAnimId);
+        pickupLeaderForCarry();
 
         // Initialize the latch
-        carryLatchX = carryTrigger.carryInitXVel();
-        carryLatchY = 0;
         flyingCarryingFlag = true;
+        mgzCarryIntroAscend = carryTrigger.usesMgzBossTransitionControl();
+        mgzCarryFlapTimer = 0;
         releaseCooldown = 0;
 
         state = State.CARRYING;
@@ -427,6 +432,11 @@ public class SidekickCpuController {
     /** ROM routines 0x0E / 0x20 body. Runs each carry frame. */
     private void updateCarrying() {
         // ROM order inside Tails_Carry_Sonic:
+
+        if (carryTrigger.usesMgzBossTransitionControl() && !flyingCarryingFlag) {
+            updateMgzReleasedCarry();
+            return;
+        }
 
         // 1. Hurt/dead (Sonic routine >= 4)
         if (leader.isHurt() || leader.getDead()) {
@@ -460,16 +470,183 @@ public class SidekickCpuController {
             return;
         }
 
-        // Synthetic right-press injection every 32 frames (ROM:
-        // (Level_frame_counter+1)&$1F cadence in loc_13FFA).
+        if (carryTrigger.usesMgzBossTransitionControl()) {
+            updateMgzBossTransitionCarryInput();
+            carryParentagePending = true;
+            return;
+        }
+
+        // Synthetic input injection. CNZ pulses Right every 32 frames (ROM:
+        // loc_13FFA).
         if (((frameCounter + 1) & carryTrigger.carryInputInjectMask()) == 0) {
-            inputRight = true;
+            if (carryTrigger.carryInjectsJump()) {
+                inputJump = true;
+                inputJumpPress = true;
+            } else {
+                inputRight = true;
+            }
         }
 
         // ROM loc_13FC2 writes x_vel=$100 only when carry starts. The
         // loc_13FFA body only injects a right press every 32 frames, letting
         // normal Tails flight movement raise x_vel ($118/$130/$148...).
         carryParentagePending = true;
+    }
+
+    private void updateMgzBossTransitionCarryInput() {
+        // ROM loc_14106 ($16): keep flight timer full and pulse A/B/C every
+        // eight frames until Tails reaches Camera_Y+$90.
+        sidekick.setDoubleJumpProperty((byte) 0xF0);
+        if (mgzCarryIntroAscend) {
+            if (((frameCounter + 1) & 0x07) == 0) {
+                inputJump = true;
+                inputJumpPress = true;
+            }
+            Camera camera = sidekick.currentCamera();
+            if (camera != null
+                    && ((camera.getY() & 0xFFFF) + 0x90) >= (sidekick.getCentreY() & 0xFFFF)) {
+                mgzCarryIntroAscend = false;
+                mgzCarryFlapTimer = 0;
+            }
+            return;
+        }
+
+        // ROM loc_14164 ($18): P1 has coarse control over carrier Tails.
+        inputLeft = leader.isLeftPressed();
+        inputRight = leader.isRightPressed();
+        int threshold = leader.isDownPressed() ? 0xC0
+                : leader.isUpPressed() ? 0x20
+                : 0x58;
+        mgzCarryFlapTimer++;
+        if (mgzCarryFlapTimer >= threshold) {
+            mgzCarryFlapTimer = 0;
+            inputJump = true;
+            inputJumpPress = true;
+        }
+    }
+
+    private void updateMgzReleasedCarry() {
+        sidekick.setAir(true);
+        sidekick.setDoubleJumpProperty((byte) 0xF0);
+        sidekick.setForcedAnimationId(flyAnimId);
+        carryParentagePending = false;
+
+        // ROM loc_142E2 runs Tails's released rescue/chase body before
+        // falling through to Tails_Carry_Sonic's cooldown/proximity probe.
+        updateMgzReleasedCarryChase();
+
+        // ROM loc_14534: if byte 1(a2) is nonzero, decrement and return
+        // only while it remains nonzero. When the decrement reaches zero, the
+        // same frame continues into the proximity pickup test.
+        if (releaseCooldown > 0) {
+            releaseCooldown--;
+            if (releaseCooldown > 0) {
+                return;
+            }
+        }
+
+        if (canMgzRegrabLeader()) {
+            pickupLeaderForCarry();
+            flyingCarryingFlag = true;
+            carryParentagePending = true;
+            mgzReleasedChaseLatched = false;
+            return;
+        }
+    }
+
+    private boolean canMgzRegrabLeader() {
+        int dxWindow = signedWord(leader.getCentreX() - sidekick.getCentreX() + 0x10);
+        if (dxWindow < 0 || dxWindow >= 0x20) {
+            return false;
+        }
+        int dyWindow = signedWord(leader.getCentreY() - sidekick.getCentreY() - 0x20);
+        if (dyWindow < 0 || dyWindow >= 0x10) {
+            return false;
+        }
+        return !leader.isObjectControlled()
+                && !leader.isHurt()
+                && !leader.getDead()
+                && !leader.isDebugMode()
+                && !leader.getSpindash();
+    }
+
+    private void updateMgzReleasedCarryChase() {
+        if (!mgzReleasedChaseLatched) {
+            boolean leaderOnScreen = leader.hasRenderFlagOnScreenState()
+                    ? leader.isRenderFlagOnScreen()
+                    : isSpriteCurrentlyVisible(leader);
+            if (leaderOnScreen && leader.getYSpeed() < 0x0300) {
+                sidekick.setXSpeed((short) 0);
+                if (sidekick.getYSpeed() >= 0x0200) {
+                    inputJump = true;
+                    inputJumpPress = true;
+                } else {
+                    mgzCarryFlapTimer++;
+                    if (mgzCarryFlapTimer >= 0x58) {
+                        mgzCarryFlapTimer = 0;
+                        inputJump = true;
+                        inputJumpPress = true;
+                    }
+                }
+                return;
+            }
+
+            mgzReleasedChaseLatched = true;
+            int dy = Math.abs(signedWord(leader.getCentreY() - sidekick.getCentreY()));
+            int quarterDy = dy >> 2;
+            mgzReleasedChaseYAccel = (short) (quarterDy + (quarterDy >> 1));
+            int dx = Math.abs(signedWord(leader.getCentreX() - sidekick.getCentreX()));
+            mgzReleasedChaseXAccel = (short) (dx >> 2);
+            return;
+        }
+
+        int xAccel = mgzReleasedChaseXAccel;
+        int sidekickX = sidekick.getCentreX() & 0xFFFF;
+        int leaderX = leader.getCentreX() & 0xFFFF;
+        if (sidekickX >= leaderX) {
+            sidekick.setDirection(Direction.LEFT);
+            xAccel = -xAccel;
+        } else {
+            sidekick.setDirection(Direction.RIGHT);
+        }
+        sidekick.setXSpeed((short) (sidekick.getXSpeed() + xAccel));
+
+        int probeY = signedWord(sidekick.getCentreY() - 0x10);
+        int leaderY = signedWord(leader.getCentreY());
+        if (probeY < leaderY) {
+            sidekick.setYSpeed((short) (sidekick.getYSpeed() + mgzReleasedChaseYAccel));
+        }
+    }
+
+    private boolean isSpriteCurrentlyVisible(AbstractPlayableSprite sprite) {
+        Camera camera = sprite.currentCamera();
+        return camera != null && camera.isOnScreen(sprite);
+    }
+
+    private void pickupLeaderForCarry() {
+        // ROM sub_1459E (sonic3k.asm:27399): clear Sonic's velocities/angle,
+        // parent him to Tails, then copy Tails's current x/y velocity into both
+        // Sonic and the latch globals used by Tails_Carry_Sonic.
+        leader.setObjectControlled(true);
+        leader.setAir(true);
+        leader.setRolling(false);
+        leader.setRollingJump(false);
+        leader.setSpindash(false);
+        leader.setSpindashCounter((short) 0);
+        leader.setJumping(false);
+        leader.setGSpeed((short) 0);
+        leader.setCentreXPreserveSubpixel(sidekick.getCentreX());
+        leader.setCentreYPreserveSubpixel(
+                (short) (sidekick.getCentreY() + carryTrigger.carryDescendOffsetY()));
+        leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.TAILS_CARRIED));
+        leader.setXSpeed(sidekick.getXSpeed());
+        leader.setYSpeed(sidekick.getYSpeed());
+        carryLatchX = leader.getXSpeed();
+        carryLatchY = leader.getYSpeed();
+    }
+
+    private int signedWord(int value) {
+        return (short) value;
     }
 
     /**
@@ -556,21 +733,33 @@ public class SidekickCpuController {
                 : xMag;
         leader.setXSpeed(xVel);
         leader.setYSpeed(carryTrigger.carryReleaseJumpYVel());
-        leader.setRollingJump(true);
-        leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.ROLL));
+        leader.setAir(true);
+        leader.setJumping(true);
+        leader.setRolling(true);
+        leader.setRollingJump(false);
         releaseCarry(carryTrigger.carryJumpReleaseCooldownFrames());
     }
 
     private void releaseCarry(int cooldownFrames) {
+        boolean mgzBossTransitionCarry = carryTrigger != null && carryTrigger.usesMgzBossTransitionControl();
         leader.setObjectControlled(false);
         leader.setForcedAnimationId(-1);
         sidekick.setControlLocked(false);
-        sidekick.setForcedAnimationId(-1);
+        sidekick.setForcedAnimationId(mgzBossTransitionCarry ? flyAnimId : -1);
         flyingCarryingFlag = false;
         carryParentagePending = false;
+        mgzCarryIntroAscend = false;
+        mgzCarryFlapTimer = 0;
+        mgzReleasedChaseLatched = false;
         releaseCooldown = cooldownFrames;
-        state = State.NORMAL;
-        normalFrameCount = 0;
+        if (mgzBossTransitionCarry) {
+            state = State.CARRYING;
+            sidekick.setAir(true);
+            sidekick.setDoubleJumpProperty((byte) 0xF0);
+        } else {
+            state = State.NORMAL;
+            normalFrameCount = 0;
+        }
     }
 
     private void applyManualControl() {
@@ -748,6 +937,11 @@ public class SidekickCpuController {
     public void setInitialState(State state) {
         this.state = state;
         normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
+        if (state != State.CARRYING && state != State.CARRY_INIT) {
+            mgzCarryIntroAscend = false;
+            mgzCarryFlapTimer = 0;
+            mgzReleasedChaseLatched = false;
+        }
     }
 
     /**
@@ -783,6 +977,7 @@ public class SidekickCpuController {
             case 0x04 -> State.APPROACHING;
             case 0x06 -> State.NORMAL;
             case 0x08 -> State.PANIC;
+            case 0x12 -> State.MGZ_RESCUE_WAIT;
             case 0x0C -> State.CARRY_INIT;
             case 0x0E, 0x20 -> State.CARRYING;
             default -> throw new IllegalArgumentException(
@@ -837,6 +1032,7 @@ public class SidekickCpuController {
      */
     public void setCarryTrigger(SidekickCarryTrigger trigger) {
         this.carryTrigger = trigger;
+        mgzReleasedChaseLatched = false;
     }
 
     /**
@@ -847,6 +1043,55 @@ public class SidekickCpuController {
      */
     public boolean isFlyingCarrying() {
         return flyingCarryingFlag;
+    }
+
+    public boolean usesFlyingCarryMovement() {
+        return flyingCarryingFlag
+                || (state == State.CARRYING
+                && carryTrigger != null
+                && carryTrigger.usesMgzBossTransitionControl());
+    }
+
+    public void applyFlyingCarryVerticalVelocity() {
+        if (!usesFlyingCarryMovement()) {
+            return;
+        }
+
+        int flightTimer = sidekick.getDoubleJumpProperty() & 0xFF;
+        if (((frameCounter + 1) & 1) != 0 && flightTimer != 0) {
+            flightTimer = (flightTimer - 1) & 0xFF;
+            sidekick.setDoubleJumpProperty((byte) flightTimer);
+        }
+
+        int flag = sidekick.getDoubleJumpFlag() & 0xFF;
+        int ySpeed = sidekick.getYSpeed();
+        if (flag != 1) {
+            if (ySpeed >= -0x100) {
+                ySpeed -= 0x20;
+                flag = (flag + 1) & 0xFF;
+                if (flag == 0x20) {
+                    flag = 1;
+                }
+            } else {
+                flag = 1;
+            }
+        } else {
+            if (inputJumpPress && ySpeed >= -0x100 && flightTimer != 0) {
+                flag = 2;
+            }
+            ySpeed += 0x08;
+        }
+
+        Camera camera = sidekick.currentCamera();
+        if (camera != null && ySpeed < 0) {
+            int cameraMinY = camera.getMinY() & 0xFFFF;
+            if ((sidekick.getCentreY() & 0xFFFF) <= cameraMinY + 0x10) {
+                ySpeed = 0;
+            }
+        }
+
+        sidekick.setDoubleJumpFlag(flag);
+        sidekick.setYSpeed((short) ySpeed);
     }
 
     /** Test/debug accessor for the release-cooldown byte (ROM Flying_carrying_Sonic_flag+1). */
