@@ -228,10 +228,21 @@ further S3K parity work.
   infrastructure now in place — `AbstractPlayableSprite.latchedSolidObjectInstance`
   + `SidekickCpuController.lastRidingInstance` + new `sub_13EFC` `(a3)=0` analog
   gated S3K-only via `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`;
-  ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; F6255 itself awaits a
-  separate ROM-faithful `Obj_CollapsingPlatform` lifecycle fix because the
-  engine's platform destruction desyncs from ROM by 59 frames under the trace
-  replay flow — documented as PARTIAL in `docs/S3K_KNOWN_BUGS.md`)
+  ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; round 13's collapsing-
+  platform lifecycle fix lands `Sonic3kCollapsingPlatformObjectInstance.isPersistent()=true`
+  with a per-instance `previousFrameCameraX` cache feeding an in-instance
+  `spriteOnScreenTestPasses()` — ROM `Sprite_OnScreen_Test` (sonic3k.asm:37262)
+  reads `Camera_X_pos_coarse_back` which `Load_Sprites` updates AFTER
+  `Process_Sprites` (sonic3k.asm:37545 `loc_1B7F2`), so the platform now
+  destroys at gfc=0x1746/F6254 exactly matching ROM `Delete_Current_Sprite`;
+  AIZ error count drops 6782 → 1959 (-71%) and warnings 5773 → 2034 (-65%);
+  F6255 itself stays because the platform's correct destruction unmasks a
+  deeper architectural blocker — engine's solid-contact framework never
+  transitions Tails from terrain → platform top surface
+  (`SolidObjectTopSloped2` handover at sonic3k.asm:41826 not modelled), so
+  `setLatchedSolidObject(slot=16)` never fires and the freed-slot detection
+  has no `lastRidingInstance` to compare against; documented as PARTIAL in
+  `docs/S3K_KNOWN_BUGS.md`)
   (Act 1 substantially clean, now into Act 2 reload territory;
   act transition refreshes the CPU sidekick bounds so a previous boss-arena lock can't poison
   the new act's level boundary check; plus `Level_frame_counter` parity across seamless act
