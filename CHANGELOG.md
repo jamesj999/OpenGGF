@@ -4,6 +4,43 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F3649: Horizontal-Spring Proactive Zone Now Iterates Sidekicks (RESOLVED)
+
+- `Sonic3kSpringObjectInstance.update()` now mirrors ROM `sub_2326C`
+  (sonic3k.asm:47957) over the leader **and** every active sidekick.
+  Previously the proactive trigger zone only saw the leader, so a
+  CPU-controlled sidekick that landed on a flipped horizontal spring
+  while sitting just outside the side-push collision box (CNZ trace
+  F3649: spring at `(0x1D37, 0x08B0)`, Tails at `(0x1D21, 0x08B0)` --
+  3 px past the `0x1D24` left edge of the spring's $13/$E/$F box) never
+  received the proactive-zone fire that the ROM gives Player_2 at
+  sonic3k.asm:47999-48020. After the fix the spring fires on Tails at
+  F3649, giving her `x_vel = -$0A00` (yellow horizontal-spring strength
+  from `word_22EF0`, sonic3k.asm:47651-47653), and the +8 px X bump from
+  `sub_23190` (sonic3k.asm:47893 `addq.w #8,x_pos(a1)`) puts her at
+  `0x1D29` matching ROM trace.
+- The diagnostic agent's secondary suggestion -- "switch
+  horizontal-spring `onSolidContact` to fire on the standing flag, not
+  `touchSide`" -- was based on a misreading of the d6 swap test at
+  sonic3k.asm:47780-47782. Re-derived: `p1_standing_bit = 3`
+  (sonic3k.constants.asm:133), so when `SolidObjectFull2_1P` calls
+  `addi.b #$D,d4 / bset d4,d6` on the side-push branch
+  (sonic3k.asm:41497-41498 / 41506-41507) it sets bit `3 + 0xD = 0x10`
+  of d6 (= bit 16). After `swap d6 / andi.w #1,d6` the spring is
+  testing bit 16, which is the **side-push flag**, not the standing
+  flag. The engine's existing `contact.touchSide()` gate is therefore
+  the correct ROM equivalent; the proactive zone was the only piece
+  that was missing.
+- Effect on `TestS3kCnzTraceReplay`: first strict error advances from
+  F3649 to F3845 (a 196-frame advance into a different,
+  Tails-jump-Y-velocity divergence). Cross-game baselines unchanged:
+  S1 GHZ green, S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6313. S3K
+  must-keep-green tests stay green.
+- S2's `SpringObjectInstance` exhibits the same multi-player gap on
+  paper -- ROM `Obj41_Horizontal` at s2.asm:33884 has the equivalent
+  `loc_18BC6` proactive zone -- but that change is out of scope for
+  this commit and is left for the S2 EHZ F1151 trace work.
+
 ### Sonic 3&K AIZ Trace F6255: Tails Freed-Slot Despawn Resolved (RESOLVED)
 
 - `ObjectManager.processInlineObjectForPlayer` now exempts top-only
