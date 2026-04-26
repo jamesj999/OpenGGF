@@ -86,6 +86,39 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         this.verticalVelocity = (spawn.renderFlags() & 0x01) != 0 ? 1 : -1;
     }
 
+    /**
+     * ROM parity: the cage's per-frame routine ends with
+     * {@code jmp (Delete_Sprite_If_Not_In_Range).l} (sonic3k.asm:69867 ->
+     * 37301-37317), which falls through to {@code Delete_Current_Sprite}
+     * (sonic3k.asm:36108-36124) once the cage has drifted $200+ pixels past
+     * the camera's coarse-back chunk. {@code Delete_Current_Sprite} zeros
+     * the cage's entire SST. Any sprite still latched onto this cage's slot
+     * (e.g. a Tails CPU sidekick stuck in {@code object_control = 0x43} due
+     * to the leader-released frozen state) reads zero from
+     * {@code (a3)} on its next {@code sub_13EFC} call (sonic3k.asm:26824),
+     * fails the {@code Tails_CPU_interact} compare, and warps to
+     * {@code (0x7F00, 0)} via {@code sub_13ECA} (sonic3k.asm:26800).
+     * <p>
+     * Engine analog: {@link com.openggf.level.objects.ObjectManager}'s
+     * {@code unloadCounterBasedOutOfRange} removes this instance from the
+     * active object list and calls {@code onUnload()}, but the cage's
+     * {@code destroyed} flag is never flipped by its own routine because
+     * {@code Delete_Sprite_If_Not_In_Range} models reap-by-camera-distance,
+     * not self-destruction. The sticky
+     * {@link com.openggf.sprites.playable.AbstractPlayableSprite#getLatchedSolidObjectInstance()}
+     * reference held by the sidekick therefore stays non-null and equal
+     * to {@code lastRidingInstance} across the unload, so the
+     * {@link com.openggf.sprites.playable.SidekickCpuController}'s riding-
+     * instance-loss check at {@code currentRidingInstance.isDestroyed()}
+     * needs the unload itself to flip {@code destroyed}. Mark this instance
+     * destroyed at unload time to ROM-mirror the SST zeroing and unblock
+     * the freed-slot despawn at CNZ1 trace F2262.
+     */
+    @Override
+    public void onUnload() {
+        setDestroyed(true);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite leader = null;
