@@ -739,7 +739,19 @@ public abstract class AbstractTraceReplayTest {
         boolean preserveObjectControl = cpu != null
                 && cpu.getState() == SidekickCpuController.State.SPAWNING
                 && xBeforeReseed == despawnX;
-        if (!preserveObjectControl) {
+        // Also preserve object_control when a per-object hook (e.g. CNZ wire
+        // cage at sonic3k.asm:69921 loc_3394C) has just set bit 0 on the
+        // sidekick. ROM cage's loc_339B6 (sonic3k.asm:69958) also writes
+        // bit 0 each frame the rider's |ground_vel| < $300, so the trace's
+        // tails_g_speed series is consistent with bit 0 being set across
+        // the captured run. The trace CSV does not capture object_control,
+        // so infer the cage-captured case from the engine's
+        // latchedSolidObjectId state (set by CnzWireCageObjectInstance.latch
+        // and continueRide) plus the engine's own objectControlled signal.
+        boolean cagePreserveObjectControl = sidekick.isObjectControlled()
+                && sidekick.getLatchedSolidObjectId()
+                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_WIRE_CAGE;
+        if (!preserveObjectControl && !cagePreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
         sidekick.setHurt(state.routine() == 0x04);

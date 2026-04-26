@@ -4,6 +4,36 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F1758 Fix: Wire Cage Airborne-Capture object_control Bit 0
+
+- Fixed `TestS3kCnzTraceReplay#replayMatchesTrace` first strict
+  divergence at frame 1758 (Tails on cage at angle 0x40 with
+  `tails_g_speed`/`tails_y_speed` divergence: engine kept running
+  `Player_SlopeResist` adding +0x20 per frame at angle 0x40, while
+  ROM's physics dispatch was gated by `object_control` bit 0).
+- Added pre-physics state snapshot (`AbstractPlayableSprite.capturePrePhysicsSnapshot`,
+  invoked from `PlayableSpriteMovement.handleMovement`) so per-object
+  hooks running AFTER physics in the engine's frame order can read
+  the air/angle/g_speed state ROM saw when its object loop ran.
+- `CnzWireCageObjectInstance.tryLatch` now mirrors ROM `loc_3394C`
+  (`sonic3k.asm:69921 bset #0, object_control(a1)`) and sets
+  `objectControlled=true` plus cooldown=1 when the player was
+  airborne at the start of the frame with angle 0 (or low-speed
+  airborne with angle != 0). The engine's `loc_1384A` equivalent
+  (`PlayableSpriteMovement.handleMovement` line 240-242) gates the
+  whole physics dispatch when `objectControlled` is set, matching
+  ROM's `loc_1384A` skip of `Tails_Modes` (`sonic3k.asm:26211`).
+- Updated `AbstractTraceReplayTest.applyRecordedFirstSidekickState`
+  hydration seam to preserve `objectControlled` when
+  `latchedSolidObjectId == CNZ_WIRE_CAGE` (existing seam already
+  preserved it for the SPAWNING/despawn-marker case). The trace CSV
+  does not capture `object_control` so the per-frame hydration
+  was zeroing the bit between cage capture and the next-frame
+  physics gate, defeating the engine's bit-0 dispatch suppression.
+- First strict error advances F1758 → F1791 (next-frame Tails CPU
+  AI auto-jump trigger via `Ctrl_2_logical` — overlaps with AIZ
+  F2721 work).
+
 ### Sonic 3&K AIZ Trace F2667 Fix: SolidObject_cont On-Screen Gate
 
 - Fixed `TestS3kAizTraceReplay#replayMatchesTrace` first strict
