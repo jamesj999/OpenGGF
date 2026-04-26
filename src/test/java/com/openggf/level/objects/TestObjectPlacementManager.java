@@ -129,9 +129,18 @@ public class TestObjectPlacementManager {
     }
 
     @Test
-    public void testRemoveFromActiveRequiresWindowExitBeforeRespawn() {
+    public void testRemoveFromActiveLatchesPermanentlyUntilLevelReset() {
+        // ROM parity: bit 7 of Object_respawn_table (sonic3k.asm Touch_EnemyNormal
+        // line 20945; S2/S1 RememberState in sub RememberState.asm) is set on spawn
+        // and cleared only when a still-alive object self-destructs via
+        // Sprite_OnScreen_Test family (sonic3k.asm:37271-37388, bclr #7,(a2)).
+        // After a player kill the badnik becomes Obj_Explosion and never walks
+        // that path, so destroyedInWindow stays latched permanently for the rest
+        // of the level (until level-init wipes the table at sonic3k.asm loc_1B784).
+        // See AIZ trace F2202 fix.
         ObjectSpawn spawn = new ObjectSpawn(500, 0, 0x1A, 0, 0, false, 0);
         ObjectManager.Placement manager = new ObjectManager.Placement(List.of(spawn));
+        manager.enablePermanentDestroyLatch();
 
         manager.reset(0);
         assertTrue(manager.getActiveSpawns().contains(spawn));
@@ -143,13 +152,21 @@ public class TestObjectPlacementManager {
         assertFalse(manager.getActiveSpawns().contains(spawn));
 
         // Move forward far enough that spawn leaves the active window.
-        // This goes through trimActive(), which clears the temporary destroyed lock.
+        // ROM parity: cursor advancement past a destroyed badnik does NOT
+        // clear bit 7 of Object_respawn_table.
         manager.update(1400);
         assertFalse(manager.getActiveSpawns().contains(spawn));
 
-        // Returning camera into range should allow respawn.
+        // Returning camera into range must NOT respawn the destroyed badnik:
+        // ROM keeps bit 7 of Object_respawn_table set permanently after a kill.
         manager.update(200);
-        assertTrue(manager.getActiveSpawns().contains(spawn));
+        assertFalse(manager.getActiveSpawns().contains(spawn),
+                "ROM keeps destroyed badniks permanently absent (Object_respawn_table bit 7 stays set)");
+
+        // Wholesale reset (level reload) clears the latch.
+        manager.reset(0);
+        assertTrue(manager.getActiveSpawns().contains(spawn),
+                "Level reset (sonic3k.asm loc_1B784 clr.l (a3)+) wipes the respawn table");
     }
 
     @Test
