@@ -2191,6 +2191,25 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
+         * Returns true when this sprite should skip the per-frame touch-response
+         * collision pass — ROM's {@code object_control} bit-7 gate at the call
+         * sites listed in {@link com.openggf.game.PlayableEntity#isTouchResponseSuppressedByObjectControl()}.
+         * <p>
+         * The engine encodes ROM bit-7-style {@code object_control} (flight $81,
+         * super $83, despawn marker $81, debug $83) as
+         * {@code objectControlled && !objectControlAllowsCpu} (see comment block
+         * on {@link #setObjectControlAllowsCpu(boolean)}). Bits 0-6 only — e.g.
+         * CNZ wire cage's $42, MGZ twisting loop's $43 — keep
+         * {@code objectControlAllowsCpu} true so the engine still runs
+         * TouchResponse, mirroring the ROM dispatcher leaving
+         * {@code Tails_CPU_Control} active for those callers.
+         */
+        @Override
+        public boolean isTouchResponseSuppressedByObjectControl() {
+                return objectControlled && !objectControlAllowsCpu;
+        }
+
+        /**
          * Returns whether solid-object contacts should still be evaluated while
          * object-controlled. This is an explicit MGZ top-platform carry seam, not a
          * generic wall-cling rule.
