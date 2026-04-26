@@ -249,7 +249,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
 
         player.setOnObject(true);
         player.setAir(false);
-        player.setLatchedSolidObjectId(Sonic3kObjectIds.CNZ_WIRE_CAGE);
+        player.setLatchedSolidObject(Sonic3kObjectIds.CNZ_WIRE_CAGE, this);
         player.setObjectMappingFrameControl(true);
         player.setSuppressGroundWallCollision(true);
         player.setControlLocked(false);
@@ -436,7 +436,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         player.setAir(false);
         player.setObjectMappingFrameControl(true);
         player.setSuppressGroundWallCollision(true);
-        player.setLatchedSolidObjectId(Sonic3kObjectIds.CNZ_WIRE_CAGE);
+        player.setLatchedSolidObject(Sonic3kObjectIds.CNZ_WIRE_CAGE, this);
         player.setAngle((byte) rideAngle(state));
         player.setHighPriority((state.phase & 0xFF) >= 0x80);
         applyMappingFrame(player, state.phase, CAPTURE_FRAMES);

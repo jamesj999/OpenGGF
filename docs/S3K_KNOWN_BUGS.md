@@ -1048,3 +1048,95 @@ whenever the sidekick is on-screen, while ROM checks
 `render_flags bit 7` which can be cleared even for an on-screen
 sidekick. That is the next iteration's concern, separate from the
 F2222 cage bug.
+
+---
+
+## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn Detection Architecturally Available But Unfired (PARTIAL)
+
+**Status:** Engine infrastructure landed (instance-tracked latch + `sub_13EFC` `(a3)=0` despawn path); does not yet fire because the AIZ collapsing platform's lifecycle is desynchronised from ROM under the trace replay's per-frame sidekick re-seed. AIZ first strict error stays at F6255.
+
+**Location:** `SidekickCpuController.checkDespawn()` (S3K freed-slot path),
+`AbstractPlayableSprite.latchedSolidObjectInstance`,
+`PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`,
+`Sonic3kCollapsingPlatformObjectInstance` (timing source).
+
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
+first strict error at frame 6255 (`tails_y mismatch expected=0x0000 actual=0x033B`).
+
+### Symptom
+
+Sequence around the divergence (CSV / aux from v6.2 recorder):
+
+| K     | gfc    | Tails state                                        | ROM platform (slot 16)                |
+|-------|--------|----------------------------------------------------|---------------------------------------|
+| 6253  | 0x1745 | sk_x=0x0875 sk_status=0x08 (OnObj) sk_stand=10     | `loc_205DE`, status=0x90 (standing)   |
+| 6254  | 0x1746 | sk_x=0x087A sk_status=0x08 sk_stand=10              | object_removed                        |
+| 6255  | 0x1747 | sk_x=0x7F00 sk_y=0x0000 sk_status=0x02 (in_air)     | (slot freed; SST zeroed)              |
+
+ROM `sub_13EFC` (sonic3k.asm:26823) at F6255 reads `(a3)=0` from the freed slot, mismatches the cached `Tails_CPU_interact=0x0002`, falls into `sub_13ECA` (sonic3k.asm:26800) which warps Tails to `(0x7F00, 0)`.
+
+Engine produces `(0x088A, 0x033B)` — Tails kept alive, drifting through her CPU NORMAL state. The cascade runs for 6782 errors / 5773 warnings until end of trace.
+
+### Diagnosed Cause
+
+Two layers, both real:
+
+1. **Engine SidekickCpuController had no `(a3)=0` analog.** ROM's
+   `cmp.w (a3),d0` mismatch fires on slot deletion (the SST is zeroed by
+   `Delete_Referenced_Sprite` sonic3k.asm:36116). The engine's existing
+   `OBJECT_ID_MISMATCH` path compares the 8-bit
+   `latchedSolidObjectId` and is gated off for S3K via
+   `sidekickDespawnUsesObjectIdMismatch=false` (CNZ F1685 fix).
+   `latchedSolidObjectId` is sticky across destruction, so the byte
+   alone cannot detect a freed-slot event.
+
+2. **Engine's collapsing platform lifecycle desynchronises from ROM.**
+   `Obj_CollapsingPlatform`'s lifetime is driven by `$3A` (standing
+   trigger) + `$38` (countdown) + `Sprite_OnScreen_Test`
+   (sonic3k.asm:37262 off-screen delete). In the engine, with the
+   trace's per-frame sidekick re-seed, the platform's
+   `triggered`/`state`/`solidStayTimer` state machine doesn't follow
+   ROM's standing-driven countdown — Sonic's physics dragging or earlier
+   collision can advance the engine's countdown earlier than ROM's.
+   Concretely, attempting to drive `state=2 -> state=3` unconditionally
+   after `releasePending` plus tightening the destroy check to
+   `isWithinSolidContactBounds()` (16-px viewport) fired engine
+   destruction at gfc=0x170A — 59 frames before ROM's gfc=0x1746.
+
+### Fix (Partial)
+
+Landed:
+
+- `AbstractPlayableSprite.latchedSolidObjectInstance` (`ObjectInstance`
+  reference) — analog of ROM `Tails_CPU_interact`'s "first word"
+  identity. Auto-cleared when `setLatchedSolidObjectId(0)` is called.
+- `setLatchedSolidObject(int, ObjectInstance)` convenience setter to
+  bind id+instance atomically. Wired through
+  `ObjectManager.SolidContacts.processInline*` (3 sites),
+  `CnzBarberPoleObjectInstance.latch`, and
+  `CnzWireCageObjectInstance.latch`.
+- `SidekickCpuController.lastRidingInstance` per-frame cache + new
+  `sub_13EFC` `(a3)=0` analog: when off-screen + on-object +
+  `lastRidingInstance != null` and the current latched instance is
+  null, different, or `isDestroyed()`, fire
+  `triggerDespawn(OBJECT_ID_MISMATCH)`.
+- `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss` flag —
+  S3K=true, S2/S1=false (S2's existing 8-bit-id check covers freed-slot
+  case there).
+
+Not landed (architectural blocker):
+
+- ROM-faithful collapsing-platform lifecycle. The `Obj_CollapsingPlatform`
+  state machine and the offscreen-delete check both diverge from ROM
+  under the AIZ trace replay flow, so the engine's platform never
+  reaches `isDestroyed()` at the same frame ROM does. Either the engine
+  needs platform timing to mirror ROM's `$3A`/`$38`/`Sprite_OnScreen_Test`
+  pattern exactly under the trace re-seed flow, or the trace replay
+  must stop hydrating sidekick state per frame so the engine's
+  collision pass actually drives the platform's standing trigger.
+
+### Removal Condition
+
+Resolve once `TestS3kAizTraceReplay`'s first strict error advances past
+F6255, with the engine's collapsing platform reaching `isDestroyed()`
+at the frame matching ROM's `Delete_Current_Sprite` event.

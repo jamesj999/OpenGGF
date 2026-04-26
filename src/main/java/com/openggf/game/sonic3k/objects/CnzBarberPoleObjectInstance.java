@@ -128,7 +128,7 @@ public final class CnzBarberPoleObjectInstance extends AbstractObjectInstance {
         }
         player.setOnObject(true);
         player.setAir(false);
-        player.setLatchedSolidObjectId(Sonic3kObjectIds.CNZ_BARBER_POLE);
+        player.setLatchedSolidObject(Sonic3kObjectIds.CNZ_BARBER_POLE, this);
         player.setAngle((byte) angle);
     }
 
