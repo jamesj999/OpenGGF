@@ -4392,8 +4392,30 @@ public class ObjectManager {
             // AIZ trace replay F2919 horizontal spring at (0x1F39, 0x04A0)
             // failed to launch Tails because the spring's bounding box sits
             // ~0xAA px below the camera viewport at that frame.
+            //
+            // Top-only opt-out: ROM SolidObjectTop_1P (sonic3k.asm:41793-41819),
+            // SolidObjectTopSloped_1P (sonic3k.asm:41887-41914), and
+            // SolidObjectTopSloped2_1P (sonic3k.asm:41840-41867) ALL bypass
+            // loc_1DF88 entirely.  When the player isn't yet standing
+            // (d6,status(a0) clear), they branch directly into SolidObjCheckSloped /
+            // SolidObjCheckSloped2 / loc_1E42E (sonic3k.asm:42071, 42095, 41982)
+            // which do NOT test render_flags(a0). The same pattern holds in S2:
+            // SlopedSolid_SingleCharacter (s2.asm:34927-34952) jumps to
+            // SlopedSolid_cont (s2.asm:35066) without any on-screen test, and
+            // the inline-MvSonicOnPtfm SolidObject45_alt path (s2.asm:35040)
+            // also bypasses it.  The on-screen optimisation in ROM
+            // ("if Sonic outruns the screen he can phase through solid objects")
+            // exists only on the side-resolution path, not on the top-landing
+            // path that AIZ collapsing platforms use.  Without this opt-out the
+            // AIZ trace F6255 collapsing platform at (0x08B0, 0x0369) -- whose
+            // 0x78-px-wide bbox right edge (0x090C) sits 0xD5 px past the
+            // camera left edge (0x985) when Tails should land on it -- never
+            // gets a STANDING contact for Tails, so setLatchedSolidObject for
+            // slot 16 never fires and the freed-slot despawn cannot trigger.
+            boolean topOnlyBypassesOffscreenGate = provider.isTopSolidOnly();
             if (isSolidObjectOffscreenGateEnabled(player)
                     && !provider.bypassesOffscreenSolidGate()
+                    && !topOnlyBypassesOffscreenGate
                     && !instance.isWithinSolidContactBounds()) {
                 // ROM sub_1E0C2 (sonic3k.asm:41528-41532): off-screen / no-contact
                 // path clears the player's push status and the object's pushing-bit

@@ -28,7 +28,7 @@ Entries should include:
 10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
 11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
-13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn; Lifecycle ROM-Aligned, Tails Never Latches In Engine (PARTIAL)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-architecturally-available-lifecycle-now-rom-aligned-but-tails-never-latches-in-engine-partial)
+13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-resolved)
 
 ---
 
@@ -1052,9 +1052,19 @@ F2222 cage bug.
 
 ---
 
-## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn Architecturally Available; Lifecycle Now ROM-Aligned But Tails Never Latches In Engine (PARTIAL)
+## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)
 
-**Status:** Platform lifecycle now matches ROM frame-for-frame (engine destroys at the same frame ROM does, gfc=0x1746 / F6254). Despawn cascade reduced from 6782 → 1959 errors / 5773 → 2034 warnings — most downstream errors gone. AIZ first strict error stays at F6255 because Tails is **never latched onto the AIZ2 collapsing platform at x=0x08B0** in the engine, so `lastRidingInstance` is null at the despawn check time.
+**Status:** Resolved. AIZ first strict error advances past F6255 to F6313 (a downstream sidekick AI divergence). Two engine fixes landed in this round:
+
+1. **Top-only solids bypass the off-screen gate** — `ObjectManager.processInlineObjectForPlayer` now skips the `solidObjectOffscreenGate` for `provider.isTopSolidOnly()` providers, matching ROM. The ROM gate at `loc_1DF88` (sonic3k.asm:41390-41392) lives only in `SolidObjectFull_1P` (sonic3k.asm:41016-41018); the top-only routines `SolidObjectTop_1P` / `SolidObjectTopSloped_1P` / `SolidObjectTopSloped2_1P` (sonic3k.asm:41793, 41887, 41840) all branch directly into `loc_1E42E` / `SolidObjCheckSloped` / `SolidObjCheckSloped2` (sonic3k.asm:41982, 42095, 42071) without testing `render_flags(a0)`. The S2 sloped path (`SlopedSolid_SingleCharacter` -> `SlopedSolid_cont` at s2.asm:34927-34952, 35066) bypasses the on-screen test the same way. Without this exemption, Tails never resolved a sloped-top contact for the AIZ2 collapsing platform at x=0x08B0 — the platform's bbox right edge (0x90C) sat 0xD5 px past the camera left edge (0x985) at the moment Tails should have landed, so the existing universal off-screen gate dropped the contact and `setLatchedSolidObject(slot=16)` never fired.
+
+2. **Collapsing-platform `Sprite_OnScreen_Test` reads cam_X directly** — `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` now reads `services().camera().getX()` at call time instead of consulting a previous-frame cache. The round-13 cache was based on the mistaken premise that ROM `Load_Sprites` runs AFTER `Process_Sprites`; the disassembly (sonic3k.asm:7893 `jsr Load_Sprites`; 7894 `jsr Process_Sprites`; 7897 `jsr DeformBgLayer`) shows the real order is Load_Sprites -> Process_Sprites -> DeformBgLayer, so `Camera_X_pos_coarse_back` at frame N's Process_Sprites reflects `Camera_X_pos` at the start of frame N (= end of N-1, since DeformBgLayer is the per-frame camera tracker). The engine's `LevelFrameStep` mirrors that order by-construction (objects step 4, camera-update step 5), so a direct read at the platform's `update()` already supplies the correct value. The round-13 cache pulled cam_X from too far in the past and let the platform's destruction lag ROM by one frame, which in turn delayed the freed-slot despawn at F6255 by one frame.
+
+With both fixes, Tails now lands on the platform at F6251, the platform destroys at F6254 (ROM-matching), and the freed-slot detection warps Tails to (0x7F00, 0) at F6255. AIZ trace error count holds steady (1960 vs 1959 prior); the first strict error now sits at F6313 with a sidekick AI divergence further downstream.
+
+**Original problem (PARTIAL state in round 13):**
+
+Platform lifecycle was ROM-aligned via `isPersistent()=true` + lagged-camera check, but Tails never registered a STANDING contact for the AIZ2 collapsing platform at x=0x08B0. Despawn cascade was reduced from 6782 -> 1959 errors / 5773 -> 2034 warnings, but AIZ first strict error stayed at F6255 because `lastRidingInstance` was null at the despawn check time.
 
 **Location:** `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` (lifecycle now ROM-aligned via `isPersistent()=true` + lagged-camera check), `SidekickCpuController.checkDespawn()` (S3K freed-slot path, infrastructure ready), `ObjectManager.SolidContacts.processInline*` (Tails-vs-platform contact resolution — root cause area), AIZ2 terrain-vs-object collision interaction.
 

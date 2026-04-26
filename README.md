@@ -224,25 +224,26 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 → 5736 → 6066 → 6255 (still at 6255 with the freed-slot despawn
-  infrastructure now in place — `AbstractPlayableSprite.latchedSolidObjectInstance`
+  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 (the freed-slot despawn
+  infrastructure now fires correctly — `AbstractPlayableSprite.latchedSolidObjectInstance`
   + `SidekickCpuController.lastRidingInstance` + new `sub_13EFC` `(a3)=0` analog
   gated S3K-only via `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`;
-  ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; round 13's collapsing-
-  platform lifecycle fix lands `Sonic3kCollapsingPlatformObjectInstance.isPersistent()=true`
-  with a per-instance `previousFrameCameraX` cache feeding an in-instance
-  `spriteOnScreenTestPasses()` — ROM `Sprite_OnScreen_Test` (sonic3k.asm:37262)
-  reads `Camera_X_pos_coarse_back` which `Load_Sprites` updates AFTER
-  `Process_Sprites` (sonic3k.asm:37545 `loc_1B7F2`), so the platform now
-  destroys at gfc=0x1746/F6254 exactly matching ROM `Delete_Current_Sprite`;
-  AIZ error count drops 6782 → 1959 (-71%) and warnings 5773 → 2034 (-65%);
-  F6255 itself stays because the platform's correct destruction unmasks a
-  deeper architectural blocker — engine's solid-contact framework never
-  transitions Tails from terrain → platform top surface
-  (`SolidObjectTopSloped2` handover at sonic3k.asm:41826 not modelled), so
-  `setLatchedSolidObject(slot=16)` never fires and the freed-slot detection
-  has no `lastRidingInstance` to compare against; documented as PARTIAL in
-  `docs/S3K_KNOWN_BUGS.md`)
+  ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; round 14 lands the
+  RESOLUTION advancing F6255 → F6313 — two compounding round 13 issues uncovered:
+  (1) engine's universal off-screen gate was over-reaching, blocking top-only
+  solid contacts when ROM only gates `SolidObjectFull_1P` (`loc_1DF88`
+  sonic3k.asm:41390); top-only routines `SolidObjectTop_1P` /
+  `SolidObjectTopSloped_1P` / `SolidObjectTopSloped2_1P` (sonic3k.asm:41793/
+  41887/41840) skip the `render_flags(a0)` check, same in S2's
+  `SlopedSolid_SingleCharacter` → `SlopedSolid_cont` (s2.asm:34927/35066);
+  fix is universal across S2/S3K keyed off the existing
+  `provider.isTopSolidOnly()` property, no game-level branching;
+  (2) round 13's `previousFrameCameraX` cache was based on inverted ROM call
+  order assumption — actual ROM at sonic3k.asm:7893-7897 has `Load_Sprites`
+  BEFORE `Process_Sprites`, engine's `LevelFrameStep` already mirrors this,
+  so `services().camera().getX()` read inside the platform's `update()` IS
+  the start-of-frame cam_X equivalent to ROM `Camera_X_pos_coarse_back`;
+  cache removed)
   (Act 1 substantially clean, now into Act 2 reload territory;
   act transition refreshes the CPU sidekick bounds so a previous boss-arena lock can't poison
   the new act's level boundary check; plus `Level_frame_counter` parity across seamless act
