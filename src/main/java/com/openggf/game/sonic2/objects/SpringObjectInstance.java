@@ -397,6 +397,23 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     /**
+     * ROM divergence: every S2 spring variant uses
+     * {@code SolidObject_Always_SingleCharacter}
+     * (s2.asm:33709/33718/33784/33802) which jumps directly to
+     * {@code SolidObject_cont} (s2.asm:35147) without traversing the
+     * {@code SolidObject_OnScreenTest} on-screen gate at s2.asm:35140-35145.
+     * Off-screen springs therefore still resolve push and side contact in
+     * the ROM. Mirrors the S3K {@code SolidObjectFull2_1P} behaviour
+     * (sonic3k.asm:41065-41067).  The S2 PhysicsFeatureSet currently keeps
+     * {@code solidObjectOffscreenGate=false}; this override is defensive so
+     * the bypass continues to hold if S2 enables the gate in the future.
+     */
+    @Override
+    public boolean bypassesOffscreenSolidGate() {
+        return true;
+    }
+
+    /**
      * ROM collision params vary by type:
      * Up/Down: D1=$1B (27), D2=8, D3=$10 (16)
      * Horizontal: D1=$13 (19), D2=$E (14), D3=$F (15)

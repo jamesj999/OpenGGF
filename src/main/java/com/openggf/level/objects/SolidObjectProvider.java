@@ -155,4 +155,30 @@ public interface SolidObjectProvider {
     default boolean forceAirOnRideExit() {
         return true;
     }
+
+    /**
+     * Whether the {@code SolidObject_cont} on-screen gate (engine flag
+     * {@link com.openggf.game.PhysicsFeatureSet#solidObjectOffscreenGate()})
+     * should be bypassed for this object's new-contact resolution path.
+     * <p>
+     * ROM divergence: the on-screen gate at {@code loc_1DF88}
+     * (sonic3k.asm:41390) lives <em>only</em> in the {@code SolidObjectFull_1P}
+     * helper (sonic3k.asm:41016-41018). Objects that route through the
+     * sibling helper {@code SolidObjectFull2_1P} (sonic3k.asm:41065-41067)
+     * fall through directly to {@code SolidObject_cont} and never test
+     * {@code render_flags} bit 7. Notably <strong>all spring variants</strong>
+     * call {@code SolidObjectFull2_1P} (sonic3k.asm:47664/47673/47692/47701/
+     * 47779/47798/47829/47848/48036/48045/48064/48074), so an off-screen
+     * spring still resolves push and side contact in the ROM. The S2 spring
+     * helpers use the equivalent {@code SolidObject_Always_SingleCharacter}
+     * (s2.asm:33709/33718/33784/33802) which also bypasses the on-screen gate.
+     * <p>
+     * Default: {@code false} (gate applies, matching the existing
+     * {@link com.openggf.game.PhysicsFeatureSet#solidObjectOffscreenGate()}
+     * default behaviour). Spring instances and other objects that route through
+     * the {@code Full2} helpers must override to {@code true}.
+     */
+    default boolean bypassesOffscreenSolidGate() {
+        return false;
+    }
 }
