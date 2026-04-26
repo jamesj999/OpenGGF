@@ -25,6 +25,7 @@ Entries should include:
 7. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
 9. [AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)](#aiz1-trace-f5497--sidekick-cpu-bound-override-stale-after-act-transition-fixed)
+10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
 
 ---
 
@@ -656,3 +657,74 @@ spawns continue to re-spawn on cursor re-entry. After the fix
 `TestS3kAizTraceReplay` first strict error advances past F2202 to
 F4679 (a separate Tails respawn divergence). All baselines stay green:
 S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F1815.
+
+---
+
+## AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)
+
+**Status:** Fixed by bumping `SpriteManager.frameCounter` by 1 inside
+`LevelManager.applySeamlessTransition()` for `RELOAD_SAME_LEVEL` and
+`RELOAD_TARGET_LEVEL` transitions.
+
+**Location:** `LevelManager.applySeamlessTransition()` /
+`LevelManager.advanceFrameCounterAcrossSeamlessReload()`,
+`SpriteManager.frameCounter`,
+`SidekickCpuController.updateNormal()` (loc_13E9C jump cadence gate).
+**ROM Reference:** `sonic3k.asm` `VInt_0_Main` (Level_frame_counter
+unconditionally incremented every gameplay frame),
+`sonic3k.asm:26775 loc_13E9C` (Tails CPU 64-frame jump cadence gate
+reading `(Level_frame_counter & $3F)`).
+
+### Pre-Fix Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first error at trace frame
+5736:
+```
+tails_x_speed mismatch (expected=-00C4, actual=0x000C)
+tails_y_speed mismatch (expected=-0680, actual=0x0000)
+tails_air mismatch (expected=1, actual=0)
+tails_rolling mismatch (expected=1, actual=0)
+```
+
+ROM Tails was stuck pushing against AIZ2 terrain (status_byte=0x20
+across F5712-F5735) and the `loc_13E9C` 64-frame jump cadence gate
+fired at gfc=0x1540 (`& 0x3F == 0`), launching Tails out of his stuck
+state with the `Tails_Jump` initial velocity `y_vel = -$680`. Engine
+Tails was also stuck pushing but never triggered the jump.
+
+### Diagnosed Cause
+
+After AIZ act 1 → act 2 reload (F5496) the engine's
+`SpriteManager.frameCounter` lagged ROM's `Level_frame_counter` by
+exactly 1 frame for the rest of the trace. `Level_frame_counter` is
+incremented in ROM's VBlank handler unconditionally every gameplay
+frame, including the act-reload frame. The engine equivalent
+(`SpriteManager.frameCounter`) only ticks inside `SpriteManager.update()`,
+which is itself called from `LevelFrameStep.execute()`. Both `GameLoop`
+and `HeadlessTestRunner.stepFrame()` `return` early after applying a
+seamless transition, never reaching `LevelFrameStep.execute()`, so the
+counter does not tick on the reload frame.
+
+The cumulative effect: the engine's `(frameCounter & 0x3F)` was 0x3F
+when ROM's was 0, so the Tails-CPU auto-jump cadence gate stayed shut
+on every frame thereafter.
+
+### Fix
+
+`LevelManager.applySeamlessTransition()` now calls
+`advanceFrameCounterAcrossSeamlessReload()` after `executeActTransition()`
+for `RELOAD_SAME_LEVEL` and `RELOAD_TARGET_LEVEL`. The helper bumps
+`SpriteManager.frameCounter` by 1 to mirror the ROM VBlank handler tick
+the engine otherwise misses.
+
+`MUTATE_ONLY` transitions are intentionally NOT patched: the AIZ1
+fire-transition art-overlay path (`Sonic3kAIZEvents.applyFireTransitionMutation`)
+runs mid-frame without skipping the rest of the gameplay loop, so it
+must not double-tick the counter.
+
+### Test Results
+
+After the fix `TestS3kAizTraceReplay` first strict error advances past
+F5736 to F6066 (a separate Sonic-only divergence in AIZ2 main gameplay),
+total errors drop from 1184 to 1178. All cross-game baselines stay
+green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2175.
