@@ -2181,6 +2181,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				int radiusDelta = sprite.getStandYRadius() - sprite.getRollYRadius();
 				sprite.setCentreYPreserveSubpixel((short) (sprite.getCentreY() + radiusDelta));
 			}
+		} else if (sprite.getYRadius() != sprite.getStandYRadius()
+				|| sprite.getXRadius() != sprite.getStandXRadius()) {
+			// ROM Player_TouchFloor (sonic3k.asm:24341-24343 Sonic, 29134-29136 Tails)
+			// unconditionally resets y_radius/x_radius to defaults on landing,
+			// before the Status_Roll check. The roll branch only adjusts y_pos.
+			//
+			// Engine's setRolling(false) above covers the rolling case via
+			// applyStandingRadii. For non-rolling sprites whose radii were set
+			// to non-default values by an object hook (e.g. CnzWireCage's
+			// release path writes y_radius=$13/x_radius=9 unconditionally per
+			// sonic3k.asm:69986-69987 / 70095-70096), engine landing must
+			// likewise restore standing defaults so subsequent ground physics
+			// uses Tails's own radii (CNZ1 trace post-F1815: ROM resets Tails
+			// y_radius from $13 to $F at landing, leaving y_pos unchanged;
+			// without this engine accumulates a 4-pixel y_pos drift).
+			sprite.applyStandingRadii(false);
 		}
 		sprite.setPinballMode(false);
 		sprite.setAir(false);
