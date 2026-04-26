@@ -1899,12 +1899,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (camera.isLevelStarted()) {
 			short effectiveMaxY = (short) maxY;
 			if (sprite.getY() > effectiveMaxY + 224) {
+				GameModule module = sprite.currentGameModule();
+				LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
 				SidekickCpuController cpuController = sprite.getCpuController();
 				if (sprite.isCpuControlled() && cpuController != null) {
 					// MGZ2 boss transition starts Tails's scripted carry below
 					// the normal camera bottom. ROM runs Tails_Check_Screen_Boundaries
 					// in that path without returning to the generic CPU respawn state.
-					if (!cpuController.usesFlyingCarryMovement()) {
+					if (!cpuController.usesFlyingCarryMovement()
+							&& (levelEvents == null || !levelEvents.interceptPitDeath(sprite))) {
 						// ROM Player_LevelBound (sonic3k.asm:23172) jumps to
 						// Kill_Character (sonic3k.asm:21136) for both player and
 						// sidekick when the bottom kill plane is crossed. The
@@ -1918,8 +1921,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				} else {
 					// ROM: Sonic_LevelBound checks for zone-specific intercepts
 					// (e.g. SBZ2 fall -> SBZ3 transition) before applying death.
-					GameModule module = sprite.currentGameModule();
-					LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
 					if (levelEvents == null || !levelEvents.interceptPitDeath(sprite)) {
 						sprite.applyPitDeath();
 					}

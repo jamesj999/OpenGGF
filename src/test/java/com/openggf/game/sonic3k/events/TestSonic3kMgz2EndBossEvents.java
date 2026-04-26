@@ -49,6 +49,20 @@ class TestSonic3kMgz2EndBossEvents {
         SessionManager.clear();
     }
 
+    private AbstractPlayableSprite triggerBossTransitionWithTailsBelowLine(Sonic3kMGZEvents events) {
+        events.triggerBossCollapseHandoff();
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        tails.setCentreY((short) 0x0780);
+        runBossTransitionTimer(events);
+        return tails;
+    }
+
+    private void runBossTransitionTimer(Sonic3kMGZEvents events) {
+        for (int frame = 0; frame < 0x168; frame++) {
+            events.update(1, frame);
+        }
+    }
+
     @Test
     void mgz2BossApproach_locksCameraYAndArenaMaxX() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
@@ -217,17 +231,17 @@ class TestSonic3kMgz2EndBossEvents {
     }
 
     @Test
-    void mgz2BossCollapseHandoff_parksTailsDuringRescueWait() {
+    void mgz2BossCollapseHandoff_leavesTailsFreeDuringRescueWait() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
 
         events.triggerBossCollapseHandoff();
 
         AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        assertTrue(tails.isObjectControlled(),
-                "Parked MGZ rescue Tails must not run normal sidekick gravity during the $168-frame wait");
-        assertTrue(tails.isControlLocked(),
-                "Parked MGZ rescue Tails is script-controlled until the pickup routine starts");
+        assertFalse(tails.isObjectControlled(),
+                "Obj_MGZ2_BossTransition puts Tails in CPU routine $12, which only clears Ctrl_2_logical");
+        assertFalse(tails.isControlLocked(),
+                "Routine $12 does not set object_control before the pickup routine starts");
     }
 
     @Test
@@ -353,18 +367,13 @@ class TestSonic3kMgz2EndBossEvents {
         camera.setY((short) 0x0600);
         AbstractPlayableSprite sonic = camera.getFocusedSprite();
 
-        events.triggerBossCollapseHandoff();
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
         SidekickCpuController controller = tails.getCpuController();
         controller.update(1);
-        controller.update(2);
 
         sonic.setJumpInputPressed(false);
         sonic.setJumpInputPressed(true);
-        controller.update(3);
+        controller.update(2);
         assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
         assertFalse(controller.isFlyingCarrying(),
                 "Jump release clears Flying_carrying_Sonic_flag while leaving MGZ Tails in routine $18");
@@ -387,34 +396,29 @@ class TestSonic3kMgz2EndBossEvents {
     }
 
     @Test
-    void mgz2BossTransition_rearmsTailsCarryWhenCarrierFallsBelowTransitionHeight() {
+    void mgz2BossTransition_keepsActiveCarryWhenCarrierFallsBelowTransitionHeight() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         Camera camera = GameServices.camera();
         camera.setX((short) 0x3C80);
         camera.setY((short) 0x0600);
 
-        events.triggerBossCollapseHandoff();
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
         SidekickCpuController controller = tails.getCpuController();
         controller.update(1);
-        controller.update(2);
         assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
 
         tails.setCentreY((short) 0x0720);
         events.update(1, 0);
 
-        assertEquals((short) 0x0700, tails.getCentreY(),
-                "Obj_MGZ2_BossTransition moves Tails back to transition y when Tails drops below it");
-        assertEquals(SidekickCpuController.State.CARRY_INIT, controller.getState(),
-                "Obj_MGZ2_BossTransition can switch Tails back to CPU routine $14 after the first carry");
+        assertEquals((short) 0x0720, tails.getCentreY(),
+                "While Flying_carrying_Sonic_flag is set, Tails should stay in the active carry path");
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
+        assertTrue(controller.isFlyingCarrying());
     }
 
     @Test
-    void mgz2BossTransition_rearmsReleasedCarryWhenSonicFallsAgainEvenIfTailsIsAboveTransitionHeight() {
+    void mgz2BossTransition_waitsForReleasedTailsToFallBelowTransitionHeightBeforeRearming() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         Camera camera = GameServices.camera();
@@ -422,19 +426,14 @@ class TestSonic3kMgz2EndBossEvents {
         camera.setY((short) 0x0600);
         AbstractPlayableSprite sonic = camera.getFocusedSprite();
 
-        events.triggerBossCollapseHandoff();
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
         SidekickCpuController controller = tails.getCpuController();
         controller.update(1);
-        controller.update(2);
         assertTrue(controller.isFlyingCarrying());
 
         sonic.setJumpInputPressed(false);
         sonic.setJumpInputPressed(true);
-        controller.update(3);
+        controller.update(2);
         assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
         assertFalse(controller.isFlyingCarrying());
 
@@ -452,15 +451,89 @@ class TestSonic3kMgz2EndBossEvents {
 
         events.update(1, 0);
 
+        assertEquals((short) 0x0700, sonic.getCentreY());
+        assertEquals((short) 0x3C80, tails.getCentreX(),
+                "Obj_MGZ2_BossTransition does not re-place Tails until Tails is below the transition y");
+        assertEquals((short) 0x06D0, tails.getCentreY());
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
+        assertFalse(controller.isFlyingCarrying());
+
+        tails.setCentreY((short) 0x0720);
+        events.update(1, 1);
+
         assertEquals((short) 0x3CE0, tails.getCentreX(),
-                "A second MGZ rescue fall should re-place Tails at Sonic's current transition X, not wait for proximity chase");
+                "Once Tails is below the transition y, routine $18 lets the object copy Sonic's current x before rearming");
         assertEquals((short) 0x0700, tails.getCentreY());
         assertEquals(SidekickCpuController.State.CARRY_INIT, controller.getState(),
                 "Released MGZ rescue carry must be able to return to CPU routine $14 after the first pickup");
     }
 
     @Test
-    void mgz2BossTransition_rearmsCarryWhenTailsHasDroppedOutOfCarryState() {
+    void mgz2BossTransition_clearsSonicHurtRoutineWhenClampingForRescueRegrab() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
+        SidekickCpuController controller = tails.getCpuController();
+        controller.update(1);
+        assertTrue(controller.isFlyingCarrying());
+
+        sonic.setHurt(true);
+        controller.update(2);
+        assertFalse(controller.isFlyingCarrying(),
+                "Tails_Carry_Sonic clears Flying_carrying_Sonic_flag when Sonic is in routine >= 4");
+
+        sonic.setCentreX((short) 0x3CE0);
+        sonic.setCentreY((short) 0x0780);
+        sonic.setXSpeed((short) 0x0120);
+        sonic.setYSpeed((short) 0x0340);
+        sonic.setGSpeed((short) 0x0400);
+        tails.setCentreY((short) 0x0720);
+
+        events.update(1, 0);
+        controller.update(3);
+
+        assertFalse(sonic.isHurt(),
+                "Obj_MGZ2_BossTransition writes Player_1 routine=2 after clamping Sonic below the transition y");
+        assertTrue(controller.isFlyingCarrying(),
+                "Sonic must stay latched after routine=2 clears the hurt-state rejection in Tails_Carry_Sonic");
+    }
+
+    @Test
+    void mgz2BossTransition_doesNotRestartAscentWhileTailsIsAlreadyCarryingSonic() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
+        SidekickCpuController controller = tails.getCpuController();
+        controller.update(1);
+        tails.setCentreY((short) 0x0690);
+        controller.update(2);
+        sonic.setDirectionalInputPressed(false, false, true, false);
+        controller.update(3);
+        assertTrue(controller.getInputLeft(),
+                "At Camera_Y+$90, MGZ routine $18 should copy P1 left/right into Ctrl_2");
+
+        tails.setCentreY((short) 0x0720);
+        events.update(1, 4);
+
+        sonic.setDirectionalInputPressed(false, false, true, false);
+        controller.update(5);
+
+        assertTrue(controller.getInputLeft(),
+                "Once Flying_carrying_Sonic_flag is set, the transition object must not keep restarting routine $14 and suppress P1 steering");
+    }
+
+    @Test
+    void mgz2BossTransition_usesCameraAnchoredXWhenCurrentTailsRoutineIsBelowCarryRoutine() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         Camera camera = GameServices.camera();
@@ -470,13 +543,11 @@ class TestSonic3kMgz2EndBossEvents {
 
         events.triggerBossCollapseHandoff();
         AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        runBossTransitionTimer(events);
         SidekickCpuController controller = tails.getCpuController();
         controller.setInitialState(SidekickCpuController.State.SPAWNING);
         tails.setCentreX((short) 0x4000);
-        tails.setCentreY((short) 0x0000);
+        tails.setCentreY((short) 0x0720);
 
         sonic.setCentreX((short) 0x3CF0);
         sonic.setCentreY((short) 0x0780);
@@ -487,8 +558,8 @@ class TestSonic3kMgz2EndBossEvents {
 
         events.update(1, 0);
 
-        assertEquals((short) 0x3CF0, tails.getCentreX(),
-                "The MGZ2 transition should re-command rescue Tails from any stale CPU state once Sonic falls again");
+        assertEquals((short) 0x3CC0, tails.getCentreX(),
+                "Obj_MGZ2_BossTransition only copies Sonic's x when Tails_CPU_routine is $14 or higher");
         assertEquals((short) 0x0700, tails.getCentreY());
         assertEquals(SidekickCpuController.State.CARRY_INIT, controller.getState());
     }
@@ -527,7 +598,7 @@ class TestSonic3kMgz2EndBossEvents {
     }
 
     @Test
-    void mgz2BossTransition_forcesCarryAfterDelayEvenIfEngineTailsHasNotDescendedPastTransitionY() {
+    void mgz2BossTransition_waitsForTailsToDescendPastTransitionYAfterDelay() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         Camera camera = GameServices.camera();
@@ -538,15 +609,19 @@ class TestSonic3kMgz2EndBossEvents {
         AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
         tails.setCentreY((short) 0x06D0);
 
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        runBossTransitionTimer(events);
+
+        assertFalse(tails.isObjectControlled(),
+                "Routine $12 leaves object_control clear while Tails descends under normal flight/freespace physics");
+        assertEquals((short) 0x06D0, tails.getCentreY());
+        assertEquals(SidekickCpuController.State.MGZ_RESCUE_WAIT, tails.getCpuController().getState(),
+                "The timeout alone is not enough; Obj_MGZ2_BossTransition also requires Tails below transition y");
+
+        tails.setCentreY((short) 0x0701);
+        events.update(1, 0);
 
         assertEquals((short) 0x0700, tails.getCentreY());
-        assertFalse(tails.isObjectControlled(),
-                "The transition clears object_control before switching Tails to CPU routine $14");
-        assertEquals(SidekickCpuController.State.CARRY_INIT, tails.getCpuController().getState(),
-                "The object transition owns Tails placement at timeout; engine-side follower physics must not stall pickup");
+        assertEquals(SidekickCpuController.State.CARRY_INIT, tails.getCpuController().getState());
     }
 
     @Test
@@ -557,12 +632,7 @@ class TestSonic3kMgz2EndBossEvents {
         camera.setX((short) 0x3C80);
         camera.setY((short) 0x0600);
 
-        events.triggerBossCollapseHandoff();
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-
-        for (int frame = 0; frame < 0x168; frame++) {
-            events.update(1, frame);
-        }
+        AbstractPlayableSprite tails = triggerBossTransitionWithTailsBelowLine(events);
 
         tails.getCpuController().update(7);
 

@@ -269,6 +269,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int collapseFrameCounter;
     private int collapseStartupShakeTimer;
     private final int[] collapseScrollVelocity = new int[COLLAPSE_COLUMN_COUNT];
+    private final int[] collapseScrollFixedPosition = new int[COLLAPSE_COLUMN_COUNT];
     private final int[] collapseScrollPosition = new int[COLLAPSE_COLUMN_COUNT];
     private final Mgz2LevelCollapseSolidInstance[] collapseSolids =
             new Mgz2LevelCollapseSolidInstance[COLLAPSE_SOLID_COUNT];
@@ -277,7 +278,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     /** ROM: Events_bg+$0C — BG camera copy advanced during the air boss. */
     private int bossBgScrollOffset;
     private boolean bossTransitionActive;
-    private boolean bossTransitionCarryStarted;
     private boolean bossTransitionDeathPlaneDisabled;
     private int bossTransitionTimer;
     private int bossTransitionX;
@@ -361,11 +361,11 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bossBgScrollOffset = 0;
         for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
             collapseScrollVelocity[i] = 0;
+            collapseScrollFixedPosition[i] = 0;
             collapseScrollPosition[i] = 0;
         }
         Arrays.fill(collapseSolids, null);
         bossTransitionActive = false;
-        bossTransitionCarryStarted = false;
         bossTransitionDeathPlaneDisabled = false;
         bossTransitionTimer = 0;
         bossTransitionX = 0;
@@ -1123,7 +1123,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bossTransitionY = (camera().getY() & 0xFFFF) + BOSS_TRANSITION_SPAWN_OFFSET_Y;
         bossTransitionTimer = BOSS_TRANSITION_WAIT_FRAMES;
         bossTransitionActive = true;
-        bossTransitionCarryStarted = false;
         bossTransitionDeathPlaneDisabled = true;
         ensureBossTransitionTails(bossTransitionX, bossTransitionY);
     }
@@ -1159,8 +1158,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
         tails.setSpindash(false);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        tails.setControlLocked(false);
+        tails.setObjectControlled(false);
         tails.setCpuControlled(true);
         SidekickCpuController controller = new SidekickCpuController(tails, player);
         controller.setInitialState(SidekickCpuController.State.MGZ_RESCUE_WAIT);
@@ -1198,15 +1197,10 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             player.setGSpeed((short) 0);
             player.setSpindash(false);
             player.setAir(true);
-            if (controller != null
-                    && (controller.getState() == SidekickCpuController.State.CARRY_INIT
-                    || controller.getState() == SidekickCpuController.State.CARRYING
-                    || (bossTransitionTimer <= 0
-                    && controller.getState() != SidekickCpuController.State.MGZ_RESCUE_WAIT))) {
+            player.setHurt(false);
+            if (isBossTransitionCarryRoutine(controller)) {
                 bossTransitionX = player.getCentreX() & 0xFFFF;
             }
-        } else {
-            bossTransitionX = player.getCentreX() & 0xFFFF;
         }
 
         if (tails == null || bossTransitionTimer > 0) {
@@ -1214,15 +1208,18 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         }
 
         boolean tailsBelowTransition = bossTransitionY < (tails.getCentreY() & 0xFFFF);
-        boolean releasedCarryNeedsRestart = playerBelowTransition
-                && controller != null
-                && controller.getState() == SidekickCpuController.State.CARRYING
-                && !controller.isFlyingCarrying();
-        boolean staleCarryStateNeedsRestart = playerBelowTransition && !carrying;
-        if (!bossTransitionCarryStarted || tailsBelowTransition
-                || releasedCarryNeedsRestart || staleCarryStateNeedsRestart) {
+        if (tailsBelowTransition && !carrying) {
             startBossTransitionCarry(player, tails);
         }
+    }
+
+    private boolean isBossTransitionCarryRoutine(SidekickCpuController controller) {
+        if (controller == null) {
+            return false;
+        }
+        SidekickCpuController.State state = controller.getState();
+        return state == SidekickCpuController.State.CARRY_INIT
+                || state == SidekickCpuController.State.CARRYING;
     }
 
     private PlayerCharacter resolveBossTransitionPlayerCharacter() {
@@ -1259,6 +1256,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             player.setGSpeed((short) 0);
             player.setSpindash(false);
             player.setAir(true);
+            player.setHurt(false);
         }
         bossTransitionX = player.getCentreX() & 0xFFFF;
     }
@@ -1297,7 +1295,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         }
         controller.setCarryTrigger(mgzBossTransitionCarryTrigger());
         controller.setInitialState(SidekickCpuController.State.CARRY_INIT);
-        bossTransitionCarryStarted = true;
     }
 
     private SidekickCarryTrigger mgzBossTransitionCarryTrigger() {
@@ -1662,6 +1659,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
 
+        int collapseDelayCounter = collapseFrameCounter;
         collapseFrameCounter++;
         boolean allColumnsFinished = true;
         for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
@@ -1669,11 +1667,11 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 continue;
             }
             allColumnsFinished = false;
-            if (collapseFrameCounter >= COLLAPSE_SCROLL_DELAYS[i]) {
+            if (collapseDelayCounter >= COLLAPSE_SCROLL_DELAYS[i]) {
                 collapseScrollVelocity[i] += COLLAPSE_SCROLL_ACCEL;
-                collapseScrollPosition[i] = Math.min(
-                        COLLAPSE_MAX_SCROLL,
-                        collapseScrollPosition[i] + (collapseScrollVelocity[i] >> 8));
+                collapseScrollFixedPosition[i] += collapseScrollVelocity[i];
+                collapseScrollPosition[i] = Math.min(COLLAPSE_MAX_SCROLL,
+                        collapseScrollFixedPosition[i] >>> 16);
             }
         }
         if (!allColumnsFinished) {

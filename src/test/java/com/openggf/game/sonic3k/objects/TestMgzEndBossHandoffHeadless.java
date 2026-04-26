@@ -168,6 +168,48 @@ class TestMgzEndBossHandoffHeadless {
                 "Carried Sonic should be parented to Tails.y+$1C");
     }
 
+    @Test
+    void bossTransitionRoutine12LeavesTailsFreeToFallDuringWait() {
+        mgzEvents().triggerBossCollapseHandoff();
+
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        assertEquals(SidekickCpuController.State.MGZ_RESCUE_WAIT, tails.getCpuController().getState(),
+                "Obj_MGZ2_BossTransition leaves rescue Tails at CPU routine $12 during the $168-frame wait");
+        assertFalse(tails.isObjectControlled(),
+                "ROM routine $12 only clears Ctrl_2_logical; it does not hold Tails with object_control");
+
+        int startY = tails.getCentreY() & 0xFFFF;
+        fixture.stepIdleFrames(16);
+
+        assertTrue((tails.getCentreY() & 0xFFFF) > startY,
+                "Routine $12 Tails should fall under normal freespace physics while waiting for the handoff timer");
+        assertEquals(SidekickCpuController.State.MGZ_RESCUE_WAIT, tails.getCpuController().getState(),
+                "Tails should remain in routine $12 until Obj_MGZ2_BossTransition promotes him");
+    }
+
+    @Test
+    void bossTransitionInitialPickupUsesCameraAnchoredTransitionX() {
+        mgzEvents().triggerBossCollapseHandoff();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setCentreX((short) 0x3D40);
+        player.setCentreY((short) 0x06F0);
+        player.setAir(true);
+
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        for (int frame = 0; frame < 0x168 + 8
+                && tails.getCpuController().getState() != SidekickCpuController.State.CARRYING; frame++) {
+            fixture.stepIdleFrames(1);
+        }
+
+        assertEquals(SidekickCpuController.State.CARRYING, tails.getCpuController().getState(),
+                "After the $168-frame wait and Tails falling below the transition object, CPU routine $14 should pick up Sonic");
+        assertEquals(0x3CC0, tails.getCentreX() & 0xFFFF,
+                "Before Tails CPU routine reaches $14, Obj_MGZ2_BossTransition keeps x_pos at Camera_X+$40");
+        assertEquals(0x3CC0, player.getCentreX() & 0xFFFF,
+                "sub_1459E should parent Sonic to the transition object's Camera_X+$40 anchor on initial pickup");
+    }
+
     private boolean isBossTransitionActive() {
         return mgzEvents().isBossTransitionDeathPlaneDisabled();
     }

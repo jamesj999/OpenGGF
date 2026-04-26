@@ -54,8 +54,8 @@ public class SidekickCpuController {
         APPROACHING,
         NORMAL,
         PANIC,
-        MGZ_RESCUE_WAIT, // ROM Tails_CPU_routine $12: parked by Obj_MGZ2_BossTransition
-        CARRY_INIT,            // ROM routine 0x0C - first tick after trigger (teleport + pickup)
+        MGZ_RESCUE_WAIT,       // ROM Tails_CPU_routine $12: clear Ctrl_2_logical while physics continues
+        CARRY_INIT,            // ROM carry init; MGZ boss transition uses Tails_CPU_routine $14
         CARRYING,              // ROM routine 0x0E / 0x20 - per-frame carry body
         CATCH_UP_FLIGHT,       // ROM routine 0x02 (Tails_Catch_Up_Flying, sonic3k.asm:26474)
         FLIGHT_AUTO_RECOVERY,  // ROM routine 0x04 (Tails_FlySwim_Unknown, sonic3k.asm:26534)

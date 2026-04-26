@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -167,7 +168,7 @@ class TestSonic3kMgz2CollapseEvents {
     }
 
     @Test
-    void collapseProgressionContributesPerColumnForegroundVScroll() {
+    void collapseProgressionUsesRom16Dot16ScrollAcceleration() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         events.triggerCollapseForTest();
@@ -177,6 +178,12 @@ class TestSonic3kMgz2CollapseEvents {
         }
         events.update(1, 0x14); // first active tick: column 6 has zero delay
 
+        assertNull(events.buildCollapseForegroundVScrollOverride(0x3C80),
+                "ROM adds $500 to a 16:16 velocity accumulator; the first active tick has not moved a full pixel");
+
+        for (int frame = 0; frame < 15; frame++) {
+            events.update(1, 0x15 + frame);
+        }
         short[] override = events.buildCollapseForegroundVScrollOverride(0x3C80);
 
         assertEquals(20, override.length);
@@ -197,7 +204,9 @@ class TestSonic3kMgz2CollapseEvents {
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);
         }
-        events.update(1, 0x14);
+        for (int frame = 0; frame < 16; frame++) {
+            events.update(1, 0x14 + frame);
+        }
 
         short[] override = events.buildCollapseForegroundVScrollOverride(0x3C70);
 
