@@ -4,6 +4,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F2175: Preserve OnObject Across Frame Boundary For Latch-And-Own Controllers
+
+- Fixed `ObjectManager.SolidContacts.finalizeInlinePlayer()` to skip the
+  end-of-frame `setOnObject(false)` clear when the player has a non-zero
+  `latchedSolidObjectId`. Latch-and-own controllers
+  (`CnzWireCageObjectInstance`, `CnzBarberPoleObjectInstance`) own the
+  player via `setLatchedSolidObjectId(spawnId)` rather than registering
+  with `SolidContacts.ridingStates`, so without this gate
+  `inlineSupportedPlayers` never contains the player and the OnObject
+  flag was being torn down every frame.
+- ROM behaviour: `sub_33C34` at `sonic3k.asm:70179` `bset
+  #Status_OnObj,status(a1)` is sticky; the cage clears the bit only at
+  `loc_33A0E` line 69989 `bclr #Status_OnObj,status(a1)` when its own
+  release path runs.
+- Without the fix, the sidekick CPU controller (`sonic3k.asm:26690
+  loc_13DA6`) read `Sonic.Status_OnObj=false` and applied `leadOffset =
+  0x20`, dropping `dx` from 71 to 46 and tripping the auto-jump
+  trigger that prematurely released Tails from the cage with `y_speed
+  = -0x200`.
+- TestS3kCnzTraceReplay#replayMatchesTrace: first error advances from
+  F2175 (5055 errors / 5215 warnings) to F2222 (5047 errors / 5217
+  warnings).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F5736.
+
 ### Sonic 3&K AIZ1 Trace F5497: Refresh Sidekick CPU Bounds on Act Transition
 
 - Fixed `LevelManager.executeActTransition()` to refresh

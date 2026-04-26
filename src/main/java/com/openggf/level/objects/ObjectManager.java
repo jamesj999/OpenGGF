@@ -4173,6 +4173,24 @@ public class ObjectManager {
                 return;
             }
             if (!inlineSupportedPlayers.contains(player)) {
+                // ROM parity: Status_OnObj is set by an interactive controller
+                // (e.g. CNZ wire cage sub_33C34 at sonic3k.asm:70179 `bset #Status_OnObj,status(a1)`)
+                // and stays set across frames until the controller itself clears it
+                // (cage does so at loc_33A0E line 69989 `bclr #Status_OnObj,status(a1)`).
+                // The engine SolidContacts ridingStates only tracks players riding
+                // SolidObjectProvider instances; non-solid latch-and-own controllers
+                // (CnzWireCageObjectInstance, CnzBarberPoleObjectInstance) record
+                // their grip via setLatchedSolidObjectId(spawnId), but the
+                // SolidContacts inlineSupportedPlayers set never gains the player
+                // because no SolidObject is in play. Without honouring that signal,
+                // finalizeInlinePlayer would clear OnObject every frame and the
+                // sidekick CPU controller (sonic3k.asm:26690 loc_13DA6 reads
+                // Sonic.Status_OnObj when computing leadOffset) would mis-trigger
+                // the auto-jump path. Skip the clear when a latch is active.
+                if (player instanceof AbstractPlayableSprite aps
+                        && aps.getLatchedSolidObjectId() != 0) {
+                    return;
+                }
                 boolean forceAir = forceAirOnStaleSupportLoss.remove(player);
                 ridingStates.remove(player);
                 player.setOnObject(false);
