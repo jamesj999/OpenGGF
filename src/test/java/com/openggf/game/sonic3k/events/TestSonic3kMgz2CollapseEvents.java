@@ -52,7 +52,7 @@ class TestSonic3kMgz2CollapseEvents {
     void collapseTrigger_runsTimedShakeBeforeOpeningClear() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         events.update(1, 0);
 
@@ -68,7 +68,7 @@ class TestSonic3kMgz2CollapseEvents {
     void collapseStartupShakeClearsOpeningAndCreatesCollapseSolids() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);
@@ -89,7 +89,7 @@ class TestSonic3kMgz2CollapseEvents {
 
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);
@@ -108,7 +108,7 @@ class TestSonic3kMgz2CollapseEvents {
 
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);
@@ -124,7 +124,7 @@ class TestSonic3kMgz2CollapseEvents {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         GameServices.camera().setX((short) 0x3C80);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 512 && !events.isCollapseFinished(); frame++) {
             events.update(1, frame);
@@ -147,7 +147,7 @@ class TestSonic3kMgz2CollapseEvents {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         GameServices.camera().setX((short) 0x3C80);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         int frame = 0;
         for (; frame < 512 && !events.isCollapseFinished(); frame++) {
@@ -171,7 +171,7 @@ class TestSonic3kMgz2CollapseEvents {
     void collapseProgressionUsesRom16Dot16ScrollAcceleration() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);
@@ -199,7 +199,7 @@ class TestSonic3kMgz2CollapseEvents {
     void collapseVScrollLeavesNonCollapseScreenColumnsUnshifted() {
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         for (int frame = 0; frame < 0x14; frame++) {
             events.update(1, frame);

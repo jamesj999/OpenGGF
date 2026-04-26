@@ -338,9 +338,6 @@ class TestSonic3kMgz2QuakeEvents {
                 new ObjectSpawn(0x08E0, 0x0690, 0, 0, 0, false, 0), false);
         robotnik.setDestroyed(true);
         setPrivateField(events, "activeRobotnik", robotnik);
-        setPrivateField(events, "savedCameraBoundsValid", true);
-        setPrivateField(events, "savedCameraMinX", (short) 0x0000);
-        setPrivateField(events, "savedCameraMaxX", (short) 0x6000);
 
         camera.setMaxX((short) 0x07E0);
         events.update(1, 2);
@@ -395,7 +392,7 @@ class TestSonic3kMgz2QuakeEvents {
         AudioManager audio = mock(AudioManager.class);
         TestableMgzEvents events = new TestableMgzEvents(audio);
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         events.update(1, 1);
         events.update(1, 17);

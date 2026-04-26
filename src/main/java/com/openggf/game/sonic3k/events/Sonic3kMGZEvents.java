@@ -30,9 +30,6 @@ import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.logging.Logger;
@@ -146,13 +143,14 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int CHUNK_EVENT_DELAY_RESET = 6;
     private static final int MGZ_QUAKE_BLOCK_LEFT_INDEX = 0xB1;  // $FF5880 -> Chunk_table[$B1]
     private static final int MGZ_QUAKE_BLOCK_RIGHT_INDEX = 0xEA; // $FF7500 -> Chunk_table[$EA]
+    /** ROM: MGZ2_QuakeChunks in the combined S3&K ROM. */
     private static final int MGZ_QUAKE_CHUNK_ROM_ADDR = 0x3CBBB4;
-    private static final Path MGZ_QUAKE_CHUNK_FALLBACK =
-            Path.of("docs/skdisasm/Levels/MGZ/Misc/Act 2 Quake Chunks.bin");
 
     /**
      * ROM: MGZ2_ChunkEventArray (Lockon S3/Screen Events.asm:1031-1033).
-     * Each row: {minX, maxX, minY, maxY, redrawX, redrawY}.
+     * Each row: {minX, maxX, minY, maxY, redrawX, redrawY}. The redraw
+     * origin is kept with the ROM table for auditability; the engine redraws
+     * through mutation effects instead of the ROM's row-draw queue.
      */
     private static final int[][] CHUNK_EVENT_ARRAY = {
             {0x0F68, 0x0F78, 0x0500, 0x0580, 0x0F00, 0x0500},
@@ -259,8 +257,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int chunkEventRoutine;
     private int chunkReplaceIndex;
     private int chunkEventDelay;
-    private int chunkRedrawX;
-    private int chunkRedrawY;
     private int screenEventRoutine;
     private boolean collapseRequested;
     private boolean collapseInitialized;
@@ -307,17 +303,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private boolean appearance3Complete;
 
     /**
-     * ROM: Camera_stored_max_X_pos / Camera_stored_min_X_pos — natural level
-     * bounds saved before a quake event clamps the camera. Restored on release
-     * via the same target-driven unwind the camera uses elsewhere, matching
-     * the ROM's Obj_IncLevEndXGradual / Obj_DecLevStartXGradual behavior more
-     * closely than a hard unlock.
-     */
-    private short savedCameraMinX;
-    private short savedCameraMaxX;
-    private boolean savedCameraBoundsValid;
-
-    /**
      * Active drilling-Robotnik instance for the current mini-event. Cleared
      * when the Robotnik object destroys itself at the end of its flee.
      */
@@ -348,8 +333,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         chunkEventRoutine = CHUNK_EVENT_CHECK;
         chunkReplaceIndex = 0;
         chunkEventDelay = 0;
-        chunkRedrawX = 0;
-        chunkRedrawY = 0;
         screenEventRoutine = SCREEN_EVENT_NORMAL;
         collapseRequested = false;
         collapseInitialized = false;
@@ -379,9 +362,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bgRiseLoadStateInitialised = false;
         bossArenaRoutine = 0;
         bossSpawned = false;
-        savedCameraMinX = 0;
-        savedCameraMaxX = 0;
-        savedCameraBoundsValid = false;
         activeRobotnik = null;
         postFleeUnlockDone = false;
         gradualUnlockDirection = GRADUAL_UNLOCK_NONE;
@@ -530,11 +510,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             }
             int cameraMaxY = entry[4];
             int cameraLockX = entry[5];
-            // Snapshot natural level bounds before mutating — the ROM stores these in
-            // Camera_stored_min/max_X_pos and restores them gradually on release.
-            savedCameraMinX = camera.getMinX();
-            savedCameraMaxX = camera.getMaxX();
-            savedCameraBoundsValid = true;
             quakeEventRoutine = QUAKE_EVENT_1 + (i * 4);
             camera.setMaxY((short) cameraMaxY);
             camera.setMaxYTarget((short) cameraMaxY);
@@ -699,7 +674,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         camera.setMaxYTarget((short) DEFAULT_CAMERA_MAX_Y);
         camera.setMinX((short) DEFAULT_CAMERA_MIN_X);
         camera.setMaxX((short) DEFAULT_CAMERA_MAX_X);
-        savedCameraBoundsValid = false;
         quakeEventRoutine = QUAKE_CHECK;
         screenShakeActive = false;
         setGenericBossFlag(false);
@@ -719,7 +693,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         Camera camera = camera();
         camera.setMaxY((short) DEFAULT_CAMERA_MAX_Y);
         camera.setMaxYTarget((short) DEFAULT_CAMERA_MAX_Y);
-        savedCameraBoundsValid = false;
         setGenericBossFlag(false);
         activeRobotnik = null;
         postFleeUnlockDone = false;
@@ -1108,7 +1081,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         return chunkEventRoutine;
     }
 
-    void triggerCollapseForTest() {
+    void requestLevelCollapse() {
         collapseRequested = true;
     }
 
@@ -1118,7 +1091,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
      * even if the run was configured as Sonic alone.
      */
     public void triggerBossCollapseHandoff() {
-        collapseRequested = true;
+        requestLevelCollapse();
         bossTransitionX = (camera().getX() & 0xFFFF) + BOSS_TRANSITION_SPAWN_OFFSET_X;
         bossTransitionY = (camera().getY() & 0xFFFF) + BOSS_TRANSITION_SPAWN_OFFSET_Y;
         bossTransitionTimer = BOSS_TRANSITION_WAIT_FRAMES;
@@ -1487,8 +1460,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 chunkEventRoutine = nextRoutine;
                 chunkReplaceIndex = 0;
                 chunkEventDelay = 0;
-                chunkRedrawX = entry[4];
-                chunkRedrawY = entry[5];
                 return;
             }
             nextRoutine += 4;
@@ -1568,7 +1539,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         return state;
     }
 
-    private byte[] loadMgzQuakeChunkData() {
+    protected byte[] loadMgzQuakeChunkData() {
         byte[] cached = cachedMgzQuakeChunkData;
         if (cached != null) {
             return cached;
@@ -1582,15 +1553,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 cachedMgzQuakeChunkData = romBytes;
                 return romBytes;
             } catch (Exception romFailure) {
-                try {
-                    byte[] fallback = Files.readAllBytes(MGZ_QUAKE_CHUNK_FALLBACK);
-                    cachedMgzQuakeChunkData = fallback;
-                    return fallback;
-                } catch (IOException fileFailure) {
-                    LOG.warning("Failed to load MGZ2 quake chunk data from ROM or fallback file: "
-                            + fileFailure.getMessage());
-                    return null;
-                }
+                LOG.warning("Failed to load MGZ2 quake chunk data from ROM: " + romFailure.getMessage());
+                return null;
             }
         }
     }
