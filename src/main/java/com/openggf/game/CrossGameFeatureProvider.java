@@ -524,7 +524,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.useScreenYWrapValueForVisibility(),  // useScreenYWrapValueForVisibility (from base game)
                 baseFeatureSet.sidekickDespawnUsesObjectIdMismatch(), // sidekickDespawnUsesObjectIdMismatch (from base game)
                 baseFeatureSet.sidekickFlyLandStatusBlockerMask(),  // sidekickFlyLandStatusBlockerMask (from base game)
-                baseFeatureSet.sidekickFlyLandRequiresLeaderAlive() // sidekickFlyLandRequiresLeaderAlive (from base game)
+                baseFeatureSet.sidekickFlyLandRequiresLeaderAlive(), // sidekickFlyLandRequiresLeaderAlive (from base game)
+                baseFeatureSet.solidObjectOffscreenGate()        // solidObjectOffscreenGate (from base game)
         );
     }
 

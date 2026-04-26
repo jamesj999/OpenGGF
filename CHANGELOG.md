@@ -4,6 +4,51 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F2667 Fix: SolidObject_cont On-Screen Gate
+
+- Fixed `TestS3kAizTraceReplay#replayMatchesTrace` first strict
+  divergence at frame 2667 (Tails-vs-spike side-push triggered in
+  engine where ROM's `SolidObject_cont` skipped the side path due
+  to the spike being off-screen left of the camera).
+- Added ROM `SolidObject_cont` on-screen gate to
+  `ObjectManager.SolidContacts.processInlineObjectForPlayer` (citing
+  `s2.asm:35140-35145 SolidObject_OnScreenTest`,
+  `sonic3k.asm:41390-41392 loc_1DF88`,
+  `s1disasm/_incObj/sub SolidObject.asm:124-126 Solid_ChkEnter`).
+  When the gate fires it only clears player push state and exits
+  (mirroring ROM `sub_1E0C2` at sonic3k.asm:41528) without zeroing
+  ground_vel / x_vel.
+- Added `ObjectInstance.isWithinSolidContactBounds()` (default true)
+  with `AbstractObjectInstance` override that uses
+  `cameraBounds.contains(getX(), getY(), 16)` to mirror ROM
+  Render_Sprites bit-7 semantics (16-px margin matches typical
+  `width_pixels`).
+- Added `PhysicsFeatureSet.solidObjectOffscreenGate` flag (S3K=true,
+  S1/S2=false for now) so the gate rolls out incrementally.
+- AIZ trace replay first error advanced from F2667 (1633 errors) to
+  F2721 (1638 errors). The new F2721 first-error is a Tails CPU AI
+  jump-trigger divergence, separate from the on-screen gate fix.
+- S1 GHZ1 / S1 MZ1 / S2 EHZ1 / S3K CNZ trace baselines unchanged.
+
+### Sonic 3&K Trace Recorder v6.2-s3k (per-frame OST + interact-state snapshots)
+
+- Extended the recorder with two more per-frame aux event types:
+  `object_state` (per nearby OST slot within OBJECT_PROXIMITY of
+  either player: routine, status byte at $22, subtype at $1C, x/y,
+  x_radius/y_radius) and `interact_state` (per player: interact
+  field at $42 resolved to slot index, plus object_control byte at
+  $2A). These made ROM control-flow at AIZ F2667 directly
+  inspectable.
+- Bumped recorder version 6.1-s3k -> 6.2-s3k. Added
+  `object_state_per_frame` and `interact_state_per_frame` to
+  `aux_schema_extras` (additive — keeps `cpu_state_per_frame` and
+  `oscillation_state_per_frame` too).
+- **Diagnostic only** per the comparison-only invariant: the events
+  feed the divergence report and per-frame comparator; they are not
+  hydrated into engine state.
+- Regenerated `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+  with the v6.2-s3k recorder.
+
 ### Sonic 3&K Trace Recorder v6.1-s3k (per-frame Oscillating_table snapshots)
 
 - Extended the BizHawk S3K trace recorder with a per-frame
