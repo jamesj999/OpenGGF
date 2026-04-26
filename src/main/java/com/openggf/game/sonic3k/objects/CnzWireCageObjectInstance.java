@@ -115,15 +115,39 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             player.setCentreYPreserveSubpixel((short) (player.getCentreY() - adjustedVertical));
         }
 
+        // ROM (sonic3k.asm:69905-69921) at loc_33922 branches on the
+        // player's Status_InAir bit when cage runs. ROM runs player physics
+        // first then objects (slot order), but ROM physics doesn't always
+        // ground the player at the cage rim — sub_33C34 calls
+        // Player_TouchFloor as part of cage capture (sonic3k.asm:70170).
+        // The engine's terrain collision can be more aggressive about
+        // grounding the player on the cage's invisible solid-controller
+        // area, masking the ROM "still airborne when cage ran" signal.
+        //
+        // Treat the player as airborne for the capture branch if EITHER
+        // the pre-physics snapshot was airborne OR the post-physics state
+        // is still airborne. This keeps unit tests that bypass the
+        // physics tick (and call setAir(true) directly) working, and
+        // mirrors ROM at F1757 where Tails was still airborne when ROM
+        // cage ran (engine's terrain pass had grounded her by then —
+        // CNZ1 trace F1758 divergence).
+        boolean wasAirborne = player.wasPrePhysicsAir() || player.getAir();
+        int captureAngle = player.wasPrePhysicsAir()
+                ? (player.getPrePhysicsAngle() & 0xFF)
+                : (player.getAngle() & 0xFF);
+        int captureGSpeed = player.wasPrePhysicsAir()
+                ? player.getPrePhysicsGSpeed()
+                : player.getGSpeed();
         boolean touchFloorDuringLatch = false;
-        if (player.getAir()) {
-            if ((player.getAngle() & 0xFF) == 0) {
+        if (wasAirborne) {
+            if (captureAngle == 0) {
+                // ROM loc_3394C: bset #0, object_control(a1) - physics gated next frame.
                 beginLatchedCooldown(player, state);
                 touchFloorDuringLatch = true;
             } else {
-                player.setAir(false);
-                if (Math.abs(player.getGSpeed()) < MIN_AIR_ATTACH_SPEED) {
-                    player.setAir(true);
+                if (Math.abs(captureGSpeed) < MIN_AIR_ATTACH_SPEED) {
+                    // ROM loc_33940 → bhs.s loc_33958 path - low-speed
+                    // recapture re-enters loc_3394C and sets bit 0.
                     beginLatchedCooldown(player, state);
                     touchFloorDuringLatch = true;
                 }

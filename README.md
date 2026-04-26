@@ -231,10 +231,13 @@ further S3K parity work.
   engine-spurious `controlLocked` write on AIZ vine grab that was poisoning Sonic's recorded
   inputHistory and feeding wrong inputs to Tails CPU 16 frames later). CNZ first-error
   advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in CnzWireCage
-  release, per-tick `slopeRepelJustSlipped` flag, plus v6.1-s3k recorder pre-trace-osc
-  semantic correction that resolved a separate F850 Hover Fan one-frame trigger lag). The
-  earlier per-frame CPU-state hydration was reverted as a violation of the comparison-only
-  invariant — engine state machines now produce ROM-correct values natively.
+  release, per-tick `slopeRepelJustSlipped` flag, v6.1-s3k recorder pre-trace-osc semantic
+  correction that resolved a separate F850 Hover Fan one-frame trigger lag, and `CnzWireCage`
+  airborne-capture `object_control` bit 0 set per ROM `loc_3394C` at sonic3k.asm:69921 with a
+  matching pre-physics state snapshot pattern on `AbstractPlayableSprite` so per-object hooks
+  see ROM-equivalent pre-physics state). The earlier per-frame CPU-state hydration was
+  reverted as a violation of the comparison-only invariant — engine state machines now
+  produce ROM-correct values natively.
 - **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
   `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
   `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
