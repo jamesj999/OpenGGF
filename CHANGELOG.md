@@ -4,6 +4,39 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F2262 → F3649: Wire-Cage Reap-By-Camera-Distance Despawn Trigger
+
+- **Fix:** `CnzWireCageObjectInstance.onUnload()` now flips the cage's
+  destroyed flag when ObjectManager reaps it past the coarse-back chunk
+  boundary (`unloadCounterBasedOutOfRange`). ROM `Obj_CNZWireCage`
+  ends with `jmp (Delete_Sprite_If_Not_In_Range).l`
+  (sonic3k.asm:69867 → 37301-37317 → `Delete_Current_Sprite` at
+  sonic3k.asm:36108) which zeroes the cage's entire SST. The next
+  frame's `sub_13EFC` (sonic3k.asm:26816) reads `(a3) = 0`, fails the
+  cached `Tails_CPU_interact` compare at sonic3k.asm:26824, and falls
+  into `sub_13ECA` (sonic3k.asm:26800) which warps Tails to the
+  despawn marker `(0x7F00, 0)`.
+- The engine cage's lifecycle was using ObjectManager's reap-by-camera-
+  distance path which removes from active list but didn't flip
+  `destroyed`. Round 12's freed-slot detection in
+  `SidekickCpuController.checkDespawn()` (gated by
+  `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`) checks
+  `currentRidingInstance.isDestroyed()`, so without the destroyed flag
+  the loss check never fired and Tails stayed latched to the stale
+  cage instance.
+- `TestS3kCnzTraceReplay` first strict error advances **F2262 →
+  F3649** (~1387 frames). The new error is at F3649 (`tails_x_speed
+  mismatch expected=-0x0A00 actual=-0x0060`) — a separate concern for
+  the next iteration.
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F6255.
+- The cnz-f2262-flight-timer agent's mission hypothesis ("engine
+  resets despawnCounter on any on-screen detection while ROM checks
+  render_flags bit 7") turned out to be wrong — `Tails_CPU_flight_timer`
+  was only 49 at F2261, nowhere near the 5*60=300 timeout. The despawn
+  fired via the `cmp.w (a3),d0` zero-path, not the timer-overflow path.
+  No new `PhysicsFeatureSet` flag was needed.
+
 ### Sonic 3&K AIZ Trace F6255: Sidekick CPU Freed-Slot Despawn Infrastructure (PARTIAL)
 
 - Added engine analog of ROM `Tails_CPU_interact` (sonic3k.asm:26823)

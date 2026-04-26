@@ -1113,7 +1113,14 @@ public class SidekickCpuController {
         // exactly what AIZ trace replay F6255 hits when the AIZ collapsing
         // platform (Obj_CollapsingPlatform routine loc_20594, sonic3k.asm:44814)
         // finishes its falling-fragment lifecycle and is removed from the
-        // dynamic-object list.
+        // dynamic-object list, and what CNZ trace F2262 hits when the wire
+        // cage (Obj_CNZWireCage routine loc_3385E, sonic3k.asm:69829) deletes
+        // itself via {@code jmp Delete_Sprite_If_Not_In_Range} (sonic3k.asm:69867
+        // -> 37301-37317) once the camera has moved $200+ pixels past the cage's
+        // chunk-aligned x position. The cage's
+        // {@link CnzWireCageObjectInstance#onUnload} ROM-mirrors the SST-zero by
+        // setting {@code destroyed=true}, so the {@code currentRidingInstance.isDestroyed()}
+        // check below catches both this case and the collapsing-platform case.
         //
         // Engine's latchedSolidObjectId byte is sticky across destruction
         // (the ID stays set even after the underlying SolidObjectProvider

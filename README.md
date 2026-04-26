@@ -268,7 +268,12 @@ further S3K parity work.
   `CnzWireCageObjectInstance` now tracks `leaderHasReleased` and short-circuits the
   sidekick's `continueRide` after release while preserving `object_control` ghost-state
   markers, so the engine no longer fires `releaseWithJumpImpulse` on Tails-CPU's
-  auto-jump). AIZ also gained a sidekick level-boundary kill split (ROM
+  auto-jump; F2262 → F3649 lands `CnzWireCageObjectInstance.onUnload()` flipping the
+  destroyed flag when ObjectManager reaps the cage past the coarse-back chunk boundary,
+  matching ROM `Delete_Sprite_If_Not_In_Range` → `Delete_Current_Sprite` SST-zeroing at
+  sonic3k.asm:69867 → 37301-37317 → 36108 — round 12's freed-slot detection now fires
+  for cage reap, warping Tails via `sub_13ECA`). AIZ also gained a sidekick level-boundary
+  kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
