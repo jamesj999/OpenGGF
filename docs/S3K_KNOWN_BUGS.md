@@ -26,6 +26,7 @@ Entries should include:
 8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
 9. [AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)](#aiz1-trace-f5497--sidekick-cpu-bound-override-stale-after-act-transition-fixed)
 10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
+11. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
 
 ---
 
@@ -728,3 +729,152 @@ After the fix `TestS3kAizTraceReplay` first strict error advances past
 F5736 to F6066 (a separate Sonic-only divergence in AIZ2 main gameplay),
 total errors drop from 1184 to 1178. All cross-game baselines stay
 green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2175.
+
+
+---
+
+## CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)
+
+**Status:** Open architectural blocker after iter-9 (F2175 fix). Engine
+Tails gets launched off the cage with `x_vel=-0x800, y_vel=-0x200`
+(`JUMP_RELEASE_X/Y_SPEED`) at F2222 while ROM Tails stays on the cage.
+
+**Location:** `CnzWireCageObjectInstance.tryJumpRelease()` reads
+`player.isJumpJustPressed()` which is engine edge-detection on the
+sidekick's `inputJump` (= `(recordedInput & INPUT_JUMP) != 0`). For
+sidekicks, `recordedInput` is read from leader (Sonic's)
+`inputHistory[historyPos - 16]` populated each frame from the active
+player's effective post-`controlLocked` `logicalInputState`.
+
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict
+error at frame 2222 (`tails_y_speed expected=-02EA actual=-0200`).
+
+### Symptom
+
+Sequence around the divergence (CSV / aux from v6.2 recorder):
+
+| K (trace) | gfc    | Sonic input | Sonic on cage | Engine cage | ROM cage |
+|-----------|--------|-------------|---------------|-------------|----------|
+| 2204      | 0x089D | 0x08 RIGHT  | yes (status=08, OnObj=04) | latched     | latched |
+| 2205      | 0x089E | 0x18 RIGHT+JUMP | released (status=02) | release fires (-800/-200) | release fires (-800/-200) |
+| 2206      | 0x089F | 0x18 RIGHT+JUMP | airborne | airborne | airborne |
+| ...       |        |             |               |             |          |
+| 2221      | 0x08AE | 0x08 RIGHT  | airborne | Tails on cage, y_vel=-02EA | Tails on cage, y_vel=-02EA |
+| 2222      | 0x08AF | 0x08 RIGHT  | airborne | **Tails LAUNCHED y_vel=-0200, air=1** | Tails on cage, y_vel=-02EA |
+
+v6.2 aux `cpu_state` events for Tails confirm:
+- F2221: `cpu_routine=6` (NORMAL), `ctrl2_held=0x48`, `ctrl2_pressed=0x48` (RIGHT+button_A pressed)
+- F2222: `cpu_routine=6`, `ctrl2_held=0x48`, `ctrl2_pressed=0x08` (RIGHT only, NOT pressed)
+
+### Diagnosed Cause (engine side)
+
+Engine `recordedInput[K-16]` for Tails at iter K=2222 reads Sonic's
+`logicalInputState` from iter K=2206. `logicalInputState` is computed
+in `SpriteManager.publishInputState` from `effectiveJump =
+(!controlLocked && space) || forcedJump`, i.e. it filters out jump
+when the per-sprite `controlLocked` (engine analogue of ROM
+`object_control bit 0`) is set.
+
+ROM `Sonic_RecordPos` at sonic3k.asm:22132 records `Ctrl_1_logical`
+unconditionally — only the GLOBAL `Ctrl_1_locked` (cutscenes / death,
+sonic3k.asm:21542) blocks the recording, never the per-sprite
+`object_control bit 0`. So ROM Stat_table for K=2204 has JUMP cleared
+(BK2 had no jump pressed) but K=2205 has JUMP set (newly pressed) and
+K=2206+ has JUMP set (held).
+
+In the engine, Sonic enters cage cooldown at K=2192 (`gspeed=0x02F4 <
+0x300`) which calls `setControlLocked(true)`. After that, every frame
+through K=2204 stays in `state.cooldown!=0` → `tryJumpRelease` +
+`updateReleaseRide`, which never re-call `setControlLocked(false)`.
+Sonic stays controlLocked until the cage's `release()` path fires at
+K=2205 (which clears it). Meanwhile every frame K=2192..K=2204 the
+engine records `effectiveJump=false` into `inputHistory[K]`.
+
+This produces a 1-frame skewed JUMP edge: engine `inputHistory[2204]`
+= no JUMP, `inputHistory[2205]` = no JUMP (controlLocked still true
+when publishInputState ran at iter 2205), `inputHistory[2206]` = JUMP
+(controlLocked cleared by cage release at end of iter 2205).
+
+Tails's edge detection at iter K=2222 (reading K=2206) sees a
+false-to-true transition between iter K=2221 (reads K=2205, no JUMP)
+and iter K=2222 (reads K=2206, JUMP). `jumpInputJustPressed=true`,
+the cage's `tryJumpRelease` fires `releaseWithJumpImpulse`.
+
+### Mystery (ROM side, unresolved)
+
+Even with raw input recording (held-only, ignoring controlLocked) the
+edge would shift to iter K=2221 (reads K=2205 = JUMP newly pressed)
+which still does not match ROM. The v6.2 aux at F2221 shows
+`ctrl2_pressed=0x48` (button_A bit 0x40 set), so ROM cage's
+`andi.w #button_A_mask|button_B_mask|button_C_mask, d5; beq.s
+loc_33B1E` (sonic3k.asm:70055) computes `0x4848 & 0x0070 = 0x0040`
+— non-zero, which by my reading should branch to release at
+sonic3k.asm:70057. But ROM CSV at K=2221 still shows
+`tails_y_speed=-02EA` (cage ride speed, NOT release).
+
+I exhaustively checked: `Tails_CPU_routine=6` (NORMAL, runs
+TailsCPU_Normal not a Ctrl_2_logical zero-er), `cage cooldown=1` should
+direct execution to `loc_33ADE`, no FixBugs path differences, no
+`Tails_CPU_idle_timer` block (=0 throughout), no Player_2 handling
+divergence (`a0=Player_2`, `bne.s loc_13830` taken), no
+`Flying_carrying_Sonic_flag`. The trace reading and disassembly
+suggest ROM cage SHOULD release Tails at F2221 — yet ROM definitively
+does not.
+
+### What Was Tried This Iteration
+
+1. **Probe added** to `tryJumpRelease` and `SpriteManager` to log
+   `aiJump`, `jumpJustPressed`, `forcedJumpPress`, `objectControlled`,
+   `cooldown` per frame for Tails at frames 0x08AC-0x08B0. Confirmed:
+   - aiJump first becomes true at engine frame 0x08AF (iter K=2222),
+     not K=2221.
+   - jumpJustPressed=true exactly once, at iter K=2222.
+   - cage's tryJumpRelease only fires at iter K=2222.
+2. **Raw input recording attempt:** modified
+   `SpriteManager.publishInputState` to bypass per-sprite
+   `controlLocked` filter and pass raw-or-forced inputs to
+   `setLogicalInputState`. Result: divergence regressed from F2222 to
+   F2221 (engine fires release one frame earlier — the same edge,
+   shifted by Sonic's controlLocked filter being ON at K=2204 but OFF
+   at K=2205 in raw-input world). Reverted.
+3. **Trace regenerated** from v6.1-s3k schema to v6.2-s3k to obtain
+   `cpu_state_per_frame` (Tails_CPU_routine, ctrl2_held, ctrl2_pressed)
+   and `interact_state_per_frame` aux events. v6.2 confirmed
+   `ctrl2_pressed=0x48` at F2221 and ROM still does not release —
+   fundamentally contradicting my reading of the cage code.
+
+### What's Likely Needed
+
+A real fix needs ROM-side instrumentation that I don't have without a
+debugger or live disassembly run, e.g.:
+
+1. **Verify cage execution at F2221:** confirm cage's `loc_33ADE` is
+   actually reached (vs being skipped because of `Delete_Sprite_If_Not_In_Range`
+   trimming or some d6/standing-flag clear after Sonic's K=2205 release
+   path that I'm missing).
+2. **Verify d5 register at the moment of `andi #$70`:** capture d5 in
+   ROM directly (BizHawk Lua `event.onmemoryexecute(0x33ADE, ...)`)
+   to confirm it really has the 0x40 bit set when the andi runs, vs.
+   some intermediate state where Tails CPU writes Ctrl_2_logical with
+   different masks.
+3. **Audit ROM cage `1(a2)` cooldown lifecycle for Tails:** maybe the
+   cooldown is decrementing into 0 between frames in some path I
+   haven't traced, which would make `loc_339A0`'s `tst.b 1(a2)` fall
+   through to the gspeed check (which would then re-set cooldown=1
+   and bra loc_33ADE — but then the andi check happens with the same
+   d5).
+
+### Recorder Bug Found
+
+The v6.2 recorder writes `interact_state.object_control` reading from
+player offset `0x2A`. Per `sonic3k.constants.asm:30/57`, offset `0x2A`
+is **status**, not `object_control` (which is at `0x2E`). The reported
+"object_control" values in v6.2 traces are actually status bytes —
+this needs to be fixed in `tools/bizhawk/s3k_trace_recorder.lua`
+before the diagnostic is reliable for object_control gating.
+
+### Removal Condition
+
+Resolve once `TestS3kCnzTraceReplay`'s first strict error advances
+past F2222, with a fix backed by ROM-confirmed (not assumed) cage
+execution path for the iter K=2221/K=2222 boundary.
