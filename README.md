@@ -291,6 +291,20 @@ further S3K parity work.
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
   produce ROM-correct values natively.
+- **Trace recorder v6.4-s3k:** adds frame-window-gated `velocity_write` per-frame events
+  via BizHawk Lua `event.onmemorywrite` hooks at Tails's `x_vel` / `y_vel` RAM addresses
+  — each write captures the M68K writer PC + post-write value, accumulated per frame and
+  flushed once per `on_frame_end`. Default window `[3640, 3660]` covers the CNZ1 F3649
+  divergence; override via `OGGF_S3K_VELOCITY_WRITE_RANGE`. Java parser additions:
+  `TraceEvent.VelocityWrite` record + `TraceMetadata.hasPerFrameVelocityWrite()` +
+  `TraceData.velocityWriteForFrame(frame, character)`. Existing CNZ trace not regenerated
+  (the v6.3 trace is still the replay reference). Used to pinpoint F3649 to a horizontal
+  spring boost: ROM `Obj_Spring_Horizontal` / `sub_23190` (sonic3k.asm:47890) fires on
+  Tails as she lands on slot 16's spring (x=0x1D37, y=0x08B0); engine misses it because
+  `Sonic3kSpringObjectInstance.onSolidContact` requires `contact.touchSide()` while ROM
+  gates on `p[12]_standing` (sonic3k.asm:47780-47782), and the proactive-zone check
+  `sub_2326C` (sonic3k.asm:47957) iterates both Player_1 and Player_2 each frame while
+  the engine's spring update runs once per object with the leader only.
 - **Trace recorder v6.3-s3k:** adds two per-frame diagnostic event types on top of v6.2
   (`object_state`, `interact_state`) and v6.1 (`oscillation_state`) and v6.0 (`cpu_state`):
   `cage_state` (one event per active CNZ Wire Cage object per frame, including the cage
