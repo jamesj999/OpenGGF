@@ -436,9 +436,30 @@ public class SidekickCpuController {
         }
 
         if (!jumpingFlag && !sidekick.getAir()) {
-            boolean passesDistanceGate = (frameCounter & 0xFF) == 0 || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
+            // ROM sonic3k.asm:26702-26705 (loc_13DD0) and s2.asm:38943-38946
+            // (TailsCPU_Normal): if Tails is currently pushing AND the leader was
+            // NOT pushing 16 frames ago, branch directly to the auto-jump trigger
+            // gate (loc_13E9C / TailsCPU_Normal_FilterAction_Part2), bypassing the
+            // dx/dy distance and height gates entirely. Without this bypass, Tails
+            // gets stuck pushing against terrain whenever Sonic has moved past it,
+            // because dx-distance is typically too large to pass the standard
+            // distance gate. AIZ trace F2721 reproduces this: Tails was pushing
+            // (status=0x20) at the end of F2720, Sonic was on an object (status=0x08
+            // = OnObject, not Pushing) 16 frames before, dx=0x4D so distance gate
+            // would fail, but ROM auto-jumps via the bypass and y_speed becomes
+            // -0x680 (Tails_Jump initial velocity).
+            //
+            // The same condition gates the engine's earlier `skipFollowSteering`
+            // block above (lines 395-396); reuse that condition here so steering
+            // skip and jump-trigger bypass stay in sync.
+            boolean pushingBypass = skipFollowSteering;
+            boolean passesDistanceGate = pushingBypass
+                    || (frameCounter & 0xFF) == 0
+                    || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
+            boolean passesHeightGate = pushingBypass
+                    || dy <= -JUMP_HEIGHT_THRESHOLD;
             if (passesDistanceGate
-                    && dy <= -JUMP_HEIGHT_THRESHOLD
+                    && passesHeightGate
                     && (frameCounter & 0x3F) == 0
                     && sidekick.getAnimationId() != duckAnimId) {
                 inputJump = true;

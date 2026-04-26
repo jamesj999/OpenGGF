@@ -223,15 +223,18 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
-- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 (per-game sidekick
-  fly-back exit gate at sonic3k.asm:26625-26630, plus a new ROM `SolidObject_cont` on-screen
-  render-flags gate at `s2.asm:35140-35145` / `sonic3k.asm:41390-41392` that keeps off-screen
-  spike side-pushes from zeroing player ground_vel — S3K-only via
-  `PhysicsFeatureSet.solidObjectOffscreenGate`). CNZ first-error advanced 1685 → 1740 → 1758 →
-  854 (despawn-on-id-mismatch gating, slope-repel slip in CnzWireCage release, per-tick
-  `slopeRepelJustSlipped` flag, plus v6.1-s3k recorder pre-trace-osc semantic correction that
-  resolved F850 Hover Fan one-frame trigger lag). Engine fixes gated via `PhysicsFeatureSet`,
-  S1/S2 baselines preserved.
+- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 (per-game
+  sidekick fly-back exit gate at sonic3k.asm:26625-26630; ROM `SolidObject_cont` on-screen
+  render-flags gate at `s2.asm:35140-35145` / `sonic3k.asm:41390-41392`, S3K-only via
+  `PhysicsFeatureSet.solidObjectOffscreenGate`; Tails CPU auto-jump pushing-bypass at
+  sonic3k.asm:26702-26705 / s2.asm:38943-38946 universal across S2/S3K; bonus removal of an
+  engine-spurious `controlLocked` write on AIZ vine grab that was poisoning Sonic's recorded
+  inputHistory and feeding wrong inputs to Tails CPU 16 frames later). CNZ first-error
+  advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in CnzWireCage
+  release, per-tick `slopeRepelJustSlipped` flag, plus v6.1-s3k recorder pre-trace-osc
+  semantic correction that resolved a separate F850 Hover Fan one-frame trigger lag). The
+  earlier per-frame CPU-state hydration was reverted as a violation of the comparison-only
+  invariant — engine state machines now produce ROM-correct values natively.
 - **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
   `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
   `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
