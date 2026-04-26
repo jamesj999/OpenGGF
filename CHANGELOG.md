@@ -4,6 +4,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F1815 Probe: `cnz.collisionprobe` Diagnostic
+
+- Added a permanent debug-only collision probe for the CNZ F1815 Tails
+  landing divergence, gated behind `-Dcnz.collisionprobe=true` (or
+  `-Ds3k.cnz.collisionprobe=true`). Modeled on the existing
+  `-Ds3k.aiz.aircollisionprobe`. Fires only when the player is inside
+  the F1815 region (X 0x1200..0x1300, Y 0x0680..0x0780). Zero overhead
+  when disabled.
+- Probe coverage spans `PlayableSpriteMovement.handleMovement` entry,
+  mode dispatch, and `doLevelCollision` entry; `CollisionSystem`
+  per-quadrant air-collision results plus `landOnFloor` pre/post; and
+  `GroundSensor.scanVertical` first-pass and extension-pass tile
+  lookups (chunk descriptor, block index, primary/secondary collision
+  mode, solidity bit, tile index, metric).
+- The probe revealed that the engine's loaded chunk descriptor at
+  block 159 tile (4,3) is `0x02CD` with `primMode=NO_COLLISION` and
+  `secMode=NO_COLLISION`, so terrain probe correctly returns
+  `d1=+1`. However, the ROM trace's `y_sub` at F1815 (`0xC000`) is
+  mathematically consistent with `add.w -3, y_pos` after MoveSprite
+  advanced y_pos by `0x308` to `0x072F`, indicating ROM detected
+  `d1=-3` at the same position. The mismatch points to a
+  block-loading or ChunkDesc-decoding bug in
+  `Sonic3kLevel.loadBlocksWithPlan` /
+  `LevelDataFactory.chunksFromSegaByteArray` /
+  `ChunkDesc.updateFields`, or to a layout-pointer indexing issue.
+  No engine-state changes; CNZ baseline F1815 unchanged.
+
 ### Sonic 3&K AIZ Trace F2202 Fix: Permanent Destroyed-Badnik Latch (`destroyedInWindow`)
 
 - Fixed `TestS3kAizTraceReplay#replayMatchesTrace` strict divergence at

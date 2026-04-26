@@ -232,6 +232,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// branch selection.
 		sprite.capturePrePhysicsSnapshot();
 
+		traceCnzMovementEntry();
+
 		if (sprite.isDebugMode()) {
 			handleDebugMovement(up, down, left, right, speedUp, slowDown);
 			return;
@@ -351,6 +353,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
+		traceCnzModeDispatch();
 		if (sprite.getAir()) {
 			modeAirborne();
 		} else if (sprite.getRolling()) {
@@ -1954,7 +1957,63 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
 		Consumer<AbstractPlayableSprite> landingHandler =
 				usesDirectHitFloorLanding(quadrant) ? this::calculateDirectFloorLanding : this::calculateLanding;
+		traceCnzDoLevelCollisionEntry(forceFloorCheck, quadrant);
 		collisionSystem().resolveAirCollision(sprite, landingHandler, forceFloorCheck);
+	}
+
+	/**
+	 * CNZ probe — entry-of-handleMovement instrumentation.
+	 * Enable via -Dcnz.collisionprobe=true or -Ds3k.cnz.collisionprobe=true.
+	 * Logs every Tails handleMovement entry near the F1815 region so we can see
+	 * which dispatch path Tails actually took.
+	 */
+	private void traceCnzMovementEntry() {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		System.out.printf("cnz-mvEntry who=%s pos=(%04X,%04X) ys=%04X air=%b objCtrl=%b ctrlLock=%b dead=%b hidden=%b%n",
+				who, cx, cy, sprite.getYSpeed() & 0xFFFF, sprite.getAir(),
+				sprite.isObjectControlled(), sprite.isControlLocked(), sprite.getDead(),
+				sprite.isHidden());
+	}
+
+	private void traceCnzModeDispatch() {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		String mode = sprite.getAir() ? "air" : (sprite.getRolling() ? "roll" : "normal");
+		System.out.printf("cnz-modeDispatch who=%s pos=(%04X,%04X) spd=(xs=%04X,ys=%04X,gs=%04X) mode=%s air=%b objCtrl=%b ctrlLock=%b suppressAir=%b%n",
+				who, cx, cy, sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF, sprite.getGSpeed() & 0xFFFF,
+				mode, sprite.getAir(),
+				sprite.isObjectControlled(), sprite.isControlLocked(), sprite.isSuppressAirCollision());
+	}
+
+	private void traceCnzDoLevelCollisionEntry(boolean forceFloorCheck, int quadrant) {
+		if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+			return;
+		}
+		int cx = sprite.getCentreX() & 0xFFFF;
+		int cy = sprite.getCentreY() & 0xFFFF;
+		if (cx < 0x1200 || cx > 0x1300 || cy < 0x0680 || cy > 0x0780) {
+			return;
+		}
+		String who = sprite.isCpuControlled() ? "tails" : "sonic";
+		System.out.printf("cnz-doLevelColl who=%s pos=(%04X,%04X) spd=(xs=%04X,ys=%04X) quad=%02X air=%b force=%b objCtrl=%b suppress=%b%n",
+				who, cx, cy, sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF,
+				quadrant, sprite.getAir(), forceFloorCheck,
+				sprite.isObjectControlled(), sprite.isSuppressAirCollision());
 	}
 
 	private static boolean usesDirectHitFloorLanding(int quadrant) {
