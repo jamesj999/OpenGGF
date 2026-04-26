@@ -4,6 +4,37 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F6066: Gate CaterKillerJr Logic on Obj_WaitOffscreen Visibility
+
+- Fixed `CaterkillerJrHeadInstance.update()` to early-return until the
+  badnik is on-screen via `isOnScreenX()`. ROM `Obj_CaterKillerJr`
+  (`sonic3k.asm:183317-183323`) begins with
+  `jsr (Obj_WaitOffscreen).l`. `Obj_WaitOffscreen`
+  (`sonic3k.asm:180266-180297`) replaces the object's code pointer with
+  `loc_85AD2` until the on-screen render-flag bit is set, which only
+  happens once the camera reaches the spawn x. The chunk-based placement
+  cursor allocates the badnik's slot ~40 frames before the camera
+  reaches its spawn x, so the engine was running the swing/move cycle
+  during that pre-roll, which carried CaterKillerJr ~41 px further left
+  than ROM by the time Sonic encountered it (AIZ2 narrow corridor at
+  spawn x=0x0850).
+- Engine-side stack: `ObjectManager.runTouchResponsesForPlayer →
+  TouchResponses.processCollisionLoop → handleTouchResponse → applyHurt`
+  fired with `sourceX=0x07EF` against Sonic at `cx=0x07DF cy=0x033A`,
+  producing the exact `applyHurt` knockback signature
+  (`x_speed=-0x200, y_speed=-0x400`, `air=1`, `status=0x06`). ROM at the
+  same gfc had Sonic running on the ground at `g_speed=-0x98` because
+  the CaterKillerJr was 0x29 (~41) pixels further right and never
+  contacted the player.
+- Other AIZ badniks already had this guard
+  (`BlastoidBadnikInstance`, `BuggernautBadnikInstance`,
+  `MonkeyDudeBadnikInstance`, `BatbotBadnikInstance`,
+  `TunnelbotBadnikInstance`); CaterKillerJr was the missing case.
+- TestS3kAizTraceReplay#replayMatchesTrace: first error advances from
+  F6066 (1178 errors / 1609 warnings) to F6255 (Tails despawn handoff).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F2222.
+
 ### Sonic 3&K CNZ Trace F2175: Preserve OnObject Across Frame Boundary For Latch-And-Own Controllers
 
 - Fixed `ObjectManager.SolidContacts.finalizeInlinePlayer()` to skip the

@@ -26,6 +26,7 @@ Entries should include:
 8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
 9. [AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)](#aiz1-trace-f5497--sidekick-cpu-bound-override-stale-after-act-transition-fixed)
 10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
+11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
 
 ---
 
@@ -728,3 +729,90 @@ After the fix `TestS3kAizTraceReplay` first strict error advances past
 F5736 to F6066 (a separate Sonic-only divergence in AIZ2 main gameplay),
 total errors drop from 1184 to 1178. All cross-game baselines stay
 green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2175.
+
+---
+
+## AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)
+
+**Location:** `src/main/java/com/openggf/game/sonic3k/objects/badniks/CaterkillerJrHeadInstance.java`
+**Trace:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+**Symptom:** ROM at trace F6066 has Sonic on the ground in AIZ2 narrow
+corridor running left at `g_speed=-0x98`, `air=0`, `status=0x01`.
+Engine has Sonic in air with `x_speed=-0x200`, `y_speed=-0x400`,
+`g_speed=0`, `air=1`, `status=0x06` — exact `applyHurt(NORMAL)`
+knockback signature (sourceX > centreX → x dir = -1 → x_speed =
+0x200 \* -1 = -0x200; y_speed = -0x400 hardcoded).
+Stack trace: `runTouchResponsesForPlayer →
+TouchResponses.processCollisionLoop → handleTouchResponse → applyHurt`
+with `hitter=CaterkillerJrHeadInstance objId=8F x=0x07EF y=0x0326`.
+
+### Root Cause
+
+ROM `Obj_CaterKillerJr` at `sonic3k.asm:183317-183323` begins:
+```
+Obj_CaterKillerJr:
+    jsr (Obj_WaitOffscreen).l
+    moveq #0,d0
+    move.b routine(a0),d0
+    move.w CaterKillerJr_Index(pc,d0.w),d1
+    jsr CaterKillerJr_Index(pc,d1.w)
+    jmp Sprite_CheckDeleteTouch(pc)
+```
+
+`Obj_WaitOffscreen` (`sonic3k.asm:180266-180297`) replaces the object's
+`(a0)` code pointer with `loc_85AD2` and saves the original return
+address at `$34`. `loc_85AD2` runs every frame thereafter:
+
+```
+loc_85AD2:
+    tst.b render_flags(a0)
+    bmi.s loc_85B02       ; on-screen X (bit 7 set) → restore real code
+    move.w x_pos(a0),d0
+    andi.w #$FF80,d0
+    sub.w (Camera_X_pos_coarse_back).w,d0
+    cmpi.w #$280,d0
+    bhi.s loc_85AF0        ; too far → delete
+    jmp (Draw_Sprite).l    ; otherwise just draw the offscreen indicator
+```
+
+So the badnik enters a frozen "wait" state (no swing, no movement) until
+the camera catches up and the on-screen X bit gets set.
+
+The S3K placement cursor advances 1 chunk per frame, allocating slots
+at the chunk-boundary transition (cam_x crossing 0x80 boundaries).
+Because S3K loads its window at `cameraChunk + 0x280`, the cursor
+allocates the CaterKillerJr's slot ~40 frames before the camera reaches
+the spawn x. ROM stays in the offscreen wait the whole pre-roll.
+
+The engine's `CaterkillerJrHeadInstance.update()` had no equivalent
+gate — the swing state machine ran from spawn frame, so the badnik
+moved at `-0x100` x-velocity for those ~40 extra frames and ended up
+~0x29 (41) pixels further left than ROM by the time Sonic arrived.
+
+This matters in the AIZ2 narrow corridor at spawn x=0x0850 (camera
+window crossing chunk 0x0600 at gfc=5670 vs ROM at gfc=5713). The
+displaced engine badnik happens to overlap Sonic at gfc=5770 (trace
+F6066), triggering hurt; the ROM badnik is still 41 px to the right.
+
+### Fix
+
+`CaterkillerJrHeadInstance.update()` now early-returns when
+`!isOnScreenX()`. Other AIZ badniks already had this guard
+(`BlastoidBadnikInstance`, `BuggernautBadnikInstance`,
+`MonkeyDudeBadnikInstance`, `BatbotBadnikInstance`,
+`TunnelbotBadnikInstance`) — CaterKillerJr was the missing case.
+
+The fix does not affect body segments. Their ROM entry point
+(`loc_8778C` at `sonic3k.asm:183389-183395`) does **not** call
+`Obj_WaitOffscreen`; bodies always run, ticking `waitTimer` per frame
+even off-screen. The engine's `CaterkillerJrBodyInstance` already
+matches that.
+
+### Test Results
+
+After the fix `TestS3kAizTraceReplay` first strict error advances from
+F6066 to F6255 (separate Tails despawn handoff). Total errors rise from
+1178 to 6782 because the test no longer cascades from a single early
+hurt event and now exposes downstream Tails AI divergences.
+All cross-game baselines stay green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+F1151, S3K CNZ F2222.
