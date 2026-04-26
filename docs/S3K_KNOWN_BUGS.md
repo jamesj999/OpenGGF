@@ -20,7 +20,8 @@ Entries should include:
 2. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
 3. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
 4. [CNZ1 Trace F1758 — Wire Cage Airborne-Capture object_control Bit 0 Missing (FIXED)](#cnz1-trace-f1758--wire-cage-airborne-capture-object_control-bit-0-missing-fixed)
-5. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
+5. [CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)](#cnz1-trace-f1791--tails-cpu-auto-jump-trigger-bit-7-object-control-gate-fixed)
+6. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 
 ---
 
@@ -111,6 +112,34 @@ Without per-frame `Tails_CPU_routine`, `Ctrl_2_logical`, and `move_lock` recordi
 ### Removal Condition
 
 Met: `TestS3kCnzTraceReplay`'s first strict error has advanced past F1758 to F1791.
+
+---
+
+## CNZ1 Trace F1791 — Tails CPU Auto-Jump Trigger Bit-7 Object Control Gate (FIXED)
+
+**Status:** Fixed in iter-15 by porting ROM's bit-7 (`bmi.w`) object_control gate to the engine's `SidekickCpuController.updateNormal()` early-out. ROM `Tails_Normal` Part 2 entry at `sonic3k.asm:26672` does `tst.b object_control(a0); bmi.w loc_13EBE` — only the sign bit (bit 7) suppresses Tails_CPU_Control. Bits 0-6 (CNZ wire cage's `$42`, MGZ twisting loop's `$43`, etc.) leave the CPU dispatcher running so the auto-jump trigger at `loc_13E9C` (sonic3k.asm:26775) can keep firing while the player is held by the controlling object — that is what lets ROM write `Ctrl_2_logical = 0x7878` so the cage's `loc_33ADE` (sonic3k.asm:70052) reads jump-pressed and launches Tails with `x_vel = -0x800, y_vel = -0x200`.
+
+**Location:** `SidekickCpuController.updateNormal()` early-out, `AbstractPlayableSprite.objectControlAllowsCpu` flag, `CnzWireCageObjectInstance.beginLatchedCooldown()` and `continueRide()` cooldown paths.
+
+### Diagnosed Cause
+
+Engine `setObjectControlled(true)` is a single boolean covering both ROM bit 7 (full CPU + physics suppression: flight `$81`, despawn marker `$81`, super state `$83`, debug `$83`) and ROM bits 0-6 (per-object physics ownership where CPU still runs: cage bits 1+6, MGZ twisting loop bits 0+1+6). Engine's CPU controller was treating both cases identically and skipping the auto-jump trigger when Tails was riding the cage, so `inputJumpPress` was never set, and the cage's `tryJumpRelease` (which polls `player.isJumpJustPressed()`) never fired.
+
+### Fix
+
+1. New `objectControlAllowsCpu` flag on `AbstractPlayableSprite` (default `false` to preserve existing engine behaviour for bit-7 callers). Cleared automatically by `setObjectControlled(false)`. Bits-0-6 callers must set the flag alongside `setObjectControlled(true)` each time they re-assert physics ownership.
+2. `SidekickCpuController.updateNormal()` early-exits only when `isObjectControlled() && !isObjectControlAllowsCpu()`, mirroring ROM's sign-bit-only `bmi.w`.
+3. `CnzWireCageObjectInstance` sets the flag in `beginLatchedCooldown()` (airborne capture) and the two cooldown branches of `continueRide()` (release-cooldown, low-speed continuation).
+
+### Result
+
+- First strict error advances F1791 → F1815 (5144 → 5080 errors).
+- Cross-game baselines unchanged (S1 GHZ pass, S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F2919).
+- F1815 is a 1-frame landing-detection timing divergence (engine Tails lands 1 frame after ROM); engine and ROM converge from F1816 onwards.
+
+### Removal Condition
+
+Met: `TestS3kCnzTraceReplay`'s first strict error has advanced past F1791 to F1815.
 
 ---
 
