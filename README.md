@@ -223,13 +223,15 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
-- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 (per-game
+- **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 (per-game
   sidekick fly-back exit gate at sonic3k.asm:26625-26630; ROM `SolidObject_cont` on-screen
   render-flags gate at `s2.asm:35140-35145` / `sonic3k.asm:41390-41392`, S3K-only via
   `PhysicsFeatureSet.solidObjectOffscreenGate`; Tails CPU auto-jump pushing-bypass at
   sonic3k.asm:26702-26705 / s2.asm:38943-38946 universal across S2/S3K; bonus removal of an
   engine-spurious `controlLocked` write on AIZ vine grab that was poisoning Sonic's recorded
-  inputHistory and feeding wrong inputs to Tails CPU 16 frames later). CNZ first-error
+  inputHistory and feeding wrong inputs to Tails CPU 16 frames later; opt-out from the
+  off-screen solid-contact gate for springs because ROM `SolidObjectFull2_1P` at
+  sonic3k.asm:41065 does not test render_flags bit 7, advancing F2919 → F3834). CNZ first-error
   advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in CnzWireCage
   release, per-tick `slopeRepelJustSlipped` flag, v6.1-s3k recorder pre-trace-osc semantic
   correction that resolved a separate F850 Hover Fan one-frame trigger lag, and `CnzWireCage`

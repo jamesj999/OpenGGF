@@ -4,6 +4,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F2919 Fix: Spring Off-Screen Solid-Contact Bypass
+
+- Fixed `TestS3kAizTraceReplay#replayMatchesTrace` first strict
+  divergence at frame 2919 (`tails_x_speed` expected `-0x0A00`,
+  actual `0x036C`). The horizontal yellow spring at
+  `(0x1F39, 0x04A0)` sits ~0xAA px below the camera viewport at the
+  trigger frame, and the F2667 fix's universal off-screen solid-contact
+  gate was suppressing the spring's push-trigger path so Tails kept
+  her ground velocity instead of being launched.
+- Added `SolidObjectProvider.bypassesOffscreenSolidGate()` (default
+  `false`) and overrode it to `true` on the S3K and S2 spring
+  instance classes, mirroring the ROM divergence between
+  `SolidObjectFull_1P` (`sonic3k.asm:41016-41018`, has the
+  `loc_1DF88` gate) and `SolidObjectFull2_1P`
+  (`sonic3k.asm:41065-41067`, falls through directly to
+  `SolidObject_cont` without the gate). Every `Obj_Spring` variant
+  routes through `SolidObjectFull2_1P`
+  (`sonic3k.asm:47664/47673/47692/47701/47779/47798/47829/47848/`
+  `48036/48045/48064/48074`); S2 mirrors with
+  `SolidObject_Always_SingleCharacter` (`s2.asm:34873-34875`).
+- `ObjectManager.SolidContacts.processInlineObjectForPlayer` now
+  consults the new flag before applying the off-screen gate, so
+  spring contact resolution runs even when the camera has scrolled
+  past the spring's bounding box.
+- AIZ trace F2919 -> F3834. Cross-game baselines unchanged: S1 GHZ
+  PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F1791.
+
 ### Sonic 3&K CNZ Trace F1758 Fix: Wire Cage Airborne-Capture object_control Bit 0
 
 - Fixed `TestS3kCnzTraceReplay#replayMatchesTrace` first strict
