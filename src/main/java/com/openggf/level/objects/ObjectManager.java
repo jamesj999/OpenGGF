@@ -4303,7 +4303,19 @@ public class ObjectManager {
             // ROM platform-ride (MvSonicOnPtfm via SolidObjectFull_1P standing branch)
             // runs BEFORE the on-screen test, so off-screen platforms still carry the
             // rider. Only the new-contact resolveContact path is gated here.
+            //
+            // Per-object opt-out (bypassesOffscreenSolidGate): the ROM gate at
+            // loc_1DF88 lives only in SolidObjectFull_1P (sonic3k.asm:41016-41018).
+            // Spring variants and several other objects route through the sibling
+            // helper SolidObjectFull2_1P (sonic3k.asm:41065-41067) which falls
+            // through directly to SolidObject_cont without the bit-7 test, so
+            // they must continue to resolve push/side contact even when their
+            // bounding box has scrolled off-screen.  Without this opt-out, the
+            // AIZ trace replay F2919 horizontal spring at (0x1F39, 0x04A0)
+            // failed to launch Tails because the spring's bounding box sits
+            // ~0xAA px below the camera viewport at that frame.
             if (isSolidObjectOffscreenGateEnabled(player)
+                    && !provider.bypassesOffscreenSolidGate()
                     && !instance.isWithinSolidContactBounds()) {
                 // ROM sub_1E0C2 (sonic3k.asm:41528-41532): off-screen / no-contact
                 // path clears the player's push status and the object's pushing-bit
