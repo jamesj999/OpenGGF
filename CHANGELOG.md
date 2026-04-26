@@ -4,6 +4,40 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace v6.2-s3k Regeneration & F2222 Architectural Blocker Documentation
+
+- Regenerated `src/test/resources/traces/s3k/cnz` with the v6.2-s3k
+  recorder. The new aux track adds `cpu_state_per_frame`,
+  `oscillation_state_per_frame`, `object_state_per_frame`, and
+  `interact_state_per_frame` events (cf. `aux_schema_extras`), bringing
+  CNZ to the same diagnostic depth that the v6.2 recorder already
+  produces for AIZ. CSV `physics.csv` itself is unchanged.
+- New aux events expose Tails `Tails_CPU_routine`,
+  `Ctrl_2_held_logical`, `Ctrl_2_pressed_logical`, plus per-frame
+  `interact_slot` and player object-control byte. They are diagnostic
+  only — the trace replay test does NOT hydrate engine state from
+  these events.
+- Documented `CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE
+  Spurious Fire (OPEN)` in `docs/S3K_KNOWN_BUGS.md`. After the F2175
+  fix the same `tails_y_speed=-0x200` JUMP_RELEASE signature reappears
+  47 frames later. Root cause analysis trace by trace plus v6.2 aux
+  data narrows the divergence to the cage's `andi.w
+  #button_A_mask|button_B_mask|button_C_mask, d5` check at
+  `sonic3k.asm:70055`: the v6.2 aux at F2221 reports
+  `ctrl2_pressed=0x48` (button_A pressed bit 0x40 SET) which by my
+  reading should make the cage release Tails — yet ROM definitively
+  does not release at F2221 either. The unresolved mystery (engine
+  fires release one frame late, ROM does not fire at all) needs
+  ROM-side instrumentation to confirm cage execution path; entry in
+  `S3K_KNOWN_BUGS.md` enumerates the candidate gaps and the recorder
+  bug it surfaced (`s3k_trace_recorder.lua` writes `status` byte from
+  player offset `0x2A` while labelling the field `object_control` —
+  the actual `object_control` field is at offset `0x2E`).
+- Test result: TestS3kCnzTraceReplay#replayMatchesTrace first strict
+  error UNCHANGED at F2222 (5047 errors, 5217 warnings). Cross-game
+  baselines stay green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K
+  AIZ F6255.
+
 ### Sonic 3&K AIZ Trace F6066: Gate CaterKillerJr Logic on Obj_WaitOffscreen Visibility
 
 - Fixed `CaterkillerJrHeadInstance.update()` to early-return until the

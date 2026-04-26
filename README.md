@@ -263,7 +263,8 @@ further S3K parity work.
 - **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
   `interact_state` (per player) diagnostic events on top of v6.1 `oscillation_state` and v6.0
   `cpu_state`. All four event types are read-only diagnostic input — never hydrated into engine
-  state per the comparison-only invariant captured by the `trace-replay-bug-fixing` skill.
+  state per the comparison-only invariant captured by the `trace-replay-bug-fixing` skill. AIZ
+  and CNZ traces are both rerecorded against v6.2-s3k.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
