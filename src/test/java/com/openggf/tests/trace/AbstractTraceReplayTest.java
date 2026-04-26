@@ -304,17 +304,8 @@ public abstract class AbstractTraceReplayTest {
         Boolean lastEventsFg5 = null;
         boolean hasPerFrameOsc = meta.hasPerFrameOscillationState();
 
-        boolean hydrateCpuState = meta.hasPerFrameCpuState();
-        String cpuStateCharacter = meta.recordedSidekicks().isEmpty()
-                ? null
-                : meta.recordedSidekicks().getFirst();
-
         if (replayStart.hasSeededTraceState()) {
             TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
-            if (hydrateCpuState && cpuStateCharacter != null) {
-                applyRecordedFirstSidekickCpuState(
-                        trace.cpuStateForFrame(replayStart.seededTraceIndex(), cpuStateCharacter));
-            }
             applyRecordedFirstSidekickState(seededFrame.sidekick());
             TraceReplayBootstrap.ReplayPrimaryState seededPrimary =
                     TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
@@ -396,16 +387,6 @@ public abstract class AbstractTraceReplayTest {
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
             if (previousDriveFrame != null) {
-                if (hydrateCpuState && cpuStateCharacter != null) {
-                    // Pin the engine SidekickCpuController to the ROM-recorded
-                    // state at the end of the previous frame BEFORE applying
-                    // the sprite reseed: applyRecordedFirstSidekickState reads
-                    // cpu.getState() to gate object_control preservation, so
-                    // hydrating CPU state first ensures the gate sees ROM state
-                    // rather than engine-drifted state.
-                    applyRecordedFirstSidekickCpuState(
-                            trace.cpuStateForFrame(previousDriveFrame.frame(), cpuStateCharacter));
-                }
                 applyRecordedFirstSidekickState(previousDriveFrame.sidekick());
             }
             TraceExecutionPhase phase =
@@ -507,12 +488,7 @@ public abstract class AbstractTraceReplayTest {
                 // the engine-produced result for this frame. Re-seed only after
                 // recording the comparison so sidekick drift is reported, while
                 // later Sonic comparisons stay isolated from accumulated Tails
-                // divergence. Hydrate CPU first so object_control preservation
-                // gate sees the ROM-recorded routine before sprite reseed.
-                if (hydrateCpuState && cpuStateCharacter != null) {
-                    applyRecordedFirstSidekickCpuState(
-                            trace.cpuStateForFrame(driveFrame.frame(), cpuStateCharacter));
-                }
+                // divergence.
                 applyRecordedFirstSidekickState(driveFrame.sidekick());
 
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
@@ -542,10 +518,6 @@ public abstract class AbstractTraceReplayTest {
                     }
                 }
             } else {
-                if (hydrateCpuState && cpuStateCharacter != null) {
-                    applyRecordedFirstSidekickCpuState(
-                            trace.cpuStateForFrame(driveFrame.frame(), cpuStateCharacter));
-                }
                 applyRecordedFirstSidekickState(driveFrame.sidekick());
             }
 
@@ -764,25 +736,9 @@ public abstract class AbstractTraceReplayTest {
         int xBeforeReseed = sidekick.getCentreX() & 0xFFFF;
         int despawnX =
                 com.openggf.game.PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S3K & 0xFFFF;
-        // Preserve object_control for either the engine's SPAWNING state (legacy
-        // transitional state we use during respawn flow) or CATCH_UP_FLIGHT /
-        // FLIGHT_AUTO_RECOVERY (ROM Tails_CPU_routine 0x02/0x04 — sub_13ECA at
-        // sonic3k.asm:26800 writes object_control=$81 atomically with x_pos=$7F00 /
-        // y_pos=0 and Tails_CPU_routine=2). The dispatcher early-returns on the
-        // ROM's pollers (Tails_Catch_Up_Flying / Tails_FlySwim_Unknown) until an
-        // exit event fires, leaving Tails parked at the marker with object_control
-        // bit 7 set so the per-character movement handler is suppressed. Clearing
-        // object_control here lets PlayableSpriteMovement.modeNormal() run a full
-        // ground physics step on the hydrated marker position, which re-introduces
-        // the F826 tails_y_speed -0x33 -> +0x05 divergence the v6 trace exposes
-        // after the F1758 partial fix.
-        int targetX = state.x() & 0xFFFF;
-        boolean atDespawnMarker = xBeforeReseed == despawnX || targetX == despawnX;
         boolean preserveObjectControl = cpu != null
-                && atDespawnMarker
-                && (cpu.getState() == SidekickCpuController.State.SPAWNING
-                    || cpu.getState() == SidekickCpuController.State.CATCH_UP_FLIGHT
-                    || cpu.getState() == SidekickCpuController.State.FLIGHT_AUTO_RECOVERY);
+                && cpu.getState() == SidekickCpuController.State.SPAWNING
+                && xBeforeReseed == despawnX;
         if (!preserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
@@ -809,51 +765,6 @@ public abstract class AbstractTraceReplayTest {
         // Sonic+Tails carry is driven by the sidekick CPU routine; the trace
         // state supplies frame-boundary position/speed, not a replacement CPU
         // routine stream.
-    }
-
-    /**
-     * Hydrates the first sidekick's {@link SidekickCpuController} from a v6+
-     * per-frame {@link TraceEvent.CpuState} event. This mirrors what
-     * {@link #applyRecordedFirstSidekickState} does for the sprite-side
-     * physics state: it pins the engine CPU controller to the ROM-recorded
-     * authoritative state at the end of the previous frame so the AI tick
-     * during the next frame's engine step uses the same inputs the ROM saw,
-     * eliminating CPU-state drift as a source of trace divergence.
-     *
-     * <p>Pre-conditions:
-     * <ul>
-     * <li>The trace metadata declares {@code cpu_state_per_frame} support
-     *   (caller checks {@link TraceMetadata#hasPerFrameCpuState()}).</li>
-     * <li>{@code cpuState} is the {@link TraceEvent.CpuState} event for the
-     *   trace frame whose sidekick state is being applied (typically the
-     *   previous-drive-frame event when the engine is about to step into the
-     *   next frame).</li>
-     * </ul>
-     *
-     * <p>If {@code cpuState} is {@code null} (e.g. older trace, or the event
-     * is missing for that frame), this method is a no-op.
-     */
-    private void applyRecordedFirstSidekickCpuState(TraceEvent.CpuState cpuState) {
-        if (cpuState == null) {
-            return;
-        }
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-        SidekickCpuController controller =
-                spriteManager.getSidekicks().getFirst().getCpuController();
-        if (controller == null) {
-            return;
-        }
-        controller.hydrateFromRomCpuStatePerFrame(
-                cpuState.cpuRoutine(),
-                cpuState.idleTimer(),
-                cpuState.flightTimer(),
-                cpuState.autoFlyTimer(),
-                cpuState.autoJumpFlag(),
-                cpuState.ctrl2Held(),
-                cpuState.ctrl2Pressed());
     }
 
     private static GroundMode groundModeFromOrdinal(int ordinal) {
