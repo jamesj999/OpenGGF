@@ -224,7 +224,7 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 (the F3834 sidekick-enemy-bounce fix uncovered F2202's phantom-respawn divergence
+  → 4679 → 5497 (the F3834 sidekick-enemy-bounce fix uncovered F2202's phantom-respawn divergence
   that elastic-window comparison had been masking — that's now fixed too via permanent
   destroyed-badnik latching matching ROM `Object_respawn_table` bit 7 (sonic3k.asm:loc_1BA40/
   loc_1BA64), gated S3K-only since S1/S2 use the existing `remembered`-flag pattern; plus an
@@ -249,7 +249,10 @@ further S3K parity work.
   default-radii reset in `resetOnFloor` mirroring ROM `Player_TouchFloor` —
   sonic3k.asm:69986/70095 cage release uses hardcoded y_radius=19/x_radius=9 regardless of
   character, and Tails's default y_radius=15 was causing 4-px hitbox drift after release that
-  cascaded into terrain-miss). The earlier per-frame CPU-state hydration was
+  cascaded into terrain-miss). AIZ also gained a sidekick level-boundary kill split (ROM
+  `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
+  then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
+  `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
   produce ROM-correct values natively.
 - **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
