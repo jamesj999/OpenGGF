@@ -563,8 +563,18 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     + (isFireTransitionActive() ? ", skipped palette (fire active)" : ", re-applied main palette"));
         }
         if (boundariesUnlocked) {
-            resizeMaxYFromX(cameraX);
-            applyResizePaletteMutation(cameraX);
+            // ROM: Do_ResizeEvents runs *inside* DeformBgLayer (sonic3k.asm:38303-38316),
+            // AFTER MoveCameraX/MoveCameraY have committed the new Camera_X_pos. So the
+            // resize threshold scan sees the same Camera_X_pos that Process_Sprites will
+            // observe on the *next* main-loop iteration.
+            //
+            // Our LevelFrameStep runs events (step 4) BEFORE the camera step (step 5),
+            // so camera().getX() here is the previous frame's value. Use the predicted
+            // end-of-frame camera X so resize thresholds fire on the same trace frame
+            // ROM does — otherwise Camera_max_Y_pos lags by one frame, which delays the
+            // sidekick kill-plane fire by one frame at AIZ1 cam_x crossing $2D80.
+            resizeMaxYFromX(frameEndCameraX);
+            applyResizePaletteMutation(frameEndCameraX);
         }
 
         updateFireTransition();

@@ -4,6 +4,23 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ1 Resize Timing Fix
+
+- Fixed `Sonic3kAIZEvents.updateAct1` to scan the AIZ1 dynamic-resize table
+  using the predicted end-of-frame camera X (`Camera.previewNextX()`) instead
+  of the previous frame's `Camera.getX()`. ROM: `Do_ResizeEvents` runs inside
+  `DeformBgLayer` (sonic3k.asm:38303-38316) AFTER `MoveCameraX`/`MoveCameraY`
+  have committed the new `Camera_X_pos`, so the resize scan sees the new
+  camera X on the same trace frame. The engine's `LevelFrameStep` runs events
+  (step 4) before the camera step (step 5), so the previous-frame camera X
+  caused `Camera_max_Y_pos` updates to lag by one frame. At AIZ1's cam_x ==
+  $2D80 boundary (resize_table drop from $0390 to $02E0), this delayed the
+  sidekick kill-plane fire by one frame, leaving Tails alive for an extra
+  frame after ROM had already triggered `Kill_Character`. AIZ trace replay
+  first-error frame 4679 advances from `tails_x_speed` to `tails_y_speed`
+  (Tails now despawns on the correct frame; remaining divergence is the
+  sidekick despawn-vs-kill_character semantic gap).
+
 ### Sonic 3&K CNZ Trace F1815 Probe: `cnz.collisionprobe` Diagnostic
 
 - Added a permanent debug-only collision probe for the CNZ F1815 Tails
