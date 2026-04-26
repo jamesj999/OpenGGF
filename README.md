@@ -298,8 +298,21 @@ further S3K parity work.
   `SidekickCpuController.updateNormal()` so the auto-jump trigger can fire mid-air —
   ROM `loc_13E64` sonic3k.asm:26752-26758 only skips the trigger block when the flag
   is already set AND airborne, not just airborne; same in S2
-  `TailsCPU_Normal_FilterAction` s2.asm:38994-39022). AIZ also gained a sidekick
-  level-boundary kill split (ROM
+  `TailsCPU_Normal_FilterAction` s2.asm:38994-39022; F3901 → F4490 lands round 17's
+  cage stuck-frozen wall-suppress clear — `CnzWireCageObjectInstance` had been
+  leaving `suppressGroundWallCollision=true` lingering from the earlier
+  `latch()` call so when sidekick Tails landed on flat terrain inside the cage's
+  bounding box, ROM's `Tails_InputAcceleration_Path` wall sensor at
+  sonic3k.asm:27957-28001 was detecting 1px penetration and applying corrective
+  `x_vel += -0x100`, but the engine was short-circuiting on the suppress flag;
+  fix also adds a `processPlayer()` skip-tryLatch branch for sidekick once
+  `leaderHasReleased` is set, mirroring ROM's d6-corruption gate at
+  sonic3k.asm:69873-69921 — once leader releases, `Perform_Player_DPLC` stops
+  corrupting d6 and the cage's `btst`-against-cage-status capture test fails for
+  the sidekick, so the cage stops re-capturing Tails every frame she lands in
+  the bbox; both branches preserve `objectControlled=true + objectControlAllowsCpu=true`
+  to match ROM's persistent `obj_ctrl=$43` ghost-state marker). AIZ also gained
+  a sidekick level-boundary kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was

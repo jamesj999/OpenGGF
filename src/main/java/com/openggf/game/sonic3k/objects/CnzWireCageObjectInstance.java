@@ -171,6 +171,32 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             return;
         }
 
+        // ROM parity (sonic3k.asm:69873-69921, sub_338C4 path): once the leader
+        // has released the cage, Perform_Player_DPLC stops corrupting the d6
+        // register that gates the cage's btst-against-cage-status capture
+        // test. d6 stays uncorrupted at 3 (then +1 = 4 for the sidekick),
+        // but the cage's status bit was set at position 1 — so the test
+        // fails for the sidekick and ROM never re-captures Tails after
+        // Sonic released. Mirror by skipping tryLatch entirely for the
+        // sidekick once leaderHasReleased is set. Without this, the engine
+        // re-captures Tails when she lands inside the cage's bounding box,
+        // re-arming setSuppressGroundWallCollision(true) which suppresses
+        // the wall-correction loop in PlayableSpriteMovement.doGroundMove
+        // and lets her clip past CNZ's flat-ground left-wall sensor at
+        // x=0x1C35, y=0x09B0. CNZ1 trace F3901 reproduces the lingering
+        // suppress flag: ROM has tails_x_speed=-0x00E8 (wall correction
+        // applied), engine had 0x0018 (no correction).
+        if (isSidekick && leaderHasReleased) {
+            // Also clear any stale per-frame suppress lingering from a prior
+            // capture. The flag was set by an earlier latch() before
+            // leaderHasReleased flipped; release() clears it but only when
+            // an actual release path runs, which the stuck-frozen branch
+            // suppresses. Clear it here so the wall sensor can fire on the
+            // next ground tick.
+            player.setSuppressGroundWallCollision(false);
+            return;
+        }
+
         tryLatch(player, state);
     }
 
@@ -351,6 +377,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             // Tails_CPU_flight_timer despawn-and-respawn that frees her.
             player.setObjectControlled(true);
             player.setObjectControlAllowsCpu(true);
+            // Clear the latched solid object id so wall-collision suppression
+            // doesn't carry over from the cage capture state. This branch
+            // mirrors ROM's "frozen sidekick" behaviour where the cage no
+            // longer governs Tails' physics, so engine wall-collision must
+            // not be suppressed by the stale cage latch. CNZ1 trace F3901
+            // reproduces: Tails landed on flat terrain inside the cage's
+            // bounding box; ROM detects a left-wall sensor hit (Status_Push
+            // set, x_vel=-0x00E8), engine had wall-collision suppress
+            // lingering from the prior latch and clipped past the wall.
+            player.setSuppressGroundWallCollision(false);
             return;
         }
 
