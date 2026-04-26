@@ -17,7 +17,7 @@ Entries should include:
 ## Table of Contents
 
 1. [CNZ1 Miniboss Arena Entry — Music Play-In Missing](#cnz1-miniboss-arena-entry--music-play-in-missing)
-2. [AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap](#aiz1-trace-f4679--sidekick-despawn-velocity--position-semantic-gap)
+2. [AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap (FIXED)](#aiz1-trace-f4679--sidekick-despawn-velocity--position-semantic-gap-fixed)
 3. [CNZ1 Trace F1685 — Tails CPU Spurious Despawn on Barber-Pole→Wire-Cage Object Switch (FIXED)](#cnz1-trace-f1685--tails-cpu-spurious-despawn-on-barber-polewire-cage-object-switch-fixed)
 4. [CNZ1 Trace F1740 — Wire Cage restoreObjectLatchIfTerrainClearedIt Overrode Slope-Repel Slip (FIXED)](#cnz1-trace-f1740--wire-cage-restoreobjectlatchifterrainclearedit-overrode-slope-repel-slip-fixed)
 5. [CNZ1 Trace F1758 — Wire Cage Airborne-Capture object_control Bit 0 Missing (FIXED)](#cnz1-trace-f1758--wire-cage-airborne-capture-object_control-bit-0-missing-fixed)
@@ -48,41 +48,91 @@ Remove once the miniboss theme plays on arena entry and a regression test assert
 
 ---
 
-## AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap
+## AIZ1 Trace F4679 — Sidekick Despawn Velocity & Position Semantic Gap (FIXED)
 
-**Location:** `SidekickCpuController.despawn()` / `triggerDespawn()`
-**ROM Reference:** `sonic3k.asm:21136` (`Kill_Character`), `sonic3k.asm:26800` (`sub_13ECA`), `sonic3k.asm:23172` (`Player_LevelBound`)
+**Status:** Fixed in iter-19 by routing sidekick level-boundary kills through
+a new `Kill_Character`-equivalent path. The fix introduces a `DespawnCause`
+enum on `SidekickCpuController` and gates the existing `triggerDespawn()`
+marker-warp body behind the non-`LEVEL_BOUNDARY` causes, with a new
+`beginLevelBoundaryKill()` entry for `LEVEL_BOUNDARY` that mirrors ROM
+`Kill_Character` (sonic3k.asm:21136-21151) by zeroing `xSpeed`/`ySpeed`/
+`gSpeed`, clearing roll/push/rolljump bits, and parking the sidekick in
+a new `State.DEAD_FALLING` engine state. The next frame's
+`updateDeadFalling()` runs the `loc_1578E -> sub_123C2 -> sub_13ECA`
+sequence (sonic3k.asm:29263, 24538, 26800): warp to despawn marker
+`(0x7F00, 0)`, transition to `State.SPAWNING`, and apply the post-warp
+`MoveSprite_TestGravity` +`$38` gravity write that ROM produces in the
+same frame.
 
-### Symptom
+**Location:** `SidekickCpuController.beginLevelBoundaryKill()` /
+`SidekickCpuController.updateDeadFalling()` /
+`SidekickCpuController.applyDespawnMarker()`,
+`PlayableSpriteMovement.doLevelBoundary()` (sidekick-CPU dispatch).
+**ROM Reference:** `sonic3k.asm:21136` (`Kill_Character`), `sonic3k.asm:23172`
+(`Player_LevelBound`), `sonic3k.asm:24538` (`sub_123C2`), `sonic3k.asm:26800`
+(`sub_13ECA`), `sonic3k.asm:29263` (`loc_1578E` death routine), `sonic3k.asm:36068`
+(`MoveSprite_TestGravity`).
+
+### Pre-Fix Symptom
 
 `TestS3kAizTraceReplay#replayMatchesTrace` first error at trace frame 4679:
 ```
 tails_y_speed mismatch (expected=0x0000, actual=0x0198)
 ```
 
-The kill-plane *trigger* is now correctly aligned with ROM (the `Camera_max_Y_pos` resize timing fix in `Sonic3kAIZEvents` lands `Camera_max_Y_pos = 0x02E0` on trace frame 4679, the same frame ROM does, so engine sidekick `getY()` correctly tests above kill plane `0x03C0`). However, the engine's `SidekickCpuController.despawn()` immediately warps Tails to the despawn marker `(0x7F00, 0)` and leaves `(x_vel, y_vel, ground_vel)` carrying the live-physics values from the previous frame.
+Engine `SidekickCpuController.despawn()` warped Tails to the despawn marker
+`(0x7F00, 0)` immediately and left `(x_vel, y_vel, ground_vel)` carrying
+the live-physics values from the previous frame, while ROM's
+`Player_LevelBound -> Kill_Character` chain zeros the velocities on Frame
+N before the death routine warps to the marker on Frame N+1.
 
-ROM's flow is two-phase:
-1. **Frame N (`Kill_Character` runs):** `routine` → 6, `x_vel = 0`, `y_vel = -$700`, `ground_vel = 0`, then `Player_TouchFloor` adjusts `y_pos` (de-rolling y-radius increase). Trace records the post-`Kill_Character` end-of-frame state with velocities zeroed (the trace samples *after* the next physics tick where the death routine takes over and the velocities the recorder captures are the post-death-routine values).
-2. **Frame N+1 (death routine runs):** `loc_1578E` runs `MoveSprite_TestGravity` which adds gravity ($38) to `y_vel`. After several frames a CPU AI cleanup path (likely via `Tails_Catch_Up_Flying` despawn branch or `sub_13ECA`) warps to the marker.
+### Diagnosed Cause
 
-Engine collapses both frames into a single instant: `triggerDespawn()` warps to the marker AND skips the velocity zeroing, so on frame 4679 the engine has `tails_y_speed = 0x0198` (carry-over from the rolling-airborne descent) where ROM has `0x0000`.
+`SidekickCpuController.triggerDespawn()` was modelling `sub_13ECA` only
+(the marker warp) for all despawn causes. Off-screen-timeout and
+object-id-mismatch despawns naturally preserve velocity (ROM `sub_13ECA`
+writes only x_pos/y_pos/object_control/status/Tails_CPU_routine and does
+not touch x_vel/y_vel/ground_vel — sonic3k.asm:26800-26809), but the
+level-boundary kill goes through `Kill_Character` first which DOES zero
+the velocities. The engine collapsed both into one path.
 
-### Suspected Cause
+### Fix
 
-`SidekickCpuController.triggerDespawn()` was written to model `sub_13ECA` only (the marker warp), not the full `Player_LevelBound` → `Kill_Character` → death-routine → marker chain. When the kill source is the level boundary, ROM zeroes velocities in `Kill_Character`; the engine path skips that step.
+1. New `DespawnCause` enum on `SidekickCpuController`:
+   - `LEVEL_BOUNDARY` (Player_LevelBound bottom kill plane)
+   - `OFF_SCREEN_TIMEOUT` (engine 300-frame off-screen timeout)
+   - `OBJECT_ID_MISMATCH` (S2 TailsCPU_CheckDespawn id mismatch)
+   - `EXPLICIT` (test harness, level transitions)
+2. New `State.DEAD_FALLING` enum value, dispatched via
+   `updateDeadFalling()` in the per-frame state switch.
+3. `triggerDespawn(DespawnCause)` overload that routes to
+   `beginLevelBoundaryKill()` for `LEVEL_BOUNDARY`, otherwise calls
+   `applyDespawnMarker()` directly (preserving the historic non-zeroing
+   semantics for non-kill despawns).
+4. `beginLevelBoundaryKill()` mirrors `Kill_Character`: zeros vels, clears
+   roll/push/rolljump/onObject/pushing bits, sets in_air, transitions to
+   `DEAD_FALLING`. Position is intentionally NOT warped this frame to
+   match ROM's two-frame split where `sub_13ECA` runs on Frame N+1.
+5. `updateDeadFalling()` runs the next frame: calls `applyDespawnMarker()`
+   to warp + transition to `SPAWNING`, then writes y_speed=0x38 to mirror
+   ROM's post-`sub_13ECA` `MoveSprite_TestGravity` +0x38 air-gravity write.
+6. `applyDespawnMarker()` no longer zeros velocities (matches ROM
+   `sub_13ECA` exactly). Off-screen-timeout and object-id-mismatch paths
+   keep their pre-fix preserve-velocity semantics, which AIZ trace F2405
+   exercises (Tails alive at F2404, sub_13EFC's flight_timer hits 5*60 at
+   F2405, marker warp without velocity zeroing).
+7. `PlayableSpriteMovement.doLevelBoundary()` calls
+   `cpuController.despawn(DespawnCause.LEVEL_BOUNDARY)` instead of the
+   no-arg `despawn()` overload.
 
-### Plan
+### Result
 
-Either:
-1. Add a `Kill_Character`-equivalent code path that runs first when `doLevelBoundary` triggers a sidekick despawn — zero `xSpeed`/`ySpeed`/`gSpeed`, set routine to a death-marker state, then on the next frame let CPU controller transition to the despawn marker via the existing `triggerDespawn()` call. This matches the ROM's two-frame sequence exactly.
-2. Or: zero velocities inside `triggerDespawn()` *only* when the despawn cause is `LEVEL_BOUNDARY`, not the other despawn paths (off-screen, off-screen-recovery, etc.) which preserve velocity.
+- AIZ first strict error advances F4679 -> F5497 (1190 -> 1185 errors).
+  F5497 is in AIZ act 2 reload territory (downstream divergence, not
+  related to the kill-plane semantic gap).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151,
+  S3K CNZ F1815.
 
-Option 1 is closer to ROM parity and avoids special-casing the despawn API. Option 2 is a smaller diff but introduces a despawn-cause enum.
-
-### Removal Condition
-
-Remove once `TestS3kAizTraceReplay#replayMatchesTrace` advances past trace frame 4679 (sidekick state matches ROM at the kill-plane fire) and CNZ/AIZ off-screen-recovery despawn flows still pass their checkpoints. Cross-game baselines (S1 GHZ/MZ1, S2 EHZ, S3K CNZ) must remain unchanged.
 
 ---
 

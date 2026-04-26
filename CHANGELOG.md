@@ -4,6 +4,39 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ1 Trace F4679: Sidekick Level-Boundary Kill Velocity Zeroing
+
+- Fixed `SidekickCpuController.despawn()` to model ROM's two-phase
+  `Player_LevelBound -> Kill_Character -> sub_13ECA` sequence when the
+  sidekick crosses the bottom kill plane. ROM `Kill_Character`
+  (sonic3k.asm:21136-21151) zeros `x_vel`/`y_vel`/`ground_vel` and sets
+  `routine = 6` on Frame N; the next frame's death routine `loc_1578E`
+  (sonic3k.asm:29263) calls `sub_123C2 -> sub_13ECA` to warp to the
+  despawn marker `(0x7F00, 0)`, then post-warp `MoveSprite_TestGravity`
+  adds `+0x38` gravity to the freshly-zeroed `y_vel`. Engine collapsed
+  both phases into a single instant: `triggerDespawn()` warped to the
+  marker AND skipped the velocity zeroing, leaving Tails carrying live
+  physics velocities through the warp.
+- Fix introduces a `DespawnCause` enum (`LEVEL_BOUNDARY`,
+  `OFF_SCREEN_TIMEOUT`, `OBJECT_ID_MISMATCH`, `EXPLICIT`) and a new
+  `State.DEAD_FALLING` engine state. `LEVEL_BOUNDARY` despawns route
+  through `beginLevelBoundaryKill()` (mirrors `Kill_Character`: zero
+  velocities, clear roll/push/rolljump, transition to `DEAD_FALLING`
+  without warping). The next frame's `updateDeadFalling()` runs the
+  `sub_13ECA + MoveSprite_TestGravity` equivalent (warp + +0x38
+  y_speed write). Other despawn causes go straight to
+  `applyDespawnMarker()` which preserves velocities (matching ROM
+  `sub_13ECA` exactly — sonic3k.asm:26800-26809 only writes pos/routine/
+  status, not velocities).
+- Critical edge case caught during fix: AIZ trace F2405 exercises the
+  OFF_SCREEN_TIMEOUT path (sub_13EFC's flight_timer hits 5*60), where
+  ROM PRESERVES velocities through the marker warp. Initial fix that
+  also zeroed velocities in `applyDespawnMarker()` broke F2405; final
+  fix only zeros in `beginLevelBoundaryKill()`.
+- AIZ trace first strict error advances F4679 -> F5497 (1190 -> 1185
+  errors). Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311,
+  S2 EHZ F1151, S3K CNZ F2175.
+
 ### Sonic 3&K CNZ Wire Cage Release Radii + Landing Reset Fix
 
 - `CnzWireCageObjectInstance.release` now applies `(x_radius=9, y_radius=19)`

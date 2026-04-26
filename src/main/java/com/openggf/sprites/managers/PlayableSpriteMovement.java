@@ -1886,7 +1886,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			short effectiveMaxY = (short) maxY;
 			if (sprite.getY() > effectiveMaxY + 224) {
 				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-					sprite.getCpuController().despawn();
+					// ROM Player_LevelBound (sonic3k.asm:23172) jumps to
+					// Kill_Character (sonic3k.asm:21136) for both player and
+					// sidekick when the bottom kill plane is crossed. The
+					// LEVEL_BOUNDARY cause selects the engine's
+					// Kill_Character-equivalent path (zero velocities + one-
+					// frame DEAD_FALLING state) so the trace's end-of-frame
+					// (vels=0, routine=6) sample matches at AIZ F4679.
+					sprite.getCpuController().despawn(
+						com.openggf.sprites.playable.SidekickCpuController.DespawnCause.LEVEL_BOUNDARY);
 				} else {
 					// ROM: Sonic_LevelBound checks for zone-specific intercepts
 					// (e.g. SBZ2 fall -> SBZ3 transition) before applying death.

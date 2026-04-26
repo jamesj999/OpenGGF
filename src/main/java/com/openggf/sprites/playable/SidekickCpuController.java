@@ -57,7 +57,25 @@ public class SidekickCpuController {
         CARRY_INIT,            // ROM routine 0x0C - first tick after trigger (teleport + pickup)
         CARRYING,              // ROM routine 0x0E / 0x20 - per-frame carry body
         CATCH_UP_FLIGHT,       // ROM routine 0x02 (Tails_Catch_Up_Flying, sonic3k.asm:26474)
-        FLIGHT_AUTO_RECOVERY   // ROM routine 0x04 (Tails_FlySwim_Unknown, sonic3k.asm:26534)
+        FLIGHT_AUTO_RECOVERY,  // ROM routine 0x04 (Tails_FlySwim_Unknown, sonic3k.asm:26534)
+        // ROM Tails OBJECT routine 0x06 (death state, dispatch loc_1578E in
+        // sonic3k.asm:29263). Entered the frame Player_LevelBound calls
+        // Kill_Character (sonic3k.asm:21136) on the sidekick.
+        DEAD_FALLING
+    }
+
+    /**
+     * Why despawn was invoked. Selects between the
+     * Kill_Character-equivalent flow (LEVEL_BOUNDARY) that zeroes velocities
+     * and runs a one-frame death routine before warping to the despawn
+     * marker, and the simpler immediate-warp paths used by off-screen
+     * timeout, S2 object-id-mismatch, and explicit cleanup callers.
+     */
+    public enum DespawnCause {
+        LEVEL_BOUNDARY,
+        OFF_SCREEN_TIMEOUT,
+        OBJECT_ID_MISMATCH,
+        EXPLICIT
     }
 
     private static final int SETTLED_FRAME_THRESHOLD = 15;
@@ -145,6 +163,7 @@ public class SidekickCpuController {
             case CARRYING             -> updateCarrying();
             case CATCH_UP_FLIGHT      -> updateCatchUpFlight();
             case FLIGHT_AUTO_RECOVERY -> updateFlightAutoRecovery();
+            case DEAD_FALLING         -> updateDeadFalling();
         }
     }
 
@@ -961,14 +980,14 @@ public class SidekickCpuController {
     private void enterApproachingState() {
         AbstractPlayableSprite target = getEffectiveLeader();
         if (target == null) {
-            triggerDespawn();
+            triggerDespawn(DespawnCause.EXPLICIT);
             return;
         }
         sidekick.setSpindash(false);
         sidekick.setSpindashCounter((short) 0);
         boolean started = respawnStrategy.beginApproach(sidekick, target);
         if (!started) {
-            triggerDespawn();
+            triggerDespawn(DespawnCause.EXPLICIT);
             return;
         }
         state = State.APPROACHING;
@@ -1032,14 +1051,14 @@ public class SidekickCpuController {
                 && lastInteractObjectId != 0
                 && currentInteractObjectId != lastInteractObjectId) {
             lastInteractObjectId = currentInteractObjectId;
-            triggerDespawn();
+            triggerDespawn(DespawnCause.OBJECT_ID_MISMATCH);
             return true;
         }
 
         despawnCounter++;
         lastInteractObjectId = currentInteractObjectId;
         if (despawnCounter >= DESPAWN_TIMEOUT) {
-            triggerDespawn();
+            triggerDespawn(DespawnCause.OFF_SCREEN_TIMEOUT);
             return true;
         }
         return false;
@@ -1050,13 +1069,96 @@ public class SidekickCpuController {
         return camera != null && camera.isOnScreen(sidekick);
     }
 
+    /**
+     * Legacy entry point. Existing callers default to
+     * EXPLICIT (immediate marker warp).
+     */
     public void despawn() {
-        sidekick.setDead(false);
-        sidekick.setDeathCountdown(0);
-        triggerDespawn();
+        despawn(DespawnCause.EXPLICIT);
     }
 
-    private void triggerDespawn() {
+    /**
+     * Trigger a sidekick despawn with explicit cause. LEVEL_BOUNDARY
+     * mirrors ROM Kill_Character (sonic3k.asm:21136): Frame N zeroes
+     * velocities and enters DEAD_FALLING; Frame N+1 (updateDeadFalling)
+     * runs sub_123C2 -> sub_13ECA equivalent (warp + +$38 gravity).
+     * Other causes go straight to applyDespawnMarker.
+     */
+    public void despawn(DespawnCause cause) {
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        triggerDespawn(cause);
+    }
+
+    private void triggerDespawn(DespawnCause cause) {
+        if (cause == DespawnCause.LEVEL_BOUNDARY) {
+            beginLevelBoundaryKill();
+            return;
+        }
+        applyDespawnMarker();
+    }
+
+    /**
+     * ROM Kill_Character (sonic3k.asm:21136) entry called from
+     * Player_LevelBound (sonic3k.asm:23172) when sidekick crosses bottom
+     * kill plane. ROM zeroes x_vel/ground_vel, sets y_vel=-$700, sets
+     * routine=6, sets Status_InAir.  Trace samples at end of frame after
+     * Kill_Character + MoveSprite_TestGravity + Tails_DoLevelCollision
+     * settle velocities back to zero; engine reproduces that observable
+     * end-of-frame state directly (zero vels, in_air, dead state).
+     *
+     * Position is intentionally NOT warped this frame; ROM keeps Tails
+     * at post-physics position for one frame, then sub_13ECA writes the
+     * marker on Frame N+1 (see updateDeadFalling).
+     */
+    private void beginLevelBoundaryKill() {
+        state = State.DEAD_FALLING;
+        despawnCounter = 0;
+        controlCounter = 0;
+        normalFrameCount = 0;
+        jumpingFlag = false;
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setHurt(false);
+        sidekick.setRolling(false);
+        sidekick.setRollingJump(false);
+        sidekick.setOnObject(false);
+        sidekick.setPushing(false);
+        sidekick.setLatchedSolidObjectId(0);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setAir(true);
+        sidekick.setMoveLockTimer(0);
+        sidekick.setForcedAnimationId(flyAnimId);
+        sidekick.setControlLocked(true);
+        // NOT object_controlled - DEAD_FALLING is its own dispatch state
+        // so updateDeadFalling fires on the next tick regardless.
+        lastInteractObjectId = 0;
+    }
+
+    /**
+     * One-frame death-routine equivalent of ROM loc_1578E ->
+     * loc_157C8 -> sub_123C2 -> sub_13ECA. Runs the frame after
+     * beginLevelBoundaryKill.  Mirrors ROM where the dispatcher enters
+     * the death routine, sub_123C2 (sonic3k.asm:24538) sees Tails fell
+     * below Camera_Y_pos+0x100, branches to sub_13ECA (sonic3k.asm:26800)
+     * which warps to (0x7F00, 0) and resets Tails_CPU_routine=2; then
+     * post-warp MoveSprite_TestGravity adds +$38 air gravity to y_vel.
+     */
+    private void updateDeadFalling() {
+        applyDespawnMarker();
+        // ROM MoveSprite_TestGravity post-sub_13ECA (sonic3k.asm:36077):
+        // y_vel was 0, addi.w #$38, y_vel -> y_vel = 0x38.
+        sidekick.setYSpeed((short) 0x38);
+    }
+
+    /**
+     * ROM sub_13ECA (sonic3k.asm:26800-26809) marker warp body. Writes
+     * despawn marker x/y, sets Tails_CPU_routine=2, transitions to
+     * SPAWNING for the existing respawn flow.
+     */
+    private void applyDespawnMarker() {
         state = State.SPAWNING;
         despawnCounter = 0;
         controlCounter = 0;
@@ -1070,12 +1172,6 @@ public class SidekickCpuController {
         sidekick.setLatchedSolidObjectId(0);
         sidekick.setDirection(Direction.RIGHT);
         sidekick.setAir(true);
-        // Off-screen marker for despawned sidekick. ROM sub_13ECA writes
-        // x_pos=#$7F00, y_pos=#$0 (sonic3k.asm:26800-26807). S3K consumes this
-        // marker to detect a despawned sidekick; S2's TailsCPU respawn instead
-        // resets to Sonic's position so the X value there is largely inert,
-        // but we keep the historic 0x4000 placeholder via PhysicsFeatureSet
-        // to avoid disturbing S2 traces.
         sidekick.setCentreXPreserveSubpixel(resolveDespawnX());
         sidekick.setCentreYPreserveSubpixel((short) 0);
         sidekick.setDead(false);
@@ -1085,6 +1181,16 @@ public class SidekickCpuController {
         sidekick.setForcedAnimationId(flyAnimId);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
+        // ROM sub_13ECA (sonic3k.asm:26800-26809) only writes x_pos,
+        // y_pos, Tails_CPU_routine, object_control, status, and
+        // double_jump_flag - it does NOT touch x_vel/y_vel/ground_vel.
+        // Trace AIZ F2405 confirms this: ROM applies the marker warp
+        // mid-trajectory and the recorded sidekick_x_speed/y_speed/g_speed
+        // at F2405 retain the pre-warp values (0xFE07, 0x022D, 0xFD0D).
+        // Don't zero velocities here. The LEVEL_BOUNDARY kill chain
+        // (beginLevelBoundaryKill) does its own zeroing earlier in the
+        // Kill_Character (sonic3k.asm:21148-21151) phase, which runs
+        // before this marker warp on Frame N+1.
         lastInteractObjectId = 0;
     }
 
