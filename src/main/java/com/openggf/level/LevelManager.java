@@ -65,6 +65,7 @@ import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.managers.TailsTailsController;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
@@ -4080,6 +4081,34 @@ public class LevelManager {
         applyPostTransitionCameraOverrides(request, cam);
         if (!request.preserveOffsetCameraPosition()) {
             cam.updatePosition(true);
+        }
+
+        // 7b. Refresh sidekick CPU level-bound overrides to match the new camera bounds.
+        //
+        // SidekickCpuController stores its own minXBound/maxXBound/maxYBound that
+        // override the live camera bounds in PlayableSpriteMovement.doLevelBoundary
+        // (the ROM camera-bound clamp at sonic3k.asm:36925/36945 etc.). These
+        // overrides are populated by per-zone event handlers (e.g. Sonic3kAIZEvents
+        // boss arena lock) and then refreshed each frame by
+        // Sonic3kLevelEventManager.syncSidekickBoundsToCamera() at the END of
+        // update(). Without this resync, the next frame's doLevelBoundary reads
+        // stale AIZ1-boss-arena bounds and clamps Tails to that arena's left edge,
+        // teleporting the sidekick across the AIZ2 reload offset (AIZ trace F5497
+        // tails_x mismatch: stale minXBound=0x2F10 yielded leftBoundary=0x2F20,
+        // teleporting Tails from the post-transition 0x00B1 to 0x2F20).
+        // Re-syncing here matches the ROM semantics: the act-transition reload
+        // resets Camera_min_X_pos / Camera_min_Y_pos (sonic3k.asm:104758-104762),
+        // and ROM Tails reads those same fields directly — there is no separate
+        // Tails-CPU bounds storage in the ROM, so the engine's mirror must be
+        // refreshed alongside the camera reset.
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            SidekickCpuController cpu = sidekick.getCpuController();
+            if (cpu != null) {
+                cpu.setLevelBounds(
+                        (int) cam.getMinX(),
+                        (int) cam.getMaxX(),
+                        (int) Math.max(cam.getMaxY(), cam.getMaxYTarget()));
+            }
         }
 
         // 8. Reinitialize level events for new act
