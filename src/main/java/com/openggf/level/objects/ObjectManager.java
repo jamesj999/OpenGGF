@@ -4428,7 +4428,7 @@ public class ObjectManager {
             if ((contact.standing() || contact.touchTop())
                     && instance.getSpawn() != null
                     && player instanceof AbstractPlayableSprite sprite) {
-                sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
             }
             if (contact.pushing()) {
                 player.setPushing(true);
@@ -5063,7 +5063,7 @@ public class ObjectManager {
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
-                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                    sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
                 }
                 if (contact.pushing()) {
                     player.setPushing(true);
@@ -5146,7 +5146,7 @@ public class ObjectManager {
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
-                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                    sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
                 }
 
                 if (contact.standing()) {

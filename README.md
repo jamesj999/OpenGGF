@@ -224,7 +224,15 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 → 5736 → 6066 → 6255 (Act 1 substantially clean, now into Act 2 reload territory;
+  → 4679 → 5497 → 5736 → 6066 → 6255 (still at 6255 with the freed-slot despawn
+  infrastructure now in place — `AbstractPlayableSprite.latchedSolidObjectInstance`
+  + `SidekickCpuController.lastRidingInstance` + new `sub_13EFC` `(a3)=0` analog
+  gated S3K-only via `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`;
+  ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; F6255 itself awaits a
+  separate ROM-faithful `Obj_CollapsingPlatform` lifecycle fix because the
+  engine's platform destruction desyncs from ROM by 59 frames under the trace
+  replay flow — documented as PARTIAL in `docs/S3K_KNOWN_BUGS.md`)
+  (Act 1 substantially clean, now into Act 2 reload territory;
   act transition refreshes the CPU sidekick bounds so a previous boss-arena lock can't poison
   the new act's level boundary check; plus `Level_frame_counter` parity across seamless act
   reload — the engine's frame counter was skipping the reload frame because that frame
