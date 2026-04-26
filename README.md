@@ -284,7 +284,16 @@ further S3K parity work.
   destroyed flag when ObjectManager reaps the cage past the coarse-back chunk boundary,
   matching ROM `Delete_Sprite_If_Not_In_Range` → `Delete_Current_Sprite` SST-zeroing at
   sonic3k.asm:69867 → 37301-37317 → 36108 — round 12's freed-slot detection now fires
-  for cage reap, warping Tails via `sub_13ECA`). AIZ also gained a sidekick level-boundary
+  for cage reap, warping Tails via `sub_13ECA`; F3649 → F3845 lands round 15's horizontal-
+  spring proactive-zone fix mirroring ROM `sub_2326C` (sonic3k.asm:47957) which iterates
+  Player_1 (47973) and Player_2 (47999) every frame; engine's spring update was running
+  once per object with the leader only, missing the case where CPU Tails lands on a
+  flipped horizontal spring outside the side-push collision box; round 14's diagnostic
+  hypothesis that the spring's onSolidContact should switch from touchSide to standing
+  was correctly disproved by the round 15 agent — re-deriving the d6 swap bit math at
+  sonic3k.asm:47780-47782 with `addi.b #$D,d4 / bset d4,d6` and `p1_standing_bit=3`
+  shows the swap tests bit 16 = side-push flag, not standing; engine's existing
+  touchSide gate is the correct ROM equivalent). AIZ also gained a sidekick level-boundary
   kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
