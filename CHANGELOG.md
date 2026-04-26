@@ -4,6 +4,48 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F2202 Fix: Permanent Destroyed-Badnik Latch (`destroyedInWindow`)
+
+- Fixed `TestS3kAizTraceReplay#replayMatchesTrace` strict divergence at
+  frame 2202 (sidekick Tails at `(0x1845, 0x0421)` flying over the spawn
+  position of a MonkeyDude that ROM destroyed at F1722 via Sonic). ROM
+  `tails_y_speed = -0x3E0` (gravity-only); engine produced `-0x2E0`
+  (gravity + spurious `+0x100` enemy-defeat bounce from a phantom
+  re-spawned MonkeyDude).
+- Root cause: `ObjectManager.Placement.destroyedInWindow` was being
+  cleared whenever a destroyed spawn's X position fell outside the live
+  placement window (called from `trimLeftCountered`,
+  `trimRightCountered`, `trimLeftNonCounter`, `trimRightNonCounter`,
+  `refreshWindow`, `refreshCounterBased`, and the post-window-update
+  else branch in `update`). ROM's equivalent flag is bit 7 of
+  `Object_respawn_table[respawn_index]`, set by the cursor spawn
+  helpers (`sonic3k.asm` `loc_1BA40` / `loc_1BA92` / `sub_1BA0C`
+  `bset #7,(a3)`) and cleared **only** by the
+  `Sprite_OnScreen_Test` / `Delete_Sprite_If_Not_In_Range` /
+  `Sprite_CheckDeleteTouch` family (`sonic3k.asm:37271-37388`,
+  `bclr #7,(a2)`) when the still-alive object self-destructs.
+  After a player kill the badnik becomes `Obj_Explosion` and never
+  walks that path, so bit 7 stays set permanently until level init
+  wipes the table at `loc_1B784`.
+- Removed the `clearDestroyedLatchOutsideWindow` helper and its six
+  call sites in `ObjectManager.Placement`. `destroyedInWindow` is no
+  longer auto-cleared on window-leave; the new
+  `Placement.permanentDestroyLatch` flag (set via
+  `ObjectManager.enablePermanentDestroyLatch()` in LevelManager when
+  `gameModule.getGameId() == GameId.S3K`) gates whether
+  `removeFromActive` sets the latch at all. S3K latches the bit on every
+  destroyed spawn and never clears it (matching ROM); S1 and S2 do not
+  set the latch -- their ROM only marks respawn-tracked spawns
+  (S1 obj-id-byte bit 7 / S2 yWord bit 15, both modeled by the engine's
+  `remembered` flag), so non-tracked S1/S2 destroyed spawns continue to
+  re-spawn on cursor re-entry as ROM does. The orthogonal `dormant`
+  flag still handles the alive-offscreen out-of-range respawn case
+  (cleared in `trySpawn` when the cursor re-considers a spawn position).
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311,
+  S2 EHZ F1151, S3K CNZ F1815. AIZ trace first-error advances from
+  F2202 to F4679 (a separate Tails respawn / position divergence
+  unrelated to enemy bounce).
+
 ### Sonic 3&K AIZ Trace F3834 Fix: Sidekick Enemy-Bounce Self-Destroy Gating
 
 - Fixed `TestS3kAizTraceReplay#replayMatchesTrace` strict divergence at

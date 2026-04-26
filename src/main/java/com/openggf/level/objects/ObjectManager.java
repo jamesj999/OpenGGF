@@ -1285,6 +1285,21 @@ public class ObjectManager {
     }
 
     /**
+     * Enables the permanent destroy-latch on {@code destroyedInWindow}, matching
+     * S3K's ROM behavior where bit 7 of {@code Object_respawn_table} stays set
+     * for the rest of the level after a player kill (see
+     * {@link Placement#permanentDestroyLatch}).
+     * <p>
+     * Call this once at level setup when the active game module is S3K. S1 and
+     * S2 must NOT enable it because their ROM only latches respawn-tracked
+     * spawns (modeled by the engine's {@code remembered} flag); non-tracked
+     * spawns must be allowed to re-spawn on cursor re-entry.
+     */
+    public void enablePermanentDestroyLatch() {
+        placement.enablePermanentDestroyLatch();
+    }
+
+    /**
      * Adjusts the placement system's tracking state after a camera wrap-back.
      * <p>
      * ROM parity: when Level_repeat_offset is non-zero, the ROM's ObjPosLoad
@@ -2138,6 +2153,27 @@ public class ObjectManager {
 
         private boolean counterBasedRespawn;
         private boolean execThenLoadPlacement;
+        /**
+         * ROM parity: when true, destroyedInWindow stays latched permanently
+         * after a spawn is destroyed by the player (ROM's bit 7 of
+         * Object_respawn_table; see sonic3k.asm loc_1BA40 / loc_1BA64
+         * `bset #7,(a3)` which is set on every spawn and cleared only by
+         * Sprite_OnScreen_Test family on the live instance going off-screen
+         * -- so a player kill, which routes through Obj_Explosion +
+         * Delete_Current_Sprite, leaves bit 7 set forever).
+         * <p>
+         * S3K: true. Every layout entry has its own respawn-table slot and
+         * the cursor's spawn helpers always set bit 7, so destroyed badniks
+         * never come back until level init wipes the table at loc_1B784.
+         * <p>
+         * S1 / S2: false. ROM's ObjPosLoad / ObjectsManager_Main only set
+         * the bit-7 latch for spawns that explicitly opt in via the
+         * "respawn-tracked" flag (S1 obj-id-byte bit 7;
+         * S2 yWord bit 15 -- {@code tst.b 2(a0); bpl.s +} in
+         * docs/s2disasm/s2.asm:33402); non-tracked spawns always re-spawn on
+         * cursor entry. The engine models that opt-in via {@code remembered}.
+         */
+        private boolean permanentDestroyLatch;
         private java.util.function.IntSupplier usedSlotCounter;
         private int maxDynamicSlots = 96;
 
@@ -2209,6 +2245,11 @@ public class ObjectManager {
 
         void enableExecThenLoadPlacement() {
             this.execThenLoadPlacement = true;
+        }
+
+        /** See {@link #permanentDestroyLatch}. Enable for S3K only. */
+        void enablePermanentDestroyLatch() {
+            this.permanentDestroyLatch = true;
         }
 
         void enforceSlotLimit(java.util.function.IntSupplier counter) {
@@ -2379,9 +2420,17 @@ public class ObjectManager {
                 } else if (cameraChunk < lastCameraChunk) {
                     spawnBackwardNonCounter(cameraX);
                     trimRightNonCounter(cameraX);
-                } else {
-                    clearDestroyedLatchOutsideWindow(getWindowStart(cameraX), getWindowEnd(cameraX));
                 }
+                // ROM parity: bit 7 of Object_respawn_table (sonic3k.asm
+                // Touch_EnemyNormal line 20945; S2/S1 RememberState in
+                // sub RememberState.asm) is set by spawn (loc_1BA40 et al.)
+                // and cleared only by Sprite_OnScreen_Test family routines
+                // when the OBJECT INSTANCE goes off-screen. Cursor advancement
+                // and simple window-leave never clear it, so destroyed-by-
+                // player badniks stay permanently absent for the rest of the
+                // level (until level-init wipes Object_respawn_table at
+                // sonic3k.asm loc_1B784). The dormant flag handles the
+                // alive-offscreen case; destroyedInWindow stays latched.
                 lastCameraChunk = cameraChunk;
             }
 
@@ -2437,7 +2486,7 @@ public class ObjectManager {
                 }
             }
 
-            clearDestroyedLatchOutsideWindow(Math.max(0, cameraChunk - UNLOAD_BEHIND), cameraChunk + LOAD_AHEAD);
+            // ROM parity: do NOT clear destroyedInWindow on window-leave (see update()).
             lastCameraX = cameraX;
             lastCameraChunk = cameraChunk;
         }
@@ -2501,15 +2550,29 @@ public class ObjectManager {
         }
 
         /**
-         * Removes a spawn from the active set without marking it as remembered.
-         * The spawn won't respawn until it leaves the camera window entirely.
-         * Used for badniks which should respawn on camera re-entry but not immediately.
+         * Removes a spawn from the active set.
+         * <p>
+         * When {@link #permanentDestroyLatch} is enabled (S3K), also latches
+         * {@code destroyedInWindow} so the spawn can never re-spawn until
+         * level reset. This mirrors ROM bit 7 of {@code Object_respawn_table}
+         * (sonic3k.asm Touch_EnemyNormal line 20945; cursor helpers set the bit
+         * on spawn at loc_1BA40 / loc_1BA64 and only the alive-offscreen
+         * Sprite_OnScreen_Test family clears it -- a player kill leaves bit 7
+         * set permanently because the badnik becomes Obj_Explosion which
+         * never walks that path).
+         * <p>
+         * When the flag is disabled (S1 / S2), no latch is set: ROM's
+         * ObjectsManager_Main only latches respawn-tracked spawns
+         * (docs/s2disasm/s2.asm:33402 {@code tst.b 2(a0); bpl.s +}); the engine
+         * models that opt-in via {@code remembered}.
          */
         void removeFromActive(ObjectSpawn spawn) {
             active.remove(spawn);
-            int index = getSpawnIndex(spawn);
-            if (index >= 0) {
-                destroyedInWindow.set(index);
+            if (permanentDestroyLatch) {
+                int index = getSpawnIndex(spawn);
+                if (index >= 0) {
+                    destroyedInWindow.set(index);
+                }
             }
         }
 
@@ -2593,7 +2656,7 @@ public class ObjectManager {
                 dormant.clear(leftCursorIndex);
                 leftCursorIndex++;
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow here (see update()).
         }
 
         private void refreshWindow(int cameraX) {
@@ -2610,7 +2673,7 @@ public class ObjectManager {
             for (int i = start; i < end; i++) {
                 trySpawn(i);
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow on refresh (see update()).
         }
 
         private void spawnBackwardNonCounter(int cameraX) {
@@ -2641,7 +2704,7 @@ public class ObjectManager {
                 active.remove(previous);
                 dormant.clear(cursorIndex);
             }
-            clearDestroyedLatchOutsideWindow(windowStart, windowEnd);
+            // ROM parity: do NOT clear destroyedInWindow here (see update()).
         }
 
         private void trySpawn(int index) {
@@ -2747,11 +2810,15 @@ public class ObjectManager {
                 }
                 // ROM: loc_DA24 only advances cursor and bwdCounter.
                 // Do NOT remove from active — objects stay alive until out_of_range.
-                if (destroyedInWindow.get(leftCursorIndex)) {
-                    destroyedInWindow.clear(leftCursorIndex);
-                }
-                // Spawn leaving the cursor window — clear dormant so it can
-                // be normally re-loaded when the cursor re-enters this region.
+                // ROM parity: destroyedInWindow models bit 7 of v_objstate /
+                // objState[], which RememberState (sub RememberState.asm:14)
+                // clears only via Sprite_OnScreen_Test on a LIVE object's
+                // offscreen check. Cursor advancement past a destroyed badnik
+                // must NOT clear the bit; ROM keeps it set permanently after
+                // a player kill.
+                // Spawn leaving the cursor window — clear dormant so a
+                // non-destroyed spawn can be normally re-loaded when the
+                // cursor re-enters.
                 dormant.clear(leftCursorIndex);
                 leftCursorIndex++;
             }
@@ -2830,11 +2897,14 @@ public class ObjectManager {
                 }
                 // ROM: loc_D9DE only retreats cursor and fwdCounter.
                 // Do NOT remove from active — objects stay alive until out_of_range.
-                if (destroyedInWindow.get(cursorIndex)) {
-                    destroyedInWindow.clear(cursorIndex);
-                }
-                // Spawn leaving the cursor window — clear dormant so it can
-                // be normally re-loaded when the cursor re-enters this region.
+                // ROM parity: destroyedInWindow models bit 7 of v_objstate /
+                // objState[], which RememberState clears only via
+                // Sprite_OnScreen_Test on a LIVE object's offscreen check.
+                // Cursor retreat past a destroyed badnik must NOT clear the
+                // bit; ROM keeps it set permanently after a kill.
+                // Spawn leaving the cursor window — clear dormant so a
+                // non-destroyed spawn can be normally re-loaded when the
+                // cursor re-enters.
                 dormant.clear(cursorIndex);
             }
         }
@@ -2996,16 +3066,6 @@ public class ObjectManager {
         }
 
 
-        private void clearDestroyedLatchOutsideWindow(int windowStart, int windowEnd) {
-            // Clear destroyed-in-window latch once the spawn fully leaves the current stream window.
-            // ROM parity: window is [windowStart, windowEnd) — strict < on right boundary.
-            for (int i = destroyedInWindow.nextSetBit(0); i >= 0; i = destroyedInWindow.nextSetBit(i + 1)) {
-                ObjectSpawn spawn = spawns.get(i);
-                if (spawn.x() < windowStart || spawn.x() >= windowEnd) {
-                    destroyedInWindow.clear(i);
-                }
-            }
-        }
     }
 
     static final class PlaneSwitchers {
