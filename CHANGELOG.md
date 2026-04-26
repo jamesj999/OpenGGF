@@ -4,6 +4,37 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F3834 Fix: Sidekick Enemy-Bounce Self-Destroy Gating
+
+- Fixed `TestS3kAizTraceReplay#replayMatchesTrace` strict divergence at
+  frame 3834 (sidekick Tails airborne+rolling at `(0x26C8, 0x0300)` in
+  flight CPU routine 6, attacking a MonkeyDude at `(0x26D8, 0x0308)`).
+  ROM `tails_y_speed` transitioned `-0x140 -> -0x008` (= `-0x140 +
+  0x100` enemy-defeat bounce + `0x38` gravity); engine produced
+  `-0x108` (gravity only).
+- Root cause: `ObjectManager.handleTouchResponseSidekick` captured the
+  `aoi.isDestroyed()` flag AFTER calling `attackable.onPlayerAttack`,
+  which itself runs `defeat(player) -> setDestroyed(true)` on the
+  killed badnik. The post-attack check therefore always read `true`
+  when the sidekick was the killer, silently skipping her `+/-$100`
+  bounce. ROM `Touch_EnemyNormal`
+  (`sonic3k.asm:20945-20990`, `s2.asm:84842-84889`,
+  `s1disasm/sub ReactToItem.asm:213-232`) sets the destroyed bit AND
+  applies the bounce in the SAME function; the skip-when-destroyed
+  semantics only apply to a SUBSEQUENT collision pass after `(a1)`
+  has been rewritten to `Obj_Explosion`.
+- Capture `wasAlreadyDestroyed` from a pre-attack
+  `instance.isDestroyed()` read; gate the bounce on that instead. The
+  cross-pass skip path (P1 destroys earlier in the same frame -> P2
+  skips bounce) is preserved, while the same-player kill correctly
+  applies the bounce.
+- Cross-game baselines verified: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K CNZ F1815. AIZ trace first-error advances from F3834 to
+  F2202 (separate, pre-existing engine respawn-tracking divergence on
+  MonkeyDude near AIZ miniboss arena that was previously masked by the
+  buggy gating).
+- Files modified: `ObjectManager.handleTouchResponseSidekick`.
+
 ### Sonic 3&K CNZ Trace F1791 Fix: Tails CPU Auto-Jump Trigger Bit-7 Gate
 
 - Fixed `TestS3kCnzTraceReplay#replayMatchesTrace` first strict
