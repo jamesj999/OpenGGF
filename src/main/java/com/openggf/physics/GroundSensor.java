@@ -360,6 +360,7 @@ public class GroundSensor extends Sensor {
     // ========================================
 
     private SensorResult scanVertical(short x, short y, int solidityBit, Direction direction) {
+        traceCnzVerticalScan(x, y, solidityBit, direction, "first");
         // Check current tile (ROM: FindFloor - first pass)
         SensorResult result = scanTileVertical(x, y, x, y, solidityBit, direction, false);
         if (result != null) {
@@ -368,6 +369,7 @@ public class GroundSensor extends Sensor {
 
         // Extend to next tile in scan direction (ROM: FindFloor2 - second pass)
         short nextY = (short) (y + (direction == Direction.DOWN ? 16 : -16));
+        traceCnzVerticalScan(x, nextY, solidityBit, direction, "ext");
         result = scanTileVertical(x, y, x, nextY, solidityBit, direction, true);
         if (result != null) {
             return result;
@@ -376,6 +378,44 @@ public class GroundSensor extends Sensor {
         // No collision found - return empty result with max distance
         byte distance = calculateVerticalDistance((byte) 0, y, nextY, direction);
         return reusableResult.set(FLAGGED_ANGLE, distance, 0, direction);
+    }
+
+    /**
+     * CNZ probe — log scanVertical entry with detailed tile info.
+     */
+    private void traceCnzVerticalScan(short x, short y, int solidityBit, Direction direction, String pass) {
+        if (!Boolean.getBoolean("cnz.collisionprobe") && !Boolean.getBoolean("s3k.cnz.collisionprobe")) {
+            return;
+        }
+        int xi = x & 0xFFFF;
+        int yi = y & 0xFFFF;
+        // Only fire near F1815 region (Tails foot probe)
+        if (xi < 0x1230 || xi > 0x1280 || yi < 0x0720 || yi > 0x0760) {
+            return;
+        }
+        ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, x, y, sprite.isLoopLowPlane());
+        SolidTile tile = getSolidTile(desc, solidityBit);
+        int chunkId = desc != null ? desc.getChunkIndex() & 0xFFFF : -1;
+        int blockIdx = -1;
+        try {
+            byte v = getLevelManager().getCurrentLevel().getMap().getValue((byte)0, (xi >> 7) & 0xFF, (yi >> 7) & 0xFF);
+            blockIdx = v & 0xFF;
+        } catch (Exception e) { blockIdx = -2; }
+        int rawDescIndex = desc != null ? desc.get() & 0xFFFF : -1;
+        boolean hFlip = desc != null && desc.getHFlip();
+        boolean vFlip = desc != null && desc.getVFlip();
+        int tileIdx = tile != null ? tile.getIndex() : -1;
+        byte metric = tile != null ? getHeightMetric(tile, desc, x, direction) : 0;
+        byte tileAngle = tile != null ? tile.getAngle(hFlip, vFlip) : 0;
+        int chunkX = (xi >> 7) & 0xFF;
+        int chunkY = (yi >> 7) & 0xFF;
+        int tileX = (xi >> 4) & 0x07;
+        int tileY = (yi >> 4) & 0x07;
+        int yInTile = yi & 0x0F;
+        int xInTile = xi & 0x0F;
+        System.out.printf("cnz-vScan pass=%s probe=(%04X,%04X) blockIdx=%d chunk=(%d,%d)t=(%d,%d) p=(%d,%d) chunkId=%04X rawDesc=%04X primMode=%s secMode=%s hFlip=%b vFlip=%b solidBit=%d solid?=%b tile=%d metric=%d tileAngle=%02X dir=%s%n",
+                pass, xi, yi, blockIdx, chunkX, chunkY, tileX, tileY, xInTile, yInTile,
+                chunkId, rawDescIndex, desc != null ? desc.getPrimaryCollisionMode() : null, desc != null ? desc.getSecondaryCollisionMode() : null, hFlip, vFlip, solidityBit, desc != null && desc.isSolidityBitSet(solidityBit), tileIdx, metric, tileAngle & 0xFF, direction);
     }
 
     /**
