@@ -232,12 +232,14 @@ further S3K parity work.
   inputHistory and feeding wrong inputs to Tails CPU 16 frames later; opt-out from the
   off-screen solid-contact gate for springs because ROM `SolidObjectFull2_1P` at
   sonic3k.asm:41065 does not test render_flags bit 7, advancing F2919 → F3834). CNZ first-error
-  advanced 1685 → 1740 → 1758 (despawn-on-id-mismatch gating, slope-repel slip in CnzWireCage
-  release, per-tick `slopeRepelJustSlipped` flag, v6.1-s3k recorder pre-trace-osc semantic
-  correction that resolved a separate F850 Hover Fan one-frame trigger lag, and `CnzWireCage`
-  airborne-capture `object_control` bit 0 set per ROM `loc_3394C` at sonic3k.asm:69921 with a
-  matching pre-physics state snapshot pattern on `AbstractPlayableSprite` so per-object hooks
-  see ROM-equivalent pre-physics state). The earlier per-frame CPU-state hydration was
+  advanced 1685 → 1740 → 1758 → 1791 → 1815 (despawn-on-id-mismatch gating, slope-repel slip
+  in CnzWireCage release, per-tick `slopeRepelJustSlipped` flag, v6.1-s3k recorder
+  pre-trace-osc semantic correction that resolved a separate F850 Hover Fan one-frame trigger
+  lag, `CnzWireCage` airborne-capture `object_control` bit 0 set per ROM `loc_3394C` at
+  sonic3k.asm:69921 with a matching pre-physics state snapshot pattern on
+  `AbstractPlayableSprite`, and a Tails CPU bit-7 gate so the auto-jump trigger keeps firing
+  while ROM cage holds the rider with bits 0-6 set — `sonic3k.asm:26672 bmi.w` is sign-bit-only,
+  not an `isObjectControlled()` boolean). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
   produce ROM-correct values natively.
 - **Trace recorder v6.2-s3k:** adds per-frame `object_state` (per nearby OST slot) and
