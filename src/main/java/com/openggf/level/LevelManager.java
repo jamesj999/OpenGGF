@@ -828,6 +828,13 @@ public class LevelManager {
             objectManager.enforceSlotLimit();
         }
 
+        // S3K parity: ROM's Object_respawn_table bit 7 stays set permanently
+        // after a player kill (sonic3k.asm loc_1BA40 / Touch_EnemyNormal). Match
+        // by latching destroyedInWindow for the rest of the level.
+        if (gameModule.getGameId() == com.openggf.game.GameId.S3K) {
+            objectManager.enablePermanentDestroyLatch();
+        }
+
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
         collisionSystem.setObjectManager(objectManager);
 
@@ -4210,6 +4217,9 @@ public class LevelManager {
         } else {
             objectManager.enableExecThenLoadPlacement();
             objectManager.enforceSlotLimit();
+        }
+        if (gameModule.getGameId() == com.openggf.game.GameId.S3K) {
+            objectManager.enablePermanentDestroyLatch();
         }
         collisionSystem.setObjectManager(objectManager);
         objectManager.reset(cameraX);
