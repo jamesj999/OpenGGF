@@ -29,6 +29,7 @@ Entries should include:
 11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
 13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn; Lifecycle ROM-Aligned, Tails Never Latches In Engine (PARTIAL)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-architecturally-available-lifecycle-now-rom-aligned-but-tails-never-latches-in-engine-partial)
+14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (OPEN)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-open)
 
 ---
 
@@ -1108,3 +1109,65 @@ Not landed (architectural blocker):
 ### Removal Condition
 
 Resolve once `TestS3kAizTraceReplay`'s first strict error advances past F6255, with engine Tails landing on the AIZ2 collapsing platform at x=0x08B0 (visible as `setLatchedSolidObject(slot=16)` firing for Tails around F6251) and the freed-slot detection then warping her to `(0x7F00, 0)` at F6255 like ROM.
+
+---
+
+## CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (OPEN)
+
+**Location:** `Sonic3kSpringObjectInstance.onSolidContact`, `Sonic3kSpringObjectInstance.checkHorizontalApproach`, `ObjectManager.SolidContacts.processInlineObjectForPlayer`
+**ROM Reference:** `sub_23190` (sonic3k.asm:47890), `sub_2326C` (sonic3k.asm:47957), `Obj_Spring_Horizontal` (sonic3k.asm:47771), `word_22EF0` (sonic3k.asm:47651) — yellow horizontal spring strength `-$A00`.
+
+### Symptom
+
+`TestS3kCnzTraceReplay` first strict error at F3649: `tails_x_speed mismatch (expected=-0A00, actual=-0060)`. ROM Tails lands on a horizontal spring at slot 16 (position `0x1D37, 0x08B0`) at F3649 — the same frame she transitions from in-air to grounded — and the spring fires, setting `x_vel = -$A00, ground_vel = -$A00`. The engine does not fire the spring on Tails, leaving her with the air-physics-derived `x_speed = -$60`. Engine catches up at F3650 once ground physics propagates, producing a 1-frame phase shift in all downstream Tails state.
+
+### Diagnostic Data
+
+Captured by extending `s3k_trace_recorder.lua` (v6.4-s3k) with `event.onmemorywrite` hooks on Tails's `x_vel`/`y_vel` RAM addresses. Each hit records the M68K PC of the writing instruction. Hooks are window-restricted (default frames 3640–3660; override via `OGGF_S3K_VELOCITY_WRITE_RANGE`).
+
+ROM frame-by-frame Tails `x_vel` writes:
+
+| Frame | Writers (PC : value) | Notes |
+|------:|----------------------|-------|
+| F3645–F3648 | `0x14ECC : 0xFFD0..0xFFB8` | `Tails_InputAcceleration_Freespace` accel-while-airborne |
+| **F3649** | `0x14ECC : 0xFFB8`, **`0x2319C : ...`** | First the air physics, then **the spring fires inside `sub_23190`** |
+| F3650+ | `0x14B70 : 0xF600` | Ground physics: `x_vel = ground_vel * cos(angle)`. ground_vel was set to `-$A00` by `loc_231BE` during the spring fire. |
+
+### Root Cause
+
+Two related issues, both ROM-cited:
+
+1. **Engine spring proactive zone (`sub_2326C` analog) only checks Player_1, not sidekicks.** `Sonic3kSpringObjectInstance.checkHorizontalApproach(player)` is called from `update(int frameCounter, PlayableEntity playerEntity)` with the leader only. ROM `sub_2326C` (sonic3k.asm:47957) explicitly checks **both** Player_1 (line 47973) and Player_2 (line 47999) every frame.
+
+2. **Engine spring `onSolidContact` requires `touchSide()` for horizontal springs, but ROM fires on the standing flag.** `Obj_Spring_Horizontal` (sonic3k.asm:47780-47782) tests bit 0 of `swap`'d `d6` after `SolidObjectFull2_1P` — that is the **standing** flag (`p1_standing`/`p2_standing`), not a side flag. The engine's path
+   ```java
+   if (springType == TYPE_HORIZONTAL) {
+       if (!contact.touchSide() || !isPlayerOnHorizontalSpringActiveSide(player)) return;
+       applyHorizontalSpring(player);
+   }
+   ```
+   gates on `touchSide()`. When Tails transitions air→ground inside the spring's hitbox in a single frame, the contact is reported as standing/touchTop, not side, so the spring does not fire.
+
+The yellow horizontal spring strength `-$A00` matches the trace `tails_x_speed = -$0A00` exactly when the spring's `$30(a0)` was set by `Spring_Common` `word_22EF0[subtype & 2]` (subtype bit 1 selects yellow). ROM-side per-frame spring `subtype` instrumentation reads `0x00` from the OST byte at offset `0x2C`, but ROM CSV velocity matches yellow strength — likely a recorder-read quirk (see "Diagnostic data" above; the disassembly `subtype` at offset `0x2C` may be loaded into a different field at runtime, or the recorder reads it at a frame where it has been re-written; not load-bearing for the fix).
+
+### Diagnosis Tooling Landed In This Branch
+
+- `tools/bizhawk/s3k_trace_recorder.lua` — `v6.4-s3k`. Adds `event.onmemorywrite` hooks at Tails's `x_vel` (`0xFFB062`/`0xFFB063`) and `y_vel` (`0xFFB064`/`0xFFB065`), accumulates per-frame, flushes once per `on_frame_end` as `velocity_write` aux event listing each writer's PC and post-write value. Frame-window-gated (default `3640..3660`; set `OGGF_S3K_VELOCITY_WRITE_RANGE=START-END` to widen) so the trace size stays manageable.
+- `aux_schema_extras` adds `velocity_write_per_frame`. Backward-compatible: existing traces without the key still load.
+- `TraceEvent.VelocityWrite` record + parser case in `TraceEvent.parseJsonLine`.
+- `TraceMetadata.hasPerFrameVelocityWrite()` boolean accessor.
+- `TraceData.velocityWriteForFrame(frame, character)` lookup.
+
+The CNZ test resources `physics.csv`/`aux_state.jsonl` in `src/test/resources/traces/s3k/cnz/` were **not** regenerated against this schema — the existing trace remains the reference for replay. The new diagnostic schema is for ad-hoc bug-hunt regenerations only.
+
+### Fix Strategy (Not Landed)
+
+The clean ROM-aligned fix has two parts; neither lands here pending a wider review of the engine's spring-vs-multi-player and air-to-ground-contact handling:
+
+1. **Mirror ROM `sub_2326C` over both players.** `Sonic3kSpringObjectInstance.update()` should iterate the leader and all CPU sidekicks (or `update()` should be invoked once per active player by `ObjectManager.executeObjectWithSolidContext`). The proactive-zone trigger fires for any player on the correct side of a horizontal spring, regardless of which player is the leader.
+
+2. **Switch horizontal-spring `onSolidContact` to fire on the standing flag, not `touchSide`.** ROM `Obj_Spring_Horizontal` (sonic3k.asm:47780) tests the `p[12]_standing` bit returned by `SolidObjectFull2_1P`. The engine analog should be `contact.standing()` (mapping to the same flag set by the engine's solid-contact resolver), with `isPlayerOnHorizontalSpringActiveSide` retained as the side-arbitration check that ROM does at sonic3k.asm:47783-47791. Cross-game review needed because S2's Obj_Spring_Horizontal at s2.asm uses the same standing-flag pattern, and the engine currently shares `Sonic3kSpringObjectInstance`-style contact handling across S2/S3K.
+
+### Removal Condition
+
+Resolve once `TestS3kCnzTraceReplay`'s first strict error advances past F3649 (engine Tails reaches `x_speed=-$0A00` at F3649 like ROM), with cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6255.

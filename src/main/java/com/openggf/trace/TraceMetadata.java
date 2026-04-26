@@ -154,6 +154,19 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("cage_execution_per_frame");
     }
 
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame
+     * {@code velocity_write} events (the v6.4+ S3K recorder extension that
+     * captures every M68K write to the sidekick's {@code x_vel}/{@code y_vel}
+     * RAM addresses, with each hit's writing-instruction PC). Used to root-
+     * cause the CNZ1 trace F3649 divergence (Tails {@code x_speed} jumps
+     * from -$48 to -$0A00 in one frame in ROM but takes two in the engine).
+     */
+    public boolean hasPerFrameVelocityWrite() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("velocity_write_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

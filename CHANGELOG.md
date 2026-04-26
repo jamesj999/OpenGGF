@@ -4,6 +4,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F3649 Diagnostic Tooling: Velocity-Write Recorder Hooks
+
+- Extended `tools/bizhawk/s3k_trace_recorder.lua` to v6.4-s3k with
+  `event.onmemorywrite` hooks at Tails's `x_vel` (`0xFFB062`/`0xFFB063`)
+  and `y_vel` (`0xFFB064`/`0xFFB065`) RAM addresses. Each write captures
+  the M68K PC of the writing instruction along with the post-write
+  word value, accumulated per-frame and flushed once per `on_frame_end`
+  as a `velocity_write` aux event.
+- Frame-window-gated (default `[3640, 3660]`; override via
+  `OGGF_S3K_VELOCITY_WRITE_RANGE=START-END`) to keep aux file size
+  manageable. The default window targets the CNZ1 F3649 divergence
+  where ROM Tails `x_speed` jumps from `-$48` to `-$0A00` in one frame
+  but the engine only reaches `-$60`.
+- Added `aux_schema_extras: ["velocity_write_per_frame", ...]`. Parser
+  changes are backward-compatible: old traces without the key still
+  load. Java parser additions: `TraceEvent.VelocityWrite` record,
+  `TraceMetadata.hasPerFrameVelocityWrite()`, and
+  `TraceData.velocityWriteForFrame(frame, character)`.
+- The CNZ test resources `physics.csv`/`aux_state.jsonl` were not
+  regenerated; the existing trace remains the replay reference.
+- Diagnostic finding (documented in `docs/S3K_KNOWN_BUGS.md` entry 14):
+  ROM fires `Obj_Spring_Horizontal` / `sub_23190` (sonic3k.asm:47890)
+  on Tails at F3649 as she lands on the spring at slot 16 (`0x1D37,
+  0x08B0`). Engine `Sonic3kSpringObjectInstance.onSolidContact`
+  requires `contact.touchSide()` for horizontal springs but ROM gates
+  on the `p[12]_standing` flag (sonic3k.asm:47780-47782); separately,
+  the proactive-zone check (`sub_2326C`, sonic3k.asm:47957) checks
+  both Player_1 and Player_2 every frame, while the engine's
+  `Sonic3kSpringObjectInstance.update` is invoked once per object
+  with the leader only. Fix not landed pending wider review of the
+  engine's spring-vs-multi-player and air-to-ground-contact framework.
+
 ### Sonic 3&K AIZ Trace F6255: Collapsing Platform Off-Screen Lifecycle ROM-Aligned (PARTIAL)
 
 - Aligned `Sonic3kCollapsingPlatformObjectInstance`'s off-screen delete

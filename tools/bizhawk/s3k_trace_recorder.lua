@@ -273,6 +273,14 @@ local prev_cage_state_p1 = -1
 local prev_cage_state_p2 = -1
 local prev_cage_status = -1
 
+-- Per-frame accumulator for Tails velocity-write hits (v6.4-s3k schema).
+-- Hooked via event.onmemorywrite at Tails's x_vel/y_vel addresses. Each
+-- hit captures the M68K PC at the write site so we can identify exactly
+-- which ROM routine wrote the value. Flushed once per frame as a single
+-- velocity_write event listing all writers in temporal order.
+local tails_xvel_writes = {}
+local tails_yvel_writes = {}
+
 local physics_file = nil
 local aux_file = nil
 
@@ -578,15 +586,16 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.3-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.4-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
-    -- schema bump. v6.3 adds cage_state_per_frame and cage_execution
-    -- (both diagnostic-only, never hydrated into engine state).
+    -- schema bump. v6.3 adds cage_state_per_frame and cage_execution.
+    -- v6.4 adds velocity_write_per_frame (Tails x_vel/y_vel write hooks
+    -- with M68K PC for CNZ1 F3649 root-cause). All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame"],\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -1129,6 +1138,122 @@ local function cage_record_hit(branch)
     })
 end
 
+-- =====================================================================
+-- Tails velocity-write hooks (v6.4-s3k)
+-- =====================================================================
+-- Hooks every byte/word write to Tails's x_vel ($FFB062-$FFB063) and
+-- y_vel ($FFB064-$FFB065) RAM addresses. For each write we capture the
+-- M68K PC at the writing instruction so we can identify exactly which
+-- ROM code path produced the value. Flushed once per frame as a single
+-- velocity_write event in on_frame_end (after CPU-state and cage events
+-- so the schema is grouped logically).
+--
+-- Diagnostic-only: never feeds engine state. Used to root-cause the
+-- CNZ1 trace F3649 divergence where ROM Tails x_speed jumps from
+-- -$48 to -$0A00 in one frame but the engine only computes -$60.
+
+-- event.onmemorywrite uses the M68K full bus address (with $FF high byte for
+-- $FFFF0000-$FFFFFFFF Genesis work RAM), not the bus-truncated mainmemory
+-- offset. See docs/BizHawk-2.11-win-x64/Lua/Genesis/Earthworm Jim 2.lua for
+-- the precedent (`event.onmemorywrite(..., 0xffa1d4)` for M68K $FFFFA1D4).
+local M68K_RAM_BASE         = 0xFF0000
+local TAILS_XVEL_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL       -- 0xFFB062
+local TAILS_XVEL_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL + 1   -- 0xFFB063
+local TAILS_YVEL_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL       -- 0xFFB064
+local TAILS_YVEL_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL + 1   -- 0xFFB065
+
+-- Frame-range filter for velocity-write capture. Tails physics writes
+-- velocity 1-3+ times per frame, which on a 42k-frame trace would add
+-- ~100MB+ to the aux stream. Restrict to a window around the known
+-- divergence frame (CNZ1 F3649). Operators wanting full trace coverage
+-- can override via OGGF_S3K_VELOCITY_WRITE_RANGE env var (format
+-- "<start>-<end>"; e.g. "0-99999" for full coverage). When unset, no
+-- velocity_write events are recorded outside the default window.
+local VELOCITY_WRITE_FRAME_START = 3640
+local VELOCITY_WRITE_FRAME_END = 3660
+
+local _vw_range = os.getenv("OGGF_S3K_VELOCITY_WRITE_RANGE")
+if _vw_range and _vw_range ~= "" then
+    local s, e = _vw_range:match("^(%d+)%-(%d+)$")
+    if s and e then
+        VELOCITY_WRITE_FRAME_START = tonumber(s)
+        VELOCITY_WRITE_FRAME_END = tonumber(e)
+    end
+end
+
+local function _vw_in_window()
+    return trace_frame >= VELOCITY_WRITE_FRAME_START
+        and trace_frame <= VELOCITY_WRITE_FRAME_END
+end
+
+local function tails_xvel_record_hit()
+    if not aux_file then return end
+    if not started then return end
+    if not _vw_in_window() then return end
+    local pc = emu.getregister("M68K PC") or 0
+    -- Read the value AFTER the write (mainmemory reflects post-write state).
+    local val = mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)
+    if val < 0 then val = val + 0x10000 end
+    table.insert(tails_xvel_writes, {pc = pc, val = val})
+end
+
+local function tails_yvel_record_hit()
+    if not aux_file then return end
+    if not started then return end
+    if not _vw_in_window() then return end
+    local pc = emu.getregister("M68K PC") or 0
+    local val = mainmemory.read_s16_be(SIDEKICK_BASE + OFF_Y_VEL)
+    if val < 0 then val = val + 0x10000 end
+    table.insert(tails_yvel_writes, {pc = pc, val = val})
+end
+
+local velocity_hooks_registered = false
+
+local function register_velocity_hooks()
+    if velocity_hooks_registered then return end
+    velocity_hooks_registered = true
+
+    -- Hook BOTH the low and high bytes of each velocity word so we
+    -- catch byte-granularity writes (rare in Tails physics but possible
+    -- in low-level ROM code). The same callback fires for either byte
+    -- because the post-write read is a u16 of the full word; consecutive
+    -- byte writes in the same instruction will fire twice but we only
+    -- record the final state per hit.
+    event.onmemorywrite(tails_xvel_record_hit, TAILS_XVEL_LO_ADDR)
+    event.onmemorywrite(tails_xvel_record_hit, TAILS_XVEL_HI_ADDR)
+    event.onmemorywrite(tails_yvel_record_hit, TAILS_YVEL_LO_ADDR)
+    event.onmemorywrite(tails_yvel_record_hit, TAILS_YVEL_HI_ADDR)
+
+    print(string.format(
+        "Tails velocity-write hooks registered: x_vel=0x%04X-0x%04X, y_vel=0x%04X-0x%04X, frame_window=[%d,%d]",
+        TAILS_XVEL_LO_ADDR, TAILS_XVEL_HI_ADDR,
+        TAILS_YVEL_LO_ADDR, TAILS_YVEL_HI_ADDR,
+        VELOCITY_WRITE_FRAME_START, VELOCITY_WRITE_FRAME_END))
+end
+
+local function flush_tails_velocity_writes()
+    if not aux_file then return end
+    if #tails_xvel_writes == 0 and #tails_yvel_writes == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local x_parts = {}
+    for _, hit in ipairs(tails_xvel_writes) do
+        x_parts[#x_parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+    end
+    local y_parts = {}
+    for _, hit in ipairs(tails_yvel_writes) do
+        y_parts[#y_parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"velocity_write","character":"tails",'
+            .. '"x_vel_writes":[%s],"y_vel_writes":[%s]}',
+        trace_frame, vfc,
+        table.concat(x_parts, ","), table.concat(y_parts, ",")))
+    tails_xvel_writes = {}
+    tails_yvel_writes = {}
+end
+
 local cage_hooks_registered = false
 
 local function register_cage_hooks()
@@ -1470,6 +1595,15 @@ local function on_frame_end()
     -- took for each player on each frame.
     flush_cage_hits()
 
+    -- Per-frame Tails velocity-write hits (v6.4-s3k schema). The
+    -- onmemorywrite hooks accumulate every write to Tails x_vel/y_vel
+    -- during frame processing; we flush as a single velocity_write
+    -- event per frame. Each hit records the M68K PC of the writing
+    -- instruction plus the value written. Used to identify the ROM
+    -- code path that sets Tails x_vel = -$0A00 at CNZ1 F3649 where
+    -- the engine only reaches -$60 (a 1-frame phase shift).
+    flush_tails_velocity_writes()
+
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
     end
@@ -1498,13 +1632,16 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.3-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.4-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
 -- every frame the script processes. Only active when 'started' so we
 -- don't accumulate hits during pre-trace level loading.
 register_cage_hooks()
+
+-- Register Tails velocity-write hooks. Same lifetime model as cage hooks.
+register_velocity_hooks()
 
 while true do
     on_frame_end()
