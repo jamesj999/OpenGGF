@@ -293,8 +293,13 @@ further S3K parity work.
   was correctly disproved by the round 15 agent — re-deriving the d6 swap bit math at
   sonic3k.asm:47780-47782 with `addi.b #$D,d4 / bset d4,d6` and `p1_standing_bit=3`
   shows the swap tests bit 16 = side-push flag, not standing; engine's existing
-  touchSide gate is the correct ROM equivalent). AIZ also gained a sidekick level-boundary
-  kill split (ROM
+  touchSide gate is the correct ROM equivalent; F3845 → F3901 lands round 16's surgical
+  one-liner removing the `!sidekick.getAir()` outer gate from
+  `SidekickCpuController.updateNormal()` so the auto-jump trigger can fire mid-air —
+  ROM `loc_13E64` sonic3k.asm:26752-26758 only skips the trigger block when the flag
+  is already set AND airborne, not just airborne; same in S2
+  `TailsCPU_Normal_FilterAction` s2.asm:38994-39022). AIZ also gained a sidekick
+  level-boundary kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
