@@ -249,6 +249,32 @@ public class TraceData {
         return null;
     }
 
+    /**
+     * Returns the per-frame {@link TraceEvent.VelocityWrite} event for the
+     * requested trace frame and character, or {@code null} when the trace was
+     * recorded without v6.4+ per-frame velocity-write snapshots or when no
+     * event is present for that frame/character.
+     *
+     * <p><strong>Diagnostic only.</strong> Captures every M68K write to the
+     * sidekick's {@code x_vel}/{@code y_vel} during ROM frame processing,
+     * with each writing-instruction PC. Used to root-cause CNZ1 trace F3649
+     * where ROM Tails {@code x_speed} jumps from -$48 to -$0A00 in a single
+     * frame: the PC list pinpoints which ROM routine writes the value.
+     */
+    public TraceEvent.VelocityWrite velocityWriteForFrame(int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.VelocityWrite vw
+                    && characterCode.equalsIgnoreCase(vw.character())) {
+                return vw;
+            }
+        }
+        return null;
+    }
+
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)
             throws IOException {
         List<TraceFrame> frames = new ArrayList<>();

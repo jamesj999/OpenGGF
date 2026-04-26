@@ -189,6 +189,34 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame summary of all M68K writes to a player's {@code x_vel} and
+     * {@code y_vel} RAM addresses, captured by the v6.4+ S3K recorder via
+     * {@code event.onmemorywrite} hooks. Each write records the M68K PC of
+     * the writing instruction plus the resulting word value.
+     *
+     * <p>Currently emitted only for Tails ({@code character = "tails"}).
+     * Used to root-cause the CNZ1 trace F3649 divergence where ROM Tails
+     * {@code x_speed} jumps from -$48 to -$0A00 in a single frame; the
+     * engine arrives at -$0A00 only at F3650 (a 1-frame phase shift).
+     * The PC of the ROM instruction that writes -$0A00 pinpoints which
+     * code path produced the value.
+     *
+     * <p><strong>Diagnostic only:</strong> never hydrated into engine state.
+     */
+    record VelocityWrite(int frame, String character,
+                         java.util.List<Hit> xVelWrites,
+                         java.util.List<Hit> yVelWrites)
+        implements TraceEvent {
+
+        /**
+         * Single velocity-write hit. {@code pc} is the M68K program counter
+         * at the writing instruction (post-fetch); {@code value} is the full
+         * 16-bit word value of the velocity field after the write.
+         */
+        public record Hit(int pc, int value) {}
+    }
+
+    /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
      * Unknown event types are returned as StateSnapshot with all fields preserved.
      */
@@ -350,6 +378,29 @@ public sealed interface TraceEvent {
                     parseHexInt(node, "status_secondary"),
                     parseHexInt(node, "object_control")
                 );
+                case "velocity_write" -> {
+                    java.util.List<VelocityWrite.Hit> xWrites = new java.util.ArrayList<>();
+                    JsonNode xWritesNode = node.get("x_vel_writes");
+                    if (xWritesNode != null && xWritesNode.isArray()) {
+                        for (JsonNode h : xWritesNode) {
+                            xWrites.add(new VelocityWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    java.util.List<VelocityWrite.Hit> yWrites = new java.util.ArrayList<>();
+                    JsonNode yWritesNode = node.get("y_vel_writes");
+                    if (yWritesNode != null && yWritesNode.isArray()) {
+                        for (JsonNode h : yWritesNode) {
+                            yWrites.add(new VelocityWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    yield new VelocityWrite(frame, parseCharacter(node), xWrites, yWrites);
+                }
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
                     Map<String, Object> fields = new LinkedHashMap<>();
