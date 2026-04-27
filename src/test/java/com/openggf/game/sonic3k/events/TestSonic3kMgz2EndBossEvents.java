@@ -12,7 +12,11 @@ import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.MgzEndBossInstance;
+import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.runtime.HczZoneRuntimeState;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.playable.Sonic;
@@ -21,6 +25,9 @@ import com.openggf.tests.TestablePlayableSprite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -157,40 +164,25 @@ class TestSonic3kMgz2EndBossEvents {
     }
 
     @Test
-    void mgz2BossObjectIds_matchS3kSet1PointerTable() {
-        assertEquals(0xA1, Sonic3kObjectIds.MGZ_END_BOSS,
-                "SK Set 1 object pointer table maps Obj_MGZEndBoss to slot $A1");
-        assertEquals(0xA2, Sonic3kObjectIds.MGZ_END_BOSS_KNUX,
-                "SK Set 1 object pointer table maps Obj_MGZEndBossKnux to slot $A2");
-    }
-
-    @Test
-    void mgz2BossCollapseHandoff_spawnsTailsForSonicEvenWithoutConfiguredSidekick() {
+    void mgz2BossSpawn_insertsEndBossThroughObjectManager() throws Exception {
+        ObjectManager objectManager = installObjectManager();
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
+        Camera camera = GameServices.camera();
+        GameServices.camera().getFocusedSprite().setCentreY((short) 0x0668);
+        camera.setX((short) 0x3A00);
+        camera.setY((short) 0x0600);
+        events.update(1, 0);
 
-        events.triggerBossCollapseHandoff();
+        camera.setX((short) 0x3C80);
+        events.update(1, 1);
 
-        assertEquals(1, GameServices.sprites().getSidekicks().size());
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        assertEquals("tails", GameServices.sprites().getSidekickCharacterName(tails));
-        assertEquals("MGZ_RESCUE_WAIT", tails.getCpuController().getState().name(),
-                "Obj_MGZ2_BossTransition starts Tails in CPU routine $12, not the normal follower state");
-    }
-
-    @Test
-    void mgz2BossCollapseHandoff_usesSonicPlayerModeNotLiteralCodeForTailsSpawn() {
-        GameServices.camera().setFocusedSprite(new Sonic("sonic_p1", (short) 0x3A10, (short) 0x0680));
-        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
-        events.init(1);
-
-        events.triggerBossCollapseHandoff();
-
-        assertEquals(1, GameServices.sprites().getSidekicks().size(),
-                "Obj_MGZ2_BossTransition takes the Sonic path based on player mode, not a literal code string");
-        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
-        assertEquals("tails", GameServices.sprites().getSidekickCharacterName(tails));
-        assertEquals("MGZ_RESCUE_WAIT", tails.getCpuController().getState().name());
+        ObjectInstance endBoss = objectManager.getActiveObjects().stream()
+                .filter(MgzEndBossInstance.class::isInstance)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(Sonic3kObjectIds.MGZ_END_BOSS, endBoss.getSpawn().objectId(),
+                "MGZ2 boss spawn should create the live Obj_MGZEndBoss object, not only mark currentBossId");
     }
 
     @Test
@@ -308,6 +300,32 @@ class TestSonic3kMgz2EndBossEvents {
         assertEquals((short) 0, sonic.getYSpeed());
         assertEquals((short) 0, sonic.getGSpeed());
         assertEquals(false, sonic.getSpindash());
+    }
+
+    @Test
+    void mgz2BossTransition_keepsCameraLockedWhileSonicWaitsForRescue() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x3C80);
+        camera.setY((short) 0x0600);
+        camera.setMinX((short) 0);
+        camera.setMaxX((short) 0x6000);
+        camera.setMinY((short) 0);
+        camera.setMaxY((short) 0x1000);
+        AbstractPlayableSprite sonic = camera.getFocusedSprite();
+        sonic.setCentreX((short) 0x3A10);
+        sonic.setCentreY((short) 0x0780);
+        sonic.setAir(true);
+
+        events.triggerBossCollapseHandoff();
+        events.update(1, 0);
+        camera.updatePosition();
+
+        assertEquals((short) 0x3C80, camera.getX(),
+                "Obj_MGZ2_BossTransition should hold the boss arena camera while Sonic waits below the screen");
+        assertEquals((short) 0x0600, camera.getY(),
+                "The rescue clamp should not let the camera chase Sonic's off-bottom position for one frame");
     }
 
     @Test
@@ -643,5 +661,18 @@ class TestSonic3kMgz2EndBossEvents {
                 "Ctrl_2_logical includes the press bits, not just held bits");
         assertFalse(tails.getCpuController().getInputRight(),
                 "MGZ rescue routine $16 does not reuse the CNZ carry's synthetic-right input");
+    }
+
+    private static ObjectManager installObjectManager() throws NoSuchFieldException, IllegalAccessException {
+        ObjectManager objectManager = new ObjectManager(
+                new ArrayList<>(),
+                new Sonic3kObjectRegistry(),
+                GameModuleRegistry.getCurrent().getPlaneSwitcherObjectId(),
+                GameModuleRegistry.getCurrent().getPlaneSwitcherConfig(),
+                null);
+        Field field = GameServices.level().getClass().getDeclaredField("objectManager");
+        field.setAccessible(true);
+        field.set(GameServices.level(), objectManager);
+        return objectManager;
     }
 }

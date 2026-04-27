@@ -264,6 +264,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int collapseMutationCount;
     private int collapseFrameCounter;
     private int collapseStartupShakeTimer;
+    private int collapseRenderHoldFrames;
     private final int[] collapseScrollVelocity = new int[COLLAPSE_COLUMN_COUNT];
     private final int[] collapseScrollFixedPosition = new int[COLLAPSE_COLUMN_COUNT];
     private final int[] collapseScrollPosition = new int[COLLAPSE_COLUMN_COUNT];
@@ -278,6 +279,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int bossTransitionTimer;
     private int bossTransitionX;
     private int bossTransitionY;
+    private int bossTransitionCameraX;
+    private int bossTransitionCameraY;
 
     /** ROM: Events_bg+$00 — MGZ2 BG-rise state (0 / 8 / 0xC). */
     private int bgRiseRoutine;
@@ -340,6 +343,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         collapseMutationCount = 0;
         collapseFrameCounter = 0;
         collapseStartupShakeTimer = 0;
+        collapseRenderHoldFrames = 0;
         bossBgScrollVelocity = 0;
         bossBgScrollOffset = 0;
         for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
@@ -353,6 +357,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bossTransitionTimer = 0;
         bossTransitionX = 0;
         bossTransitionY = 0;
+        bossTransitionCameraX = 0;
+        bossTransitionCameraY = 0;
         bgRiseRoutine = BG_RISE_NORMAL;
         bgRiseOffset = 0;
         bgRiseSubpixelAccum = 0;
@@ -394,6 +400,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
      * reaches that clamp.
      */
     private void updateAct2BossArena() {
+        if (bossTransitionActive) {
+            return;
+        }
         Camera camera = camera();
         int cameraX = camera.getX() & 0xFFFF;
         int cameraY = camera.getY() & 0xFFFF;
@@ -1092,11 +1101,15 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
      */
     public void triggerBossCollapseHandoff() {
         requestLevelCollapse();
-        bossTransitionX = (camera().getX() & 0xFFFF) + BOSS_TRANSITION_SPAWN_OFFSET_X;
-        bossTransitionY = (camera().getY() & 0xFFFF) + BOSS_TRANSITION_SPAWN_OFFSET_Y;
+        Camera camera = camera();
+        bossTransitionCameraX = camera.getX() & 0xFFFF;
+        bossTransitionCameraY = camera.getY() & 0xFFFF;
+        bossTransitionX = bossTransitionCameraX + BOSS_TRANSITION_SPAWN_OFFSET_X;
+        bossTransitionY = bossTransitionCameraY + BOSS_TRANSITION_SPAWN_OFFSET_Y;
         bossTransitionTimer = BOSS_TRANSITION_WAIT_FRAMES;
         bossTransitionActive = true;
         bossTransitionDeathPlaneDisabled = true;
+        lockBossTransitionCamera();
         ensureBossTransitionTails(bossTransitionX, bossTransitionY);
     }
 
@@ -1144,6 +1157,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         if (!bossTransitionActive) {
             return;
         }
+        lockBossTransitionCamera();
         if (bossTransitionTimer > 0) {
             bossTransitionTimer--;
         }
@@ -1270,6 +1284,20 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         controller.setInitialState(SidekickCpuController.State.CARRY_INIT);
     }
 
+    private void lockBossTransitionCamera() {
+        Camera camera = camera();
+        camera.setX((short) bossTransitionCameraX);
+        camera.setY((short) bossTransitionCameraY);
+        camera.setMinX((short) bossTransitionCameraX);
+        camera.setMinXTarget((short) bossTransitionCameraX);
+        camera.setMaxX((short) bossTransitionCameraX);
+        camera.setMaxXTarget((short) bossTransitionCameraX);
+        camera.setMinY((short) bossTransitionCameraY);
+        camera.setMinYTarget((short) bossTransitionCameraY);
+        camera.setMaxY((short) bossTransitionCameraY);
+        camera.setMaxYTarget((short) bossTransitionCameraY);
+    }
+
     private SidekickCarryTrigger mgzBossTransitionCarryTrigger() {
         return new SidekickCarryTrigger() {
             @Override
@@ -1348,7 +1376,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
      * 20 visible 16px columns, repeating each 32px collapse block twice.
      */
     public short[] buildCollapseForegroundVScrollOverride(int cameraX) {
-        if (!isCollapseActive() || !collapseInitialized) {
+        if ((!isCollapseActive() && collapseRenderHoldFrames <= 0) || !collapseInitialized) {
             return null;
         }
 
@@ -1646,6 +1674,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 COLLAPSE_REGION_WIDTH, COLLAPSE_REGION_HEIGHT);
         collapseMutationCount++;
         collapseFinished = true;
+        collapseRenderHoldFrames = 1;
         collapseRequested = false;
         screenShakeActive = false;
         bossBgScrollVelocity = 0;
@@ -1657,6 +1686,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private void updateAct2BossBgScroll() {
         if (screenEventRoutine != SCREEN_EVENT_MOVE_BG) {
             return;
+        }
+        if (collapseRenderHoldFrames > 0) {
+            collapseRenderHoldFrames--;
         }
         if (bossBgScrollVelocity < BOSS_BG_SCROLL_MAX) {
             bossBgScrollVelocity = Math.min(BOSS_BG_SCROLL_MAX,

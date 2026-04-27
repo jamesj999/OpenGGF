@@ -115,6 +115,9 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     /** ObjDat_MGZDrillBoss collision_flags byte = $F (ENEMY category, size $F). */
     private static final int BODY_COLLISION_FLAGS = 0x0F;
     private static final int COLLISION_SIZE = 0x0F;
+    // ROM loc_6BFCA later writes x_radius=$30/y_radius=$24 for object range and
+    // floor logic, but Draw_And_Touch_Sprite still tests the parent through
+    // Touch_Sizes[$0F] at x_pos/y_pos.
     /** ROM: collision_property = -1 (loc_6BFCA:142441). Nonzero HP → bounce path. */
     private static final int ROM_COLLISION_PROPERTY = 0xFF;
     /** I-frames after a hit (matches AbstractBossInstance default). */
@@ -809,16 +812,18 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
      */
     @Override
     public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
-        if (state.invulnerable || state.defeated || waitTimer > 0) {
+        if (state.invulnerable || state.defeated || isInitialHiddenWait()) {
             return;
         }
         if (endBossMode) {
-            state.hitCount = Math.max(0, state.hitCount - 1);
+            state.hitCount = endBossCanBeKilled()
+                    ? Math.max(0, state.hitCount - 1)
+                    : Math.max(1, state.hitCount - 1);
             hit = true;
             state.invulnerable = true;
             state.invulnerabilityTimer = INVULNERABILITY_TIME;
             services().playSfx(Sonic3kSfx.BOSS_HIT.id);
-            if (state.hitCount == 0) {
+            if (state.hitCount == 0 && endBossCanBeKilled()) {
                 state.defeated = true;
                 state.routine = ROUTINE_END_DEFEATED;
             }
@@ -828,6 +833,22 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         state.invulnerable = true;
         state.invulnerabilityTimer = INVULNERABILITY_TIME;
         services().playSfx(Sonic3kSfx.BOSS_HIT.id);
+    }
+
+    /**
+     * ROM: Obj_MGZEndBoss keeps $46 set during the terrain-destruction phase.
+     * MGZ2_SpecialCheckHit resets collision_property to 1 instead of killing
+     * until loc_6C598 clears $46 for the post-collapse air fight.
+     */
+    private boolean endBossCanBeKilled() {
+        return switch (state.routine) {
+            case ROUTINE_END_ACTIVE,
+                 ROUTINE_END_AIR_APPROACH,
+                 ROUTINE_END_AIR_SWEEP,
+                 ROUTINE_END_ATTACK_WAIT,
+                 ROUTINE_END_ATTACK_MOVE -> true;
+            default -> false;
+        };
     }
 
     @Override
@@ -852,7 +873,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     @Override
     public int getCollisionFlags() {
-        if (waitTimer > 0
+        if (isInitialHiddenWait()
                 || state.routine == ROUTINE_CEILING_ESCAPE
                 || state.routine == ROUTINE_ESCAPE_WAIT
                 || state.invulnerable) {
@@ -906,6 +927,10 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     /** True while Obj_Wait holds Robotnik invisible before the drill drop. */
     public boolean isHidden() {
+        return isInitialHiddenWait();
+    }
+
+    private boolean isInitialHiddenWait() {
         return state.routine == ROUTINE_INIT && waitTimer > 0;
     }
 
@@ -929,10 +954,9 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         PatternSpriteRenderer drillRenderer = getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS);
         PatternSpriteRenderer shipRenderer = getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
 
-        // ROM spawn order: parent drill body → ship child → head child → 4 debris
-        // children (ChildObjDat_6D7C0). Higher slot numbers render later in the
-        // SST list, which means they end up ON TOP of earlier slots. We mirror
-        // that here so the drill-bit children are visible on top of the body.
+        // The ROM uses separate child sprites. In this inlined composite, draw
+        // the base body first, the pod/head next, then the terrain-destruction
+        // drill child pieces so the active drill remains visible over the craft.
 
         // 1) Drill body — frame 0 of Map_MGZEndBoss (includes the silver
         //    cockpit-top and side panels; the ROM's drill "cone" silhouette is

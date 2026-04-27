@@ -5,10 +5,13 @@ import com.openggf.data.Rom;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -20,6 +23,7 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
 import org.mockito.MockedStatic;
+import org.mockito.InOrder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -156,6 +161,28 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
+    void rendersTerrainDrillAfterRobotnikShipSoDrillStaysVisibleInFront() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzDrillingRobotnikInstance boss = createBoss(services);
+        boss.update(0, null);
+
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_DRILL_DROP");
+
+        boss.appendRenderCommands(new ArrayList<>());
+
+        InOrder order = inOrder(services.drillRenderer, services.shipRenderer);
+        order.verify(services.drillRenderer).drawFrameIndex(eq(0), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.shipRenderer).drawFrameIndex(eq(9), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.shipRenderer).drawFrameIndex(anyInt(), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer).drawFrameIndex(eq(1), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer).drawFrameIndex(eq(4), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer, times(2))
+                .drawFrameIndex(eq(6), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer).drawFrameIndex(eq(0x0F), anyInt(), anyInt(), eq(false), eq(false));
+    }
+
+    @Test
     void touchRegionsUseOnlyRomCollisionBearingBossParts() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         MgzDrillingRobotnikInstance boss = createBoss(services);
@@ -169,9 +196,7 @@ class TestMgzDrillingRobotnikInstance {
 
         assertEquals(4, regions.length,
                 "ROM exposes the parent body, drill-tip child, and two lower hurt children; pod/head children have collision_flags=0");
-        assertEquals(0x08E0, regions[0].x());
-        assertEquals(0x0690, regions[0].y());
-        assertEquals(0x0F, regions[0].collisionFlags());
+        assertBodyRegion(regions[0], 0x08E0, 0x0690);
         assertEquals(0x08F4, regions[1].x());
         assertEquals(0x065C, regions[1].y());
         assertEquals(0x8B, regions[1].collisionFlags());
@@ -276,15 +301,6 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void endBossStartsWithEightHitCollisionProperty() throws Exception {
-        RecordingServices services = new RecordingServices(camera);
-        MgzEndBossInstance boss = createEndBoss(services);
-
-        assertEquals(8, boss.getCollisionProperty(),
-                "Obj_MGZEndBoss uses eight hits instead of the drilling mini-event's nonlethal $FF hit property");
-    }
-
-    @Test
     void endBossConsumesEightHitsBeforeDefeat() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         MgzEndBossInstance boss = createEndBoss(services);
@@ -301,7 +317,43 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void endBossDefeatClearsGenericBossFlag() throws Exception {
+    void endBossEventPhaseHitsCannotKillUntilRomClearsEventFlag() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_FLOOR_DROP");
+
+        for (int i = 0; i < 8; i++) {
+            boss.getState().invulnerable = false;
+            boss.onPlayerAttack(null, null);
+        }
+
+        assertFalse(boss.isDefeated(),
+                "MGZ2_SpecialCheckHit keeps Obj_MGZEndBoss alive while $46 marks the terrain-destruction event phase");
+        assertEquals(1, boss.getCollisionProperty(),
+                "The ROM resets collision_property to 1 instead of allowing a kill while $46 is set");
+        assertNotEquals(staticInt("ROUTINE_END_DEFEATED"), boss.getState().routine);
+    }
+
+    @Test
+    void endBossDrillingPhaseRemainsHittableWhileScriptTimerRuns() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0x3F);
+        boss.getState().routine = staticInt("ROUTINE_END_IMPACT_WAIT");
+
+        assertEquals(0x0F, boss.getCollisionFlags(),
+                "MGZ2 end-boss script timers should not disable the visible parent body touch box");
+
+        boss.onPlayerAttack(null, null);
+
+        assertEquals(7, boss.getCollisionProperty(),
+                "MGZ2_SpecialCheckHit still registers non-lethal hits during the terrain-destruction phase");
+        assertFalse(boss.isDefeated());
+    }
+
+    @Test
+    void endBossDefeatClearsBossStateAndDestroysObject() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         GameStateManager gameState = mock(GameStateManager.class);
         AbstractLevelEventManager levelEvents = mock(AbstractLevelEventManager.class);
@@ -319,7 +371,9 @@ class TestMgzDrillingRobotnikInstance {
         }
         boss.update(1, null);
 
+        verify(gameState).setCurrentBossId(0);
         verify(levelEvents).setBossActive(false);
+        assertTrue(boss.isDestroyed());
     }
 
     @Test
@@ -393,6 +447,33 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(0x400, getPrivateInt(boss, "yVel"),
                 "The first impact frame should not immediately start the upward recovery");
         assertNotEquals(staticInt("ROUTINE_END_RECOVER"), boss.getState().routine);
+    }
+
+    @Test
+    void repeatedEndBossFloorImpactsRequestCollapseOnlyOnce() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        CountingMgzEvents mgzEvents = new CountingMgzEvents();
+        services.withLevelEventProvider(new MgzEventManagerForTest(mgzEvents));
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        setPrivateInt(boss, "yVel", 0x400);
+        boss.getState().routine = staticInt("ROUTINE_END_FLOOR_DROP");
+        boss.getState().x = 0x3D20;
+        boss.getState().y = 0x0668;
+
+        try (MockedStatic<ObjectTerrainUtils> terrain = mockStatic(ObjectTerrainUtils.class)) {
+            terrain.when(() -> ObjectTerrainUtils.checkFloorDist(anyInt(), anyInt(), anyInt()))
+                    .thenReturn(new TerrainCheckResult(0, (byte) 0, 0));
+            boss.update(1, null);
+            boss.getState().routine = staticInt("ROUTINE_END_FLOOR_DROP");
+            setPrivateInt(boss, "yVel", 0x400);
+            boss.update(2, null);
+        }
+
+        assertEquals(1, mgzEvents.collapseHandoffCount,
+                "Repeated floor collisions must not repeatedly request the MGZ2 collapse handoff");
+        assertEquals(1, services.playedSfxCount,
+                "Repeated floor collisions must not replay the floor-impact SFX");
     }
 
     @Test
@@ -585,6 +666,13 @@ class TestMgzDrillingRobotnikInstance {
         assertEquals(expectedB, palette.getColor(colorIndex).b & 0xFF);
     }
 
+    private static void assertBodyRegion(TouchResponseProvider.TouchRegion region, int x, int y) {
+        assertEquals(x, region.x());
+        assertEquals(y, region.y());
+        assertEquals(0x0F, region.collisionFlags());
+        assertEquals(0, region.shieldReactionFlags());
+    }
+
     private static final class RecordingServices extends TestObjectServices {
         private final Camera camera;
         private final Level level;
@@ -598,6 +686,7 @@ class TestMgzDrillingRobotnikInstance {
         private final com.openggf.level.render.PatternSpriteRenderer debrisRenderer =
                 mock(com.openggf.level.render.PatternSpriteRenderer.class);
         private final Rom rom = mock(Rom.class);
+        private LevelEventProvider levelEventProvider;
         private int playedSfxCount;
 
         RecordingServices(Camera camera) throws Exception {
@@ -654,9 +743,41 @@ class TestMgzDrillingRobotnikInstance {
             return rom;
         }
 
+        RecordingServices withLevelEventProvider(LevelEventProvider levelEventProvider) {
+            this.levelEventProvider = levelEventProvider;
+            return this;
+        }
+
+        @Override
+        public LevelEventProvider levelEventProvider() {
+            return levelEventProvider;
+        }
+
         @Override
         public void playSfx(int soundId) {
             playedSfxCount++;
+        }
+    }
+
+    private static final class CountingMgzEvents extends Sonic3kMGZEvents {
+        private int collapseHandoffCount;
+
+        @Override
+        public void triggerBossCollapseHandoff() {
+            collapseHandoffCount++;
+        }
+    }
+
+    private static final class MgzEventManagerForTest extends Sonic3kLevelEventManager {
+        private final Sonic3kMGZEvents mgzEvents;
+
+        private MgzEventManagerForTest(Sonic3kMGZEvents mgzEvents) {
+            this.mgzEvents = mgzEvents;
+        }
+
+        @Override
+        public Sonic3kMGZEvents getMgzEvents() {
+            return mgzEvents;
         }
     }
 }

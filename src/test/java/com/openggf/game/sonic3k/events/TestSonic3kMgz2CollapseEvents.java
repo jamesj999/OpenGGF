@@ -27,6 +27,7 @@ import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,6 +118,31 @@ class TestSonic3kMgz2CollapseEvents {
         assertCleared(level.getMap(), 121, 14, 3, 3);
         assertFalse(tilemaps.isForegroundTilemapDirty(),
                 "If the FG tilemap is dirty at impact, the engine must snapshot the visible plane before clearing layout RAM");
+        assertVisibleTilemapSnapshotAt(tilemaps, level, 121, 14);
+    }
+
+    @Test
+    void repeatedCollapseRequestsDoNotRecreateSolidsOrResetTransition() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        events.requestLevelCollapse();
+
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, frame);
+        }
+        assertEquals(1, events.getCollapseMutationCount());
+        assertEquals(20, events.getCollapseSolidCountForTest());
+
+        events.requestLevelCollapse();
+        for (int frame = 0; frame < 0x14; frame++) {
+            events.update(1, 0x14 + frame);
+        }
+
+        assertTrue(events.isCollapseActive());
+        assertEquals(1, events.getCollapseMutationCount(),
+                "Repeated floor-impact handoff while the collapse is active must not restart the startup clear");
+        assertEquals(20, events.getCollapseSolidCountForTest(),
+                "Repeated floor-impact handoff must reuse the original invisible collapse solids");
     }
 
     @Test
@@ -140,6 +166,28 @@ class TestSonic3kMgz2CollapseEvents {
                 "ROM loc_51484 seeds Events_bg+$0C from Camera_X_pos_copy when collapse finishes");
         assertCleared(level.getMap(), 121, 14, 3, 3);
         assertCleared(level.getMap(), 121, 11, 3, 3);
+    }
+
+    @Test
+    void collapseFinishKeepsVScrollOverrideForFinalRenderFrameOnly() {
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        GameServices.camera().setX((short) 0x3C80);
+        events.requestLevelCollapse();
+
+        int frame = 0;
+        for (; frame < 512 && !events.isCollapseFinished(); frame++) {
+            events.update(1, frame);
+        }
+
+        short[] finishFrameOverride = events.buildCollapseForegroundVScrollOverride(0x3C80);
+        assertTrue(finishFrameOverride != null && finishFrameOverride[12] < 0,
+                "The finish frame must keep the collapse VScroll override so preserved terrain does not flash back to its original rows");
+
+        events.update(1, frame);
+
+        assertNull(events.buildCollapseForegroundVScrollOverride(0x3C80),
+                "After the finish frame has rendered, MGZ2SE_MoveBG should own the scene without the collapse VScroll override");
     }
 
     @Test
@@ -227,6 +275,20 @@ class TestSonic3kMgz2CollapseEvents {
         }
     }
 
+    private static void assertVisibleTilemapSnapshotAt(LevelTilemapManager tilemaps,
+                                                       SyntheticMgzCollapseLevel level,
+                                                       int blockX,
+                                                       int blockY) {
+        byte[] data = tilemaps.getForegroundTilemapData();
+        assertNotNull(data, "dirty FG tilemap should have been built before the layout RAM clear");
+        int tileX = blockX * level.getBlockPixelSize() / Pattern.PATTERN_WIDTH;
+        int tileY = blockY * level.getBlockPixelSize() / Pattern.PATTERN_HEIGHT;
+        int offset = (tileY * tilemaps.getForegroundTilemapWidthTiles() + tileX) * 4;
+
+        assertEquals((byte) 0xFF, data[offset + 3],
+                "The visible FG tilemap should still contain the pre-clear block instead of rebuilding from the cleared map");
+    }
+
     private static LevelTilemapManager installTilemapManager(SyntheticMgzCollapseLevel level)
             throws NoSuchFieldException, IllegalAccessException {
         LevelGeometry geometry = new LevelGeometry(
@@ -296,7 +358,8 @@ class TestSonic3kMgz2CollapseEvents {
                 Block block = new Block();
                 int[] state = new int[64];
                 for (int i = 0; i < state.length; i++) {
-                    state[i] = new ChunkDesc((blockIndex + i) & 0x03FF).get();
+                    int chunkIndex = blockIndex == 0 ? 0x03FF : 0;
+                    state[i] = new ChunkDesc(chunkIndex).get();
                 }
                 block.restoreState(state);
                 blocks[blockIndex] = block;
