@@ -31,6 +31,7 @@ import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -593,6 +594,17 @@ class TestSonic3kMgz2EndBossEvents {
 
         assertTrue(manager.interceptPitDeath(sonic),
                 "Obj_MGZEndBoss floor impact sets Disable_death_plane before Obj_MGZ2_BossTransition runs");
+    }
+
+    @Test
+    void mgzEndBossObjectIdCreatesEndBossInstance() {
+        Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
+
+        ObjectInstance instance = registry.create(new com.openggf.level.objects.ObjectSpawn(
+                0x3D20, 0x0668, Sonic3kObjectIds.MGZ_END_BOSS, 0, 0, false, 0));
+
+        assertInstanceOf(MgzEndBossInstance.class, instance,
+                "MGZ_END_BOSS must be registered; otherwise level placement falls back to a placeholder");
     }
 
     @Test
