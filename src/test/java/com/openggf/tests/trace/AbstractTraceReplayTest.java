@@ -778,7 +778,7 @@ public abstract class AbstractTraceReplayTest {
         if (!preserveObjectControl && !cagePreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
-        // Stage A reduction (research agent ab93a0947e59d62f2): five unambiguous
+        // Stage A reduction (research agent ab93a0947e59d62f2): eight unambiguous
         // comparison-only-invariant violations removed here.
         //
         // 1) `sidekick.setHurt(state.routine() == 0x04)` was an architectural
@@ -828,7 +828,44 @@ public abstract class AbstractTraceReplayTest {
         //    remaining ROM writes. The trace's groundMode column is comparison
         //    context, not engine input.
         //
-        // All five removals align with the comparison-only invariant
+        // 6) `sidekick.setAngle(state.angle())` is set natively by terrain
+        //    collision: PlayableSpriteMovement.java:1054 (`sprite.setAngle(
+        //    floorResult.angle())` after airborne floor probe) and
+        //    PlayableSpriteMovement.java:1324, 2625, 2627 set the angle from
+        //    ground-sensor results, matching ROM `Sonic_AnglePos` (sonic3k.asm:
+        //    19568) which writes `move.b d2,angle(a0)` from the floor sensor's
+        //    sub_19798 result. The airborne return-to-zero path
+        //    (PlayableSpriteMovement.java:836: `sprite.setAngle((byte) 0)`)
+        //    matches ROM `Sonic_DoLevelCollision`. The trace's angle column is
+        //    comparison context.
+        //
+        // 7) `sidekick.setDirection(...)` derived from Status_FacingLeft (bit 0)
+        //    is set/cleared natively by sidekick logic: SidekickCpuController.java
+        //    sets direction from recorded leader history (line 497, 499, 579,
+        //    1357) — matching ROM `Tails_Control` (sonic3k.asm:25901) which
+        //    derives Tails's facing from leader-relative steering. The engine's
+        //    PlayableSpriteMovement also writes direction at lines 936, 938,
+        //    959, 961, 1183, 1354, 1395, 1409, 1469-1495, 1642, 1650, 1707,
+        //    1720, 2821-2845, 2906, 2911, 3009, 3012 (matching the multiple
+        //    `bset/bclr #Status_FacingLeft,obStatus(a0)` sites in ROM
+        //    Sonic_MoveLeft / Sonic_MoveRight / sonic3k.asm:23070, 23078).
+        //    Per-frame reseed of the bit-0 derivation cannot improve accuracy.
+        //
+        // 8) `sidekick.setAir(state.air())` is set/cleared natively by the
+        //    engine collision pass: PlayableSpriteMovement.java:341 clears it
+        //    on landing (matches ROM `bclr #Status_InAir,obStatus(a0)`),
+        //    line 656 sets it on jump entry (matches ROM `bset #Status_InAir`),
+        //    line 976/984 clears it on landing recovery, lines 1049, 1189,
+        //    1944, 1958, 2332 set it on airborne entries, and the death/object
+        //    handlers also drive it. Crucially, `setAir(false)` triggers
+        //    landing cleanup (AbstractPlayableSprite.java:1165 — clears hurt,
+        //    rolling jump, jumping, double-jump flags, applies standing radii).
+        //    Reseeding `air` from the trace each frame after the engine has
+        //    already evolved this state from terrain collision is at best
+        //    redundant and at worst replays the landing-cleanup side effects
+        //    inappropriately. The trace's air column is comparison context.
+        //
+        // All eight removals align with the comparison-only invariant
         // (.claude/skills/trace-replay-bug-fixing/skill.md): trace data is
         // read-only diagnostic input — engine state is never hydrated from the
         // trace in committed test code.
@@ -837,11 +874,6 @@ public abstract class AbstractTraceReplayTest {
         sidekick.setXSpeed(state.xSpeed());
         sidekick.setYSpeed(state.ySpeed());
         sidekick.setGSpeed(state.gSpeed());
-        sidekick.setAngle(state.angle());
-        sidekick.setDirection((state.statusByte() & 0x01) != 0
-                ? com.openggf.physics.Direction.LEFT
-                : com.openggf.physics.Direction.RIGHT);
-        sidekick.setAir(state.air());
         sidekick.setPushing((state.statusByte() & 0x20) != 0);
         sidekick.setSubpixelRaw(state.xSub(), state.ySub());
         sidekick.resetPositionHistory();
