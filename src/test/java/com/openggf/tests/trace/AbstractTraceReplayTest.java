@@ -775,7 +775,11 @@ public abstract class AbstractTraceReplayTest {
         boolean cagePreserveObjectControl = sidekick.isObjectControlled()
                 && sidekick.getLatchedSolidObjectId()
                         == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_WIRE_CAGE;
-        if (!preserveObjectControl && !cagePreserveObjectControl) {
+        boolean cylinderPreserveObjectControl = sidekick.isObjectControlled()
+                && sidekick.getLatchedSolidObjectId()
+                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_CYLINDER;
+        if (!preserveObjectControl && !cagePreserveObjectControl
+                && !cylinderPreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
         // Stage A reduction (research agent ab93a0947e59d62f2): eight unambiguous

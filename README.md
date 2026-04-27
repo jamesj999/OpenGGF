@@ -328,7 +328,17 @@ further S3K parity work.
   corrupting d6 and the cage's `btst`-against-cage-status capture test fails for
   the sidekick, so the cage stops re-capturing Tails every frame she lands in
   the bbox; both branches preserve `objectControlled=true + objectControlAllowsCpu=true`
-  to match ROM's persistent `obj_ctrl=$43` ghost-state marker; F4490 → F4577 lands
+  to match ROM's persistent `obj_ctrl=$43` ghost-state marker; F4577 → F4788 lands
+  round 25's two-part cylinder oc-preservation fix — `CnzCylinderInstance.captureSlot`
+  explicitly sets the standing bit and `update()` preserves it for active slots
+  (decoupled from the engine's solid-contact pass which is blocked when
+  `objectControlled=true`, mirroring ROM `Obj_CNZCylinder` calling `SolidObjectFull`
+  every frame regardless of capture state at sonic3k.asm:67668-67672); plus a parallel
+  cylinder carve-out in `applyRecordedFirstSidekickState` matching the existing CNZ
+  wire-cage carve-out — without preserving Tails's `object_control = $03` bit 0 across
+  release-frame reseed, ROM `Tails_Control`'s `btst #0,object_control(a0)` skip gate
+  at sonic3k.asm:26211 didn't apply and Sonic's recorded INPUT_JUMP propagated to
+  Tails via the CPU follow path firing a spurious roll; F4490 → F4577 lands
   round 18's `CnzCylinderInstance` offscreen-rider preservation — when a captured
   rider's render_flags bit 7 is clear, the engine now preserves the cylinder's
   per-rider standing bit (mirrors ROM `SolidObjectFull` at sonic3k.asm:41006-41008

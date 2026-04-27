@@ -4,7 +4,44 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
-<<<<<<< HEAD
+### S3K CNZ Cylinder: Preserve Tails object_control bit 0 across release-frame reseed (F4577)
+
+- `AbstractTraceReplayTest.applyRecordedFirstSidekickState` now preserves
+  `objectControlled=true` when Tails has `latchedSolidObjectId == 0x47`
+  (`Sonic3kObjectIds.CNZ_CYLINDER`), mirroring the existing wire-cage
+  carve-out. Without preservation, the per-frame reseed cleared the
+  bit before the release-frame Tails update could observe ROM's
+  `object_control = $03` from the previous capture frame, the
+  `Tails_Modes` skip gate at `sonic3k.asm:26211`
+  (`btst #0,object_control(a0); beq.s loc_13872`) was bypassed, and
+  `PlayableSpriteMovement.doJump` fired off Sonic-history's INPUT_JUMP
+  (16-frame propagation in `SidekickCpuController.updateNormal`,
+  `sonic3k.asm:26688` `ROM_FOLLOW_DELAY_FRAMES`), setting
+  `tails_rolling=1` while ROM kept `tails_rolling=0` — CNZ trace
+  replay first error at F4577.
+- `CnzCylinderInstance.captureSlot` now sets the per-rider standing
+  bit explicitly (`standingMask |= slotMask(slot)`), and
+  `CnzCylinderInstance.update` now preserves the bit when a slot is
+  active in addition to the existing offscreen-rider preservation.
+  ROM `Obj_CNZCylinder` (`sonic3k.asm:67668-67672`) calls
+  `SolidObjectFull` every frame regardless of capture state to refresh
+  the standing bit, but the engine's solid-contact framework blocks
+  the pass entirely for `objectControlled` players
+  (`ObjectManager.java:4120-4131` `blocksSolidContacts`), so
+  `onSolidContact` never fires once the rider is captured. Without
+  the explicit set + active-slot preservation, the new
+  `objectControlled` preservation above would let `nextStandingMask`
+  reset to 0 and break the captured/released alternation that
+  round 18's offscreen preservation set up (CNZ trace F4490
+  `tails_air` regression reproduced when only the reseed change was
+  applied).
+- Trace impact: CNZ first error advances F4577 -> F4788 (4142 -> 4140
+  errors). F4490 stays green. Cross-game baselines unchanged: AIZ
+  F6911 (1704 errors), S2 EHZ F1151 (553 errors), S1 MZ1 F311
+  (439 errors), S1 GHZ PASS. S3K must-keep-green tests stay green
+  (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`).
+
 ### Trace Replay: Drop angle/direction/air Per-Frame Sidekick Reseeds (Stage A Reduction, items 6-8)
 
 - `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
