@@ -778,7 +778,7 @@ public abstract class AbstractTraceReplayTest {
         if (!preserveObjectControl && !cagePreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
-        // Stage A reduction (research agent ab93a0947e59d62f2): two unambiguous
+        // Stage A reduction (research agent ab93a0947e59d62f2): five unambiguous
         // comparison-only-invariant violations removed here.
         //
         // 1) `sidekick.setHurt(state.routine() == 0x04)` was an architectural
@@ -799,7 +799,36 @@ public abstract class AbstractTraceReplayTest {
         //    per-frame hydration is at best redundant and at worst a hitbox-
         //    geometry corruption.
         //
-        // Both removals align with the comparison-only invariant
+        // 3) `sidekick.setOnObject((state.statusByte() & 0x08) != 0)` (Status_OnObj
+        //    = bit 3, sonic3k.constants.asm:177) is set/cleared natively by the
+        //    engine collision pass: PlayableSpriteMovement.java:342 sets it on
+        //    object-support recovery, line 642 clears it on jump (matching ROM
+        //    `bclr #Status_OnObj,obStatus(a0)` at s2.asm jump entry), and
+        //    ObjectManager solid-contact paths drive object riding. The trace's
+        //    statusByte is captured per-frame purely for comparison; reseeding
+        //    it after collision overrides ROM-correct engine output.
+        //
+        // 4) `sidekick.setRollingJump((state.statusByte() & 0x10) != 0)`
+        //    (Status_RollJump = bit 4, sonic3k.constants.asm:178) is evolved
+        //    natively: PlayableSpriteMovement.java:669 sets it when jumping
+        //    while rolling (matches `bset #Status_RollJump,status(a0)` at
+        //    sonic3k.asm:23358 / Sonic_RollJump), and lines 815, 2212 clear it
+        //    on glide activation and landing (matching ROM `bclr` at multiple
+        //    sites incl. sonic3k.asm:23403, 24368, 28663). Per-frame reseed
+        //    after the engine has already produced the ROM-correct value
+        //    cannot improve accuracy.
+        //
+        // 5) `sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()))`
+        //    is evolved natively by terrain collision (CollisionSystem.java:891
+        //    and PlayableSpriteMovement.updateGroundMode at line 2590) which
+        //    derives the four-quadrant mode from `(angle + 0x20) & 0xC0`,
+        //    matching ROM `Sonic_AnglePos` / `Sonic_DoLevelCollision`. Object
+        //    hooks (HCZTwistingLoop, ObjectManager riding paths) and the
+        //    death-reset path (AbstractPlayableSprite.java:1200) cover the
+        //    remaining ROM writes. The trace's groundMode column is comparison
+        //    context, not engine input.
+        //
+        // All five removals align with the comparison-only invariant
         // (.claude/skills/trace-replay-bug-fixing/skill.md): trace data is
         // read-only diagnostic input — engine state is never hydrated from the
         // trace in committed test code.
@@ -813,10 +842,7 @@ public abstract class AbstractTraceReplayTest {
                 ? com.openggf.physics.Direction.LEFT
                 : com.openggf.physics.Direction.RIGHT);
         sidekick.setAir(state.air());
-        sidekick.setOnObject((state.statusByte() & 0x08) != 0);
-        sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
         sidekick.setPushing((state.statusByte() & 0x20) != 0);
-        sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()));
         sidekick.setSubpixelRaw(state.xSub(), state.ySub());
         sidekick.resetPositionHistory();
 
@@ -824,14 +850,6 @@ public abstract class AbstractTraceReplayTest {
         // Sonic+Tails carry is driven by the sidekick CPU routine; the trace
         // state supplies frame-boundary position/speed, not a replacement CPU
         // routine stream.
-    }
-
-    private static GroundMode groundModeFromOrdinal(int ordinal) {
-        GroundMode[] values = GroundMode.values();
-        if (ordinal < 0 || ordinal >= values.length) {
-            return GroundMode.GROUND;
-        }
-        return values[ordinal];
     }
 
     private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {
