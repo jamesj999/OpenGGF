@@ -51,6 +51,18 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     protected final ObjectSpawn spawn;
     protected final String name;
     private boolean destroyed;
+    /**
+     * ROM parity: true when this destroy was triggered by an off-screen check
+     * (Sprite_OnScreen_Test family in sonic3k.asm, e.g. loc_1B5A0), where ROM
+     * clears bit 7 of the respawn-table entry ({@code bclr #7,(a2)} at
+     * sonic3k.asm:37275) so the object can be re-spawned by the placement
+     * system when the camera returns. Without this flag, the engine's
+     * {@code permanentDestroyLatch} (S3K) treats every destroy as a latched
+     * "do not respawn" (modeling player-kill explosions which never clear
+     * the respawn bit). Off-screen self-deletes are explicitly NOT a
+     * latched destroy in the ROM and must be respawnable.
+     */
+    private boolean destroyedRespawnable;
     private ObjectSpawn dynamicSpawn;
     private ObjectServices services;
 
@@ -389,11 +401,37 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     public void setDestroyed(boolean destroyed) {
         this.destroyed = destroyed;
+        if (!destroyed) {
+            this.destroyedRespawnable = false;
+        }
+    }
+
+    /**
+     * Marks this object as destroyed via an off-screen check
+     * (ROM Sprite_OnScreen_Test family, sonic3k.asm:37262 etc.). The placement
+     * system will release the slot but will NOT latch the spawn into
+     * {@code destroyedInWindow}, so when the camera re-enters the placement
+     * window the object can re-spawn. This mirrors ROM's
+     * {@code bclr #7,(a2)} at loc_1B5A0 (sonic3k.asm:37275).
+     */
+    public void setDestroyedByOffscreen() {
+        this.destroyed = true;
+        this.destroyedRespawnable = true;
     }
 
     @Override
     public boolean isDestroyed() {
         return destroyed;
+    }
+
+    /**
+     * Returns true when the most recent destroy was an off-screen self-delete
+     * (Sprite_OnScreen_Test) and the spawn should remain re-spawnable. See
+     * {@link #setDestroyedByOffscreen()}.
+     */
+    @Override
+    public boolean isDestroyedRespawnable() {
+        return destroyedRespawnable;
     }
 
     @Override

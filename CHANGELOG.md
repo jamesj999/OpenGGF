@@ -4,6 +4,49 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### S3K AIZ Trace: Off-screen Self-delete Stays Respawnable (F6911 -> F7127)
+
+- Fix S3K `Sprite_OnScreen_Test` self-deletes setting the engine's
+  `permanentDestroyLatch` flag, which prevented re-spawn when the
+  camera scrolled away and back across a chunk boundary.
+  ROM cite (`docs/skdisasm/sonic3k.asm`):
+    - `Sprite_OnScreen_Test` (loc_1B5A0 at sonic3k.asm:37271):
+      ```
+      loc_1B5A0:
+        move.w  respawn_addr(a0),d0
+        beq.s   loc_1B5AC
+        movea.w d0,a2
+        bclr    #7,(a2)        ; allow respawn
+      loc_1B5AC:
+        bra.w   Delete_Current_Sprite
+      ```
+    - i.e. ROM clears bit 7 of the respawn-table entry on off-screen
+      self-delete. Player-kill paths (`Touch_EnemyNormal` ->
+      `Obj_Explosion`) bypass `Sprite_OnScreen_Test` and so leave the
+      respawn bit latched.
+- Engine surface area:
+  - `ObjectInstance.isDestroyedRespawnable()` (default `false`) and
+    `AbstractObjectInstance.setDestroyedByOffscreen()` distinguish the
+    two destroy reasons.
+  - `ObjectManager.dispatchDestroyRemoveFromActive` routes
+    respawnable destroys to `Placement.removeFromActiveForUnload`
+    (no `destroyedInWindow` latch) and other destroys to
+    `Placement.removeFromActive` (latched, S3K kill semantics).
+  - `Sonic3kCollapsingPlatformObjectInstance` switches its three
+    `Sprite_OnScreen_Test`-failure paths from `setDestroyed(true)` to
+    `setDestroyedByOffscreen()` so the ROM's `bclr #7,(a2)` semantics
+    re-spawn the platform when the camera comes back. The state-3
+    falling-parent off-screen check (`isOnScreen(128)`) keeps
+    `setDestroyed(true)` (post-fragmentation cleanup is not the
+    `Sprite_OnScreen_Test` path).
+- Trace impact:
+  - `TestS3kAizTraceReplay` first error advances from F6911
+    (`air mismatch`, AIZ collapsing platform missing at 0x0E70,0x0368)
+    to F7127 (`tails_g_speed mismatch`, separate sidekick concern).
+  - All previously green trace tests stay green; CNZ / S2 EHZ /
+    S1 MZ1 / S1 credits-demo first-error frames unchanged.
+
+
 <<<<<<< HEAD
 ### Trace Replay: Drop angle/direction/air Per-Frame Sidekick Reseeds (Stage A Reduction, items 6-8)
 

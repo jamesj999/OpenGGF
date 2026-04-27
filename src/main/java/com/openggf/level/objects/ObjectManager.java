@@ -484,7 +484,7 @@ public class ObjectManager {
                     if (spawn != null) {
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
-                        placement.removeFromActive(spawn);
+                        dispatchDestroyRemoveFromActive(instance, spawn);
                         removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
@@ -524,7 +524,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
@@ -538,7 +538,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
@@ -636,7 +636,7 @@ public class ObjectManager {
                     if (spawn != null) {
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
-                        placement.removeFromActive(spawn);
+                        dispatchDestroyRemoveFromActive(instance, spawn);
                         removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
@@ -681,7 +681,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
@@ -696,7 +696,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
@@ -1837,6 +1837,33 @@ public class ObjectManager {
         int screenRounded = (cameraX - 128) & 0xFF80;
         int distance = (objRounded - screenRounded) & 0xFFFF;
         return distance > 640;
+    }
+
+    /**
+     * ROM parity dispatcher for the destroy-from-active path.
+     *
+     * <p>When an object self-destroys via an off-screen check
+     * (Sprite_OnScreen_Test family in sonic3k.asm -- see loc_1B5A0 at
+     * sonic3k.asm:37271), ROM clears bit 7 of the respawn-table entry
+     * ({@code bclr #7,(a2)} at sonic3k.asm:37275) so the placement system
+     * can re-spawn the object when the camera returns. The engine mirrors
+     * this by routing those destroys to {@link Placement#removeFromActiveForUnload}
+     * which leaves {@code destroyedInWindow} cleared.
+     *
+     * <p>All other destroy reasons (player kills via Touch_EnemyNormal /
+     * Obj_Explosion, monitor breaks, etc.) latch through
+     * {@link Placement#removeFromActive} so {@code permanentDestroyLatch}
+     * (S3K) can lock the spawn out for the rest of the level. This matches
+     * ROM's loc_1BA40 / loc_1BA64 pattern where bit 7 stays set after
+     * routing through {@code Delete_Current_Sprite} without going through
+     * Sprite_OnScreen_Test.
+     */
+    private void dispatchDestroyRemoveFromActive(ObjectInstance instance, ObjectSpawn spawn) {
+        if (instance.isDestroyedRespawnable()) {
+            placement.removeFromActiveForUnload(spawn);
+        } else {
+            placement.removeFromActive(spawn);
+        }
     }
 
     private boolean unloadCounterBasedOutOfRange(ObjectInstance instance, ObjectSpawn spawn,
