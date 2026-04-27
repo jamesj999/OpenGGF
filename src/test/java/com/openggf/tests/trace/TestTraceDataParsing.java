@@ -4,9 +4,11 @@ import com.openggf.trace.*;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -336,6 +338,59 @@ public class TestTraceDataParsing {
     }
 
     @Test
+    void loadsAuxEventsFromGzipWhenPlainJsonlIsAbsent() throws IOException {
+        Path dir = Files.createTempDirectory("trace-gz-aux");
+        writeMinimalTraceFiles(dir);
+        writeGzipString(dir.resolve("aux_state.jsonl.gz"), """
+            {"frame":0,"event":"checkpoint","name":"gz_aux_loaded","actual_zone_id":0,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        List<TraceEvent> events = data.getEventsForFrame(0);
+        assertEquals(1, events.size());
+        TraceEvent.Checkpoint checkpoint = assertInstanceOf(TraceEvent.Checkpoint.class, events.getFirst());
+        assertEquals("gz_aux_loaded", checkpoint.name());
+    }
+
+    @Test
+    void plainAuxJsonlTakesPrecedenceOverGzipSidecar() throws IOException {
+        Path dir = Files.createTempDirectory("trace-plain-aux-first");
+        writeMinimalTraceFiles(dir);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"event":"checkpoint","name":"plain_aux_loaded","actual_zone_id":0,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+        writeGzipString(dir.resolve("aux_state.jsonl.gz"), """
+            {"frame":0,"event":"checkpoint","name":"gzip_aux_loaded","actual_zone_id":0,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        List<TraceEvent> events = data.getEventsForFrame(0);
+        assertEquals(1, events.size());
+        TraceEvent.Checkpoint checkpoint = assertInstanceOf(TraceEvent.Checkpoint.class, events.getFirst());
+        assertEquals("plain_aux_loaded", checkpoint.name());
+    }
+
+    @Test
+    void loadsPhysicsFramesFromGzipWhenPlainCsvIsAbsent() throws IOException {
+        Path dir = Files.createTempDirectory("trace-gz-physics");
+        writeMinimalMetadata(dir);
+        writeGzipString(dir.resolve("physics.csv.gz"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000
+            0001,0008,0081,03A0,000C,0000,000C,00,0,0,0,0C00,0000,02,0000,0000,0000,00,0002,00,0002,0000
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(2, data.frameCount());
+        assertEquals(0x0008, data.getFrame(1).input());
+        assertEquals((short) 0x0081, data.getFrame(1).x());
+    }
+
+    @Test
     public void testNoEventsForFrame() throws IOException {
         TraceData data = TraceData.load(SYNTHETIC_3FRAMES);
         List<TraceEvent> events = data.getEventsForFrame(1);
@@ -469,6 +524,41 @@ public class TestTraceDataParsing {
         assertEquals(0, state.actualZoneId());
         assertEquals(0, state.actualAct());
         assertEquals(0, state.apparentAct());
+    }
+
+    private static void writeMinimalTraceFiles(Path dir) throws IOException {
+        writeMinimalMetadata(dir);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000
+            """);
+    }
+
+    private static void writeMinimalMetadata(Path dir) throws IOException {
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-27",
+              "lua_script_version": "test",
+              "trace_schema": 3,
+              "csv_version": 4,
+              "rom_checksum": "test"
+            }
+            """);
+    }
+
+    private static void writeGzipString(Path path, String contents) throws IOException {
+        try (OutputStream out = Files.newOutputStream(path);
+             GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+            gzip.write(contents.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
     }
 }
 

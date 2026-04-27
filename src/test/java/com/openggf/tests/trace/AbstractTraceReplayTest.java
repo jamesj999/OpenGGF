@@ -79,7 +79,7 @@ public abstract class AbstractTraceReplayTest {
     /** Act index (0-based). */
     protected abstract int act();
 
-    /** Path to the trace directory containing metadata.json, physics.csv, and optionally a .bk2. */
+    /** Path to the trace directory containing metadata.json, physics.csv(.gz), and optionally a .bk2. */
     protected abstract Path traceDirectory();
 
     /** Override to supply custom tolerances. */
@@ -101,7 +101,7 @@ public abstract class AbstractTraceReplayTest {
         Path traceDir = traceDirectory();
         Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
         Assumptions.assumeTrue(Files.exists(traceDir.resolve("metadata.json")), "metadata.json not found in " + traceDir);
-        Assumptions.assumeTrue(Files.exists(traceDir.resolve("physics.csv")), "physics.csv not found in " + traceDir);
+        Assumptions.assumeTrue(hasTracePayload(traceDir, "physics.csv"), "physics.csv(.gz) not found in " + traceDir);
 
         // 1. Find BK2 file in trace directory (check before loading trace data)
         Path bk2Path = findBk2File(traceDir);
@@ -619,6 +619,11 @@ public abstract class AbstractTraceReplayTest {
                 .findFirst()
                 .orElse(null);
         }
+    }
+
+    private static boolean hasTracePayload(Path dir, String fileName) {
+        return Files.exists(dir.resolve(fileName))
+                || Files.exists(dir.resolve(fileName + ".gz"));
     }
 
     private static String combineDiagnostics(String base, String extra) {

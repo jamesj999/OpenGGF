@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
@@ -15,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Reads and holds the contents of a trace directory:
@@ -43,12 +48,15 @@ public class TraceData {
 
     public static TraceData load(Path traceDirectory) throws IOException {
         Path metadataPath = traceDirectory.resolve("metadata.json");
-        Path physicsPath = traceDirectory.resolve("physics.csv");
-        Path auxPath = traceDirectory.resolve("aux_state.jsonl");
+        Path physicsPath = resolveTraceFile(traceDirectory, "physics.csv");
+        Path auxPath = resolveTraceFile(traceDirectory, "aux_state.jsonl");
 
         TraceMetadata metadata = TraceMetadata.load(metadataPath);
+        if (physicsPath == null) {
+            throw new NoSuchFileException(traceDirectory.resolve("physics.csv").toString());
+        }
         List<TraceFrame> frames = loadPhysicsCsv(physicsPath, metadata);
-        Map<Integer, List<TraceEvent>> events = Files.exists(auxPath)
+        Map<Integer, List<TraceEvent>> events = auxPath != null
             ? loadAuxEvents(auxPath)
             : Collections.emptyMap();
 
@@ -278,7 +286,7 @@ public class TraceData {
     private static List<TraceFrame> loadPhysicsCsv(Path csvPath, TraceMetadata metadata)
             throws IOException {
         List<TraceFrame> frames = new ArrayList<>();
-        try (BufferedReader reader = Files.newBufferedReader(csvPath)) {
+        try (BufferedReader reader = openTraceReader(csvPath)) {
             String line = reader.readLine(); // skip header
             if (line == null) return frames;
             while ((line = reader.readLine()) != null) {
@@ -295,7 +303,7 @@ public class TraceData {
             throws IOException {
         Map<Integer, List<TraceEvent>> map = new HashMap<>();
         ObjectMapper mapper = new ObjectMapper();
-        try (BufferedReader reader = Files.newBufferedReader(auxPath)) {
+        try (BufferedReader reader = openTraceReader(auxPath)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 String trimmed = line.trim();
@@ -306,6 +314,29 @@ public class TraceData {
             }
         }
         return map;
+    }
+
+    private static Path resolveTraceFile(Path traceDirectory, String fileName) {
+        Path plainPath = traceDirectory.resolve(fileName);
+        if (Files.exists(plainPath)) {
+            return plainPath;
+        }
+        Path gzipPath = traceDirectory.resolve(fileName + ".gz");
+        return Files.exists(gzipPath) ? gzipPath : null;
+    }
+
+    private static BufferedReader openTraceReader(Path path) throws IOException {
+        if (path.getFileName().toString().endsWith(".gz")) {
+            InputStream input = Files.newInputStream(path);
+            try {
+                return new BufferedReader(new InputStreamReader(
+                        new GZIPInputStream(input), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                input.close();
+                throw e;
+            }
+        }
+        return Files.newBufferedReader(path);
     }
 
     private static void warnIfLegacyExecutionCounters(Path traceDirectory,

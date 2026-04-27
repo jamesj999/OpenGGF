@@ -73,6 +73,23 @@ class TraceCatalogTest {
                 entries.stream().map(TraceEntry::act).toList());
     }
 
+    @Test
+    void scanAcceptsGzippedPhysicsCsv(@TempDir Path tmp) throws Exception {
+        Path dir = tmp.resolve("s3k/cnz1");
+        writeValidTrace(dir, "s3k", 3, 1);
+        String physics = Files.readString(dir.resolve("physics.csv"));
+        Files.delete(dir.resolve("physics.csv"));
+        try (var out = Files.newOutputStream(dir.resolve("physics.csv.gz"));
+             var gzip = new java.util.zip.GZIPOutputStream(out)) {
+            gzip.write(physics.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
+        List<TraceEntry> entries = TraceCatalog.scan(tmp);
+
+        assertEquals(1, entries.size());
+        assertEquals(2, entries.getFirst().frameCount());
+    }
+
     private static void writeValidTrace(Path dir, String game, int zoneId, int act)
             throws Exception {
         Files.createDirectories(dir);

@@ -4,6 +4,10 @@ import com.openggf.game.save.SelectedTeam;
 import com.openggf.trace.TraceMetadata;
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -14,15 +18,17 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Scans a traces root directory (default {@code src/test/resources/traces}) and
  * returns an immutable, sorted list of valid {@link TraceEntry} records.
  *
  * <p>A directory is a valid trace iff it contains {@code metadata.json},
- * {@code physics.csv}, and exactly one {@code .bk2} file, and its metadata
- * declares one of the supported games ({@code s1}, {@code s2}, {@code s3k}).
- * The {@code synthetic/} subtree is always filtered out.
+ * {@code physics.csv} (or {@code physics.csv.gz}), and exactly one {@code .bk2}
+ * file, and its metadata declares one of the supported games ({@code s1},
+ * {@code s2}, {@code s3k}). The {@code synthetic/} subtree is always filtered
+ * out.
  */
 public final class TraceCatalog {
     private static final Logger LOGGER = Logger.getLogger(TraceCatalog.class.getName());
@@ -65,8 +71,8 @@ public final class TraceCatalog {
 
     private static Optional<TraceEntry> tryLoad(Path dir) {
         Path metaPath = dir.resolve("metadata.json");
-        Path physicsPath = dir.resolve("physics.csv");
-        if (!Files.isRegularFile(metaPath) || !Files.isRegularFile(physicsPath)) {
+        Path physicsPath = resolveTraceFile(dir, "physics.csv");
+        if (!Files.isRegularFile(metaPath) || physicsPath == null) {
             return Optional.empty();
         }
         List<Path> bk2s;
@@ -139,8 +145,38 @@ public final class TraceCatalog {
     }
 
     private static int countCsvRows(Path physicsCsv) throws IOException {
-        try (Stream<String> lines = Files.lines(physicsCsv)) {
-            return (int) lines.filter(l -> !l.isBlank() && !l.startsWith("#")).count();
+        try (BufferedReader reader = openTraceReader(physicsCsv)) {
+            int count = 0;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.isBlank() && !line.startsWith("#")) {
+                    count++;
+                }
+            }
+            return count;
         }
+    }
+
+    private static Path resolveTraceFile(Path dir, String fileName) {
+        Path plain = dir.resolve(fileName);
+        if (Files.isRegularFile(plain)) {
+            return plain;
+        }
+        Path gzip = dir.resolve(fileName + ".gz");
+        return Files.isRegularFile(gzip) ? gzip : null;
+    }
+
+    private static BufferedReader openTraceReader(Path path) throws IOException {
+        if (path.getFileName().toString().endsWith(".gz")) {
+            InputStream input = Files.newInputStream(path);
+            try {
+                return new BufferedReader(new InputStreamReader(
+                        new GZIPInputStream(input), StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                input.close();
+                throw e;
+            }
+        }
+        return Files.newBufferedReader(path);
     }
 }
