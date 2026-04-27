@@ -224,7 +224,15 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 (round 19 lands the despawn-marker
+  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 (round 23 lands a per-game
+  ROM divergence in `Player_LevelBound` right-boundary clamp:
+  S3K uses `blo.s` strict `>` per sonic3k.asm:23185-23186; S1/S2 use `bls.s` non-strict
+  `>=` per s1disasm/_incObj/01 Sonic.asm:998 and s2.asm:36933; engine was applying
+  S1/S2 semantics universally, zeroing Sonic's velocity at AIZ F4768 when predicted-x
+  exactly equalled the right boundary, leaving a deterministic 12-subpixel lag that
+  compounded into a 1-pixel x-offset 1968 frames later costing the F6736 spring
+  trigger; gated via new `PhysicsFeatureSet.levelBoundaryRightStrict`; round 19 lands
+  the despawn-marker
   → CATCH_UP_FLIGHT routing per ROM `sub_13ECA` sonic3k.asm:26800-26809 gated S3K-only
   via `PhysicsFeatureSet.sidekickRespawnEntersCatchUpFlight`; `updateCatchUpFlight` and
   `updateFlightAutoRecovery` now use bit-7-only gates via

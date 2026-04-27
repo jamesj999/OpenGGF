@@ -284,7 +284,35 @@ public record PhysicsFeatureSet(
          * {@link #sidekickSpawningRequiresGroundedLeader}.
          * <p>S1: {@code false}. No CPU sidekick.
          */
-        boolean sidekickRespawnEntersCatchUpFlight
+        boolean sidekickRespawnEntersCatchUpFlight,
+        /**
+         * Whether the level-boundary right-side check uses the strict
+         * "predicted &gt; right" comparison ({@code blo.s}) instead of the
+         * "predicted &gt;= right" ({@code bls.s}) comparison.
+         * <p>S3K: {@code true}. ROM {@code Player_LevelBound}
+         * (sonic3k.asm:23185-23186) does {@code cmp.w d1,d0 / blo.s
+         * Player_Boundary_Sides} where {@code d0 = Camera_max_X_pos + 0x128}
+         * and {@code d1 = predictedX}; {@code blo} (Branch if Lower) is
+         * unsigned and triggers when {@code d0 < d1}, i.e. when
+         * {@code predictedX > rightBoundary}. When {@code predictedX ==
+         * rightBoundary}, the boundary clamp does NOT fire and Sonic's
+         * acceleration is preserved. The engine boundary check must mirror
+         * the strict comparison so the right-edge "wall stop then accelerate"
+         * sequence does not lose a frame's acceleration. AIZ trace F4768
+         * exercises this exact case: at the wall-touch frame Sonic's
+         * predicted x equals the right boundary, ROM keeps {@code xs=0x000C}
+         * after {@code Sonic_Move}, the engine was zeroing it and accumulating
+         * a 12-subpixel lag that cascaded forward to F6736.
+         * <p>S2: {@code false}. ROM {@code Sonic_LevelBound}
+         * (s2.asm:36932-36933) uses {@code bls.s Sonic_Boundary_Sides} which
+         * is {@code <=} unsigned: triggers when {@code predictedX >=
+         * rightBoundary}. The non-strict comparison clamps Sonic on the equal
+         * frame. Engine non-strict check is correct here.
+         * <p>S1: {@code false}. ROM {@code Sonic_LevelBound}
+         * (s1disasm/_incObj/01 Sonic.asm:998 {@code bls.s .sides}) matches
+         * S2 — non-strict.
+         */
+        boolean levelBoundaryRightStrict
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -355,7 +383,8 @@ public record PhysicsFeatureSet(
             true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
             SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S1 has no Tails CPU */,
-            false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */);
+            false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */,
+            false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -370,7 +399,8 @@ public record PhysicsFeatureSet(
             true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
             SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S2 8-bit-id mismatch path already covers the freed-slot case (id of a freed slot is also 0) */,
-            false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */);
+            false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */,
+            false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -389,7 +419,8 @@ public record PhysicsFeatureSet(
             false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
             SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */,
             true /* sidekickDespawnUsesRidingInstanceLoss: S3K sub_13EFC reads (a3)=0 when slot freed by Delete_Referenced_Sprite (sonic3k.asm:36116-36124); engine tracks ObjectInstance reference because latchedSolidObjectId is sticky across destruction */,
-            true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */);
+            true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */,
+            true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 — see PhysicsFeatureSet javadoc for AIZ F4768 cite */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {
