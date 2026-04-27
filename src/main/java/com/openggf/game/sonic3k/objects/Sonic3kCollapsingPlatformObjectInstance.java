@@ -292,7 +292,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 // ROM-correct frame when the camera scrolls past it (sonic3k.asm:
                 // 44814 loc_20594, 44830 sub_205B6, 37262 Sprite_OnScreen_Test).
                 if (!spriteOnScreenTestPasses()) {
-                    setDestroyed(true);
+                    setDestroyedByOffscreen();
                 }
             }
             case 1 -> {
@@ -306,7 +306,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 // skip Sprite_OnScreen_Test while $38 counts down (sonic3k.asm:
                 // 44830 sub_205B6 -> 37262 Sprite_OnScreen_Test).
                 if (state != 2 && !spriteOnScreenTestPasses()) {
-                    setDestroyed(true);
+                    setDestroyedByOffscreen();
                 }
             }
             case 2 -> {
@@ -327,7 +327,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 // active during solid-stay countdown so the platform exits
                 // cleanly when the camera scrolls past during fragment fall.
                 if (!spriteOnScreenTestPasses()) {
-                    setDestroyed(true);
+                    setDestroyedByOffscreen();
                 }
             }
             case 3 -> {

@@ -224,7 +224,18 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 (round 23 lands a per-game
+  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
+  destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
+  clears bit 7 of the respawn-table entry on off-screen self-delete via
+  `bclr #7,(a2)`, allowing respawn when the camera returns; player-kill paths
+  (`Touch_EnemyNormal` → `Obj_Explosion` → `Delete_Current_Sprite`) bypass
+  `Sprite_OnScreen_Test` and leave bit 7 latched. Engine was conflating both into
+  a single latched destroy via `permanentDestroyLatch`. New `setDestroyedByOffscreen()`
+  + `dispatchDestroyRemoveFromActive` routes off-screen destroys to
+  `removeFromActiveForUnload` (no latch) while keeping kill-path destroys latched.
+  `Sonic3kCollapsingPlatformObjectInstance` switches its three `Sprite_OnScreen_Test`
+  self-delete sites to use the new path; AIZ collapsing platform now respawns when
+  the camera scrolls back; round 23 lands a per-game
   ROM divergence in `Player_LevelBound` right-boundary clamp:
   S3K uses `blo.s` strict `>` per sonic3k.asm:23185-23186; S1/S2 use `bls.s` non-strict
   `>=` per s1disasm/_incObj/01 Sonic.asm:998 and s2.asm:36933; engine was applying
