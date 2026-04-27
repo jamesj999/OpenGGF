@@ -322,6 +322,7 @@ public class ObjectManager {
                         inlineSolidResolution,
                         solidPostMovement);
             } else if (execThenLoad) {
+                syncActiveSpawnsLoad();
                 cleanupDestroyedDynamicObjects();
                 runExecLoop(cameraX, player, activeSidekicks, inlineSolidResolution, solidPostMovement);
             } else {
@@ -5512,10 +5513,16 @@ public class ObjectManager {
             int maxTop = halfHeight + playerYRadius;
             // ROM SolidObjCheckSloped2 samples an absolute surface Y
             // (objectY - slopeSample), then compares it directly against
-            // playerY + yRadius + 4. Do not add the object's half-height here:
-            // baseY is already the sampled top surface, unlike flat solids where
-            // anchorY still refers to the object's centre.
-            int relY = playerCenterY - baseY + 4 + playerYRadius;
+            // playerY + yRadius + 4. Most sloped helpers do not add the object's
+            // half-height here: baseY is already the sampled top surface, unlike
+            // flat solids where anchorY still refers to the object's centre.
+            // S1 SolidObject2F is an explicit exception: it adds the slope catch
+            // range into d2 before adding d2 to the vertical overlap value.
+            int verticalOverlapCompensation = playerYRadius;
+            if (slopedProvider.addsSlopeCatchRangeToVerticalOverlap()) {
+                verticalOverlapCompensation += halfHeight;
+            }
+            int relY = playerCenterY - baseY + 4 + verticalOverlapCompensation;
 
             if (relY < minRelY || relY >= maxTop * 2) {
                 return null;

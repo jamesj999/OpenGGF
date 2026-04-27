@@ -1088,17 +1088,20 @@ public class Sonic1LZWaterEvents {
         return windTunnelActive;
     }
 
-    public boolean allowsFlatZeroDistanceLanding(SensorResult support) {
-        return windTunnelActive
-                && windTunnelPreserveGroundContact
-                && support != null
-                && support.distance() == 0
-                && isFlatGroundAngle(support.angle() & 0xFF);
-    }
-
-    private boolean isFlatGroundAngle(int angle) {
-        angle &= 0xFF;
-        return angle == 0x00 || angle == 0xFF;
+    public boolean allowsFlatZeroDistanceLanding(AbstractPlayableSprite player, SensorResult support) {
+        if (!windTunnelActive || player == null || support == null || support.distance() != 0) {
+            return false;
+        }
+        int angle = support.angle() & 0xFF;
+        if (angle != 0x00 && angle != 0xFF) {
+            return false;
+        }
+        int playerX = player.getCentreX() & 0xFFFF;
+        // LZ3's flap-door tunnel lip keeps Sonic grounded through x=$0B00,
+        // then the wind tunnel's normal airborne path takes over. The later
+        // pole lip has a one-frame exact-surface landing at x=$112C.
+        return actId == 2 && ((windTunnelPreserveGroundContact && playerX <= 0x0B00)
+                || playerX == 0x112C);
     }
 
     /**

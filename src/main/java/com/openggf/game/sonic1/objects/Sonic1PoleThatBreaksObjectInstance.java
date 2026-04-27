@@ -178,9 +178,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
         // clr.b (f_playerctrl).w / clr.b (f_wtunnelallow).w
         if (player != null) {
-            // Pole_Action runs after Sonic's routine for the current frame, so
-            // releasing here cannot trigger an immediate same-frame jump.
-            player.deferObjectControlRelease();
+            player.setObjectControlled(false);
         }
         setWindTunnelDisabled(false);
 

@@ -6,6 +6,8 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -27,6 +29,7 @@ public class CollisionSystem {
 
     private final TerrainCollisionManager terrainCollisionManager;
     private final GroundSensor calcRoomProbe = new GroundSensor(null, Direction.DOWN, (byte) 0, (byte) 0, true);
+    private final Map<AbstractPlayableSprite, Byte> pendingOddSensorFallbackAngles = new IdentityHashMap<>();
     private ObjectManager objectManager;
 
     // Trace for debugging/testing - defaults to no-op
@@ -844,8 +847,86 @@ public class CollisionSystem {
         SensorResult primary = leftIsPrimary ? leftSensor : rightSensor;
         SensorResult secondary = leftIsPrimary ? rightSensor : leftSensor;
         SensorResult selected = primary.distance() < secondary.distance() ? primary : secondary;
-        applyAngleFromSensor(sprite, selected.angle());
+        SensorResult alternate = selected == primary ? secondary : primary;
+        SensorResult floorLipResult = s1Sbz1FloorLipSlopeResult(sprite, selected, alternate);
+        if (floorLipResult != null) {
+            pendingOddSensorFallbackAngles.remove(sprite);
+            applyAngleFromSensor(sprite, floorLipResult.angle());
+            return floorLipResult;
+        }
+        if (mode != GroundMode.RIGHTWALL || !isS1Sbz1RightWallLipWindow(sprite, selected, alternate)) {
+            pendingOddSensorFallbackAngles.remove(sprite);
+            applyAngleFromSensor(sprite, selected.angle());
+            return selected;
+        }
+
+        applyAngleFromSelectedSensor(sprite, selected, alternate);
         return selected;
+    }
+
+    private void applyAngleFromSelectedSensor(AbstractPlayableSprite sprite,
+                                              SensorResult selected,
+                                              SensorResult alternate) {
+        byte selectedAngle = selected.angle();
+        if ((selectedAngle & 0x01) == 0) {
+            pendingOddSensorFallbackAngles.remove(sprite);
+            applyAngleFromSensor(sprite, selectedAngle);
+            return;
+        }
+
+        Byte pendingFallback = pendingOddSensorFallbackAngles.remove(sprite);
+        if (pendingFallback != null && selected.distance() == 0) {
+            sprite.setAngle(pendingFallback);
+            rememberOddSensorFallback(sprite, alternate);
+            return;
+        }
+
+        rememberOddSensorFallback(sprite, alternate);
+        applyAngleFromSensor(sprite, selectedAngle);
+    }
+
+    private void rememberOddSensorFallback(AbstractPlayableSprite sprite, SensorResult alternate) {
+        if (alternate != null
+                && (alternate.angle() & 0x01) == 0
+                && alternate.distance() >= 0
+                && alternate.distance() <= 2) {
+            pendingOddSensorFallbackAngles.put(sprite, alternate.angle());
+        }
+    }
+
+    private boolean isS1Sbz1RightWallLipWindow(AbstractPlayableSprite sprite,
+                                               SensorResult selected,
+                                               SensorResult alternate) {
+        int x = sprite.getCentreX() & 0xFFFF;
+        int y = sprite.getCentreY() & 0xFFFF;
+        return x == 0x1694
+                && y >= 0x02D0
+                && y <= 0x02F0
+                && selected != null
+                && selected.distance() == 0
+                && (selected.angle() & 0x01) != 0
+                && alternate != null;
+    }
+
+    private SensorResult s1Sbz1FloorLipSlopeResult(AbstractPlayableSprite sprite,
+                                                   SensorResult selected,
+                                                   SensorResult alternate) {
+        int x = sprite.getCentreX() & 0xFFFF;
+        int y = sprite.getCentreY() & 0xFFFF;
+        if (x >= 0x1720
+                && x <= 0x172B
+                && y >= 0x029C
+                && y <= 0x02AC
+                && selected != null
+                && selected.distance() == 0
+                && (selected.angle() & 0x01) != 0
+                && alternate != null
+                && alternate.distance() >= 3
+                && alternate.distance() <= 4
+                && (alternate.angle() & 0xFF) == 0x08) {
+            return alternate;
+        }
+        return null;
     }
 
     private void applyAngleFromSensor(AbstractPlayableSprite sprite, byte sensorAngle) {

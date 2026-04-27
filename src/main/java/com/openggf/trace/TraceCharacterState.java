@@ -59,6 +59,7 @@ public record TraceCharacterState(
         if (sprite.getAir()) statusByte |= 0x02;
         if (sprite.getRolling()) statusByte |= 0x04;
         if (sprite.isOnObject()) statusByte |= 0x08;
+        if (sprite.isInWater()) statusByte |= 0x40;
         int routine = sprite.isHurt() ? 0x04 : 0x02;
         return new TraceCharacterState(true,
                 sprite.getCentreX(),

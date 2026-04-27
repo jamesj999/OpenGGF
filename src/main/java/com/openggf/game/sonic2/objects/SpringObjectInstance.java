@@ -460,6 +460,15 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
+    public boolean addsSlopeCatchRangeToVerticalOverlap() {
+        int type = getType();
+        // S2 SlopedSolid_cont keeps the diagonal spring's d2 catch range in the
+        // vertical overlap value after sampling the slope surface:
+        // move.b y_radius,d3 / add.w d3,d2 / ... / add.w d2,d3.
+        return type == TYPE_DIAGONAL_UP || type == TYPE_DIAGONAL_DOWN;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
         animationState.update();

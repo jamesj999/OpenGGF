@@ -2,6 +2,7 @@ package com.openggf.sprites.playable;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
@@ -35,6 +36,9 @@ class TestRespawnStrategies {
         @Override public void draw() {}
         @Override public void defineSpeeds() {}
         @Override protected void createSensorLines() {}
+        void setPhysicsFeatureSetForTest(PhysicsFeatureSet featureSet) {
+            setPhysicsFeatureSet(featureSet);
+        }
     }
 
     @Test
@@ -112,6 +116,48 @@ class TestRespawnStrategies {
 
         assertTrue(strategy.updateApproaching(sk, main, 1),
                 "ROM exits fly-in once the pre-move vertical delta is already zero");
+    }
+
+    @Test
+    void sonic2TailsRespawnPreservesExistingVelocity() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        sk.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+        sk.setXSpeed((short) 0x041C);
+        sk.setYSpeed((short) 0x0012);
+        sk.setGSpeed((short) 0x041C);
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+        TailsRespawnStrategy strategy = new TailsRespawnStrategy(ctrl);
+
+        assertTrue(strategy.beginApproach(sk, main));
+
+        assertEquals((short) 0x041C, sk.getXSpeed(),
+                "S2 TailsCPU_Respawn writes position/target fields but does not clear x_vel");
+        assertEquals((short) 0x0012, sk.getYSpeed(),
+                "S2 TailsCPU_Respawn writes position/target fields but does not clear y_vel");
+        assertEquals((short) 0x041C, sk.getGSpeed(),
+                "S2 TailsCPU_Respawn writes position/target fields but does not clear inertia");
+    }
+
+    @Test
+    void sonic3kTailsCatchUpRespawnClearsVelocity() {
+        TestableSprite sk = new TestableSprite("tails_p2");
+        sk.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        sk.setXSpeed((short) 0x041C);
+        sk.setYSpeed((short) 0x0012);
+        sk.setGSpeed((short) 0x041C);
+        TestableSprite main = new TestableSprite("sonic");
+        SidekickCpuController ctrl = new SidekickCpuController(sk, main);
+        TailsRespawnStrategy strategy = new TailsRespawnStrategy(ctrl);
+
+        assertTrue(strategy.beginApproach(sk, main));
+
+        assertEquals((short) 0, sk.getXSpeed(),
+                "S3K Tails_Catch_Up_Flying clears x_vel on the catch-up teleport");
+        assertEquals((short) 0, sk.getYSpeed(),
+                "S3K Tails_Catch_Up_Flying clears y_vel on the catch-up teleport");
+        assertEquals((short) 0, sk.getGSpeed(),
+                "S3K Tails_Catch_Up_Flying clears ground velocity on the catch-up teleport");
     }
 
     @Test

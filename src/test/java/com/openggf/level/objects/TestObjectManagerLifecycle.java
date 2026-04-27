@@ -2,9 +2,11 @@ package com.openggf.level.objects;
 
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
@@ -94,6 +96,30 @@ public class TestObjectManagerLifecycle {
         manager.update(0x0080, null, null, 2);
 
         assertEquals(1, registry.instances.get(streamedSpawn).updateCount);
+    }
+
+    @Test
+    public void execThenLoadPlacementExecutesDeferredVerticallyEligibleSpawnSameFrame() {
+        Camera camera = GameServices.camera();
+        camera.setMinY((short) 0);
+        camera.setY((short) 0);
+
+        ObjectSpawn deferredSpawn = new ObjectSpawn(0x0200, 0x0280, 0x03, 0, 0, false, 0x0280);
+        TrackingRegistry registry = new TrackingRegistry();
+        ObjectManager manager = new ObjectManager(List.of(deferredSpawn), registry, 0, null, null);
+        manager.enableExecThenLoadPlacement();
+
+        manager.reset(0);
+        assertEquals(0, registry.createCount,
+                "Spawn should be horizontally active but skipped while outside the vertical load window");
+
+        camera.setY((short) 0x0080);
+        manager.update(0, null, null, 1);
+
+        assertEquals(1, registry.createCount,
+                "A previously active spawn should materialize once it enters the vertical load window");
+        assertEquals(1, registry.instances.get(deferredSpawn).updateCount,
+                "Deferred active spawns should execute in the same S2/S3K ExecuteObjects pass");
     }
 
     private static final class TestRegistry implements ObjectRegistry {

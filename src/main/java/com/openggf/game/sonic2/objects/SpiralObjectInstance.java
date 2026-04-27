@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -132,7 +133,6 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
 
         int vx = player.getXSpeed();
         boolean onObject = player.isOnObject();
-
         // Debug range
         if (Math.abs(dx) < 250 && frameCounter % 30 == 0) {
             LOGGER.fine("Spiral candidate: dx=" + dx + " vx=" + vx + " air=" + player.getAir());
@@ -186,6 +186,7 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
         }
         player.setOnObject(true);
         player.setAir(false);
+        player.setLatchedSolidObject(Sonic2ObjectIds.SPIRAL, this);
         player.setAngle((byte) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed(player.getXSpeed());
@@ -208,6 +209,11 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
     }
 
     private void updateRidingPlayer(int frameCounter, AbstractPlayableSprite player) {
+        if (player.getLatchedSolidObjectId() == Sonic2ObjectIds.SPIRAL && player.getAir()) {
+            player.setAir(false);
+            player.setOnObject(true);
+        }
+
         // ROM: loc_215C0
         int inertia = Math.abs(player.getGSpeed());
         if (inertia < 0x600 || player.getAir()) {
@@ -237,6 +243,7 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
         int targetCenterY = spawn.y() + SPIRAL_Y_OFFSETS[tableIndex];
         targetCenterY -= player.getYRadius() - 0x13;
         player.setCentreYPreserveSubpixel((short) targetCenterY);
+        player.setAngle((byte) 0);
 
         int angleIndex = (tableIndex >> 3) & 0x3F;
         if (angleIndex >= 0 && angleIndex < FLIP_ANGLE_TABLE.length) {
@@ -248,6 +255,9 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
     private void fallOff(AbstractPlayableSprite player) {
         ridingPlayers.remove(player);
         player.setOnObject(false);
+        if (player.getLatchedSolidObjectId() == Sonic2ObjectIds.SPIRAL) {
+            player.setLatchedSolidObjectId(0);
+        }
         player.setFlipsRemaining(0);
         player.setFlipSpeed(4);
     }

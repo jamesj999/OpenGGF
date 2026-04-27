@@ -734,6 +734,7 @@ public final class TraceReplayBootstrap {
         sprite.setRollingJump((frame.statusByte() & AbstractPlayableSprite.STATUS_ROLLING_JUMP) != 0);
         sprite.setOnObject((frame.statusByte() & 0x08) != 0);
         sprite.setPushing((frame.statusByte() & 0x20) != 0);
+        sprite.setInWater((frame.statusByte() & AbstractPlayableSprite.STATUS_UNDERWATER) != 0);
         sprite.setGroundMode(groundMode(frame.groundMode()));
         sprite.setSubpixelRaw(frame.xSub(), frame.ySub());
         sprite.clearForcedInputMask();

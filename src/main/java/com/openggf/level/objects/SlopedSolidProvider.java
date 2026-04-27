@@ -14,6 +14,18 @@ public interface SlopedSolidProvider extends SolidObjectProvider {
     }
 
     /**
+     * Whether the sloped contact's vertical overlap value includes the helper's
+     * slope catch range before side/top-bottom classification.
+     * <p>
+     * Sonic 1 SolidObject2F does this explicitly:
+     * {@code add.w d3,d2} where {@code d2} is the object catch range, followed by
+     * {@code add.w d2,d3} before branching to the generic solid classifier.
+     */
+    default boolean addsSlopeCatchRangeToVerticalOverlap() {
+        return false;
+    }
+
+    /**
      * Returns the baseline value to subtract from slope samples.
      * Default implementation returns slopeData[0] (existing behavior for most objects).
      * Override to return 0 for objects like Seesaw where the ROM uses absolute slope values.

@@ -19,6 +19,7 @@ public class TestSonic1LargeGrassyPlatformObjectInstance {
         assertEquals(0x20, params.groundHalfHeight());
         assertEquals(0x20, platform.getSlopeBaseline());
         assertFalse(platform.isTopSolidOnly());
+        assertTrue(platform.addsSlopeCatchRangeToVerticalOverlap());
     }
 
     @Test

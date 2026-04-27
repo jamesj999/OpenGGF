@@ -252,7 +252,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public boolean shouldTreatZeroDistanceAirLandingAsGround(AbstractPlayableSprite player,
                                                              SensorResult support) {
-        return waterEvents != null && waterEvents.allowsFlatZeroDistanceLanding(support);
+        return waterEvents != null && waterEvents.allowsFlatZeroDistanceLanding(player, support);
     }
 
     @Override

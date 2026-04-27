@@ -284,6 +284,19 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
+    public boolean addsSlopeCatchRangeToVerticalOverlap() {
+        // S1 SolidObject2F:
+        //   move.b obHeight(a1),d3
+        //   add.w d3,d2
+        //   ...
+        //   add.w d2,d3
+        // The platform's catch range ($20/$30) participates in the side/top-bottom
+        // classification, which is required for edge side contact at the MZ1 trace's
+        // first large-grassy-platform encounter.
+        return true;
+    }
+
+    @Override
     public int getSlopeBaseline() {
         // SolidObject2F uses relative slope samples:
         //   slopeOffset = slopeSample - slopeData[0]
