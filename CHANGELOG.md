@@ -4,6 +4,40 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### S3K AIZ F4768: Right-Boundary Strict Comparison (`blo.s` vs `bls.s`)
+
+- `PlayableSpriteMovement.doLevelBoundary` now branches on the new
+  `PhysicsFeatureSet.levelBoundaryRightStrict` flag for the right-side
+  level-boundary clamp:
+  - **S3K**: strict comparison `predictedX > rightBoundary`
+    (matches `Player_LevelBound` at `sonic3k.asm:23185-23186` —
+    `cmp.w d1,d0 / blo.s Player_Boundary_Sides`).
+  - **S1/S2**: non-strict comparison `predictedX >= rightBoundary`
+    (matches `Sonic_LevelBound` at `s1disasm/_incObj/01 Sonic.asm:998`
+    and `s2.asm:36933` — `bls.s .sides`).
+- The previous engine code unconditionally used non-strict (`>=`),
+  so when S3K Sonic's predicted x exactly equalled the right boundary
+  (e.g. AIZ trace F4768: predicted=0x3038, rightBoundary=0x3038), the
+  engine clamped and zeroed `xSpeed`/`gSpeed`/`xSubpixel` while ROM let
+  the post-`Sonic_Move` velocity (xs=0x000C from the right-input
+  acceleration in `sub_11482` at sonic3k.asm:22858) stand. The ROM
+  applied the 12-subpixel acceleration into `xSubpixel` without
+  crossing the boundary; the engine erased it.
+- That single suppressed acceleration left a deterministic 12-subpixel
+  (~0.047 px) lag in `xSubpixel`. Across 1968 downstream frames the
+  lag compounded into a 1-pixel x-offset, putting Sonic on a different
+  terrain column at AIZ F6736 and missing a spring trigger
+  (the original first-error frame the AIZ trace was failing on).
+  Fix advances the AIZ trace first error from F6736 to F6911
+  (175 frames forward) and preserves the `cameraMatchesTrace…`,
+  `playerMatchesTrace…`, and `rhinobotDoesNotDespawn…` sub-tests as
+  well as all S1/S2/S3K cross-game trace baselines (S1 GHZ pass,
+  S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F4577).
+- `Player_LevelBound` was edited between the standalone Sonic 3 ROM
+  (`s3.asm:20882` still uses `bls.s`) and the locked-on Sonic 3 & K
+  ROM (`sonic3k.asm:23186` uses `blo.s`). The engine targets the
+  S&K-side ROM, so `blo.s` is the canonical S3K behaviour.
+
 ### Trace Replay: Drop Two Per-Frame Sidekick Reseeds (Stage A Reduction)
 
 - `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer

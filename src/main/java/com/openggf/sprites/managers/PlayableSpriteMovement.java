@@ -1865,12 +1865,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			rightBoundary += RIGHT_EXTRA;
 		}
 
-		// ROM comparison: bhi.s for left (<), bls.s for right (>=)
+		// ROM comparison:
+		//   Left side: bhi.s (s1disasm/_incObj/01 Sonic.asm:987, s2.asm:36925, sonic3k.asm:23182)
+		//     — branches when leftBoundary > predictedX (strict <), engine `<` matches all 3.
+		//   Right side: per-game divergence:
+		//     S1/S2 use bls.s (s1:998, s2.asm:36933) — non-strict (>=).
+		//     S3K uses blo.s (sonic3k.asm:23186) — strict (>).
+		//   Gated by PhysicsFeatureSet.levelBoundaryRightStrict.
+		PhysicsFeatureSet boundaryFeatures = sprite.getPhysicsFeatureSet();
+		boolean strictRight = boundaryFeatures != null && boundaryFeatures.levelBoundaryRightStrict();
+		boolean rightTriggered = strictRight ? (predictedX > rightBoundary) : (predictedX >= rightBoundary);
 		if (predictedX < leftBoundary) {
 			sprite.setCentreX((short) leftBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
-		} else if (predictedX >= rightBoundary) {
+		} else if (rightTriggered) {
 			sprite.setCentreX((short) rightBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
