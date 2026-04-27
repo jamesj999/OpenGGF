@@ -3,15 +3,21 @@ package com.openggf.game.sonic3k.events;
 import com.openggf.camera.Camera;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.mutation.LayoutMutationContext;
 import com.openggf.game.mutation.LayoutMutationIntent;
 import com.openggf.game.mutation.LevelMutationSurface;
 import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.save.SessionSaveRequests;
+import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.objects.MgzEndBossInstance;
 import com.openggf.game.sonic3k.objects.MgzDrillingRobotnikInstance;
+import com.openggf.game.sonic3k.objects.Mgz2LevelCollapseSolidInstance;
 import com.openggf.game.sonic3k.scroll.SwScrlMgz;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -19,10 +25,12 @@ import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.scroll.ZoneScrollHandler;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.SidekickCarryTrigger;
+import com.openggf.sprites.playable.SidekickCpuController;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.Tails;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.logging.Logger;
 
@@ -135,13 +143,14 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int CHUNK_EVENT_DELAY_RESET = 6;
     private static final int MGZ_QUAKE_BLOCK_LEFT_INDEX = 0xB1;  // $FF5880 -> Chunk_table[$B1]
     private static final int MGZ_QUAKE_BLOCK_RIGHT_INDEX = 0xEA; // $FF7500 -> Chunk_table[$EA]
+    /** ROM: MGZ2_QuakeChunks in the combined S3&K ROM. */
     private static final int MGZ_QUAKE_CHUNK_ROM_ADDR = 0x3CBBB4;
-    private static final Path MGZ_QUAKE_CHUNK_FALLBACK =
-            Path.of("docs/skdisasm/Levels/MGZ/Misc/Act 2 Quake Chunks.bin");
 
     /**
      * ROM: MGZ2_ChunkEventArray (Lockon S3/Screen Events.asm:1031-1033).
-     * Each row: {minX, maxX, minY, maxY, redrawX, redrawY}.
+     * Each row: {minX, maxX, minY, maxY, redrawX, redrawY}. The redraw
+     * origin is kept with the ROM table for auditability; the engine redraws
+     * through mutation effects instead of the ROM's row-draw queue.
      */
     private static final int[][] CHUNK_EVENT_ARRAY = {
             {0x0F68, 0x0F78, 0x0500, 0x0580, 0x0F00, 0x0500},
@@ -175,9 +184,21 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int COLLAPSE_REGION_WIDTH = 3;
     private static final int COLLAPSE_REGION_HEIGHT = 3;
     private static final int COLLAPSE_COLUMN_COUNT = 10;
+    private static final int COLLAPSE_SOLID_COUNT = COLLAPSE_COLUMN_COUNT * 2;
+    private static final int COLLAPSE_SOLID_START_X = 0x3C90;
+    private static final int COLLAPSE_SOLID_STEP_X = 0x20;
+    private static final int COLLAPSE_SOLID_HIGH_BASE_Y = 0x0790;
+    private static final int COLLAPSE_SOLID_LOW_BASE_Y = 0x05C0;
+    private static final int COLLAPSE_STARTUP_SHAKE_FRAMES = 0x14;
     private static final int COLLAPSE_MAX_SCROLL = 0x2E0;
     private static final int COLLAPSE_SCROLL_ACCEL = 0x500;
     private static final int[] COLLAPSE_SCROLL_DELAYS = {0x0A, 0x10, 0x02, 0x08, 0x0E, 0x06, 0x00, 0x0C, 0x12, 0x04};
+    private static final int BOSS_BG_SCROLL_ACCEL = 0x800;
+    private static final int BOSS_BG_SCROLL_MAX = 0x50000;
+    private static final int BOSS_TRANSITION_WAIT_FRAMES = 0x168;
+    private static final int BOSS_TRANSITION_SPAWN_OFFSET_X = 0x40;
+    private static final int BOSS_TRANSITION_SPAWN_OFFSET_Y = 0x100;
+    private static final int BOSS_TRANSITION_TAILS_INPUT_MASK = 0x07;
 
     // ========================================================================
     // Act 2 BG-rise state machine (MGZ2_BGEventTrigger + Obj_MGZ2BGMoveSonic)
@@ -221,7 +242,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private static final int BG_RISE_REENTRY_X_MIN = 0x3A40;
     /** ROM: loc_51B1C — target reached: Screen_shake_flag = $E (timed countdown). */
     private static final int BG_RISE_FINAL_SHAKE_FRAMES = 0x0E;
-
     private int bgRoutine;
 
     /** ROM: Events_fg_5 — set by Obj_LevelResultsCreate to trigger BG act transition. */
@@ -237,16 +257,30 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int chunkEventRoutine;
     private int chunkReplaceIndex;
     private int chunkEventDelay;
-    private int chunkRedrawX;
-    private int chunkRedrawY;
     private int screenEventRoutine;
     private boolean collapseRequested;
     private boolean collapseInitialized;
     private boolean collapseFinished;
     private int collapseMutationCount;
     private int collapseFrameCounter;
+    private int collapseStartupShakeTimer;
+    private int collapseRenderHoldFrames;
     private final int[] collapseScrollVelocity = new int[COLLAPSE_COLUMN_COUNT];
+    private final int[] collapseScrollFixedPosition = new int[COLLAPSE_COLUMN_COUNT];
     private final int[] collapseScrollPosition = new int[COLLAPSE_COLUMN_COUNT];
+    private final Mgz2LevelCollapseSolidInstance[] collapseSolids =
+            new Mgz2LevelCollapseSolidInstance[COLLAPSE_SOLID_COUNT];
+    /** ROM: Events_bg+$08 — MGZ2SE_MoveBG 16:16 velocity accumulator. */
+    private int bossBgScrollVelocity;
+    /** ROM: Events_bg+$0C — BG camera copy advanced during the air boss. */
+    private int bossBgScrollOffset;
+    private boolean bossTransitionActive;
+    private boolean bossTransitionDeathPlaneDisabled;
+    private int bossTransitionTimer;
+    private int bossTransitionX;
+    private int bossTransitionY;
+    private int bossTransitionCameraX;
+    private int bossTransitionCameraY;
 
     /** ROM: Events_bg+$00 — MGZ2 BG-rise state (0 / 8 / 0xC). */
     private int bgRiseRoutine;
@@ -262,22 +296,14 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     private int bgRiseFinalShakeTimer;
     /** One-shot MGZ2_BackgroundInit parity path for late checkpoint/death loads. */
     private boolean bgRiseLoadStateInitialised;
+    /** ROM: Dynamic_resize_routine for the MGZ2 end-boss arena gate. */
+    private int bossArenaRoutine;
+    private boolean bossSpawned;
 
     /** ROM: Events_bg+$12, +$13, +$14 — one-shot flags per appearance. */
     private boolean appearance1Complete;
     private boolean appearance2Complete;
     private boolean appearance3Complete;
-
-    /**
-     * ROM: Camera_stored_max_X_pos / Camera_stored_min_X_pos — natural level
-     * bounds saved before a quake event clamps the camera. Restored on release
-     * via the same target-driven unwind the camera uses elsewhere, matching
-     * the ROM's Obj_IncLevEndXGradual / Obj_DecLevStartXGradual behavior more
-     * closely than a hard unlock.
-     */
-    private short savedCameraMinX;
-    private short savedCameraMaxX;
-    private boolean savedCameraBoundsValid;
 
     /**
      * Active drilling-Robotnik instance for the current mini-event. Cleared
@@ -310,18 +336,29 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         chunkEventRoutine = CHUNK_EVENT_CHECK;
         chunkReplaceIndex = 0;
         chunkEventDelay = 0;
-        chunkRedrawX = 0;
-        chunkRedrawY = 0;
         screenEventRoutine = SCREEN_EVENT_NORMAL;
         collapseRequested = false;
         collapseInitialized = false;
         collapseFinished = false;
         collapseMutationCount = 0;
         collapseFrameCounter = 0;
+        collapseStartupShakeTimer = 0;
+        collapseRenderHoldFrames = 0;
+        bossBgScrollVelocity = 0;
+        bossBgScrollOffset = 0;
         for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
             collapseScrollVelocity[i] = 0;
+            collapseScrollFixedPosition[i] = 0;
             collapseScrollPosition[i] = 0;
         }
+        Arrays.fill(collapseSolids, null);
+        bossTransitionActive = false;
+        bossTransitionDeathPlaneDisabled = false;
+        bossTransitionTimer = 0;
+        bossTransitionX = 0;
+        bossTransitionY = 0;
+        bossTransitionCameraX = 0;
+        bossTransitionCameraY = 0;
         bgRiseRoutine = BG_RISE_NORMAL;
         bgRiseOffset = 0;
         bgRiseSubpixelAccum = 0;
@@ -329,9 +366,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         bgRiseAccelLatched = false;
         bgRiseFinalShakeTimer = 0;
         bgRiseLoadStateInitialised = false;
-        savedCameraMinX = 0;
-        savedCameraMaxX = 0;
-        savedCameraBoundsValid = false;
+        bossArenaRoutine = 0;
+        bossSpawned = false;
         activeRobotnik = null;
         postFleeUnlockDone = false;
         gradualUnlockDirection = GRADUAL_UNLOCK_NONE;
@@ -348,10 +384,82 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         } else if (act == 1) {
             updateAct2QuakeEvent();
             updateAct2ChunkEvent();
+            updateAct2BossBgScroll();
             updateAct2Collapse();
+            updateBossTransition();
+            updateAct2BossArena();
             updateAct2Rumble(frameCounter);
             applyScreenShake(frameCounter);
         }
+    }
+
+    /**
+     * ROM: MGZ2_Resize (sonic3k.asm:39343-39418). This is the end-boss
+     * dynamic-resize gate: lock the vertical camera to the boss corridor,
+     * clamp the right edge to $3C80, then spawn Obj_MGZEndBoss when the camera
+     * reaches that clamp.
+     */
+    private void updateAct2BossArena() {
+        if (bossTransitionActive) {
+            return;
+        }
+        Camera camera = camera();
+        int cameraX = camera.getX() & 0xFFFF;
+        int cameraY = camera.getY() & 0xFFFF;
+        switch (bossArenaRoutine) {
+            case 0 -> {
+                if (cameraY < 0x0600 || cameraY >= 0x0700 || cameraX < 0x3A00) {
+                    return;
+                }
+                lockBossApproachCamera(camera);
+                bossArenaRoutine = 2;
+            }
+            case 2 -> {
+                if (cameraX < 0x3A00) {
+                    restoreBossApproachCamera(camera);
+                    bossArenaRoutine = 0;
+                    return;
+                }
+                if (cameraX < 0x3C80) {
+                    return;
+                }
+                camera.setMinX((short) 0x3C80);
+                camera.setMinXTarget((short) 0x3C80);
+                spawnMgzEndBoss();
+                bossArenaRoutine = 4;
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void lockBossApproachCamera(Camera camera) {
+        camera.setMinY((short) 0x06A0);
+        camera.setMinYTarget((short) 0x06A0);
+        camera.setMaxY((short) 0x06A0);
+        camera.setMaxYTarget((short) 0x06A0);
+        camera.setMaxX((short) 0x3C80);
+        camera.setMaxXTarget((short) 0x3C80);
+    }
+
+    private void restoreBossApproachCamera(Camera camera) {
+        camera.setMinY((short) 0);
+        camera.setMinYTarget((short) 0);
+        camera.setMaxY((short) 0x1000);
+        camera.setMaxYTarget((short) 0x1000);
+        camera.setMaxX((short) DEFAULT_CAMERA_MAX_X);
+        camera.setMaxXTarget((short) DEFAULT_CAMERA_MAX_X);
+    }
+
+    private void spawnMgzEndBoss() {
+        if (bossSpawned) {
+            return;
+        }
+        bossSpawned = true;
+        gameState().setCurrentBossId(Sonic3kObjectIds.MGZ_END_BOSS);
+        setGenericBossFlag(true);
+        spawnObject(() -> new MgzEndBossInstance(
+                new ObjectSpawn(0x3D20, 0x0668, Sonic3kObjectIds.MGZ_END_BOSS, 0, 0, false, 0)));
     }
 
     // ========================================================================
@@ -411,11 +519,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             }
             int cameraMaxY = entry[4];
             int cameraLockX = entry[5];
-            // Snapshot natural level bounds before mutating — the ROM stores these in
-            // Camera_stored_min/max_X_pos and restores them gradually on release.
-            savedCameraMinX = camera.getMinX();
-            savedCameraMaxX = camera.getMaxX();
-            savedCameraBoundsValid = true;
             quakeEventRoutine = QUAKE_EVENT_1 + (i * 4);
             camera.setMaxY((short) cameraMaxY);
             camera.setMaxYTarget((short) cameraMaxY);
@@ -580,7 +683,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         camera.setMaxYTarget((short) DEFAULT_CAMERA_MAX_Y);
         camera.setMinX((short) DEFAULT_CAMERA_MIN_X);
         camera.setMaxX((short) DEFAULT_CAMERA_MAX_X);
-        savedCameraBoundsValid = false;
         quakeEventRoutine = QUAKE_CHECK;
         screenShakeActive = false;
         setGenericBossFlag(false);
@@ -600,7 +702,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         Camera camera = camera();
         camera.setMaxY((short) DEFAULT_CAMERA_MAX_Y);
         camera.setMaxYTarget((short) DEFAULT_CAMERA_MAX_Y);
-        savedCameraBoundsValid = false;
         setGenericBossFlag(false);
         activeRobotnik = null;
         postFleeUnlockDone = false;
@@ -911,7 +1012,9 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 return;
             }
             bgRiseMotionStarted = true;
+            short minXTarget = camera().getMinXTarget();
             camera().setMinX(camera().getX());
+            camera().setMinXTarget(minXTarget);
         }
         advanceBgRise(player, playerX);
     }
@@ -987,12 +1090,336 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         return chunkEventRoutine;
     }
 
-    void triggerCollapseForTest() {
+    void requestLevelCollapse() {
         collapseRequested = true;
+    }
+
+    /**
+     * ROM: Obj_MGZ2_BossTransition. The boss floor impact starts the level
+     * collapse and ensures Tails is present for Sonic's rescue/carry sequence,
+     * even if the run was configured as Sonic alone.
+     */
+    public void triggerBossCollapseHandoff() {
+        requestLevelCollapse();
+        Camera camera = camera();
+        bossTransitionCameraX = camera.getX() & 0xFFFF;
+        bossTransitionCameraY = camera.getY() & 0xFFFF;
+        bossTransitionX = bossTransitionCameraX + BOSS_TRANSITION_SPAWN_OFFSET_X;
+        bossTransitionY = bossTransitionCameraY + BOSS_TRANSITION_SPAWN_OFFSET_Y;
+        bossTransitionTimer = BOSS_TRANSITION_WAIT_FRAMES;
+        bossTransitionActive = true;
+        bossTransitionDeathPlaneDisabled = true;
+        lockBossTransitionCamera();
+        ensureBossTransitionTails(bossTransitionX, bossTransitionY);
+    }
+
+    private void ensureBossTransitionTails(int spawnX, int spawnY) {
+        AbstractPlayableSprite player = camera().getFocusedSprite();
+        if (!usesSonicBossTransitionPath(player, resolveBossTransitionPlayerCharacter())) {
+            return;
+        }
+
+        AbstractPlayableSprite existingTails = spriteManager().getSidekicks().stream()
+                .filter(this::isBossTransitionTails)
+                .findFirst()
+                .orElse(null);
+        if (existingTails != null) {
+            prepareBossTransitionTails(existingTails, player, spawnX, spawnY);
+            return;
+        }
+
+        Tails tails = new Tails("mgz2_boss_tails", (short) spawnX, (short) spawnY);
+        prepareBossTransitionTails(tails, player, spawnX, spawnY);
+        spriteManager().addSprite(tails, "tails");
+        refreshRuntimeTailsArt();
+    }
+
+    private void prepareBossTransitionTails(AbstractPlayableSprite tails, AbstractPlayableSprite player,
+                                            int spawnX, int spawnY) {
+        tails.setCentreX((short) spawnX);
+        tails.setCentreY((short) (spawnY - 1));
+        tails.setDead(false);
+        tails.setAir(true);
+        tails.setXSpeed((short) 0);
+        tails.setYSpeed((short) 0);
+        tails.setGSpeed((short) 0);
+        tails.setSpindash(false);
+        tails.setControlLocked(false);
+        tails.setObjectControlled(false);
+        tails.setCpuControlled(true);
+        SidekickCpuController controller = new SidekickCpuController(tails, player);
+        controller.setInitialState(SidekickCpuController.State.MGZ_RESCUE_WAIT);
+        tails.setCpuController(controller);
+        refreshRuntimeTailsArt();
+    }
+
+    private void updateBossTransition() {
+        if (!bossTransitionActive) {
+            return;
+        }
+        lockBossTransitionCamera();
+        if (bossTransitionTimer > 0) {
+            bossTransitionTimer--;
+        }
+
+        AbstractPlayableSprite player = camera().getFocusedSprite();
+        PlayerCharacter character = resolveBossTransitionPlayerCharacter();
+        if (isFocusedTailsPlayer(player)) {
+            updateTailsAloneBossTransition(player);
+            return;
+        }
+        if (!usesSonicBossTransitionPath(player, character)) {
+            return;
+        }
+
+        AbstractPlayableSprite tails = findBossTransitionTails();
+        SidekickCpuController controller = tails != null ? tails.getCpuController() : null;
+        boolean carrying = controller != null && controller.isFlyingCarrying();
+        boolean playerBelowTransition = bossTransitionY < (player.getCentreY() & 0xFFFF);
+
+        if (!carrying && playerBelowTransition) {
+            player.setCentreY((short) bossTransitionY);
+            player.setXSpeed((short) 0);
+            player.setYSpeed((short) 0);
+            player.setGSpeed((short) 0);
+            player.setSpindash(false);
+            player.setAir(true);
+            restoreBossTransitionPlayerRoutine(player);
+            if (isBossTransitionCarryRoutine(controller)) {
+                bossTransitionX = player.getCentreX() & 0xFFFF;
+            }
+        }
+
+        if (tails == null || bossTransitionTimer > 0) {
+            return;
+        }
+
+        boolean tailsBelowTransition = bossTransitionY < (tails.getCentreY() & 0xFFFF);
+        if (tailsBelowTransition && !carrying) {
+            startBossTransitionCarry(player, tails);
+        }
+    }
+
+    private boolean isBossTransitionCarryRoutine(SidekickCpuController controller) {
+        if (controller == null) {
+            return false;
+        }
+        SidekickCpuController.State state = controller.getState();
+        return state == SidekickCpuController.State.CARRY_INIT
+                || state == SidekickCpuController.State.CARRYING;
+    }
+
+    private PlayerCharacter resolveBossTransitionPlayerCharacter() {
+        return ActiveGameplayTeamResolver.resolvePlayerCharacter(GameServices.configuration());
+    }
+
+    private boolean usesSonicBossTransitionPath(AbstractPlayableSprite player, PlayerCharacter character) {
+        if (player == null || isFocusedTailsPlayer(player)) {
+            return false;
+        }
+        return isFocusedSonicPlayer(player)
+                || character == PlayerCharacter.SONIC_ALONE
+                || character == PlayerCharacter.SONIC_AND_TAILS;
+    }
+
+    private boolean isFocusedSonicPlayer(AbstractPlayableSprite player) {
+        return player instanceof Sonic
+                || player.getCode().toLowerCase(java.util.Locale.ROOT).startsWith("sonic");
+    }
+
+    private boolean isFocusedTailsPlayer(AbstractPlayableSprite player) {
+        return player instanceof Tails
+                || player.getCode().toLowerCase(java.util.Locale.ROOT).startsWith("tails");
+    }
+
+    private void updateTailsAloneBossTransition(AbstractPlayableSprite player) {
+        if (player == null) {
+            return;
+        }
+        if (bossTransitionY < (player.getCentreY() & 0xFFFF)) {
+            player.setCentreY((short) bossTransitionY);
+            player.setXSpeed((short) 0);
+            player.setYSpeed((short) 0);
+            player.setGSpeed((short) 0);
+            player.setSpindash(false);
+            player.setAir(true);
+            restoreBossTransitionPlayerRoutine(player);
+        }
+        bossTransitionX = player.getCentreX() & 0xFFFF;
+    }
+
+    public boolean isBossTransitionDeathPlaneDisabled() {
+        return bossTransitionDeathPlaneDisabled;
+    }
+
+    private AbstractPlayableSprite findBossTransitionTails() {
+        return spriteManager().getSidekicks().stream()
+                .filter(this::isBossTransitionTails)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isBossTransitionTails(AbstractPlayableSprite sidekick) {
+        String characterName = spriteManager().getSidekickCharacterName(sidekick);
+        return "tails".equalsIgnoreCase(characterName)
+                || sidekick instanceof Tails
+                || sidekick.getCode().toLowerCase(java.util.Locale.ROOT).startsWith("tails");
+    }
+
+    private void startBossTransitionCarry(AbstractPlayableSprite player, AbstractPlayableSprite tails) {
+        restoreBossTransitionPlayerRoutine(player);
+        tails.setCentreX((short) bossTransitionX);
+        tails.setCentreY((short) bossTransitionY);
+        tails.setObjectControlled(false);
+        tails.setSpindash(false);
+        tails.setAir(true);
+        // Obj_MGZ2_BossTransition writes Player_2 routine=2 before CPU routine $14,
+        // which exits Tails's hurt routine even if he was hit during the rescue.
+        tails.setHurt(false);
+        tails.setDead(false);
+        tails.setCpuControlled(true);
+
+        SidekickCpuController controller = tails.getCpuController();
+        if (controller == null) {
+            controller = new SidekickCpuController(tails, player);
+            tails.setCpuController(controller);
+        }
+        controller.setCarryTrigger(mgzBossTransitionCarryTrigger());
+        controller.setInitialState(SidekickCpuController.State.CARRY_INIT);
+    }
+
+    private void restoreBossTransitionPlayerRoutine(AbstractPlayableSprite player) {
+        // Obj_MGZ2_BossTransition writes Player_1 routine=2 after pulling Sonic
+        // back to its y_pos, so any hurt/death routine entered while falling is
+        // cancelled before Tails_Carry_Sonic tests routine >= 4.
+        player.setHurt(false);
+        player.setDead(false);
+        player.setDeathCountdown(0);
+        player.setForcedAnimationId(-1);
+        player.setHighPriority(false);
+        camera().setFrozen(false);
+    }
+
+    private void lockBossTransitionCamera() {
+        Camera camera = camera();
+        camera.setX((short) bossTransitionCameraX);
+        camera.setY((short) bossTransitionCameraY);
+        camera.setMinX((short) bossTransitionCameraX);
+        camera.setMinXTarget((short) bossTransitionCameraX);
+        camera.setMaxX((short) bossTransitionCameraX);
+        camera.setMaxXTarget((short) bossTransitionCameraX);
+        camera.setMinY((short) bossTransitionCameraY);
+        camera.setMinYTarget((short) bossTransitionCameraY);
+        camera.setMaxY((short) bossTransitionCameraY);
+        camera.setMaxYTarget((short) bossTransitionCameraY);
+    }
+
+    private SidekickCarryTrigger mgzBossTransitionCarryTrigger() {
+        return new SidekickCarryTrigger() {
+            @Override
+            public boolean shouldEnterCarry(int zoneId, int actId, PlayerCharacter playerMode) {
+                return false;
+            }
+
+            @Override
+            public void applyInitialPlacement(AbstractPlayableSprite carrier, AbstractPlayableSprite cargo) {
+                carrier.setCentreXPreserveSubpixel((short) bossTransitionX);
+                carrier.setCentreYPreserveSubpixel((short) bossTransitionY);
+            }
+
+            @Override
+            public int carryDescendOffsetY() {
+                return Sonic3kConstants.CARRY_DESCEND_OFFSET_Y;
+            }
+
+            @Override
+            public short carryInitXVel() {
+                return 0;
+            }
+
+            @Override
+            public int carryInputInjectMask() {
+                return BOSS_TRANSITION_TAILS_INPUT_MASK;
+            }
+
+            @Override
+            public boolean carryInjectsJump() {
+                return true;
+            }
+
+            @Override
+            public boolean usesMgzBossTransitionControl() {
+                return true;
+            }
+
+            @Override
+            public int carryJumpReleaseCooldownFrames() {
+                return Sonic3kConstants.CARRY_COOLDOWN_JUMP_RELEASE;
+            }
+
+            @Override
+            public int carryLatchReleaseCooldownFrames() {
+                return Sonic3kConstants.CARRY_COOLDOWN_LATCH_RELEASE;
+            }
+
+            @Override
+            public short carryReleaseJumpYVel() {
+                return Sonic3kConstants.CARRY_RELEASE_JUMP_Y_VEL;
+            }
+
+            @Override
+            public short carryReleaseJumpXVel() {
+                return Sonic3kConstants.CARRY_RELEASE_JUMP_X_VEL;
+            }
+        };
+    }
+
+    private void refreshRuntimeTailsArt() {
+        LevelManager manager = levelManager();
+        if (manager != null) {
+            manager.refreshPlayableSpriteArt();
+        }
     }
 
     boolean isCollapseActive() {
         return screenEventRoutine == SCREEN_EVENT_COLLAPSE && !collapseFinished;
+    }
+
+    /**
+     * Builds the foreground per-column VScroll values for the MGZ2 boss floor
+     * collapse. ROM uses cell-based VScroll for Scroll A while the chunks melt
+     * away; the engine feeds the same ten accumulated scroll values into the
+     * 20 visible 16px columns, repeating each 32px collapse block twice.
+     */
+    public short[] buildCollapseForegroundVScrollOverride(int cameraX) {
+        if ((!isCollapseActive() && collapseRenderHoldFrames <= 0) || !collapseInitialized) {
+            return null;
+        }
+
+        short[] override = new short[20];
+
+        int firstScreenColumn = Math.floorDiv((COLLAPSE_REGION_X * 0x80) - cameraX, 16);
+        boolean anyVisible = false;
+        boolean anyScrolled = false;
+        for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
+            int screenColumn = firstScreenColumn + i * 2;
+            if (screenColumn >= override.length || screenColumn + 1 < 0) {
+                continue;
+            }
+
+            int scroll = collapseScrollPosition[i];
+            short vScroll = (short) -scroll;
+            for (int repeat = 0; repeat < 2; repeat++) {
+                int column = screenColumn + repeat;
+                if (column >= 0 && column < override.length) {
+                    override[column] = vScroll;
+                    anyVisible = true;
+                }
+            }
+            anyScrolled |= scroll != 0;
+        }
+
+        return anyVisible && anyScrolled ? override : null;
     }
 
     boolean isCollapseFinished() {
@@ -1001,6 +1428,24 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
 
     int getCollapseMutationCount() {
         return collapseMutationCount;
+    }
+
+    int getCollapseSolidCountForTest() {
+        int count = 0;
+        for (Mgz2LevelCollapseSolidInstance solid : collapseSolids) {
+            if (solid != null) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    int getBossBgScrollVelocityForTest() {
+        return bossBgScrollVelocity;
+    }
+
+    int getBossBgScrollOffsetForTest() {
+        return bossBgScrollOffset;
     }
 
     int getScreenEventRoutine() {
@@ -1059,8 +1504,6 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 chunkEventRoutine = nextRoutine;
                 chunkReplaceIndex = 0;
                 chunkEventDelay = 0;
-                chunkRedrawX = entry[4];
-                chunkRedrawY = entry[5];
                 return;
             }
             nextRoutine += 4;
@@ -1083,7 +1526,11 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             advanceChunkEventMutation();
             return;
         }
+        camera().setMinX((short) DEFAULT_CAMERA_MIN_X);
+        camera().setMinXTarget((short) DEFAULT_CAMERA_MIN_X);
         camera().setMaxX((short) DEFAULT_CAMERA_MAX_X);
+        camera().setMaxXTarget((short) DEFAULT_CAMERA_MAX_X);
+        gradualUnlockDirection = GRADUAL_UNLOCK_NONE;
         chunkEventRoutine = CHUNK_EVENT_DONE;
     }
 
@@ -1136,7 +1583,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         return state;
     }
 
-    private byte[] loadMgzQuakeChunkData() {
+    protected byte[] loadMgzQuakeChunkData() {
         byte[] cached = cachedMgzQuakeChunkData;
         if (cached != null) {
             return cached;
@@ -1150,15 +1597,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 cachedMgzQuakeChunkData = romBytes;
                 return romBytes;
             } catch (Exception romFailure) {
-                try {
-                    byte[] fallback = Files.readAllBytes(MGZ_QUAKE_CHUNK_FALLBACK);
-                    cachedMgzQuakeChunkData = fallback;
-                    return fallback;
-                } catch (IOException fileFailure) {
-                    LOG.warning("Failed to load MGZ2 quake chunk data from ROM or fallback file: "
-                            + fileFailure.getMessage());
-                    return null;
-                }
+                LOG.warning("Failed to load MGZ2 quake chunk data from ROM: " + romFailure.getMessage());
+                return null;
             }
         }
     }
@@ -1206,18 +1646,28 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         if (collapseRequested && screenEventRoutine == SCREEN_EVENT_NORMAL) {
             screenEventRoutine = SCREEN_EVENT_COLLAPSE;
             screenShakeActive = true;
+            collapseStartupShakeTimer = COLLAPSE_STARTUP_SHAKE_FRAMES;
         }
         if (screenEventRoutine != SCREEN_EVENT_COLLAPSE || collapseFinished) {
             return;
         }
+        if (collapseStartupShakeTimer > 0) {
+            collapseStartupShakeTimer--;
+            if (collapseStartupShakeTimer > 0) {
+                return;
+            }
+        }
         if (!collapseInitialized) {
-            clearForegroundRegion(COLLAPSE_REGION_X, COLLAPSE_OPENING_Y,
+            snapshotForegroundTilemapBeforeCollapseClear();
+            clearForegroundRegionWithoutRedraw(COLLAPSE_REGION_X, COLLAPSE_OPENING_Y,
                     COLLAPSE_REGION_WIDTH, COLLAPSE_REGION_HEIGHT);
             collapseMutationCount++;
+            createCollapseSolids();
             collapseInitialized = true;
             return;
         }
 
+        int collapseDelayCounter = collapseFrameCounter;
         collapseFrameCounter++;
         boolean allColumnsFinished = true;
         for (int i = 0; i < COLLAPSE_COLUMN_COUNT; i++) {
@@ -1225,11 +1675,11 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 continue;
             }
             allColumnsFinished = false;
-            if (collapseFrameCounter >= COLLAPSE_SCROLL_DELAYS[i]) {
+            if (collapseDelayCounter >= COLLAPSE_SCROLL_DELAYS[i]) {
                 collapseScrollVelocity[i] += COLLAPSE_SCROLL_ACCEL;
-                collapseScrollPosition[i] = Math.min(
-                        COLLAPSE_MAX_SCROLL,
-                        collapseScrollPosition[i] + (collapseScrollVelocity[i] >> 8));
+                collapseScrollFixedPosition[i] += collapseScrollVelocity[i];
+                collapseScrollPosition[i] = Math.min(COLLAPSE_MAX_SCROLL,
+                        collapseScrollFixedPosition[i] >>> 16);
             }
         }
         if (!allColumnsFinished) {
@@ -1240,9 +1690,87 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 COLLAPSE_REGION_WIDTH, COLLAPSE_REGION_HEIGHT);
         collapseMutationCount++;
         collapseFinished = true;
+        collapseRenderHoldFrames = 1;
         collapseRequested = false;
         screenShakeActive = false;
+        bossBgScrollVelocity = 0;
+        bossBgScrollOffset = camera().getX() & 0xFFFF;
+        publishBossBgScrollOffset();
         screenEventRoutine = SCREEN_EVENT_MOVE_BG;
+    }
+
+    private void updateAct2BossBgScroll() {
+        if (screenEventRoutine != SCREEN_EVENT_MOVE_BG) {
+            return;
+        }
+        if (collapseRenderHoldFrames > 0) {
+            collapseRenderHoldFrames--;
+        }
+        if (bossBgScrollVelocity < BOSS_BG_SCROLL_MAX) {
+            bossBgScrollVelocity = Math.min(BOSS_BG_SCROLL_MAX,
+                    bossBgScrollVelocity + BOSS_BG_SCROLL_ACCEL);
+        }
+        bossBgScrollOffset = (bossBgScrollOffset + (bossBgScrollVelocity >>> 16)) & 0xFFFF;
+        publishBossBgScrollOffset();
+    }
+
+    private void publishBossBgScrollOffset() {
+        SwScrlMgz scrollHandler = resolveMgzScrollHandler();
+        if (scrollHandler != null) {
+            scrollHandler.setBossBgScrollOffset(bossBgScrollOffset);
+        }
+    }
+
+    private void createCollapseSolids() {
+        if (collapseSolids[0] != null) {
+            return;
+        }
+        int solidIndex = 0;
+        int x = COLLAPSE_SOLID_START_X;
+        for (int column = 0; column < COLLAPSE_COLUMN_COUNT; column++) {
+            final int scrollColumn = column;
+            collapseSolids[solidIndex] = new Mgz2LevelCollapseSolidInstance(
+                    x,
+                    COLLAPSE_SOLID_HIGH_BASE_Y,
+                    () -> collapseScrollPosition[scrollColumn],
+                    this::isCollapseSolidDeleteState);
+            spawnObject(collapseSolids[solidIndex]);
+            solidIndex++;
+
+            collapseSolids[solidIndex] = new Mgz2LevelCollapseSolidInstance(
+                    x,
+                    COLLAPSE_SOLID_LOW_BASE_Y,
+                    () -> collapseScrollPosition[scrollColumn],
+                    this::isCollapseSolidDeleteState);
+            spawnObject(collapseSolids[solidIndex]);
+            solidIndex++;
+
+            x += COLLAPSE_SOLID_STEP_X;
+        }
+    }
+
+    private boolean isCollapseSolidDeleteState() {
+        return screenEventRoutine == SCREEN_EVENT_MOVE_BG || collapseFinished;
+    }
+
+    private void snapshotForegroundTilemapBeforeCollapseClear() {
+        LevelManager levelManager = levelManager();
+        if (levelManager != null) {
+            levelManager.snapshotForegroundTilemapBeforeRuntimeLayoutMutation();
+        }
+    }
+
+    private void clearForegroundRegionWithoutRedraw(int startX, int startY, int width, int height) {
+        LevelManager levelManager = levelManager();
+        Level level = levelManager != null ? levelManager.getCurrentLevel() : null;
+        if (level == null || level.getMap() == null) {
+            return;
+        }
+        for (int y = startY; y < startY + height; y++) {
+            for (int x = startX; x < startX + width; x++) {
+                level.getMap().setValue(0, x, y, (byte) 0);
+            }
+        }
     }
 
     private void clearForegroundRegion(int startX, int startY, int width, int height) {

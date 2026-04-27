@@ -488,7 +488,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         // must remain in the victory pose (objectControlled) while the terrain
         // changes underneath. The seamless transition handler in executeActTransition
         // resets the player state after the layout reload, so they fall naturally.
-        if (!hasSeamlessTransition) {
+        if (!hasSeamlessTransition && shouldRestorePlayerControlsOnExit()) {
             if (playerRef != null) {
                 playerRef.setControlLocked(false);
                 playerRef.setObjectControlled(false);
@@ -563,6 +563,10 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         setDestroyed(true);
         LOG.fine(() -> String.format("S3K results exit: zone=%X act=%d isAct2OrSpecial=%b",
                 zone, act, isAct2OrSpecial));
+    }
+
+    protected boolean shouldRestorePlayerControlsOnExit() {
+        return true;
     }
 
     /**

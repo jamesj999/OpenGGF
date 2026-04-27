@@ -1508,6 +1508,14 @@ public class LevelManager {
     }
 
     /**
+     * Rebuilds playable sprite renderers after scripts add a sidekick during
+     * gameplay, such as MGZ2's boss-transition Tails rescue object.
+     */
+    public void refreshPlayableSpriteArt() {
+        initPlayerSpriteArt();
+    }
+
+    /**
      * Computes the running VRAM bank offset for each sidekick within SIDEKICK_PATTERN_BASE.
      * Every sidekick unconditionally gets its own isolated bank — no name-based slot
      * optimization (which missed ART_TILE collisions like Knuckles/Sonic sharing 0x0680).
@@ -2755,6 +2763,14 @@ public class LevelManager {
             tilemapManager.ensureForegroundTilemapData(this::getBlockAtPosition,
                     zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
+    }
+
+    /**
+     * Ensures the live foreground tilemap cache represents the current layout
+     * before a ROM-style script mutates layout RAM without requesting a redraw.
+     */
+    public void snapshotForegroundTilemapBeforeRuntimeLayoutMutation() {
+        ensureForegroundTilemapData();
     }
 
     /**

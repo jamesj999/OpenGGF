@@ -64,7 +64,7 @@ class TestSonic3kMgz2ChunkEvents {
     @Test
     void firstChunkTrigger_armsOnlyAfterQuakeStartsContinuousShake() throws IOException {
         AbstractPlayableSprite player = placePlayer(0x790, 0x590);
-        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        Sonic3kMGZEvents events = eventsWithQuakeChunkData();
         events.init(1);
 
         events.update(1, 0);
@@ -86,7 +86,7 @@ class TestSonic3kMgz2ChunkEvents {
     @Test
     void firstChunkEvent_appliesRealBlockStates_onRomCadence() throws IOException {
         AbstractPlayableSprite player = placePlayer(0x790, 0x590);
-        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        Sonic3kMGZEvents events = eventsWithQuakeChunkData();
         events.init(1);
 
         events.update(1, 0);
@@ -124,6 +124,30 @@ class TestSonic3kMgz2ChunkEvents {
         assertTrue(!Arrays.equals(initialBlock74, level.getBlock(MUTATED_RIGHT_BLOCK_INDEX).saveState()));
     }
 
+    @Test
+    void firstChunkEvent_withoutRomDataDoesNotUseDisassemblyFileFallback() {
+        AbstractPlayableSprite player = placePlayer(0x790, 0x590);
+        Sonic3kMGZEvents events = new MissingQuakeChunkDataEvents();
+        events.init(1);
+
+        events.update(1, 0);
+        GameServices.camera().setX((short) 0x7E0);
+        events.update(1, 1);
+        player.setCentreX((short) 0x0F70);
+        player.setCentreY((short) 0x0520);
+
+        SyntheticMgzLevel level = (SyntheticMgzLevel) GameServices.level().getCurrentLevel();
+        int[] originalLeft = level.getBlock(MUTATED_LEFT_BLOCK_INDEX).saveState();
+        int[] originalRight = level.getBlock(MUTATED_RIGHT_BLOCK_INDEX).saveState();
+
+        events.update(1, 2);
+
+        assertArrayEquals(originalLeft, level.getBlock(MUTATED_LEFT_BLOCK_INDEX).saveState(),
+                "production MGZ events should not read checked-in disassembly chunk data when ROM data is unavailable");
+        assertArrayEquals(originalRight, level.getBlock(MUTATED_RIGHT_BLOCK_INDEX).saveState(),
+                "production MGZ events should leave quake replacement blocks unchanged without ROM data");
+    }
+
     private static AbstractPlayableSprite placePlayer(int x, int y) {
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) x, (short) y);
         Camera camera = GameServices.camera();
@@ -139,6 +163,30 @@ class TestSonic3kMgz2ChunkEvents {
             state[i] = ((data[byteIndex] & 0xFF) << 8) | (data[byteIndex + 1] & 0xFF);
         }
         return state;
+    }
+
+    private static Sonic3kMGZEvents eventsWithQuakeChunkData() throws IOException {
+        return new FixtureQuakeChunkDataEvents(Files.readAllBytes(QUAKE_CHUNK_DATA));
+    }
+
+    private static final class FixtureQuakeChunkDataEvents extends Sonic3kMGZEvents {
+        private final byte[] quakeChunkData;
+
+        private FixtureQuakeChunkDataEvents(byte[] quakeChunkData) {
+            this.quakeChunkData = quakeChunkData;
+        }
+
+        @Override
+        protected byte[] loadMgzQuakeChunkData() {
+            return quakeChunkData;
+        }
+    }
+
+    private static final class MissingQuakeChunkDataEvents extends Sonic3kMGZEvents {
+        @Override
+        protected byte[] loadMgzQuakeChunkData() {
+            return null;
+        }
     }
 
     private static final class SyntheticMgzLevel extends AbstractLevel {

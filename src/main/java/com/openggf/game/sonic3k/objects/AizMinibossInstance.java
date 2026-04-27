@@ -611,6 +611,13 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     @Override
+    public boolean isPersistent() {
+        // Dynamic_resize spawns the boss offscreen, then Obj_AIZMiniboss waits
+        // for the later camera trigger before it appears.
+        return true;
+    }
+
+    @Override
     public int getPriorityBucket() {
         // ROM: ObjDat_AIZMiniboss priority $0200 → $200/$80 = bucket 4
         return 4;

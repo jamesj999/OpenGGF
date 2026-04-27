@@ -41,6 +41,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
 
     private int bgRiseRoutine;
     private int bgRiseOffset;
+    private int bossBgScrollOffset = Integer.MIN_VALUE;
     /**
      * Cached BG camera X for {@link #getBgCameraX()}. {@link Integer#MIN_VALUE}
      * means "no override" — the dual-path collision uses the FG cameraX as the
@@ -64,6 +65,17 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         this.bgRiseRoutine = routine;
         this.bgRiseOffset = offset;
         primeBgCollisionStateFromCurrentCamera();
+    }
+
+    /**
+     * ROM: MGZ2SE_MoveBG advances Events_bg+$0C after the boss floor collapse
+     * and uses it as the BG camera copy for DrawTilesAsYouMove.
+     */
+    public void setBossBgScrollOffset(int offset) {
+        bossBgScrollOffset = offset & 0xFFFF;
+        if (bgRiseRoutine != BG_RISE_SONIC_STATE) {
+            lastBgCameraX = bossBgScrollOffset;
+        }
     }
 
     @Override
@@ -137,6 +149,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
         short fgScroll = negWord(cameraX);
 
         if (actId == 0) {
+            bossBgScrollOffset = Integer.MIN_VALUE;
             lastBgCameraX = Integer.MIN_VALUE;
             composer.setVscrollFactorBG((short) 0);
             buildMgz1HScrollTable(cameraX, mgz1HScrollTable);
@@ -154,13 +167,14 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             // 1:1 terrain lock value (Camera_X_pos_BG_copy = cameraX - $3200).
             // That keeps the clouds drifting while the terrain band scrolls
             // 1:1 with the lift.
+            int parallaxCameraX = getMgz2ParallaxCameraX(cameraX);
             int bgY = ((short) cameraY) - MGZ2_SONIC_RISE_Y_BASE + bgRiseOffset;
             int bgScrollBaseX = ((short) cameraX) - MGZ2_SONIC_RISE_X_BASE;
             // Expose to dual-path collision so probes at world X≈$3800
             // translate into the BG layout's populated 0..23 range.
             lastBgCameraX = bgScrollBaseX;
             composer.setVscrollFactorBG((short) bgY);
-            buildMgz2StateEightHScrollTable(cameraX, bgScrollBaseX, shouldAutoMoveMgz2Clouds(),
+            buildMgz2StateEightHScrollTable(parallaxCameraX, bgScrollBaseX, shouldAutoMoveMgz2Clouds(),
                     mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
                     composer,
@@ -177,9 +191,9 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             int bgY = bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
                     ? computeMgz2BgY(cameraY - MGZ2_AFTER_MOVE_Y_BASE)
                     : computeMgz2BgY(cameraY);
-            lastBgCameraX = Integer.MIN_VALUE;
+            lastBgCameraX = bossBgScrollOffset;
             composer.setVscrollFactorBG((short) bgY);
-            buildMgz2HScrollTable(cameraX, shouldAutoMoveMgz2Clouds(),
+            buildMgz2HScrollTable(getMgz2ParallaxCameraX(cameraX), shouldAutoMoveMgz2Clouds(),
                     mgz2HScrollTable, mgz2ScatterSource);
             DeformationPlan.applyTableBands(
                     composer,
@@ -213,6 +227,10 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             mgz2CloudsFrozen = bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE;
         }
         lastActId = actId;
+    }
+
+    private int getMgz2ParallaxCameraX(int cameraX) {
+        return bossBgScrollOffset == Integer.MIN_VALUE ? cameraX : bossBgScrollOffset;
     }
 
     private boolean shouldAutoMoveMgz2Clouds() {
@@ -331,7 +349,7 @@ public class SwScrlMgz extends AbstractZoneScrollHandler {
             vscrollFactorBG = (short) ((((short) camera.getY()) - MGZ2_SONIC_RISE_Y_BASE) + bgRiseOffset);
             return;
         }
-        lastBgCameraX = Integer.MIN_VALUE;
+        lastBgCameraX = bossBgScrollOffset;
         vscrollFactorBG = (short) (bgRiseRoutine == BG_RISE_AFTER_MOVE_STATE
                 ? computeMgz2BgY(camera.getY() - MGZ2_AFTER_MOVE_Y_BASE)
                 : computeMgz2BgY(camera.getY()));

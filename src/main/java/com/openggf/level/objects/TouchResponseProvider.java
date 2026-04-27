@@ -60,5 +60,9 @@ public interface TouchResponseProvider {
     /**
      * A single touch collision region with its own position and collision type.
      */
-    record TouchRegion(int x, int y, int collisionFlags) {}
+    record TouchRegion(int x, int y, int collisionFlags, int shieldReactionFlags) {
+        public TouchRegion(int x, int y, int collisionFlags) {
+            this(x, y, collisionFlags, 0);
+        }
+    }
 }

@@ -1759,6 +1759,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 *   add.l   d0,d3                  ; Position uses OLD y_vel (d0, before gravity)
 	 */
 	private void doObjectMoveAndFall() {
+		SidekickCpuController cpu = sprite.getCpuController();
+		if (cpu != null && cpu.usesFlyingCarryMovement()) {
+			// Tails_FlyingSwimming applies Tails_Move_FlySwim before
+			// MoveSprite_TestGravity2, so the carry controller owns the
+			// carrier's per-frame vertical flight velocity here.
+			cpu.applyFlyingCarryVerticalVelocity();
+			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+			return;
+		}
 		if (isTailsFlightPhysicsActive(sprite)) {
 			// Tails_FlyingSwimming (sonic3k.asm:27570) applies Tails_Move_FlySwim
 			// before MoveSprite_TestGravity2. MoveSprite_TestGravity2 does not
@@ -1795,6 +1804,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void applyGravity() {
 		if (sprite.isObjectControlled()) {
+			return;
+		}
+		SidekickCpuController cpu = sprite.getCpuController();
+		if (cpu != null && cpu.usesFlyingCarryMovement()) {
+			cpu.applyFlyingCarryVerticalVelocity();
 			return;
 		}
 		if (isTailsFlightPhysicsActive(sprite)) {
@@ -1865,21 +1879,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			rightBoundary += RIGHT_EXTRA;
 		}
 
-		// ROM comparison:
-		//   Left side: bhi.s (s1disasm/_incObj/01 Sonic.asm:987, s2.asm:36925, sonic3k.asm:23182)
-		//     — branches when leftBoundary > predictedX (strict <), engine `<` matches all 3.
-		//   Right side: per-game divergence:
-		//     S1/S2 use bls.s (s1:998, s2.asm:36933) — non-strict (>=).
-		//     S3K uses blo.s (sonic3k.asm:23186) — strict (>).
-		//   Gated by PhysicsFeatureSet.levelBoundaryRightStrict.
-		PhysicsFeatureSet boundaryFeatures = sprite.getPhysicsFeatureSet();
-		boolean strictRight = boundaryFeatures != null && boundaryFeatures.levelBoundaryRightStrict();
-		boolean rightTriggered = strictRight ? (predictedX > rightBoundary) : (predictedX >= rightBoundary);
+		// ROM comparison: bhi.s for left (<), bls.s for right (>=)
 		if (predictedX < leftBoundary) {
 			sprite.setCentreX((short) leftBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
-		} else if (rightTriggered) {
+		} else if (predictedX >= rightBoundary) {
 			sprite.setCentreX((short) rightBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
@@ -1894,21 +1899,28 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (camera.isLevelStarted()) {
 			short effectiveMaxY = (short) maxY;
 			if (sprite.getY() > effectiveMaxY + 224) {
-				if (sprite.isCpuControlled() && sprite.getCpuController() != null) {
-					// ROM Player_LevelBound (sonic3k.asm:23172) jumps to
-					// Kill_Character (sonic3k.asm:21136) for both player and
-					// sidekick when the bottom kill plane is crossed. The
-					// LEVEL_BOUNDARY cause selects the engine's
-					// Kill_Character-equivalent path (zero velocities + one-
-					// frame DEAD_FALLING state) so the trace's end-of-frame
-					// (vels=0, routine=6) sample matches at AIZ F4679.
-					sprite.getCpuController().despawn(
-						com.openggf.sprites.playable.SidekickCpuController.DespawnCause.LEVEL_BOUNDARY);
+				GameModule module = sprite.currentGameModule();
+				LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
+				SidekickCpuController cpuController = sprite.getCpuController();
+				if (sprite.isCpuControlled() && cpuController != null) {
+					// MGZ2 boss transition starts Tails's scripted carry below
+					// the normal camera bottom. ROM runs Tails_Check_Screen_Boundaries
+					// in that path without returning to the generic CPU respawn state.
+					if (!cpuController.usesFlyingCarryMovement()
+							&& (levelEvents == null || !levelEvents.interceptPitDeath(sprite))) {
+						// ROM Player_LevelBound (sonic3k.asm:23172) jumps to
+						// Kill_Character (sonic3k.asm:21136) for both player and
+						// sidekick when the bottom kill plane is crossed. The
+						// LEVEL_BOUNDARY cause selects the engine's
+						// Kill_Character-equivalent path (zero velocities + one-
+						// frame DEAD_FALLING state) so the trace's end-of-frame
+						// (vels=0, routine=6) sample matches at AIZ F4679.
+						cpuController.despawn(
+							com.openggf.sprites.playable.SidekickCpuController.DespawnCause.LEVEL_BOUNDARY);
+					}
 				} else {
 					// ROM: Sonic_LevelBound checks for zone-specific intercepts
 					// (e.g. SBZ2 fall -> SBZ3 transition) before applying death.
-					GameModule module = sprite.currentGameModule();
-					LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
 					if (levelEvents == null || !levelEvents.interceptPitDeath(sprite)) {
 						sprite.applyPitDeath();
 					}

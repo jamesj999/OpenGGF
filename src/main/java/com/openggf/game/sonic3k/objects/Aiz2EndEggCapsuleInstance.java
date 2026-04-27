@@ -81,7 +81,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     private static final int POST_OPEN_DELAY = 60;
 
     // Animal spawn count (ROM: ChildObjDat_86B9A has 9 entries)
-    private static final int ANIMAL_COUNT = 8;
+    private static final int ANIMAL_COUNT = 9;
 
     private int currentX;
     private int currentY;
@@ -222,16 +222,12 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
             }
             if (postOpenTimer == 0
                     && playerEntity instanceof AbstractPlayableSprite player
-                    && !player.getAir()) {
+                    && shouldStartResults(player)) {
                 startResults(player);
             }
         } else if (resultsStarted && !releaseTriggered && services().gameState().isEndOfLevelFlag()) {
             releaseTriggered = true;
-            Aiz2BossEndSequenceState.releaseEggCapsule();
-            // ROM: The capsule stays visible — it doesn't disappear.
-            // It remains on screen while Sonic walks right and Knuckles
-            // does his cutscene. It only leaves when the camera scrolls
-            // past it or the zone transitions.
+            onResultsComplete();
         }
 
         bobAngle = (bobAngle + 3) & 0xFF;
@@ -350,14 +346,23 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
      * to return the object services for renderer and zone animal type lookup.
      */
     private void spawnAnimals() {
-        for (int i = 0; i < ANIMAL_COUNT; i++) {
+        for (int i = 0; i < getAnimalCount(); i++) {
             int animalX = currentX + (i % 2 == 0 ? -(8 + i * 4) : (8 + i * 4));
             int animalY = currentY - 8;
             int delay = i * 4;  // Staggered: 0, 4, 8, 12, ...
             ObjectSpawn spawn = new ObjectSpawn(animalX, animalY, 0x28, 0, 0, false, 0);
             int artVariant = services().rng().nextBits(1);
-            spawnChild(() -> new HighPriorityAnimal(spawn, delay, artVariant));
+            int index = i;
+            spawnChild(() -> createCapsuleAnimal(spawn, delay, artVariant, index));
         }
+    }
+
+    protected int getAnimalCount() {
+        return ANIMAL_COUNT;
+    }
+
+    protected AbstractObjectInstance createCapsuleAnimal(ObjectSpawn spawn, int delay, int artVariant, int index) {
+        return new HighPriorityAnimal(spawn, delay, artVariant);
     }
 
     /**
@@ -378,22 +383,36 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
 
     // ===== Results =====
 
-    private void startResults(AbstractPlayableSprite player) {
+    protected boolean shouldStartResults(AbstractPlayableSprite player) {
+        return !player.getAir();
+    }
+
+    protected void startResults(AbstractPlayableSprite player) {
         if (resultsStarted) {
             return;
         }
         resultsStarted = true;
         services().gameState().setEndOfLevelActive(true);
-        lockForResults(player);
-        for (PlayableEntity sidekickEntity : services().sidekicks()) {
-            if (sidekickEntity instanceof AbstractPlayableSprite sidekick) {
-                lockForResults(sidekick);
+        if (shouldLockPlayersForResults()) {
+            lockForResults(player);
+            for (PlayableEntity sidekickEntity : services().sidekicks()) {
+                if (sidekickEntity instanceof AbstractPlayableSprite sidekick) {
+                    lockForResults(sidekick);
+                }
             }
         }
-        spawnChild(() -> new S3kResultsScreenObjectInstance(getPlayerCharacter(), services().currentAct()));
+        spawnChild(this::createResultsScreen);
     }
 
-    private void lockForResults(AbstractPlayableSprite sprite) {
+    protected AbstractObjectInstance createResultsScreen() {
+        return new S3kResultsScreenObjectInstance(getPlayerCharacter(), services().currentAct());
+    }
+
+    protected boolean shouldLockPlayersForResults() {
+        return true;
+    }
+
+    protected void lockForResults(AbstractPlayableSprite sprite) {
         sprite.setObjectControlled(true);
         sprite.setControlLocked(true);
         sprite.setXSpeed((short) 0);
@@ -402,10 +421,22 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         sprite.setAnimationId(Sonic3kAnimationIds.VICTORY);
     }
 
-    private PlayerCharacter getPlayerCharacter() {
+    protected PlayerCharacter getPlayerCharacter() {
         return S3kRuntimeStates.resolvePlayerCharacter(
                 services().zoneRuntimeRegistry(),
                 services().configuration());
+    }
+
+    /**
+     * Hook for zones that reuse the floating capsule movement/opening/results
+     * flow but have a different post-results handoff.
+     */
+    protected void onResultsComplete() {
+        Aiz2BossEndSequenceState.releaseEggCapsule();
+        // ROM: The capsule stays visible — it doesn't disappear.
+        // It remains on screen while Sonic walks right and Knuckles
+        // does his cutscene. It only leaves when the camera scrolls
+        // past it or the zone transitions.
     }
 
     // ===== Rendering =====

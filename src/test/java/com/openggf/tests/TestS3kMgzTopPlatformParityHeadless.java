@@ -522,7 +522,9 @@ class TestS3kMgzTopPlatformParityHeadless {
         assertNotNull(touchResponses, "Expected ObjectManager touch responses to be available");
 
         Method applyHurt = touchResponses.getClass()
-                .getDeclaredMethod("applyHurt", com.openggf.game.PlayableEntity.class, ObjectInstance.class);
+                .getDeclaredMethod("applyHurt",
+                        com.openggf.game.PlayableEntity.class,
+                        ObjectInstance.class);
         applyHurt.setAccessible(true);
         applyHurt.invoke(touchResponses, sprite, source);
     }

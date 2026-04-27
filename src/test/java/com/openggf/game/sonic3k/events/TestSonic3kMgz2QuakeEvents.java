@@ -262,6 +262,29 @@ class TestSonic3kMgz2QuakeEvents {
     }
 
     @Test
+    void chunkEvent3Completion_releasesForcedLeftCameraLock() throws Exception {
+        placePlayer(0x3050, 0x0780);
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        Camera camera = GameServices.camera();
+        camera.setMinX((short) 0x32C0);
+        camera.setMinXTarget((short) 0x32C0);
+        camera.setMaxX((short) 0x32C0);
+        camera.setMaxXTarget((short) 0x32C0);
+        setPrivateField(events, "chunkEventRoutine", 12);
+        setPrivateField(events, "chunkReplaceIndex", 0x5C);
+
+        events.update(1, 0);
+
+        assertEquals((short) 0, camera.getMinX(),
+                "finished MGZ2 terrain movement must release the leftward force lock");
+        assertEquals((short) 0, camera.getMinXTarget());
+        assertEquals((short) 0x6000, camera.getMaxX());
+        assertEquals((short) 0x6000, camera.getMaxXTarget());
+        assertEquals(20, events.getChunkEventRoutine());
+    }
+
+    @Test
     void quakeEvent1Cont_releasesWhenPlayerPassesThreshold_andResetsBounds() {
         AbstractPlayableSprite player = placePlayer(0x790, 0x590);
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
@@ -315,9 +338,6 @@ class TestSonic3kMgz2QuakeEvents {
                 new ObjectSpawn(0x08E0, 0x0690, 0, 0, 0, false, 0), false);
         robotnik.setDestroyed(true);
         setPrivateField(events, "activeRobotnik", robotnik);
-        setPrivateField(events, "savedCameraBoundsValid", true);
-        setPrivateField(events, "savedCameraMinX", (short) 0x0000);
-        setPrivateField(events, "savedCameraMaxX", (short) 0x6000);
 
         camera.setMaxX((short) 0x07E0);
         events.update(1, 2);
@@ -372,7 +392,7 @@ class TestSonic3kMgz2QuakeEvents {
         AudioManager audio = mock(AudioManager.class);
         TestableMgzEvents events = new TestableMgzEvents(audio);
         events.init(1);
-        events.triggerCollapseForTest();
+        events.requestLevelCollapse();
 
         events.update(1, 1);
         events.update(1, 17);

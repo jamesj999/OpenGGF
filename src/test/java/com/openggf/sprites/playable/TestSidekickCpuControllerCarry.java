@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.physics.Direction;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
@@ -103,6 +104,30 @@ class TestSidekickCpuControllerCarry {
         };
     }
 
+    /** Stub trigger for MGZ rescue carry: Tails pulses A/B/C every 8 frames. */
+    private SidekickCarryTrigger alwaysOnJumpPulseTrigger() {
+        return new SidekickCarryTrigger() {
+            @Override
+            public boolean shouldEnterCarry(int zoneId, int actId, PlayerCharacter pc) {
+                return true;
+            }
+            @Override
+            public void applyInitialPlacement(AbstractPlayableSprite carrier,
+                                              AbstractPlayableSprite cargo) {
+                // Intentional no-op; this test only verifies carry-flight vertical motion.
+            }
+            @Override public int   carryDescendOffsetY()            { return Sonic3kConstants.CARRY_DESCEND_OFFSET_Y; }
+            @Override public short carryInitXVel()                  { return 0; }
+            @Override public int   carryInputInjectMask()           { return 0x07; }
+            @Override public boolean carryInjectsJump()             { return true; }
+            @Override public boolean usesMgzBossTransitionControl() { return true; }
+            @Override public int   carryJumpReleaseCooldownFrames() { return Sonic3kConstants.CARRY_COOLDOWN_JUMP_RELEASE; }
+            @Override public int   carryLatchReleaseCooldownFrames(){ return Sonic3kConstants.CARRY_COOLDOWN_LATCH_RELEASE; }
+            @Override public short carryReleaseJumpYVel()           { return Sonic3kConstants.CARRY_RELEASE_JUMP_Y_VEL; }
+            @Override public short carryReleaseJumpXVel()           { return Sonic3kConstants.CARRY_RELEASE_JUMP_X_VEL; }
+        };
+    }
+
     /**
      * Resets the fixture's sidekick controller to INIT with the stub trigger installed,
      * and returns (sonic, tails) for convenience.
@@ -121,6 +146,13 @@ class TestSidekickCpuControllerCarry {
         controller.setCarryTrigger(alwaysOnTrigger());
         controller.setInitialState(SidekickCpuController.State.INIT);
         return new AbstractPlayableSprite[] { sonic, tails };
+    }
+
+    private AbstractPlayableSprite[] prepareCarry(SidekickCarryTrigger trigger) {
+        AbstractPlayableSprite[] pair = prepareCarry();
+        controller.setCarryTrigger(trigger);
+        controller.setInitialState(SidekickCpuController.State.INIT);
+        return pair;
     }
 
     // --- init transition --------------------------------------------------
@@ -157,6 +189,27 @@ class TestSidekickCpuControllerCarry {
     // --- per-frame parentage ---------------------------------------------
 
     @Test
+    void carryInitImmediatelyParentsSonicBeforeCarrierMovement() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        sonic.setCentreX((short) 0x1200);
+        sonic.setCentreY((short) 0x0740);
+        tails.setCentreX((short) 0x3CC0);
+        tails.setCentreY((short) 0x0700);
+
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT body: ROM sub_1459E
+
+        assertEquals((short) 0x3CC0, sonic.getCentreX(),
+                "ROM sub_1459E positions Sonic at Tails.x immediately when routine $14 runs");
+        assertEquals((short) 0x071C, sonic.getCentreY(),
+                "ROM sub_1459E positions Sonic at Tails.y+$1C before Tails moves this frame");
+        assertTrue(sonic.isObjectControlled(),
+                "Sonic must be object-controlled as soon as the MGZ pickup routine runs");
+    }
+
+    @Test
     void carryingCopiesPostMovementTailsVelocityToSonicEachFrame() {
         AbstractPlayableSprite[] pair = prepareCarry();
         AbstractPlayableSprite sonic = pair[0];
@@ -178,6 +231,24 @@ class TestSidekickCpuControllerCarry {
                     "Sonic.y_speed must copy Tails's post-movement y_vel on frame " + (i + 3));
             assertEquals(SidekickCpuController.State.CARRYING, controller.getState());
         }
+    }
+
+    @Test
+    void carryingCopiesPostMovementTailsDirectionToSonic() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        controller.update(1);
+        controller.update(2);
+        assertTrue(sonic.isObjectControlled(),
+                "Precondition: Sonic should be carried before direction parentage is tested");
+
+        sonic.setDirection(Direction.RIGHT);
+        tails.setDirection(Direction.LEFT);
+        controller.finishCarryAfterCarrierMovement();
+
+        assertEquals(Direction.LEFT, sonic.getDirection(),
+                "ROM Tails_Carry_Sonic copies Tails's facing bit onto carried Sonic each parentage frame");
     }
 
     // --- release path A: ground contact ---------------------------------
@@ -216,8 +287,134 @@ class TestSidekickCpuControllerCarry {
         assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
         assertEquals((short) -0x0380, sonic.getYSpeed(),
                 "Jump release imparts -0x380 y_vel");
+        assertTrue(sonic.getAir(),
+                "Tails_Carry_Sonic jump release sets Status_InAir");
+        assertTrue(sonic.isJumping(),
+                "Tails_Carry_Sonic jump release sets the jumping latch");
+        assertTrue(sonic.getRolling(),
+                "Tails_Carry_Sonic jump release sets Status_Roll");
+        assertFalse(sonic.getRollingJump(),
+                "Tails_Carry_Sonic jump release clears Status_RollJump");
         assertEquals(0x12, controller.getReleaseCooldownForTest(),
                 "Jump release cooldown is 0x12 (~18 frames)");
+    }
+
+    @Test
+    void mgzCarryJumpReleaseStaysInCarryRoutineAndRegrabsWhenClose() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        sonic.setCentreX((short) 0x1000);
+        sonic.setCentreY((short) 0x06AC);
+        controller.update(1);
+        controller.update(2);
+
+        sonic.setJumpInputPressed(false);
+        sonic.setJumpInputPressed(true);
+        controller.update(3);
+
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState(),
+                "MGZ routine $18 clears Flying_carrying_Sonic_flag but keeps Tails in the carry CPU routine");
+        assertFalse(sonic.isObjectControlled());
+        assertTrue(controller.usesFlyingCarryMovement(),
+                "Released MGZ carry still runs through Tails_FlyingSwimming while Tails chases Sonic for re-grab");
+        assertEquals(0x12, controller.getReleaseCooldownForTest());
+
+        sonic.setJumpInputPressed(false);
+        sonic.setRollingJump(false);
+        sonic.setAir(true);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        sonic.setCentreX((short) 0x1008);
+        sonic.setCentreY((short) 0x06B4);
+        sonic.setXSpeed((short) 0);
+        sonic.setYSpeed((short) 0);
+        for (int frame = 4; frame < 4 + 0x11; frame++) {
+            controller.update(frame);
+            assertFalse(sonic.isObjectControlled(),
+                    "ROM loc_14534 returns only while byte 1(a2) remains nonzero after decrement");
+        }
+
+        controller.update(4 + 0x11);
+
+        assertTrue(sonic.isObjectControlled(),
+                "When the cooldown decrement reaches zero, MGZ Tails_Carry_Sonic should run the proximity grab on that frame");
+        assertTrue(controller.isFlyingCarrying());
+        assertEquals((short) tails.getCentreX(), (short) sonic.getCentreX());
+        assertEquals((short) (tails.getCentreY() + Sonic3kConstants.CARRY_DESCEND_OFFSET_Y),
+                (short) sonic.getCentreY());
+    }
+
+    @Test
+    void mgzCarryReleasesSonicWhenTailsIsHurt() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        controller.update(1);
+        controller.update(2);
+        assertTrue(sonic.isObjectControlled(),
+                "Precondition: MGZ carry should own Sonic before Tails takes damage");
+
+        tails.applyHurt(sonic.getCentreX());
+        controller.update(3);
+
+        assertFalse(sonic.isObjectControlled(),
+                "ROM Tails hurt routine clears Player_1 object_control and Flying_carrying_Sonic_flag");
+        assertFalse(controller.isFlyingCarrying(),
+                "Tails must stop actively carrying Sonic as soon as the carrier is hurt");
+        assertFalse(controller.usesFlyingCarryMovement(),
+                "Hurt Tails must run the ROM hurt movement path, not MGZ carry-flight movement");
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState(),
+                "MGZ leaves Tails in the rescue carry CPU routine after the active carry flag is cleared");
+    }
+
+    @Test
+    void mgzReleasedCarryLatchesRomChaseWhenSonicFallsOffscreen() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        sonic.setCentreX((short) 0x1000);
+        sonic.setCentreY((short) 0x06AC);
+        controller.update(1);
+        controller.update(2);
+
+        sonic.setJumpInputPressed(false);
+        sonic.setJumpInputPressed(true);
+        controller.update(3);
+
+        sonic.setJumpInputPressed(false);
+        sonic.setRenderFlagOnScreen(false);
+        sonic.setAir(true);
+        sonic.setYSpeed((short) 0x0300);
+        sonic.setCentreX((short) 0x1040);
+        sonic.setCentreY((short) 0x0800);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        tails.setXSpeed((short) 0);
+        tails.setYSpeed((short) 0);
+
+        controller.update(4);
+
+        assertEquals((short) 0, tails.getXSpeed(),
+                "ROM loc_14330 only latches rescue acceleration on the first offscreen/falling frame");
+        assertEquals((short) 0, tails.getYSpeed(),
+                "ROM loc_14330 falls through to Tails_Carry_Sonic without applying the latched acceleration");
+
+        controller.update(5);
+
+        assertEquals((short) 0x0010, tails.getXSpeed(),
+                "ROM loc_14362 adds abs(Sonic.x - Tails.x) / 4 while chasing the released Sonic");
+        assertEquals((short) 0x008A, tails.getYSpeed(),
+                "ROM loc_14362 adds abs(Sonic.y - Tails.y) * 3/8 when Tails is above Sonic");
     }
 
     // --- release path C: latch mismatch ---------------------------------
@@ -276,5 +473,65 @@ class TestSidekickCpuControllerCarry {
             }
         }
         assertTrue(sawInjection, "Right-press injection must fire at least once in 64 frames");
+    }
+
+    @Test
+    void jumpPulseCarryAppliesTailsFlightLift() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0);
+        tails.setCentreY((short) 0x0400);
+
+        controller.update(6);  // INIT -> CARRY_INIT
+        controller.update(7);  // CARRY_INIT -> CARRYING, pulse A/B/C on MGZ cadence
+        assertTrue(controller.getInputJumpPress());
+
+        for (int frame = 7; frame < 24; frame++) {
+            controller.update(frame);
+            controller.applyFlyingCarryVerticalVelocity();
+        }
+
+        assertTrue(tails.getYSpeed() < 0,
+                "MGZ rescue carry must run Tails_Move_FlySwim lift; otherwise Tails starts below screen and never reaches Sonic");
+    }
+
+    @Test
+    void mgzCarryIntroSwitchesToPlayerSteeredFlightAtCameraY90() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreY((short) 0x0690);
+        controller.update(1);  // INIT -> CARRY_INIT
+        controller.update(2);  // CARRY_INIT -> CARRYING; routine $16 reaches Camera_Y+$90
+
+        fixture.sprite().setDirectionalInputPressed(false, false, true, false);
+        controller.update(3);
+
+        assertTrue(controller.getInputLeft(),
+                "ROM loc_141D2 ORs P1 left/right into Ctrl_2 during MGZ routine $18");
+        assertFalse(controller.getInputRight());
+    }
+
+    @Test
+    void mgzCarryUpInputUsesRomTwentyFrameFlightPulseThreshold() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreY((short) 0x0690);
+        controller.update(1);
+        controller.update(2);
+
+        fixture.sprite().setDirectionalInputPressed(true, false, false, false);
+        boolean pulsedBeforeThreshold = false;
+        for (int frame = 3; frame < 3 + 0x1F; frame++) {
+            controller.update(frame);
+            pulsedBeforeThreshold |= controller.getInputJumpPress();
+        }
+        controller.update(3 + 0x1F);
+
+        assertFalse(pulsedBeforeThreshold,
+                "MGZ routine $18 should not keep pulsing A/B/C every 8 frames once P1 control is active");
+        assertTrue(controller.getInputJumpPress(),
+                "Holding Up should make Tails flap on the ROM $20-frame threshold");
     }
 }

@@ -9,7 +9,8 @@ import com.openggf.game.CanonicalAnimation;
  * <p>IDs 0x00-0x1E largely follow the S2 table layout, but several entries
  * were repurposed (0x13 = Victory, 0x1A/0x1B = hurt variants, 0x19 = drown).
  * S3K adds 0x1F (Super transformation), 0x20 (Tails flight), and
- * 0x21-0x23 (Knuckles glide states).
+ * 0x21-0x23 (Knuckles glide states). Sonic's MGZ2 carried pose also writes
+ * native animation 0x22, sharing the numeric slot used by Knuckles glide land.
  */
 public enum Sonic3kAnimationIds implements AnimationId {
     WALK(0x00),
@@ -43,6 +44,7 @@ public enum Sonic3kAnimationIds implements AnimationId {
     SUPER_TRANSFORM(0x1F), // Super transformation (s3.asm:21148)
     FLY(0x20),           // Tails helicopter flight (s3.asm:23944, sonic3k.asm:26664)
     GLIDE_DROP(0x21),    // Knuckles falling after glide (sonic3k.asm:20930)
+    TAILS_CARRIED(0x22), // Sonic carried by Tails during MGZ2 boss transition (sonic3k.asm:27387)
     GLIDE_LAND(0x22),    // Knuckles glide landing (sonic3k.asm:30987)
     GLIDE_SLIDE(0x23);   // Knuckles glide slide on ground (sonic3k.asm:30940)
 
@@ -94,6 +96,7 @@ public enum Sonic3kAnimationIds implements AnimationId {
             case SUPER_TRANSFORM -> CanonicalAnimation.SUPER_TRANSFORM;
             case FLY             -> CanonicalAnimation.FLY;
             case GLIDE_DROP      -> CanonicalAnimation.GLIDE_DROP;
+            case TAILS_CARRIED   -> CanonicalAnimation.TAILS_CARRIED;
             case GLIDE_LAND      -> CanonicalAnimation.GLIDE_LAND;
             case GLIDE_SLIDE     -> CanonicalAnimation.GLIDE_SLIDE;
         };
