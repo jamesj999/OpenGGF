@@ -4,6 +4,58 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K AIZ Trace F6313 → F6736: Sidekick Despawn Marker Enters CATCH_UP_FLIGHT
+
+- `SidekickCpuController.applyDespawnMarker` now transitions the engine
+  state machine to `CATCH_UP_FLIGHT` (ROM routine 0x02) for S3K instead
+  of the legacy `SPAWNING` flow. Mirrors ROM `sub_13ECA`
+  (sonic3k.asm:26800-26809) which writes `Tails_CPU_routine = 2`,
+  dispatching to `Tails_Catch_Up_Flying` (sonic3k.asm:26474) on the
+  next frame. The 64-frame trigger then warps Tails to
+  `(Sonic.x, Sonic.y - 0xC0)` and enters routine 0x04
+  (`Tails_FlySwim_Unknown` = engine `FLIGHT_AUTO_RECOVERY`).
+- New `PhysicsFeatureSet.sidekickRespawnEntersCatchUpFlight` flag
+  gates the change S3K-only (S2 keeps its inlined-trigger SPAWNING
+  flow per `TailsCPU_Spawning` at s2.asm:38755-38782; S1 has no Tails
+  CPU).
+- `SidekickCpuController.updateCatchUpFlight` and
+  `updateFlightAutoRecovery` now use
+  `leader.isTouchResponseSuppressedByObjectControl()` (bit-7-only) for
+  the Sonic-free-of-lock gates instead of the generic
+  `leader.isObjectControlled()` test. ROM `Tails_Catch_Up_Flying`
+  checks `bmi.w object_control(a1)` (sonic3k.asm:26481-26482) —
+  sign-bit only — so leader writes that set bits 0-6 (vine grab
+  `$03`, CNZ wire cage `$42`, MGZ twisting loop `$43`) leave the
+  trigger active. Same for the FLIGHT → NORMAL exit gate at
+  sonic3k.asm:26624-26630.
+- `AizVineHandleLogic.updatePlayer` now calls
+  `setObjectControlAllowsCpu(true)` alongside `setObjectControlled(true)`
+  on the grab capture path. ROM grab writes `object_control = $03`
+  (bits 0+1, NOT bit 7; sonic3k.asm:46739-46743 loc_22302).
+- `updateFlightAutoRecovery` re-asserts `setObjectControlled(true)`
+  at the start of the body to mirror ROM's persistent
+  `object_control = $81` byte (set once by sub_13ECA / loc_13B50,
+  re-written by the off-screen 5-second auto-land path at
+  sonic3k.asm:26542; only cleared by the NORMAL transition at
+  sonic3k.asm:26466). The engine analog must persist across
+  diagnostic test-replay hydration cycles.
+- `updateFlightAutoRecovery` Y-step residual now matches ROM exactly:
+  uses pre-step `dy` for the close-enough test (ROM
+  sonic3k.asm:26611-26627 — `move.w y_pos(a0), d1 / sub.w
+  (Tails_CPU_target_Y).w, d1` happens BEFORE the post-step y_pos
+  write at loc_13CCE; `or.w d0, d1` at sonic3k.asm:26627 only
+  succeeds when y_pos == target_Y exactly). Previous engine code
+  collapsed `|residualY| <= 1` to zero, causing premature exit to
+  NORMAL on near-miss frames (CNZ F1043 regression).
+- `AbstractTraceReplayTest.applyRecordedFirstSidekickState` extends
+  the `objectControlled` preserve gate to also fire when the engine's
+  CPU state is `CATCH_UP_FLIGHT` or `FLIGHT_AUTO_RECOVERY`. ROM keeps
+  `object_control = $81` throughout these routines, and the engine's
+  diagnostic hydration must not clear the flag mid-flight.
+- AIZ first error advances F6313 → F6736 (+423 frames). CNZ stays at
+  baseline F4577. S2 EHZ stays at F1151. S1 MZ1 stays at F311. S1
+  GHZ stays PASS.
+
 ### Sonic 3&K CNZ Trace F4490 → F4577: Cylinder Standing Bit Preserved For Offscreen Riders
 
 - `CnzCylinderInstance.update()` now preserves the previous-frame

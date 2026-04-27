@@ -744,6 +744,25 @@ public abstract class AbstractTraceReplayTest {
         boolean preserveObjectControl = cpu != null
                 && cpu.getState() == SidekickCpuController.State.SPAWNING
                 && xBeforeReseed == despawnX;
+        // S3K extension: ROM keeps object_control = $81 throughout
+        // {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474) and
+        // {@code Tails_FlySwim_Unknown} (sonic3k.asm:26534) — the only writers
+        // in those routines are the warp branch at sonic3k.asm:26511 ($81),
+        // the off-screen 5-second auto-land at sonic3k.asm:26542 ($81), and
+        // the NORMAL transition at sonic3k.asm:26632 ($00). The engine's
+        // state machine analog: CATCH_UP_FLIGHT (routine 0x02) and
+        // FLIGHT_AUTO_RECOVERY (routine 0x04) both rely on the bit-7 gate to
+        // suppress PlayableSpriteMovement physics so the controller's body
+        // can drive the steer-toward-Sonic motion via setCentreX/Y directly.
+        // Without preservation, the test hydration clears objectControlled
+        // each frame and the engine's terrain collision sets air=false on the
+        // very next physics tick — that's the CNZ1 F1043 tails_angle/air
+        // divergence introduced when applyDespawnMarker started entering
+        // CATCH_UP_FLIGHT (matching ROM's routine=2 dispatch sequence).
+        boolean flightStatePreservesObjectControl = cpu != null
+                && (cpu.getState() == SidekickCpuController.State.CATCH_UP_FLIGHT
+                        || cpu.getState() == SidekickCpuController.State.FLIGHT_AUTO_RECOVERY);
+        preserveObjectControl = preserveObjectControl || flightStatePreservesObjectControl;
         // Also preserve object_control when a per-object hook (e.g. CNZ wire
         // cage at sonic3k.asm:69921 loc_3394C) has just set bit 0 on the
         // sidekick. ROM cage's loc_339B6 (sonic3k.asm:69958) also writes

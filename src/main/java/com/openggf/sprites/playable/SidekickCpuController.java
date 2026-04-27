@@ -723,16 +723,39 @@ public class SidekickCpuController {
      * <p>Stubbed in Task 2; body lands in Task 4.
      */
     private void updateCatchUpFlight() {
-        // ROM Tails_Catch_Up_Flying (sonic3k.asm:26474-26531)
+        // ROM Tails_Catch_Up_Flying (sonic3k.asm:26474-26531).
+        //
+        // ROM enters this routine via sub_13ECA (sonic3k.asm:26800-26809) which
+        // writes object_control = $81 atomically with x_pos = #$7F00 / y_pos = 0
+        // / Tails_CPU_routine = 2. ROM keeps that $81 byte through every frame
+        // of routine 2 — Tails_Catch_Up_Flying itself never reads or writes
+        // object_control until the trigger branch (sonic3k.asm:26511) which
+        // re-asserts $81 before transitioning to routine 4. Re-establish the
+        // engine's analog (objectControlled=true with bit-7 semantics) on
+        // every frame so the dispatcher's bmi.w-equivalent gate (the
+        // PlayableSpriteMovement physics suppression at line 242) stays in
+        // effect even after diagnostic hydration cycles in trace-replay tests.
+        sidekick.setObjectControlled(true);
+
         boolean trigger = false;
 
         // Ctrl_2_logical A/B/C/START press → immediate trigger
         if ((controller2Logical & (AbstractPlayableSprite.INPUT_JUMP | INPUT_START)) != 0) {
             trigger = true;
         } else {
-            // 64-frame gate, suppressed if Sonic is object-controlled (bit 7) or super.
+            // 64-frame gate, suppressed only when Sonic's object_control bit 7
+            // is set (ROM sonic3k.asm:26481 `tst.b object_control(a1) / bmi.w`)
+            // or when Sonic is super (bit 7 of status; sonic3k.asm:26483-26485).
+            // ROM's `bmi.w` is the sign-bit branch — bits 0-6 (vine grab $03,
+            // CNZ wire cage $42, MGZ twisting loop $43, etc.) leave the trigger
+            // active. The engine's `objectControlled` flag is set by ANY
+            // controlling object, so we use the bit-7-style helper here:
+            // {@code isTouchResponseSuppressedByObjectControl()} returns
+            // {@code objectControlled && !objectControlAllowsCpu}, which matches
+            // ROM's bmi.w semantic exactly. See AbstractPlayableSprite line
+            // 2207-2210 for the encoding rationale.
             if ((frameCounter & 0x3F) == 0
-                    && !leader.isObjectControlled()
+                    && !leader.isTouchResponseSuppressedByObjectControl()
                     && !leader.isSuperSonic()) {
                 trigger = true;
             }
@@ -786,6 +809,20 @@ public class SidekickCpuController {
      */
     private void updateFlightAutoRecovery() {
         // ROM Tails_FlySwim_Unknown (sonic3k.asm:26534-26653).
+        //
+        // ROM enters this routine via Tails_Catch_Up_Flying loc_13B50
+        // (sonic3k.asm:26511) which writes object_control = $81 alongside
+        // status = $02 (Status_InAir). ROM keeps the $81 byte for the entire
+        // duration of routine 4 — the only writer in this routine is the
+        // off-screen 5-second auto-land path (sonic3k.asm:26542) which also
+        // writes #$81, and the NORMAL transition's loc_13B12 (sonic3k.asm:26466)
+        // which writes #$00. Re-establish the engine's analog
+        // (objectControlled=true with bit-7 semantics) on every frame so the
+        // dispatcher's bmi.w-equivalent gate (PlayableSpriteMovement physics
+        // suppression at line 242) stays in effect even after diagnostic
+        // hydration cycles in trace-replay tests.
+        sidekick.setObjectControlled(true);
+
         final int AUTO_LAND_FRAMES = com.openggf.game.sonic3k.constants
                 .Sonic3kConstants.TAILS_FLIGHT_AUTO_LAND_FRAMES;
         final int MAX_X_STEP = com.openggf.game.sonic3k.constants
@@ -869,7 +906,12 @@ public class SidekickCpuController {
             sidekick.setCentreXPreserveSubpixel((short) newX);
         }
 
-        // 5. Y steer: +/-1 per frame. Same post-step residual tracking.
+        // 5. Y steer: +/-1 per frame. ROM uses PRE-step dy for the close-enough
+        //    residual (sonic3k.asm:26613-26614 — `move.w y_pos(a0), d1 / sub.w
+        //    (Tails_CPU_target_Y).w, d1`); the post-step y_pos write at loc_13CCE
+        //    happens AFTER d1 is captured. d1 is only zero when y_pos == target_Y
+        //    before the step, so the close-enough test (`or.w d0, d1` at
+        //    sonic3k.asm:26627) only succeeds on exact-match frames.
         int dy = (sidekick.getCentreY() & 0xFFFF) - targetY;
         int residualY = dy;
         if (dy != 0) {
@@ -877,13 +919,9 @@ public class SidekickCpuController {
                     ? (sidekick.getCentreY() & 0xFFFF) - Y_STEP
                     : (sidekick.getCentreY() & 0xFFFF) + Y_STEP;
             sidekick.setCentreYPreserveSubpixel((short) newY);
-            // Y step never overshoots (it's ±1 per frame), so residualY
-            // approaches 0 but may not reach it for many frames. That matches
-            // the ROM which only clears d1 via the beq.s loc_13CD2 at
-            // sonic3k.asm:26613 when y_pos(a0) == target before the step.
-            if (Math.abs(residualY) <= Y_STEP) {
-                residualY = 0;
-            }
+            // residualY stays = pre-step dy (matching ROM d1). Do NOT
+            // optimistically clear it on |dy| <= Y_STEP — ROM does not
+            // collapse near-zero distances.
         }
 
         // 6. Transition to NORMAL when close enough AND Sonic alive AND
@@ -891,9 +929,13 @@ public class SidekickCpuController {
         //    post-step residuals (see residualX/residualY above).
         boolean closeEnough = residualX == 0 && residualY == 0;
         boolean sonicAlive = !leader.isHurt() && !leader.getDead();
-        // ROM sonic3k.asm:26624-26630: also checks a stat_table flag bit 7.
-        // Engine approximation: isObjectControlled.
-        boolean sonicFreeOfLock = !leader.isObjectControlled();
+        // ROM sonic3k.asm:26624-26630: also checks a stat_table flag bit 7
+        // (`andi.b #$80,d2 / bne.s loc_13D42`). The engine's objectControlled
+        // flag is set whenever ANY object_control bit is set, so we use the
+        // bit-7-only helper isTouchResponseSuppressedByObjectControl() to
+        // mirror ROM's bmi-style sign-bit gating exactly. See
+        // AbstractPlayableSprite line 2207-2210 for the encoding rationale.
+        boolean sonicFreeOfLock = !leader.isTouchResponseSuppressedByObjectControl();
 
         if (closeEnough && sonicAlive && sonicFreeOfLock) {
             // ROM sonic3k.asm:26631-26648 — return to NORMAL (routine 0x06).
@@ -1283,11 +1325,25 @@ public class SidekickCpuController {
 
     /**
      * ROM sub_13ECA (sonic3k.asm:26800-26809) marker warp body. Writes
-     * despawn marker x/y, sets Tails_CPU_routine=2, transitions to
-     * SPAWNING for the existing respawn flow.
+     * despawn marker x/y, sets Tails_CPU_routine=2, transitions to either
+     * {@code CATCH_UP_FLIGHT} (S3K) or {@code SPAWNING} (S2 legacy flow).
+     *
+     * <p>S3K: ROM writes {@code Tails_CPU_routine = 2}, dispatching to
+     * {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474) on the next frame —
+     * which runs the 64-frame trigger and warps to (Sonic.x, Sonic.y - 0xC0)
+     * before entering routine 0x04 (= engine {@code FLIGHT_AUTO_RECOVERY}).
+     * The engine reproduces that flow by transitioning directly to
+     * {@code CATCH_UP_FLIGHT}.
+     *
+     * <p>S2: TailsCPU_Spawning (s2.asm:38755-38782) inlines the 64-frame
+     * trigger and the warp; the engine continues to use the {@code SPAWNING}
+     * state for that path so the existing respawn-strategy flow drives the
+     * approach.
      */
     private void applyDespawnMarker() {
-        state = State.SPAWNING;
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        boolean enterCatchUpFlight = fs != null && fs.sidekickRespawnEntersCatchUpFlight();
+        state = enterCatchUpFlight ? State.CATCH_UP_FLIGHT : State.SPAWNING;
         despawnCounter = 0;
         controlCounter = 0;
         normalFrameCount = 0;

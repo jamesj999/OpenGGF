@@ -224,8 +224,17 @@ further S3K parity work.
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
-  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 (the freed-slot despawn
-  infrastructure now fires correctly — `AbstractPlayableSprite.latchedSolidObjectInstance`
+  → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 (round 19 lands the despawn-marker
+  → CATCH_UP_FLIGHT routing per ROM `sub_13ECA` sonic3k.asm:26800-26809 gated S3K-only
+  via `PhysicsFeatureSet.sidekickRespawnEntersCatchUpFlight`; `updateCatchUpFlight` and
+  `updateFlightAutoRecovery` now use bit-7-only gates via
+  `isTouchResponseSuppressedByObjectControl()` matching ROM `bmi.w object_control(a1)`
+  at sonic3k.asm:26481; `AizVineHandleLogic` now sets `objectControlAllowsCpu=true`
+  matching ROM vine grab `object_control = $03` (bits 0+1, NOT bit 7) at
+  sonic3k.asm:46739; `updateFlightAutoRecovery` now re-asserts `setObjectControlled(true)`
+  each frame to match ROM persistent `object_control = $81` and matches the Y-step
+  residual close-enough test exactly per sonic3k.asm:26611-26627 — the freed-slot
+  despawn infrastructure now fires correctly — `AbstractPlayableSprite.latchedSolidObjectInstance`
   + `SidekickCpuController.lastRidingInstance` + new `sub_13EFC` `(a3)=0` analog
   gated S3K-only via `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`;
   ROM-cited at sonic3k.asm:26800/26816/26823/26839/36116; round 14 lands the
