@@ -143,6 +143,23 @@ public class SwScrlMgzTest {
     }
 
     @Test
+    public void bossBgScrollOffsetDrivesAct2ParallaxWhenForegroundCameraIsFixed() {
+        SwScrlMgz initialBossScroll = new SwScrlMgz();
+        SwScrlMgz advancedBossScroll = new SwScrlMgz();
+        int[] initial = new int[224];
+        int[] advanced = new int[224];
+
+        initialBossScroll.setBossBgScrollOffset(0x3C80);
+        initialBossScroll.update(initial, 0x3C80, 0x0600, 1, 1);
+
+        advancedBossScroll.setBossBgScrollOffset(0x3D80);
+        advancedBossScroll.update(advanced, 0x3C80, 0x0600, 1, 1);
+
+        assertNotEquals(unpackBgScroll(initial[32]), unpackBgScroll(advanced[32]),
+                "ROM MGZ2SE_MoveBG substitutes Events_bg+$0C for Camera_X_pos_copy, so the BG should scroll even while the foreground camera is fixed");
+    }
+
+    @Test
     public void act2StateEightKeepsVdpSizedBgPeriod() {
         SwScrlMgz handler = new SwScrlMgz();
         int[] rising = new int[224];
