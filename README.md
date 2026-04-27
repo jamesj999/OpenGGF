@@ -311,8 +311,15 @@ further S3K parity work.
   corrupting d6 and the cage's `btst`-against-cage-status capture test fails for
   the sidekick, so the cage stops re-capturing Tails every frame she lands in
   the bbox; both branches preserve `objectControlled=true + objectControlAllowsCpu=true`
-  to match ROM's persistent `obj_ctrl=$43` ghost-state marker). AIZ also gained
-  a sidekick level-boundary kill split (ROM
+  to match ROM's persistent `obj_ctrl=$43` ghost-state marker; F4490 → F4577 lands
+  round 18's `CnzCylinderInstance` offscreen-rider preservation — when a captured
+  rider's render_flags bit 7 is clear, the engine now preserves the cylinder's
+  per-rider standing bit (mirrors ROM `SolidObjectFull` at sonic3k.asm:41006-41008
+  skipping the P2 pass via `bpl.w locret_1DCB4`), takes the immediate release branch
+  (mirrors ROM `loc_325F2` at sonic3k.asm:68019-68022/68071-68078), and bypasses the
+  engine's RECAPTURE_COOLDOWN_FRAMES guard for offscreen riders so ROM's alternating
+  release/recapture cycle at sonic3k.asm:67987-68012 completes each frame). AIZ
+  also gained a sidekick level-boundary kill split (ROM
   `Player_LevelBound` → `Kill_Character` → `sub_13ECA` is two frames: zero velocities first,
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was

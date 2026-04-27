@@ -4,6 +4,42 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Sonic 3&K CNZ Trace F4490 → F4577: Cylinder Standing Bit Preserved For Offscreen Riders
+
+- `CnzCylinderInstance.update()` now preserves the previous-frame
+  `standingMask` bits for any rider whose `render_flags` bit 7 is
+  currently clear (rider offscreen). Mirrors ROM `SolidObjectFull`
+  (sonic3k.asm:41006-41008) which skips the entire P2 pass via
+  `bpl.w locret_1DCB4` when Player_2's render_flags bit 7 is clear,
+  leaving the cylinder's `p2_standing_bit` set from the last
+  on-screen frame.
+- `CnzCylinderInstance.updateRiderSlot()` now:
+  - Takes the immediate `releaseSlot(jumpedOff=false)` branch when
+    a captured rider goes offscreen (`!playerOnScreen`), mirroring
+    ROM `loc_325F2` (sonic3k.asm:68019-68022, 68071-68078) which sets
+    Status_InAir, clears object_control, and zeroes `(a2)`.
+  - Bypasses the engine's `RECAPTURE_COOLDOWN_FRAMES` guard for
+    offscreen riders so the alternation can complete each frame —
+    ROM has no cooldown on the `(a2)==0` capture path
+    (sonic3k.asm:67987-68012).
+- Root cause: at CNZ1 F4488, Tails (X=0x1BB9) goes off the right
+  edge of the screen (camera X=0x1A5E, `width_pixels=$18`,
+  left edge >=320). ROM's release/recapture cycle produces the
+  observed `0x09 ↔ 0x0B` status alternation at F4489+ via the
+  preserved `p2_standing_bit`. Engine's old logic released the
+  rider and held them released because `nextStandingMask` was 0
+  (the engine's `SolidContacts` pass also skips offscreen objects).
+- Effect on `TestS3kCnzTraceReplay`: first error advances F4490 →
+  F4577 (~87 frames). Errors 4768 → 4617. New error at F4577 is a
+  `tails_rolling` mismatch — separate scope.
+- Cross-game baselines unchanged: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+  F1151, S3K AIZ F6313.
+- Workflow note: agent encountered a workspace quirk where the Edit
+  tool silently failed on `CnzCylinderInstance.java` due to
+  UTF-8 BOM + CRLF line endings (the tool returned "successfully"
+  but didn't write to disk). Worth flagging for future agents
+  working on files that have BOM markers.
+
 ### S3K CNZ: Clear Sidekick Wall-Suppress on Cage Stuck-Frozen Path (F3901)
 
 - `CnzWireCageObjectInstance.processPlayer()` and `continueRide()` now clear
