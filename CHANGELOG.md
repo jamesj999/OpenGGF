@@ -4,6 +4,30 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Docs: Refresh Trace Replay Contributing Guide
+
+- Refreshed `docs/guide/contributing/trace-replay.md` to reflect the current trace framework
+  state:
+  - Added the comparison-only invariant section as the foundational rule.
+  - Listed all current trace tests (S1 GHZ/MZ/credits×8, S2 EHZ, S3K AIZ, S3K CNZ).
+  - Updated per-game schema versions to current values (S1 3/4/3.0, S2 8/6/8.0-s2, S3K
+    5/5/6.4-s3k); previously hardcoded as universal "schema 3 / csv 4".
+  - Added an aux event types section documenting the v6.x S3K opt-in events
+    (`cpu_state`, `oscillation_state`, `object_state`, `interact_state`, `cage_state`,
+    `cage_execution`, `velocity_write`) declared via `aux_schema_extras`.
+  - Added a "Compressing trace payloads" section documenting `tools/traces/compress-traces.ps1`
+    and the gzip-compressed `.gz` variants now used for larger traces.
+  - Reordered the S3K end-to-end fixture workflow so the sanity gate runs before compression
+    (it expects the uncompressed `aux_state.jsonl`).
+  - Updated parser file references to `src/main/java/com/openggf/trace/` (parser was promoted
+    out of `src/test/java/com/openggf/tests/trace/`).
+  - Updated the "Adding A New Trace Test" example to be game-agnostic (was S1-only).
+  - Pointed at the `trace-replay-bug-fixing` skill as the canonical workflow for any
+    `*TraceReplay` test failure.
+  - Added common-pitfalls entries for: committing uncompressed large traces, adding
+    per-frame trace-driven hydration (violates comparison-only invariant), branching on
+    game id in shared physics/AI code, and the BOM/CRLF Edit-tool silent-failure hazard.
+
 ### S3K AIZ Trace: Off-screen Self-delete Stays Respawnable (F6911 -> F7127)
 
 - Fix S3K `Sprite_OnScreen_Test` self-deletes setting the engine's
