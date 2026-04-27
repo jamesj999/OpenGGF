@@ -4,6 +4,56 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Trace Replay: Drop angle/direction/air Per-Frame Sidekick Reseeds (Stage A Reduction, items 6-8)
+
+- `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
+  per-frame writes `sidekick.setAngle(state.angle())`,
+  `sidekick.setDirection(...)` (derived from `Status_FacingLeft`,
+  bit 0), or `sidekick.setAir(state.air())`. All three removals
+  continue the Stage A reseed reduction (research agent
+  `ab93a0947e59d62f2`) and further align the sidekick reseed path
+  with the comparison-only invariant defined in
+  `.claude/skills/trace-replay-bug-fixing/skill.md` (trace data is
+  read-only diagnostic input — engine state is never hydrated from
+  the trace in committed test code).
+  - `angle` is set natively by terrain collision:
+    `PlayableSpriteMovement.java:1054` (`sprite.setAngle(floorResult.angle())`
+    after airborne floor probe) and lines 1324, 2625, 2627 from
+    ground-sensor results, matching ROM `Sonic_AnglePos`
+    (`sonic3k.asm:19568`) which writes `move.b d2,angle(a0)` from
+    `sub_19798`. The airborne return-to-zero path
+    (`PlayableSpriteMovement.java:836`) matches ROM
+    `Sonic_DoLevelCollision`.
+  - `direction` (`Status_FacingLeft`, bit 0,
+    `sonic3k.constants.asm`) is set by `SidekickCpuController`
+    from leader-relative steering (lines 497, 499, 579, 1357),
+    matching ROM `Tails_Control` (`sonic3k.asm:25901`), plus the
+    multiple `bset/bclr #Status_FacingLeft` sites in
+    `Sonic_MoveLeft / Sonic_MoveRight` (`sonic3k.asm:23070, 23078`)
+    mirrored across `PlayableSpriteMovement.java` (936, 938, 959,
+    961, 1183, 1354, 1395, 1409, 1469-1495, 1642, 1650, 1707,
+    1720, 2821-2845, 2906, 2911, 3009, 3012).
+  - `air` (`Status_InAir`) is set/cleared by the collision pass:
+    `PlayableSpriteMovement.java:341` clears on landing
+    (matches ROM `bclr #Status_InAir,obStatus(a0)`),
+    line 656 sets on jump (matches ROM `bset #Status_InAir`),
+    lines 976/984 land-recovery clear, lines 1049/1189/1944/1958/
+    2332 set on airborne entries. Crucially, `setAir(false)`
+    triggers landing cleanup
+    (`AbstractPlayableSprite.java:1165` — clears hurt, rolling jump,
+    jumping, double-jump flags, applies standing radii), so trace
+    reseeding can replay landing side-effects inappropriately.
+- Trace impact (combined removal yielded better than per-field
+  measurements predicted, because the three drops together unmasked
+  downstream cascades the single-drop gates kept hidden):
+  - `TestS3kAizTraceReplay`: 1939 -> 1685 errors at F6736 (-254).
+  - `TestS3kCnzTraceReplay`: 4445 -> 4142 errors at F4577 (-303).
+  - S2 EHZ F1151 unchanged. S1 MZ1 F311 unchanged. S1 GHZ stays
+    PASS. Required-green S3K tests
+    (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+    `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+    stay green.
+
 ### Trace Replay: Drop Three More Per-Frame Sidekick Reseeds (Stage A Reduction, items 3-5)
 
 - `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
