@@ -151,7 +151,11 @@ public class PerformancePanelRenderer {
     }
 
     private void putVertex(float x, float y, float r, float g, float b, float a) {
-        vertexBuffer.put(x).put(y).put(r).put(g).put(b).put(a);
+        putVertex(vertexBuffer, x, y, r, g, b, a);
+    }
+
+    private static void putVertex(FloatBuffer buffer, float x, float y, float r, float g, float b, float a) {
+        buffer.put(x).put(y).put(r).put(g).put(b).put(a);
     }
 
     private void drawVertices(int drawMode, int vertexCount) {
@@ -307,6 +311,8 @@ public class PerformancePanelRenderer {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        vertexBuffer.clear();
+        int vertexCount = 0;
         float startAngle = 90; // Start from top
 
         for (SectionStats section : sections) {
@@ -318,32 +324,13 @@ public class PerformancePanelRenderer {
             int colorIndex = getColorIndexForSection(section.name());
             float[] color = SECTION_COLORS[colorIndex];
 
-            // Build triangle fan for pie slice
-            vertexBuffer.clear();
-            int vertexCount = 0;
-
-            // Center vertex
-            putVertex(centerX, centerY, color[0], color[1], color[2], 1.0f);
-            vertexCount++;
-
-            for (float a = startAngle; a >= startAngle - sweepAngle; a -= 10) {
-                float rad = (float) Math.toRadians(a);
-                putVertex(centerX + radius * (float) Math.cos(rad),
-                         centerY + radius * (float) Math.sin(rad),
-                         color[0], color[1], color[2], 1.0f);
-                vertexCount++;
-            }
-            float endRad = (float) Math.toRadians(startAngle - sweepAngle);
-            putVertex(centerX + radius * (float) Math.cos(endRad),
-                     centerY + radius * (float) Math.sin(endRad),
-                     color[0], color[1], color[2], 1.0f);
-            vertexCount++;
-
-            vertexBuffer.flip();
-            drawVertices(GL_TRIANGLE_FAN, vertexCount);
-
+            vertexCount += appendPieSliceTriangles(vertexBuffer, centerX, centerY, radius,
+                    startAngle, sweepAngle, color);
             startAngle -= sweepAngle;
         }
+
+        vertexBuffer.flip();
+        drawVertices(GL_TRIANGLES, vertexCount);
 
         // Outline
         vertexBuffer.clear();
@@ -401,16 +388,15 @@ public class PerformancePanelRenderer {
         putVertex(x + width, y, 0.0f, 0.0f, 0.0f, 0.6f);
         putVertex(x + width, y + height, 0.0f, 0.0f, 0.0f, 0.6f);
         putVertex(x, y + height, 0.0f, 0.0f, 0.0f, 0.6f);
+        putVertex(x + width, y + height, 0.0f, 0.0f, 0.0f, 0.6f);
+        putVertex(x, y, 0.0f, 0.0f, 0.0f, 0.6f);
         vertexBuffer.flip();
-        drawVertices(GL_TRIANGLE_FAN, 4);
+        drawVertices(GL_TRIANGLES, 6);
 
-        // Mid-line (at 50% of scale)
-        float midY = y + 0.5f * height;
         vertexBuffer.clear();
-        putVertex(x, midY, 0.3f, 0.3f, 0.3f, 1.0f);
-        putVertex(x + width, midY, 0.3f, 0.3f, 0.3f, 1.0f);
+        int guideVertices = appendGraphLineBatch(vertexBuffer, x, y, width, height);
         vertexBuffer.flip();
-        drawVertices(GL_LINES, 2);
+        drawVertices(GL_LINES, guideVertices);
 
         // Frame time line
         vertexBuffer.clear();
@@ -427,16 +413,48 @@ public class PerformancePanelRenderer {
         vertexBuffer.flip();
         drawVertices(GL_LINE_STRIP, lineVertices);
 
-        // Border
-        vertexBuffer.clear();
-        putVertex(x, y, 0.5f, 0.5f, 0.5f, 1.0f);
-        putVertex(x + width, y, 0.5f, 0.5f, 0.5f, 1.0f);
-        putVertex(x + width, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
-        putVertex(x, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
-        vertexBuffer.flip();
-        drawVertices(GL_LINE_LOOP, 4);
-
         glUseProgram(0);
+    }
+
+    private static int appendPieSliceTriangles(FloatBuffer buffer, int centerX, int centerY, int radius,
+                                               float startAngle, float sweepAngle, float[] color) {
+        float endAngle = startAngle - sweepAngle;
+        float segmentStart = startAngle;
+        int vertices = 0;
+        while (segmentStart > endAngle) {
+            float segmentEnd = Math.max(endAngle, segmentStart - 10.0f);
+            putVertex(buffer, centerX, centerY, color[0], color[1], color[2], 1.0f);
+            putPieEdgeVertex(buffer, centerX, centerY, radius, segmentStart, color);
+            putPieEdgeVertex(buffer, centerX, centerY, radius, segmentEnd, color);
+            vertices += 3;
+            segmentStart = segmentEnd;
+        }
+        return vertices;
+    }
+
+    private static void putPieEdgeVertex(FloatBuffer buffer, int centerX, int centerY, int radius,
+                                         float angle, float[] color) {
+        float rad = (float) Math.toRadians(angle);
+        putVertex(buffer,
+                centerX + radius * (float) Math.cos(rad),
+                centerY + radius * (float) Math.sin(rad),
+                color[0], color[1], color[2], 1.0f);
+    }
+
+    private static int appendGraphLineBatch(FloatBuffer buffer, int x, int y, int width, int height) {
+        float midY = y + 0.5f * height;
+        putVertex(buffer, x, midY, 0.3f, 0.3f, 0.3f, 1.0f);
+        putVertex(buffer, x + width, midY, 0.3f, 0.3f, 0.3f, 1.0f);
+
+        putVertex(buffer, x, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x + width, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x + width, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x + width, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x + width, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x, y + height, 0.5f, 0.5f, 0.5f, 1.0f);
+        putVertex(buffer, x, y, 0.5f, 0.5f, 0.5f, 1.0f);
+        return 10;
     }
 
     private void drawTextBottomLeft(String text, int x, int y, DebugColor color) {

@@ -34,49 +34,54 @@ public final class TraceHudOverlay {
     private static final int TOP_Y = 120;
 
     public void render(PixelFontTextRenderer text) {
-        int y = TOP_Y;
-        text.drawShadowedText(String.format("ERRORS %4d", comparator.errorCount()),
-                X, y, DebugColor.RED, SCALE);
-        y += LINE_HEIGHT;
-        text.drawShadowedText(String.format("WARN   %4d", comparator.warningCount()),
-                X, y, DebugColor.ORANGE, SCALE);
-        y += LINE_HEIGHT;
-        text.drawShadowedText(String.format("LAG    %4d", comparator.laggedFrames()),
-                X, y, DebugColor.GRAY, SCALE);
-        y += SECTION_GAP;
-
-        int actionMask = comparator.recentActionMask();
-        int inputMask = comparator.recentInputMask();
-        boolean start = comparator.recentStartPressed();
-        StringBuilder active = new StringBuilder();
-        active.append(bit(actionMask, 0x01, 'A'));
-        active.append(bit(actionMask, 0x02, 'B'));
-        active.append(bit(actionMask, 0x04, 'C'));
-        active.append(bit(inputMask, AbstractPlayableSprite.INPUT_UP, 'U'));
-        active.append(bit(inputMask, AbstractPlayableSprite.INPUT_DOWN, 'D'));
-        active.append(bit(inputMask, AbstractPlayableSprite.INPUT_LEFT, 'L'));
-        active.append(bit(inputMask, AbstractPlayableSprite.INPUT_RIGHT, 'R'));
-        active.append(start ? 'S' : '.');
-        text.drawShadowedText(active.toString(), X, y, DebugColor.GREEN, SCALE);
-        y += SECTION_GAP;
-
-        text.drawShadowedText("Last mismatches:", X, y, DebugColor.LIGHT_GRAY, SCALE);
-        y += LINE_HEIGHT;
-        List<MismatchEntry> recent = comparator.recentMismatches();
-        for (MismatchEntry m : recent) {
-            String line = String.format("f %04X %s rom=%s eng=%s Δ%s%s",
-                    m.frame(), m.field(), m.romValue(),
-                    m.engineValue(), m.delta(),
-                    m.repeatCount() > 1 ? (" ×" + m.repeatCount()) : "");
-            DebugColor color = m.severity() == Severity.ERROR
-                    ? DebugColor.RED : DebugColor.ORANGE;
-            text.drawShadowedText(line, X, y, color, SCALE);
+        text.beginBatch();
+        try {
+            int y = TOP_Y;
+            text.drawShadowedText(String.format("ERRORS %4d", comparator.errorCount()),
+                    X, y, DebugColor.RED, SCALE);
             y += LINE_HEIGHT;
-        }
+            text.drawShadowedText(String.format("WARN   %4d", comparator.warningCount()),
+                    X, y, DebugColor.ORANGE, SCALE);
+            y += LINE_HEIGHT;
+            text.drawShadowedText(String.format("LAG    %4d", comparator.laggedFrames()),
+                    X, y, DebugColor.GRAY, SCALE);
+            y += SECTION_GAP;
 
-        if (comparator.isComplete()) {
-            text.drawShadowedText("TRACE COMPLETE", X, COMPLETE_BANNER_Y,
-                    DebugColor.YELLOW, SCALE);
+            int actionMask = comparator.recentActionMask();
+            int inputMask = comparator.recentInputMask();
+            boolean start = comparator.recentStartPressed();
+            StringBuilder active = new StringBuilder();
+            active.append(bit(actionMask, 0x01, 'A'));
+            active.append(bit(actionMask, 0x02, 'B'));
+            active.append(bit(actionMask, 0x04, 'C'));
+            active.append(bit(inputMask, AbstractPlayableSprite.INPUT_UP, 'U'));
+            active.append(bit(inputMask, AbstractPlayableSprite.INPUT_DOWN, 'D'));
+            active.append(bit(inputMask, AbstractPlayableSprite.INPUT_LEFT, 'L'));
+            active.append(bit(inputMask, AbstractPlayableSprite.INPUT_RIGHT, 'R'));
+            active.append(start ? 'S' : '.');
+            text.drawShadowedText(active.toString(), X, y, DebugColor.GREEN, SCALE);
+            y += SECTION_GAP;
+
+            text.drawShadowedText("Last mismatches:", X, y, DebugColor.LIGHT_GRAY, SCALE);
+            y += LINE_HEIGHT;
+            List<MismatchEntry> recent = comparator.recentMismatches();
+            for (MismatchEntry m : recent) {
+                String line = String.format("f %04X %s rom=%s eng=%s \u0394%s%s",
+                        m.frame(), m.field(), m.romValue(),
+                        m.engineValue(), m.delta(),
+                        m.repeatCount() > 1 ? (" \u00D7" + m.repeatCount()) : "");
+                DebugColor color = m.severity() == Severity.ERROR
+                        ? DebugColor.RED : DebugColor.ORANGE;
+                text.drawShadowedText(line, X, y, color, SCALE);
+                y += LINE_HEIGHT;
+            }
+
+            if (comparator.isComplete()) {
+                text.drawShadowedText("TRACE COMPLETE", X, COMPLETE_BANNER_Y,
+                        DebugColor.YELLOW, SCALE);
+            }
+        } finally {
+            text.endBatch();
         }
     }
 

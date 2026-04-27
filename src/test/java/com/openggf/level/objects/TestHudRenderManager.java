@@ -21,6 +21,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.intThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,6 +106,44 @@ public class TestHudRenderManager {
         verify(graphicsManager, never()).renderPatternWithId(eq(100), any(), eq(16), eq(8));
         verify(graphicsManager, never()).renderPatternWithId(eq(116), any(), eq(16), eq(24));
         verify(graphicsManager, never()).renderPatternWithId(eq(106), any(), eq(16), eq(40));
+    }
+
+    @Test
+    void normalHudDrawUsesSinglePatternBatchAroundHudTiles() {
+        GraphicsManager graphicsManager = mock(GraphicsManager.class);
+        Camera camera = mock(Camera.class);
+        GameStateManager gameState = mock(GameStateManager.class);
+        LevelState levelState = mock(LevelState.class);
+        when(camera.getXWithShake()).thenReturn((short) 0);
+        when(camera.getYWithShake()).thenReturn((short) 0);
+        when(levelState.getRings()).thenReturn(7);
+        when(levelState.getFlashCycle()).thenReturn(false);
+        when(levelState.shouldFlashTimer()).thenReturn(false);
+        when(levelState.getDisplayTime()).thenReturn("0:10");
+        when(gameState.getScore()).thenReturn(123);
+        when(gameState.getLives()).thenReturn(3);
+
+        HudStaticArt staticArt = new HudStaticArt(
+                new Pattern[] { new Pattern(), new Pattern(), new Pattern() },
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 0, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 1, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(new SpriteMappingPiece(0, 0, 1, 1, 2, false, false, 0))),
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of()));
+
+        HudRenderManager hud = new HudRenderManager(graphicsManager, camera, gameState);
+        hud.setDigitPatternIndex(200);
+        hud.setLivesNumbersPatternIndex(220);
+        hud.setStaticHudArt(0x28020, staticArt);
+
+        hud.draw(levelState, null);
+
+        var order = inOrder(graphicsManager);
+        order.verify(graphicsManager).beginPatternBatch();
+        order.verify(graphicsManager, atLeastOnce()).renderPatternWithId(anyInt(), any(), anyInt(), anyInt());
+        order.verify(graphicsManager).flushPatternBatch();
     }
 
     @Test
@@ -230,12 +270,12 @@ public class TestHudRenderManager {
 
         verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(0, 146, 0)), eq(0));
         verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(255, 73, 109)), eq(0));
-        verify(graphicsManager, times(2)).flushPatternBatch();
-        verify(graphicsManager, times(2)).flush();
+        verify(graphicsManager, times(4)).flushPatternBatch();
+        verify(graphicsManager, times(4)).flush();
     }
 
     @Test
-    void unchangedLivesPaletteOverrideDoesNotReuploadOrRefush() throws Exception {
+    void unchangedLivesPaletteOverrideDoesNotReuploadOrImmediateFlush() throws Exception {
         GraphicsManager graphicsManager = mock(GraphicsManager.class);
         Camera camera = mock(Camera.class);
         GameStateManager gameState = mock(GameStateManager.class);
@@ -277,12 +317,12 @@ public class TestHudRenderManager {
         hud.draw(levelState, null);
 
         verify(graphicsManager, times(1)).cachePaletteTexture(argThat(paletteMatches(255, 73, 109)), eq(0));
-        verify(graphicsManager, times(1)).flushPatternBatch();
-        verify(graphicsManager, times(1)).flush();
+        verify(graphicsManager, times(3)).flushPatternBatch();
+        verify(graphicsManager, times(2)).flush();
     }
 
     @Test
-    void nullLivesPaletteOverrideSupplierDoesNotUploadPaletteOrFlush() throws Exception {
+    void nullLivesPaletteOverrideSupplierDoesNotUploadPaletteOrImmediateFlush() throws Exception {
         GraphicsManager graphicsManager = mock(GraphicsManager.class);
         Camera camera = mock(Camera.class);
         GameStateManager gameState = mock(GameStateManager.class);
@@ -321,7 +361,6 @@ public class TestHudRenderManager {
         hud.draw(levelState, null);
 
         verify(graphicsManager, never()).cachePaletteTexture(any(), anyInt());
-        verify(graphicsManager, never()).flushPatternBatch();
         verify(graphicsManager, never()).flush();
     }
 

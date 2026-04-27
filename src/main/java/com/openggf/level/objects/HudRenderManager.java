@@ -159,38 +159,57 @@ public class HudRenderManager {
             return;
         }
 
-        if (bonusStageHudLayout) {
-            drawBonusStageHud(levelGamestate);
-            return;
-        }
+        graphicsManager.beginPatternBatch();
+        boolean batchOpen = true;
+        try {
+            if (bonusStageHudLayout) {
+                drawBonusStageHud(levelGamestate);
+                graphicsManager.flushPatternBatch();
+                batchOpen = false;
+                return;
+            }
 
-        boolean debugMode = player != null && player.isDebugMode();
+            boolean debugMode = player != null && player.isDebugMode();
 
-        drawStaticFrame(debugMode ? staticHudArtOrNull(true) : staticHudArtOrNull(false), 16, 8);
-        drawStaticFrame(selectTimeFrame(levelGamestate.shouldFlashTimer(), levelGamestate.getFlashCycle()), 16, 24);
-        drawStaticFrame(selectRingsFrame(levelGamestate.getRings(), levelGamestate.getFlashCycle()), 16, 40);
+            drawStaticFrame(debugMode ? staticHudArtOrNull(true) : staticHudArtOrNull(false), 16, 8);
+            drawStaticFrame(selectTimeFrame(levelGamestate.shouldFlashTimer(), levelGamestate.getFlashCycle()), 16, 24);
+            drawStaticFrame(selectRingsFrame(levelGamestate.getRings(), levelGamestate.getFlashCycle()), 16, 40);
 
-        if (debugMode) {
-            int hexStartX = 48;
-            int playerX = player.getCentreX() & 0xFFFF;
-            int playerY = player.getCentreY() & 0xFFFF;
-            drawSmallHexCoordinates(hexStartX, 8, playerX, playerY);
+            if (debugMode) {
+                int hexStartX = 48;
+                int playerX = player.getCentreX() & 0xFFFF;
+                int playerY = player.getCentreY() & 0xFFFF;
+                drawSmallHexCoordinates(hexStartX, 8, playerX, playerY);
 
-            int camX = camera.getX() & 0xFFFF;
-            int camY = camera.getY() & 0xFFFF;
-            drawSmallHexCoordinates(hexStartX, 16, camX, camY);
-        } else {
-            drawScore(gameState.getScore());
-        }
+                int camX = camera.getX() & 0xFFFF;
+                int camY = camera.getY() & 0xFFFF;
+                drawSmallHexCoordinates(hexStartX, 16, camX, camY);
+            } else {
+                drawScore(gameState.getScore());
+            }
 
-        drawTime(56, 24, levelGamestate.getDisplayTime());
-        drawRings(levelGamestate.getRings(), bonusStageHudLayout ? 8 : 40);
-        boolean paletteOverridden = applyLivesPaletteOverride();
-        drawStaticFrame(staticHudArt != null ? staticHudArt.livesFrame() : null, 16, 200);
-        drawLives(gameState.getLives());
-        if (paletteOverridden) {
+            drawTime(56, 24, levelGamestate.getDisplayTime());
+            drawRings(levelGamestate.getRings(), bonusStageHudLayout ? 8 : 40);
+            boolean paletteOverridden = shouldApplyLivesPaletteOverride();
+            if (paletteOverridden) {
+                graphicsManager.flushPatternBatch();
+                graphicsManager.flush();
+                batchOpen = false;
+                applyLivesPaletteOverride();
+                graphicsManager.beginPatternBatch();
+                batchOpen = true;
+            }
+            drawStaticFrame(staticHudArt != null ? staticHudArt.livesFrame() : null, 16, 200);
+            drawLives(gameState.getLives());
             graphicsManager.flushPatternBatch();
-            graphicsManager.flush();
+            batchOpen = false;
+            if (paletteOverridden) {
+                graphicsManager.flush();
+            }
+        } finally {
+            if (batchOpen) {
+                graphicsManager.flushPatternBatch();
+            }
         }
     }
 
@@ -239,12 +258,21 @@ public class HudRenderManager {
             lastAppliedLivesPaletteOverride = null;
             return false;
         }
-        if (lastAppliedLivesPaletteOverride != null && lastAppliedLivesPaletteOverride.dataEquals(paletteOverride)) {
-            return false;
-        }
         Palette uploadedOverride = paletteOverride.deepCopy();
         graphicsManager.cachePaletteTexture(uploadedOverride, iconPaletteLine);
         lastAppliedLivesPaletteOverride = uploadedOverride;
+        return true;
+    }
+
+    private boolean shouldApplyLivesPaletteOverride() {
+        Palette paletteOverride = resolveLivesPaletteOverride();
+        if (paletteOverride == null) {
+            lastAppliedLivesPaletteOverride = null;
+            return false;
+        }
+        if (lastAppliedLivesPaletteOverride != null && lastAppliedLivesPaletteOverride.dataEquals(paletteOverride)) {
+            return false;
+        }
         return true;
     }
 

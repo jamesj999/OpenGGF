@@ -4,6 +4,7 @@ import com.openggf.graphics.PixelFont;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.nio.FloatBuffer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,5 +53,33 @@ class TestPerformancePanelRenderer {
 
         assertEquals("GC 12 345ms 6.7M/s", line);
         assertTrue(new PixelFont().measureWidth(line, PerformancePanelRenderer.PERFORMANCE_TEXT_SCALE) <= 85);
+    }
+
+    @Test
+    void appendPieSliceTriangles_emitsTriangleListForSingleBatchedDraw() throws Exception {
+        Method append = PerformancePanelRenderer.class.getDeclaredMethod(
+                "appendPieSliceTriangles", FloatBuffer.class, int.class, int.class, int.class,
+                float.class, float.class, float[].class);
+        append.setAccessible(true);
+        FloatBuffer buffer = FloatBuffer.allocate(64 * 6);
+
+        int vertices = (int) append.invoke(null, buffer, 100, 80, 16, 90.0f, 20.0f,
+                new float[] { 0.2f, 0.6f, 1.0f });
+
+        assertEquals(6, vertices);
+        assertEquals(6 * 6, buffer.position());
+    }
+
+    @Test
+    void appendGraphLineBatch_emitsMidlineAndBorderAsSingleLineBatch() throws Exception {
+        Method append = PerformancePanelRenderer.class.getDeclaredMethod(
+                "appendGraphLineBatch", FloatBuffer.class, int.class, int.class, int.class, int.class);
+        append.setAccessible(true);
+        FloatBuffer buffer = FloatBuffer.allocate(16 * 6);
+
+        int vertices = (int) append.invoke(null, buffer, 10, 20, 80, 25);
+
+        assertEquals(10, vertices);
+        assertEquals(10 * 6, buffer.position());
     }
 }
