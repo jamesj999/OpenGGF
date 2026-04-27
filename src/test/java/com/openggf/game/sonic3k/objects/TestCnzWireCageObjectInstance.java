@@ -5,13 +5,17 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
@@ -184,6 +188,46 @@ class TestCnzWireCageObjectInstance {
                 "The one-frame release cooldown mirrors the ROM byte at 1(a2)");
         assertTrue(player.isOnObject());
         assertFalse(player.getAir());
+    }
+
+    @Test
+    void leaderDplcFrameChangeSkipsSidekickMountedRideForOneFrame() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 0, false, 0));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1300);
+        leader.setCentreY((short) 0x07C0);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1300);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+        short sidekickXAfterLatch = sidekick.getCentreX();
+        short sidekickYAfterLatch = sidekick.getCentreY();
+        int sidekickFrameAfterLatch = sidekick.getMappingFrame();
+        sidekick.setAir(true);
+        sidekick.setOnObject(false);
+
+        cage.update(1, leader);
+
+        assertNotEquals(0, leader.getMappingFrame(),
+                "Leader cage rotation changed mapping_frame, so Sonic_Load_PLC2 would clobber d6");
+        assertEquals(sidekickXAfterLatch, sidekick.getCentreX(),
+                "FixBugs-off d6 corruption makes the P2 btst miss and ROM skips Tails's mounted cage update");
+        assertEquals(sidekickYAfterLatch, sidekick.getCentreY());
+        assertEquals(sidekickFrameAfterLatch, sidekick.getMappingFrame());
+        assertFalse(sidekick.getAir(),
+                "The skipped P2 call still sees ROM's persistent Status_OnObj/grounded latch");
+        assertTrue(sidekick.isOnObject());
     }
 
     private static final int JUMP_RELEASE_Y_SPEED_FOR_TEST = -0x200;

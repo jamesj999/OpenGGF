@@ -1,23 +1,19 @@
 package com.openggf.trace;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.LevelEventProvider;
-import com.openggf.game.TitleCardProvider;
-import com.openggf.game.GroundMode;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
-import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.RomObjectSnapshot;
-import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.trace.replay.TraceReplayFixture;
 
 import java.util.List;
 
 /**
- * Shared pre-trace hydration for replay-style tests.
+ * Shared trace replay bootstrap helpers.
+ *
+ * <p>Trace rows are a read-only comparison ledger. This class may align replay
+ * cursors and classify execution phases from trace metadata/events, but it must
+ * not copy recorded player, sidekick, object, camera, RNG, or CPU state back
+ * into the engine.
  */
 public final class TraceReplayBootstrap {
 
@@ -65,93 +61,20 @@ public final class TraceReplayBootstrap {
 
     public static TraceObjectSnapshotBinder.Result applyPreTraceState(TraceData trace,
                                                                      TraceReplayFixture fixture) {
-        applyPreTracePlayerHistory(trace.preTracePlayerHistorySnapshot(), fixture.sprite());
-
-        ObjectManager objectManager = GameServices.level().getObjectManager();
-        List<TraceEvent.ObjectStateSnapshot> snapshots = trace.preTraceObjectSnapshots();
-        applyPreTraceSidekickCpuSnapshot(trace);
-        if (objectManager == null || snapshots.isEmpty()) {
-            return new TraceObjectSnapshotBinder.Result(0, 0, List.of());
-        }
-
-        applyPreTraceSidekickSnapshot(trace, snapshots);
-        objectManager.preloadInitialSpawnsForHydration();
         return TraceObjectSnapshotBinder.apply(
-                objectManager,
-                snapshots.stream()
-                        .filter(snapshot -> snapshot.slot() >= 2)
-                        .toList());
+                GameServices.level() != null ? GameServices.level().getObjectManager() : null,
+                List.of());
     }
 
     public static void applyPreTracePlayerHistory(TraceEvent.PlayerHistorySnapshot snapshot,
                                                   AbstractPlayableSprite sprite) {
-        if (snapshot == null || sprite == null) {
-            return;
-        }
-        sprite.hydrateRecordedHistory(
-                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.xHistory(), sprite.getWidth()),
-                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.yHistory(), sprite.getHeight()),
-                snapshot.inputHistory(),
-                snapshot.statusHistory(),
-                TraceHistoryHydration.romHistoryPosToEngineLatestSlot(snapshot.historyPos()));
-    }
-
-    public static void hydrateSidekickFromSnapshot(AbstractPlayableSprite sidekick,
-                                                   RomObjectSnapshot snapshot,
-                                                   TraceEvent.CpuStateSnapshot cpuSnapshot) {
-        if (sidekick == null || snapshot == null || snapshot.isEmpty()) {
-            return;
-        }
-
-        int status = snapshot.status();
-        int objControl = snapshot.byteAt(0x2A);
-
-        sidekick.setControlLocked(objControl != 0);
-        sidekick.setObjectControlled(objControl != 0);
-        sidekick.setMoveLockTimer(snapshot.wordAt(0x2E));
-        sidekick.setHurt(snapshot.routine() == 0x04);
-        sidekick.setDead(snapshot.routine() >= 0x06);
-        sidekick.setDeathCountdown(0);
-        sidekick.setSpindash(snapshot.byteAt(0x39) != 0);
-        sidekick.setSpindashCounter((short) snapshot.wordAt(0x3A));
-        sidekick.setXSpeed((short) snapshot.xVel());
-        sidekick.setYSpeed((short) snapshot.yVel());
-        sidekick.setGSpeed((short) snapshot.signedWordAt(0x14));
-        sidekick.setAngle((byte) snapshot.angle());
-        sidekick.setDirection((status & 0x01) != 0 ? Direction.LEFT : Direction.RIGHT);
-        sidekick.setAir((status & 0x02) != 0);
-        sidekick.setRolling((status & 0x04) != 0);
-        sidekick.setOnObject((status & 0x08) != 0);
-        sidekick.setRollingJump((status & 0x10) != 0);
-        sidekick.setPushing((status & 0x20) != 0);
-        sidekick.setInWater((status & 0x40) != 0);
-        sidekick.setPreventTailsRespawn((status & 0x80) != 0);
-        sidekick.setRenderFlagWidthPixels(snapshot.byteAt(0x19));
-        sidekick.setRenderFlagOnScreen((snapshot.byteAt(0x01) & 0x80) != 0);
-        sidekick.setAnimationId(snapshot.animId());
-        sidekick.setCentreX((short) snapshot.xPos());
-        sidekick.setCentreY((short) snapshot.yPos());
-        sidekick.setSubpixelRaw(snapshot.xSub(), snapshot.ySub());
-        sidekick.resetPositionHistory();
-
-        SidekickCpuController controller = sidekick.getCpuController();
-        if (controller != null) {
-            if (cpuSnapshot != null) {
-                controller.hydrateFromRomCpuState(
-                        cpuSnapshot.cpuRoutine(),
-                        cpuSnapshot.controlCounter(),
-                        cpuSnapshot.respawnCounter(),
-                        cpuSnapshot.interactId(),
-                        cpuSnapshot.jumping());
-            } else {
-                controller.setInitialState(SidekickCpuController.State.NORMAL);
-            }
-        }
+        // Deliberately no-op: trace history snapshots are diagnostic context,
+        // not engine input.
     }
 
     public static ReplayStartState applyReplayStartState(TraceData trace,
                                                          TraceReplayFixture fixture) {
-        return applyReplayStartState(trace, fixture, true);
+        return applyReplayStartStateForTraceReplay(trace, fixture);
     }
 
     public static ReplayStartState applyReplayStartStateForTraceReplay(TraceData trace,
@@ -159,34 +82,16 @@ public final class TraceReplayBootstrap {
         if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
             return warmupLegacyS3kAizTraceReplay(trace, fixture);
         }
-        return applyReplayStartState(trace, fixture, false, replaySeedTraceIndexForTraceReplay(trace));
+        return new ReplayStartState(replaySeedTraceIndexForTraceReplay(trace), -1);
     }
 
     /**
-     * Seeds legacy S3K AIZ end-to-end traces at the first live in-level frame
-     * (trace frame 0) instead of running the full warmup up to strict start.
-     * Callers that need the seed-at-0 semantics (intro object still at routine 0,
-     * ObjectManager VBlank matches frame 0, sprite frozen at recorded frame 0
-     * position) should use this entrypoint. For non-legacy traces this behaves
-     * identically to {@link #applyReplayStartStateForTraceReplay}.
-     *
-     * <p>The warmup-compatible fixture initializes the ObjectManager VBla
-     * counter to the strict-start frame's vblank. Seed-at-0 callers need the
-     * counter aligned with the seed frame's vblank instead, so reset it here
-     * before the seed path runs its level-event update and advance.
+     * Compatibility entrypoint for callers that used to request a seeded replay
+     * start. It now only returns the unseeded comparison cursor.
      */
     public static ReplayStartState applySeedReplayStartStateForTraceReplay(TraceData trace,
                                                                            TraceReplayFixture fixture) {
-        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
-            int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
-            ObjectManager objectManager = GameServices.level() != null
-                    ? GameServices.level().getObjectManager()
-                    : null;
-            if (objectManager != null && trace != null && trace.frameCount() > 0) {
-                objectManager.initVblaCounter(trace.getFrame(seedTraceIndex).vblankCounter() - 1);
-            }
-        }
-        return applyReplayStartState(trace, fixture, false, replaySeedTraceIndexForTraceReplay(trace));
+        return applyReplayStartStateForTraceReplay(trace, fixture);
     }
 
     public static int recordingStartFrameForTraceReplay(TraceData trace) {
@@ -194,25 +99,10 @@ public final class TraceReplayBootstrap {
             return 0;
         }
         if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
-            int strictStartTraceIndex = strictStartTraceIndexForTraceReplay(trace);
-            // Trace frame N represents the end-of-frame state reached after consuming
-            // the movie input for frame N-1. Seeded replay paths naturally preserve
-            // that relationship because they restore trace frame N and resume from
-            // trace frame N+1 while the BK2 cursor is still parked on N. The legacy
-            // AIZ intro warmup path has no seed frame, so pre-roll the movie cursor
-            // by one input frame to keep the first strict replay frame on the same
-            // controller sample cadence as the rest of trace replay.
-            return trace.metadata().bk2FrameOffset() + Math.max(0, strictStartTraceIndex - 1);
+            return trace.metadata().bk2FrameOffset();
         }
         int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
-        if (shouldSeedFrameZeroForTraceReplay(trace)) {
-            // Frame 0 has already been restored as an end-of-frame snapshot.
-            // Resume movie input at the next trace frame so a newly pressed
-            // button (e.g. CNZ's first jump) affects the same frame the ROM
-            // recorded, instead of being consumed one tick late.
-            return trace.metadata().bk2FrameOffset() + seedTraceIndex + 1;
-        }
-        return trace.metadata().bk2FrameOffset() + seedTraceIndex;
+        return trace.metadata().bk2FrameOffset() + Math.max(0, seedTraceIndex - 1);
     }
 
     /**
@@ -252,39 +142,69 @@ public final class TraceReplayBootstrap {
         if (trace == null || trace.frameCount() == 0) {
             return 0;
         }
-        int traceIndex = shouldUseLegacyS3kAizIntroWarmup(trace)
-                ? strictStartTraceIndexForTraceReplay(trace)
-                : replaySeedTraceIndexForTraceReplay(trace);
-        return trace.getFrame(traceIndex).vblankCounter();
+        return recordingStartFrameForTraceReplay(trace);
+    }
+
+    public static int preTraceOscillationFramesForTraceReplay(TraceData trace,
+                                                              int override) {
+        if (override >= 0) {
+            return override;
+        }
+        if (trace == null || trace.frameCount() == 0
+                || shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            return 0;
+        }
+        int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
+        if (seedTraceIndex < 0 || seedTraceIndex >= trace.frameCount()) {
+            return 0;
+        }
+        int firstComparedGameplayFrame =
+                trace.getFrame(seedTraceIndex).gameplayFrameCounter();
+        // The replay loop steps the seed trace row before comparing it. A row
+        // with gameplay_frame_counter=1 has already observed the ROM's first
+        // LevelLoop tick, but the headless fixture will produce that same tick
+        // natively when it steps the row. Only pre-advance ticks that completed
+        // before the first compared row.
+        return Math.max(0, firstComparedGameplayFrame - 1);
     }
 
     /**
-     * Returns true when the replay bootstrap should seed the engine from the
-     * trace's recorded start state rather than driving gameplay from frame 0
-     * without hydration. Currently always true; kept as a gate so future
-     * trace schemas can opt out.
+     * Number of native sidekick-only object ticks that occur after level load
+     * but before the first gameplay comparison frame. Sonic 2's title-card
+     * path runs Obj02/Tails CPU for ten frames while Sonic's own level-frame
+     * physics is still held; the first recorded gameplay row then observes
+     * Sonic's first input-driven movement frame and Tails' eleventh follower
+     * tick. This is derived from execution timing, not from recorded Tails
+     * fields.
+     */
+    public static int sidekickTitleCardPreludeFramesForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0
+                || trace.metadata().recordedSidekicks().isEmpty()
+                || shouldUseLegacyS3kAizIntroWarmup(trace)) {
+            return 0;
+        }
+        if (!"s2".equals(trace.metadata().game())) {
+            return 0;
+        }
+        TraceFrame firstFrame = trace.getFrame(replaySeedTraceIndexForTraceReplay(trace));
+        return firstFrame.gameplayFrameCounter() == 1 ? 10 : 0;
+    }
+
+    /**
+     * Returns false because trace start state is comparison data only. Kept as
+     * a named policy gate for callers that need to avoid legacy hydration paths.
      */
     public static boolean shouldUseTraceStartBootstrapForTraceReplay(TraceData trace) {
-        return true;
+        return false;
     }
 
     public static boolean shouldSeedFrameZeroForTraceReplay(TraceData trace) {
-        if (trace == null || trace.frameCount() == 0) {
-            return false;
-        }
-        if (isLegacyS3kAizIntroTrace(trace)) {
-            return false;
-        }
-        TraceMetadata metadata = trace.metadata();
-        return "s3k".equals(metadata.game())
-                && replaySeedTraceIndexForTraceReplay(trace) == 0;
+        return false;
     }
 
     public static boolean shouldSeedReplayStartStateForTraceReplay(TraceData trace,
                                                                    int requestedSeedTraceIndex) {
-        return isLegacyS3kAizIntroTrace(trace)
-                || shouldSeedFrameZeroForTraceReplay(trace)
-                || requestedSeedTraceIndex > 0;
+        return false;
     }
 
     public static boolean requiresFreshLevelLoadForTraceReplay(TraceData trace) {
@@ -322,101 +242,9 @@ public final class TraceReplayBootstrap {
         return ReplayPrimaryState.fromSprite(sprite);
     }
 
-    private static ReplayStartState applyReplayStartState(TraceData trace,
-                                                          TraceReplayFixture fixture,
-                                                          boolean seedLegacyS3kAizAtGameplayStart) {
-        return applyReplayStartState(
-                trace,
-                fixture,
-                seedLegacyS3kAizAtGameplayStart,
-                seedLegacyS3kAizAtGameplayStart
-                        ? resolveLegacyS3kAizSeedTraceIndex(trace)
-                        : 0);
-    }
-
-    private static ReplayStartState applyReplayStartState(TraceData trace,
-                                                          TraceReplayFixture fixture,
-                                                          boolean seedLegacyS3kAizAtGameplayStart,
-                                                          int requestedSeedTraceIndex) {
-        if (!shouldSeedReplayStartState(trace, fixture, requestedSeedTraceIndex)) {
-            return ReplayStartState.DEFAULT;
-        }
-
-        int seededTraceIndex = Math.max(0, Math.min(requestedSeedTraceIndex, trace.frameCount() - 1));
-        TraceFrame seededFrame = trace.getFrame(seededTraceIndex);
-        AbstractPlayableSprite sprite = fixture.sprite();
-        applyRecordedFrameState(sprite, seededFrame);
-        // v5 traces record the first sidekick's end-of-frame state on
-        // every row. For frame-0 seeded replays that start mid-carry
-        // (e.g. S3K CNZ, which opens with Tails already positioned for
-        // the AIZ→CNZ fly-in), the sidekick must be restored to that
-        // recorded state too — the applyPreTraceSidekickCpuSnapshot
-        // step only hydrates the Tails CPU-routine byte, and CNZ's
-        // aux_state.jsonl has no slot-1 object_state_snapshot. Without
-        // this, the engine keeps Tails at repositionSidekicks's
-        // (player_x - 32, player_y + 4) spawn offset and his first
-        // frame runs off the wrong position.
-        applySeededFirstSidekickState(seededFrame);
-
-        if (GameServices.camera() != null) {
-            GameServices.camera().setX((short) seededFrame.cameraX());
-            GameServices.camera().setY((short) seededFrame.cameraY());
-        }
-
-        // For S3K non-zero level-entry seeds, the headless level fixture is created
-        // before the first live gameplay frame executes. Re-run the first zone-event
-        // pass once so intro-only bootstrap objects exist before replay continues.
-        // Frame-0 intro traces already record the spawned-but-unadvanced intro object,
-        // so only spawn level events there and do not replay the object's first update.
-        LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
-        if (levelEvents instanceof Sonic3kLevelEventManager
-                && seededTraceIndex == replaySeedTraceIndexForTraceReplay(trace)) {
-            levelEvents.update();
-            if (seededTraceIndex > 0) {
-                completeSeededS3kLevelEntryFrame(trace, seededTraceIndex, sprite);
-            } else {
-                ObjectManager objectManager = GameServices.level() != null
-                        ? GameServices.level().getObjectManager()
-                        : null;
-                if (objectManager != null) {
-                    // Frame-0 intro seeds represent the recorded end-of-frame state.
-                    // Align the object VBlank counter with that frame without
-                    // advancing Obj_intPlane beyond its recorded routine-0 state.
-                    objectManager.advanceVblaCounter();
-                }
-                // Re-apply the recorded frame-0 state because the intro object's
-                // constructor forces controlLocked/objectControlled/hidden = true
-                // and zeroes speeds. The recorded pre-lock state captured a Sonic
-                // still in free-fall at frame 0 (y_speed=0x440), so restore that
-                // end-of-frame snapshot after the intro spawn is complete.
-                applyRecordedFrameState(sprite, seededFrame);
-            }
-        }
-
-        // Legacy S3K AIZ end-to-end traces arm and emit frame 0 in the same
-        // on_frame_end pass. The recorded bk2_frame_offset already points at
-        // the next replayable input after that directly restored state, so
-        // consuming one movie frame here shifts the splice one frame ahead.
-
-        if (seedLegacyS3kAizAtGameplayStart && seededTraceIndex > 0) {
-            replayLegacyFramesToSeedIndex(trace, fixture, seededTraceIndex);
-
-            applyRecordedFrameState(sprite, seededFrame);
-            resetSeededOverlayState();
-            if (GameServices.camera() != null) {
-                GameServices.camera().setX((short) seededFrame.cameraX());
-                GameServices.camera().setY((short) seededFrame.cameraY());
-                GameServices.camera().setLevelStarted(true);
-            }
-            return new ReplayStartState(seededTraceIndex + 1, seededTraceIndex);
-        }
-
-        return new ReplayStartState(seededTraceIndex + 1, seededTraceIndex);
-    }
-
     private static ReplayStartState warmupLegacyS3kAizTraceReplay(TraceData trace,
                                                                   TraceReplayFixture fixture) {
-        if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
+        if (trace == null || trace.frameCount() == 0) {
             return ReplayStartState.DEFAULT;
         }
 
@@ -424,60 +252,8 @@ public final class TraceReplayBootstrap {
         if (strictStartTraceIndex <= 0) {
             return ReplayStartState.DEFAULT;
         }
-        // This legacy trace begins at BK2 power-on and includes title/data-select
-        // time before AIZ is actually live. The headless fixture starts directly in
-        // AIZ, so replaying trace frames 0..strictStartTraceIndex would advance the
-        // intro object during non-level time and push the cutscene hundreds of
-        // frames ahead. Start the replay loop at the first real in-level frame
-        // instead and align the BK2/VBlank cursors to that same trace index.
-        //
-        // Prime the sprite and camera to the recorded strict-start frame state so
-        // the first strict replay frame continues from the exact recorded values
-        // (player position, speeds, air/rolling flags, subpixel, camera scroll)
-        // rather than from the ROM's default AIZ1 intro bootstrap position. The
-        // intro object and level-started flag remain in their pre-gameplay_start
-        // state because the trace recorded them that way on this frame.
-        TraceFrame strictStart = trace.getFrame(strictStartTraceIndex);
-        AbstractPlayableSprite sprite = fixture.sprite();
-        applyRecordedFrameState(sprite, strictStart);
-        if (GameServices.camera() != null) {
-            GameServices.camera().setX((short) strictStart.cameraX());
-            GameServices.camera().setY((short) strictStart.cameraY());
-        }
-        return new ReplayStartState(strictStartTraceIndex, -1);
-    }
-
-    /**
-     * Trace-replay seeds restore the recorded end-of-frame player/camera state directly.
-     * For AIZ1 frame 403, the ROM also spawned Obj_intPlane during the level-event pass
-     * and then executed its first object update in the same frame, advancing routine 0
-     * to routine 2. Reproduce that missing object-half of the seeded frame here so the
-     * replay continues from the recorded end-of-frame state instead of starting the intro
-     * object one frame late.
-     */
-    private static void completeSeededS3kLevelEntryFrame(TraceData trace,
-                                                         int seededTraceIndex,
-                                                         AbstractPlayableSprite sprite) {
-        if (trace == null || sprite == null || !"s3k".equals(trace.metadata().game())) {
-            return;
-        }
-        ObjectManager objectManager = GameServices.level() != null
-                ? GameServices.level().getObjectManager()
-                : null;
-        AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
-        if (objectManager == null || intro == null) {
-            return;
-        }
-
-        objectManager.advanceVblaCounter();
-        intro.update(trace.getFrame(seededTraceIndex).vblankCounter(), sprite);
-    }
-
-    private static void replayLegacyFramesToSeedIndex(TraceData trace,
-                                                      TraceReplayFixture fixture,
-                                                      int seededTraceIndex) {
-        TraceFrame previous = trace.getFrame(0);
-        for (int traceIndex = 1; traceIndex <= seededTraceIndex; traceIndex++) {
+        TraceFrame previous = null;
+        for (int traceIndex = 0; traceIndex < strictStartTraceIndex; traceIndex++) {
             TraceFrame current = trace.getFrame(traceIndex);
             TraceExecutionPhase phase = phaseForReplay(trace, previous, current);
             if (phase == TraceExecutionPhase.VBLANK_ONLY) {
@@ -487,7 +263,9 @@ public final class TraceReplayBootstrap {
             }
             previous = current;
         }
+        return new ReplayStartState(strictStartTraceIndex, -1);
     }
+
 
     public static TraceExecutionPhase phaseForReplay(TraceData trace,
                                                      TraceFrame previous,
@@ -498,67 +276,6 @@ public final class TraceReplayBootstrap {
         return TraceExecutionModel.forGame(trace.metadata().game()).phaseFor(previous, current);
     }
 
-    private static void applyPreTraceSidekickSnapshot(TraceData trace,
-                                                      List<TraceEvent.ObjectStateSnapshot> snapshots) {
-        TraceEvent.ObjectStateSnapshot sidekickSnapshot = snapshots.stream()
-                .filter(snapshot -> snapshot.slot() == 1)
-                .findFirst()
-                .orElse(null);
-        if (sidekickSnapshot == null) {
-            return;
-        }
-
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-
-        String sidekickCharacter = trace.metadata().recordedSidekicks().isEmpty()
-                ? "tails"
-                : trace.metadata().recordedSidekicks().getFirst();
-        TraceEvent.CpuStateSnapshot cpuSnapshot = trace.preTraceCpuStateSnapshot(sidekickCharacter);
-        hydrateSidekickFromSnapshot(
-                spriteManager.getSidekicks().getFirst(),
-                sidekickSnapshot.fields(),
-                cpuSnapshot);
-    }
-
-    private static void applyPreTraceSidekickCpuSnapshot(TraceData trace) {
-        if (trace == null || trace.metadata().recordedSidekicks().isEmpty()) {
-            return;
-        }
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-
-        String sidekickCharacter = trace.metadata().recordedSidekicks().getFirst();
-        TraceEvent.CpuStateSnapshot cpuSnapshot = trace.preTraceCpuStateSnapshot(sidekickCharacter);
-        SidekickCpuController controller = spriteManager.getSidekicks().getFirst().getCpuController();
-        if (cpuSnapshot != null && controller != null) {
-            controller.hydrateFromRomCpuState(
-                    cpuSnapshot.cpuRoutine(),
-                    cpuSnapshot.controlCounter(),
-                    cpuSnapshot.respawnCounter(),
-                    cpuSnapshot.interactId(),
-                    cpuSnapshot.jumping());
-        }
-    }
-
-    private static boolean shouldSeedFrameZero(TraceData trace,
-                                               TraceReplayFixture fixture) {
-        if (trace == null || fixture == null || fixture.sprite() == null || trace.frameCount() == 0) {
-            return false;
-        }
-
-        return shouldSeedReplayStartStateForTraceReplay(trace, 0);
-    }
-
-    private static boolean shouldSeedReplayStartState(TraceData trace,
-                                                      TraceReplayFixture fixture,
-                                                      int requestedSeedTraceIndex) {
-        return shouldSeedFrameZero(trace, fixture) || requestedSeedTraceIndex > 0;
-    }
 
     private static boolean shouldUseLegacyS3kAizIntroHeuristic(TraceData trace,
                                                                 TraceFrame current) {
@@ -617,10 +334,6 @@ public final class TraceReplayBootstrap {
                 .anyMatch(checkpoint -> "intro_begin".equals(checkpoint.name()));
     }
 
-    private static int resolveLegacyS3kAizSeedTraceIndex(TraceData trace) {
-        int gameplayStartFrame = findCheckpointFrame(trace, "gameplay_start");
-        return gameplayStartFrame >= 0 ? gameplayStartFrame : 0;
-    }
 
     private static int findCheckpointFrame(TraceData trace, String checkpointName) {
         for (int frame = 0; frame < trace.frameCount(); frame++) {
@@ -652,116 +365,4 @@ public final class TraceReplayBootstrap {
         return 0;
     }
 
-    /**
-     * Restore the first sidekick's end-of-frame state from the recorded
-     * CSV row. Mirrors the v5 sidekick column block that
-     * {@code AbstractTraceReplayTest.applyRecordedFirstSidekickState}
-     * uses in headless comparison; exposed here so the live test-mode
-     * bootstrap path seeds Tails identically.
-     *
-     * <p>No-op when the trace has no sidekick data, the frame's sidekick
-     * block reports {@code present=false}, or the engine has no
-     * registered sidekick.
-     */
-    private static void applySeededFirstSidekickState(TraceFrame seededFrame) {
-        if (seededFrame == null) {
-            return;
-        }
-        TraceCharacterState state = seededFrame.sidekick();
-        if (state == null) {
-            return;
-        }
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
-
-        if (!state.present()) {
-            sidekick.setHidden(true);
-            sidekick.setDead(true);
-            sidekick.setCentreX((short) 0);
-            sidekick.setCentreY((short) 0);
-            sidekick.setXSpeed((short) 0);
-            sidekick.setYSpeed((short) 0);
-            sidekick.setGSpeed((short) 0);
-            sidekick.setSubpixelRaw(0, 0);
-            sidekick.resetPositionHistory();
-            return;
-        }
-
-        sidekick.setHidden(false);
-        sidekick.setDead(false);
-        sidekick.setDeathCountdown(0);
-        sidekick.setControlLocked(false);
-        sidekick.setObjectControlled(false);
-        sidekick.setMoveLockTimer(0);
-        sidekick.setHurt(state.routine() == 0x04);
-        sidekick.setCentreX(state.x());
-        sidekick.setCentreY(state.y());
-        sidekick.setXSpeed(state.xSpeed());
-        sidekick.setYSpeed(state.ySpeed());
-        sidekick.setGSpeed(state.gSpeed());
-        sidekick.setAngle(state.angle());
-        sidekick.setDirection((state.statusByte() & 0x01) != 0
-                ? Direction.LEFT
-                : Direction.RIGHT);
-        sidekick.setAir(state.air());
-        sidekick.setRolling(state.rolling());
-        sidekick.setOnObject((state.statusByte() & 0x08) != 0);
-        sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
-        sidekick.setPushing((state.statusByte() & 0x20) != 0);
-        sidekick.setGroundMode(groundMode(state.groundMode()));
-        sidekick.setSubpixelRaw(state.xSub(), state.ySub());
-        sidekick.resetPositionHistory();
-    }
-
-    private static void applyRecordedFrameState(AbstractPlayableSprite sprite,
-                                                TraceFrame frame) {
-        if (sprite == null || frame == null) {
-            return;
-        }
-
-        sprite.setCentreX(frame.x());
-        sprite.setCentreY(frame.y());
-        sprite.setXSpeed(frame.xSpeed());
-        sprite.setYSpeed(frame.ySpeed());
-        sprite.setGSpeed(frame.gSpeed());
-        sprite.setAngle(frame.angle());
-        sprite.setDirection((frame.statusByte() & 0x01) != 0 ? Direction.LEFT : Direction.RIGHT);
-        sprite.setAir(frame.air());
-        sprite.setRolling(frame.rolling());
-        sprite.setRollingJump((frame.statusByte() & AbstractPlayableSprite.STATUS_ROLLING_JUMP) != 0);
-        sprite.setOnObject((frame.statusByte() & 0x08) != 0);
-        sprite.setPushing((frame.statusByte() & 0x20) != 0);
-        sprite.setInWater((frame.statusByte() & AbstractPlayableSprite.STATUS_UNDERWATER) != 0);
-        sprite.setGroundMode(groundMode(frame.groundMode()));
-        sprite.setSubpixelRaw(frame.xSub(), frame.ySub());
-        sprite.clearForcedInputMask();
-        sprite.clearQueuedControlState();
-        sprite.setControlLocked(false);
-        sprite.setObjectControlled(false);
-        sprite.setMoveLockTimer(0);
-        sprite.setDirectionalInputPressed(false, false, false, false);
-        sprite.setJumpInputPressed(false);
-        sprite.clearLogicalInputState();
-        sprite.setMovementInputActive(false);
-        sprite.getMovementManager().resetTransientState();
-        sprite.resetPositionHistory();
-    }
-
-    private static void resetSeededOverlayState() {
-        TitleCardProvider titleCardProvider = GameServices.module().getTitleCardProvider();
-        if (titleCardProvider != null) {
-            titleCardProvider.reset();
-        }
-    }
-
-    private static GroundMode groundMode(int ordinal) {
-        GroundMode[] values = GroundMode.values();
-        if (ordinal < 0 || ordinal >= values.length) {
-            return GroundMode.GROUND;
-        }
-        return values[ordinal];
-    }
 }

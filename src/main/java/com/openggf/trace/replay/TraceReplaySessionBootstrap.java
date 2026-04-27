@@ -9,7 +9,6 @@ import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.session.GameplayTeamBootstrap;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.TraceData;
@@ -27,13 +26,11 @@ import java.util.logging.Logger;
  *   <li>{@link #prepareConfiguration}: set recorded team + S3K intro
  *       skip flag on the configuration service. Must run before the
  *       caller loads the level.</li>
- *   <li>{@link #applyBootstrap}: seed the vblank counter, pre-advance
- *       oscillation, apply pre-trace object snapshots, apply the
- *       replay start state, then (when the trace policy calls for it)
- *       reapply the metadata start centre coordinates and run an
- *       initial ground-attachment pass — so both headless fixture and
- *       live launcher end up with the same post-title-card sprite state
- *       before frame 0 of the comparison loop.</li>
+ *   <li>{@link #applyBootstrap}: derive any allowed timing prelude from
+ *       trace-visible execution timing, advance native timing-only state
+ *       where policy allows, and choose the replay comparison cursor.
+ *       It must not copy recorded object, player, sidekick, RNG, camera,
+ *       or vblank state into the engine.</li>
  * </ol>
  */
 public final class TraceReplaySessionBootstrap {
@@ -54,7 +51,7 @@ public final class TraceReplaySessionBootstrap {
      * <p>Call this BEFORE {@code LevelManager.loadZoneAndAct} when
      * starting a live trace replay. Without it, state left behind by
      * {@code Engine.initializeGame()} (title screen, default level,
-     * residual object state) leaks into the replay — one symptom is
+     * residual object state) leaks into the replay â€” one symptom is
      * subpixel drift from frame 0 that first becomes pixel-visible at
      * the first ROM-accurate collision or enemy destruction.
      */
@@ -101,7 +98,7 @@ public final class TraceReplaySessionBootstrap {
         SonicConfigurationService config = SonicConfigurationService.getInstance();
 
         // Team: the recorded trace dictates the team. If metadata
-        // didn't record one (legacy), force Sonic-solo — the trace
+        // didn't record one (legacy), force Sonic-solo â€” the trace
         // can't expect anything else.
         String main = meta.recordedMainCharacter();
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE,
@@ -162,21 +159,22 @@ public final class TraceReplaySessionBootstrap {
     }
 
     /**
-     * Apply pre-gameplay replay state to an already-loaded level. Must
+     * Apply pre-gameplay replay policy to an already-loaded level. Must
      * be called after the level has been loaded and a player sprite
      * exists on the runtime.
      *
      * <p>Performs, in order:
      * <ol>
-     *   <li>{@code ObjectManager.initVblaCounter} — seed the VBlank
-     *       counter to match the trace's initial value.</li>
-     *   <li>Oscillation pre-advance — {@link OscillationManager#update}
-     *       run {@code preTraceOsc} times so the OscillateNumDo phase
-     *       matches the ROM at trace frame 0.</li>
-     *   <li>{@link TraceReplayBootstrap#applyPreTraceState} — object
-     *       snapshot + player history hydration.</li>
+     *   <li>Oscillation pre-advance derived from trace-visible gameplay
+     *       timing, or from an explicit diagnostic override.</li>
+     *   <li>Sidekick-only prelude ticks for title-card timing, when the
+     *       trace policy can derive them from normal execution order.</li>
+     *   <li>{@link TraceReplayBootstrap#applyPreTraceState} - currently
+     *       a comparison-only compatibility hook that reports zero
+     *       applied snapshots.</li>
      *   <li>{@link TraceReplayBootstrap#applyReplayStartStateForTraceReplay}
-     *       — primary-sprite state for seeded traces.</li>
+     *       - deterministic warmup/cursor selection without trace-state
+     *       hydration.</li>
      * </ol>
      *
      * <p>The metadata start-position reapply + initial ground snap that
@@ -184,57 +182,34 @@ public final class TraceReplaySessionBootstrap {
      * is exposed separately as
      * {@link #applyStartPositionAndGroundSnap} so callers can invoke it
      * BEFORE this method (matching the test fixture order, which sets
-     * the start position and snaps to ground before hydrating recorded
-     * player history).
+     * the start position and snaps to ground before replay bootstrap
+     * policy runs).
      *
      * @param preTraceOscOverride number of pre-trace oscillation frames
      *                            to pre-advance; pass a negative value
-     *                            to use the value from the trace metadata.
+     *                            to derive timing through trace replay
+     *                            policy.
      */
     public static BootstrapResult applyBootstrap(TraceData trace,
                                                  TraceReplayFixture fixture,
                                                  int preTraceOscOverride) {
-        TraceMetadata meta = trace.metadata();
-        Long initialRngSeed = meta.traceSchema() != null && meta.traceSchema() >= 4
-                ? meta.initialRngSeed()
-                : null;
-        if (initialRngSeed != null && GameServices.runtimeOrNull() != null) {
-            GameRng rng = GameServices.rng();
-            if (rng != null) {
-                rng.setSeed(initialRngSeed);
-            }
+        int preTraceOsc = TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(
+                trace, preTraceOscOverride);
+        for (int i = 0; i < preTraceOsc; i++) {
+            OscillationManager.update(-(preTraceOsc - i));
         }
-
-        ObjectManager om = GameServices.level().getObjectManager();
-        if (om != null
-                && TraceReplayBootstrap.shouldUseTraceStartBootstrapForTraceReplay(trace)) {
-            om.initVblaCounter(
-                    TraceReplayBootstrap.initialVblankCounterForTraceReplay(trace) - 1);
+        int sidekickPreludeFrames =
+                TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace);
+        if (sidekickPreludeFrames > 0
+                && fixture.runtime() != null
+                && fixture.runtime().getSpriteManager() != null
+                && fixture.runtime().getLevelManager() != null) {
+            fixture.runtime().getSpriteManager().warmUpCpuSidekicksOnly(
+                    sidekickPreludeFrames,
+                    fixture.runtime().getLevelManager());
         }
-
-        int preTraceOsc = preTraceOscOverride >= 0
-                ? preTraceOscOverride
-                : meta.preTraceOscillationFrames();
-        if (TraceReplayBootstrap.shouldUseTraceStartBootstrapForTraceReplay(trace)
-                && preTraceOsc > 0) {
-            for (int i = 0; i < preTraceOsc; i++) {
-                OscillationManager.update(-(preTraceOsc - i));
-            }
-        }
-
         TraceObjectSnapshotBinder.Result hydration =
                 TraceReplayBootstrap.applyPreTraceState(trace, fixture);
-        if (initialRngSeed != null && GameServices.runtimeOrNull() != null) {
-            GameRng rng = GameServices.rng();
-            if (rng != null) {
-                // Snapshot hydration constructs engine objects that already existed
-                // when the ROM seed was captured. Constructors may call Random_Number
-                // before hydrateFromRomSnapshot restores their fields; those calls
-                // must not advance the recorded trace-start seed used by later
-                // streamed objects such as CNZ balloons.
-                rng.setSeed(initialRngSeed);
-            }
-        }
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
@@ -249,14 +224,15 @@ public final class TraceReplaySessionBootstrap {
      * state.
      *
      * <p>Call this BEFORE {@link #applyBootstrap}. The fixture runs
-     * these steps at build time (before any trace-data bootstrap);
-     * running them afterwards would clobber subpixel state that
-     * {@code applyReplayStartState} had written for seeded traces.
+     * these steps at build time before replay bootstrap policy runs;
+     * running them afterwards would perturb the native state selected
+     * by {@code applyReplayStartState}.
      *
      * <p>Gated on
      * {@link TraceReplayBootstrap#shouldApplyMetadataStartPositionForTraceReplay}
      * (i.e. {@code replaySeedTraceIndex == 0 && !legacyS3kAizIntro}).
-     * Seeded-frame traces and legacy-AIZ traces are short-circuited.
+     * Legacy-AIZ traces are short-circuited because their prefix is
+     * consumed by deterministic warmup.
      */
     public static void applyStartPositionAndGroundSnap(TraceData trace,
                                                        TraceReplayFixture fixture) {

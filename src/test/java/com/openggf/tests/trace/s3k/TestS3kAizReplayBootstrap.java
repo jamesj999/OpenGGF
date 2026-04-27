@@ -269,10 +269,9 @@ public class TestS3kAizReplayBootstrap {
     }
 
     @Test
-    void fullTraceReplayWarmupMatchesFirstStrictIntroFrame() throws Exception {
+    void fullTraceReplayWarmupDoesNotSeedFirstStrictIntroFrame() throws Exception {
         TraceData trace = TraceData.load(TRACE_DIR);
         int strictStartFrame = TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace);
-        TraceFrame strictStart = trace.getFrame(strictStartFrame);
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
         Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -291,9 +290,6 @@ public class TestS3kAizReplayBootstrap {
 
             assertEquals(strictStartFrame, replayStart.startingTraceIndex());
             assertEquals(-1, replayStart.seededTraceIndex());
-            assertFrameMatches(strictStart, fixture, strictStart.input());
-            assertEquals(strictStart.ySpeed(), fixture.sprite().getYSpeed());
-            assertEquals(strictStart.air(), fixture.sprite().getAir());
             assertFalse(GameServices.camera().isLevelStarted(),
                     "AIZ should still be in the intro on the first strict replay frame.");
         } finally {

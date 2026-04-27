@@ -328,6 +328,47 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void testRightInputSkidUsesRetailHighByteThresholdBug() throws Exception {
+                // Retail S1/S2/S3K overwrite only d0's low byte during the flat-angle
+                // check before cmpi.w #-$400,d0. With adjusted speed -0x309, that
+                // compare sees 0xFC00 and enters the skid/facing-left path.
+                mockSprite.setGSpeed((short) -0x0389);
+                mockSprite.setAngle((byte) 0x00);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setDirection(Direction.RIGHT);
+
+                setInputState(false, true, false, false, false);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doGroundMove");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) -0x0309, mockSprite.getGSpeed());
+                assertEquals(Direction.LEFT, mockSprite.getDirection(),
+                        "Retail skid threshold compares the high-byte-truncated speed and flips facing left");
+        }
+
+        @Test
+        public void testRightInputDoesNotSkidAtTruncatedMinusThreePixels() throws Exception {
+                mockSprite.setGSpeed((short) -0x0380);
+                mockSprite.setAngle((byte) 0x00);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setDirection(Direction.RIGHT);
+
+                setInputState(false, true, false, false, false);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doGroundMove");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) -0x0300, mockSprite.getGSpeed());
+                assertEquals(Direction.RIGHT, mockSprite.getDirection(),
+                        "0xFD00 is still above the ROM cmpi.w #-$400 skid threshold");
+        }
+
+        @Test
         public void testLeftInputMaintainHighSpeed() throws Exception {
                 // Setup: Running super fast LEFT (-3000), holding Left. Flat ground.
                 mockSprite.setGSpeed((short) -3000);

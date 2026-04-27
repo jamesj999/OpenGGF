@@ -225,6 +225,15 @@ public class SpriteManager {
 	}
 
 	/**
+	 * Returns registered CPU-controlled sidekicks without applying zone-level
+	 * suppression. Trace comparison uses this to observe hidden/suppressed
+	 * sidekick state without mutating it.
+	 */
+	public List<AbstractPlayableSprite> getRegisteredSidekicks() {
+		return Collections.unmodifiableList(sidekicks);
+	}
+
+	/**
 	 * Returns the character name for a sidekick (e.g. "tails", "sonic", "knuckles").
 	 */
 	public String getSidekickCharacterName(AbstractPlayableSprite sidekick) {
@@ -437,6 +446,81 @@ public class SpriteManager {
 			}
 		} finally {
 			endPlayableFrame();
+		}
+	}
+
+	/**
+	 * Runs the CPU-controlled sidekicks through the short object prelude that
+	 * happens while the ROM title card still holds the main player. The main
+	 * player and BK2 cursor are intentionally untouched; callers restore
+	 * {@link #frameCounter} afterwards because ROM's Level_frame_counter has not
+	 * started advancing during this prelude.
+	 */
+	public void warmUpCpuSidekicksOnly(int frames, LevelManager levelManager) {
+		if (frames <= 0 || levelManager == null || sidekicks.isEmpty()) {
+			return;
+		}
+		int savedFrameCounter = frameCounter;
+		try {
+			for (int i = 0; i < frames; i++) {
+				frameCounter++;
+				List<AbstractPlayableSprite> activeSidekicks = new ArrayList<>(getSidekicks());
+				beginPlayableFrame(activeSidekicks);
+				try {
+					for (AbstractPlayableSprite playable : activeSidekicks) {
+						if (playable.getCpuController() == null) {
+							continue;
+						}
+						activePlayableUpdate = playable;
+						try {
+							playable.applyQueuedControlStateForFrameStart();
+							var cpuController = playable.getCpuController();
+							cpuController.update(frameCounter);
+
+							boolean aiUp = cpuController.getInputUp();
+							boolean aiDown = cpuController.getInputDown();
+							boolean aiLeft = cpuController.getInputLeft();
+							boolean aiRight = cpuController.getInputRight();
+							boolean aiJump = cpuController.getInputJump();
+							boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+									|| playable.isForceInputRight();
+							boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+							boolean forcedUp = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+							boolean forcedDown = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+							boolean forcedJump = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+							boolean effectiveRight = aiRight || forcedRight;
+							boolean effectiveLeft = (aiLeft || forcedLeft) && !forcedRight;
+							boolean effectiveUp = aiUp || forcedUp;
+							boolean effectiveDown = aiDown || forcedDown;
+							boolean effectiveJump = aiJump || forcedJump;
+
+							publishInputState(playable,
+									aiUp, aiDown, aiLeft, aiRight, aiJump,
+									effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+							if (cpuController.isApproaching()
+									&& !cpuController.getRespawnStrategy().requiresPhysics()) {
+								playable.getAnimationManager().update(frameCounter);
+								playable.tickStatus();
+								playable.endOfTick();
+								continue;
+							}
+							if (cpuController.getInputJumpPress()) {
+								playable.setForcedJumpPress(true);
+							}
+							tickPlayablePhysics(playable, effectiveUp, effectiveDown,
+									effectiveLeft, effectiveRight, effectiveJump, false,
+									false, false, levelManager, frameCounter);
+						} finally {
+							runDeferredPostTickMutations(playable);
+							activePlayableUpdate = null;
+						}
+					}
+				} finally {
+					endPlayableFrame();
+				}
+			}
+		} finally {
+			frameCounter = savedFrameCounter;
 		}
 	}
 

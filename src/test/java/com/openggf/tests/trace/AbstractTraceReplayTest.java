@@ -5,7 +5,6 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameMode;
-import com.openggf.game.GroundMode;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.objects.Aiz2BossEndSequenceState;
@@ -15,13 +14,11 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.RomObjectSnapshot;
 import com.openggf.level.objects.TouchResponseDebugHit;
 import com.openggf.level.objects.TouchResponseDebugState;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.TestEnvironment;
@@ -41,7 +38,6 @@ import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceEventFormatter;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
-import com.openggf.trace.TraceHistoryHydration;
 import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
@@ -141,8 +137,8 @@ public abstract class AbstractTraceReplayTest {
                 GameServices.debugOverlay().setEnabled(DebugOverlayToggle.TOUCH_RESPONSE, true);
             }
 
-            // 4. Shared replay bootstrap: vblank seed, oscillation
-            //    pre-advance, object-snapshot hydration, replay start state.
+            // 4. Shared replay bootstrap: timing prelude, read-only snapshot
+            //    reporting, and replay cursor selection.
             TraceReplaySessionBootstrap.BootstrapResult boot =
                     TraceReplaySessionBootstrap.applyBootstrap(trace, fixture,
                             overridePreTraceOscFrames());
@@ -153,7 +149,7 @@ public abstract class AbstractTraceReplayTest {
                     trace.preTraceObjectSnapshots();
             if (!preTraceSnapshots.isEmpty() && om != null) {
                 System.out.printf(
-                        "Hydrated %d/%d pre-trace object snapshots (%d warnings)%n",
+                        "Reported %d/%d pre-trace object snapshots (%d warnings)%n",
                         hydration.matched(), hydration.attempted(),
                         hydration.warnings().size());
                 for (String warning : hydration.warnings()) {
@@ -300,13 +296,13 @@ public abstract class AbstractTraceReplayTest {
                 new S3kElasticWindowController(loadCheckpointFrames(trace));
         S3kRequiredCheckpointGuard checkpointGuard = new S3kRequiredCheckpointGuard();
         int firstSubDivFrame = -1;
+        int firstSidekickSubDivFrame = -1;
         int firstOscDivFrame = -1;
         Boolean lastEventsFg5 = null;
         boolean hasPerFrameOsc = meta.hasPerFrameOscillationState();
 
         if (replayStart.hasSeededTraceState()) {
             TraceFrame seededFrame = trace.getFrame(replayStart.seededTraceIndex());
-            applyRecordedFirstSidekickState(seededFrame.sidekick());
             TraceReplayBootstrap.ReplayPrimaryState seededPrimary =
                     TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
                             trace, seededFrame, fixture.sprite());
@@ -386,9 +382,6 @@ public abstract class AbstractTraceReplayTest {
         }
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
-            if (previousDriveFrame != null) {
-                applyRecordedFirstSidekickState(previousDriveFrame.sidekick());
-            }
             TraceExecutionPhase phase =
                     TraceReplayBootstrap.phaseForReplay(trace, previousDriveFrame, driveFrame);
             int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
@@ -484,13 +477,6 @@ public abstract class AbstractTraceReplayTest {
                         secondaryCharacterLabel,
                         actualSidekick);
 
-                // Keep strict comparisons honest: the sidekick state above is
-                // the engine-produced result for this frame. Re-seed only after
-                // recording the comparison so sidekick drift is reported, while
-                // later Sonic comparisons stay isolated from accumulated Tails
-                // divergence.
-                applyRecordedFirstSidekickState(driveFrame.sidekick());
-
                 TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
                 if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
                     checkpointGuard.validateStrictEntry(
@@ -517,8 +503,27 @@ public abstract class AbstractTraceReplayTest {
                                 actualPrimary.air(), expected.air());
                     }
                 }
-            } else {
-                applyRecordedFirstSidekickState(driveFrame.sidekick());
+                if (firstSidekickSubDivFrame < 0
+                        && expected.sidekick() != null
+                        && actualSidekick != null
+                        && expected.sidekick().present()
+                        && actualSidekick.present()) {
+                    int engXSub = actualSidekick.xSub();
+                    int romXSub = expected.sidekick().xSub();
+                    int engYSub = actualSidekick.ySub();
+                    int romYSub = expected.sidekick().ySub();
+                    if (engXSub != romXSub || engYSub != romYSub) {
+                        firstSidekickSubDivFrame = expected.frame();
+                        System.out.printf("FIRST SIDEKICK SUB DIVERGENCE at frame %d: "
+                                        + "xsub ROM=0x%04X ENG=0x%04X ysub ROM=0x%04X ENG=0x%04X "
+                                        + "cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
+                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
+                                actualSidekick.x(), actualSidekick.y(),
+                                actualSidekick.xSpeed(), expected.sidekick().xSpeed(),
+                                actualSidekick.ySpeed(), expected.sidekick().ySpeed(),
+                                actualSidekick.air(), expected.sidekick().air());
+                    }
+                }
             }
 
             boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
@@ -643,250 +648,14 @@ public abstract class AbstractTraceReplayTest {
         return state.formatDiagnostics(label);
     }
 
-    private void applyPreTracePlayerHistory(TraceEvent.PlayerHistorySnapshot snapshot,
-            AbstractPlayableSprite sprite) {
-        if (snapshot == null || sprite == null) {
-            return;
-        }
-        sprite.hydrateRecordedHistory(
-                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.xHistory(), sprite.getWidth()),
-                TraceHistoryHydration.centreHistoryToTopLeft(snapshot.yHistory(), sprite.getHeight()),
-                snapshot.inputHistory(),
-                snapshot.statusHistory(),
-                TraceHistoryHydration.romHistoryPosToEngineLatestSlot(snapshot.historyPos()));
-    }
-
-    private void applyPreTraceSidekickSnapshot(List<TraceEvent.ObjectStateSnapshot> snapshots) {
-        TraceEvent.ObjectStateSnapshot sidekickSnapshot = snapshots.stream()
-                .filter(snapshot -> snapshot.slot() == 1)
-                .findFirst()
-                .orElse(null);
-        if (sidekickSnapshot == null) {
-            return;
-        }
-
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-
-        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
-        hydrateSidekickFromSnapshot(sidekick, sidekickSnapshot.fields());
-    }
-
     private TraceCharacterState captureFirstSidekickState() {
         SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
+        if (spriteManager == null || spriteManager.getRegisteredSidekicks().isEmpty()) {
             return null;
         }
-        return captureCharacterState(spriteManager.getSidekicks().getFirst());
+        return captureCharacterState(spriteManager.getRegisteredSidekicks().getFirst());
     }
 
-    private void applyRecordedFirstSidekickState(TraceCharacterState state) {
-        if (state == null) {
-            return;
-        }
-        SpriteManager spriteManager = GameServices.sprites();
-        if (spriteManager == null || spriteManager.getSidekicks().isEmpty()) {
-            return;
-        }
-
-        AbstractPlayableSprite sidekick = spriteManager.getSidekicks().getFirst();
-        if (!state.present()) {
-            sidekick.setHidden(true);
-            sidekick.setDead(true);
-            sidekick.setCentreX((short) 0);
-            sidekick.setCentreY((short) 0);
-            sidekick.setXSpeed((short) 0);
-            sidekick.setYSpeed((short) 0);
-            sidekick.setGSpeed((short) 0);
-            sidekick.setSubpixelRaw(0, 0);
-            return;
-        }
-
-        sidekick.setHidden(false);
-        sidekick.setDead(false);
-        sidekick.setDeathCountdown(0);
-        sidekick.setControlLocked(false);
-        // Do NOT reset move_lock here. ROM Player_SlopeRepel (sonic3k.asm:23907)
-        // sets move_lock=30 on its first slip activation and then decrements it
-        // for the next 30 frames, during which the routine early-returns without
-        // touching ground_vel. Resetting move_lock to 0 each frame defeats that
-        // ROM-preserved counter and causes the engine to re-apply the −$80
-        // slope-repel impulse every frame, which was the root cause of the
-        // CNZ1 F318 `tails_g_speed` divergence (ROM preserves move_lock across
-        // frames so SlopeRepel's second-and-later frames are no-ops).
-        //
-        // Preserve object_control only when the engine's CPU controller is in
-        // SPAWNING state AND the engine still has Tails parked at the ROM
-        // despawn marker (#$7F00). ROM sub_13ECA (sonic3k.asm:26800) writes
-        // object_control=$81 atomically with x_pos=#$7F00 / y_pos=#$0 to enter
-        // Tails_Catch_Up_Flying / Tails_FlySwim_Unknown after a despawn. Bit 7
-        // of object_control suppresses the entire sprite-movement dispatch in
-        // the ROM (Obj_Routines reads object_control before dispatching to the
-        // per-character movement handler), so clearing it every frame defeats
-        // the engine's flight-physics suppression and lets
-        // PlayableSpriteMovement.modeNormal() run full ground physics (slope
-        // decomposition flips y_speed from −0x33 to +0x05) — that was the
-        // CNZ1 F826 `tails_y_speed` divergence. The trace CSV does NOT capture
-        // object_control, so we infer it from the engine's own
-        // SidekickCpuController state plus the ROM-atomic x==marker signal.
-        // The gate intentionally does not extend past the marker frames: in
-        // AIZ the engine's state machine parks in SPAWNING for tens of
-        // thousands of frames after upstream divergence (with Tails at a real
-        // x), so the marker-only gate keeps the AIZ replay from accumulating
-        // object_control-suppressed frames the recording does not expect. Same
-        // precedent as the move_lock preservation directly above.
-        SidekickCpuController cpu = sidekick.getCpuController();
-        int xBeforeReseed = sidekick.getCentreX() & 0xFFFF;
-        int despawnX =
-                com.openggf.game.PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S3K & 0xFFFF;
-        boolean preserveObjectControl = cpu != null
-                && cpu.getState() == SidekickCpuController.State.SPAWNING
-                && xBeforeReseed == despawnX;
-        // S3K extension: ROM keeps object_control = $81 throughout
-        // {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474) and
-        // {@code Tails_FlySwim_Unknown} (sonic3k.asm:26534) — the only writers
-        // in those routines are the warp branch at sonic3k.asm:26511 ($81),
-        // the off-screen 5-second auto-land at sonic3k.asm:26542 ($81), and
-        // the NORMAL transition at sonic3k.asm:26632 ($00). The engine's
-        // state machine analog: CATCH_UP_FLIGHT (routine 0x02) and
-        // FLIGHT_AUTO_RECOVERY (routine 0x04) both rely on the bit-7 gate to
-        // suppress PlayableSpriteMovement physics so the controller's body
-        // can drive the steer-toward-Sonic motion via setCentreX/Y directly.
-        // Without preservation, the test hydration clears objectControlled
-        // each frame and the engine's terrain collision sets air=false on the
-        // very next physics tick — that's the CNZ1 F1043 tails_angle/air
-        // divergence introduced when applyDespawnMarker started entering
-        // CATCH_UP_FLIGHT (matching ROM's routine=2 dispatch sequence).
-        boolean flightStatePreservesObjectControl = cpu != null
-                && (cpu.getState() == SidekickCpuController.State.CATCH_UP_FLIGHT
-                        || cpu.getState() == SidekickCpuController.State.FLIGHT_AUTO_RECOVERY);
-        preserveObjectControl = preserveObjectControl || flightStatePreservesObjectControl;
-        // Also preserve object_control when a per-object hook (e.g. CNZ wire
-        // cage at sonic3k.asm:69921 loc_3394C) has just set bit 0 on the
-        // sidekick. ROM cage's loc_339B6 (sonic3k.asm:69958) also writes
-        // bit 0 each frame the rider's |ground_vel| < $300, so the trace's
-        // tails_g_speed series is consistent with bit 0 being set across
-        // the captured run. The trace CSV does not capture object_control,
-        // so infer the cage-captured case from the engine's
-        // latchedSolidObjectId state (set by CnzWireCageObjectInstance.latch
-        // and continueRide) plus the engine's own objectControlled signal.
-        boolean cagePreserveObjectControl = sidekick.isObjectControlled()
-                && sidekick.getLatchedSolidObjectId()
-                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_WIRE_CAGE;
-        boolean cylinderPreserveObjectControl = sidekick.isObjectControlled()
-                && sidekick.getLatchedSolidObjectId()
-                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_CYLINDER;
-        if (!preserveObjectControl && !cagePreserveObjectControl
-                && !cylinderPreserveObjectControl) {
-            sidekick.setObjectControlled(false);
-        }
-        // Stage A reduction (research agent ab93a0947e59d62f2): eight unambiguous
-        // comparison-only-invariant violations removed here.
-        //
-        // 1) `sidekick.setHurt(state.routine() == 0x04)` was an architectural
-        //    misclassification for S3K: ROM Tails_CPU_routine value 0x04 selects
-        //    Tails_FlySwim_Unknown (sonic3k.asm:26534), the FLIGHT_AUTO_RECOVERY
-        //    leg of Tails_Catch_Up_Flying (sonic3k.asm:26474 / loc_13B50 sets
-        //    `move.w #4,(Tails_CPU_routine).w` together with `move.b #2,status`
-        //    = Status_InAir, `move.b #$81,object_control`). It is NOT a hurt
-        //    state. Removing this is a behavioural correction, not a regression.
-        //
-        // 2) `sidekick.setRolling(state.rolling())` per-frame reseed mutated the
-        //    sidekick hitbox (AbstractPlayableSprite.setRolling, lines 3098-3137,
-        //    swaps rollHeight/runHeight and runs applyRollingRadii /
-        //    applyStandingRadii) immediately after the engine collision pass had
-        //    just produced ROM-correct geometry. The engine evolves rolling
-        //    natively via PlayableSpriteMovement.doCheckStartRoll
-        //    (PlayableSpriteMovement.java:1574) and ground-mode collision, so
-        //    per-frame hydration is at best redundant and at worst a hitbox-
-        //    geometry corruption.
-        //
-        // 3) `sidekick.setOnObject((state.statusByte() & 0x08) != 0)` (Status_OnObj
-        //    = bit 3, sonic3k.constants.asm:177) is set/cleared natively by the
-        //    engine collision pass: PlayableSpriteMovement.java:342 sets it on
-        //    object-support recovery, line 642 clears it on jump (matching ROM
-        //    `bclr #Status_OnObj,obStatus(a0)` at s2.asm jump entry), and
-        //    ObjectManager solid-contact paths drive object riding. The trace's
-        //    statusByte is captured per-frame purely for comparison; reseeding
-        //    it after collision overrides ROM-correct engine output.
-        //
-        // 4) `sidekick.setRollingJump((state.statusByte() & 0x10) != 0)`
-        //    (Status_RollJump = bit 4, sonic3k.constants.asm:178) is evolved
-        //    natively: PlayableSpriteMovement.java:669 sets it when jumping
-        //    while rolling (matches `bset #Status_RollJump,status(a0)` at
-        //    sonic3k.asm:23358 / Sonic_RollJump), and lines 815, 2212 clear it
-        //    on glide activation and landing (matching ROM `bclr` at multiple
-        //    sites incl. sonic3k.asm:23403, 24368, 28663). Per-frame reseed
-        //    after the engine has already produced the ROM-correct value
-        //    cannot improve accuracy.
-        //
-        // 5) `sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()))`
-        //    is evolved natively by terrain collision (CollisionSystem.java:891
-        //    and PlayableSpriteMovement.updateGroundMode at line 2590) which
-        //    derives the four-quadrant mode from `(angle + 0x20) & 0xC0`,
-        //    matching ROM `Sonic_AnglePos` / `Sonic_DoLevelCollision`. Object
-        //    hooks (HCZTwistingLoop, ObjectManager riding paths) and the
-        //    death-reset path (AbstractPlayableSprite.java:1200) cover the
-        //    remaining ROM writes. The trace's groundMode column is comparison
-        //    context, not engine input.
-        //
-        // 6) `sidekick.setAngle(state.angle())` is set natively by terrain
-        //    collision: PlayableSpriteMovement.java:1054 (`sprite.setAngle(
-        //    floorResult.angle())` after airborne floor probe) and
-        //    PlayableSpriteMovement.java:1324, 2625, 2627 set the angle from
-        //    ground-sensor results, matching ROM `Sonic_AnglePos` (sonic3k.asm:
-        //    19568) which writes `move.b d2,angle(a0)` from the floor sensor's
-        //    sub_19798 result. The airborne return-to-zero path
-        //    (PlayableSpriteMovement.java:836: `sprite.setAngle((byte) 0)`)
-        //    matches ROM `Sonic_DoLevelCollision`. The trace's angle column is
-        //    comparison context.
-        //
-        // 7) `sidekick.setDirection(...)` derived from Status_FacingLeft (bit 0)
-        //    is set/cleared natively by sidekick logic: SidekickCpuController.java
-        //    sets direction from recorded leader history (line 497, 499, 579,
-        //    1357) — matching ROM `Tails_Control` (sonic3k.asm:25901) which
-        //    derives Tails's facing from leader-relative steering. The engine's
-        //    PlayableSpriteMovement also writes direction at lines 936, 938,
-        //    959, 961, 1183, 1354, 1395, 1409, 1469-1495, 1642, 1650, 1707,
-        //    1720, 2821-2845, 2906, 2911, 3009, 3012 (matching the multiple
-        //    `bset/bclr #Status_FacingLeft,obStatus(a0)` sites in ROM
-        //    Sonic_MoveLeft / Sonic_MoveRight / sonic3k.asm:23070, 23078).
-        //    Per-frame reseed of the bit-0 derivation cannot improve accuracy.
-        //
-        // 8) `sidekick.setAir(state.air())` is set/cleared natively by the
-        //    engine collision pass: PlayableSpriteMovement.java:341 clears it
-        //    on landing (matches ROM `bclr #Status_InAir,obStatus(a0)`),
-        //    line 656 sets it on jump entry (matches ROM `bset #Status_InAir`),
-        //    line 976/984 clears it on landing recovery, lines 1049, 1189,
-        //    1944, 1958, 2332 set it on airborne entries, and the death/object
-        //    handlers also drive it. Crucially, `setAir(false)` triggers
-        //    landing cleanup (AbstractPlayableSprite.java:1165 — clears hurt,
-        //    rolling jump, jumping, double-jump flags, applies standing radii).
-        //    Reseeding `air` from the trace each frame after the engine has
-        //    already evolved this state from terrain collision is at best
-        //    redundant and at worst replays the landing-cleanup side effects
-        //    inappropriately. The trace's air column is comparison context.
-        //
-        // All eight removals align with the comparison-only invariant
-        // (.claude/skills/trace-replay-bug-fixing/skill.md): trace data is
-        // read-only diagnostic input — engine state is never hydrated from the
-        // trace in committed test code.
-        sidekick.setCentreX(state.x());
-        sidekick.setCentreY(state.y());
-        sidekick.setXSpeed(state.xSpeed());
-        sidekick.setYSpeed(state.ySpeed());
-        sidekick.setGSpeed(state.gSpeed());
-        sidekick.setPushing((state.statusByte() & 0x20) != 0);
-        sidekick.setSubpixelRaw(state.xSub(), state.ySub());
-        sidekick.resetPositionHistory();
-
-        // Do not rewrite the CPU controller state here. CNZ's opening
-        // Sonic+Tails carry is driven by the sidekick CPU routine; the trace
-        // state supplies frame-boundary position/speed, not a replacement CPU
-        // routine stream.
-    }
 
     private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {
         ObjectManager om = GameServices.level() != null
@@ -927,36 +696,6 @@ public abstract class AbstractTraceReplayTest {
                 standOnSlot);
     }
 
-    private void hydrateSidekickFromSnapshot(AbstractPlayableSprite sidekick,
-            RomObjectSnapshot snapshot) {
-        sidekick.setControlLocked(false);
-        sidekick.setObjectControlled(false);
-        sidekick.setMoveLockTimer(0);
-        sidekick.setHurt(false);
-        sidekick.setDead(false);
-        sidekick.setDeathCountdown(0);
-        sidekick.setSpindash(false);
-        sidekick.setSpindashCounter((short) 0);
-        sidekick.setXSpeed((short) snapshot.xVel());
-        sidekick.setYSpeed((short) snapshot.yVel());
-        sidekick.setGSpeed((short) snapshot.signedWordAt(0x14));
-        sidekick.setAngle((byte) snapshot.angle());
-        sidekick.setDirection((snapshot.status() & 0x01) != 0
-                ? com.openggf.physics.Direction.LEFT
-                : com.openggf.physics.Direction.RIGHT);
-        sidekick.setAir((snapshot.status() & 0x02) != 0);
-        sidekick.setRolling((snapshot.status() & 0x04) != 0);
-        sidekick.setOnObject((snapshot.status() & 0x08) != 0);
-        sidekick.setCentreX((short) snapshot.xPos());
-        sidekick.setCentreY((short) snapshot.yPos());
-        sidekick.setSubpixelRaw(snapshot.xSub(), snapshot.ySub());
-        sidekick.resetPositionHistory();
-
-        SidekickCpuController controller = sidekick.getCpuController();
-        if (controller != null) {
-            controller.setInitialState(SidekickCpuController.State.NORMAL);
-        }
-    }
 
 
 

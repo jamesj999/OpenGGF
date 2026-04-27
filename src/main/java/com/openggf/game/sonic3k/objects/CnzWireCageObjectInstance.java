@@ -122,11 +122,15 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite leader = null;
+        boolean leaderDplcClobberedD6 = false;
         if (playerEntity instanceof AbstractPlayableSprite player) {
             leader = player;
             CageState leaderState = riders.get(player);
             boolean wasLeaderLatched = leaderState != null && leaderState.latched;
-            processPlayer(frameCounter, player, false);
+            int leaderMappingFrameBefore = player.getMappingFrame();
+            processPlayer(frameCounter, player, false, false);
+            leaderDplcClobberedD6 = wasLeaderLatched
+                    && player.getMappingFrame() != leaderMappingFrameBefore;
             CageState updated = riders.get(player);
             if (wasLeaderLatched && (updated == null || !updated.latched)) {
                 // Leader just released this cage on this frame. ROM-side, this
@@ -146,7 +150,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         }
         for (PlayableEntity sidekick : services.sidekicks()) {
             if (sidekick instanceof AbstractPlayableSprite sprite && sprite != leader) {
-                processPlayer(frameCounter, sprite, true);
+                processPlayer(frameCounter, sprite, true, leaderDplcClobberedD6);
             }
         }
     }
@@ -156,9 +160,23 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         // The CNZ cage is drawn as level art; this object owns player control.
     }
 
-    private void processPlayer(int frameCounter, AbstractPlayableSprite player, boolean isSidekick) {
+    private void processPlayer(int frameCounter, AbstractPlayableSprite player, boolean isSidekick,
+                               boolean leaderDplcClobberedD6) {
         CageState state = riders.computeIfAbsent(player, ignored -> new CageState());
         if (state.latched) {
+            if (isSidekick && leaderDplcClobberedD6) {
+                /*
+                 * FixBugs-off ROM leaves d6 dirty after Player 1's
+                 * Perform_Player_DPLC loads a new cage mapping frame
+                 * (sonic3k.asm:69842-69847, 70041, 25215-25242). The
+                 * addq.b #1,d6 sequence then tests bit 1 instead of the P2
+                 * standing bit, so sub_338C4 falls through to the capture
+                 * path and exits at tst.b object_control(a1), leaving Tails'
+                 * cage state untouched for this frame.
+                 */
+                restoreObjectLatchIfTerrainClearedIt(player);
+                return;
+            }
             continueRide(frameCounter, player, state, isSidekick);
             return;
         }

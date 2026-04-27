@@ -122,11 +122,9 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
         ObjectServices svc = tryServices();
         LevelManager levelManager = svc != null ? svc.levelManager() : null;
         if (levelManager != null) {
-            // LevelManager advances its frame counter after object execution.
             // Obj_Bumper reads the low byte at Level_frame_counter+1 during its
-            // object routine, so use the counter value that will be visible at
-            // the end of the current engine frame.
-            return levelManager.getFrameCounter() + 2;
+            // object routine.
+            return levelManager.getFrameCounter() + 1;
         }
         return objectFrameCounter + 1;
     }
@@ -159,16 +157,22 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
     private int resolveLevelFrameCounterForBounce(int objectFrameCounter) {
         ObjectServices svc = tryServices();
         LevelManager levelManager = svc != null ? svc.levelManager() : null;
+        int orbitFrameOffset = initialAngle == 0 ? 0 : 1;
         if (levelManager != null) {
-            return levelManager.getFrameCounter() + 1;
+            // sub_32F56 reads Level_frame_counter. Stationary bumpers match the
+            // stored engine counter directly; orbiting bumpers are positioned
+            // from Level_frame_counter+1 earlier in Obj_Bumper, so their pending
+            // touch response uses that same visible tick.
+            return levelManager.getFrameCounter() + orbitFrameOffset;
         }
-        return objectFrameCounter;
+        return objectFrameCounter + orbitFrameOffset;
     }
 
     private void applyBounce(AbstractPlayableSprite player, int frameCounter) {
         int dx = currentX - player.getCentreX();
         int dy = currentY - player.getCentreY();
-        // 68000 byte addressing reads the high byte at Level_frame_counter and the low byte at +1.
+        // ROM sub_32F56 uses move.b (Level_frame_counter).w. The 68000 is
+        // big-endian, so byte-addressing the word label reads the high byte.
         int framePerturb = (frameCounter >>> 8) & 0x03;
         int angle = (TrigLookupTable.calcAngle((short) dx, (short) dy)
                 + framePerturb) & 0xFF;

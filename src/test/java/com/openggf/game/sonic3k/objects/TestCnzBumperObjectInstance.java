@@ -47,8 +47,9 @@ class TestCnzBumperObjectInstance {
 
         bumper.update(0x0D4C, null);
 
-        assertEquals(0x03B8, bumper.getX());
-        assertEquals(0x0605, bumper.getY());
+        int expectedAngle = (0x80 + ((0x011C + 1) & 0xFF)) & 0xFF;
+        assertEquals(0x03E8 + (TrigLookupTable.cosHex(expectedAngle) >> 2), bumper.getX());
+        assertEquals(0x0630 + (TrigLookupTable.sinHex(expectedAngle) >> 2), bumper.getY());
     }
 
     @Test
@@ -95,8 +96,9 @@ class TestCnzBumperObjectInstance {
         bumper.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0);
         bumper.update(0, null);
 
-        assertEquals(0, player.getXSpeed());
-        assertEquals(-0x700, player.getYSpeed());
+        int angle = TrigLookupTable.calcAngle((short) 0, (short) 0x14) & 0xFF;
+        assertEquals((short) ((TrigLookupTable.cosHex(angle) * -0x700) >> 8), player.getXSpeed());
+        assertEquals((short) ((TrigLookupTable.sinHex(angle) * -0x700) >> 8), player.getYSpeed());
         assertTrue(player.getAir());
         assertEquals(0x0123, player.getGSpeed());
         assertTrue(!player.getRollingJump());
@@ -105,12 +107,12 @@ class TestCnzBumperObjectInstance {
     }
 
     @Test
-    void latchedTraceContactUsesRomVisibleLevelFrameForBounceAngle() throws Exception {
+    void traceContactUsesRomVisibleLevelFrameForBounceAngle() throws Exception {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
         LevelManager levelManager = fixture.runtime().getLevelManager();
-        setLevelFrameCounter(levelManager, 0x0123);
+        setLevelFrameCounter(levelManager, 0x0124);
 
         CnzBumperObjectInstance bumper =
                 new CnzBumperObjectInstance(new ObjectSpawn(0x03E8, 0x0630, 0x4A, 0x2B, 0, false, 0));
@@ -123,17 +125,25 @@ class TestCnzBumperObjectInstance {
         player.setJumping(true);
         player.setPushing(true);
 
-        bumper.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0x0D53);
         bumper.update(0x0D53, null);
 
         assertEquals(0x03CF, bumper.getX());
         assertEquals(0x066B, bumper.getY());
-        assertEquals((short) -0x01B2, player.getXSpeed());
-        assertEquals((short) -0x06C8, player.getYSpeed());
+
+        bumper.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0x0D53);
+        bumper.update(0x0D53, null);
+
+        int dx = bumper.getX() - player.getCentreX();
+        int dy = bumper.getY() - player.getCentreY();
+        int visibleLevelFrame = 0x0124 + 1;
+        int angle = (TrigLookupTable.calcAngle((short) dx, (short) dy)
+                + ((visibleLevelFrame >>> 8) & 0x03)) & 0xFF;
+        assertEquals((short) ((TrigLookupTable.cosHex(angle) * -0x700) >> 8), player.getXSpeed());
+        assertEquals((short) ((TrigLookupTable.sinHex(angle) * -0x700) >> 8), player.getYSpeed());
     }
 
     @Test
-    void stationaryTraceContactUsesHighByteFramePerturbationForBounceAngle() throws Exception {
+    void stationaryTraceContactUsesLevelFrameHighByteForBounceAngle() throws Exception {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_CNZ, 0)
                 .build();
@@ -150,8 +160,12 @@ class TestCnzBumperObjectInstance {
         bumper.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0x015A);
         bumper.update(0x015A, null);
 
-        assertEquals((short) 0x02D1, player.getXSpeed());
-        assertEquals((short) -0x0666, player.getYSpeed());
+        int dx = 0x03E8 - 0x03F1;
+        int dy = 0x0630 - 0x061B;
+        int angle = (TrigLookupTable.calcAngle((short) dx, (short) dy)
+                + ((0x0159 >>> 8) & 0x03)) & 0xFF;
+        assertEquals((short) ((TrigLookupTable.cosHex(angle) * -0x700) >> 8), player.getXSpeed());
+        assertEquals((short) ((TrigLookupTable.sinHex(angle) * -0x700) >> 8), player.getYSpeed());
     }
 
     @Test

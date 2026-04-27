@@ -246,10 +246,10 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
 
     private static TraceCharacterState captureFirstSidekickState() {
         SpriteManager sprites = GameServices.sprites();
-        if (sprites == null || sprites.getSidekicks().isEmpty()) {
+        if (sprites == null || sprites.getRegisteredSidekicks().isEmpty()) {
             return null;
         }
-        return TraceCharacterState.fromSprite(sprites.getSidekicks().getFirst());
+        return TraceCharacterState.fromSprite(sprites.getRegisteredSidekicks().getFirst());
     }
 
     private void checkComplete() {

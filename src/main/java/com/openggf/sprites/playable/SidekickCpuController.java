@@ -36,6 +36,8 @@ public class SidekickCpuController {
             PhysicsFeatureSet.SIDEKICK_DESPAWN_X_S2;
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
+    private static final int LEVEL_START_X_OFFSET = -0x20;
+    private static final int LEVEL_START_Y_OFFSET = 4;
     private static final int DESPAWN_TIMEOUT = 300;
     private static final int MANUAL_CONTROL_FRAMES = 600;
     private final int flyAnimId;
@@ -236,7 +238,14 @@ public class SidekickCpuController {
             }
         }
 
-        // ---- existing INIT body (preserved verbatim from the pre-carry implementation) ----
+        // S2 InitPlayers (s2.asm:5192-5195) and S3K SpawnLevelMainSprites
+        // (s3.asm:6334-6337) place Player_2 with centre coordinates at
+        // Player_1 - $20 X, +4 Y. The engine's level-load reanchor path uses
+        // sprite top-left coordinates, so correct the first native CPU tick
+        // before follow AI reads the sidekick position.
+        sidekick.setCentreXPreserveSubpixel((short) (leader.getCentreX() + LEVEL_START_X_OFFSET));
+        sidekick.setCentreYPreserveSubpixel((short) (leader.getCentreY() + LEVEL_START_Y_OFFSET));
+
         state = State.NORMAL;
         controlCounter = 0;
         despawnCounter = 0;
@@ -250,6 +259,19 @@ public class SidekickCpuController {
         sidekick.setXSpeed((short) 0);
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
+        sidekick.setAir(false);
+
+        // The ROM CPU routine reads Sonic's delayed position buffer
+        // (S2 s2.asm:38808-38815, S3K sonic3k.asm:26564-26565).
+        // Trace/bootstrap level placement can move the leader after sprite
+        // construction, so seed the engine's native buffer before the first
+        // follow read instead of reading trace sidekick state back in.
+        leader.resetPositionHistory();
+
+        // ROM Obj02/Tails object init has already completed by the first live
+        // gameplay comparison frame, so do not spend an engine-only frame with
+        // blank controller input. Continue into the normal CPU follow routine.
+        updateNormal();
     }
 
     /**
@@ -701,9 +723,10 @@ public class SidekickCpuController {
             return;
         }
 
-        // Synthetic right-press injection every 32 frames (ROM:
-        // (Level_frame_counter+1)&$1F cadence in loc_13FFA).
-        if (((frameCounter + 1) & carryTrigger.carryInputInjectMask()) == 0) {
+        // Synthetic right-press injection every 32 frames. SpriteManager passes
+        // the already-incremented gameplay frame counter, which corresponds to
+        // the trace-visible (Level_frame_counter+1) value used by loc_13FFA.
+        if ((frameCounter & carryTrigger.carryInputInjectMask()) == 0) {
             inputRight = true;
         }
 
@@ -940,6 +963,7 @@ public class SidekickCpuController {
         if (closeEnough && sonicAlive && sonicFreeOfLock) {
             // ROM sonic3k.asm:26631-26648 — return to NORMAL (routine 0x06).
             sidekick.setObjectControlled(false);
+            sidekick.setControlLocked(false);
             sidekick.setXSpeed((short) 0);
             sidekick.setYSpeed((short) 0);
             sidekick.setGSpeed((short) 0);

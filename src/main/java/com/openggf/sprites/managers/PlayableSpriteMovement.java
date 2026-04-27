@@ -1465,7 +1465,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				if (gSpeed > 0) {
 					gSpeed -= runDecel;
 					if (gSpeed < 0) gSpeed = (short) -128;
-					if (isOnFlatGround() && gSpeed > SKID_SPEED_THRESHOLD) {
+					if (shouldTriggerGroundSkid(gSpeed, false)) {
 						sprite.setDirection(Direction.RIGHT);
 						handleSkid();
 					}
@@ -1486,7 +1486,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 					// or positive. BCC (branch if carry clear) is NOT taken, so
 					// the reset to 0x80 executes for both gSpeed==0 and gSpeed>0.
 					if (gSpeed >= 0) gSpeed = (short) 128;
-					if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
+					if (shouldTriggerGroundSkid(gSpeed, true)) {
 						sprite.setDirection(Direction.LEFT);
 						handleSkid();
 					}
@@ -2373,6 +2373,23 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private boolean isOnFlatGround() {
 		int angle = sprite.getAngle() & 0xFF;
 		return ((angle + ANGLE_SLOPE_OFFSET) & ANGLE_SLOPE_MASK) == 0;
+	}
+
+	private boolean shouldTriggerGroundSkid(short adjustedGSpeed, boolean turningRight) {
+		int angleCheck = ((sprite.getAngle() & 0xFF) + ANGLE_SLOPE_OFFSET) & ANGLE_SLOPE_MASK;
+		if (angleCheck != 0) {
+			return false;
+		}
+
+		// Retail S1/S2/S3K use the non-FixBugs path here: after storing the
+		// adjusted ground speed, the angle test writes only d0's low byte before
+		// the skid threshold cmp.w. Preserve that high-byte/zero-low-byte compare
+		// so marginal counter-direction movement flips facing on the same frame
+		// as the ROM.
+		short compareSpeed = (short) (adjustedGSpeed & 0xFF00);
+		return turningRight
+				? compareSpeed <= -SKID_SPEED_THRESHOLD
+				: compareSpeed >= SKID_SPEED_THRESHOLD;
 	}
 
 	// ========================================

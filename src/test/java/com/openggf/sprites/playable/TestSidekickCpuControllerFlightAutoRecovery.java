@@ -108,6 +108,7 @@ class TestSidekickCpuControllerFlightAutoRecovery {
         tails.setCentreY((short) 0x0400);   // Already aligned vertically
         tails.setAir(true);
         tails.setDoubleJumpFlag(1);         // Flight gravity active during catch-up
+        tails.setControlLocked(true);       // routine 4 carries object_control=$81 until NORMAL transition
         // On-screen so the off-screen timer doesn't fire.
         tails.setRenderFlagOnScreen(true);
 
@@ -120,6 +121,8 @@ class TestSidekickCpuControllerFlightAutoRecovery {
                 "Tails aligned with Sonic + Sonic alive = transition to NORMAL (routine 0x06)");
         assertFalse(tails.isObjectControlled(),
                 "Transition clears Tails's object_control");
+        assertFalse(tails.isControlLocked(),
+                "Transition clears the engine control-lock mirror so NORMAL CPU input reaches movement");
         assertEquals(0, tails.getDoubleJumpFlag(),
                 "Transition clears Tails's double_jump_flag so NORMAL runs with normal air "
                         + "gravity (+0x38) instead of the FLY-gated flight gravity (+0x08). ROM "
