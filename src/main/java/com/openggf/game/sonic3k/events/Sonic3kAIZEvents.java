@@ -14,11 +14,13 @@ import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
 import com.openggf.game.sonic3k.objects.AizBgTreeSpawnerInstance;
 import com.openggf.game.sonic3k.objects.AizBombExplosionInstance;
 import com.openggf.game.sonic3k.objects.AizShipBombInstance;
 import com.openggf.game.sonic3k.objects.AizBossSmallInstance;
+import com.openggf.game.sonic3k.objects.AizEndBossInstance;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizIntroTerrainSwap;
 import com.openggf.game.sonic3k.objects.AizMinibossInstance;
@@ -184,6 +186,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int BATTLESHIP_FOREST_FRONT_START_X = 0x4380;
     /** ROM: Sonic's AIZ end-boss arena camera lock. Forest-front override ends here. */
     private static final int AIZ_END_BOSS_LOCK_X = 0x4880;
+    private static final int AIZ_END_BOSS_SONIC_LAYOUT_X = 0x48A0;
+    private static final int AIZ_END_BOSS_SONIC_LAYOUT_Y = 0x01C0;
+    private static final int AIZ_END_BOSS_KNUX_LOCK_X = 0x4100;
+    private static final int AIZ_END_BOSS_KNUX_LAYOUT_X = 0x4120;
+    private static final int AIZ_END_BOSS_KNUX_LAYOUT_Y = 0x0640;
     private static final int BATTLESHIP_WRAP_DIST_POST_BOMBING = 0x80;
     /** Wrap distance during bombing: subtract $200 from all positions on wrap. */
     private static final int BATTLESHIP_WRAP_DIST = 0x200;
@@ -221,6 +228,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // --- Boss / fire transition state ---
     /** One-shot guard for AIZ2 resize boss spawn. */
     private boolean minibossSpawned;
+    /** ROM: (Events_fg_4).w - set by AIZ2 resize stage $0E to start the bombing ScreenEvent. */
+    private boolean eventsFg4;
     /** ROM: (Events_fg_5).w - set by boss exit sequence to trigger fire transition. */
     private boolean eventsFg5;
     /** Boss_flag equivalent - set when boss is present, cleared on cleanup. */
@@ -230,6 +239,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean battleshipAutoScrollActive;
     /** True once the battleship object has been spawned (one-shot guard). */
     private boolean battleshipSpawned;
+    /** True once the AIZ2 end boss has been handed off to the object system. */
+    private boolean endBossSpawned;
     /** True once the AIZ2 bombership 8x8/16x16 terrain overlays have been applied. */
     private boolean battleshipTerrainLoaded;
     /** Current wrap boundary for auto-scroll (changes after bombing completes). */
@@ -418,10 +429,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         minibossSpawned = false;
         aiz2ResizeRoutine = 0;
         enteredAsAct2 = false;
+        eventsFg4 = false;
         eventsFg5 = false;
         bossFlag = false;
         battleshipAutoScrollActive = false;
         battleshipSpawned = false;
+        endBossSpawned = false;
         battleshipTerrainLoaded = false;
         battleshipWrapX = BATTLESHIP_WRAP_X_BOMBING;
         levelRepeatOffset = 0;
@@ -816,6 +829,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return eventsFg5;
     }
 
+    public boolean isEventsFg4() {
+        return eventsFg4;
+    }
+
     public void setBossFlag(boolean flag) {
         this.bossFlag = flag;
     }
@@ -953,6 +970,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void updateAct2Continuation(int frameCounter) {
+        // ROM: AIZ2_ScreenEvent consumes Events_fg_4 and starts the battleship
+        // refresh/draw chain. Keep this separate from AIZ2_Resize so the trigger
+        // remains observable and follows the same event handoff as the ROM.
+        updateAiz2ScreenEvent();
+
         if (fireSequencePhase.curtainActive() || fireSequencePhase == FireSequencePhase.AIZ2_BG_REDRAW) {
             switch (fireSequencePhase) {
                 case AIZ2_FIRE_REDRAW -> {
@@ -1016,6 +1038,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
         // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
         updateAiz2Resize();
+
+        updateAiz2EndBossSpawn();
     }
 
     /**
@@ -1149,9 +1173,16 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getX() < AIZ2_SONIC_RESIZE7_TRIGGER_X) {
             return;
         }
-        // Start the battleship bombing sequence: auto-scroll + spawn battleship
-        startBattleshipSequence();
+        eventsFg4 = true;
         aiz2ResizeRoutine = 0x10; // SonicResizeEnd
+    }
+
+    private void updateAiz2ScreenEvent() {
+        if (!eventsFg4 || battleshipAutoScrollActive || battleshipSpawned) {
+            return;
+        }
+        eventsFg4 = false;
+        startBattleshipSequence();
     }
 
     // --- Knuckles resize routines (sonic3k.asm:39157-39241) ---
@@ -1273,6 +1304,36 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             }
             LOG.info("AIZ2 battleship: spawned at cameraX=0x" + Integer.toHexString(cameraX));
         }
+    }
+
+    private void updateAiz2EndBossSpawn() {
+        if (endBossSpawned || bossFlag || hasLiveAizEndBoss()) {
+            return;
+        }
+
+        PlayerCharacter character = playerCharacter();
+        boolean isKnuckles = character == PlayerCharacter.KNUCKLES;
+        int triggerX = isKnuckles ? AIZ_END_BOSS_KNUX_LOCK_X : AIZ_END_BOSS_LOCK_X;
+        if (camera().getX() < triggerX) {
+            return;
+        }
+
+        endBossSpawned = true;
+        int spawnX = isKnuckles ? AIZ_END_BOSS_KNUX_LAYOUT_X : AIZ_END_BOSS_SONIC_LAYOUT_X;
+        int spawnY = isKnuckles ? AIZ_END_BOSS_KNUX_LAYOUT_Y : AIZ_END_BOSS_SONIC_LAYOUT_Y;
+        ObjectSpawn bossSpawn = new ObjectSpawn(
+                spawnX, spawnY, Sonic3kObjectIds.AIZ_END_BOSS, 0, 0, false, spawnY);
+        spawnObject(() -> new AizEndBossInstance(bossSpawn));
+        LOG.info("AIZ2 end boss: spawned at cameraX=0x" + Integer.toHexString(camera().getX()));
+    }
+
+    private boolean hasLiveAizEndBoss() {
+        var objManager = levelManager().getObjectManager();
+        if (objManager == null) {
+            return false;
+        }
+        return objManager.getActiveObjects().stream()
+                .anyMatch(object -> object instanceof AizEndBossInstance boss && !boss.isDestroyed());
     }
 
     private void ensureBattleshipTerrainLoaded() {
@@ -1426,7 +1487,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return battleshipSpawned
                 && !bossFlag
                 && cameraX >= BATTLESHIP_FOREST_FRONT_START_X
-                && cameraX < AIZ_END_BOSS_LOCK_X;
+                && cameraX <= AIZ_END_BOSS_LOCK_X;
     }
 
     /**

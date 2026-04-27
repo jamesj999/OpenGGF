@@ -12,7 +12,10 @@ import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
+import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
+import com.openggf.game.sonic3k.objects.AizEndBossInstance;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
@@ -561,6 +564,144 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void aiz2BattleshipBombingStartsFromEventsFg4Handoff() {
+        Camera camera = GameServices.camera();
+        Sonic3kAIZEvents.resetGlobalState();
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1);
+
+        camera.setX((short) 0x3C00);
+        camera.setY((short) 0x0200);
+        events.setDynamicResizeRoutine(8);
+        events.update(1, 0);
+        assertEquals(0x0A, events.getDynamicResizeRoutine(), "Stage $08 should only prepare battleship art");
+        assertTrue(events.isEventsFg5(), "Stage $08 should raise Events_fg_5 for BG setup");
+        assertFalse(events.isEventsFg4(), "Stage $08 must not trigger the bombing screen event");
+        assertFalse(events.isBattleshipAutoScrollActive(), "Bombing should not start at the art-load gate");
+
+        camera.setX((short) 0x4000);
+        events.update(1, 1);
+        assertEquals(0x0C, events.getDynamicResizeRoutine(), "Stage $0A should lock min Y");
+        assertFalse(events.isEventsFg4(), "Stage $0A must not trigger the bombing screen event");
+        assertFalse(events.isBattleshipAutoScrollActive(), "Bombing should not start at the vertical-lock gate");
+
+        events.update(1, 2);
+        assertEquals(0x0E, events.getDynamicResizeRoutine(), "Stage $0C should lock max Y");
+        assertFalse(events.isEventsFg4(), "Stage $0C must not trigger the bombing screen event");
+        assertFalse(events.isBattleshipAutoScrollActive(), "Bombing should wait for the $4160 gate");
+
+        camera.setX((short) 0x4160);
+        events.update(1, 3);
+        assertEquals(0x10, events.getDynamicResizeRoutine(), "Stage $0E should advance to terminal state");
+        assertTrue(events.isEventsFg4(), "Stage $0E should raise Events_fg_4 for AIZ2_ScreenEvent");
+        assertFalse(events.isBattleshipAutoScrollActive(), "Resize should not start bombing directly");
+
+        events.update(1, 4);
+        assertFalse(events.isEventsFg4(), "AIZ2_ScreenEvent should consume Events_fg_4");
+        assertTrue(events.isBattleshipAutoScrollActive(), "AIZ2_ScreenEvent should start the bombing sequence");
+    }
+
+    @Test
+    public void aiz2BattleshipRemainsActiveAfterScreenEventSpawnsIt() {
+        Camera camera = GameServices.camera();
+        Sonic3kAIZEvents.resetGlobalState();
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1);
+
+        camera.setX((short) 0x4160);
+        camera.setY((short) 0x0200);
+        events.setDynamicResizeRoutine(0x0E);
+        events.update(1, 0);
+        events.update(1, 1);
+
+        var objectManager = GameServices.level().getObjectManager();
+        assertTrue(objectManager.getActiveObjects().stream()
+                        .anyMatch(AizBattleshipInstance.class::isInstance),
+                "Screen event should spawn the battleship object");
+
+        objectManager.update(camera.getX(), null, List.of(), 2, false);
+
+        assertTrue(objectManager.getActiveObjects().stream()
+                        .anyMatch(object -> object instanceof AizBattleshipInstance ship && !ship.isDestroyed()),
+                "Battleship must survive normal object processing while it scrolls in from the sky");
+    }
+
+    @Test
+    public void aiz2EndBossSpawnsFromEventsAtSonicWaterfallLock() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4860, (short) 0x015A)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(AizEndBossInstance.class::isInstance),
+                "AIZ2 end-boss handoff should create the live Robotnik boss object at the waterfall");
+    }
+
+    @Test
+    public void aiz2EndBossEventSpawnUsesLayoutHeightNotArenaBaseHeight() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4860, (short) 0x015A)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+
+        AizEndBossInstance boss = GameServices.level().getObjectManager().getActiveObjects().stream()
+                .filter(AizEndBossInstance.class::isInstance)
+                .map(AizEndBossInstance.class::cast)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(0x48A0, boss.getX(), "Sonic AIZ2 end boss should use the ROM layout X");
+        assertEquals(0x01C0, boss.getY(), "Sonic AIZ2 end boss should use the ROM layout Y, not AIZBossSonicDat base Y");
+    }
+
+    @Test
+    public void aiz2EndBossActivationKeepsSonicHighPriorityAtWaterfall() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4860, (short) 0x015A)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1, false);
+        GameServices.level().getZoneFeatureProvider().update(aiz2.sprite(), camera.getX(), 0);
+
+        assertTrue(events.isBossFlag(), "Boss activation should set Boss_flag");
+        assertTrue(aiz2.sprite().isHighPriority(),
+                "Sonic should render high-priority in front of the AIZ2 waterfall during the boss handoff");
+    }
+
+    @Test
     public void bossFlagDefaultsFalse() {
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
@@ -605,5 +746,3 @@ public class TestSonic3kAIZEvents {
         }
     }
 }
-
-
