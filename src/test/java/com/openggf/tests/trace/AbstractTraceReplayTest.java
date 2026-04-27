@@ -778,7 +778,31 @@ public abstract class AbstractTraceReplayTest {
         if (!preserveObjectControl && !cagePreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
-        sidekick.setHurt(state.routine() == 0x04);
+        // Stage A reduction (research agent ab93a0947e59d62f2): two unambiguous
+        // comparison-only-invariant violations removed here.
+        //
+        // 1) `sidekick.setHurt(state.routine() == 0x04)` was an architectural
+        //    misclassification for S3K: ROM Tails_CPU_routine value 0x04 selects
+        //    Tails_FlySwim_Unknown (sonic3k.asm:26534), the FLIGHT_AUTO_RECOVERY
+        //    leg of Tails_Catch_Up_Flying (sonic3k.asm:26474 / loc_13B50 sets
+        //    `move.w #4,(Tails_CPU_routine).w` together with `move.b #2,status`
+        //    = Status_InAir, `move.b #$81,object_control`). It is NOT a hurt
+        //    state. Removing this is a behavioural correction, not a regression.
+        //
+        // 2) `sidekick.setRolling(state.rolling())` per-frame reseed mutated the
+        //    sidekick hitbox (AbstractPlayableSprite.setRolling, lines 3098-3137,
+        //    swaps rollHeight/runHeight and runs applyRollingRadii /
+        //    applyStandingRadii) immediately after the engine collision pass had
+        //    just produced ROM-correct geometry. The engine evolves rolling
+        //    natively via PlayableSpriteMovement.doCheckStartRoll
+        //    (PlayableSpriteMovement.java:1574) and ground-mode collision, so
+        //    per-frame hydration is at best redundant and at worst a hitbox-
+        //    geometry corruption.
+        //
+        // Both removals align with the comparison-only invariant
+        // (.claude/skills/trace-replay-bug-fixing/skill.md): trace data is
+        // read-only diagnostic input — engine state is never hydrated from the
+        // trace in committed test code.
         sidekick.setCentreX(state.x());
         sidekick.setCentreY(state.y());
         sidekick.setXSpeed(state.xSpeed());
@@ -789,7 +813,6 @@ public abstract class AbstractTraceReplayTest {
                 ? com.openggf.physics.Direction.LEFT
                 : com.openggf.physics.Direction.RIGHT);
         sidekick.setAir(state.air());
-        sidekick.setRolling(state.rolling());
         sidekick.setOnObject((state.statusByte() & 0x08) != 0);
         sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
         sidekick.setPushing((state.statusByte() & 0x20) != 0);

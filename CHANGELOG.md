@@ -4,6 +4,47 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Trace Replay: Drop Two Per-Frame Sidekick Reseeds (Stage A Reduction)
+
+- `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
+  per-frame writes `sidekick.setHurt(state.routine() == 0x04)` or
+  `sidekick.setRolling(state.rolling())`. Both removals align the
+  sidekick reseed path with the comparison-only invariant defined in
+  `.claude/skills/trace-replay-bug-fixing/skill.md` (trace data is
+  read-only diagnostic input — engine state is never hydrated from
+  the trace in committed test code).
+  - The `setHurt` mapping was an architectural misclassification for
+    S3K. ROM `Tails_CPU_routine` value `4` selects
+    `Tails_FlySwim_Unknown` (sonic3k.asm:26534), the
+    FLIGHT_AUTO_RECOVERY leg of `Tails_Catch_Up_Flying`
+    (`loc_13B50` at sonic3k.asm:26511 sets
+    `move.w #4,(Tails_CPU_routine).w` together with
+    `move.b #2,status` = `Status_InAir` and
+    `move.b #$81,object_control`). Routine 4 is not a hurt state, so
+    flagging the engine sidekick as hurt whenever the recording's
+    routine read 4 was a corruption.
+  - The `setRolling` reseed mutated sidekick hitbox geometry
+    (`AbstractPlayableSprite.setRolling`,
+    `AbstractPlayableSprite.java:3098-3137`, swaps `rollHeight`/
+    `runHeight` and runs `applyRollingRadii` /
+    `applyStandingRadii`) immediately after the engine collision
+    pass had just produced ROM-correct radii. The engine evolves
+    rolling natively via `PlayableSpriteMovement.doCheckStartRoll`
+    (`PlayableSpriteMovement.java:1574`) and ground-mode collision,
+    so per-frame hydration was at best redundant and at worst a
+    hitbox-geometry corruption.
+- Trace impact (research agent ab93a0947e59d62f2 measurements
+  reproduced exactly):
+  - `TestS3kAizTraceReplay`: 1992 errors → 1939 errors (−53),
+    first error stays at F6736.
+  - `TestS3kCnzTraceReplay`: 4570 errors → 4445 errors (−125),
+    first error stays at F4577. Warnings +2.
+  - S2 EHZ F1151 unchanged. S1 MZ1 F311 unchanged. S1 GHZ stays
+    PASS. S1 credits demos unchanged. Required-green S3K tests
+    (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+    `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+    stay green.
+
 ### Sonic 3&K AIZ Trace F6313 → F6736: Sidekick Despawn Marker Enters CATCH_UP_FLIGHT
 
 - `SidekickCpuController.applyDespawnMarker` now transitions the engine
