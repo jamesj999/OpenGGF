@@ -4,6 +4,47 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ## Unreleased
 
+### Trace Replay: Drop Three More Per-Frame Sidekick Reseeds (Stage A Reduction, items 3-5)
+
+- `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
+  per-frame writes `sidekick.setOnObject((statusByte & 0x08) != 0)`,
+  `sidekick.setRollingJump((statusByte & 0x10) != 0)`, or
+  `sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()))`.
+  All three removals continue the Stage A reseed reduction (research
+  agent `ab93a0947e59d62f2`) and further align the sidekick reseed
+  path with the comparison-only invariant defined in
+  `.claude/skills/trace-replay-bug-fixing/skill.md` (trace data is
+  read-only diagnostic input — engine state is never hydrated from
+  the trace in committed test code).
+  - `Status_OnObj` (bit 3, `sonic3k.constants.asm:177`) is set/cleared
+    natively by the engine collision pass:
+    `PlayableSpriteMovement.java:342` (object-support recovery) and
+    `PlayableSpriteMovement.java:642` (jump clears riding, matching
+    ROM `bclr #Status_OnObj,obStatus(a0)`). `ObjectManager`
+    solid-contact paths drive object riding.
+  - `Status_RollJump` (bit 4, `sonic3k.constants.asm:178`) is evolved
+    natively: `PlayableSpriteMovement.java:669` sets it on roll-jump
+    (matches `bset #Status_RollJump,status(a0)` at
+    `sonic3k.asm:23358 / Sonic_RollJump`), and lines 815, 2212 clear
+    it on glide and landing (matching ROM `bclr` at
+    `sonic3k.asm:23403, 24368, 28663`).
+  - `groundMode` is evolved by terrain collision
+    (`CollisionSystem.java:891`,
+    `PlayableSpriteMovement.updateGroundMode` at line 2590), object
+    hooks (`HCZTwistingLoopObjectInstance`, `ObjectManager` riding
+    paths), and the death-reset path
+    (`AbstractPlayableSprite.java:1200`).
+- Trace impact (research agent prediction "measured-no-change" reproduced
+  exactly):
+  - `TestS3kAizTraceReplay`: 1939 errors at F6736 unchanged.
+  - `TestS3kCnzTraceReplay`: 4445 errors at F4577 unchanged.
+  - S2 EHZ F1151 unchanged. S1 MZ1 F311 unchanged. S1 GHZ stays
+    PASS. S1 credits demos unchanged. Required-green S3K tests
+    (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+    `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+    stay green.
+- The now-unused `groundModeFromOrdinal` helper was removed.
+
 ### Trace Replay: Drop Two Per-Frame Sidekick Reseeds (Stage A Reduction)
 
 - `AbstractTraceReplayTest.applyRecordedFirstSidekickState` no longer
