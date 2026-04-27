@@ -1184,7 +1184,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             player.setGSpeed((short) 0);
             player.setSpindash(false);
             player.setAir(true);
-            player.setHurt(false);
+            restoreBossTransitionPlayerRoutine(player);
             if (isBossTransitionCarryRoutine(controller)) {
                 bossTransitionX = player.getCentreX() & 0xFFFF;
             }
@@ -1243,7 +1243,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             player.setGSpeed((short) 0);
             player.setSpindash(false);
             player.setAir(true);
-            player.setHurt(false);
+            restoreBossTransitionPlayerRoutine(player);
         }
         bossTransitionX = player.getCentreX() & 0xFFFF;
     }
@@ -1267,11 +1267,15 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     }
 
     private void startBossTransitionCarry(AbstractPlayableSprite player, AbstractPlayableSprite tails) {
+        restoreBossTransitionPlayerRoutine(player);
         tails.setCentreX((short) bossTransitionX);
         tails.setCentreY((short) bossTransitionY);
         tails.setObjectControlled(false);
         tails.setSpindash(false);
         tails.setAir(true);
+        // Obj_MGZ2_BossTransition writes Player_2 routine=2 before CPU routine $14,
+        // which exits Tails's hurt routine even if he was hit during the rescue.
+        tails.setHurt(false);
         tails.setDead(false);
         tails.setCpuControlled(true);
 
@@ -1282,6 +1286,18 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         }
         controller.setCarryTrigger(mgzBossTransitionCarryTrigger());
         controller.setInitialState(SidekickCpuController.State.CARRY_INIT);
+    }
+
+    private void restoreBossTransitionPlayerRoutine(AbstractPlayableSprite player) {
+        // Obj_MGZ2_BossTransition writes Player_1 routine=2 after pulling Sonic
+        // back to its y_pos, so any hurt/death routine entered while falling is
+        // cancelled before Tails_Carry_Sonic tests routine >= 4.
+        player.setHurt(false);
+        player.setDead(false);
+        player.setDeathCountdown(0);
+        player.setForcedAnimationId(-1);
+        player.setHighPriority(false);
+        camera().setFrozen(false);
     }
 
     private void lockBossTransitionCamera() {

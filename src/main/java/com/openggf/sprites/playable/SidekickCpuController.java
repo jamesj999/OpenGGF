@@ -596,6 +596,14 @@ public class SidekickCpuController {
     private void updateCarrying() {
         // ROM order inside Tails_Carry_Sonic:
 
+        // Tails's hurt/death/drown object routines bypass Tails_CPU_Control and
+        // immediately clear Player_1 object_control plus Flying_carrying_Sonic_flag
+        // before running hurt/death motion (sonic3k.asm:29180, 29272, 29316).
+        if (sidekick.isHurt() || sidekick.getDead()) {
+            releaseCarryForCarrierDisabled();
+            return;
+        }
+
         if (carryTrigger.usesMgzBossTransitionControl() && !flyingCarryingFlag) {
             updateMgzReleasedCarry();
             return;
@@ -732,6 +740,25 @@ public class SidekickCpuController {
         }
     }
 
+    private void releaseCarryForCarrierDisabled() {
+        boolean mgzBossTransitionCarry = carryTrigger != null && carryTrigger.usesMgzBossTransitionControl();
+        if (leader != null && flyingCarryingFlag) {
+            leader.setObjectControlled(false);
+            leader.setForcedAnimationId(-1);
+            leader.setAir(true);
+        }
+        flyingCarryingFlag = false;
+        carryParentagePending = false;
+        mgzCarryIntroAscend = false;
+        mgzCarryFlapTimer = 0;
+        mgzReleasedChaseLatched = false;
+        releaseCooldown = 0;
+        if (!mgzBossTransitionCarry) {
+            state = State.NORMAL;
+            normalFrameCount = 0;
+        }
+    }
+
     private boolean canMgzRegrabLeader() {
         int dxWindow = signedWord(leader.getCentreX() - sidekick.getCentreX() + 0x10);
         if (dxWindow < 0 || dxWindow >= 0x20) {
@@ -816,6 +843,7 @@ public class SidekickCpuController {
         leader.setCentreXPreserveSubpixel(sidekick.getCentreX());
         leader.setCentreYPreserveSubpixel(
                 (short) (sidekick.getCentreY() + carryTrigger.carryDescendOffsetY()));
+        leader.setDirection(sidekick.getDirection());
         leader.setForcedAnimationId(leader.resolveAnimationId(CanonicalAnimation.TAILS_CARRIED));
         leader.setXSpeed(sidekick.getXSpeed());
         leader.setYSpeed(sidekick.getYSpeed());
@@ -1060,6 +1088,7 @@ public class SidekickCpuController {
         leader.setCentreXPreserveSubpixel(sidekick.getCentreX());
         leader.setCentreYPreserveSubpixel(
                 (short) (sidekick.getCentreY() + carryTrigger.carryDescendOffsetY()));
+        leader.setDirection(sidekick.getDirection());
         leader.setXSpeed(sidekick.getXSpeed());
         leader.setYSpeed(sidekick.getYSpeed());
 
@@ -1638,6 +1667,9 @@ public class SidekickCpuController {
     }
 
     public boolean usesFlyingCarryMovement() {
+        if (sidekick.isHurt() || sidekick.getDead()) {
+            return false;
+        }
         return flyingCarryingFlag
                 || (state == State.CARRYING
                 && carryTrigger != null

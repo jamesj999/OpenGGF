@@ -12,6 +12,8 @@ import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.TouchCategory;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.Sonic;
@@ -522,9 +524,13 @@ class TestS3kMgzTopPlatformParityHeadless {
         assertNotNull(touchResponses, "Expected ObjectManager touch responses to be available");
 
         Method applyHurt = touchResponses.getClass()
-                .getDeclaredMethod("applyHurt", com.openggf.game.PlayableEntity.class, ObjectInstance.class);
+                .getDeclaredMethod("applyHurt",
+                        com.openggf.game.PlayableEntity.class,
+                        ObjectInstance.class,
+                        TouchResponseResult.class);
         applyHurt.setAccessible(true);
-        applyHurt.invoke(touchResponses, sprite, source);
+        applyHurt.invoke(touchResponses, sprite, source,
+                new TouchResponseResult(0, 0, 0, TouchCategory.HURT));
     }
 
     private int activeLostRingCount() throws Exception {

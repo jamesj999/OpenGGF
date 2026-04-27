@@ -5,6 +5,7 @@ import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
+import com.openggf.game.sonic3k.objects.Mgz2LevelCollapseSolidInstance;
 import com.openggf.level.AbstractLevel;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
@@ -166,6 +167,20 @@ class TestSonic3kMgz2CollapseEvents {
                 "ROM loc_51484 seeds Events_bg+$0C from Camera_X_pos_copy when collapse finishes");
         assertCleared(level.getMap(), 121, 14, 3, 3);
         assertCleared(level.getMap(), 121, 11, 3, 3);
+    }
+
+    @Test
+    void collapseSolidStopsBeingSolidAsSoonAsDeleteStateStarts() {
+        boolean[] delete = { false };
+        Mgz2LevelCollapseSolidInstance solid = new Mgz2LevelCollapseSolidInstance(
+                0x3C90, 0x05C0, () -> 0, () -> delete[0]);
+
+        assertTrue(solid.isSolidFor(null));
+
+        delete[0] = true;
+
+        assertFalse(solid.isSolidFor(null),
+                "Invisible MGZ2 collapse solids must stop accepting contacts before their next update removes them");
     }
 
     @Test

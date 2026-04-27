@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.physics.Direction;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
@@ -232,6 +233,24 @@ class TestSidekickCpuControllerCarry {
         }
     }
 
+    @Test
+    void carryingCopiesPostMovementTailsDirectionToSonic() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        controller.update(1);
+        controller.update(2);
+        assertTrue(sonic.isObjectControlled(),
+                "Precondition: Sonic should be carried before direction parentage is tested");
+
+        sonic.setDirection(Direction.RIGHT);
+        tails.setDirection(Direction.LEFT);
+        controller.finishCarryAfterCarrierMovement();
+
+        assertEquals(Direction.LEFT, sonic.getDirection(),
+                "ROM Tails_Carry_Sonic copies Tails's facing bit onto carried Sonic each parentage frame");
+    }
+
     // --- release path A: ground contact ---------------------------------
 
     @Test
@@ -327,6 +346,32 @@ class TestSidekickCpuControllerCarry {
         assertEquals((short) tails.getCentreX(), (short) sonic.getCentreX());
         assertEquals((short) (tails.getCentreY() + Sonic3kConstants.CARRY_DESCEND_OFFSET_Y),
                 (short) sonic.getCentreY());
+    }
+
+    @Test
+    void mgzCarryReleasesSonicWhenTailsIsHurt() {
+        AbstractPlayableSprite[] pair = prepareCarry(alwaysOnJumpPulseTrigger());
+        AbstractPlayableSprite sonic = pair[0];
+        AbstractPlayableSprite tails = pair[1];
+        fixture.camera().setY((short) 0x0600);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0690);
+        controller.update(1);
+        controller.update(2);
+        assertTrue(sonic.isObjectControlled(),
+                "Precondition: MGZ carry should own Sonic before Tails takes damage");
+
+        tails.applyHurt(sonic.getCentreX());
+        controller.update(3);
+
+        assertFalse(sonic.isObjectControlled(),
+                "ROM Tails hurt routine clears Player_1 object_control and Flying_carrying_Sonic_flag");
+        assertFalse(controller.isFlyingCarrying(),
+                "Tails must stop actively carrying Sonic as soon as the carrier is hurt");
+        assertFalse(controller.usesFlyingCarryMovement(),
+                "Hurt Tails must run the ROM hurt movement path, not MGZ carry-flight movement");
+        assertEquals(SidekickCpuController.State.CARRYING, controller.getState(),
+                "MGZ leaves Tails in the rescue carry CPU routine after the active carry flag is cleared");
     }
 
     @Test

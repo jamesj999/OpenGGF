@@ -67,6 +67,11 @@ public final class Mgz2LevelCollapseSolidInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean isSolidFor(PlayableEntity player) {
+        return !isDestroyed() && !deleteSupplier.getAsBoolean();
+    }
+
+    @Override
     public boolean isTopSolidOnly() {
         return false;
     }

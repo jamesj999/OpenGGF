@@ -7,6 +7,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
@@ -23,6 +24,7 @@ import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -210,6 +212,146 @@ class TestMgzEndBossHandoffHeadless {
                 "sub_1459E should parent Sonic to the transition object's Camera_X+$40 anchor on initial pickup");
     }
 
+    @Test
+    void bossTransitionCarryRecoversWhenTailsIsHurt() {
+        mgzEvents().triggerBossCollapseHandoff();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        for (int frame = 0; frame < 0x168 + 8
+                && tails.getCpuController().getState() != SidekickCpuController.State.CARRYING; frame++) {
+            fixture.stepIdleFrames(1);
+        }
+        assertEquals(SidekickCpuController.State.CARRYING, tails.getCpuController().getState(),
+                "Precondition: rescue Tails should have picked Sonic up before the damage case");
+        assertTrue(player.isObjectControlled(),
+                "Precondition: Sonic should be actively carried before Tails is hurt");
+
+        tails.applyHurt(player.getCentreX());
+        fixture.stepIdleFrames(1);
+        assertFalse(player.isObjectControlled(),
+                "Tails's hurt routine should immediately release Sonic");
+
+        StringBuilder samples = new StringBuilder();
+        for (int frame = 0; frame < 360 && !player.isObjectControlled(); frame++) {
+            fixture.stepIdleFrames(1);
+            if (frame % 30 == 0 && samples.length() < 1400) {
+                samples.append(String.format(
+                        " f=%d state=%s hurt=%s tails=(%04X,%04X yv=%04X air=%s flag=%02X prop=%02X) "
+                                + "sonic=(%04X,%04X yv=%04X ctrl=%s);",
+                        frame,
+                        tails.getCpuController().getState(),
+                        tails.isHurt(),
+                        tails.getCentreX() & 0xFFFF,
+                        tails.getCentreY() & 0xFFFF,
+                        tails.getYSpeed() & 0xFFFF,
+                        tails.getAir(),
+                        tails.getDoubleJumpFlag() & 0xFF,
+                        tails.getDoubleJumpProperty() & 0xFF,
+                        player.getCentreX() & 0xFFFF,
+                        player.getCentreY() & 0xFFFF,
+                        player.getYSpeed() & 0xFFFF,
+                        player.isObjectControlled()));
+            }
+        }
+
+        assertTrue(player.isObjectControlled(),
+                "After hurt recovery, MGZ rescue Tails must resume the carry routine and pick Sonic up again: "
+                        + samples);
+        assertTrue(tails.getCpuController().isFlyingCarrying(),
+                "The re-grab should restore the active Flying_carrying_Sonic_flag equivalent");
+    }
+
+    @Test
+    void bossTransitionRevivesFallingSonicDeathRoutineForRescue() {
+        mgzEvents().triggerBossCollapseHandoff();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().getFirst();
+        player.applyPitDeath();
+        player.setCentreY((short) 0x0900);
+        player.setYSpeed((short) 0x0600);
+
+        fixture.stepIdleFrames(1);
+
+        assertFalse(player.getDead(),
+                "Obj_MGZ2_BossTransition writes Player_1 routine=2 when Sonic falls below it, clearing death state");
+
+        StringBuilder samples = new StringBuilder();
+        for (int frame = 0; frame < 0x168 + 16 && !player.isObjectControlled(); frame++) {
+            fixture.stepIdleFrames(1);
+            if (frame % 30 == 0 && samples.length() < 1400) {
+                samples.append(String.format(
+                        " f=%d state=%s dead=%s tails=(%04X,%04X yv=%04X) sonic=(%04X,%04X yv=%04X ctrl=%s);",
+                        frame,
+                        tails.getCpuController().getState(),
+                        player.getDead(),
+                        tails.getCentreX() & 0xFFFF,
+                        tails.getCentreY() & 0xFFFF,
+                        tails.getYSpeed() & 0xFFFF,
+                        player.getCentreX() & 0xFFFF,
+                        player.getCentreY() & 0xFFFF,
+                        player.getYSpeed() & 0xFFFF,
+                        player.isObjectControlled()));
+            }
+        }
+
+        assertTrue(player.isObjectControlled(),
+                "A Sonic who entered the death/fall routine during the boss handoff must still be rescued by Tails: "
+                        + samples);
+        assertEquals(SidekickCpuController.State.CARRYING, tails.getCpuController().getState(),
+                "Rescue Tails should remain in the MGZ carry routine after reviving Sonic for pickup");
+    }
+
+    @Test
+    void liveDefeatHandoffRunsPostResultsPaletteFadeAndRequestsCnz() throws Exception {
+        MgzEndBossInstance boss = new MgzEndBossInstance(new ObjectSpawn(
+                0x3D20, 0x0668, Sonic3kObjectIds.MGZ_END_BOSS, 0, 0, false, 0));
+        GameServices.level().getObjectManager().addDynamicObject(boss);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_DEFEATED");
+        boss.getState().defeated = true;
+
+        fixture.stepIdleFrames(1);
+
+        assertTrue(hasObject(Mgz2EndEggCapsuleInstance.class),
+                "The defeated boss handoff must spawn the floating egg prison in the real object loop");
+        assertTrue(hasObject(Mgz2PostBossSequenceController.class),
+                "The defeated boss handoff must leave a real post-results waiter alive");
+        PatternSpriteRenderer bossExplosionRenderer = GameServices.level()
+                .getObjectRenderManager()
+                .getBossExplosionRenderer();
+        assertNotNull(bossExplosionRenderer,
+                "MGZ2 defeat/capsule explosions need the shared boss-explosion renderer loaded");
+        assertTrue(bossExplosionRenderer.isReady(),
+                "MGZ2 defeat/capsule explosions need shared boss-explosion art cached before rendering");
+
+        int[] before = paletteLineRgb(3);
+        GameServices.gameState().setEndOfLevelFlag(true);
+        fixture.stepIdleFrames(1);
+
+        assertTrue(hasObject(Mgz2PostBossPaletteFadeController.class),
+                "When results set End_of_level_flag, the real waiter should spawn loc_6D104");
+
+        int[] after = paletteLineRgb(3);
+        for (int frame = 0; frame < 80 && java.util.Arrays.equals(before, after); frame++) {
+            fixture.stepIdleFrames(1);
+            after = paletteLineRgb(3);
+        }
+        assertNotEquals(java.util.Arrays.toString(before), java.util.Arrays.toString(after),
+                "loc_6D104 should visibly mutate Normal_palette_line_4 toward the night/CNZ fade colors");
+
+        for (int frame = 0; frame < 260 && !GameServices.level().consumeZoneActRequest(); frame++) {
+            fixture.stepIdleFrames(1);
+        }
+
+        assertEquals(Sonic3kZoneIds.ZONE_CNZ, GameServices.level().getRequestedZone(),
+                "The palette fade should finish by requesting StartNewLevel #$300");
+        assertEquals(0, GameServices.level().getRequestedAct());
+        assertTrue(GameServices.level().isLevelInactiveForTransition(),
+                "The final zone request should freeze level updates while GameLoop fades to black");
+    }
+
     private boolean isBossTransitionActive() {
         return mgzEvents().isBossTransitionDeathPlaneDisabled();
     }
@@ -221,6 +363,22 @@ class TestMgzEndBossHandoffHeadless {
         var events = ((Sonic3kLevelEventManager) provider).getMgzEvents();
         assertNotNull(events, "MGZ events should be initialized for MGZ act 2");
         return events;
+    }
+
+    private boolean hasObject(Class<?> type) {
+        return GameServices.level().getObjectManager().getActiveObjects().stream()
+                .anyMatch(type::isInstance);
+    }
+
+    private int[] paletteLineRgb(int line) {
+        var palette = GameServices.level().getCurrentLevel().getPalette(line);
+        int[] rgb = new int[16 * 3];
+        for (int i = 0; i < 16; i++) {
+            rgb[i * 3] = palette.getColor(i).r & 0xFF;
+            rgb[i * 3 + 1] = palette.getColor(i).g & 0xFF;
+            rgb[i * 3 + 2] = palette.getColor(i).b & 0xFF;
+        }
+        return rgb;
     }
 
     private static int staticInt(String fieldName) throws Exception {

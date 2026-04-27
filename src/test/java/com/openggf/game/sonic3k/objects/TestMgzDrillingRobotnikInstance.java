@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.AbstractLevelEventManager;
 import com.openggf.game.GameModule;
@@ -14,6 +16,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
@@ -22,6 +25,8 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.Tails;
 import org.mockito.MockedStatic;
 import org.mockito.InOrder;
 import org.junit.jupiter.api.AfterEach;
@@ -353,7 +358,33 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void endBossDefeatClearsBossStateAndDestroysObject() throws Exception {
+    void endBossFinalHitEntersRomDefeatWaitBeforeCapsuleHandoff() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = mock(GameStateManager.class);
+        services.withGameState(gameState);
+        MgzEndBossInstance boss = createEndBoss(services);
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_END_ACTIVE");
+
+        for (int i = 0; i < 8; i++) {
+            boss.getState().invulnerable = false;
+            boss.onPlayerAttack(null, null);
+        }
+
+        assertEquals(staticInt("ROUTINE_END_DEFEATED"), boss.getState().routine);
+        assertEquals(0x3F, getPrivateInt(boss, "waitTimer"),
+                "ROM BossDefeated primes a $3F delay before loc_694AA spawns the floating egg capsule");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(S3kBossExplosionChild.class::isInstance),
+                "The final hit should immediately create a visible explosion before the boss debris handoff");
+        assertFalse(boss.isDestroyed(),
+                "Obj_MGZEndBoss must remain alive during the Wait_FadeToLevelMusic delay");
+        verify(gameState).addScore(1000);
+        verify(gameState, never()).setCurrentBossId(0);
+    }
+
+    @Test
+    void endBossDefeatDelaySpawnsFloatingCapsuleAndClearsBossState() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         GameStateManager gameState = mock(GameStateManager.class);
         AbstractLevelEventManager levelEvents = mock(AbstractLevelEventManager.class);
@@ -363,17 +394,215 @@ class TestMgzDrillingRobotnikInstance {
         services.withGameModule(module);
         MgzEndBossInstance boss = createEndBoss(services);
         setPrivateInt(boss, "waitTimer", 0);
-        boss.getState().routine = staticInt("ROUTINE_END_ACTIVE");
+        boss.getState().routine = staticInt("ROUTINE_END_DEFEATED");
+        boss.getState().defeated = true;
 
-        for (int i = 0; i < 8; i++) {
-            boss.getState().invulnerable = false;
-            boss.onPlayerAttack(null, null);
-        }
         boss.update(1, null);
 
+        long debrisCount = services.objectManager().getActiveObjects().stream()
+                .filter(MgzEndBossDefeatDebrisChild.class::isInstance)
+                .count();
+        assertEquals(3, debrisCount,
+                "loc_6C2BE creates ChildObjDat_6D822's three MGZ boss fragments before the capsule handoff");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2EndEggCapsuleInstance.class::isInstance),
+                "MGZ2 must use the same render_flags bit-1 floating Egg Capsule path as AIZ2");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2PostBossSequenceController.class::isInstance),
+                "Obj_MGZEndBoss remains as a waiter after loc_694AA and runs loc_6D104 when results finish");
         verify(gameState).setCurrentBossId(0);
         verify(levelEvents).setBossActive(false);
-        assertTrue(boss.isDestroyed());
+        assertTrue(boss.isDestroyed(),
+                "After the capsule handoff, the Java boss object can retire while a dedicated waiter owns the fade");
+    }
+
+    @Test
+    void mgzPostBossWaiterStartsPaletteFadeAfterResultsComplete() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        Mgz2PostBossSequenceController waiter = new Mgz2PostBossSequenceController();
+        waiter.setServices(services);
+
+        waiter.update(1, null);
+
+        assertFalse(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2PostBossPaletteFadeController.class::isInstance),
+                "loc_6C2EE waits while the results flag is still active");
+
+        gameState.setEndOfLevelFlag(true);
+        waiter.update(2, null);
+
+        assertTrue(waiter.isDestroyed(),
+                "The waiter should retire after spawning loc_6D104's palette controller");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2PostBossPaletteFadeController.class::isInstance),
+                "When the results screen sets End_of_level_flag, MGZ runs loc_6D104's fade-to-CNZ controller");
+    }
+
+    @Test
+    void mgzFloatingCapsuleSpawnsNineCarryAnimalsOnOpen() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        services.withGameState(new GameStateManager());
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+
+        Method openCapsule = Aiz2EndEggCapsuleInstance.class.getDeclaredMethod("openCapsule");
+        openCapsule.setAccessible(true);
+        openCapsule.invoke(capsule);
+
+        long animalCount = services.objectManager().getActiveObjects().stream()
+                .filter(Mgz2CapsuleAnimalInstance.class::isInstance)
+                .count();
+
+        assertEquals(9, animalCount,
+                "Obj_EggCapsule ChildObjDat_86B9A creates nine animals around Sonic/Tails during the score count");
+    }
+
+    @Test
+    void mgzCarryAnimalTracksPlayerUntilResultsCompleteThenFliesLeft() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        Mgz2CapsuleAnimalInstance animal = new Mgz2CapsuleAnimalInstance(
+                new ObjectSpawn(0x3D00, 0x0620, 0x28, 0, 0, false, 0), 0, 0, 2);
+        animal.setServices(services);
+        Sonic player = new Sonic("sonic", (short) 0x3D60, (short) 0x0660);
+
+        for (int frame = 0; frame < 80; frame++) {
+            animal.update(frame + 1, player);
+        }
+
+        assertTrue(Math.abs(animal.getX() - player.getCentreX()) < 96,
+                "MGZ capsule animals should accelerate toward the carried player while results are counting");
+        int trackedX = animal.getX();
+
+        gameState.setEndOfLevelFlag(true);
+        animal.update(2, player);
+        animal.update(3, player);
+
+        assertTrue(animal.getX() < trackedX,
+                "After results clear the flag, the MGZ capsule animals leave left with the fly-off sequence");
+    }
+
+    @Test
+    void mgzCarryAnimalAcceleratesTowardPlayerInsteadOfSnappingToOrbit() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        services.withGameState(new GameStateManager());
+        Mgz2CapsuleAnimalInstance animal = new Mgz2CapsuleAnimalInstance(
+                new ObjectSpawn(0x3C00, 0x0620, 0x28, 0, 0, false, 0), 0, 0, 3);
+        animal.setServices(services);
+        Sonic player = new Sonic("sonic", (short) 0x3D60, (short) 0x0660);
+
+        animal.update(1, player);
+
+        assertEquals(0x3C00, animal.getX(),
+                "loc_868B6/sub_869F6 changes velocity first; animals should not teleport into an orbit");
+        assertEquals(0x0620, animal.getY(),
+                "MoveSprite2 applies 8.8 subpixel velocity, so the first step remains at the capsule position");
+
+        for (int frame = 0; frame < 80; frame++) {
+            animal.update(frame + 2, player);
+        }
+
+        assertTrue(animal.getX() > 0x3C00,
+                "The animal should accelerate toward Player_1.x with a capped positive x velocity");
+        assertTrue(animal.getY() > 0x0620 && animal.getY() < player.getCentreY(),
+                "The animal should accelerate toward Player_1.y - $30 - subtype rather than a sine orbit");
+    }
+
+    @Test
+    void mgzFloatingCapsuleStartsResultsDuringFlyOffWithoutFreezingPlayers() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        services.withZoneAct(2, 1);
+        SonicConfigurationService config = mock(SonicConfigurationService.class);
+        when(config.getString(SonicConfiguration.MAIN_CHARACTER_CODE)).thenReturn("sonic");
+        when(config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE)).thenReturn("tails");
+        services.withConfiguration(config);
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+        setPrivateBoolean(capsule, "opened", true);
+        setPrivateInt(capsule, "postOpenTimer", 0);
+        Sonic player = new Sonic("sonic", (short) 0x3D00, (short) 0x0660);
+        player.setAir(true);
+        player.setAnimationId(4);
+
+        capsule.update(1, player);
+
+        assertTrue(gameState.isEndOfLevelActive());
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(S3kResultsScreenObjectInstance.class::isInstance),
+                "MGZ capsule should start results while the Tails-carry/flying exit is still active");
+        assertFalse(player.isObjectControlled(),
+                "MGZ must not reuse AIZ2's victory-pose lock because Sonic/Tails keep flying during results");
+        assertFalse(player.isControlLocked());
+        assertEquals(4, player.getAnimationId());
+    }
+
+    @Test
+    void mgzResultsExitPreservesFlyOffCarryControlUntilFadeTransition() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        services.withZoneAct(2, 1);
+        SonicConfigurationService config = mock(SonicConfigurationService.class);
+        when(config.getString(SonicConfiguration.MAIN_CHARACTER_CODE)).thenReturn("sonic");
+        when(config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE)).thenReturn("tails");
+        services.withConfiguration(config);
+        Sonic player = new Sonic("sonic", (short) 0x3D00, (short) 0x0660);
+        player.setObjectControlled(true);
+        player.setControlLocked(false);
+        Tails tails = new Tails("tails", (short) 0x3D00, (short) 0x0630);
+        tails.setObjectControlled(true);
+        services.withSidekicks(java.util.List.of(tails));
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+        setPrivateBoolean(capsule, "opened", true);
+        setPrivateInt(capsule, "postOpenTimer", 0);
+        capsule.update(1, player);
+        Object result = services.objectManager().getActiveObjects().stream()
+                .filter(Mgz2ResultsScreenObjectInstance.class::isInstance)
+                .findFirst()
+                .orElseThrow();
+        setPrivateObject(result, "playerRef", player);
+
+        Method onExitReady = S3kResultsScreenObjectInstance.class.getDeclaredMethod("onExitReady");
+        onExitReady.setAccessible(true);
+        onExitReady.invoke(result);
+
+        assertTrue(gameState.isEndOfLevelFlag());
+        assertTrue(player.isObjectControlled(),
+                "MGZ results exit must not clear the Tails-carry object_control state before loc_6D104");
+        assertTrue(tails.isObjectControlled(),
+                "Tails must keep owning the carry/fly-off state while the palette fade runs");
+    }
+
+    @Test
+    void mgzPostBossPaletteFadeUsesRomRowsThenRequestsCnzAct1() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        Mgz2PostBossPaletteFadeController controller = new Mgz2PostBossPaletteFadeController();
+        controller.setServices(services);
+
+        for (int frame = 0; frame < 260 && services.requestedZone < 0; frame++) {
+            controller.update(frame, null);
+        }
+
+        assertTrue(services.paletteUpdates >= 16,
+                "loc_6D104 applies all 16 Pal_MGZFadeCNZ rows before StartNewLevel #$300");
+        assertEquals(3, services.lastPaletteIndex,
+                "Normal_palette_line_4 maps to palette line index 3");
+        assertEquals(0x00, services.firstPaletteRow[0] & 0xFF);
+        assertEquals(0x00, services.firstPaletteRow[1] & 0xFF);
+        assertEquals(0x0E, services.firstPaletteRow[2] & 0xFF);
+        assertEquals(0xCA, services.firstPaletteRow[3] & 0xFF);
+        assertEquals(3, services.requestedZone,
+                "StartNewLevel #$300 transitions from MGZ2 to CNZ1");
+        assertEquals(0, services.requestedAct);
+        assertTrue(services.deactivatedForTransition,
+                "The level should freeze while GameLoop performs the final fade-to-black transition");
+        assertTrue(controller.isDestroyed());
     }
 
     @Test
@@ -634,6 +863,18 @@ class TestMgzDrillingRobotnikInstance {
         field.setInt(target, value);
     }
 
+    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
+        Field field = findField(target.getClass(), fieldName);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
+    }
+
+    private static void setPrivateObject(Object target, String fieldName, Object value) throws Exception {
+        Field field = findField(target.getClass(), fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
     private static int getPrivateInt(Object target, String fieldName) throws Exception {
         Field field = findField(target.getClass(), fieldName);
         field.setAccessible(true);
@@ -678,6 +919,7 @@ class TestMgzDrillingRobotnikInstance {
         private final Level level;
         private final Palette paletteLine0 = new Palette();
         private final Palette paletteLine1 = new Palette();
+        private final ObjectManager objectManager;
         private final ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         private final com.openggf.level.render.PatternSpriteRenderer drillRenderer =
                 mock(com.openggf.level.render.PatternSpriteRenderer.class);
@@ -688,10 +930,20 @@ class TestMgzDrillingRobotnikInstance {
         private final Rom rom = mock(Rom.class);
         private LevelEventProvider levelEventProvider;
         private int playedSfxCount;
+        private int paletteUpdates;
+        private int lastPaletteIndex = -1;
+        private byte[] firstPaletteRow;
+        private int requestedZone = -1;
+        private int requestedAct = -1;
+        private boolean deactivatedForTransition;
+        private int romZoneId = 2;
+        private int currentAct = 1;
 
         RecordingServices(Camera camera) throws Exception {
             this.camera = camera;
             this.level = mock(Level.class);
+            this.objectManager = new ObjectManager(
+                    java.util.List.of(), null, 0, null, null, null, camera, this);
 
             byte[] normalLine = new byte[32];
             normalLine[22] = 0x00;
@@ -733,6 +985,27 @@ class TestMgzDrillingRobotnikInstance {
             return level;
         }
 
+        RecordingServices withZoneAct(int romZoneId, int currentAct) {
+            this.romZoneId = romZoneId;
+            this.currentAct = currentAct;
+            return this;
+        }
+
+        @Override
+        public int romZoneId() {
+            return romZoneId;
+        }
+
+        @Override
+        public int currentAct() {
+            return currentAct;
+        }
+
+        @Override
+        public ObjectManager objectManager() {
+            return objectManager;
+        }
+
         @Override
         public ObjectRenderManager renderManager() {
             return renderManager;
@@ -756,6 +1029,28 @@ class TestMgzDrillingRobotnikInstance {
         @Override
         public void playSfx(int soundId) {
             playedSfxCount++;
+        }
+
+        @Override
+        public void updatePalette(int paletteIndex, byte[] paletteData) {
+            paletteUpdates++;
+            lastPaletteIndex = paletteIndex;
+            if (firstPaletteRow == null) {
+                firstPaletteRow = java.util.Arrays.copyOf(paletteData, paletteData.length);
+            }
+        }
+
+        @Override
+        public void requestZoneAndAct(int zone, int act) {
+            requestedZone = zone;
+            requestedAct = act;
+        }
+
+        @Override
+        public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
+            requestedZone = zone;
+            requestedAct = act;
+            deactivatedForTransition = deactivateLevelNow;
         }
     }
 

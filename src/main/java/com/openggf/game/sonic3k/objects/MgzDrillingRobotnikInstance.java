@@ -273,6 +273,8 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private int airAttackPhase;
     private int airAttackPatternCounter;
     private int airAttackPatternOffset;
+    private S3kBossExplosionController endBossDefeatExplosionController;
+    private boolean endBossDefeatHandoffComplete;
     /** True once the 10 falling-debris chunks have been initialised (ROM: bset #7,$38). */
     private boolean fallingDebrisSpawned;
     /** 10 × 16:8 fixed-point (x, y, xVel, yVel) rows; last slot is `alive` flag. */
@@ -320,6 +322,8 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         airAttackPhase = 0;
         airAttackPatternCounter = 0;
         airAttackPatternOffset = 0;
+        endBossDefeatExplosionController = null;
+        endBossDefeatHandoffComplete = false;
         fallingDebrisSpawned = false;
     }
 
@@ -519,13 +523,75 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
                 }
             }
             case ROUTINE_END_DEFEATED -> {
-                restoreMgzPalette();
-                services().gameState().setCurrentBossId(0);
-                setGenericBossFlag(false);
-                setDestroyed(true);
+                updateEndBossDefeated();
             }
             default -> {
             }
+        }
+    }
+
+    /**
+     * ROM: final MGZ2 hit switches through Wait_FadeToLevelMusic, then
+     * loc_6C2BE/loc_694AA load the floating Egg Capsule path. The Java object
+     * retires after spawning the capsule; the capsule owns results and the
+     * MGZ-to-CNZ palette fade handoff.
+     */
+    private void updateEndBossDefeated() {
+        if (endBossDefeatExplosionController != null && !endBossDefeatExplosionController.isFinished()) {
+            endBossDefeatExplosionController.tick();
+            spawnPendingEndBossDefeatExplosions();
+        }
+
+        if (waitTimer > 0) {
+            waitTimer--;
+            return;
+        }
+
+        if (endBossDefeatHandoffComplete) {
+            return;
+        }
+        endBossDefeatHandoffComplete = true;
+        clearEndBossRuntimeState();
+        restoreLevelMusicForCapsule();
+        spawnFreeChild(Mgz2PostBossSequenceController::new);
+        spawnEndBossDefeatDebris();
+        spawnFreeChild(() -> Mgz2EndEggCapsuleInstance.createForCamera(
+                services().camera().getX(), services().camera().getY()));
+        setDestroyed(true);
+    }
+
+    private void spawnEndBossDefeatDebris() {
+        for (int i = 0; i < 3; i++) {
+            int index = i;
+            spawnChild(() -> new MgzEndBossDefeatDebrisChild(state.x, state.y, index, flipX));
+        }
+    }
+
+    private void spawnPendingEndBossDefeatExplosions() {
+        if (endBossDefeatExplosionController == null) {
+            return;
+        }
+        for (var pending : endBossDefeatExplosionController.drainPendingExplosions()) {
+            if (pending.playSfx()) {
+                services().playSfx(Sonic3kSfx.EXPLODE.id);
+            }
+            spawnChild(() -> new S3kBossExplosionChild(pending.x(), pending.y()));
+        }
+    }
+
+    private void clearEndBossRuntimeState() {
+        services().gameState().setCurrentBossId(0);
+        setGenericBossFlag(false);
+    }
+
+    private void restoreLevelMusicForCapsule() {
+        try {
+            int levelMusic = services().getCurrentLevelMusicId();
+            if (levelMusic > 0) {
+                services().playMusic(levelMusic);
+            }
+        } catch (Exception e) {
+            LOG.fine(() -> "MgzDrillingRobotnikInstance.restoreLevelMusicForCapsule: " + e.getMessage());
         }
     }
 
@@ -759,6 +825,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.MGZ_ENDBOSS);
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
             s3kProvider.ensureStandaloneArtLoaded(Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS);
+            s3kProvider.ensureBossExplosionArtLoaded();
         }
         if (services().graphicsManager() != null) {
             renderManager.ensurePatternsCached(services().graphicsManager(), OBJECT_PATTERN_BASE);
@@ -824,8 +891,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             state.invulnerabilityTimer = INVULNERABILITY_TIME;
             services().playSfx(Sonic3kSfx.BOSS_HIT.id);
             if (state.hitCount == 0 && endBossCanBeKilled()) {
-                state.defeated = true;
-                state.routine = ROUTINE_END_DEFEATED;
+                startEndBossDefeat();
             }
             return;
         }
@@ -833,6 +899,24 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         state.invulnerable = true;
         state.invulnerabilityTimer = INVULNERABILITY_TIME;
         services().playSfx(Sonic3kSfx.BOSS_HIT.id);
+    }
+
+    private void startEndBossDefeat() {
+        state.defeated = true;
+        state.routine = ROUTINE_END_DEFEATED;
+        waitTimer = 0x3F;
+        xVel = 0;
+        yVel = 0;
+        state.invulnerable = false;
+        state.invulnerabilityTimer = 0;
+        endBossDefeatHandoffComplete = false;
+        endBossDefeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0, services().rng());
+        services().playSfx(Sonic3kSfx.EXPLODE.id);
+        spawnFreeChild(() -> new S3kBossExplosionChild(state.x, state.y));
+        if (services().gameState() != null) {
+            services().gameState().addScore(1000);
+        }
+        services().fadeOutMusic();
     }
 
     /**
