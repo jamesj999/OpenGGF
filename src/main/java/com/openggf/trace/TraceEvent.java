@@ -109,6 +109,114 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame snapshot of a CNZ wire cage object's per-player state bytes
+     * plus its main status byte. Emitted by the v6.3+ S3K recorder for every
+     * OST slot containing {@code Obj_CNZWireCage} ($0001365C) on every frame.
+     *
+     * <p>Field layout matches the cage's OST offsets:
+     * <ul>
+     * <li>{@code x}/{@code y} - cage object's world position</li>
+     * <li>{@code subtype} - cage subtype byte at offset $2C (vertical extent)</li>
+     * <li>{@code status} - cage status byte at offset $2A (bit 3 = p1_standing,
+     *     bit 4 = p2_standing)</li>
+     * <li>{@code p1Phase} - per-P1 phase byte at offset $30 (sin/cos angle)</li>
+     * <li>{@code p1State} - per-P1 state byte at offset $31 (0 = capture-rotate,
+     *     1 = released-cooldown one-frame, $10 = unmounted-cooldown 16f)</li>
+     * <li>{@code p2Phase} - per-P2 phase byte at offset $34</li>
+     * <li>{@code p2State} - per-P2 state byte at offset $35</li>
+     * </ul>
+     *
+     * <p><strong>Diagnostic only:</strong> the comparator uses these to render
+     * cage state in the divergence report; engine state must NEVER be hydrated
+     * from these values.
+     */
+    record CageState(int frame, int slot, short x, short y, int subtype,
+                     int status, int p1Phase, int p1State, int p2Phase, int p2State)
+        implements TraceEvent {}
+
+    /**
+     * Per-frame summary of CNZ wire cage execution-hook hits emitted by the
+     * v6.3+ S3K recorder. Each hit records which cage-routine branch the M68K
+     * CPU entered ({@code sub_338C4} entry, {@code loc_339A0} mounted,
+     * {@code loc_33ADE} cooldown, {@code loc_33B1E} continue, {@code loc_33B62}
+     * release) along with M68K register state and the per-player state byte.
+     *
+     * <p>Used to root-cause CNZ1 trace F2222 release-cooldown divergence:
+     * ROM-side execution path proves which of {@code loc_33ADE} (button-press
+     * release) or {@code loc_33B1E} (continue ride) the cage actually took on
+     * each frame for each player, given that the engine's
+     * {@link com.openggf.game.sonic3k.objects.CnzWireCageObjectInstance} model
+     * fires Tails's release one frame ahead of ROM at this trace frame.
+     *
+     * <p><strong>Diagnostic only:</strong> never hydrated into engine state.
+     */
+    record CageExecution(int frame, java.util.List<Hit> hits)
+        implements TraceEvent {
+
+        /**
+         * Single execution-hook hit at one of the cage's branch entry points.
+         */
+        public record Hit(String branch, int pc, int cageAddr, int playerAddr,
+                          int stateAddr, int d5, int d6, int stateByte,
+                          int playerStatus, int playerObjCtrl, int cageStatus) {}
+    }
+
+    /**
+     * Per-frame snapshot of a player's interact / object_control / status state.
+     * The v6.3+ recorder fixes a long-standing bug where the field labelled
+     * {@code object_control} was actually reading the {@code status} byte
+     * (offset $2A); v6.3 splits these into separate JSON fields and parses
+     * the real {@code object_control} byte (offset $2E).
+     *
+     * <p>Field layout:
+     * <ul>
+     * <li>{@code character} - "sonic" or "tails"</li>
+     * <li>{@code interact} - {@code interact} field at offset $42 (RAM address
+     *     of last linked object)</li>
+     * <li>{@code interactSlot} - resolved OST slot index</li>
+     * <li>{@code status} - status byte at offset $2A (Status_OnObj, In_Air, ...)</li>
+     * <li>{@code statusSecondary} - status_secondary byte at offset $2B (shields,
+     *     speed shoes, invincibility)</li>
+     * <li>{@code objectControl} - object_control byte at offset $2E (cage ride
+     *     bits 1+6, CPU-blocking bit 7, jumpable bit 0)</li>
+     * </ul>
+     *
+     * <p><strong>Diagnostic only:</strong> never hydrated into engine state.
+     */
+    record InteractState(int frame, String character, int interact,
+                         int interactSlot, int status, int statusSecondary,
+                         int objectControl)
+        implements TraceEvent {}
+
+    /**
+     * Per-frame summary of all M68K writes to a player's {@code x_vel} and
+     * {@code y_vel} RAM addresses, captured by the v6.4+ S3K recorder via
+     * {@code event.onmemorywrite} hooks. Each write records the M68K PC of
+     * the writing instruction plus the resulting word value.
+     *
+     * <p>Currently emitted only for Tails ({@code character = "tails"}).
+     * Used to root-cause the CNZ1 trace F3649 divergence where ROM Tails
+     * {@code x_speed} jumps from -$48 to -$0A00 in a single frame; the
+     * engine arrives at -$0A00 only at F3650 (a 1-frame phase shift).
+     * The PC of the ROM instruction that writes -$0A00 pinpoints which
+     * code path produced the value.
+     *
+     * <p><strong>Diagnostic only:</strong> never hydrated into engine state.
+     */
+    record VelocityWrite(int frame, String character,
+                         java.util.List<Hit> xVelWrites,
+                         java.util.List<Hit> yVelWrites)
+        implements TraceEvent {
+
+        /**
+         * Single velocity-write hit. {@code pc} is the M68K program counter
+         * at the writing instruction (post-fetch); {@code value} is the full
+         * 16-bit word value of the velocity field after the write.
+         */
+        public record Hit(int pc, int value) {}
+    }
+
+    /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
      * Unknown event types are returned as StateSnapshot with all fields preserved.
      */
@@ -227,6 +335,72 @@ public sealed interface TraceEvent {
                         : 0,
                     RomObjectSnapshot.fromJsonNode(node.get("fields"))
                 );
+                case "cage_state" -> new CageState(
+                    frame,
+                    node.has("slot") ? node.get("slot").asInt() : -1,
+                    parseHexShort(node, "x"),
+                    parseHexShort(node, "y"),
+                    parseHexInt(node, "subtype"),
+                    parseHexInt(node, "status"),
+                    parseHexInt(node, "p1_phase"),
+                    parseHexInt(node, "p1_state"),
+                    parseHexInt(node, "p2_phase"),
+                    parseHexInt(node, "p2_state")
+                );
+                case "cage_execution" -> {
+                    java.util.List<CageExecution.Hit> hits = new java.util.ArrayList<>();
+                    JsonNode hitsNode = node.get("hits");
+                    if (hitsNode != null && hitsNode.isArray()) {
+                        for (JsonNode h : hitsNode) {
+                            hits.add(new CageExecution.Hit(
+                                h.has("branch") ? h.get("branch").asText() : "",
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "cage_addr"),
+                                parseHexInt(h, "player_addr"),
+                                parseHexInt(h, "state_addr"),
+                                parseHexInt(h, "d5"),
+                                parseHexInt(h, "d6"),
+                                parseHexInt(h, "state_byte"),
+                                parseHexInt(h, "player_status"),
+                                parseHexInt(h, "player_obj_ctrl"),
+                                parseHexInt(h, "cage_status")
+                            ));
+                        }
+                    }
+                    yield new CageExecution(frame, hits);
+                }
+                case "interact_state" -> new InteractState(
+                    frame,
+                    parseCharacter(node),
+                    parseHexInt(node, "interact"),
+                    node.has("interact_slot") ? node.get("interact_slot").asInt() : 0,
+                    parseHexInt(node, "status"),
+                    parseHexInt(node, "status_secondary"),
+                    parseHexInt(node, "object_control")
+                );
+                case "velocity_write" -> {
+                    java.util.List<VelocityWrite.Hit> xWrites = new java.util.ArrayList<>();
+                    JsonNode xWritesNode = node.get("x_vel_writes");
+                    if (xWritesNode != null && xWritesNode.isArray()) {
+                        for (JsonNode h : xWritesNode) {
+                            xWrites.add(new VelocityWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    java.util.List<VelocityWrite.Hit> yWrites = new java.util.ArrayList<>();
+                    JsonNode yWritesNode = node.get("y_vel_writes");
+                    if (yWritesNode != null && yWritesNode.isArray()) {
+                        for (JsonNode h : yWritesNode) {
+                            yWrites.add(new VelocityWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    yield new VelocityWrite(frame, parseCharacter(node), xWrites, yWrites);
+                }
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
                     Map<String, Object> fields = new LinkedHashMap<>();

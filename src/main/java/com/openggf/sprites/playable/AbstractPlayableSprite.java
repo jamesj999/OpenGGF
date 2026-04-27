@@ -1262,6 +1262,45 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setLatchedSolidObjectId(int latchedSolidObjectId) {
                 this.latchedSolidObjectId = latchedSolidObjectId & 0xFF;
+                if (this.latchedSolidObjectId == 0) {
+                        this.latchedSolidObjectInstance = null;
+                }
+        }
+
+        /**
+         * ROM analog: tracks the {@link com.openggf.level.objects.ObjectInstance}
+         * the sprite was last latched onto via the SolidObject framework.
+         * Used by {@link SidekickCpuController#checkDespawn()} to detect when
+         * the latched instance has been deleted (mirroring ROM
+         * {@code sub_13EFC} sonic3k.asm:26823 reading {@code (a3)=0} from a
+         * slot freed by {@code Delete_Referenced_Sprite} sonic3k.asm:36116).
+         *
+         * <p>{@code latchedSolidObjectId} is sticky across destruction
+         * (it's an 8-bit ID with no instance identity), so the instance
+         * reference is needed for unambiguous "did the actual ride disappear"
+         * detection. The reference is cleared when the controller despawns,
+         * inits, or the engine clears latched state.
+         */
+        protected com.openggf.level.objects.ObjectInstance latchedSolidObjectInstance;
+
+        public com.openggf.level.objects.ObjectInstance getLatchedSolidObjectInstance() {
+                return latchedSolidObjectInstance;
+        }
+
+        public void setLatchedSolidObjectInstance(com.openggf.level.objects.ObjectInstance instance) {
+                this.latchedSolidObjectInstance = instance;
+        }
+
+        /**
+         * Convenience: set both the latched id and instance atomically. Mirrors
+         * the engine's SolidObject paths in
+         * {@link com.openggf.level.objects.ObjectManager} that resolve a
+         * standing/touching contact and bind the sprite to the live instance.
+         */
+        public void setLatchedSolidObject(int latchedSolidObjectId,
+                        com.openggf.level.objects.ObjectInstance instance) {
+                this.latchedSolidObjectId = latchedSolidObjectId & 0xFF;
+                this.latchedSolidObjectInstance = instance;
         }
 
         /** True when {@code Player_SlopeRepel} slipped the player into air on
@@ -2149,6 +2188,25 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setObjectControlAllowsCpu(boolean objectControlAllowsCpu) {
                 this.objectControlAllowsCpu = objectControlAllowsCpu;
+        }
+
+        /**
+         * Returns true when this sprite should skip the per-frame touch-response
+         * collision pass — ROM's {@code object_control} bit-7 gate at the call
+         * sites listed in {@link com.openggf.game.PlayableEntity#isTouchResponseSuppressedByObjectControl()}.
+         * <p>
+         * The engine encodes ROM bit-7-style {@code object_control} (flight $81,
+         * super $83, despawn marker $81, debug $83) as
+         * {@code objectControlled && !objectControlAllowsCpu} (see comment block
+         * on {@link #setObjectControlAllowsCpu(boolean)}). Bits 0-6 only — e.g.
+         * CNZ wire cage's $42, MGZ twisting loop's $43 — keep
+         * {@code objectControlAllowsCpu} true so the engine still runs
+         * TouchResponse, mirroring the ROM dispatcher leaving
+         * {@code Tails_CPU_Control} active for those callers.
+         */
+        @Override
+        public boolean isTouchResponseSuppressedByObjectControl() {
+                return objectControlled && !objectControlAllowsCpu;
         }
 
         /**

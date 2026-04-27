@@ -22,6 +22,7 @@ if "%BIZHAWK_EXE%"=="" set "BIZHAWK_EXE=C:\Users\farre\IdeaProjects\sonic-engine
 set "LUA_SCRIPT=%~dp0s3k_trace_recorder.lua"
 
 set "OUTPUT_DIR=%~dp0trace_output"
+set "COMPRESS_SCRIPT=%~dp0..\traces\compress-traces.ps1"
 
 if "%~1"=="" (
     echo Usage: %~nx0 ^<rom_path^> ^<bk2_path^> [trace_profile]
@@ -92,6 +93,11 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo === Trace recording complete ===
 if exist "%OUTPUT_DIR%\metadata.json" (
+    "%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -File "%COMPRESS_SCRIPT%" "%OUTPUT_DIR%"
+    if %ERRORLEVEL% neq 0 (
+        echo Trace compression failed with error code %ERRORLEVEL%
+        exit /b %ERRORLEVEL%
+    )
     echo Output files:
     dir /b "%OUTPUT_DIR%\"
     echo.

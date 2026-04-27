@@ -79,7 +79,7 @@ public abstract class AbstractTraceReplayTest {
     /** Act index (0-based). */
     protected abstract int act();
 
-    /** Path to the trace directory containing metadata.json, physics.csv, and optionally a .bk2. */
+    /** Path to the trace directory containing metadata.json, physics.csv(.gz), and optionally a .bk2. */
     protected abstract Path traceDirectory();
 
     /** Override to supply custom tolerances. */
@@ -101,7 +101,7 @@ public abstract class AbstractTraceReplayTest {
         Path traceDir = traceDirectory();
         Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
         Assumptions.assumeTrue(Files.exists(traceDir.resolve("metadata.json")), "metadata.json not found in " + traceDir);
-        Assumptions.assumeTrue(Files.exists(traceDir.resolve("physics.csv")), "physics.csv not found in " + traceDir);
+        Assumptions.assumeTrue(hasTracePayload(traceDir, "physics.csv"), "physics.csv(.gz) not found in " + traceDir);
 
         // 1. Find BK2 file in trace directory (check before loading trace data)
         Path bk2Path = findBk2File(traceDir);
@@ -621,6 +621,11 @@ public abstract class AbstractTraceReplayTest {
         }
     }
 
+    private static boolean hasTracePayload(Path dir, String fileName) {
+        return Files.exists(dir.resolve(fileName))
+                || Files.exists(dir.resolve(fileName + ".gz"));
+    }
+
     private static String combineDiagnostics(String base, String extra) {
         if (base == null || base.isEmpty()) {
             return extra == null ? "" : extra;
@@ -739,6 +744,25 @@ public abstract class AbstractTraceReplayTest {
         boolean preserveObjectControl = cpu != null
                 && cpu.getState() == SidekickCpuController.State.SPAWNING
                 && xBeforeReseed == despawnX;
+        // S3K extension: ROM keeps object_control = $81 throughout
+        // {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474) and
+        // {@code Tails_FlySwim_Unknown} (sonic3k.asm:26534) — the only writers
+        // in those routines are the warp branch at sonic3k.asm:26511 ($81),
+        // the off-screen 5-second auto-land at sonic3k.asm:26542 ($81), and
+        // the NORMAL transition at sonic3k.asm:26632 ($00). The engine's
+        // state machine analog: CATCH_UP_FLIGHT (routine 0x02) and
+        // FLIGHT_AUTO_RECOVERY (routine 0x04) both rely on the bit-7 gate to
+        // suppress PlayableSpriteMovement physics so the controller's body
+        // can drive the steer-toward-Sonic motion via setCentreX/Y directly.
+        // Without preservation, the test hydration clears objectControlled
+        // each frame and the engine's terrain collision sets air=false on the
+        // very next physics tick — that's the CNZ1 F1043 tails_angle/air
+        // divergence introduced when applyDespawnMarker started entering
+        // CATCH_UP_FLIGHT (matching ROM's routine=2 dispatch sequence).
+        boolean flightStatePreservesObjectControl = cpu != null
+                && (cpu.getState() == SidekickCpuController.State.CATCH_UP_FLIGHT
+                        || cpu.getState() == SidekickCpuController.State.FLIGHT_AUTO_RECOVERY);
+        preserveObjectControl = preserveObjectControl || flightStatePreservesObjectControl;
         // Also preserve object_control when a per-object hook (e.g. CNZ wire
         // cage at sonic3k.asm:69921 loc_3394C) has just set bit 0 on the
         // sidekick. ROM cage's loc_339B6 (sonic3k.asm:69958) also writes
@@ -751,25 +775,110 @@ public abstract class AbstractTraceReplayTest {
         boolean cagePreserveObjectControl = sidekick.isObjectControlled()
                 && sidekick.getLatchedSolidObjectId()
                         == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_WIRE_CAGE;
-        if (!preserveObjectControl && !cagePreserveObjectControl) {
+        boolean cylinderPreserveObjectControl = sidekick.isObjectControlled()
+                && sidekick.getLatchedSolidObjectId()
+                        == com.openggf.game.sonic3k.constants.Sonic3kObjectIds.CNZ_CYLINDER;
+        if (!preserveObjectControl && !cagePreserveObjectControl
+                && !cylinderPreserveObjectControl) {
             sidekick.setObjectControlled(false);
         }
-        sidekick.setHurt(state.routine() == 0x04);
+        // Stage A reduction (research agent ab93a0947e59d62f2): eight unambiguous
+        // comparison-only-invariant violations removed here.
+        //
+        // 1) `sidekick.setHurt(state.routine() == 0x04)` was an architectural
+        //    misclassification for S3K: ROM Tails_CPU_routine value 0x04 selects
+        //    Tails_FlySwim_Unknown (sonic3k.asm:26534), the FLIGHT_AUTO_RECOVERY
+        //    leg of Tails_Catch_Up_Flying (sonic3k.asm:26474 / loc_13B50 sets
+        //    `move.w #4,(Tails_CPU_routine).w` together with `move.b #2,status`
+        //    = Status_InAir, `move.b #$81,object_control`). It is NOT a hurt
+        //    state. Removing this is a behavioural correction, not a regression.
+        //
+        // 2) `sidekick.setRolling(state.rolling())` per-frame reseed mutated the
+        //    sidekick hitbox (AbstractPlayableSprite.setRolling, lines 3098-3137,
+        //    swaps rollHeight/runHeight and runs applyRollingRadii /
+        //    applyStandingRadii) immediately after the engine collision pass had
+        //    just produced ROM-correct geometry. The engine evolves rolling
+        //    natively via PlayableSpriteMovement.doCheckStartRoll
+        //    (PlayableSpriteMovement.java:1574) and ground-mode collision, so
+        //    per-frame hydration is at best redundant and at worst a hitbox-
+        //    geometry corruption.
+        //
+        // 3) `sidekick.setOnObject((state.statusByte() & 0x08) != 0)` (Status_OnObj
+        //    = bit 3, sonic3k.constants.asm:177) is set/cleared natively by the
+        //    engine collision pass: PlayableSpriteMovement.java:342 sets it on
+        //    object-support recovery, line 642 clears it on jump (matching ROM
+        //    `bclr #Status_OnObj,obStatus(a0)` at s2.asm jump entry), and
+        //    ObjectManager solid-contact paths drive object riding. The trace's
+        //    statusByte is captured per-frame purely for comparison; reseeding
+        //    it after collision overrides ROM-correct engine output.
+        //
+        // 4) `sidekick.setRollingJump((state.statusByte() & 0x10) != 0)`
+        //    (Status_RollJump = bit 4, sonic3k.constants.asm:178) is evolved
+        //    natively: PlayableSpriteMovement.java:669 sets it when jumping
+        //    while rolling (matches `bset #Status_RollJump,status(a0)` at
+        //    sonic3k.asm:23358 / Sonic_RollJump), and lines 815, 2212 clear it
+        //    on glide activation and landing (matching ROM `bclr` at multiple
+        //    sites incl. sonic3k.asm:23403, 24368, 28663). Per-frame reseed
+        //    after the engine has already produced the ROM-correct value
+        //    cannot improve accuracy.
+        //
+        // 5) `sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()))`
+        //    is evolved natively by terrain collision (CollisionSystem.java:891
+        //    and PlayableSpriteMovement.updateGroundMode at line 2590) which
+        //    derives the four-quadrant mode from `(angle + 0x20) & 0xC0`,
+        //    matching ROM `Sonic_AnglePos` / `Sonic_DoLevelCollision`. Object
+        //    hooks (HCZTwistingLoop, ObjectManager riding paths) and the
+        //    death-reset path (AbstractPlayableSprite.java:1200) cover the
+        //    remaining ROM writes. The trace's groundMode column is comparison
+        //    context, not engine input.
+        //
+        // 6) `sidekick.setAngle(state.angle())` is set natively by terrain
+        //    collision: PlayableSpriteMovement.java:1054 (`sprite.setAngle(
+        //    floorResult.angle())` after airborne floor probe) and
+        //    PlayableSpriteMovement.java:1324, 2625, 2627 set the angle from
+        //    ground-sensor results, matching ROM `Sonic_AnglePos` (sonic3k.asm:
+        //    19568) which writes `move.b d2,angle(a0)` from the floor sensor's
+        //    sub_19798 result. The airborne return-to-zero path
+        //    (PlayableSpriteMovement.java:836: `sprite.setAngle((byte) 0)`)
+        //    matches ROM `Sonic_DoLevelCollision`. The trace's angle column is
+        //    comparison context.
+        //
+        // 7) `sidekick.setDirection(...)` derived from Status_FacingLeft (bit 0)
+        //    is set/cleared natively by sidekick logic: SidekickCpuController.java
+        //    sets direction from recorded leader history (line 497, 499, 579,
+        //    1357) — matching ROM `Tails_Control` (sonic3k.asm:25901) which
+        //    derives Tails's facing from leader-relative steering. The engine's
+        //    PlayableSpriteMovement also writes direction at lines 936, 938,
+        //    959, 961, 1183, 1354, 1395, 1409, 1469-1495, 1642, 1650, 1707,
+        //    1720, 2821-2845, 2906, 2911, 3009, 3012 (matching the multiple
+        //    `bset/bclr #Status_FacingLeft,obStatus(a0)` sites in ROM
+        //    Sonic_MoveLeft / Sonic_MoveRight / sonic3k.asm:23070, 23078).
+        //    Per-frame reseed of the bit-0 derivation cannot improve accuracy.
+        //
+        // 8) `sidekick.setAir(state.air())` is set/cleared natively by the
+        //    engine collision pass: PlayableSpriteMovement.java:341 clears it
+        //    on landing (matches ROM `bclr #Status_InAir,obStatus(a0)`),
+        //    line 656 sets it on jump entry (matches ROM `bset #Status_InAir`),
+        //    line 976/984 clears it on landing recovery, lines 1049, 1189,
+        //    1944, 1958, 2332 set it on airborne entries, and the death/object
+        //    handlers also drive it. Crucially, `setAir(false)` triggers
+        //    landing cleanup (AbstractPlayableSprite.java:1165 — clears hurt,
+        //    rolling jump, jumping, double-jump flags, applies standing radii).
+        //    Reseeding `air` from the trace each frame after the engine has
+        //    already evolved this state from terrain collision is at best
+        //    redundant and at worst replays the landing-cleanup side effects
+        //    inappropriately. The trace's air column is comparison context.
+        //
+        // All eight removals align with the comparison-only invariant
+        // (.claude/skills/trace-replay-bug-fixing/skill.md): trace data is
+        // read-only diagnostic input — engine state is never hydrated from the
+        // trace in committed test code.
         sidekick.setCentreX(state.x());
         sidekick.setCentreY(state.y());
         sidekick.setXSpeed(state.xSpeed());
         sidekick.setYSpeed(state.ySpeed());
         sidekick.setGSpeed(state.gSpeed());
-        sidekick.setAngle(state.angle());
-        sidekick.setDirection((state.statusByte() & 0x01) != 0
-                ? com.openggf.physics.Direction.LEFT
-                : com.openggf.physics.Direction.RIGHT);
-        sidekick.setAir(state.air());
-        sidekick.setRolling(state.rolling());
-        sidekick.setOnObject((state.statusByte() & 0x08) != 0);
-        sidekick.setRollingJump((state.statusByte() & 0x10) != 0);
         sidekick.setPushing((state.statusByte() & 0x20) != 0);
-        sidekick.setGroundMode(groundModeFromOrdinal(state.groundMode()));
         sidekick.setSubpixelRaw(state.xSub(), state.ySub());
         sidekick.resetPositionHistory();
 
@@ -777,14 +886,6 @@ public abstract class AbstractTraceReplayTest {
         // Sonic+Tails carry is driven by the sidekick CPU routine; the trace
         // state supplies frame-boundary position/speed, not a replacement CPU
         // routine stream.
-    }
-
-    private static GroundMode groundModeFromOrdinal(int ordinal) {
-        GroundMode[] values = GroundMode.values();
-        if (ordinal < 0 || ordinal >= values.length) {
-            return GroundMode.GROUND;
-        }
-        return values[ordinal];
     }
 
     private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {

@@ -146,6 +146,14 @@ final class AizVineHandleLogic {
         //   move.b #3, object_control(a1)
         //   andi.b #$FD, render_flags(a1)
         //   move.b #1, (a2)
+        // ROM writes object_control = 3 (bits 0+1, NOT bit 7). The dispatcher's
+        // bit-7 gates therefore stay clear: Sonic_Control's input mirror keeps
+        // running, Tails_CPU_Control still sees the leader as "free" (sonic3k.asm:
+        // 26481-26482 bmi.w branch in Tails_Catch_Up_Flying only fires when bit 7
+        // is set), and the per-frame TouchResponse pass is not suppressed.
+        // Engine analog: keep objectControlAllowsCpu=true so the SidekickCpuController
+        // NORMAL/CATCH_UP_FLIGHT bit-7 gates evaluate the same way ROM's bmi.w does.
+        player.setObjectControlAllowsCpu(true);
         // No Ctrl_1_locked write. ROM Sonic_Control still runs the input
         // mirror (sonic3k.asm:21970 loc_10BF0 → move.w (Ctrl_1).w,
         // (Ctrl_1_logical).w), so Sonic_RecordPos at sonic3k.asm:22132

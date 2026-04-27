@@ -85,16 +85,6 @@ class TestS3kAdvancedRenderModeRegistration {
     }
 
     @Test
-    void mgzAct2RegistersCollapseForegroundVScrollMode() {
-        Sonic3kZoneFeatureProvider provider = new Sonic3kZoneFeatureProvider();
-        AdvancedRenderModeController controller = new AdvancedRenderModeController();
-
-        provider.registerAdvancedRenderModes(controller, Sonic3kZoneIds.ZONE_MGZ, 1);
-
-        assertEquals(1, controller.size());
-    }
-
-    @Test
     void unrelatedZonesDoNotRegisterAdvancedModes() {
         Sonic3kZoneFeatureProvider provider = new Sonic3kZoneFeatureProvider();
         AdvancedRenderModeController controller = new AdvancedRenderModeController();

@@ -175,11 +175,6 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
     @Override
     public int getY() { return 0; }
 
-    @Override
-    public boolean isPersistent() {
-        return true;
-    }
-
     public int getSecondaryCameraX() {
         return shipXFixed >> 16;
     }

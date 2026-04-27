@@ -148,15 +148,13 @@ class TestSonic3kMgz2BgRiseEvents {
     }
 
     @Test
-    void sonicRise_writesCameraMinXWithoutChangingTargetWhenMotionActuallyStarts() {
+    void sonicRise_locksCameraMinXWhenMotionActuallyStarts() {
         AbstractPlayableSprite player = placePlayer(0x3500, 0x850);
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();
         events.init(1);
         tick(events, 0);
 
         Camera camera = GameServices.camera();
-        camera.setMinX((short) 0);
-        camera.setMinXTarget((short) 0);
         camera.setX((short) 0x36F0);
         player.setCentreX((short) 0x3701);
         player.setCentreY((short) 0x0A81);
@@ -165,8 +163,8 @@ class TestSonic3kMgz2BgRiseEvents {
 
         assertEquals((short) 0x36F0, camera.getMinX(),
                 "starting the MGZ2 floor rise should immediately lock camera minX to the live camera position");
-        assertEquals((short) 0, camera.getMinXTarget(),
-                "ROM Obj_MGZ2BGMoveSonic writes Camera_min_X_pos only, leaving Camera_target_min_X_pos open");
+        assertEquals((short) 0x36F0, camera.getMinXTarget(),
+                "starting the MGZ2 floor rise should also latch the minX target, matching Camera_target_min_X_pos");
     }
 
     @Test

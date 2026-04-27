@@ -67,6 +67,34 @@ public interface PlayableEntity {
     int getAnimationId();
 
     /**
+     * Returns whether this player's {@code object_control} byte should
+     * suppress the per-frame touch-response collision pass.
+     * <p>
+     * ROM gates (all three games) skip {@code jsr (TouchResponse).l} when the
+     * sign bit ({@code bit 7}, {@code $80}) of {@code object_control} is set,
+     * via {@code tst.b obj_control(a0); bmi.s +} (S1/S2) or via the
+     * {@code andi.b #$A0,d0; bne.s +} test (S3K — also catches bit 5):
+     * <ul>
+     *   <li>S1: {@code _incObj/01 Sonic.asm:88-89}
+     *       ({@code tst.b f_playerctrl; bmi.s .ignoreobjcoll}).</li>
+     *   <li>S2: {@code s2.asm:35962-35964}
+     *       ({@code tst.b obj_control(a0); bmi.s +; jsr (TouchResponse).l}).</li>
+     *   <li>S3K: {@code sonic3k.asm:22019-22021} (Sonic_Display) and
+     *       {@code sonic3k.asm:26263-26266} (Tails_Display) — both use
+     *       {@code andi.b #$A0,d0; bne.s ...}.</li>
+     * </ul>
+     * In practice ROM only ever sets the sign bit (values {@code $81}/{@code $83}
+     * for flight/CATCH_UP_FLIGHT/FLIGHT_AUTO_RECOVERY/super/debug); the engine
+     * mirrors this via {@code isObjectControlled() && !isObjectControlAllowsCpu()}
+     * in {@link com.openggf.sprites.playable.AbstractPlayableSprite}.
+     * <p>
+     * Default {@code false} for non-sprite implementations.
+     */
+    default boolean isTouchResponseSuppressedByObjectControl() {
+        return false;
+    }
+
+    /**
      * Forces the animation system to restart the current animation script.
      * ROM equivalent: clearing prev_anim to trigger anim != prev_anim on next frame.
      */

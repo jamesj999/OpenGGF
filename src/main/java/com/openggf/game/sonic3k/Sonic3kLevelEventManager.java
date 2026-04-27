@@ -695,9 +695,6 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
      */
     @Override
     public boolean interceptPitDeath(AbstractPlayableSprite player) {
-        if (mgzEvents != null && mgzEvents.isBossTransitionDeathPlaneDisabled()) {
-            return true;
-        }
         if (isInBonusStage()) {
             // Trigger bonus stage exit if player has fallen out of the arena
             com.openggf.game.BonusStageProvider provider =

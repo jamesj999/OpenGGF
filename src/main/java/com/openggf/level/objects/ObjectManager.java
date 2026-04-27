@@ -484,7 +484,7 @@ public class ObjectManager {
                     if (spawn != null) {
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
-                        placement.removeFromActive(spawn);
+                        dispatchDestroyRemoveFromActive(instance, spawn);
                         removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
@@ -524,7 +524,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
@@ -538,7 +538,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
@@ -636,7 +636,7 @@ public class ObjectManager {
                     if (spawn != null) {
                         freeAllReservedChildSlots(spawn);
                         placement.clearStayActive(spawn);
-                        placement.removeFromActive(spawn);
+                        dispatchDestroyRemoveFromActive(instance, spawn);
                         removeActiveObject(spawn);
                     } else {
                         dynamicObjects.remove(instance);
@@ -681,7 +681,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                     continue;
@@ -696,7 +696,7 @@ public class ObjectManager {
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(spawn);
-                    placement.removeFromActive(spawn);
+                    dispatchDestroyRemoveFromActive(inst, spawn);
                     removeActiveObject(spawn);
                     objectsRemoved = true;
                 }
@@ -1837,6 +1837,33 @@ public class ObjectManager {
         int screenRounded = (cameraX - 128) & 0xFF80;
         int distance = (objRounded - screenRounded) & 0xFFFF;
         return distance > 640;
+    }
+
+    /**
+     * ROM parity dispatcher for the destroy-from-active path.
+     *
+     * <p>When an object self-destroys via an off-screen check
+     * (Sprite_OnScreen_Test family in sonic3k.asm -- see loc_1B5A0 at
+     * sonic3k.asm:37271), ROM clears bit 7 of the respawn-table entry
+     * ({@code bclr #7,(a2)} at sonic3k.asm:37275) so the placement system
+     * can re-spawn the object when the camera returns. The engine mirrors
+     * this by routing those destroys to {@link Placement#removeFromActiveForUnload}
+     * which leaves {@code destroyedInWindow} cleared.
+     *
+     * <p>All other destroy reasons (player kills via Touch_EnemyNormal /
+     * Obj_Explosion, monitor breaks, etc.) latch through
+     * {@link Placement#removeFromActive} so {@code permanentDestroyLatch}
+     * (S3K) can lock the spawn out for the rest of the level. This matches
+     * ROM's loc_1BA40 / loc_1BA64 pattern where bit 7 stays set after
+     * routing through {@code Delete_Current_Sprite} without going through
+     * Sprite_OnScreen_Test.
+     */
+    private void dispatchDestroyRemoveFromActive(ObjectInstance instance, ObjectSpawn spawn) {
+        if (instance.isDestroyedRespawnable()) {
+            placement.removeFromActiveForUnload(spawn);
+        } else {
+            placement.removeFromActive(spawn);
+        }
     }
 
     private boolean unloadCounterBasedOutOfRange(ObjectInstance instance, ObjectSpawn spawn,
@@ -3308,6 +3335,20 @@ public class ObjectManager {
                 return;
             }
 
+            // ROM Sonic_Display (sonic3k.asm:22019-22021) and S2/S1 equivalents
+            // skip TouchResponse when object_control's bit 7 (or $A0 in S3K) is
+            // set — i.e. flight/CATCH_UP_FLIGHT/FLIGHT_AUTO_RECOVERY/super/debug
+            // states where the controlling object owns the sprite. Without this
+            // gate, balloons and other touch objects fire false positives
+            // against a sprite that ROM never collides during these states.
+            // See PlayableEntity#isTouchResponseSuppressedByObjectControl() for
+            // the cross-game ROM citations.
+            if (player.isTouchResponseSuppressedByObjectControl()) {
+                overlapping.clear();
+                debugState.clear();
+                return;
+            }
+
             int playerX = player.getCentreX() - 8;
             int baseYRadius = Math.max(1, player.getYRadius() - 3);
             // ROM: playerY = y_pos - (y_radius - 3). Do NOT subtract 8 from Y (only X).
@@ -3377,6 +3418,20 @@ public class ObjectManager {
                 return;
             }
 
+            // ROM Tails_Display (sonic3k.asm:26263-26266) and S2/S1 equivalents
+            // skip TouchResponse when object_control's bit 7 (or $A0 in S3K) is
+            // set. For S3K this is critical for Tails_CPU_routine 2/4
+            // (Tails_Catch_Up_Flying / Tails_FlySwim_Unknown) which ROM enters
+            // with object_control=$81 (sonic3k.asm:26511, 26542) — both
+            // routines run from Tails_CPU_Control, NOT from Tails_Display, so
+            // ROM never reaches the TouchResponse call in those states. Engine
+            // must mirror the skip to avoid balloon/spike/etc. false-positive
+            // collisions during catch-up flight.
+            if (sidekick.isTouchResponseSuppressedByObjectControl()) {
+                buffers.overlapping.clear();
+                return;
+            }
+
             int playerX = sidekick.getCentreX() - 8;
             int baseYRadius = Math.max(1, sidekick.getYRadius() - 3);
             int playerY = sidekick.getCentreY() - baseYRadius;
@@ -3425,18 +3480,6 @@ public class ObjectManager {
                     continue;
                 }
 
-                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
-                // for each object. If obRender bit 7 is clear (object not yet displayed
-                // by DisplaySprite), the entire object is skipped. This must also apply
-                // to engine-side multi-region composites that stand in for ROM child
-                // objects.
-                if (instance.isSkipSolidContactThisFrame()) {
-                    continue;
-                }
-                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
-                    continue;
-                }
-
                 // Multi-region providers (e.g., spiked pole helix) check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
@@ -3449,6 +3492,19 @@ public class ObjectManager {
                     continue;
                 }
 
+                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
+                // for each object. If obRender bit 7 is clear (object not yet displayed
+                // by DisplaySprite), the entire object is skipped. This covers:
+                // (a) First-frame objects whose DisplaySprite hasn't run yet
+                // (b) Objects that were offscreen on the previous frame
+                // (c) Objects created by higher-slot makers that haven't run yet
+                // Use isOnScreen() as the engine's equivalent of obRender bit 7.
+                if (instance.isSkipSolidContactThisFrame()) {
+                    continue;
+                }
+                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
+                    continue;
+                }
                 int flags;
                 if (usePreUpdateState) {
                     int preFlags = instance.getPreUpdateCollisionFlags();
@@ -3497,8 +3553,7 @@ public class ObjectManager {
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(
-                            sizeIndex, width, height, category, provider.getShieldReactionFlags());
+                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     if (isSidekick) {
                         handleTouchResponseSidekick(player, instance, listener, result);
@@ -3535,11 +3590,6 @@ public class ObjectManager {
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags, provider);
-                if (category == TouchCategory.HURT
-                        && tryShieldDeflectRegion(player, provider, region.x(), region.y(),
-                        width, height, region.shieldReactionFlags())) {
-                    continue;
-                }
 
                 boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
                         region.x(), region.y(), width, height, playerWidth);
@@ -3554,8 +3604,7 @@ public class ObjectManager {
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(
-                            sizeIndex, width, height, category, region.shieldReactionFlags());
+                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
                     if (isSidekick) {
                         handleTouchResponseSidekick(player, instance, listener, result);
@@ -3584,25 +3633,6 @@ public class ObjectManager {
             int shieldTop = player.getCentreY() - SHIELD_TOUCH_HALF_SIZE;
             boolean overlap = isRectOverlapping(shieldLeft, shieldTop, SHIELD_TOUCH_SIZE, SHIELD_TOUCH_SIZE,
                     instance.getX(), instance.getY(), objectWidth, objectHeight);
-            if (!overlap) {
-                return false;
-            }
-            return provider.onShieldDeflect(player);
-        }
-
-        private boolean tryShieldDeflectRegion(PlayableEntity player, TouchResponseProvider provider,
-                int regionX, int regionY, int objectWidth, int objectHeight, int shieldReactionFlags) {
-            if (player == null || !player.hasShield()) {
-                return false;
-            }
-            if ((shieldReactionFlags & SHIELD_REACTION_BOUNCE_BIT) == 0) {
-                return false;
-            }
-
-            int shieldLeft = player.getCentreX() - SHIELD_TOUCH_HALF_SIZE;
-            int shieldTop = player.getCentreY() - SHIELD_TOUCH_HALF_SIZE;
-            boolean overlap = isRectOverlapping(shieldLeft, shieldTop, SHIELD_TOUCH_SIZE, SHIELD_TOUCH_SIZE,
-                    regionX, regionY, objectWidth, objectHeight);
             if (!overlap) {
                 return false;
             }
@@ -3797,7 +3827,7 @@ public class ObjectManager {
             }
 
             switch (result.category()) {
-                case HURT -> applyHurt(player, instance, result);
+                case HURT -> applyHurt(player, instance);
                 case ENEMY -> {
                     if (isPlayerAttacking(player, instance)) {
                         // ROM: Touch_Enemy_Part2 checks collision_property BEFORE decrementing HP.
@@ -3822,7 +3852,7 @@ public class ObjectManager {
                             applyEnemyBounce(player, instance);
                         }
                     } else {
-                        applyHurt(player, instance, result);
+                        applyHurt(player, instance);
                     }
                 }
                 case SPECIAL -> {
@@ -3835,7 +3865,7 @@ public class ObjectManager {
                         }
                         applyBossBounce(player);
                     } else {
-                        applyHurt(player, instance, result);
+                        applyHurt(player, instance);
                     }
                 }
             }
@@ -3931,7 +3961,7 @@ public class ObjectManager {
             }
         }
 
-        private void applyHurt(PlayableEntity player, ObjectInstance instance, TouchResponseResult result) {
+        private void applyHurt(PlayableEntity player, ObjectInstance instance) {
             if (player.getInvulnerable()) {
                 return;
             }
@@ -3946,7 +3976,8 @@ public class ObjectManager {
             boolean spikeHit = instance != null && instance.getSpawn().objectId() == 0x36;
 
             // S3K shield_reaction bit 4: fire shield blocks fire damage
-            boolean fireHit = !spikeHit && (result.shieldReactionFlags() & 0x10) != 0;
+            boolean fireHit = !spikeHit && instance instanceof TouchResponseProvider trp
+                    && (trp.getShieldReactionFlags() & 0x10) != 0;
 
             DamageCause cause = spikeHit
                     ? DamageCause.SPIKE
@@ -4197,6 +4228,24 @@ public class ObjectManager {
                 return;
             }
             if (!inlineSupportedPlayers.contains(player)) {
+                // ROM parity: Status_OnObj is set by an interactive controller
+                // (e.g. CNZ wire cage sub_33C34 at sonic3k.asm:70179 `bset #Status_OnObj,status(a1)`)
+                // and stays set across frames until the controller itself clears it
+                // (cage does so at loc_33A0E line 69989 `bclr #Status_OnObj,status(a1)`).
+                // The engine SolidContacts ridingStates only tracks players riding
+                // SolidObjectProvider instances; non-solid latch-and-own controllers
+                // (CnzWireCageObjectInstance, CnzBarberPoleObjectInstance) record
+                // their grip via setLatchedSolidObjectId(spawnId), but the
+                // SolidContacts inlineSupportedPlayers set never gains the player
+                // because no SolidObject is in play. Without honouring that signal,
+                // finalizeInlinePlayer would clear OnObject every frame and the
+                // sidekick CPU controller (sonic3k.asm:26690 loc_13DA6 reads
+                // Sonic.Status_OnObj when computing leadOffset) would mis-trigger
+                // the auto-jump path. Skip the clear when a latch is active.
+                if (player instanceof AbstractPlayableSprite aps
+                        && aps.getLatchedSolidObjectId() != 0) {
+                    return;
+                }
                 boolean forceAir = forceAirOnStaleSupportLoss.remove(player);
                 ridingStates.remove(player);
                 player.setOnObject(false);
@@ -4398,8 +4447,30 @@ public class ObjectManager {
             // AIZ trace replay F2919 horizontal spring at (0x1F39, 0x04A0)
             // failed to launch Tails because the spring's bounding box sits
             // ~0xAA px below the camera viewport at that frame.
+            //
+            // Top-only opt-out: ROM SolidObjectTop_1P (sonic3k.asm:41793-41819),
+            // SolidObjectTopSloped_1P (sonic3k.asm:41887-41914), and
+            // SolidObjectTopSloped2_1P (sonic3k.asm:41840-41867) ALL bypass
+            // loc_1DF88 entirely.  When the player isn't yet standing
+            // (d6,status(a0) clear), they branch directly into SolidObjCheckSloped /
+            // SolidObjCheckSloped2 / loc_1E42E (sonic3k.asm:42071, 42095, 41982)
+            // which do NOT test render_flags(a0). The same pattern holds in S2:
+            // SlopedSolid_SingleCharacter (s2.asm:34927-34952) jumps to
+            // SlopedSolid_cont (s2.asm:35066) without any on-screen test, and
+            // the inline-MvSonicOnPtfm SolidObject45_alt path (s2.asm:35040)
+            // also bypasses it.  The on-screen optimisation in ROM
+            // ("if Sonic outruns the screen he can phase through solid objects")
+            // exists only on the side-resolution path, not on the top-landing
+            // path that AIZ collapsing platforms use.  Without this opt-out the
+            // AIZ trace F6255 collapsing platform at (0x08B0, 0x0369) -- whose
+            // 0x78-px-wide bbox right edge (0x090C) sits 0xD5 px past the
+            // camera left edge (0x985) when Tails should land on it -- never
+            // gets a STANDING contact for Tails, so setLatchedSolidObject for
+            // slot 16 never fires and the freed-slot despawn cannot trigger.
+            boolean topOnlyBypassesOffscreenGate = provider.isTopSolidOnly();
             if (isSolidObjectOffscreenGateEnabled(player)
                     && !provider.bypassesOffscreenSolidGate()
+                    && !topOnlyBypassesOffscreenGate
                     && !instance.isWithinSolidContactBounds()) {
                 // ROM sub_1E0C2 (sonic3k.asm:41528-41532): off-screen / no-contact
                 // path clears the player's push status and the object's pushing-bit
@@ -4434,7 +4505,7 @@ public class ObjectManager {
             if ((contact.standing() || contact.touchTop())
                     && instance.getSpawn() != null
                     && player instanceof AbstractPlayableSprite sprite) {
-                sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
             }
             if (contact.pushing()) {
                 player.setPushing(true);
@@ -5069,7 +5140,7 @@ public class ObjectManager {
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
-                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                    sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
                 }
                 if (contact.pushing()) {
                     player.setPushing(true);
@@ -5152,7 +5223,7 @@ public class ObjectManager {
                 if ((contact.standing() || contact.touchTop())
                         && instance.getSpawn() != null
                         && player instanceof AbstractPlayableSprite sprite) {
-                    sprite.setLatchedSolidObjectId(instance.getSpawn().objectId());
+                    sprite.setLatchedSolidObject(instance.getSpawn().objectId(), instance);
                 }
 
                 if (contact.standing()) {

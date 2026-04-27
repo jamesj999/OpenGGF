@@ -4578,13 +4578,40 @@ public class LevelManager {
                             .musicOverrideId(request.musicOverrideId())
                             .build();
                     executeActTransition(adjusted);
+                    advanceFrameCounterAcrossSeamlessReload();
                 }
-                case RELOAD_TARGET_LEVEL -> executeActTransition(request);
+                case RELOAD_TARGET_LEVEL -> {
+                    executeActTransition(request);
+                    advanceFrameCounterAcrossSeamlessReload();
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to apply seamless transition", e);
         } finally {
             transitions.setLevelInactiveForTransition(false);
+        }
+    }
+
+    /**
+     * ROM {@code Level_frame_counter} (incremented in VInt_0_Main every gameplay
+     * frame) keeps ticking through the act-reload frame; the engine's
+     * {@code GameLoop} and headless test runner both {@code return} after
+     * applying a seamless reload transition, skipping
+     * {@code SpriteManager.update()} (which is where
+     * {@code SpriteManager.frameCounter} normally increments). Bump it
+     * explicitly here so sidekick AI gates that read
+     * {@code (Level_frame_counter & MASK)} — e.g. sonic3k.asm:26775 loc_13E9C
+     * 64-frame jump-cadence check — fire on the same frames as the ROM after
+     * AIZ act 1 → act 2 reload.
+     *
+     * <p>Only applies to RELOAD transitions: MUTATE_ONLY runs in places
+     * (e.g. AIZ1 fire-transition art overlay) that may execute mid-frame
+     * without skipping the rest of the gameplay loop.
+     */
+    private void advanceFrameCounterAcrossSeamlessReload() {
+        SpriteManager spriteManager = GameServices.spritesOrNull();
+        if (spriteManager != null) {
+            spriteManager.setFrameCounter(spriteManager.getFrameCounter() + 1);
         }
     }
 

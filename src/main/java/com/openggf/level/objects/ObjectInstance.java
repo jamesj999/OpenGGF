@@ -135,6 +135,21 @@ public interface ObjectInstance {
     boolean isDestroyed();
 
     /**
+     * ROM parity: true when this destroy was triggered by an off-screen check
+     * (Sprite_OnScreen_Test family in sonic3k.asm). ROM clears bit 7 of the
+     * respawn-table entry ({@code bclr #7,(a2)} at loc_1B5A0 / sonic3k.asm:37275)
+     * so the placement system can re-spawn the object when the camera returns.
+     * Implementors that mark themselves destroyed via off-screen self-delete
+     * must override and return {@code true}; the placement layer routes those
+     * spawns to {@code removeFromActiveForUnload} (no permanent latch) instead
+     * of {@code removeFromActive} (latched, models player-kill explosions
+     * where ROM never clears the respawn bit).
+     */
+    default boolean isDestroyedRespawnable() {
+        return false;
+    }
+
+    /**
      * Returns true if this object should remain active even when its spawn position
      * is outside the camera window. Used by objects like spin tubes that need to
      * continue controlling the player after they've moved far from the object's origin.

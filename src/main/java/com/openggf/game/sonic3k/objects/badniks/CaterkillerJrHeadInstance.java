@@ -56,22 +56,24 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
         initSwingPhase1();
     }
 
-    private void spawnBodySegments() {
-        ObjectManager objectManager = services().objectManager();
-
-        for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
-            CaterkillerJrBodyInstance segment = new CaterkillerJrBodyInstance(
-                    spawn, i, SEGMENT_WAIT_DELAYS[i]);
-            bodySegments.add(segment);
-            objectManager.addDynamicObject(segment);
-        }
-        bodySpawned = true;
-    }
-
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) return;
+
+        // Obj_WaitOffscreen parity: ROM Obj_CaterKillerJr (sonic3k.asm:183317-183323)
+        // begins with `jsr (Obj_WaitOffscreen).l`. Obj_WaitOffscreen
+        // (sonic3k.asm:180266-180297) suppresses all logic every frame until
+        // render_flags bit 7 (on-screen X) is set; until then it draws the
+        // offscreen indicator and returns. The cursor advance allocates the
+        // slot at the chunk transition (~0x40 frames before camera reaches
+        // the spawn x), but the active state is gated by on-screen visibility.
+        // Without this guard the engine activates the caterkiller as soon as
+        // it enters the spawn window, which causes its position to drift
+        // ~41 px further left than ROM by the time Sonic encounters it
+        // (AIZ trace F6066 hurt-Sonic divergence).
+        if (!isOnScreenX()) return;
+
         if (!bodySpawned) spawnBodySegments();
 
         boolean shouldMove = switch (phase) {
@@ -82,6 +84,18 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
         if (shouldMove) {
             moveWithVelocity();
         }
+    }
+
+    private void spawnBodySegments() {
+        ObjectManager objectManager = services().objectManager();
+
+        for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
+            CaterkillerJrBodyInstance segment = new CaterkillerJrBodyInstance(
+                    spawn, i, SEGMENT_WAIT_DELAYS[i]);
+            bodySegments.add(segment);
+            objectManager.addDynamicObject(segment);
+        }
+        bodySpawned = true;
     }
 
     /** Routine 4: swing with counter. Skip movement on transition to phase 2. */

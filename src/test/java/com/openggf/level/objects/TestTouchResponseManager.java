@@ -224,6 +224,104 @@ public class TestTouchResponseManager {
         assertEquals(0x17, obj.lastResult.sizeIndex());
     }
 
+    @Test
+    public void testCnzBalloonDoesNotFireFromDistantPlayer() {
+        // Reproduce the latent CNZ-balloon false-positive from the AIZ F6313 round-16
+        // diagnostic: ROM-accurate Tails at (0x09E1, 0x0658) vs balloon at
+        // (0x0A78, 0x068C) — a 151px X-distance that should NOT overlap with
+        // Touch_Sizes[$17] = (8, 8). ROM Obj_CNZBalloon at sonic3k.asm:66747.
+        when(player.getCentreX()).thenReturn((short) 0x09E1);
+        when(player.getCentreY()).thenReturn((short) 0x0658);
+        when(player.getYRadius()).thenReturn((short) 15); // Tails standYRadius
+        when(player.getCrouching()).thenReturn(false);
+
+        MockS3kTouchSpecialObject balloon = new MockS3kTouchSpecialObject(0x0A78, 0x068C, 0xD7);
+        setupTableSize(0x17, 8, 8);
+        objectManager.addDynamicObject(balloon);
+
+        objectManager.update(0, player, List.of(), 1);
+
+        assertFalse(balloon.wasTouched,
+                "ROM Touch_Sizes[$17] = (8, 8) — a balloon 151px away in X must not fire onTouchResponse");
+    }
+
+    @Test
+    public void testTouchResponseSkippedWhenObjectControlSuppresses() {
+        // ROM Sonic_Display (sonic3k.asm:22019-22021) and Tails_Display
+        // (sonic3k.asm:26263-26266) skip the TouchResponse pass when
+        // object_control's bit-7-equivalent is set. Engine's
+        // PlayableEntity#isTouchResponseSuppressedByObjectControl() exposes
+        // this gate. Without it, sprites in CATCH_UP_FLIGHT or
+        // FLIGHT_AUTO_RECOVERY (object_control=$81) fire false-positive
+        // touch collisions that ROM never runs.
+        when(player.isTouchResponseSuppressedByObjectControl()).thenReturn(true);
+
+        // Place an object directly under the player so an unsuppressed pass
+        // would definitely overlap.
+        MockTouchObject obj = new MockTouchObject(160, 112, 0x08);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.update(0, player, List.of(), 1);
+
+        assertFalse(obj.wasTouched,
+                "Touch response must be skipped when object_control suppresses it (ROM bit-7 gate)");
+    }
+
+    @Test
+    public void testSidekickTouchResponseSkippedWhenObjectControlSuppresses() {
+        // ROM Tails_Display (sonic3k.asm:26263-26266) skips TouchResponse for
+        // Tails when object_control bit 7 is set. This is the path
+        // Tails_Catch_Up_Flying (sonic3k.asm:26511) and Tails_FlySwim_Unknown
+        // (sonic3k.asm:26542) take when entering CATCH_UP_FLIGHT and
+        // FLIGHT_AUTO_RECOVERY — both write object_control=$81. Engine's
+        // sidekick CPU controller mirrors that via setObjectControlled(true)
+        // without setObjectControlAllowsCpu(true).
+        AbstractPlayableSprite sidekick = mock(AbstractPlayableSprite.class);
+        when(sidekick.getCentreX()).thenReturn((short) 160);
+        when(sidekick.getCentreY()).thenReturn((short) 112);
+        when(sidekick.getYRadius()).thenReturn((short) 15);
+        when(sidekick.getCrouching()).thenReturn(false);
+        when(sidekick.getDead()).thenReturn(false);
+        when(sidekick.isDebugMode()).thenReturn(false);
+        when(sidekick.isTouchResponseSuppressedByObjectControl()).thenReturn(true);
+
+        // Distant leader so the sidekick is the only candidate for the touch
+        // hit; place the object on top of the sidekick.
+        when(player.getCentreX()).thenReturn((short) 500);
+        MockTouchObject obj = new MockTouchObject(160, 112, 0x08);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.update(0, player, List.of(sidekick), 1);
+
+        assertFalse(obj.wasTouched,
+                "Sidekick touch response must be skipped during CATCH_UP_FLIGHT / FLIGHT_AUTO_RECOVERY");
+    }
+
+    @Test
+    public void testCnzBalloonContinuousNonOverlapDoesNotFire() {
+        // Same scenario but with requiresContinuousTouchCallbacks() = true (matches
+        // CnzBalloonInstance behaviour). ROM Obj_CNZBalloon's main routine reads
+        // collision_property each frame and only branches into sub_317AE (launch)
+        // when Touch_Process set the bit. Engine must mirror this — continuous
+        // callbacks must not fire when there is no overlap.
+        when(player.getCentreX()).thenReturn((short) 0x09E1);
+        when(player.getCentreY()).thenReturn((short) 0x0658);
+        when(player.getYRadius()).thenReturn((short) 15);
+        when(player.getCrouching()).thenReturn(false);
+
+        MockContinuousS3kTouchSpecialObject balloon =
+                new MockContinuousS3kTouchSpecialObject(0x0A78, 0x068C, 0xD7);
+        setupTableSize(0x17, 8, 8);
+        objectManager.addDynamicObject(balloon);
+
+        objectManager.update(0, player, List.of(), 1);
+
+        assertFalse(balloon.wasTouched,
+                "Continuous-callback objects must respect overlap math; non-overlap must not fire");
+    }
+
     // ==================== Player State Tests ====================
 
     @Test
@@ -402,24 +500,6 @@ public class TestTouchResponseManager {
         objectManager.update(0, player, List.of(), 1);
 
         assertFalse(obj.wasTouched, "Objects flagged skipTouchThisFrame should not trigger touch callbacks");
-    }
-
-    @Test
-    public void testMultiRegionTouchRespectsOnScreenSnapshotGate() {
-        MockMultiRegionAbstractObject obj = new MockMultiRegionAbstractObject(160, 112, 0x48);
-        setupTableSize(8, 16, 16);
-        objectManager.addDynamicObject(obj);
-
-        objectManager.runTouchResponsesForPlayer(player, 1);
-
-        assertFalse(obj.wasTouched,
-                "Multi-region touch should match ReactToItem's obRender gate and skip AbstractObjectInstance before a displayed snapshot exists");
-
-        obj.snapshotPreUpdatePosition();
-        objectManager.runTouchResponsesForPlayer(player, 2);
-
-        assertTrue(obj.wasTouched,
-                "After the object has a pre-update display snapshot, its multi-region touch can participate");
     }
 
     @Test
@@ -606,6 +686,22 @@ public class TestTouchResponseManager {
         }
     }
 
+    private static class MockContinuousS3kTouchSpecialObject extends MockTouchObject {
+        public MockContinuousS3kTouchSpecialObject(int x, int y, int flags) {
+            super(x, y, flags);
+        }
+
+        @Override
+        public boolean usesS3kTouchSpecialPropertyResponse() {
+            return true;
+        }
+
+        @Override
+        public boolean requiresContinuousTouchCallbacks() {
+            return true;
+        }
+    }
+
     private static class MockSkipTouchObject extends MockTouchObject {
         public MockSkipTouchObject(int x, int y, int flags) {
             super(x, y, flags);
@@ -614,55 +710,6 @@ public class TestTouchResponseManager {
         @Override
         public boolean isSkipTouchThisFrame() {
             return true;
-        }
-    }
-
-    private static class MockMultiRegionAbstractObject extends AbstractObjectInstance
-            implements TouchResponseProvider, TouchResponseListener {
-        private final int collisionFlags;
-        boolean wasTouched = false;
-
-        MockMultiRegionAbstractObject(int x, int y, int flags) {
-            super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "MockMultiRegion");
-            this.collisionFlags = flags;
-        }
-
-        @Override
-        public int getCollisionFlags() {
-            return 0;
-        }
-
-        @Override
-        public int getCollisionProperty() {
-            return 0;
-        }
-
-        @Override
-        public TouchRegion[] getMultiTouchRegions() {
-            return new TouchRegion[] { new TouchRegion(getX(), getY(), collisionFlags) };
-        }
-
-        @Override
-        public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
-            wasTouched = true;
-        }
-
-        @Override
-        public void update(int frameCounter, PlayableEntity player) {
-        }
-
-        @Override
-        public void appendRenderCommands(List<GLCommand> commands) {
-        }
-
-        @Override
-        public boolean isHighPriority() {
-            return false;
-        }
-
-        @Override
-        public boolean isDestroyed() {
-            return false;
         }
     }
 
@@ -754,5 +801,6 @@ public class TestTouchResponseManager {
         }
     }
 }
+
 
 

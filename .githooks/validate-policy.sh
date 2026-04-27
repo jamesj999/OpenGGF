@@ -2,6 +2,9 @@
 
 set -eu
 
+GITHUB_FILE_SIZE_LIMIT_BYTES=100000000
+TRACE_COMPRESSION_THRESHOLD_BYTES=1048576
+
 die() {
     echo "policy: $*" >&2
     exit 1
@@ -39,6 +42,14 @@ staged_files() {
 
 commit_files() {
     git diff-tree --root --no-commit-id --name-only --diff-filter=ACMR -r "$1"
+}
+
+staged_blob_size() {
+    git cat-file -s ":$1" 2>/dev/null || true
+}
+
+commit_blob_size() {
+    git cat-file -s "$1:$2" 2>/dev/null || true
 }
 
 has_exact() {
@@ -128,6 +139,38 @@ append_error() {
         ERRORS="${ERRORS}
 - $1"
     fi
+}
+
+validate_file_size_policy() {
+    files=$1
+    mode=$2
+    commit=${3:-}
+    old_ifs=$IFS
+    IFS='
+'
+    for path in $files; do
+        if [ "$mode" = "commit" ]; then
+            size=$(commit_blob_size "$commit" "$path")
+        else
+            size=$(staged_blob_size "$path")
+        fi
+        if [ -z "$size" ]; then
+            continue
+        fi
+
+        case "$path" in
+            */aux_state*.jsonl|*/physics*.csv)
+                if [ "$size" -ge "$TRACE_COMPRESSION_THRESHOLD_BYTES" ]; then
+                    append_error "\`$path\` is an uncompressed trace payload (${size} bytes). Run \`tools/traces/compress-traces.ps1\` and commit the \`.gz\` file instead."
+                fi
+                ;;
+        esac
+
+        if [ "$size" -ge "$GITHUB_FILE_SIZE_LIMIT_BYTES" ]; then
+            append_error "\`$path\` is ${size} bytes; GitHub rejects files >= ${GITHUB_FILE_SIZE_LIMIT_BYTES} bytes."
+        fi
+    done
+    IFS=$old_ifs
 }
 
 validate_exact_trailer() {
@@ -283,6 +326,7 @@ validate_non_master_commit_message() {
     files=$2
     ERRORS=""
 
+    validate_file_size_policy "$files" staged
     validate_exact_trailer "$message" "$files" "Changelog" "CHANGELOG.md" "CHANGELOG.md"
     validate_prefix_trailer "$message" "$files" "Guide" "docs/guide/" "docs/guide/"
     validate_exact_trailer "$message" "$files" "Known-Discrepancies" "docs/KNOWN_DISCREPANCIES.md" "docs/KNOWN_DISCREPANCIES.md"
@@ -413,6 +457,7 @@ validate_ci_pr() {
         files=$(commit_files "$commit")
         ERRORS=""
 
+        validate_file_size_policy "$files" commit "$commit"
         validate_exact_trailer "$message" "$files" "Changelog" "CHANGELOG.md" "CHANGELOG.md"
         validate_prefix_trailer "$message" "$files" "Guide" "docs/guide/" "docs/guide/"
         validate_exact_trailer "$message" "$files" "Known-Discrepancies" "docs/KNOWN_DISCREPANCIES.md" "docs/KNOWN_DISCREPANCIES.md"

@@ -55,7 +55,7 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
     /** Credits demo index (0-7). */
     protected abstract int creditsDemoIndex();
 
-    /** Path to the trace directory containing metadata.json and physics.csv. */
+    /** Path to the trace directory containing metadata.json and physics.csv(.gz). */
     protected abstract Path traceDirectory();
 
     /** Override to supply custom tolerances. */
@@ -77,7 +77,7 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         Path traceDir = traceDirectory();
         Assumptions.assumeTrue(Files.isDirectory(traceDir), "Trace directory not found: " + traceDir);
         Assumptions.assumeTrue(Files.exists(traceDir.resolve("metadata.json")), "metadata.json not found in " + traceDir);
-        Assumptions.assumeTrue(Files.exists(traceDir.resolve("physics.csv")), "physics.csv not found in " + traceDir);
+        Assumptions.assumeTrue(hasTracePayload(traceDir, "physics.csv"), "physics.csv(.gz) not found in " + traceDir);
 
         // 1. Load trace data
         TraceData trace = TraceData.load(traceDir);
@@ -570,6 +570,11 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             return base;
         }
         return base + " | " + extra;
+    }
+
+    private static boolean hasTracePayload(Path dir, String fileName) {
+        return Files.exists(dir.resolve(fileName))
+                || Files.exists(dir.resolve(fileName + ".gz"));
     }
 
     /**

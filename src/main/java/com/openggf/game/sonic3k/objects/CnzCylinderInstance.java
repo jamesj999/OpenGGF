@@ -120,7 +120,47 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        standingMask = nextStandingMask;
+        // ROM sub_324C0 / SolidObjectFull (sonic3k.asm:41006-41008): when a
+        // rider is offscreen (`tst.b render_flags(a1); bpl.w locret_1DCB4`)
+        // the entire SolidObjectFull pass for that rider is skipped, so the
+        // cylinder's per-rider standing bit is NOT cleared. The engine's
+        // SolidContacts pass also skips offscreen objects (line 4444 gate),
+        // so `nextStandingMask` will be 0 even though the rider is still
+        // logically anchored to the cylinder. Preserve the previous frame's
+        // bits for any rider whose render_flags bit 7 is currently clear so
+        // the alternating capture/release cycle in updateRiderSlot can
+        // continue to re-capture the offscreen rider each frame.
+        //
+        // ALSO preserve the standing bit when a rider's slot is active (i.e.
+        // currently captured): ROM's Obj_CNZCylinder calls SolidObjectFull
+        // (sonic3k.asm:67668-67672) every frame regardless of capture state,
+        // and on-screen captured riders refresh their standing bit via that
+        // call's SetCapturedRider_StandingBit logic. The engine's SolidObject
+        // framework blocks the contact pass entirely when a player is
+        // {@code objectControlled} (ObjectManager.java:4120-4131
+        // `blocksSolidContacts` early-return), so {@link #onSolidContact}
+        // never fires while the rider is being held by us, which would
+        // otherwise let {@code nextStandingMask} reset to 0 and break the
+        // captured-then-released alternation when the test reseed preserves
+        // {@code objectControlled} across the release frame (CNZ trace F4577
+        // {@code tails_rolling} fix premise: Tails {@code object_control}
+        // bit 0 must persist into the release-frame Tails update so
+        // {@code Tails_Modes} stays skipped via sonic3k.asm:26211 btst gate,
+        // but that preservation also short-circuits the engine solid pass
+        // refreshing the cylinder's standing-bit bookkeeping).
+        int preservedStanding = 0;
+        if (playerOneSlot.player != null
+                && (playerOneSlot.active
+                        || !riderRenderFlagOnScreen(playerOneSlot.player))) {
+            preservedStanding |= (standingMask & 0x01);
+        }
+        if (playerTwoSlot.player != null
+                && (playerTwoSlot.active
+                        || !riderRenderFlagOnScreen(playerTwoSlot.player))) {
+            preservedStanding |= (standingMask & 0x02);
+        }
+
+        standingMask = nextStandingMask | preservedStanding;
         heldInputMask = nextHeldInputMask;
         nextStandingMask = 0;
         nextHeldInputMask = 0;
@@ -131,6 +171,10 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         currentYVelocity = motionSelector == 0 ? mode0Velocity : ((centerY - previousCenterY) << 8);
         updateRiderSlots(frameCounter);
         advanceAnimation();
+    }
+
+    private static boolean riderRenderFlagOnScreen(AbstractPlayableSprite rider) {
+        return !rider.hasRenderFlagOnScreenState() || rider.isRenderFlagOnScreen();
     }
 
     private void updateMotion() {
@@ -315,8 +359,25 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         boolean latchedContact = slot.contactLatched;
         slot.contactLatched = false;
 
+        // ROM sub_324C0 loc_32538 (sonic3k.asm:68019-68022): when the captured
+        // rider is offscreen (`tst.b render_flags(a1); bpl.w loc_325F2`), the
+        // cylinder takes the release branch every frame. ROM SolidObjectFull
+        // (sonic3k.asm:41006-41008) ALSO skips Player_2 when his render_flags
+        // bit 7 is clear, so the cylinder's p2_standing_bit stays set from the
+        // last on-screen frame. The next frame's sub_324C0 (a2)==0 path then
+        // re-captures from that preserved standing bit, producing the
+        // alternating Status_InAir 0/1 pattern observed at CNZ1 F4489+ when
+        // Tails (X=0x1BB9) is just past the right edge of the screen.
+        boolean playerOnScreen = !player.hasRenderFlagOnScreenState()
+                || player.isRenderFlagOnScreen();
+
         boolean standing = latchedContact || hasStandingBit(player);
         if (slot.active) {
+            if (!playerOnScreen) {
+                // ROM loc_325F2: bset Status_InAir, object_control=0, (a2)=0.
+                releaseSlot(slot, frameCounter, false);
+                return;
+            }
             standing = standing || !player.getAir();
             if (!standing) {
                 releaseSlot(slot, frameCounter, false);
@@ -330,8 +391,14 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             return;
         }
 
-        if (!standing || player.wasRecentlyObjectControlled(frameCounter, RECAPTURE_COOLDOWN_FRAMES)
-                || player.isObjectControlled()) {
+        if (!standing || player.isObjectControlled()) {
+            return;
+        }
+        // ROM sub_324C0 (a2)==0 path re-captures immediately - no ROM cooldown.
+        // Bypass the engine RECAPTURE_COOLDOWN_FRAMES guard when offscreen so
+        // the alternation can complete each frame.
+        if (playerOnScreen
+                && player.wasRecentlyObjectControlled(frameCounter, RECAPTURE_COOLDOWN_FRAMES)) {
             return;
         }
         captureSlot(slot, player);
@@ -382,6 +449,19 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         slot.twistAngle = player.getCentreX() < centerX ? 0x80 : 0x00;
         slot.horizontalDistance = Math.min(0xFF, Math.abs(player.getCentreX() - centerX));
         slot.priorityThresholdSource = getPriorityThresholdSource();
+        // ROM Obj_CNZCylinder (sonic3k.asm:67668-67672) calls SolidObjectFull
+        // every frame, which sets the cylinder's per-rider standing bit on
+        // capture. The engine's SolidObject framework blocks the contact pass
+        // for object-controlled players (ObjectManager.java:4120-4131
+        // `blocksSolidContacts`), so {@link #onSolidContact} never fires once
+        // we mark the rider as objectControlled. Set the standing bit
+        // explicitly here so the next frame's update() sees it for
+        // preservation across both on-screen and off-screen states. Without
+        // this, captureSlot setting objectControlled=true creates a
+        // "standing-bit cleared, slot.active=true" inconsistency on the very
+        // next frame and breaks the cylinder's alternation semantics when the
+        // test reseed preserves objectControlled.
+        standingMask |= slotMask(slot);
 
         ObjectServices svc = tryServices();
         if (svc != null && svc.objectManager() != null) {

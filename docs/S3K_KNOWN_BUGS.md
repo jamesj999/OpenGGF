@@ -25,6 +25,11 @@ Entries should include:
 7. [AIZ1 Trace F2590 — Tails CATCH_UP_FLIGHT Trigger Path Mismatch](#aiz1-trace-f2590--tails-catch_up_flight-trigger-path-mismatch)
 8. [AIZ1 Trace F2202 -- Phantom MonkeyDude Respawn Triggers Spurious Sidekick Bounce (FIXED)](#aiz1-trace-f2202----phantom-monkeydude-respawn-triggers-spurious-sidekick-bounce-fixed)
 9. [AIZ1 Trace F5497 — Sidekick CPU Bound Override Stale After Act Transition (FIXED)](#aiz1-trace-f5497--sidekick-cpu-bound-override-stale-after-act-transition-fixed)
+10. [AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)](#aiz-trace-f5736--level_frame_counter-skips-tick-on-seamless-act-reload-fixed)
+11. [AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)](#aiz-trace-f6066--caterkillerjr-missed-obj_waitoffscreen-gate-fixed)
+12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
+13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-resolved)
+14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
 
 ---
 
@@ -656,3 +661,540 @@ spawns continue to re-spawn on cursor re-entry. After the fix
 `TestS3kAizTraceReplay` first strict error advances past F2202 to
 F4679 (a separate Tails respawn divergence). All baselines stay green:
 S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F1815.
+
+---
+
+## AIZ Trace F5736 — Level_frame_counter Skips Tick on Seamless Act Reload (FIXED)
+
+**Status:** Fixed by bumping `SpriteManager.frameCounter` by 1 inside
+`LevelManager.applySeamlessTransition()` for `RELOAD_SAME_LEVEL` and
+`RELOAD_TARGET_LEVEL` transitions.
+
+**Location:** `LevelManager.applySeamlessTransition()` /
+`LevelManager.advanceFrameCounterAcrossSeamlessReload()`,
+`SpriteManager.frameCounter`,
+`SidekickCpuController.updateNormal()` (loc_13E9C jump cadence gate).
+**ROM Reference:** `sonic3k.asm` `VInt_0_Main` (Level_frame_counter
+unconditionally incremented every gameplay frame),
+`sonic3k.asm:26775 loc_13E9C` (Tails CPU 64-frame jump cadence gate
+reading `(Level_frame_counter & $3F)`).
+
+### Pre-Fix Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first error at trace frame
+5736:
+```
+tails_x_speed mismatch (expected=-00C4, actual=0x000C)
+tails_y_speed mismatch (expected=-0680, actual=0x0000)
+tails_air mismatch (expected=1, actual=0)
+tails_rolling mismatch (expected=1, actual=0)
+```
+
+ROM Tails was stuck pushing against AIZ2 terrain (status_byte=0x20
+across F5712-F5735) and the `loc_13E9C` 64-frame jump cadence gate
+fired at gfc=0x1540 (`& 0x3F == 0`), launching Tails out of his stuck
+state with the `Tails_Jump` initial velocity `y_vel = -$680`. Engine
+Tails was also stuck pushing but never triggered the jump.
+
+### Diagnosed Cause
+
+After AIZ act 1 → act 2 reload (F5496) the engine's
+`SpriteManager.frameCounter` lagged ROM's `Level_frame_counter` by
+exactly 1 frame for the rest of the trace. `Level_frame_counter` is
+incremented in ROM's VBlank handler unconditionally every gameplay
+frame, including the act-reload frame. The engine equivalent
+(`SpriteManager.frameCounter`) only ticks inside `SpriteManager.update()`,
+which is itself called from `LevelFrameStep.execute()`. Both `GameLoop`
+and `HeadlessTestRunner.stepFrame()` `return` early after applying a
+seamless transition, never reaching `LevelFrameStep.execute()`, so the
+counter does not tick on the reload frame.
+
+The cumulative effect: the engine's `(frameCounter & 0x3F)` was 0x3F
+when ROM's was 0, so the Tails-CPU auto-jump cadence gate stayed shut
+on every frame thereafter.
+
+### Fix
+
+`LevelManager.applySeamlessTransition()` now calls
+`advanceFrameCounterAcrossSeamlessReload()` after `executeActTransition()`
+for `RELOAD_SAME_LEVEL` and `RELOAD_TARGET_LEVEL`. The helper bumps
+`SpriteManager.frameCounter` by 1 to mirror the ROM VBlank handler tick
+the engine otherwise misses.
+
+`MUTATE_ONLY` transitions are intentionally NOT patched: the AIZ1
+fire-transition art-overlay path (`Sonic3kAIZEvents.applyFireTransitionMutation`)
+runs mid-frame without skipping the rest of the gameplay loop, so it
+must not double-tick the counter.
+
+### Test Results
+
+After the fix `TestS3kAizTraceReplay` first strict error advances past
+F5736 to F6066 (a separate Sonic-only divergence in AIZ2 main gameplay),
+total errors drop from 1184 to 1178. All cross-game baselines stay
+green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2175.
+
+---
+
+## AIZ Trace F6066 — CaterKillerJr Missed Obj_WaitOffscreen Gate (FIXED)
+
+**Location:** `src/main/java/com/openggf/game/sonic3k/objects/badniks/CaterkillerJrHeadInstance.java`
+**Trace:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+**Symptom:** ROM at trace F6066 has Sonic on the ground in AIZ2 narrow
+corridor running left at `g_speed=-0x98`, `air=0`, `status=0x01`.
+Engine has Sonic in air with `x_speed=-0x200`, `y_speed=-0x400`,
+`g_speed=0`, `air=1`, `status=0x06` — exact `applyHurt(NORMAL)`
+knockback signature (sourceX > centreX → x dir = -1 → x_speed =
+0x200 \* -1 = -0x200; y_speed = -0x400 hardcoded).
+Stack trace: `runTouchResponsesForPlayer →
+TouchResponses.processCollisionLoop → handleTouchResponse → applyHurt`
+with `hitter=CaterkillerJrHeadInstance objId=8F x=0x07EF y=0x0326`.
+
+### Root Cause
+
+ROM `Obj_CaterKillerJr` at `sonic3k.asm:183317-183323` begins:
+```
+Obj_CaterKillerJr:
+    jsr (Obj_WaitOffscreen).l
+    moveq #0,d0
+    move.b routine(a0),d0
+    move.w CaterKillerJr_Index(pc,d0.w),d1
+    jsr CaterKillerJr_Index(pc,d1.w)
+    jmp Sprite_CheckDeleteTouch(pc)
+```
+
+`Obj_WaitOffscreen` (`sonic3k.asm:180266-180297`) replaces the object's
+`(a0)` code pointer with `loc_85AD2` and saves the original return
+address at `$34`. `loc_85AD2` runs every frame thereafter:
+
+```
+loc_85AD2:
+    tst.b render_flags(a0)
+    bmi.s loc_85B02       ; on-screen X (bit 7 set) → restore real code
+    move.w x_pos(a0),d0
+    andi.w #$FF80,d0
+    sub.w (Camera_X_pos_coarse_back).w,d0
+    cmpi.w #$280,d0
+    bhi.s loc_85AF0        ; too far → delete
+    jmp (Draw_Sprite).l    ; otherwise just draw the offscreen indicator
+```
+
+So the badnik enters a frozen "wait" state (no swing, no movement) until
+the camera catches up and the on-screen X bit gets set.
+
+The S3K placement cursor advances 1 chunk per frame, allocating slots
+at the chunk-boundary transition (cam_x crossing 0x80 boundaries).
+Because S3K loads its window at `cameraChunk + 0x280`, the cursor
+allocates the CaterKillerJr's slot ~40 frames before the camera reaches
+the spawn x. ROM stays in the offscreen wait the whole pre-roll.
+
+The engine's `CaterkillerJrHeadInstance.update()` had no equivalent
+gate — the swing state machine ran from spawn frame, so the badnik
+moved at `-0x100` x-velocity for those ~40 extra frames and ended up
+~0x29 (41) pixels further left than ROM by the time Sonic arrived.
+
+This matters in the AIZ2 narrow corridor at spawn x=0x0850 (camera
+window crossing chunk 0x0600 at gfc=5670 vs ROM at gfc=5713). The
+displaced engine badnik happens to overlap Sonic at gfc=5770 (trace
+F6066), triggering hurt; the ROM badnik is still 41 px to the right.
+
+### Fix
+
+`CaterkillerJrHeadInstance.update()` now early-returns when
+`!isOnScreenX()`. Other AIZ badniks already had this guard
+(`BlastoidBadnikInstance`, `BuggernautBadnikInstance`,
+`MonkeyDudeBadnikInstance`, `BatbotBadnikInstance`,
+`TunnelbotBadnikInstance`) — CaterKillerJr was the missing case.
+
+The fix does not affect body segments. Their ROM entry point
+(`loc_8778C` at `sonic3k.asm:183389-183395`) does **not** call
+`Obj_WaitOffscreen`; bodies always run, ticking `waitTimer` per frame
+even off-screen. The engine's `CaterkillerJrBodyInstance` already
+matches that.
+
+### Test Results
+
+After the fix `TestS3kAizTraceReplay` first strict error advances from
+F6066 to F6255 (separate Tails despawn handoff). Total errors rise from
+1178 to 6782 because the test no longer cascades from a single early
+hurt event and now exposes downstream Tails AI divergences.
+All cross-game baselines stay green: S1 GHZ PASS, S1 MZ1 F311, S2 EHZ
+F1151, S3K CNZ F2222.
+
+---
+
+## CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (FIXED via ROM `d6` register corruption-by-`Perform_Player_DPLC` model)
+
+**Status:** FIXED in v6.3-s3k iteration via post-leader-release sidekick
+gate in `CnzWireCageObjectInstance`. Engine
+Tails gets launched off the cage with `x_vel=-0x800, y_vel=-0x200`
+(`JUMP_RELEASE_X/Y_SPEED`) at F2222 while ROM Tails stays on the cage.
+
+**Location:** `CnzWireCageObjectInstance.tryJumpRelease()` reads
+`player.isJumpJustPressed()` which is engine edge-detection on the
+sidekick's `inputJump` (= `(recordedInput & INPUT_JUMP) != 0`). For
+sidekicks, `recordedInput` is read from leader (Sonic's)
+`inputHistory[historyPos - 16]` populated each frame from the active
+player's effective post-`controlLocked` `logicalInputState`.
+
+**Trace reference:** `src/test/resources/traces/s3k/cnz`, first strict
+error at frame 2222 (`tails_y_speed expected=-02EA actual=-0200`).
+
+### Symptom
+
+Sequence around the divergence (CSV / aux from v6.2 recorder):
+
+| K (trace) | gfc    | Sonic input | Sonic on cage | Engine cage | ROM cage |
+|-----------|--------|-------------|---------------|-------------|----------|
+| 2204      | 0x089D | 0x08 RIGHT  | yes (status=08, OnObj=04) | latched     | latched |
+| 2205      | 0x089E | 0x18 RIGHT+JUMP | released (status=02) | release fires (-800/-200) | release fires (-800/-200) |
+| 2206      | 0x089F | 0x18 RIGHT+JUMP | airborne | airborne | airborne |
+| ...       |        |             |               |             |          |
+| 2221      | 0x08AE | 0x08 RIGHT  | airborne | Tails on cage, y_vel=-02EA | Tails on cage, y_vel=-02EA |
+| 2222      | 0x08AF | 0x08 RIGHT  | airborne | **Tails LAUNCHED y_vel=-0200, air=1** | Tails on cage, y_vel=-02EA |
+
+v6.2 aux `cpu_state` events for Tails confirm:
+- F2221: `cpu_routine=6` (NORMAL), `ctrl2_held=0x48`, `ctrl2_pressed=0x48` (RIGHT+button_A pressed)
+- F2222: `cpu_routine=6`, `ctrl2_held=0x48`, `ctrl2_pressed=0x08` (RIGHT only, NOT pressed)
+
+### Diagnosed Cause (engine side)
+
+Engine `recordedInput[K-16]` for Tails at iter K=2222 reads Sonic's
+`logicalInputState` from iter K=2206. `logicalInputState` is computed
+in `SpriteManager.publishInputState` from `effectiveJump =
+(!controlLocked && space) || forcedJump`, i.e. it filters out jump
+when the per-sprite `controlLocked` (engine analogue of ROM
+`object_control bit 0`) is set.
+
+ROM `Sonic_RecordPos` at sonic3k.asm:22132 records `Ctrl_1_logical`
+unconditionally — only the GLOBAL `Ctrl_1_locked` (cutscenes / death,
+sonic3k.asm:21542) blocks the recording, never the per-sprite
+`object_control bit 0`. So ROM Stat_table for K=2204 has JUMP cleared
+(BK2 had no jump pressed) but K=2205 has JUMP set (newly pressed) and
+K=2206+ has JUMP set (held).
+
+In the engine, Sonic enters cage cooldown at K=2192 (`gspeed=0x02F4 <
+0x300`) which calls `setControlLocked(true)`. After that, every frame
+through K=2204 stays in `state.cooldown!=0` → `tryJumpRelease` +
+`updateReleaseRide`, which never re-call `setControlLocked(false)`.
+Sonic stays controlLocked until the cage's `release()` path fires at
+K=2205 (which clears it). Meanwhile every frame K=2192..K=2204 the
+engine records `effectiveJump=false` into `inputHistory[K]`.
+
+This produces a 1-frame skewed JUMP edge: engine `inputHistory[2204]`
+= no JUMP, `inputHistory[2205]` = no JUMP (controlLocked still true
+when publishInputState ran at iter 2205), `inputHistory[2206]` = JUMP
+(controlLocked cleared by cage release at end of iter 2205).
+
+Tails's edge detection at iter K=2222 (reading K=2206) sees a
+false-to-true transition between iter K=2221 (reads K=2205, no JUMP)
+and iter K=2222 (reads K=2206, JUMP). `jumpInputJustPressed=true`,
+the cage's `tryJumpRelease` fires `releaseWithJumpImpulse`.
+
+### Mystery (ROM side, unresolved)
+
+Even with raw input recording (held-only, ignoring controlLocked) the
+edge would shift to iter K=2221 (reads K=2205 = JUMP newly pressed)
+which still does not match ROM. The v6.2 aux at F2221 shows
+`ctrl2_pressed=0x48` (button_A bit 0x40 set), so ROM cage's
+`andi.w #button_A_mask|button_B_mask|button_C_mask, d5; beq.s
+loc_33B1E` (sonic3k.asm:70055) computes `0x4848 & 0x0070 = 0x0040`
+— non-zero, which by my reading should branch to release at
+sonic3k.asm:70057. But ROM CSV at K=2221 still shows
+`tails_y_speed=-02EA` (cage ride speed, NOT release).
+
+I exhaustively checked: `Tails_CPU_routine=6` (NORMAL, runs
+TailsCPU_Normal not a Ctrl_2_logical zero-er), `cage cooldown=1` should
+direct execution to `loc_33ADE`, no FixBugs path differences, no
+`Tails_CPU_idle_timer` block (=0 throughout), no Player_2 handling
+divergence (`a0=Player_2`, `bne.s loc_13830` taken), no
+`Flying_carrying_Sonic_flag`. The trace reading and disassembly
+suggest ROM cage SHOULD release Tails at F2221 — yet ROM definitively
+does not.
+
+### What Was Tried This Iteration
+
+1. **Probe added** to `tryJumpRelease` and `SpriteManager` to log
+   `aiJump`, `jumpJustPressed`, `forcedJumpPress`, `objectControlled`,
+   `cooldown` per frame for Tails at frames 0x08AC-0x08B0. Confirmed:
+   - aiJump first becomes true at engine frame 0x08AF (iter K=2222),
+     not K=2221.
+   - jumpJustPressed=true exactly once, at iter K=2222.
+   - cage's tryJumpRelease only fires at iter K=2222.
+2. **Raw input recording attempt:** modified
+   `SpriteManager.publishInputState` to bypass per-sprite
+   `controlLocked` filter and pass raw-or-forced inputs to
+   `setLogicalInputState`. Result: divergence regressed from F2222 to
+   F2221 (engine fires release one frame earlier — the same edge,
+   shifted by Sonic's controlLocked filter being ON at K=2204 but OFF
+   at K=2205 in raw-input world). Reverted.
+3. **Trace regenerated** from v6.1-s3k schema to v6.2-s3k to obtain
+   `cpu_state_per_frame` (Tails_CPU_routine, ctrl2_held, ctrl2_pressed)
+   and `interact_state_per_frame` aux events. v6.2 confirmed
+   `ctrl2_pressed=0x48` at F2221 and ROM still does not release —
+   fundamentally contradicting my reading of the cage code.
+
+### What's Likely Needed
+
+A real fix needs ROM-side instrumentation that I don't have without a
+debugger or live disassembly run, e.g.:
+
+1. **Verify cage execution at F2221:** confirm cage's `loc_33ADE` is
+   actually reached (vs being skipped because of `Delete_Sprite_If_Not_In_Range`
+   trimming or some d6/standing-flag clear after Sonic's K=2205 release
+   path that I'm missing).
+2. **Verify d5 register at the moment of `andi #$70`:** capture d5 in
+   ROM directly (BizHawk Lua `event.onmemoryexecute(0x33ADE, ...)`)
+   to confirm it really has the 0x40 bit set when the andi runs, vs.
+   some intermediate state where Tails CPU writes Ctrl_2_logical with
+   different masks.
+3. **Audit ROM cage `1(a2)` cooldown lifecycle for Tails:** maybe the
+   cooldown is decrementing into 0 between frames in some path I
+   haven't traced, which would make `loc_339A0`'s `tst.b 1(a2)` fall
+   through to the gspeed check (which would then re-set cooldown=1
+   and bra loc_33ADE — but then the andi check happens with the same
+   d5).
+
+### Recorder Bug Found
+
+The v6.2 recorder writes `interact_state.object_control` reading from
+player offset `0x2A`. Per `sonic3k.constants.asm:30/57`, offset `0x2A`
+is **status**, not `object_control` (which is at `0x2E`). The reported
+"object_control" values in v6.2 traces are actually status bytes —
+this needs to be fixed in `tools/bizhawk/s3k_trace_recorder.lua`
+before the diagnostic is reliable for object_control gating.
+
+### Removal Condition
+
+Resolve once `TestS3kCnzTraceReplay`'s first strict error advances
+past F2222, with a fix backed by ROM-confirmed (not assumed) cage
+execution path for the iter K=2221/K=2222 boundary.
+
+### Resolution (v6.3-s3k Recorder + ROM-Side Memoryexecute Hook Diagnostics)
+
+The fix landed when the v6.3-s3k recorder added BizHawk Lua
+`event.onmemoryexecute` hooks at every cage routine entry
+(`sub_338C4=0x338C4`, `loc_339A0=0x339A0`, `loc_33ADE=0x33ADE`,
+`loc_33B1E=0x33B1E`, `loc_33B62=0x33B62`) and emitted a `cage_execution`
+aux event per frame with the captured M68K register state
+(`a0/a1/a2/d5/d6`), the per-player state byte `1(a2)`, and the
+player's status / `object_control` bytes. Inspection of those events
+across F2136-F2222 revealed:
+
+1. **The cage's `d6` register is corrupted by the original ROM
+   `Obj_CNZWireCage` bug.** With `FixBugs` disabled (the original ROM),
+   the second `bsr.s sub_338C4` call uses
+   `addq.b #p2_standing_bit-p1_standing_bit,d6` (sonic3k.asm:69843)
+   to derive the Player_2 standing-bit mask rather than reloading
+   `d6` cleanly. This carries whatever value `d6` had after the
+   Player_1 call's `Perform_Player_DPLC` corruption. While the
+   leader is actively rotating in `loc_33A6A` (sonic3k.asm:70016) /
+   `loc_33BAA` (sonic3k.asm:70121), `Perform_Player_DPLC` runs and
+   corrupts `d6 = 0`; the `addq.b #1,d6` then makes
+   `d6 = 1` for Tails so `bset d6,status(a0)` in `sub_33C34`
+   (sonic3k.asm:70181) sets bit 1 of the cage's status rather than
+   `p2_standing_bit = 4`.
+2. **F2136 capture of Tails:** `cage_execution` shows the cage hits
+   `sub_338C4_entry` for Tails with `d6=0x01` and the resulting
+   `bset d6,status(a0)` writes bit 1 to the cage's status byte
+   (`cage_status` transitions from `0x09 = bits 0+3` to
+   `0x0B = bits 0+1+3` over two frames). Tails's `object_control`
+   becomes `0x42` (bits 6+1, set by `loc_3397A` at sonic3k.asm:69937).
+3. **F2200 last cage-process for Tails:** while the leader was still
+   in `loc_33B1E_continue` mode (sonic3k.asm:70070), `Perform_Player_DPLC`
+   could still corrupt `d6` to 1 on some frames and the cage would
+   process Tails through `loc_339A0_mounted` → `loc_33ADE_cooldown` →
+   `loc_33B1E_continue`. F2200 was the last such frame; after that,
+   Sonic's cage state byte hit `loc_33B62_release` (sonic3k.asm:70092)
+   at F2205 and the cage's per-frame entry for Sonic switched to
+   the cooldown-decrement-only path that does not call
+   `Perform_Player_DPLC`.
+4. **F2206-F2222 "ghost" state:** `cage_execution` shows the cage
+   only hits `sub_338C4_entry` for Tails with `d6=0x04` (the
+   correct `p2_standing_bit` value, no `Perform_Player_DPLC`
+   corruption). `btst d6,status(a0)` reads bit 4 of `cage_status`
+   which is clear (the cage's Tails standing flag is at bit 1, set
+   by the `d6=1` corruption-bit at original capture). `bne.w loc_339A0`
+   is not taken; falls through to capture-attempt at `loc_338D8`
+   (sonic3k.asm:69881). The capture-attempt's
+   `tst.b object_control(a1); bne.w locret_3399E`
+   (sonic3k.asm:69896) exits immediately because Tails's
+   `object_control = 0x43` retains the bits 6+1+0 from the
+   F2136 capture sequence. ROM cage does **nothing** for Tails on
+   these frames.
+5. **F2262 ROM exit from stuck state:** `Tails_CPU_flight_timer`
+   reaches `5*60 = 300` (per sonic3k.asm:26829), `sub_13ECA` warps
+   Tails to `(0x7F00, 0)` and resets the CPU routine.
+
+The engine doesn't model `Perform_Player_DPLC`'s `d6` corruption
+side-effect, so the engine cage's mounted-mode logic ran every frame
+the cage was loaded and `state.latched=true`. When `Tails_CPU`'s
+auto-jump fired at F2221, the engine cage's `tryJumpRelease` saw
+`isJumpJustPressed()=true` and fired `releaseWithJumpImpulse` at
+F2222.
+
+**Fix landed:** `CnzWireCageObjectInstance` now tracks
+`leaderHasReleased` (set when the leader's per-frame processing
+transitions `state.latched` from true to false). When the leader has
+released and the engine is processing the sidekick, `continueRide`
+short-circuits with `setObjectControlled(true)` /
+`setObjectControlAllowsCpu(true)` preserved (matching ROM's persistent
+`object_control = 0x43` marker on Tails). The sidekick stays in
+stuck-frozen state, awaiting the `Tails_CPU_flight_timer` despawn
+warp that frees her.
+
+`TestS3kCnzTraceReplay` first strict error advances F2222 → F2262.
+The new error is the `Tails_CPU` despawn warp at F2262 — engine's
+`SidekickCpuController.despawnCounter` does not match ROM's
+`Tails_CPU_flight_timer` because the engine resets the counter
+whenever the sidekick is on-screen, while ROM checks
+`render_flags bit 7` which can be cleared even for an on-screen
+sidekick. That is the next iteration's concern, separate from the
+F2222 cage bug.
+
+---
+
+## AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)
+
+**Status:** Resolved. AIZ first strict error advances past F6255 to F6313 (a downstream sidekick AI divergence). Two engine fixes landed in this round:
+
+1. **Top-only solids bypass the off-screen gate** — `ObjectManager.processInlineObjectForPlayer` now skips the `solidObjectOffscreenGate` for `provider.isTopSolidOnly()` providers, matching ROM. The ROM gate at `loc_1DF88` (sonic3k.asm:41390-41392) lives only in `SolidObjectFull_1P` (sonic3k.asm:41016-41018); the top-only routines `SolidObjectTop_1P` / `SolidObjectTopSloped_1P` / `SolidObjectTopSloped2_1P` (sonic3k.asm:41793, 41887, 41840) all branch directly into `loc_1E42E` / `SolidObjCheckSloped` / `SolidObjCheckSloped2` (sonic3k.asm:41982, 42095, 42071) without testing `render_flags(a0)`. The S2 sloped path (`SlopedSolid_SingleCharacter` -> `SlopedSolid_cont` at s2.asm:34927-34952, 35066) bypasses the on-screen test the same way. Without this exemption, Tails never resolved a sloped-top contact for the AIZ2 collapsing platform at x=0x08B0 — the platform's bbox right edge (0x90C) sat 0xD5 px past the camera left edge (0x985) at the moment Tails should have landed, so the existing universal off-screen gate dropped the contact and `setLatchedSolidObject(slot=16)` never fired.
+
+2. **Collapsing-platform `Sprite_OnScreen_Test` reads cam_X directly** — `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` now reads `services().camera().getX()` at call time instead of consulting a previous-frame cache. The round-13 cache was based on the mistaken premise that ROM `Load_Sprites` runs AFTER `Process_Sprites`; the disassembly (sonic3k.asm:7893 `jsr Load_Sprites`; 7894 `jsr Process_Sprites`; 7897 `jsr DeformBgLayer`) shows the real order is Load_Sprites -> Process_Sprites -> DeformBgLayer, so `Camera_X_pos_coarse_back` at frame N's Process_Sprites reflects `Camera_X_pos` at the start of frame N (= end of N-1, since DeformBgLayer is the per-frame camera tracker). The engine's `LevelFrameStep` mirrors that order by-construction (objects step 4, camera-update step 5), so a direct read at the platform's `update()` already supplies the correct value. The round-13 cache pulled cam_X from too far in the past and let the platform's destruction lag ROM by one frame, which in turn delayed the freed-slot despawn at F6255 by one frame.
+
+With both fixes, Tails now lands on the platform at F6251, the platform destroys at F6254 (ROM-matching), and the freed-slot detection warps Tails to (0x7F00, 0) at F6255. AIZ trace error count holds steady (1960 vs 1959 prior); the first strict error now sits at F6313 with a sidekick AI divergence further downstream.
+
+**Original problem (PARTIAL state in round 13):**
+
+Platform lifecycle was ROM-aligned via `isPersistent()=true` + lagged-camera check, but Tails never registered a STANDING contact for the AIZ2 collapsing platform at x=0x08B0. Despawn cascade was reduced from 6782 -> 1959 errors / 5773 -> 2034 warnings, but AIZ first strict error stayed at F6255 because `lastRidingInstance` was null at the despawn check time.
+
+**Location:** `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` (lifecycle now ROM-aligned via `isPersistent()=true` + lagged-camera check), `SidekickCpuController.checkDespawn()` (S3K freed-slot path, infrastructure ready), `ObjectManager.SolidContacts.processInline*` (Tails-vs-platform contact resolution — root cause area), AIZ2 terrain-vs-object collision interaction.
+
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
+first strict error at frame 6255 (`tails_y mismatch expected=0x0000 actual=0x033B`).
+
+### Symptom
+
+Sequence around the divergence (CSV / aux from v6.3-s3k recorder):
+
+| K     | gfc    | Tails state (ROM)                                  | ROM slot 16 (CollapsingPlatform x=0x08B0) |
+|-------|--------|----------------------------------------------------|-------------------------------------------|
+| 6250  | 0x1742 | sk_x=0x0870 sk_y=0x033F sk_air=0 sk_status=0x00     | status=0x80 (alive, no one standing)      |
+| 6251  | 0x1743 | sk_x=0x0875 sk_y=0x033A sk_air=0 sk_status=0x08 (OnObj) | status=0x90 (Tails standing, $3A set)  |
+| 6252  | 0x1744 | sk_x=0x087A sk_y=0x033B                              | status=0x90, $38 countdown decrementing   |
+| 6253  | 0x1745 | sk_x=0x0880 sk_y=0x033B sk_status=0x08              | status=0x90, alive (cam_back=0x0880, diff=0) |
+| 6254  | 0x1746 | sk_x=0x0885 sk_y=0x033B (still alive, still on slot) | object_removed (cam_back=0x0900, Sprite_OnScreen_Test deletes) |
+| 6255  | 0x1747 | sk_x=0x7F00 sk_y=0x0000 sk_status=0x02 (in_air)     | (slot freed; SST zeroed)                  |
+
+In ROM, Tails transitions from terrain to platform at F6251 — note the `sk_y` step from 0x033F down to 0x033A (which on the y-axis-down convention means UP 5 px) and the status flip from 0x00 → 0x08 (`OnObj` set). She rides the platform through F6254. At F6255 the slot was freed during F6254 by `Sprite_OnScreen_Test` (sonic3k.asm:37262); `sub_13EFC` (sonic3k.asm:26823) reads `(a3)=0`, mismatches cached `Tails_CPU_interact=0x0002`, falls into `sub_13ECA` (sonic3k.asm:26800) which warps Tails to `(0x7F00, 0)`.
+
+In the engine, Tails has matching `(sk_x, sk_y)` up to F6254 but **never has `onSolidContact(standing=true)` fire for platform 0x08B0** — only platforms at x=0x05B0 and x=0x0E70 get Tails contacts in the entire trace. Without the standing contact, `setLatchedSolidObject` (ObjectManager.java:4431) never runs for slot 16, so `latchedSolidObjectInstance` stays unset and the freed-slot detection has no `lastRidingInstance` to compare against.
+
+### Diagnosed Cause
+
+Three layers — first two now resolved, third remains:
+
+1. **Engine SidekickCpuController had no `(a3)=0` analog.** [Resolved in commit 2b8cd723f.] ROM's `cmp.w (a3),d0` mismatch fires on slot deletion (the SST is zeroed by `Delete_Referenced_Sprite` sonic3k.asm:36116). The engine added `latchedSolidObjectInstance` (`AbstractPlayableSprite`), `setLatchedSolidObject(int, ObjectInstance)` (ObjectManager wires this on `processInline*` standing/touchTop), `SidekickCpuController.lastRidingInstance` per-frame cache, and the `sub_13EFC` `(a3)=0` analog gated by `PhysicsFeatureSet.sidekickDespawnUsesRidingInstanceLoss`.
+
+2. **Engine collapsing-platform lifecycle was off by one frame.** [Resolved in this commit.] `ObjectManager.unloadCounterBasedOutOfRange()` (ObjectManager.java:1842) reproduces ROM's `Sprite_OnScreen_Test` formula but feeds the **current** frame's `cameraX`. ROM's S3K `Sprite_OnScreen_Test` (sonic3k.asm:37262) uses `Camera_X_pos_coarse_back`, which `Load_Sprites` (sonic3k.asm:37545 `loc_1B7F2`) updates **after** `Process_Sprites` each frame — so the value seen during a given frame's object pass reflects the camera's X at the **end of the previous frame**. The engine's eager check destroyed the platform at frame K (cam_x=0x0985), one frame before ROM's frame K+1 deletion (using `Camera_X_pos_coarse_back` = end-of-K value = 0x0900, distance=0xFF80 > 0x280 → delete). Fix: `Sonic3kCollapsingPlatformObjectInstance.isPersistent()` returns `true` to bypass the eager engine OOR, plus `spriteOnScreenTestPasses()` runs the lagged-camera variant inside `update()` using `previousFrameCameraX` cached from the prior tick. With this, the platform now reaches `setDestroyed(true)` at gfc=0x1746 / F6254 — matching ROM exactly.
+
+3. **Tails never lands on platform x=0x08B0 in the engine.** [Architectural blocker, current state.] ROM Tails transitions from terrain to platform at F6251 (sk_y 0x033F → 0x033A, status 0x00 → 0x08). Engine Tails has matching X/Y but never gets a `standing()` contact recorded for platform 0x08B0. Hypothesis: AIZ2 layout has terrain underneath the platform at a Y close to the platform's slope-data top surface, and the engine's solid-contact framework doesn't perform the terrain → object handover that ROM's `SolidObjectTopSloped2` (sonic3k.asm:41826) manages. Without a `standing()` contact, `setLatchedSolidObject` never runs, `latchedSolidObjectInstance` stays null, and the freed-slot detection in `SidekickCpuController.checkDespawn()` lines 1127-1137 has no `lastRidingInstance` to detect the loss of.
+
+### Fix (Partial)
+
+Landed in this commit:
+
+- `Sonic3kCollapsingPlatformObjectInstance.isPersistent()` returns `true` so `ObjectManager.unloadCounterBasedOutOfRange()` (eager, current-frame) does not destroy the platform. Lifecycle now governed exclusively by the in-instance `spriteOnScreenTestPasses()`.
+- `Sonic3kCollapsingPlatformObjectInstance.spriteOnScreenTestPasses()` ports ROM `Sprite_OnScreen_Test` (sonic3k.asm:37262) using a per-instance `previousFrameCameraX` cache — at end of `update()` we save the camera_x observed during this tick; next tick's `spriteOnScreenTestPasses()` reads it as the analog of ROM's `Camera_X_pos_coarse_back`. Distance threshold $280, unsigned 16-bit wrap, exactly matching ROM.
+- `update()` runs `spriteOnScreenTestPasses()` in states 0/1/2, mirroring ROM's `loc_20594` → `sub_205B6` → `Sprite_OnScreen_Test` chain (sonic3k.asm:44814, 44830, 37262) which fires every frame in pre-collapse and solid-stay states. State 3 (post-fragment fall) keeps its existing `isOnScreen(128)` check matching ROM `loc_20620` `tst.b render_flags / bpl Delete_Current_Sprite` (sonic3k.asm:44879).
+
+Effect: AIZ trace replay error count 6782 → 1959 (-71%), warning count 5773 → 2034 (-65%). All downstream cascades from premature platform destruction are gone. Cross-game baselines unchanged: S1 GHZ green, S1 MZ1 F311, S2 EHZ F1151, S3K CNZ F2262.
+
+Not landed (architectural blocker):
+
+- **Tails-vs-collapsing-platform standing contact in the engine.** Engine `ObjectManager.SolidContacts.processInline*` paths never fire `onSolidContact(standing=true)` for slot 16 / platform x=0x08B0 with Tails, even though Tails' position matches ROM frame-for-frame up to F6254. Investigation needed into:
+  - Whether AIZ2 terrain immediately under the platform footprint masks the platform's top surface (terrain Y ≈ platform slope-data Y).
+  - Whether the engine performs the equivalent of ROM `SolidObjectTopSloped2`'s "step UP onto the object" handover (sonic3k.asm:41826) when the player runs from terrain onto a sloped solid object whose top is slightly above terrain.
+  - Whether the per-frame ordering (Tails physics resolves terrain collision **before** the object solid pass) causes Tails' Y to be locked to terrain before her body intersects the platform.
+
+### Removal Condition
+
+Resolve once `TestS3kAizTraceReplay`'s first strict error advances past F6255, with engine Tails landing on the AIZ2 collapsing platform at x=0x08B0 (visible as `setLatchedSolidObject(slot=16)` firing for Tails around F6251) and the freed-slot detection then warping her to `(0x7F00, 0)` at F6255 like ROM.
+
+---
+
+## CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)
+
+**Location:** `Sonic3kSpringObjectInstance.onSolidContact`, `Sonic3kSpringObjectInstance.checkHorizontalApproach`, `ObjectManager.SolidContacts.processInlineObjectForPlayer`
+**ROM Reference:** `sub_23190` (sonic3k.asm:47890), `sub_2326C` (sonic3k.asm:47957), `Obj_Spring_Horizontal` (sonic3k.asm:47771), `word_22EF0` (sonic3k.asm:47651) — yellow horizontal spring strength `-$A00`.
+
+### Symptom
+
+`TestS3kCnzTraceReplay` first strict error at F3649: `tails_x_speed mismatch (expected=-0A00, actual=-0060)`. ROM Tails lands on a horizontal spring at slot 16 (position `0x1D37, 0x08B0`) at F3649 — the same frame she transitions from in-air to grounded — and the spring fires, setting `x_vel = -$A00, ground_vel = -$A00`. The engine does not fire the spring on Tails, leaving her with the air-physics-derived `x_speed = -$60`. Engine catches up at F3650 once ground physics propagates, producing a 1-frame phase shift in all downstream Tails state.
+
+### Diagnostic Data
+
+Captured by extending `s3k_trace_recorder.lua` (v6.4-s3k) with `event.onmemorywrite` hooks on Tails's `x_vel`/`y_vel` RAM addresses. Each hit records the M68K PC of the writing instruction. Hooks are window-restricted (default frames 3640–3660; override via `OGGF_S3K_VELOCITY_WRITE_RANGE`).
+
+ROM frame-by-frame Tails `x_vel` writes:
+
+| Frame | Writers (PC : value) | Notes |
+|------:|----------------------|-------|
+| F3645–F3648 | `0x14ECC : 0xFFD0..0xFFB8` | `Tails_InputAcceleration_Freespace` accel-while-airborne |
+| **F3649** | `0x14ECC : 0xFFB8`, **`0x2319C : ...`** | First the air physics, then **the spring fires inside `sub_23190`** |
+| F3650+ | `0x14B70 : 0xF600` | Ground physics: `x_vel = ground_vel * cos(angle)`. ground_vel was set to `-$A00` by `loc_231BE` during the spring fire. |
+
+### Root Cause
+
+Two related issues, both ROM-cited:
+
+1. **Engine spring proactive zone (`sub_2326C` analog) only checks Player_1, not sidekicks.** `Sonic3kSpringObjectInstance.checkHorizontalApproach(player)` is called from `update(int frameCounter, PlayableEntity playerEntity)` with the leader only. ROM `sub_2326C` (sonic3k.asm:47957) explicitly checks **both** Player_1 (line 47973) and Player_2 (line 47999) every frame.
+
+2. **Engine spring `onSolidContact` requires `touchSide()` for horizontal springs, but ROM fires on the standing flag.** `Obj_Spring_Horizontal` (sonic3k.asm:47780-47782) tests bit 0 of `swap`'d `d6` after `SolidObjectFull2_1P` — that is the **standing** flag (`p1_standing`/`p2_standing`), not a side flag. The engine's path
+   ```java
+   if (springType == TYPE_HORIZONTAL) {
+       if (!contact.touchSide() || !isPlayerOnHorizontalSpringActiveSide(player)) return;
+       applyHorizontalSpring(player);
+   }
+   ```
+   gates on `touchSide()`. When Tails transitions air→ground inside the spring's hitbox in a single frame, the contact is reported as standing/touchTop, not side, so the spring does not fire.
+
+The yellow horizontal spring strength `-$A00` matches the trace `tails_x_speed = -$0A00` exactly when the spring's `$30(a0)` was set by `Spring_Common` `word_22EF0[subtype & 2]` (subtype bit 1 selects yellow). ROM-side per-frame spring `subtype` instrumentation reads `0x00` from the OST byte at offset `0x2C`, but ROM CSV velocity matches yellow strength — likely a recorder-read quirk (see "Diagnostic data" above; the disassembly `subtype` at offset `0x2C` may be loaded into a different field at runtime, or the recorder reads it at a frame where it has been re-written; not load-bearing for the fix).
+
+### Diagnosis Tooling Landed In This Branch
+
+- `tools/bizhawk/s3k_trace_recorder.lua` — `v6.4-s3k`. Adds `event.onmemorywrite` hooks at Tails's `x_vel` (`0xFFB062`/`0xFFB063`) and `y_vel` (`0xFFB064`/`0xFFB065`), accumulates per-frame, flushes once per `on_frame_end` as `velocity_write` aux event listing each writer's PC and post-write value. Frame-window-gated (default `3640..3660`; set `OGGF_S3K_VELOCITY_WRITE_RANGE=START-END` to widen) so the trace size stays manageable.
+- `aux_schema_extras` adds `velocity_write_per_frame`. Backward-compatible: existing traces without the key still load.
+- `TraceEvent.VelocityWrite` record + parser case in `TraceEvent.parseJsonLine`.
+- `TraceMetadata.hasPerFrameVelocityWrite()` boolean accessor.
+- `TraceData.velocityWriteForFrame(frame, character)` lookup.
+
+The CNZ test resources `physics.csv`/`aux_state.jsonl` in `src/test/resources/traces/s3k/cnz/` were **not** regenerated against this schema — the existing trace remains the reference for replay. The new diagnostic schema is for ad-hoc bug-hunt regenerations only.
+
+### Fix Landed
+
+`Sonic3kSpringObjectInstance.update()` now mirrors ROM `sub_2326C` (sonic3k.asm:47957)
+over the leader **and** every active sidekick.  The previous code passed only
+`playerEntity` (always the leader) to `checkHorizontalApproach`, so a CPU-controlled
+Tails landing on a horizontal spring while sitting just outside the side-push
+collision box never received the proactive-zone fire that the ROM gives Player_2
+at sonic3k.asm:47999-48020.  After the fix the spring fires on Tails at F3649,
+giving her `x_vel=-$0A00` like ROM, and the +8 px X bump from `sub_23190`
+(sonic3k.asm:47893) puts her at `0x1D29` matching ROM trace.
+
+The diagnosis's secondary suggestion ("switch horizontal-spring `onSolidContact`
+to fire on the standing flag, not `touchSide`") was based on a misreading of the
+d6 swap test at sonic3k.asm:47780-47782.  Re-derived: `p1_standing_bit = 3`
+(sonic3k.constants.asm:133), so when `SolidObjectFull2_1P` calls
+`addi.b #$D,d4 / bset d4,d6` on the side-push branch
+(sonic3k.asm:41497-41498 / 41506-41507) it sets bit `3 + 0xD = 0x10`
+of d6 (= bit 16).  After `swap d6 / andi.w #1,d6` the spring is testing
+bit 16, which is the **side-push flag**, not the standing flag.  The engine's
+existing `contact.touchSide()` gate is therefore the correct ROM equivalent;
+the proactive zone is the only piece that was missing.
+
+### Removal Condition
+
+Removed.  `TestS3kCnzTraceReplay`'s first strict error advanced from F3649
+to F3845 (a 196-frame advance into a different, sidekick-physics divergence
+already on the open list).  Cross-game baselines unchanged: S1 GHZ green,
+S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6313.

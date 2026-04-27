@@ -130,6 +130,43 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("oscillation_state_per_frame");
     }
 
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame {@code cage_state}
+     * events (the v6.3+ S3K recorder extension that snapshots each CNZ wire
+     * cage object's per-player state bytes plus its main status byte on every
+     * recorded frame). Used by divergence diagnostics for the CNZ cage's
+     * ride/release state machine.
+     */
+    public boolean hasPerFrameCageState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("cage_state_per_frame");
+    }
+
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame {@code cage_execution}
+     * events (the v6.3+ S3K recorder extension that captures each CNZ wire
+     * cage routine branch the M68K CPU entered along with register state).
+     * Used by divergence diagnostics to ROM-verify which cage branch the
+     * CPU actually took on each frame.
+     */
+    public boolean hasPerFrameCageExecution() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("cage_execution_per_frame");
+    }
+
+    /**
+     * Whether the trace's aux_state.jsonl emits per-frame
+     * {@code velocity_write} events (the v6.4+ S3K recorder extension that
+     * captures every M68K write to the sidekick's {@code x_vel}/{@code y_vel}
+     * RAM addresses, with each hit's writing-instruction PC). Used to root-
+     * cause the CNZ1 trace F3649 divergence (Tails {@code x_speed} jumps
+     * from -$48 to -$0A00 in one frame in ROM but takes two in the engine).
+     */
+    public boolean hasPerFrameVelocityWrite() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("velocity_write_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

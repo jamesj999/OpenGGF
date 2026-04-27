@@ -8,6 +8,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$script:GithubFileSizeLimitBytes = 100000000
+$script:TraceCompressionThresholdBytes = 1048576
 
 function Fail([string]$Message) {
     [Console]::Error.WriteLine("policy: $Message")
@@ -75,6 +77,23 @@ function Get-CommitFiles([string]$Commit) {
     return Invoke-GitLines @("diff-tree", "--root", "--no-commit-id", "--name-only", "--diff-filter=ACMR", "-r", $Commit)
 }
 
+function Get-StagedBlobSize([string]$Path) {
+    $size = Invoke-GitText @("cat-file", "-s", ":$Path") -AllowFailure
+    if ([string]::IsNullOrWhiteSpace($size)) {
+        return $null
+    }
+    return [long]$size
+}
+
+function Get-CommitBlobSize([string]$Commit, [string]$Path) {
+    $spec = "${Commit}:$Path"
+    $size = Invoke-GitText @("cat-file", "-s", $spec) -AllowFailure
+    if ([string]::IsNullOrWhiteSpace($size)) {
+        return $null
+    }
+    return [long]$size
+}
+
 function Test-HasExact([string[]]$Files, [string]$Needle) {
     return $Files -contains $Needle
 }
@@ -139,6 +158,27 @@ function Reset-ValidationErrors() {
 
 function Add-ValidationError([string]$Message) {
     $script:Errors.Add("- $Message") | Out-Null
+}
+
+function Validate-FileSizePolicyForFiles([string[]]$Files, [scriptblock]$SizeResolver) {
+    foreach ($path in $Files) {
+        $size = & $SizeResolver $path
+        if ($null -eq $size) {
+            continue
+        }
+        $fileName = [System.IO.Path]::GetFileName($path)
+        if ((($fileName -like "aux_state*.jsonl") -or ($fileName -like "physics*.csv")) -and
+                $size -ge $script:TraceCompressionThresholdBytes) {
+            $message = ("``$path`` is an uncompressed trace payload ({0} bytes). " +
+                    "Run ``tools/traces/compress-traces.ps1`` and commit the ``.gz`` file instead.") -f $size
+            Add-ValidationError $message
+        }
+        if ($size -ge $script:GithubFileSizeLimitBytes) {
+            $message = ("``$path`` is {0} bytes; GitHub rejects files >= {1} bytes.") -f `
+                    $size, $script:GithubFileSizeLimitBytes
+            Add-ValidationError $message
+        }
+    }
 }
 
 function Validate-ExactTrailer([string]$Message, [string[]]$Files, [string]$Key, [string]$Path, [string]$Label) {
@@ -256,6 +296,7 @@ function Validate-SkillsTrailer([string]$Message, [string[]]$Files) {
 function Validate-NonMasterCommitMessage([string]$Message, [string[]]$Files) {
     Reset-ValidationErrors
 
+    Validate-FileSizePolicyForFiles $Files { param($path) Get-StagedBlobSize $path }
     Validate-ExactTrailer $Message $Files "Changelog" "CHANGELOG.md" "CHANGELOG.md"
     Validate-PrefixTrailer $Message $Files "Guide" "docs/guide/" "docs/guide/"
     Validate-ExactTrailer $Message $Files "Known-Discrepancies" "docs/KNOWN_DISCREPANCIES.md" "docs/KNOWN_DISCREPANCIES.md"
@@ -372,7 +413,24 @@ function Validate-CiPr([string]$BaseSha, [string]$HeadSha, [string]$BaseRef, [st
     $commits = Invoke-GitLines @("rev-list", "--reverse", "--no-merges", "$BaseSha..$HeadSha")
     foreach ($commit in $commits) {
         $message = Invoke-GitText @("show", "-s", "--format=%B", $commit)
-        Validate-NonMasterCommitMessage $message (Get-CommitFiles $commit)
+        $files = Get-CommitFiles $commit
+        Reset-ValidationErrors
+        Validate-FileSizePolicyForFiles $files { param($path) Get-CommitBlobSize $commit $path }
+        Validate-ExactTrailer $message $files "Changelog" "CHANGELOG.md" "CHANGELOG.md"
+        Validate-PrefixTrailer $message $files "Guide" "docs/guide/" "docs/guide/"
+        Validate-ExactTrailer $message $files "Known-Discrepancies" "docs/KNOWN_DISCREPANCIES.md" "docs/KNOWN_DISCREPANCIES.md"
+        Validate-ExactTrailer $message $files "S3K-Known-Discrepancies" "docs/S3K_KNOWN_DISCREPANCIES.md" "docs/S3K_KNOWN_DISCREPANCIES.md"
+        Validate-AgentDocsTrailer $message $files
+        Validate-ExactTrailer $message $files "Configuration-Docs" "CONFIGURATION.md" "CONFIGURATION.md"
+        Validate-SkillsTrailer $message $files
+        if ($script:Errors.Count -gt 0) {
+            Note "commit $commit violates the non-master branch documentation/artifact policy."
+            foreach ($entry in $script:Errors) {
+                [Console]::Error.WriteLine($entry)
+            }
+            Print-CommitTemplate
+            exit 1
+        }
         if ($LASTEXITCODE -ne 0) {
             Note "commit $commit violates the non-master branch documentation policy."
             exit $LASTEXITCODE

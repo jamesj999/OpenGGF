@@ -71,7 +71,10 @@ public class TestHybridPhysicsFeatureSet {
                 true,   // sidekickDespawnUsesObjectIdMismatch - S1/S2 (s2.asm:39067 cmp.b id(a3),d0)
                 PhysicsFeatureSet.SIDEKICK_FLY_LAND_BLOCKERS_NONE,  // sidekickFlyLandStatusBlockerMask - S1 has no CPU sidekick
                 false,  // sidekickFlyLandRequiresLeaderAlive - S1 has no CPU sidekick
-                false   // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
+                false,  // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
+                false,  // sidekickDespawnUsesRidingInstanceLoss - S1 has no CPU sidekick
+                false,  // sidekickRespawnEntersCatchUpFlight - S1 has no CPU sidekick
+                false   // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
         );
 
         // Verify spindash is enabled (donor contribution)

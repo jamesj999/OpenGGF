@@ -153,6 +153,28 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     private int velY;
     private int yFrac;
 
+    // ROM Sprite_OnScreen_Test (sonic3k.asm:37262) reads Camera_X_pos_coarse_back,
+    // which Load_Sprites (sonic3k.asm:37545 loc_1B7F2) sets at the START of each
+    // frame's level loop -- BEFORE Process_Sprites (sonic3k.asm:7893 -> 7894).
+    // Camera_X_pos_coarse_back therefore reflects {@code Camera_X_pos} at the
+    // start of frame N, which equals end-of-frame-N-1 (camera moves during
+    // DeformBgLayer at sonic3k.asm:7897, AFTER Process_Sprites). In the engine
+    // {@link com.openggf.LevelFrameStep} runs object execution (step 4) BEFORE
+    // the camera tracking step (step 5: {@code camera.updatePosition()}), so
+    // {@code services().camera().getX()} read at the start of this object's
+    // {@code update()} already corresponds to the same start-of-frame value
+    // ROM saw at its Load_Sprites. No additional caching is required: the
+    // engine's frame-step ordering already mirrors ROM's by-construction.
+    //
+    // (Round 13 attempted to mirror ROM by caching the previous frame's value,
+    // under the mistaken premise that Load_Sprites runs AFTER Process_Sprites.
+    // The disassembly (sonic3k.asm:7893 jsr Load_Sprites; 7894 jsr
+    // Process_Sprites; 7897 jsr DeformBgLayer) shows the order is in fact
+    // Load_Sprites -> Process_Sprites -> DeformBgLayer, so the round-13 cache
+    // pulled cam_X from too far in the past and let the platform's destruction
+    // lag ROM by one frame, which in turn delayed the AIZ trace F6255 sidekick
+    // freed-slot despawn by one frame.)
+
     public Sonic3kCollapsingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "CollapsingPlatform");
         this.x = spawn.x();
@@ -213,6 +235,24 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         return state < 3;
     }
 
+    /**
+     * Opt out of {@code ObjectManager.unloadCounterBasedOutOfRange()} so this
+     * platform's lifecycle is governed exclusively by ROM's
+     * {@code Sprite_OnScreen_Test} analog inside {@link #update}. The two
+     * checks share the same 0x280 threshold but differ by one frame:
+     * {@code unloadCounterBasedOutOfRange} compares against the CURRENT
+     * frame's camera_x, while ROM's S3K {@code Sprite_OnScreen_Test} reads
+     * {@code Camera_X_pos_coarse_back} which {@code Load_Sprites} updates
+     * AFTER {@code Process_Sprites} (sonic3k.asm:37545 loc_1B7F2). Letting
+     * the engine destroy the platform with the eager current-frame value
+     * collapses it one frame too early relative to ROM, which was the
+     * blocker preventing the F6255 freed-slot despawn analog from firing.
+     */
+    @Override
+    public boolean isPersistent() {
+        return true;
+    }
+
     // ===== SolidObjectListener =====
 
     @Override
@@ -240,20 +280,33 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case 0 -> {
-                // Normal: just check if triggered via onSolidContact
+                // Normal: just check if triggered via onSolidContact.
                 if (triggered) {
                     state = 1;
                 }
+                // ROM loc_20594 falls through to sub_205B6 -> Sprite_OnScreen_Test
+                // every frame in pre-collapse and standing-trigger states. Mirror
+                // that off-screen delete here so the platform vanishes at the
+                // ROM-correct frame when the camera scrolls past it (sonic3k.asm:
+                // 44814 loc_20594, 44830 sub_205B6, 37262 Sprite_OnScreen_Test).
+                if (!spriteOnScreenTestPasses()) {
+                    setDestroyedByOffscreen();
+                }
             }
             case 1 -> {
-                // Collapsing: countdown timer
+                // Collapsing: countdown timer.
                 if (collapseTimer <= 0) {
                     performCollapse();
                 } else {
                     collapseTimer--;
+                }
+                // Same per-frame off-screen delete as state 0 -- ROM does not
+                // skip Sprite_OnScreen_Test while $38 counts down (sonic3k.asm:
+                // 44830 sub_205B6 -> 37262 Sprite_OnScreen_Test).
+                if (state != 2 && !spriteOnScreenTestPasses()) {
+                    setDestroyedByOffscreen();
                 }
             }
             case 2 -> {
@@ -267,6 +320,14 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 solidStayTimer--;
                 if (solidStayTimer <= 0) {
                     releasePending = true;
+                }
+                // ROM loc_205DE entry-point begins with `bsr.w sub_205B6` which
+                // re-runs the SolidObjectTopSloped2 + Sprite_OnScreen_Test pair
+                // each frame (sonic3k.asm:44851). Off-screen delete remains
+                // active during solid-stay countdown so the platform exits
+                // cleanly when the camera scrolls past during fragment fall.
+                if (!spriteOnScreenTestPasses()) {
+                    setDestroyedByOffscreen();
                 }
             }
             case 3 -> {
@@ -282,6 +343,50 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 }
             }
         }
+    }
+
+    /**
+     * ROM Sprite_OnScreen_Test (sonic3k.asm:37262):
+     * <pre>
+     *   move.w  x_pos(a0),d0
+     *   andi.w  #$FF80,d0
+     *   sub.w   (Camera_X_pos_coarse_back).w,d0
+     *   cmpi.w  #$280,d0
+     *   bhi.w   loc_1B5A0    ; off-screen -> Delete_Current_Sprite
+     * </pre>
+     * {@code Camera_X_pos_coarse_back} = {@code (Camera_X_pos - $80) & $FF80},
+     * recomputed by {@code Load_Sprites} (sonic3k.asm:37472-37478) at the
+     * START of the level loop -- BEFORE {@code Process_Sprites} runs the
+     * platform's solid pass (sonic3k.asm:7893 jsr Load_Sprites; 7894 jsr
+     * Process_Sprites; 7897 jsr DeformBgLayer). So during ROM
+     * {@code Process_Sprites} of frame N, {@code Camera_X_pos_coarse_back}
+     * reflects {@code Camera_X_pos} at the start of frame N (i.e. the same
+     * cam_X the camera held at the end of frame N-1, since
+     * {@code DeformBgLayer} -- the per-frame camera-tracker -- runs only
+     * AFTER {@code Process_Sprites}).
+     *
+     * <p>The engine's {@link com.openggf.LevelFrameStep} mirrors that order
+     * exactly: object execution (where this method runs) is step 4, while
+     * {@code camera.updatePosition()} is step 5. So
+     * {@code services().camera().getX()} read inside this method is already
+     * the start-of-frame cam_X, equal to the end-of-frame-N-1 cam_X, equal to
+     * ROM's {@code Camera_X_pos_coarse_back} input.
+     *
+     * <p>The arithmetic is unsigned 16-bit: a platform that has scrolled
+     * BEHIND the camera underflows the subtraction into the high $FFxx range,
+     * which exceeds $280 and triggers the {@code bhi} delete branch.
+     *
+     * @return true if the platform passes the test (stays alive); false if
+     *         the camera has scrolled far enough that ROM would
+     *         {@code Delete_Current_Sprite} this slot
+     */
+    private boolean spriteOnScreenTestPasses() {
+        int currentCameraX = services().camera().getX() & 0xFFFF;
+        int cameraXPosCoarseBack = (currentCameraX - 0x80) & 0xFF80;
+        int objectXCoarse = x & 0xFF80;
+        // ROM uses 16-bit unsigned wrap; emulate with a 16-bit AND.
+        int diff = (objectXCoarse - cameraXPosCoarseBack) & 0xFFFF;
+        return diff <= 0x280;
     }
 
     /**
