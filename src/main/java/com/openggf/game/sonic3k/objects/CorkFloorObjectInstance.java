@@ -102,6 +102,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     private boolean playerStanding;
     private int savedPreContactYSpeed;
     private boolean savedPreContactRolling;
+    private AbstractPlayableSprite rollingBreakPlayer;
 
     public CorkFloorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "CorkFloor");
@@ -157,6 +158,10 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        playerStanding = false;
+        savedPreContactRolling = false;
+        rollingBreakPlayer = null;
+
         SolidCheckpointBatch batch = checkpointAll();
         applyCheckpointContact(player, player != null ? batch.perPlayer().get(player) : null);
         for (PlayableEntity sidekick : services().sidekicks()) {
@@ -176,17 +181,17 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (playerStanding && player != null && savedPreContactRolling) {
+        if (rollingBreakPlayer != null) {
             if (mode == Mode.ICZ_PLANE_SWITCH) {
-                applyPlaneSwitch(player);
+                applyPlaneSwitch(rollingBreakPlayer);
             }
 
-            player.setRolling(true);
-            player.setYSpeed((short) ROLL_BREAK_LAUNCH_YVEL);
-            player.setAir(true);
-            player.setOnObject(false);
+            rollingBreakPlayer.setRolling(true);
+            rollingBreakPlayer.setYSpeed((short) ROLL_BREAK_LAUNCH_YVEL);
+            rollingBreakPlayer.setAir(true);
+            rollingBreakPlayer.setOnObject(false);
 
-            performBreak(player);
+            performBreak(rollingBreakPlayer);
             playerStanding = false;
             return;
         }
@@ -200,10 +205,20 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         }
 
         savedPreContactYSpeed = result.preContact().ySpeed();
-        savedPreContactRolling = result.preContact().rolling();
+        // ROM Obj_CorkFloor caches Player_1+anim / Player_2+anim before
+        // SolidObjectFull (sonic3k.asm:58493-58505) and breaks only when that
+        // cached byte is anim=$02 (sonic3k.asm:58515-58528, 58532-58540).
+        // Keep the per-frame decision per rider: the ROM stores P1/P2 cached
+        // animation bytes separately, so a later non-rolling sidekick contact
+        // must not erase the main player's roll-break checkpoint.
+        boolean preContactRollAnimation = result.preContact().animationId() == 2;
+        savedPreContactRolling |= preContactRollAnimation;
 
         if (result.standingNow()) {
             playerStanding = true;
+            if (preContactRollAnimation && rollingBreakPlayer == null) {
+                rollingBreakPlayer = player;
+            }
         }
 
         if (mode == Mode.BREAK_FROM_BELOW && result.kind() == ContactKind.BOTTOM) {
