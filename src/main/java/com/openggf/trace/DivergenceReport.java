@@ -105,8 +105,9 @@ public class DivergenceReport {
     }
 
     public String getContextWindow(int centreFrame, int radius) {
-        int start = Math.max(0, centreFrame - radius);
-        int end = Math.min(allComparisons.size() - 1, centreFrame + radius);
+        int centreIndex = comparisonIndexForFrame(centreFrame);
+        int start = Math.max(0, centreIndex - radius);
+        int end = Math.min(allComparisons.size() - 1, centreIndex + radius);
 
         StringBuilder sb = new StringBuilder();
         appendTraceContextWindow(sb, centreFrame);
@@ -156,6 +157,32 @@ public class DivergenceReport {
             sb.append("\n");
         }
         return sb.toString();
+    }
+
+    private int comparisonIndexForFrame(int frame) {
+        if (allComparisons.isEmpty()) {
+            return 0;
+        }
+        for (int i = 0; i < allComparisons.size(); i++) {
+            if (allComparisons.get(i).frame() == frame) {
+                return i;
+            }
+        }
+        int insertion = 0;
+        while (insertion < allComparisons.size() && allComparisons.get(insertion).frame() < frame) {
+            insertion++;
+        }
+        if (insertion == 0) {
+            return 0;
+        }
+        if (insertion >= allComparisons.size()) {
+            return allComparisons.size() - 1;
+        }
+        int beforeFrame = allComparisons.get(insertion - 1).frame();
+        int afterFrame = allComparisons.get(insertion).frame();
+        return Math.abs(frame - beforeFrame) <= Math.abs(afterFrame - frame)
+                ? insertion - 1
+                : insertion;
     }
 
     private void appendTraceContextSummary(StringBuilder sb, int frame) {

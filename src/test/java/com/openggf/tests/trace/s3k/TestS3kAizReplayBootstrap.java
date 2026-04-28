@@ -16,6 +16,7 @@ import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
@@ -223,10 +224,9 @@ public class TestS3kAizReplayBootstrap {
     }
 
     @Test
-    void fullTraceReplaySeedsFirstLiveLevelFrameBeforeGameplayStart() throws Exception {
+    void fullTraceReplayStartsAtFrameZeroBeforeGameplayStart() throws Exception {
         TraceData trace = TraceData.load(TRACE_DIR);
         int levelEntryFrame = TraceReplayBootstrap.replaySeedTraceIndexForTraceReplay(trace);
-        TraceFrame entryFrame = trace.getFrame(levelEntryFrame);
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
         Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -243,17 +243,11 @@ public class TestS3kAizReplayBootstrap {
             TraceReplayBootstrap.ReplayStartState replayStart =
                     TraceReplayBootstrap.applySeedReplayStartStateForTraceReplay(trace, fixture);
 
-            assertEquals(levelEntryFrame + 1, replayStart.startingTraceIndex());
-            assertEquals(levelEntryFrame, replayStart.seededTraceIndex());
-            assertEquals(entryFrame.x(), fixture.sprite().getCentreX());
-            assertEquals(entryFrame.y(), fixture.sprite().getCentreY());
-            assertEquals(entryFrame.xSpeed(), fixture.sprite().getXSpeed());
-            assertEquals(entryFrame.ySpeed(), fixture.sprite().getYSpeed());
-            assertEquals(entryFrame.gSpeed(), fixture.sprite().getGSpeed());
-            assertEquals(entryFrame.cameraX(), GameServices.camera().getX() & 0xFFFF);
-            assertEquals(entryFrame.cameraY(), GameServices.camera().getY() & 0xFFFF);
+            assertEquals(0, levelEntryFrame);
+            assertEquals(0, replayStart.startingTraceIndex());
+            assertEquals(-1, replayStart.seededTraceIndex());
             assertFalse(GameServices.camera().isLevelStarted(),
-                    "AIZ should still be in the intro before gameplay_start.");
+                    "AIZ should still be before gameplay_start at trace frame 0.");
         } finally {
             sharedLevel.dispose();
             config.setConfigValue(
@@ -269,7 +263,7 @@ public class TestS3kAizReplayBootstrap {
     }
 
     @Test
-    void fullTraceReplayWarmupDoesNotSeedFirstStrictIntroFrame() throws Exception {
+    void fullTraceReplayDoesNotWarmPastTheVisibleIntroPrefix() throws Exception {
         TraceData trace = TraceData.load(TRACE_DIR);
         int strictStartFrame = TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace);
         SonicConfigurationService config = SonicConfigurationService.getInstance();
@@ -288,10 +282,12 @@ public class TestS3kAizReplayBootstrap {
             TraceReplayBootstrap.ReplayStartState replayStart =
                     TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
 
-            assertEquals(strictStartFrame, replayStart.startingTraceIndex());
+            assertTrue(strictStartFrame > 0,
+                    "Strict comparison still begins at the first recorded LEVEL frame.");
+            assertEquals(0, replayStart.startingTraceIndex());
             assertEquals(-1, replayStart.seededTraceIndex());
             assertFalse(GameServices.camera().isLevelStarted(),
-                    "AIZ should still be in the intro on the first strict replay frame.");
+                    "AIZ should still be before gameplay_start at trace frame 0.");
         } finally {
             sharedLevel.dispose();
             config.setConfigValue(
@@ -408,7 +404,38 @@ public class TestS3kAizReplayBootstrap {
 
         assertEquals(
                 trace.metadata().bk2FrameOffset() + strictStartFrame - 1,
-                TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace));
+                TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace) + strictStartFrame);
+    }
+
+    @Test
+    void liveBootstrapStartsAtTraceFrameZeroWithoutConsumingIntroFrames() throws Exception {
+        TraceData trace = TraceData.load(TRACE_DIR);
+
+        TraceReplayBootstrap.ReplayStartState replayStart =
+                com.openggf.trace.replay.TraceReplaySessionBootstrap
+                        .applyLiveBootstrap(trace, null, -1)
+                        .replayStart();
+
+        assertEquals(0, replayStart.startingTraceIndex());
+        assertEquals(-1, replayStart.seededTraceIndex());
+    }
+
+    @Test
+    void legacyAizPreLevelPrefixIsVblankOnlyUntilFirstLevelFrame() throws Exception {
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int strictStartFrame = TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace);
+
+        assertEquals(289, strictStartFrame);
+        TraceFrame previous = null;
+        for (int frame = 0; frame < strictStartFrame; frame++) {
+            TraceFrame current = trace.getFrame(frame);
+            assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                    TraceReplayBootstrap.phaseForReplay(trace, previous, current),
+                    "pre-level AIZ prefix should not tick the loaded level at trace frame " + frame);
+            previous = current;
+        }
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceReplayBootstrap.phaseForReplay(trace, previous, trace.getFrame(strictStartFrame)));
     }
 
     @Test
@@ -487,6 +514,52 @@ public class TestS3kAizReplayBootstrap {
 
             TraceFrame expected = trace.getFrame(firstAccelerationFrame);
             assertFrameMatches(expected, fixture, lastInput);
+        } finally {
+            sharedLevel.dispose();
+            config.setConfigValue(
+                    SonicConfiguration.S3K_SKIP_INTROS,
+                    oldSkip != null ? oldSkip : false);
+            config.setConfigValue(
+                    SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMain != null ? oldMain : "sonic");
+            config.setConfigValue(
+                    SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                    oldSidekick != null ? oldSidekick : "tails");
+        }
+    }
+
+    @Test
+    void fullTraceReplayAlignsFirstRightInputToRecordedFrame() throws Exception {
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int preInputFrame = 0x0594;
+        int firstInputFrame = 0x0595;
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Object oldSidekick = config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
+        try {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+
+            HeadlessTestFixture fixture = buildTraceReplayFixture(trace, sharedLevel);
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+
+            int lastInput = advanceReplayToTraceFrame(trace, fixture, replayStart, preInputFrame);
+            TraceFrame preInputExpected = trace.getFrame(preInputFrame);
+            assertEquals(0, preInputExpected.input());
+            assertFrameMatches(preInputExpected, fixture, lastInput);
+
+            lastInput = stepReplayFrame(trace, fixture, preInputFrame);
+
+            TraceFrame firstInputExpected = trace.getFrame(firstInputFrame);
+            assertEquals(AbstractPlayableSprite.INPUT_RIGHT, firstInputExpected.input());
+            assertEquals(AbstractPlayableSprite.INPUT_RIGHT, lastInput & AbstractPlayableSprite.INPUT_RIGHT);
+            assertFrameMatches(firstInputExpected, fixture, lastInput);
         } finally {
             sharedLevel.dispose();
             config.setConfigValue(
@@ -1271,6 +1344,68 @@ public class TestS3kAizReplayBootstrap {
     }
 
     @Test
+    void fullTraceReplayKeepsAizFloatingPlatformAtRecordedCarryTimingFrame() throws Exception {
+        TraceData trace = TraceData.load(TRACE_DIR);
+        int probeFrame = 2165;
+        TraceEvent.ObjectNear tracedPlatform = trace.getEventsForFrame(probeFrame).stream()
+                .filter(TraceEvent.ObjectNear.class::isInstance)
+                .map(TraceEvent.ObjectNear.class::cast)
+                .filter(event -> event.slot() == 8)
+                .filter(event -> "0x000255F4".equalsIgnoreCase(event.objectType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("No traced floating platform event at frame " + probeFrame));
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        Object oldSkip = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        Object oldMain = config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Object oldSidekick = config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+
+        SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, 0, 0);
+        try {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+            config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
+            config.setConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
+
+            HeadlessTestFixture fixture = buildTraceReplayFixture(trace, sharedLevel);
+            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
+
+            int lastInput = advanceReplayToTraceFrame(trace, fixture, replayStart, probeFrame);
+
+            FloatingPlatformObjectInstance platform = GameServices.level().getObjectManager()
+                    .getActiveObjects().stream()
+                    .filter(FloatingPlatformObjectInstance.class::isInstance)
+                    .map(FloatingPlatformObjectInstance.class::cast)
+                    .filter(instance -> instance.getSpawn() != null)
+                    .filter(instance -> instance.getSpawn().x() == tracedPlatform.x())
+                    .findFirst()
+                    .orElse(null);
+
+            String state = describeSpriteState(fixture, trace.getFrame(probeFrame), lastInput)
+                    + ", tracedPlatformY=" + String.format("%04X", tracedPlatform.y() & 0xFFFF)
+                    + ", floatingPlatforms=" + describeFloatingPlatformsInWindow(0x1800, 0x1900);
+            assertNotNull(platform, state);
+            assertEquals(tracedPlatform.x(), (short) platform.getX(), state);
+            assertEquals(tracedPlatform.y(), (short) platform.getY(),
+                    state
+                            + ", actualPlatformY=" + String.format("%04X", platform.getY() & 0xFFFF)
+                            + ", actualOrigSpawn="
+                            + describeSpawn(originalSpawnOf(platform)));
+        } finally {
+            sharedLevel.dispose();
+            config.setConfigValue(
+                    SonicConfiguration.S3K_SKIP_INTROS,
+                    oldSkip != null ? oldSkip : false);
+            config.setConfigValue(
+                    SonicConfiguration.MAIN_CHARACTER_CODE,
+                    oldMain != null ? oldMain : "sonic");
+            config.setConfigValue(
+                    SonicConfiguration.SIDEKICK_CHARACTER_CODE,
+                    oldSidekick != null ? oldSidekick : "tails");
+        }
+    }
+
+    @Test
     void fullTraceReplayMatchesFirstFloatingPlatformFalseLandingWindow() throws Exception {
         TraceData trace = TraceData.load(TRACE_DIR);
         int probeFrame = 2273;
@@ -1430,22 +1565,15 @@ public class TestS3kAizReplayBootstrap {
                 ? trace.getFrame(replayStart.seededTraceIndex())
                 : driveTraceIndex > 0 ? trace.getFrame(driveTraceIndex - 1) : null;
         S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
-        S3kElasticWindowController controller =
-                new S3kElasticWindowController(loadCheckpointFrames(trace));
 
         if (replayStart.hasSeededTraceState()) {
             for (int frame = 0; frame <= replayStart.seededTraceIndex(); frame++) {
                 for (TraceEvent event : trace.getEventsForFrame(frame)) {
                     if (event instanceof TraceEvent.Checkpoint checkpoint) {
                         detector.seedCheckpoint(checkpoint.name());
-                        controller.onEntryFrameValidated(checkpoint);
-                        controller.onEngineCheckpoint(checkpoint);
                     }
                 }
             }
-            controller.alignCursorToTraceIndex(replayStart.startingTraceIndex());
-        } else if (driveTraceIndex > 0) {
-            controller.alignCursorToTraceIndex(driveTraceIndex);
         }
 
         while (driveTraceIndex < trace.frameCount()) {
@@ -1460,35 +1588,12 @@ public class TestS3kAizReplayBootstrap {
 
             TraceEvent.Checkpoint engineCheckpoint =
                     detector.observe(captureProbe(driveFrame.frame(), fixture));
-            controller.onEngineTick();
-            controller.assertWithinDriftBudget();
 
             if (engineCheckpoint != null && checkpointName.equals(engineCheckpoint.name())) {
                 return driveFrame.frame();
             }
 
-            boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
-            int naturalNextDriveIndex = driveTraceIndex + 1;
-            if (engineCheckpoint != null) {
-                controller.onEngineCheckpoint(engineCheckpoint);
-                int skippedTraceFrames = controller.driveTraceIndex() - naturalNextDriveIndex;
-                if (skippedTraceFrames > 0) {
-                    fixture.advanceRecordingCursor(skippedTraceFrames);
-                }
-            }
-
-            if (engineCheckpoint != null
-                    && !strictBeforeCheckpoint
-                    && controller.isStrictComparisonEnabled()) {
-                driveTraceIndex = controller.driveTraceIndex();
-                previousDriveFrame = driveTraceIndex > 0
-                        ? trace.getFrame(driveTraceIndex - 1)
-                        : null;
-                continue;
-            }
-
-            controller.advanceDriveCursor();
-            driveTraceIndex = controller.driveTraceIndex();
+            driveTraceIndex++;
             previousDriveFrame = driveFrame;
         }
 
@@ -1531,18 +1636,6 @@ public class TestS3kAizReplayBootstrap {
                 resultsActive,
                 GameServices.camera().isLevelStarted(),
                 titleCardOverlayActive);
-    }
-
-    private static java.util.Map<String, Integer> loadCheckpointFrames(TraceData trace) {
-        java.util.Map<String, Integer> frames = new java.util.LinkedHashMap<>();
-        for (int frame = 0; frame < trace.frameCount(); frame++) {
-            for (TraceEvent event : trace.getEventsForFrame(frame)) {
-                if (event instanceof TraceEvent.Checkpoint checkpoint) {
-                    frames.putIfAbsent(checkpoint.name(), checkpoint.frame());
-                }
-            }
-        }
-        return frames;
     }
 
     private static Integer resolveS3kTraceGameMode(boolean titleCardOverlayActive) {

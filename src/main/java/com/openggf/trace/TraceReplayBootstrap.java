@@ -79,8 +79,19 @@ public final class TraceReplayBootstrap {
 
     public static ReplayStartState applyReplayStartStateForTraceReplay(TraceData trace,
                                                                        TraceReplayFixture fixture) {
-        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
-            return warmupLegacyS3kAizTraceReplay(trace, fixture);
+        if (usesSidekickTitleCardSeedFrame(trace)) {
+            if (fixture != null) {
+                // The frame-0 row is reproduced by the native sidekick-only
+                // prelude, not by a full player physics tick. Consume only the
+                // matching BK2 input frame so trace frame 1 uses BK2 input 1
+                // and later Ctrl_1_pressed edges stay aligned with the recorded
+                // rows. Also append that live controller sample to Sonic's
+                // native follow history; Tails_Normal reads the delayed
+                // Ctrl_1_Logical stream independently of Sonic physics.
+                int seedInput = fixture.consumeRecordingFrameInputOnly();
+                recordSeedFrameInputHistory(fixture.sprite(), seedInput);
+            }
+            return new ReplayStartState(1, 0);
         }
         return new ReplayStartState(replaySeedTraceIndexForTraceReplay(trace), -1);
     }
@@ -98,10 +109,16 @@ public final class TraceReplayBootstrap {
         if (trace == null) {
             return 0;
         }
-        if (shouldUseLegacyS3kAizIntroWarmup(trace)) {
-            return trace.metadata().bk2FrameOffset();
-        }
         int seedTraceIndex = replaySeedTraceIndexForTraceReplay(trace);
+        if (isLegacyS3kAizIntroTrace(trace) && seedTraceIndex == 0) {
+            // The AIZ end-to-end recorder writes trace frame 0 in the same
+            // callback that arms recording, unlike level-gated traces which
+            // return and emit their first row after the next frameadvance().
+            // That row is therefore the state produced by the previous BK2
+            // input. Start the movie cursor one input frame earlier while still
+            // replaying the full trace prefix from trace frame 0.
+            return Math.max(0, trace.metadata().bk2FrameOffset() - 1);
+        }
         return trace.metadata().bk2FrameOffset() + Math.max(0, seedTraceIndex - 1);
     }
 
@@ -183,6 +200,9 @@ public final class TraceReplayBootstrap {
                 || shouldUseLegacyS3kAizIntroWarmup(trace)) {
             return 0;
         }
+        if ("s3k".equals(trace.metadata().game())) {
+            return usesSidekickTitleCardSeedFrame(trace) ? 1 : 0;
+        }
         if (!"s2".equals(trace.metadata().game())) {
             return 0;
         }
@@ -213,24 +233,22 @@ public final class TraceReplayBootstrap {
     }
 
     public static boolean shouldUseLegacyS3kAizIntroWarmup(TraceData trace) {
-        return isLegacyS3kAizIntroTrace(trace);
+        return false;
     }
 
     public static boolean shouldApplyMetadataStartPositionForTraceReplay(TraceData trace) {
         return replaySeedTraceIndexForTraceReplay(trace) == 0
-                && !shouldUseLegacyS3kAizIntroWarmup(trace);
+                && !isLegacyS3kAizIntroTrace(trace);
     }
 
     public static int strictStartTraceIndexForTraceReplay(TraceData trace) {
         if (trace == null || trace.frameCount() == 0) {
             return 0;
         }
-        if (!shouldUseLegacyS3kAizIntroWarmup(trace)) {
-            return replaySeedTraceIndexForTraceReplay(trace);
+        if (isLegacyS3kAizIntroTrace(trace)) {
+            return findFirstLevelGameplayFrame(trace);
         }
-
-        int firstGameplayModeFrame = findFirstLevelGameplayFrame(trace);
-        return Math.min(firstGameplayModeFrame + 1, trace.frameCount() - 1);
+        return replaySeedTraceIndexForTraceReplay(trace);
     }
 
     public static ReplayPrimaryState capturePrimaryReplayStateForComparison(TraceData trace,
@@ -242,40 +260,42 @@ public final class TraceReplayBootstrap {
         return ReplayPrimaryState.fromSprite(sprite);
     }
 
-    private static ReplayStartState warmupLegacyS3kAizTraceReplay(TraceData trace,
-                                                                  TraceReplayFixture fixture) {
-        if (trace == null || trace.frameCount() == 0) {
-            return ReplayStartState.DEFAULT;
-        }
-
-        int strictStartTraceIndex = strictStartTraceIndexForTraceReplay(trace);
-        if (strictStartTraceIndex <= 0) {
-            return ReplayStartState.DEFAULT;
-        }
-        TraceFrame previous = null;
-        for (int traceIndex = 0; traceIndex < strictStartTraceIndex; traceIndex++) {
-            TraceFrame current = trace.getFrame(traceIndex);
-            TraceExecutionPhase phase = phaseForReplay(trace, previous, current);
-            if (phase == TraceExecutionPhase.VBLANK_ONLY) {
-                fixture.skipFrameFromRecording();
-            } else {
-                fixture.stepFrameFromRecording();
-            }
-            previous = current;
-        }
-        return new ReplayStartState(strictStartTraceIndex, -1);
-    }
-
-
     public static TraceExecutionPhase phaseForReplay(TraceData trace,
                                                      TraceFrame previous,
                                                      TraceFrame current) {
         if (shouldUseLegacyS3kAizIntroHeuristic(trace, current)) {
+            int firstLevelFrame = findFirstLevelGameplayFrame(trace);
+            if (current.frame() < firstLevelFrame) {
+                // The AIZ end-to-end trace starts while Game_Mode is $4C
+                // (Level with transition bit set). Player_1/Player_2 RAM still
+                // contains title-screen objects such as Obj_TitleBanner and
+                // Obj_TitleSelection (sonic3k.asm:5995, 6168), not gameplay
+                // Sonic/Tails. Advance the BK2/VBlank cursor for these frames,
+                // but do not tick the loaded AIZ level until the first real
+                // Level frame at the Obj_AIZPlaneIntro spawn point.
+                return TraceExecutionPhase.VBLANK_ONLY;
+            }
             return deriveLegacyPhase(previous, current);
         }
         return TraceExecutionModel.forGame(trace.metadata().game()).phaseFor(previous, current);
     }
 
+    public static boolean shouldCompareGameplayStateForReplay(TraceExecutionPhase phase) {
+        return phase == TraceExecutionPhase.FULL_LEVEL_FRAME;
+    }
+
+    private static void recordSeedFrameInputHistory(AbstractPlayableSprite sprite, int inputMask) {
+        if (sprite == null) {
+            return;
+        }
+        sprite.setLogicalInputState(
+                (inputMask & AbstractPlayableSprite.INPUT_UP) != 0,
+                (inputMask & AbstractPlayableSprite.INPUT_DOWN) != 0,
+                (inputMask & AbstractPlayableSprite.INPUT_LEFT) != 0,
+                (inputMask & AbstractPlayableSprite.INPUT_RIGHT) != 0,
+                (inputMask & AbstractPlayableSprite.INPUT_JUMP) != 0);
+        sprite.endOfTick();
+    }
 
     private static boolean shouldUseLegacyS3kAizIntroHeuristic(TraceData trace,
                                                                 TraceFrame current) {
@@ -284,6 +304,26 @@ public final class TraceReplayBootstrap {
         }
         int gameplayStartFrame = findCheckpointFrame(trace, "gameplay_start");
         return gameplayStartFrame >= 0 && current.frame() <= gameplayStartFrame;
+    }
+
+    private static boolean usesSidekickTitleCardSeedFrame(TraceData trace) {
+        if (trace == null || trace.frameCount() < 2
+                || !"s3k".equals(trace.metadata().game())
+                || trace.metadata().recordedSidekicks().isEmpty()
+                || isLegacyS3kAizIntroTrace(trace)) {
+            return false;
+        }
+        if (replaySeedTraceIndexForTraceReplay(trace) != 0) {
+            return false;
+        }
+        TraceFrame firstFrame = trace.getFrame(0);
+        // S3K spawns Tails at Player_1 for Sonic+Tails starts, then the level
+        // loop increments Level_frame_counter before Process_Sprites
+        // (sonic3k.asm:8191-8196, 7884-7894). Level-select traces can therefore
+        // expose a strict frame-0 seed row after Tails' object tick but before
+        // Sonic's first driven movement tick. Use that as a timing policy only;
+        // no recorded player or sidekick values are hydrated into engine state.
+        return firstFrame.gameplayFrameCounter() == 1;
     }
 
     /**

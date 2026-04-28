@@ -57,28 +57,58 @@ class TestTraceReplayStartPositionPolicy {
     }
 
     @Test
-    void s3kEndToEndTraceWarmsUpToFirstStrictIntroFrame() throws Exception {
+    void s3kEndToEndTraceStartsAtFrameZeroWithoutSkippingIntro() throws Exception {
         TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
 
-        assertTrue(TraceReplayBootstrap.shouldUseLegacyS3kAizIntroWarmup(trace));
+        assertFalse(TraceReplayBootstrap.shouldUseLegacyS3kAizIntroWarmup(trace));
         assertFalse(TraceReplayBootstrap.shouldSeedFrameZeroForTraceReplay(trace));
         assertEquals(0, TraceReplayBootstrap.replaySeedTraceIndexForTraceReplay(trace));
-        // The strict start lands on the frame after the first ZoneActState with
-        // game_mode=0x0C (first live LEVEL frame). For this trace the recorder
-        // starts at the very first SEGA/title frame, so the first gm=0x0C event
-        // is the AIZ1 intro-object activation at trace frame 289 → strict start 290.
-        assertEquals(290, TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace));
-        assertEquals(trace.metadata().bk2FrameOffset(),
+        // Strict comparison starts on the first real AIZ level frame, where
+        // the ROM has switched to Game_Mode 0x0C and spawned Obj_AIZPlaneIntro.
+        assertEquals(289, TraceReplayBootstrap.strictStartTraceIndexForTraceReplay(trace),
+                "AIZ frame-0 Player_1 RAM is still the title banner object; strict "
+                        + "gameplay comparison starts when the ROM reaches Game_Mode 0x0C.");
+        assertEquals(trace.metadata().bk2FrameOffset() - 1,
                 TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace),
-                "Legacy AIZ replay must consume the recorded prefix as movie input "
-                        + "instead of jumping the BK2 cursor to the first compared frame.");
+                "AIZ row 0 is emitted immediately after recorder arming, so the BK2 cursor "
+                        + "starts one input frame earlier while still playing the full intro prefix.");
         assertEquals(0,
                 TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
-                "The AIZ prefix is simulated, so no separate oscillator seed is required.");
+                "The AIZ prefix is simulated from frame 0, so no separate oscillator seed is required.");
     }
 
     @Test
-    void s3kGameplayTraceDoesNotSeedRecordedFrameZeroBeforeDrivingReplay() throws Exception {
+    void s3kEndToEndTracePreLevelPrefixAdvancesMovieWithoutTickingLevel() throws Exception {
+        TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
+
+        assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                TraceReplayBootstrap.phaseForReplay(trace, null, trace.getFrame(0)),
+                "Frame 0 is Game_Mode 0x4C and Player_1/Player_2 RAM belongs to title-screen objects.");
+        assertEquals(TraceExecutionPhase.VBLANK_ONLY,
+                TraceReplayBootstrap.phaseForReplay(trace, trace.getFrame(287), trace.getFrame(288)),
+                "The BK2 cursor should advance through the pre-level prefix without starting AIZ early.");
+        assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
+                TraceReplayBootstrap.phaseForReplay(trace, trace.getFrame(288), trace.getFrame(289)),
+                "Frame 289 is the first Game_Mode 0x0C AIZ frame and should start native level playback.");
+    }
+
+    @Test
+    void vblankOnlyRowsAdvanceMovieButDoNotCompareGameplayState() throws Exception {
+        TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
+
+        assertFalse(TraceReplayBootstrap.shouldCompareGameplayStateForReplay(
+                        TraceReplayBootstrap.phaseForReplay(trace, null, trace.getFrame(0))),
+                "Pre-level AIZ rows sample title/intro RAM, not loaded-level Sonic state.");
+        assertFalse(TraceReplayBootstrap.shouldCompareGameplayStateForReplay(
+                        TraceReplayBootstrap.phaseForReplay(trace, trace.getFrame(287), trace.getFrame(288))),
+                "VBLANK_ONLY rows should only advance BK2/VBlank timing.");
+        assertTrue(TraceReplayBootstrap.shouldCompareGameplayStateForReplay(
+                        TraceReplayBootstrap.phaseForReplay(trace, trace.getFrame(288), trace.getFrame(289))),
+                "FULL_LEVEL_FRAME rows remain strict gameplay comparisons.");
+    }
+
+    @Test
+    void s3kGameplayTraceSeedsFrameZeroAfterSidekickTitleCardPrelude() throws Exception {
         TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/cnz"));
 
         assertFalse(trace.preTraceObjectSnapshots().isEmpty(),
@@ -86,14 +116,22 @@ class TestTraceReplayStartPositionPolicy {
         assertFalse(TraceReplayBootstrap.shouldUseLegacyS3kAizIntroWarmup(trace));
         assertEquals(0, TraceReplayBootstrap.replaySeedTraceIndexForTraceReplay(trace));
         assertFalse(TraceReplayBootstrap.shouldSeedFrameZeroForTraceReplay(trace));
+        assertEquals(1,
+                TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace),
+                "S3K Sonic+Tails level-select traces observe one Tails object tick "
+                        + "before Sonic's first full LevelLoop tick.");
+        assertEquals(new TraceReplayBootstrap.ReplayStartState(1, 0),
+                TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, null),
+                "Frame 0 is a strict seed comparison after the Tails-only prelude; "
+                        + "normal full-frame driving starts with trace frame 1.");
         assertEquals(trace.metadata().bk2FrameOffset(),
                 TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace),
-                "Frame-0 trace rows are comparison data only, so the BK2 cursor starts "
-                        + "at the frame-0 input instead of advancing past a restored snapshot.");
+                "Frame 0 is seed-compared after the native sidekick prelude, so the first "
+                        + "driven row (trace frame 1) starts from the frame-0 input.");
         assertEquals(0,
                 TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
-                "CNZ frame 0 has gfc=1, but replay steps that first LevelLoop tick "
-                        + "natively before comparing the row.");
+                "CNZ frame 0 is compared as a seed row, so no separate oscillator "
+                        + "pre-advance is required.");
     }
 
     @Test

@@ -200,7 +200,7 @@ public final class TraceSessionLauncher {
             // helper's hydration steps wrote for seeded traces.
             TraceReplaySessionBootstrap.applyStartPositionAndGroundSnap(trace, fixture);
             TraceReplaySessionBootstrap.BootstrapResult boot =
-                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
+                    TraceReplaySessionBootstrap.applyLiveBootstrap(trace, fixture, -1);
 
             int initialCursor = boot.replayStart().startingTraceIndex();
             this.comparator = new LiveTraceComparator(
@@ -322,6 +322,14 @@ public final class TraceSessionLauncher {
 
         @Override
         public int skipFrameFromRecording() {
+            Bk2FrameInput frame = playback.currentFrameOrThrow();
+            int mask = toReplayValidationMask(frame);
+            playback.advanceCurrentFrameWithoutGameplay();
+            return mask;
+        }
+
+        @Override
+        public int consumeRecordingFrameInputOnly() {
             Bk2FrameInput frame = playback.currentFrameOrThrow();
             int mask = toReplayValidationMask(frame);
             playback.advanceCurrentFrameWithoutGameplay();

@@ -15,16 +15,14 @@ public record ToleranceConfig(
     int angleError
 ) {
     /**
-     * Default tolerances:
-     * - Position: warn at 1 subpixel, error at 256 (1 full pixel)
-     * - Speed: warn at 1 subpixel, error at 128 (half pixel/frame), sign change = error
-     * - Angle: warn at 1, error at 4
+     * Default replay policy is exact: any numeric mismatch is an error.
+     * Non-zero tolerance configs must be opt-in and justified by the caller.
      * - Flags: any mismatch = error (hardcoded, not configurable)
      */
     public static final ToleranceConfig DEFAULT = new ToleranceConfig(
-        1, 256,       // position
-        1, 128, true, // speed
-        1, 4          // angle
+        1, 1,         // position
+        1, 1, true,   // speed
+        1, 1          // angle
     );
 
     /** Classify a numeric difference against warn/error thresholds. */

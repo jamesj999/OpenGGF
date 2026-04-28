@@ -26,7 +26,7 @@ public class TestTraceBinder {
     }
 
     @Test
-    public void testPositionDivergenceWarning() {
+    public void testDefaultPositionDivergenceIsError() {
         TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
@@ -39,8 +39,8 @@ public class TestTraceBinder {
             (byte) 0x00, false, false, 0);
 
         assertTrue(result.hasDivergence());
-        assertFalse(result.hasError());
-        assertEquals(Severity.WARNING, result.fields().get("x").severity());
+        assertTrue(result.hasError());
+        assertEquals(Severity.ERROR, result.fields().get("x").severity());
     }
 
     @Test
@@ -171,5 +171,4 @@ public class TestTraceBinder {
         assertEquals(Severity.ERROR, result.fields().get("tails_x").severity());
     }
 }
-
 

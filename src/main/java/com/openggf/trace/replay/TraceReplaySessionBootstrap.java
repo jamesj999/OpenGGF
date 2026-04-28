@@ -12,6 +12,7 @@ import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
@@ -213,6 +214,44 @@ public final class TraceReplaySessionBootstrap {
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
+    }
+
+    /**
+     * Live trace visualisation starts at trace frame 0 and must not consume
+     * visible trace prefix frames before the first rendered frame. Headless
+     * replay may warm through legacy prefixes to align comparison, but doing
+     * that in the live launcher makes full-intro traces appear to skip ahead.
+     */
+    public static BootstrapResult applyLiveBootstrap(TraceData trace,
+                                                     TraceReplayFixture fixture,
+                                                     int preTraceOscOverride) {
+        int preTraceOsc = TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(
+                trace, preTraceOscOverride);
+        for (int i = 0; i < preTraceOsc; i++) {
+            OscillationManager.update(-(preTraceOsc - i));
+        }
+        TraceObjectSnapshotBinder.Result hydration =
+                TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+        return new BootstrapResult(hydration, TraceReplayBootstrap.ReplayStartState.DEFAULT);
+    }
+
+    /**
+     * Align replay-local gameplay counters once before the comparison loop.
+     * This is bootstrap state equivalent to loading the BK2 save-state point;
+     * it is not per-frame trace hydration. The value comes from the trace row
+     * immediately before the first driven row so native per-frame increments
+     * keep both counters aligned afterward.
+     */
+    public static void alignFrameCountersForReplayStart(TraceFrame previousDriveFrame,
+                                                        TraceFrame firstDriveFrame) {
+        if (previousDriveFrame != null && previousDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.spritesOrNull() != null) {
+            GameServices.spritesOrNull().setFrameCounter(previousDriveFrame.gameplayFrameCounter());
+        }
+        if (firstDriveFrame != null && firstDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.levelOrNull() != null) {
+            GameServices.levelOrNull().setFrameCounter(firstDriveFrame.gameplayFrameCounter());
+        }
     }
 
     /**
