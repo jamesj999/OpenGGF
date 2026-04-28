@@ -529,6 +529,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.sidekickDespawnUsesRidingInstanceLoss(), // sidekickDespawnUsesRidingInstanceLoss (from base game)
                 baseFeatureSet.sidekickRespawnEntersCatchUpFlight(), // sidekickRespawnEntersCatchUpFlight (from base game)
                 baseFeatureSet.sidekickPushBypassUsesGraceStatus(), // sidekickPushBypassUsesGraceStatus (from base game)
+                baseFeatureSet.sidekickClearsStalePushVelocityBeforeGroundMove(), // sidekickClearsStalePushVelocityBeforeGroundMove (from base game)
                 baseFeatureSet.sidekickCpuUsesLevelFrameCounter(), // sidekickCpuUsesLevelFrameCounter (from base game)
                 baseFeatureSet.levelBoundaryRightStrict() // levelBoundaryRightStrict (from base game)
         );
