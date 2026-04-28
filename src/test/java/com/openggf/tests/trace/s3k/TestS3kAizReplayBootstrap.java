@@ -1839,6 +1839,8 @@ public class TestS3kAizReplayBootstrap {
         for (int i = 0; i < preTraceOsc; i++) {
             com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
         }
+        com.openggf.game.OscillationManager.suppressNextFrames(
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace));
         return fixture;
     }
 

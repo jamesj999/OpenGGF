@@ -258,6 +258,8 @@ public class TestS3kAizTraceReplay extends AbstractTraceReplayTest {
         for (int i = 0; i < preTraceOsc; i++) {
             com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
         }
+        com.openggf.game.OscillationManager.suppressNextFrames(
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace));
         return fixture;
     }
 

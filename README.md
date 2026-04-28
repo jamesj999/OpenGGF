@@ -226,7 +226,11 @@ further S3K parity work.
 - **S3K AIZ strict-replay cadence:** the local AIZ trace baseline is restored from F1056 to
   F2165 by gating S3K Tails CPU frame checks onto the stored `Level_frame_counter` read
   during `Process_Sprites` (sonic3k.asm:7884-7894/26474-26531/38898-38900) instead of
-  the one-tick-ahead inline fallback argument.
+  the one-tick-ahead inline fallback argument. The follow-up AIZ oscillator-bootstrap pass
+  advances F2165 -> F2696 by suppressing only the first replay-local oscillator advance for
+  the legacy full-intro trace, preserving the native first `LevelLoop` tick while matching
+  `Obj_FloatingPlatform`'s pre-`OscillateNumDo` table read (sonic3k.asm:7884-7909,
+  50244-50248, 50826-50841).
 - **S2 EHZ trace replay fixes:** EHZ first-error advances F2911 -> F2945 by keeping new
   non-riding bridge contacts on the flat `PlatformObject11_cont` landing surface while
   preserving depressed bridge-log samples only for already-standing riders, matching
