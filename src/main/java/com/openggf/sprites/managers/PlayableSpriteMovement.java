@@ -2372,8 +2372,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				|| inputRight) {
 			return;
 		}
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs == null || !fs.sidekickClearsStalePushVelocityBeforeGroundMove()) {
+			return;
+		}
 		// S3K TailsCPU runs from the player slot, but the ROM push bit and
 		// blocked velocity reflect the previous SolidObjectFull/terrain pass.
+		// S2 TailsCPU_Normal has no matching pre-ground-move velocity clear:
+		// it only tests live Status_Push to choose the follow/action branch,
+		// then writes Ctrl_2_Logical (docs/s2disasm/s2.asm:38943-39027).
 		// If no new CPU input is applied while ground_vel is still nonzero, do
 		// not let stale inertia advance x_pos_sub before the blocking pass
 		// clears it again. When ground_vel is already zero, preserve x_vel:

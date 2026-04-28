@@ -235,7 +235,15 @@ further S3K parity work.
   non-riding bridge contacts on the flat `PlatformObject11_cont` landing surface while
   preserving depressed bridge-log samples only for already-standing riders, matching
   `Obj11_EHZ` and `PlatformObject11_cont` in `docs/s2disasm/s2.asm:21995-22032`,
-  `22120-22172`, and `35692-35712`.
+  `22120-22172`, and `35692-35712`. The follow-up sidekick push-clear gate advances
+  F2945 -> F4413 by matching S2 `TailsCPU_Normal`'s live `Status_Push` control write
+  path without the S3K pre-ground-move velocity clear (`docs/s2disasm/s2.asm:38943-39027`,
+  `docs/skdisasm/sonic3k.asm:27947-28017`).
+- **S3K AIZ giant ride vine replay fix:** AIZ first-error advances F2696 -> F2709 by
+  executing the consolidated giant ride vine at its ROM handle child slot and sampling
+  the previous-frame `AIZ_vine_angle`, matching child allocation/routine rewrite and
+  `LevelLoop` ordering in `docs/skdisasm/sonic3k.asm:46749-46787`, `46929-46950`,
+  `44841-44851`, `7894`, `7910`, `9693`, and `46843`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)

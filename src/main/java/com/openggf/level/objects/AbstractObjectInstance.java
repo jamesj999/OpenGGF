@@ -248,6 +248,18 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * Returns the SST slot whose turn should execute this object.
+     * <p>
+     * Most engine objects map one Java instance to one ROM object slot. A small
+     * number of consolidated multi-slot objects keep the parent slot for
+     * lifecycle/allocation bookkeeping while executing gameplay from a child
+     * slot that owned the ROM routine.
+     */
+    public int getExecutionSlotIndex() {
+        return slotIndex;
+    }
+
+    /**
      * Assigns this object's slot index. Called by ObjectManager during object creation.
      *
      * @param index slot index (0-127 for ROM-matching slots, may exceed 127 for overflow)

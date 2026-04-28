@@ -75,6 +75,7 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // sidekickDespawnUsesRidingInstanceLoss - S1 has no CPU sidekick
                 false,  // sidekickRespawnEntersCatchUpFlight - S1 has no CPU sidekick
                 false,  // sidekickPushBypassUsesGraceStatus - S1 has no CPU sidekick
+                false,  // sidekickClearsStalePushVelocityBeforeGroundMove - S1 has no CPU sidekick
                 false,  // sidekickCpuUsesLevelFrameCounter - S1 has no CPU sidekick
                 false   // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
         );

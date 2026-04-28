@@ -303,6 +303,20 @@ public record PhysicsFeatureSet(
          */
         boolean sidekickPushBypassUsesGraceStatus,
         /**
+         * Whether a CPU sidekick with stale push status and no fresh left/right
+         * input clears ground velocity before the ground movement step.
+         * <p>S3K: {@code true}. The engine uses this to mirror the S3K
+         * ground projection/push-collision path that can leave a one-frame
+         * collision {@code x_vel} while clearing {@code ground_vel}
+         * (sonic3k.asm:27947-28017).
+         * <p>S2: {@code false}. S2 {@code TailsCPU_Normal} only uses the live
+         * push bit to choose whether to bypass follow steering, then writes
+         * {@code Ctrl_2_Logical}; it does not clear velocity before Tails'
+         * ground movement dispatch (s2.asm:38943-39027).
+         * <p>S1: {@code false}. No CPU sidekick.
+         */
+        boolean sidekickClearsStalePushVelocityBeforeGroundMove,
+        /**
          * Whether the sidekick CPU's frame-gated catch-up/jump checks read the
          * runtime's stored {@code Level_frame_counter} instead of the caller's
          * update argument. S3K Tails CPU checks {@code (Level_frame_counter).w}
@@ -419,6 +433,7 @@ public record PhysicsFeatureSet(
             false /* sidekickDespawnUsesRidingInstanceLoss: S1 has no Tails CPU */,
             false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */,
             false /* sidekickPushBypassUsesGraceStatus: S1 has no Tails CPU */,
+            false /* sidekickClearsStalePushVelocityBeforeGroundMove: S1 has no Tails CPU */,
             false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */);
 
@@ -437,6 +452,7 @@ public record PhysicsFeatureSet(
             false /* sidekickDespawnUsesRidingInstanceLoss: S2 8-bit-id mismatch path already covers the freed-slot case (id of a freed slot is also 0) */,
             false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */,
             false /* sidekickPushBypassUsesGraceStatus: S2 TailsCPU_Normal uses live Status_Push only (s2.asm:38943-38946) */,
+            false /* sidekickClearsStalePushVelocityBeforeGroundMove: S2 TailsCPU_Normal writes Ctrl_2_Logical without clearing velocity (s2.asm:38943-39027) */,
             false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */);
 
@@ -459,6 +475,7 @@ public record PhysicsFeatureSet(
             true /* sidekickDespawnUsesRidingInstanceLoss: S3K sub_13EFC reads (a3)=0 when slot freed by Delete_Referenced_Sprite (sonic3k.asm:36116-36124); engine tracks ObjectInstance reference because latchedSolidObjectId is sticky across destruction */,
             true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */,
             true /* sidekickPushBypassUsesGraceStatus: preserve ROM-visible transient push continuity for S3K object ordering (sonic3k.asm:26702-26705) */,
+            true /* sidekickClearsStalePushVelocityBeforeGroundMove: S3K ground projection/push path clears ground_vel while preserving collision x_vel (sonic3k.asm:27947-28017) */,
             true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 — see PhysicsFeatureSet javadoc for AIZ F4768 cite */);
 
