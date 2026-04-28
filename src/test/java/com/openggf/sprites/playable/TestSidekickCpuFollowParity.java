@@ -377,6 +377,7 @@ class TestSidekickCpuFollowParity {
         sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
 
         SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
         controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
 
         controller.update(0x097F);
@@ -443,6 +444,7 @@ class TestSidekickCpuFollowParity {
             sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
 
             SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+            tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
             controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
 
             setLevelFrameCounter(0x06BF);

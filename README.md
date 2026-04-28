@@ -223,6 +223,10 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
+- **S3K AIZ strict-replay cadence:** the local AIZ trace baseline is restored from F1056 to
+  F2165 by gating S3K Tails CPU frame checks onto the stored `Level_frame_counter` read
+  during `Process_Sprites` (sonic3k.asm:7884-7894/26474-26531/38898-38900) instead of
+  the one-tick-ahead inline fallback argument.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
