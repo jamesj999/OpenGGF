@@ -171,6 +171,10 @@ public class ObjectManager {
         return slotLayout.toExecIndex(slotIndex);
     }
 
+    private int executionSlotIndex(AbstractObjectInstance instance) {
+        return instance.getExecutionSlotIndex();
+    }
+
     private int slotIndexForExec(int execIndex) {
         return slotLayout.toSlotIndex(execIndex);
     }
@@ -438,13 +442,13 @@ public class ObjectManager {
 
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -578,13 +582,13 @@ public class ObjectManager {
         // ROM parity: Build slot-ordered execution array.
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -2093,7 +2097,7 @@ public class ObjectManager {
         dynamicFallbackScratch.clear();
         for (ObjectInstance inst : dynamicObjects) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                    && isManagedDynamicSlot(executionSlotIndex(aoi))) {
                 continue;
             }
             dynamicFallbackScratch.add(inst);
@@ -2104,7 +2108,7 @@ public class ObjectManager {
         activeFallbackScratch.clear();
         for (ObjectInstance inst : activeObjects.values()) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                    && isManagedDynamicSlot(executionSlotIndex(aoi))) {
                 continue;
             }
             activeFallbackScratch.add(inst);
