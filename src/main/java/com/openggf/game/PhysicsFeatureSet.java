@@ -303,6 +303,22 @@ public record PhysicsFeatureSet(
          */
         boolean sidekickPushBypassUsesGraceStatus,
         /**
+         * Whether the sidekick CPU's frame-gated catch-up/jump checks read the
+         * runtime's stored {@code Level_frame_counter} instead of the caller's
+         * update argument. S3K Tails CPU checks {@code (Level_frame_counter).w}
+         * directly while running from {@code Process_Sprites}; the level loop
+         * increments that counter before sprite processing
+         * (sonic3k.asm:7884-7894), and AIZ explicitly releases Tails into
+         * routine 2 by writing {@code Tails_CPU_routine = 2}
+         * (sonic3k.asm:38898-38900). Engine inline sidekick updates can receive
+         * a fallback frame argument one tick ahead of the stored ROM-visible
+         * counter, which makes the 64-frame catch-up gate fire one row early.
+         *
+         * <p>S3K: {@code true}. S1/S2: {@code false} to preserve their current
+         * sidekick trace cadence.
+         */
+        boolean sidekickCpuUsesLevelFrameCounter,
+        /**
          * Whether the level-boundary right-side check uses the strict
          * "predicted &gt; right" comparison ({@code blo.s}) instead of the
          * "predicted &gt;= right" ({@code bls.s}) comparison.
@@ -403,6 +419,7 @@ public record PhysicsFeatureSet(
             false /* sidekickDespawnUsesRidingInstanceLoss: S1 has no Tails CPU */,
             false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */,
             false /* sidekickPushBypassUsesGraceStatus: S1 has no Tails CPU */,
+            false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
@@ -420,6 +437,7 @@ public record PhysicsFeatureSet(
             false /* sidekickDespawnUsesRidingInstanceLoss: S2 8-bit-id mismatch path already covers the freed-slot case (id of a freed slot is also 0) */,
             false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */,
             false /* sidekickPushBypassUsesGraceStatus: S2 TailsCPU_Normal uses live Status_Push only (s2.asm:38943-38946) */,
+            false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
@@ -441,6 +459,7 @@ public record PhysicsFeatureSet(
             true /* sidekickDespawnUsesRidingInstanceLoss: S3K sub_13EFC reads (a3)=0 when slot freed by Delete_Referenced_Sprite (sonic3k.asm:36116-36124); engine tracks ObjectInstance reference because latchedSolidObjectId is sticky across destruction */,
             true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */,
             true /* sidekickPushBypassUsesGraceStatus: preserve ROM-visible transient push continuity for S3K object ordering (sonic3k.asm:26702-26705) */,
+            true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 — see PhysicsFeatureSet javadoc for AIZ F4768 cite */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */

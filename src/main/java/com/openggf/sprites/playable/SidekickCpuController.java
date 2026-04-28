@@ -197,6 +197,18 @@ public class SidekickCpuController {
     }
 
     private int resolveCpuFrameCounter(int fallbackFrameCount) {
+        LevelManager levelManager = sidekick.currentLevelManager();
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        if (fs != null && fs.sidekickCpuUsesLevelFrameCounter()
+                && levelManager != null && levelManager.getFrameCounter() > 0) {
+            // S3K Tails CPU reads (Level_frame_counter).w inside sprite CPU
+            // handlers such as Tails_Catch_Up_Flying (sonic3k.asm:26474-26531).
+            // LevelLoop increments the RAM counter before Process_Sprites
+            // (sonic3k.asm:7884-7894), while some engine inline sidekick calls
+            // receive a caller fallback that is one tick ahead of the stored
+            // counter. Use the stored counter for the ROM-visible S3K gates.
+            return levelManager.getFrameCounter();
+        }
         if (fallbackFrameCount > 0) {
             // ROM increments Level_frame_counter before object/player CPU slots
             // (s2.asm:5092, sonic3k.asm:7889). SpriteManager passes that
@@ -204,7 +216,6 @@ public class SidekickCpuController {
             // engine frame and is one tick stale for Tails' $3F jump gate.
             return fallbackFrameCount;
         }
-        LevelManager levelManager = sidekick.currentLevelManager();
         if (levelManager != null && levelManager.getFrameCounter() > 0) {
             return levelManager.getFrameCounter();
         }
