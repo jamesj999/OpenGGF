@@ -131,32 +131,13 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         // the alternating capture/release cycle in updateRiderSlot can
         // continue to re-capture the offscreen rider each frame.
         //
-        // ALSO preserve the standing bit when a rider's slot is active (i.e.
-        // currently captured): ROM's Obj_CNZCylinder calls SolidObjectFull
-        // (sonic3k.asm:67668-67672) every frame regardless of capture state,
-        // and on-screen captured riders refresh their standing bit via that
-        // call's SetCapturedRider_StandingBit logic. The engine's SolidObject
-        // framework blocks the contact pass entirely when a player is
-        // {@code objectControlled} (ObjectManager.java:4120-4131
-        // `blocksSolidContacts` early-return), so {@link #onSolidContact}
-        // never fires while the rider is being held by us, which would
-        // otherwise let {@code nextStandingMask} reset to 0 and break the
-        // captured-then-released alternation when the test reseed preserves
-        // {@code objectControlled} across the release frame (CNZ trace F4577
-        // {@code tails_rolling} fix premise: Tails {@code object_control}
-        // bit 0 must persist into the release-frame Tails update so
-        // {@code Tails_Modes} stays skipped via sonic3k.asm:26211 btst gate,
-        // but that preservation also short-circuits the engine solid pass
-        // refreshing the cylinder's standing-bit bookkeeping).
         int preservedStanding = 0;
         if (playerOneSlot.player != null
-                && (playerOneSlot.active
-                        || !riderRenderFlagOnScreen(playerOneSlot.player))) {
+                && !riderRenderFlagOnScreen(playerOneSlot.player)) {
             preservedStanding |= (standingMask & 0x01);
         }
         if (playerTwoSlot.player != null
-                && (playerTwoSlot.active
-                        || !riderRenderFlagOnScreen(playerTwoSlot.player))) {
+                && !riderRenderFlagOnScreen(playerTwoSlot.player)) {
             preservedStanding |= (standingMask & 0x02);
         }
 
@@ -597,6 +578,17 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
 
     @Override
     public boolean isSolidFor(PlayableEntity player) {
+        return true;
+    }
+
+    @Override
+    public boolean allowsObjectControlledSolidContacts() {
+        // ROM Obj_CNZCylinder writes object_control=$03 on capture
+        // (sonic3k.asm:68002), then still calls SolidObjectFull every frame
+        // after sub_324C0 (sonic3k.asm:67656-67672). SolidObjectFull's active
+        // rider branch can clear the cylinder standing bit when the rider is
+        // airborne or leaves bounds (sonic3k.asm:41016-41033), which sub_324C0
+        // consumes on the next active-slot check (sonic3k.asm:68019-68025).
         return true;
     }
 

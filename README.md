@@ -362,7 +362,11 @@ further S3K parity work.
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
-  produce ROM-correct values natively.
+  produce ROM-correct values natively. The follow-up CNZ directed-traversal cleanup restores
+  cylinder release and cork-floor rolling checkpoints to ROM object ordering
+  (`Obj_CNZCylinder` still calls `SolidObjectFull` while captured; cork floors cache the
+  roll-break animation checkpoint per rider), keeping the current CNZ first-error at F1638
+  while bringing the focused CNZ headless traversal tests back to green.
 - **Trace recorder v6.4-s3k:** adds frame-window-gated `velocity_write` per-frame events
   via BizHawk Lua `event.onmemorywrite` hooks at Tails's `x_vel` / `y_vel` RAM addresses
   — each write captures the M68K writer PC + post-write value, accumulated per frame and
