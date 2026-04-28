@@ -4,6 +4,7 @@ import com.openggf.debug.playback.Bk2FrameInput;
 import com.openggf.debug.playback.Bk2Movie;
 import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
@@ -138,7 +139,7 @@ public final class TraceSessionLauncher {
                     + "aborting for " + entry.dir());
             return;
         }
-        PlaybackDebugManager playback = PlaybackDebugManager.getInstance();
+        PlaybackDebugManager playback = GameServices.playbackDebug();
         try {
             // prepareConfiguration already ran inside launch() before
             // launchGameByEntry fired — the master-title exit handler
@@ -158,10 +159,10 @@ public final class TraceSessionLauncher {
             // main sprite to already exist — otherwise the camera's
             // focusedSprite ends up null on the next frame).
             TraceReplaySessionBootstrap.resetLevelSubsystemsForReplay();
-            com.openggf.game.session.GameplayTeamBootstrap.registerActiveTeam(
+            GameplayTeamBootstrap.registerActiveTeam(
                     GameServices.module(),
                     GameServices.sprites(),
-                    com.openggf.configuration.SonicConfigurationService.getInstance());
+                    GameServices.configuration());
             GameServices.level().loadZoneAndAct(entry.zone(), entry.act());
             loop.setGameMode(GameMode.LEVEL);
 
@@ -271,7 +272,7 @@ public final class TraceSessionLauncher {
         // sees a clean "no session active" state instead of the
         // half-torn-down launcher.
         activeSession = null;
-        PlaybackDebugManager.getInstance().endSession();
+        GameServices.playbackDebug().endSession();
         // Restore the user's gameplay-altering config before we
         // rebuild the master title. If the user re-launches the
         // picker immediately, they see their own preferences rather
