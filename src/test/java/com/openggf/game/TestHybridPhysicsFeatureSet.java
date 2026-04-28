@@ -74,6 +74,7 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // solidObjectOffscreenGate - S1 keeps current behaviour (gate is S3K-only for now)
                 false,  // sidekickDespawnUsesRidingInstanceLoss - S1 has no CPU sidekick
                 false,  // sidekickRespawnEntersCatchUpFlight - S1 has no CPU sidekick
+                false,  // sidekickPushBypassUsesGraceStatus - S1 has no CPU sidekick
                 false   // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
         );
 

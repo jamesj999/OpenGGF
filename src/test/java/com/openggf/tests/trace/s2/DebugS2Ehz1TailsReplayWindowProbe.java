@@ -1,7 +1,5 @@
 package com.openggf.tests.trace.s2;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.SignpostObjectInstance;
 import com.openggf.level.ChunkDesc;
@@ -22,12 +20,11 @@ import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceEvent;
-import com.openggf.trace.TraceExecutionModel;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceMetadata;
-import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
+import com.openggf.trace.replay.TraceReplaySessionBootstrap;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +49,7 @@ class DebugS2Ehz1TailsReplayWindowProbe {
         Assumptions.assumeTrue(Files.isDirectory(TRACE_DIR), "Trace directory not found: " + TRACE_DIR);
         TraceData trace = TraceData.load(TRACE_DIR);
         TraceMetadata meta = trace.metadata();
-        applyRecordedTeamConfig(meta);
+        TraceReplaySessionBootstrap.prepareConfiguration(trace, meta);
         firstSonicSubMismatchPrinted = false;
         firstSonicPixelMismatchPrinted = false;
         firstSubMismatchPrinted = false;
@@ -67,7 +64,7 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                     .startPosition(meta.startX(), meta.startY())
                     .startPositionIsCentre()
                     .withRecording(findBk2File())
-                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace))
                     .build();
 
             ObjectManager objectManager = GameServices.level().getObjectManager();
@@ -75,18 +72,15 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                 objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
             }
 
-            int preTraceOsc = meta.preTraceOscillationFrames();
-            for (int i = 0; i < preTraceOsc; i++) {
-                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
-            }
-
-            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1).replayStart();
 
             TraceFrame previous = null;
-            for (int i = 0; i <= endFrame; i++) {
+            for (int i = replayStart.startingTraceIndex(); i <= endFrame; i++) {
                 TraceFrame current = trace.getFrame(i);
+                previous = i > 0 ? trace.getFrame(i - 1) : null;
                 TraceExecutionPhase phase =
-                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, current);
+                        TraceReplayBootstrap.phaseForReplay(trace, previous, current);
                 int bk2Input = phase == TraceExecutionPhase.VBLANK_ONLY
                         ? fixture.skipFrameFromRecording()
                         : fixture.stepFrameFromRecording();
@@ -98,7 +92,6 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                 if (current.frame() >= startFrame) {
                     dumpFrame(current, bk2Input, phase);
                 }
-                previous = current;
             }
         } finally {
             sharedLevel.dispose();
@@ -658,17 +651,6 @@ class DebugS2Ehz1TailsReplayWindowProbe {
                 objectId,
                 aoi.getX() & 0xFFFF,
                 aoi.getY() & 0xFFFF);
-    }
-
-    private static void applyRecordedTeamConfig(TraceMetadata meta) {
-        if (!meta.hasRecordedTeam()) {
-            return;
-        }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, meta.mainCharacter());
-        config.setConfigValue(
-                SonicConfiguration.SIDEKICK_CHARACTER_CODE,
-                String.join(",", meta.recordedSidekicks()));
     }
 
     private static Path findBk2File() throws Exception {

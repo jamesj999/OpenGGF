@@ -197,13 +197,15 @@ public class SidekickCpuController {
     }
 
     private int resolveCpuFrameCounter(int fallbackFrameCount) {
+        if (fallbackFrameCount > 0) {
+            // ROM increments Level_frame_counter before object/player CPU slots
+            // (s2.asm:5092, sonic3k.asm:7889). SpriteManager passes that
+            // already-incremented cadence; LevelManager stores it later in the
+            // engine frame and is one tick stale for Tails' $3F jump gate.
+            return fallbackFrameCount;
+        }
         LevelManager levelManager = sidekick.currentLevelManager();
         if (levelManager != null && levelManager.getFrameCounter() > 0) {
-            // ROM increments Level_frame_counter before Process_Sprites
-            // (s2.asm:5092, sonic3k.asm:7889), while LevelManager increments
-            // near the end of LevelFrameStep. Trace replay seeds this counter
-            // to the first driven row before comparison; production reads the
-            // same LevelManager cadence source natively.
             return levelManager.getFrameCounter();
         }
         if (levelManager != null && levelManager.getObjectManager() != null
@@ -490,6 +492,10 @@ public class SidekickCpuController {
             // and caused a new first-divergence at AIZ frame 1611.
             flightTimer = 0;
             normalPushingGraceFrames = 0;
+            // S2 TailsCPU_Normal writes obj_control=$81 on dead-Sonic
+            // recovery (s2.asm:38910-38915); S3K loc_13D4A does the same
+            // before entering Tails_FlySwim_Unknown (sonic3k.asm:26656-26665).
+            sidekick.setObjectControlled(true);
             sidekick.setAir(true);
             sidekick.setDoubleJumpFlag(1);
             sidekick.setForcedAnimationId(flyAnimId);
@@ -565,7 +571,6 @@ public class SidekickCpuController {
 
         int dx = targetX - sidekick.getCentreX();
         int dy = targetY - sidekick.getCentreY();
-
         inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
         inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
         inputUp = (recordedInput & AbstractPlayableSprite.INPUT_UP) != 0;
@@ -580,7 +585,10 @@ public class SidekickCpuController {
         boolean currentPushBypass = !sidekick.getAir()
                 && currentPushing
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
+        PhysicsFeatureSet fs = sidekick.getPhysicsFeatureSet();
+        boolean pushBypassGraceEnabled = fs != null && fs.sidekickPushBypassUsesGraceStatus();
         boolean gracePushBypass = !sidekick.getAir()
+                && pushBypassGraceEnabled
                 && normalPushingGraceFrames > 0
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         boolean autoJumpCadence = (frameCounter & 0x3F) == 0;

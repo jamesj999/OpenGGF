@@ -616,11 +616,12 @@ public class TestS2Ehz1Headless {
         sonic.setDead(true);
         controller.update(1);
 
-        // enterApproachingState() now delegates to the respawn strategy,
-        // which repositions the sidekick to its fly-in start position.
-        assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
-        // Tails strategy positions 192px above the leader
-        assertEquals(sonic.getCentreY() - 192, tails.getCentreY());
+        // ROM TailsCPU_Normal sends dead-Sonic recovery to routine 4
+        // (TailsCPU_Flying), sets obj_control=$81, and switches to the fly
+        // animation: s2.asm:38906-38915.
+        assertEquals(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, controller.getState());
+        assertTrue(tails.isObjectControlled());
+        assertTrue(tails.getAir());
     }
 
     // -- findSonic Tests --
