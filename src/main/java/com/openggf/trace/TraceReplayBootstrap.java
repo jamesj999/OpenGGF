@@ -211,6 +211,24 @@ public final class TraceReplayBootstrap {
     }
 
     /**
+     * Sonic 2 runs level objects during the title-card sequence before
+     * {@code Level_started_flag} is set and before {@code Level_frame_counter}
+     * begins ticking in {@code Level_MainLoop}: see s2.asm:5004-5008,
+     * s2.asm:5060-5066, and s2.asm:5077-5092. Headless replay starts directly
+     * at gameplay frame 1, so it must reproduce that native object prelude
+     * without copying pre-trace SST snapshots back into the engine.
+     */
+    public static int levelObjectTitleCardPreludeFramesForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0
+                || shouldUseLegacyS3kAizIntroWarmup(trace)
+                || !"s2".equals(trace.metadata().game())) {
+            return 0;
+        }
+        TraceFrame firstFrame = trace.getFrame(replaySeedTraceIndexForTraceReplay(trace));
+        return firstFrame.gameplayFrameCounter() == 1 ? 25 : 0;
+    }
+
+    /**
      * Returns false because trace start state is comparison data only. Kept as
      * a named policy gate for callers that need to avoid legacy hydration paths.
      */

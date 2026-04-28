@@ -3837,6 +3837,12 @@ public class ObjectManager {
                         if (instance instanceof TouchResponseProvider provider2) {
                             hpBeforeHit = provider2.getCollisionProperty();
                         }
+                        // ROM parity (s2.asm:84842-84863): Touch_KillEnemy rewrites
+                        // the badnik slot to ObjID_Explosion before applying the
+                        // bounce at s2.asm:84865-84889. A later touch pass must not
+                        // bounce from an engine instance that was already destroyed.
+                        boolean wasAlreadyDestroyed = instance instanceof AbstractObjectInstance preAoi
+                                && preAoi.isDestroyed();
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
@@ -3848,7 +3854,7 @@ public class ObjectManager {
                                     && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
                                 player.setGSpeed((short) -player.getGSpeed());
                             }
-                        } else {
+                        } else if (!wasAlreadyDestroyed) {
                             // Touch_KillEnemy: position-based bounce (one-hit kill)
                             applyEnemyBounce(player, instance);
                         }

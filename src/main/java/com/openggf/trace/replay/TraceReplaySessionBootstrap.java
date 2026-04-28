@@ -17,6 +17,7 @@ import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -201,6 +202,20 @@ public final class TraceReplaySessionBootstrap {
         }
         int sidekickPreludeFrames =
                 TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace);
+        int objectPreludeFrames =
+                TraceReplayBootstrap.levelObjectTitleCardPreludeFramesForTraceReplay(trace);
+        if (objectPreludeFrames > 0
+                && fixture.runtime() != null
+                && fixture.runtime().getLevelManager() != null
+                && fixture.runtime().getLevelManager().getObjectManager() != null) {
+            var levelManager = fixture.runtime().getLevelManager();
+            var objectManager = levelManager.getObjectManager();
+            var camera = GameServices.cameraOrNull();
+            int cameraX = camera != null ? camera.getX() : 0;
+            for (int i = 0; i < objectPreludeFrames; i++) {
+                objectManager.update(cameraX, null, List.of(), -(objectPreludeFrames - i), false);
+            }
+        }
         if (sidekickPreludeFrames > 0
                 && fixture.runtime() != null
                 && fixture.runtime().getSpriteManager() != null

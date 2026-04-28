@@ -1,7 +1,5 @@
 package com.openggf.tests.trace.s2;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.BridgeObjectInstance;
 import com.openggf.game.sonic2.objects.ResultsScreenObjectInstance;
@@ -9,30 +7,24 @@ import com.openggf.game.sonic2.objects.SignpostObjectInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.RomObjectSnapshot;
-import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.trace.TraceData;
-import com.openggf.trace.TraceEvent;
-import com.openggf.trace.TraceExecutionModel;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceMetadata;
-import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
+import com.openggf.trace.replay.TraceReplaySessionBootstrap;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -172,7 +164,7 @@ class TestS2Ehz1BridgeTailsStandingRegression {
 
         TraceData trace = TraceData.load(TRACE_DIR);
         TraceMetadata meta = trace.metadata();
-        applyRecordedTeamConfig(meta);
+        TraceReplaySessionBootstrap.prepareConfiguration(trace, meta);
 
         SharedLevel sharedLevel = SharedLevel.load(SonicGame.SONIC_2, 0, 0);
         try {
@@ -181,7 +173,7 @@ class TestS2Ehz1BridgeTailsStandingRegression {
                     .startPosition(meta.startX(), meta.startY())
                     .startPositionIsCentre()
                     .withRecording(bk2Path)
-                    .withRecordingStartFrame(meta.bk2FrameOffset())
+                    .withRecordingStartFrame(TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace))
                     .build();
 
             ObjectManager objectManager = GameServices.level().getObjectManager();
@@ -189,18 +181,14 @@ class TestS2Ehz1BridgeTailsStandingRegression {
                 objectManager.initVblaCounter(trace.initialVblankCounter() - 1);
             }
 
-            int preTraceOsc = meta.preTraceOscillationFrames();
-            for (int i = 0; i < preTraceOsc; i++) {
-                com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
-            }
+            TraceReplayBootstrap.ReplayStartState replayStart =
+                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1).replayStart();
 
-            TraceReplayBootstrap.applyPreTraceState(trace, fixture);
-
-            for (int i = 0; i <= targetFrame; i++) {
+            for (int i = replayStart.startingTraceIndex(); i <= targetFrame; i++) {
                 TraceFrame expected = trace.getFrame(i);
                 TraceFrame previous = i > 0 ? trace.getFrame(i - 1) : null;
                 TraceExecutionPhase phase =
-                        TraceExecutionModel.forGame(meta.game()).phaseFor(previous, expected);
+                        TraceReplayBootstrap.phaseForReplay(trace, previous, expected);
                 if (phase == TraceExecutionPhase.VBLANK_ONLY) {
                     fixture.skipFrameFromRecording();
                 } else {
@@ -213,21 +201,6 @@ class TestS2Ehz1BridgeTailsStandingRegression {
             sharedLevel.dispose();
             throw t;
         }
-    }
-
-    private static void applyPreTraceState(TraceData trace, HeadlessTestFixture fixture) {
-        // Trace data is read-only comparison context.
-    }
-
-    private static void applyRecordedTeamConfig(TraceMetadata meta) {
-        if (!meta.hasRecordedTeam()) {
-            return;
-        }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
-        config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, meta.mainCharacter());
-        config.setConfigValue(
-                SonicConfiguration.SIDEKICK_CHARACTER_CODE,
-                String.join(",", meta.recordedSidekicks()));
     }
 
     private record BridgeProbe(SharedLevel sharedLevel, TraceFrame expectedFrame) {
