@@ -35,6 +35,7 @@ class TestS2Ehz1BridgeTailsStandingRegression {
     private static final Path TRACE_DIR = Path.of("src/test/resources/traces/s2/ehz1_fullrun");
     private static final int PROBE_FRAME = 875;
     private static final int DESPAWN_FRAME = 1131;
+    private static final int TAILS_BRIDGE_LANDING_FRAME = 2911;
     private static final int SONIC_BRIDGE_JUMP_PREP_FRAME = 4564;
     private static final int SIGNPOST_RESULTS_EDGE_FRAME = 5040;
     private static final int SIGNPOST_RESULTS_FIRST_GROUNDED_DIVERGENCE_FRAME = 5105;
@@ -75,6 +76,27 @@ class TestS2Ehz1BridgeTailsStandingRegression {
                     () -> "Tails X diverged at off-screen despawn transition: " + probe.describeActual());
             assertEquals(expected.sidekick().y(), probe.tails().getCentreY(),
                     () -> "Tails Y diverged at off-screen despawn transition: " + probe.describeActual());
+        } finally {
+            probe.dispose();
+        }
+    }
+
+    @Test
+    void tailsUsesRecordedFlatBridgeSurfaceOnInitialLanding() throws Exception {
+        BridgeProbe probe = replayToFrame(TAILS_BRIDGE_LANDING_FRAME);
+        try {
+            TraceFrame expected = probe.expectedFrame();
+            AbstractPlayableSprite tails = probe.tails();
+            assertNotNull(expected.sidekick(), "Trace frame does not contain recorded Tails state");
+            assertNotNull(tails, "Tails should be present at the bridge landing frame");
+            assertEquals(expected.sidekick().x(), tails.getCentreX(),
+                    () -> "Tails X drifted on initial bridge landing: " + probe.describeActual());
+            assertEquals(expected.sidekick().y(), tails.getCentreY(),
+                    () -> "Tails Y drifted on initial bridge landing: " + probe.describeActual());
+            assertEquals(expected.sidekick().xSpeed(), tails.getXSpeed(),
+                    () -> "Tails X speed drifted on initial bridge landing: " + probe.describeActual());
+            assertEquals(false, tails.getAir(),
+                    () -> "Tails should be grounded after initial bridge landing: " + probe.describeActual());
         } finally {
             probe.dispose();
         }

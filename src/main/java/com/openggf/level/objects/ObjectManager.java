@@ -4485,7 +4485,9 @@ public class ObjectManager {
                 slopeData = sloped.getSlopeData();
             }
 
-            if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+            if (slopeData != null
+                    && instance instanceof SlopedSolidProvider sloped
+                    && shouldUseSlopeForContact(instance, sloped)) {
                 int slopeHalfHeight = params.groundHalfHeight();
                 contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
                         slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
@@ -4667,7 +4669,9 @@ public class ObjectManager {
                         slopeData = sloped.getSlopeData();
                     }
                     SolidContact contact;
-                    if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                    if (slopeData != null
+                            && instance instanceof SlopedSolidProvider sloped
+                            && shouldUseSlopeForContact(instance, sloped)) {
                         int slopeHalfHeight = params.groundHalfHeight();
                         contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
                                 slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
@@ -5109,7 +5113,9 @@ public class ObjectManager {
                     slopeData = sloped.getSlopeData();
                 }
 
-                if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                if (slopeData != null
+                        && instance instanceof SlopedSolidProvider sloped
+                        && shouldUseSlopeForContact(instance, sloped)) {
                     // ROM parity: when already riding a sloped object, the ROM does NOT
                     // re-run SolidObject2F. It only runs ExitPlatform + SlopeObject2,
                     // which is handled by the riding update above. Re-running the full
@@ -5273,6 +5279,10 @@ public class ObjectManager {
                 boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
                     monitorSolidity, useStickyBuffer, instance, -1, apply);
+        }
+
+        private boolean shouldUseSlopeForContact(ObjectInstance instance, SlopedSolidProvider sloped) {
+            return sloped.usesSlopeForNewLanding() || isRidingCurrentPlayerObject(instance);
         }
 
         /**

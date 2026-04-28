@@ -6,6 +6,14 @@ public interface SlopedSolidProvider extends SolidObjectProvider {
     boolean isSlopeFlipped();
 
     /**
+     * Whether a player who is not already riding this object should resolve new
+     * top contact against slope samples instead of the object's flat solid bounds.
+     */
+    default boolean usesSlopeForNewLanding() {
+        return true;
+    }
+
+    /**
      * Whether grounded players may treat the slope catch window as standing before the
      * generic side-vs-top classifier would otherwise push them away.
      */
