@@ -75,6 +75,11 @@ class TestTraceReplayStartPositionPolicy {
         assertEquals(0,
                 TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
                 "The AIZ prefix is simulated from frame 0, so no separate oscillator seed is required.");
+        assertEquals(1,
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace),
+                "The first AIZ LevelLoop tick runs natively, but its OscillateNumDo pass is deferred "
+                        + "because Obj_FloatingPlatform samples oscillation before that pass "
+                        + "(sonic3k.asm:7884-7909, 50244-50248, 50826-50841).");
     }
 
     @Test
@@ -132,6 +137,9 @@ class TestTraceReplayStartPositionPolicy {
                 TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
                 "CNZ frame 0 is seed-compared, not driven, but the ROM row has already "
                         + "passed one OscillateNumDo tick.");
+        assertEquals(0,
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace),
+                "Only the legacy AIZ full-intro trace needs to defer the first replay oscillator tick.");
     }
 
     @Test

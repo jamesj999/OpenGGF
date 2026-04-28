@@ -199,6 +199,8 @@ public final class TraceReplaySessionBootstrap {
         for (int i = 0; i < preTraceOsc; i++) {
             OscillationManager.update(-(preTraceOsc - i));
         }
+        OscillationManager.suppressNextFrames(
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace));
         int sidekickPreludeFrames =
                 TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace);
         int objectPreludeFrames =

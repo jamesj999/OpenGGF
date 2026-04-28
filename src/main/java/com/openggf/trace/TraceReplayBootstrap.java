@@ -195,6 +195,24 @@ public final class TraceReplayBootstrap {
     }
 
     /**
+     * The legacy S3K AIZ end-to-end trace includes the title/intro prefix, so
+     * frame 289 must still execute a native gameplay tick to keep Sonic and
+     * sidekick cadence aligned. Its sampled oscillator-dependent object state,
+     * however, is still the state read during Process_Sprites before the first
+     * LevelLoop OscillateNumDo pass: see docs/skdisasm/sonic3k.asm:7884-7909.
+     * Obj_FloatingPlatform reads Oscillating_table+$0A before SolidObjectTop
+     * carries the rider (docs/skdisasm/sonic3k.asm:50244-50248,
+     * docs/skdisasm/sonic3k.asm:50826-50841), so suppress exactly the first
+     * replay-local oscillator advance rather than hydrating trace data.
+     */
+    public static int initialOscillationSuppressionFramesForTraceReplay(TraceData trace) {
+        if (trace == null || trace.frameCount() == 0) {
+            return 0;
+        }
+        return isLegacyS3kAizIntroTrace(trace) ? 1 : 0;
+    }
+
+    /**
      * Number of native sidekick-only object ticks that occur after level load
      * but before the first gameplay comparison frame. Sonic 2's title-card
      * path runs Obj02/Tails CPU for ten frames while Sonic's own level-frame
