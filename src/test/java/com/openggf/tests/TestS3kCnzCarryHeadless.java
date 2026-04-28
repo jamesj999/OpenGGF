@@ -170,6 +170,22 @@ class TestS3kCnzCarryHeadless {
     }
 
     @Test
+    void cnz1SidekickNormalFollowAppliesRecordedRightInputOnFrame123() {
+        AbstractPlayableSprite tails = GameServices.sprites().getSidekicks().get(0);
+
+        for (int i = 0; i < 123; i++) {
+            boolean right = i >= 106;
+            fixture.stepFrame(false, false, false, right, false);
+        }
+
+        assertEquals(SidekickCpuController.State.NORMAL, sidekickController().getState(),
+                "Frame 123: CNZ carry has released into ROM Tails_CPU_routine=$06");
+        assertEquals((short) 0xFFD0, tails.getXSpeed(),
+                "Frame 123: ROM loc_13D4A replays delayed RIGHT input through "
+                        + "Tails_InputAcceleration_Freespace (sonic3k.asm:26656, 28330)");
+    }
+
+    @Test
     void cnz1CarryReleasesByFrame200() {
         AbstractPlayableSprite sonic = fixture.sprite();
         SidekickCpuController ctrl = sidekickController();

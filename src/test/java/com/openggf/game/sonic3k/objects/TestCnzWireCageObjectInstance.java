@@ -40,13 +40,74 @@ class TestCnzWireCageObjectInstance {
 
         assertTrue(player.isSuppressGroundWallCollision(),
                 "Obj_CNZWireCage sets object_control bit 6, which makes Sonic_WalkSpeed skip CalcRoomInFront");
-        assertFalse(player.isObjectControlled(),
-                "Normal cage riding sets object_control bits 6 and 1, not bit 0; player movement still runs");
+        assertTrue(player.isObjectControlled(),
+                "Normal cage riding sets object_control bits 6 and 1, so the engine should preserve object-control state");
+        assertTrue(player.isObjectControlAllowsCpu(),
+                "Bits 6+1 are not ROM bit 7; sidekick CPU must still be allowed to generate logical input");
+        assertFalse(player.isObjectControlSuppressesMovement(),
+                "Bits 6+1 are not ROM bit 0; normal movement must still run");
 
         player.setDead(true);
         cage.update(1, player);
 
         assertFalse(player.isSuppressGroundWallCollision());
+    }
+
+    @Test
+    void leaderReleasedSidekickNormalLatchKeepsCpuInputAndMovementEnabled() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 0, false, 0));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        sidekick.setCpuControlled(true);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1300);
+        leader.setCentreY((short) 0x07C0);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1200);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+        leader.setDead(true);
+
+        sidekick.setCentreX((short) 0x1300);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(1, leader);
+
+        assertTrue(sidekick.isObjectControlled(),
+                "loc_3397A sets object_control bits 6+1 for a normal sidekick cage latch");
+        assertTrue(sidekick.isObjectControlAllowsCpu(),
+                "Bits 6+1 do not take the ROM bit-7 path, so Tails_CPU_Control must keep providing logical input");
+        assertFalse(sidekick.isObjectControlSuppressesMovement(),
+                "Normal latch does not take the loc_3394C/loc_339B6 bit 0 path");
+
+        sidekick.setAir(true);
+        sidekick.setOnObject(false);
+        sidekick.setXSpeed((short) -0x0444);
+        sidekick.setSubpixelRaw(0xC100, 0);
+        sidekick.setYSpeed((short) 0x01B8);
+        sidekick.setLogicalInputState(false, false, true, false, false);
+
+        cage.update(2, leader);
+
+        assertTrue(sidekick.isObjectControlled(),
+                "The leader-released sidekick path leaves normal object_control bits 6+1 in place");
+        assertTrue(sidekick.isObjectControlAllowsCpu(),
+                "Bits 6+1 do not take the ROM bit-7 path, so Tails_CPU_Control must keep providing logical left");
+        assertFalse(sidekick.isObjectControlSuppressesMovement(),
+                "No loc_3394C/loc_339B6 bit 0 path is active, so movement must be able to apply the -0x18 air-control tick");
+        assertEquals((short) -0x0444, sidekick.getXSpeed(),
+                "The cage flag update itself must not apply the movement tick; it only leaves movement unsuppressed");
     }
 
     @Test
@@ -86,7 +147,39 @@ class TestCnzWireCageObjectInstance {
     }
 
     @Test
-    void heldJumpDuringLatchedCooldownDoesNotReleaseUntilFreshPress() {
+    void airborneNonRollingSidekickCaptureRestoresTailsRadiusBeforeOrbitX() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 1, false, 0));
+        cage.setServices(new TestObjectServices());
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+
+        sidekick.setCentreX((short) 0x130D);
+        sidekick.setCentreY((short) 0x0707);
+        sidekick.setAir(true);
+        sidekick.setRolling(false);
+        sidekick.setAngle((byte) 0);
+        sidekick.applyCustomRadii(9, 19);
+        sidekick.setXSpeed((short) -0x0117);
+        sidekick.setYSpeed((short) 0x0147);
+        sidekick.setGSpeed((short) 0x0271);
+
+        cage.update(0, sidekick);
+
+        assertTrue(sidekick.isOnObject());
+        assertFalse(sidekick.getAir());
+        assertEquals(15, sidekick.getYRadius(),
+                "sub_33C34 calls Player_TouchFloor, which restores Tails's default y_radius before orbit math");
+        assertEquals(9, sidekick.getXRadius(),
+                "Player_TouchFloor restores Tails's default x_radius too");
+
+        cage.update(1, sidekick);
+
+        assertEquals((short) 0x134F, sidekick.getCentreX(),
+                "loc_33BBA uses phase 0 and Tails y_radius=$0F: 0x1300 + ($100 >> 2) + $0F");
+    }
+
+    @Test
+    void heldJumpDuringLatchedCooldownReleasesLikeCtrlLogicalAndPreservesSubpixels() {
         CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
                 0x1D80, 0x0540, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x18, 1, false, 0xA540));
         cage.setServices(new TestObjectServices());
@@ -104,27 +197,21 @@ class TestCnzWireCageObjectInstance {
         player.setXSpeed((short) -0x573);
         player.setYSpeed((short) -0x3A8);
         player.setGSpeed((short) -0x330);
+        player.setSubpixelRaw(0x6500, 0xD800);
 
         player.setJumpInputPressed(true);
         cage.update(0, player);
         player.setJumpInputPressed(true);
         cage.update(1, player);
 
-        assertTrue(player.isOnObject());
-        assertFalse(player.getAir());
-        assertTrue(player.isObjectControlled());
-        assertEquals((byte) 0x40, player.getAngle());
-        assertEquals((short) 0, player.getXSpeed());
-        assertEquals((short) -0x3A8, player.getYSpeed());
-
-        player.setJumpInputPressed(false);
-        player.setJumpInputPressed(true);
-        cage.update(2, player);
-
         assertFalse(player.isOnObject());
         assertTrue(player.getAir());
         assertEquals((short) 0x0800, player.getXSpeed());
         assertEquals((short) JUMP_RELEASE_Y_SPEED_FOR_TEST, player.getYSpeed());
+        assertEquals(0x6500, player.getXSubpixelRaw(),
+                "loc_33B62 clears the cage latch without touching x_sub");
+        assertEquals(0xD800, player.getYSubpixelRaw(),
+                "loc_33B62 clears the cage latch without touching y_sub");
     }
 
     @Test
@@ -184,10 +271,49 @@ class TestCnzWireCageObjectInstance {
 
         assertTrue(player.isObjectControlled(),
                 "loc_339B6 sets object_control bit 0 before entering the release ride path");
+        assertTrue(player.isObjectControlAllowsCpu(),
+                "loc_339B6 sets bits 0+1+6, not bit 7, so sidekick CPU is still allowed");
+        assertTrue(player.isObjectControlSuppressesMovement(),
+                "loc_339B6 sets object_control bit 0, which suppresses normal movement");
         assertTrue(player.isControlLocked(),
                 "The one-frame release cooldown mirrors the ROM byte at 1(a2)");
         assertTrue(player.isOnObject());
         assertFalse(player.getAir());
+    }
+
+    @Test
+    void releaseRideAtRangeOnlyExitsOnPhaseBoundary() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 1, false, 1));
+        cage.setServices(new TestObjectServices());
+        AbstractPlayableSprite player = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+
+        player.setCentreX((short) 0x1300);
+        player.setCentreY((short) 0x08AF);
+        player.setAir(false);
+        player.setGSpeed((short) 0x0300);
+        cage.update(0, player);
+
+        player.setGSpeed((short) 0x02F0);
+        cage.update(1, player);
+        assertEquals((short) 0x08B0, player.getCentreY(),
+                "release ride reached Obj_CNZWireCage verticalRange");
+
+        cage.update(2, player);
+
+        assertTrue(player.isOnObject(),
+                "loc_33B1E branches to loc_33BBA when vertical == range and (phase & $7F) != 0");
+        assertFalse(player.getAir(),
+                "loc_33B62 release only runs at the range boundary when the phase low bits are zero");
+        assertTrue(player.isObjectControlled(),
+                "loc_33BBA keeps the bit-0 release-ride state active");
+        assertTrue(player.isObjectControlSuppressesMovement(),
+                "loc_33BBA remains in the bit-0 release-ride state");
+        assertEquals((short) 0x08B0, player.getCentreY(),
+                "loc_33BBA updates x/mapping only; it does not add the cage y_vel");
     }
 
     @Test
@@ -228,6 +354,76 @@ class TestCnzWireCageObjectInstance {
         assertFalse(sidekick.getAir(),
                 "The skipped P2 call still sees ROM's persistent Status_OnObj/grounded latch");
         assertTrue(sidekick.isOnObject());
+    }
+
+    @Test
+    void sidekickCanLatchAfterLeaderReleasedSameCage() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 0, false, 0));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1300);
+        leader.setCentreY((short) 0x07C0);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1200);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+        leader.setDead(true);
+        sidekick.setCentreX((short) 0x1300);
+
+        cage.update(1, leader);
+
+        assertEquals(Sonic3kObjectIds.CNZ_WIRE_CAGE, sidekick.getLatchedSolidObjectId());
+        assertTrue(sidekick.isOnObject());
+    }
+
+    @Test
+    void leaderReleasedNormalSidekickLatchDoesNotSetObjectControlBitZero() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 0, false, 0));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1300);
+        leader.setCentreY((short) 0x07C0);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1200);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+        leader.setDead(true);
+        sidekick.setCentreX((short) 0x1300);
+        cage.update(1, leader);
+
+        assertTrue(sidekick.isObjectControlled(),
+                "loc_3397A sets object_control bits 6+1 on a normal ground latch");
+        assertTrue(sidekick.isObjectControlAllowsCpu(),
+                "Bits 6+1 do not set ROM bit 7");
+        assertFalse(sidekick.isObjectControlSuppressesMovement(),
+                "Bits 6+1 do not set ROM bit 0");
+
+        cage.update(2, leader);
+
+        assertFalse(sidekick.isObjectControlSuppressesMovement(),
+                "When the leader-released d6 quirk makes the P2 cage call fall through, ROM leaves bits 6+1 alone");
+        assertTrue(sidekick.isObjectControlled());
+        assertTrue(sidekick.isObjectControlAllowsCpu());
     }
 
     private static final int JUMP_RELEASE_Y_SPEED_FOR_TEST = -0x200;

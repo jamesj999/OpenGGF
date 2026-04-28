@@ -18,6 +18,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.game.GroundMode;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -106,8 +107,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        traceS3kAizSpringProbe(player, contact, frameCounter, "contact");
-
         if (springType == TYPE_DIAGONAL_UP) {
             if (!contact.standing()) {
                 return;
@@ -157,7 +156,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * - bset #status.player.in_air
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
-        traceS3kAizSpringProbe(player, null, -1, "applyUp");
         // ROM updates y_pos (centre coordinate) with a word-sized add, so preserve y_sub.
         player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 8));
         player.setYSpeed((short) getStrength());
@@ -178,7 +176,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * S3K-specific: red down springs cap at $D00 instead of $1000.
      */
     private void applyDownSpring(AbstractPlayableSprite player) {
-        traceS3kAizSpringProbe(player, null, -1, "applyDown");
         // ROM updates y_pos (centre coordinate) with a word-sized subtract, so preserve y_sub.
         player.setCentreYPreserveSubpixel((short) (player.getCentreY() - 8));
 
@@ -210,7 +207,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * - Does NOT set airborne
      */
     private void applyHorizontalSpring(AbstractPlayableSprite player) {
-        traceS3kAizSpringProbe(player, null, -1, "applyHorizontal");
         int strength = getStrength(); // starts negative
         boolean flipped = isFlippedHorizontal();
 
@@ -228,6 +224,11 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setCentreXPreserveSubpixel((short) newX);
         player.setXSpeed((short) strength);
         player.setDirection(dir);
+        // sub_2326C reaches sub_23190 only after Status_InAir is clear.
+        // Engine landing handoff can arrive here before normal floor cleanup.
+        player.setAir(false);
+        player.setAngle((byte) 0);
+        player.setGroundMode(GroundMode.GROUND);
 
         // ROM: Horizontal springs set gSpeed = x_vel, stay grounded
         player.setGSpeed((short) strength);
@@ -250,7 +251,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: addq.w #6,y_pos(a1) / addq.w #6,x_pos(a1) / [subi.w #12 if not flipped]
      */
     private void applyDiagonalSpring(AbstractPlayableSprite player, boolean up) {
-        traceS3kAizSpringProbe(player, null, -1, up ? "applyDiagonalUp" : "applyDiagonalDown");
         int strength = getStrength(); // negative base
         boolean flipped = isFlippedHorizontal();
 
@@ -277,7 +277,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     }
 
     private void trigger(AbstractPlayableSprite player) {
-        traceS3kAizSpringProbe(player, null, -1, "trigger");
         animationState.setAnimId(ANIM_TRIGGERED);
 
         int subtype = spawn.subtype();
@@ -385,7 +384,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * without solid push contact when the player runs toward them.
      */
     private void checkHorizontalApproach(AbstractPlayableSprite player) {
-        if (player.getAir()) {
+        boolean landingHandoff = isHorizontalSpringLandingHandoff(player);
+        if (player.getAir() && !landingHandoff) {
             return;
         }
 
@@ -405,7 +405,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
                 return;
             }
             // Player must be moving left (negative gSpeed)
-            if (player.getGSpeed() >= 0) {
+            if (horizontalApproachSpeed(player, landingHandoff) >= 0) {
                 return;
             }
         } else {
@@ -414,12 +414,35 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
                 return;
             }
             // Player must be moving right (positive gSpeed)
-            if (player.getGSpeed() <= 0) {
+            if (horizontalApproachSpeed(player, landingHandoff) <= 0) {
                 return;
             }
         }
 
+        if (landingHandoff) {
+            player.setAir(false);
+            player.setYSpeed((short) 0);
+        }
         applyHorizontalSpring(player);
+    }
+
+    private boolean isHorizontalSpringLandingHandoff(AbstractPlayableSprite player) {
+        if (!player.getAir()) {
+            return false;
+        }
+        // ROM runs Player_2 before the spring object, so an air->ground landing
+        // onto the spring line can reach sub_2326C with Status_InAir already
+        // clear. Engine ordering can leave the sidekick airborne until the next
+        // tick; accept only the frame that has reached the spring's Y line.
+        return player.getYSpeed() > 0 && (player.getCentreY() & 0xFFFF) >= (spawn.y() & 0xFFFF);
+    }
+
+    private int horizontalApproachSpeed(AbstractPlayableSprite player, boolean landingHandoff) {
+        int gSpeed = player.getGSpeed();
+        if (!landingHandoff || gSpeed != 0) {
+            return gSpeed;
+        }
+        return player.getXSpeed();
     }
 
     /**
@@ -451,46 +474,6 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         // ROM sub_234E6: trigger only when x_pos(a0)-4 < x_pos(a1).
         int lipX = (spawn.x() - 4) & 0xFFFF;
         return Integer.compareUnsigned(lipX, playerX) < 0;
-    }
-
-    private void traceS3kAizSpringProbe(AbstractPlayableSprite player,
-                                        SolidContact contact,
-                                        int frameCounter,
-                                        String stage) {
-        if (!Boolean.getBoolean("s3k.aiz.springprobe")) {
-            return;
-        }
-        boolean targetSpring = (spawn.x() == 0x1948 && spawn.y() == 0x0398)
-                || (spawn.x() == 0x1980 && spawn.y() == 0x0439)
-                || (spawn.x() == 0x26C0 && spawn.y() == 0x02CC);
-        if (!targetSpring) {
-            return;
-        }
-        int playerX = player.getCentreX() & 0xFFFF;
-        if (playerX < 0x1920 || playerX > 0x1960) {
-            return;
-        }
-        String contactSummary = contact == null
-                ? "<none>"
-                : String.format("standing=%s touchBottom=%s pushing=%s", contact.standing(),
-                contact.touchBottom(), contact.pushing());
-        System.out.printf(
-                "s3k-aiz-springprobe stage=%s spring=(%04X,%04X) subtype=%02X frame=%d player=(%04X,%04X) spd=(%04X,%04X,%04X) air=%s roll=%s springing=%s angle=%02X contact=%s%n",
-                stage,
-                spawn.x() & 0xFFFF,
-                spawn.y() & 0xFFFF,
-                spawn.subtype() & 0xFF,
-                frameCounter,
-                player.getCentreX() & 0xFFFF,
-                player.getCentreY() & 0xFFFF,
-                player.getXSpeed() & 0xFFFF,
-                player.getYSpeed() & 0xFFFF,
-                player.getGSpeed() & 0xFFFF,
-                player.getAir(),
-                player.getRolling(),
-                player.getSpringing(),
-                player.getAngle() & 0xFF,
-                contactSummary);
     }
 
     @Override

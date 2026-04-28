@@ -44,8 +44,6 @@ final class AizVineHandleLogic {
     static final class PlayerState {
         int grabFlag;
         int releaseDelay;
-        /** True while the player hasn't released jump since grabbing. */
-        boolean jumpHeldSinceGrab;
         boolean pendingJumpRelease;
         int pendingReleaseAngle;
     }
@@ -169,9 +167,17 @@ final class AizVineHandleLogic {
         // saw the right input via Stat_table 16 frames later and applied
         // 0x18/frame air-acceleration; engine-side Tails saw zero input
         // and accumulated -0x14 instead of the expected +0x03 at F2878.
+        //
+        // CPU Tails is different: loc_13E0A/loc_13E34 in Tails_CPU_Control
+        // (sonic3k.asm:26717-26724, 26735-26742) suppress the +/-1 follow
+        // nudge when object_control bit 0 is set. Obj_AIZGiantRideVine writes
+        // object_control=3 in sub_220C2, so mirror bit 0 for CPU sidekicks
+        // without applying the same input-history lock to Player_1.
+        if (player.isCpuControlled()) {
+            player.setControlLocked(true);
+        }
         player.setRenderFlips(player.getDirection() == Direction.LEFT, false);
         playerState.grabFlag = 1;
-        playerState.jumpHeldSinceGrab = player.isJumpPressed();
         if (services != null) {
             services.playSfx(Sonic3kSfx.GRAB.id);
         }
@@ -221,13 +227,9 @@ final class AizVineHandleLogic {
             return;
         }
 
-        // ROM uses jpadpress1 (edge-detected new press), not jpadhold1.
-        // Wait for the player to release jump before recognising a new press.
-        if (playerState.jumpHeldSinceGrab) {
-            if (!player.isJumpPressed()) {
-                playerState.jumpHeldSinceGrab = false;
-            }
-        } else if (player.isJumpPressed()) {
+        // ROM sub_220C2 reads Ctrl_1_logical/Ctrl_2_logical and masks only
+        // A/B/C press-edge bits before entering loc_22136.
+        if (player.isJumpJustPressed()) {
             // The vine object runs after Sonic in the ROM SST order. Queue the
             // release so the velocity is visible at frame end, but position
             // integration does not happen until the next player step.

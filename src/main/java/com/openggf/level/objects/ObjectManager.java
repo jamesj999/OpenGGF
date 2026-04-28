@@ -4192,14 +4192,6 @@ public class ObjectManager {
             this.postMovement = postMovement;
             frameCounter++;
             inlineSupportedPlayers.clear();
-            if (player != null && isCurrentlySupported(player)) {
-                inlineSupportedPlayers.add(player);
-            }
-            for (PlayableEntity sidekick : sidekicks) {
-                if (sidekick != null && isCurrentlySupported(sidekick)) {
-                    inlineSupportedPlayers.add(sidekick);
-                }
-            }
         }
 
         void finishInlineFrame(PlayableEntity player, List<? extends PlayableEntity> sidekicks) {
@@ -4552,9 +4544,7 @@ public class ObjectManager {
 
             int boundsX = currentX + params.offsetX();
             int relX = player.getCentreX() - boundsX + ridingHalfWidth;
-            boolean isSloped = (instance instanceof SlopedSolidProvider);
-            int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
-                    && ridingHalfWidth == halfWidth) ? 16 : 0;
+            int stickyX = 0;
             int minRelX = -stickyX;
             int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
             boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
@@ -4945,13 +4935,10 @@ public class ObjectManager {
                 // while delta tracking uses raw object X for movement following.
                 int boundsX = currentX + params.offsetX();
                 int relX = player.getCentreX() - boundsX + ridingHalfWidth;
-                // ROM: ExitPlatform uses exact bounds (relX in [0, width*2)).
-                // The sticky buffer is for engine-side jitter compensation on moving
-                // platforms (S2/S3K), but S1 UNIFIED processes objects after movement
-                // so there's no jitter to compensate. Sloped objects also use exact bounds.
-                boolean isSloped = (ridingObject instanceof SlopedSolidProvider);
-                int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
-                        && ridingHalfWidth == halfWidth) ? 16 : 0;
+                // ROM: ExitPlatform / SolidObject riding checks use exact bounds
+                // (relX in [0, width*2)). Sticky margins belong to the engine's
+                // new-contact jitter compensation, not continued ride support.
+                int stickyX = 0;
                 int minRelX = -stickyX;
                 int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
@@ -5003,6 +4990,16 @@ public class ObjectManager {
                         }
                     }
                 } else {
+                    if (!inBounds) {
+                        // ROM standing-object paths clear Status_OnObj and set
+                        // Status_InAir as soon as the rider leaves the object's
+                        // ride bounds: SolidObjectFull_1P loc_1DC98
+                        // (sonic3k.asm:41030-41034) and SolidObjectTop_1P
+                        // loc_1E2E0 (sonic3k.asm:41807-41812). The interact
+                        // latch can remain non-zero; it is not itself support.
+                        player.setOnObject(false);
+                        player.setAir(true);
+                    }
                     ridingStates.remove(player);
                     ridingObject = null;
                     ridingPieceIndex = -1;

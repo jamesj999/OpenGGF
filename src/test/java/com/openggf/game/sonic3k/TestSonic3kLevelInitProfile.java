@@ -38,7 +38,7 @@ public class TestSonic3kLevelInitProfile {
 
         assertTrue(steps.size() >= 7, "Should have at least 7 per-test reset steps");
 
-        assertTrue(steps.stream().anyMatch(s -> s.name().contains("AizSidekickSuppression")), "Should include AIZ sidekick suppression reset");
+        assertTrue(steps.stream().anyMatch(s -> s.name().contains("AizIntroPhaseState")), "Should include AIZ intro phase reset");
         assertTrue(steps.stream().anyMatch(s -> s.name().contains("Parallax")), "Should include parallax reset");
         assertTrue(steps.stream().anyMatch(s -> s.name().contains("Sprites")), "Should include sprite reset");
         assertTrue(steps.stream().anyMatch(s -> s.name().contains("Collision")), "Should include collision reset");
@@ -50,11 +50,11 @@ public class TestSonic3kLevelInitProfile {
     }
 
     @Test
-    public void postTeardownFixupsContainAizSidekickSuppression() {
+    public void postTeardownFixupsContainAizIntroPhaseReset() {
         List<StaticFixup> fixups = profile.postTeardownFixups();
 
         assertTrue(fixups.size() >= 1, "Should have at least 1 post-teardown fixup");
-        assertTrue(fixups.stream().anyMatch(f -> f.name().contains("AizSidekickSuppression")), "Should include AIZ sidekick suppression fixup");
+        assertTrue(fixups.stream().anyMatch(f -> f.name().contains("AizIntroPhaseState")), "Should include AIZ intro phase fixup");
     }
 
     @Test

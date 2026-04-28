@@ -189,32 +189,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // ROM parity (sonic3k.asm:69873-69921, sub_338C4 path): once the leader
-        // has released the cage, Perform_Player_DPLC stops corrupting the d6
-        // register that gates the cage's btst-against-cage-status capture
-        // test. d6 stays uncorrupted at 3 (then +1 = 4 for the sidekick),
-        // but the cage's status bit was set at position 1 — so the test
-        // fails for the sidekick and ROM never re-captures Tails after
-        // Sonic released. Mirror by skipping tryLatch entirely for the
-        // sidekick once leaderHasReleased is set. Without this, the engine
-        // re-captures Tails when she lands inside the cage's bounding box,
-        // re-arming setSuppressGroundWallCollision(true) which suppresses
-        // the wall-correction loop in PlayableSpriteMovement.doGroundMove
-        // and lets her clip past CNZ's flat-ground left-wall sensor at
-        // x=0x1C35, y=0x09B0. CNZ1 trace F3901 reproduces the lingering
-        // suppress flag: ROM has tails_x_speed=-0x00E8 (wall correction
-        // applied), engine had 0x0018 (no correction).
-        if (isSidekick && leaderHasReleased) {
-            // Also clear any stale per-frame suppress lingering from a prior
-            // capture. The flag was set by an earlier latch() before
-            // leaderHasReleased flipped; release() clears it but only when
-            // an actual release path runs, which the stuck-frozen branch
-            // suppresses. Clear it here so the wall sensor can fire on the
-            // next ground tick.
-            player.setSuppressGroundWallCollision(false);
-            return;
-        }
-
+        // ROM still runs the P2 cage capture path after Sonic has released
+        // this cage (sonic3k.asm:69835-69846); the leader-release quirk only
+        // affects already latched sidekick ride continuation below.
         tryLatch(player, state);
     }
 
@@ -304,6 +281,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         // what lets the auto-jump trigger fire at the cage and feed Ctrl_2_logical=$78
         // to loc_33ADE for the cage's launch-with-A/B/C path. (CNZ1 trace F1791.)
         player.setObjectControlAllowsCpu(true);
+        player.setObjectControlSuppressesMovement(true);
     }
 
     private void latch(AbstractPlayableSprite player, CageState state, boolean touchFloorDuringLatch) {
@@ -330,6 +308,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         player.setObjectMappingFrameControl(true);
         player.setSuppressGroundWallCollision(true);
         player.setControlLocked(false);
+        if (!touchFloorDuringLatch) {
+            markNormalLatchObjectControl(player);
+        }
         player.setAnimationId(CAPTURE_ANIMATION);
         player.setForcedAnimationId(-1);
         player.setPushing(false);
@@ -362,6 +343,14 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                 delta = -delta;
             }
             player.setCentreYPreserveSubpixel((short) (centreY + delta));
+        } else {
+            // sub_33C34 calls Player_TouchFloor for airborne cage captures.
+            // Player_TouchFloor resets Tails's y_radius/x_radius to her
+            // defaults before loc_33A6A/loc_33BBA read y_radius for the cage
+            // orbit X formula. Without this, a previous cage-release
+            // y_radius=$13 marker carries into the next capture and shifts
+            // Tails four pixels too far right in CNZ1 around F1758.
+            player.restoreDefaultRadii();
         }
 
         player.setAir(false);
@@ -388,13 +377,20 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         // cooldown-branch input check and the release-ride machinery for
         // the sidekick once the leader is gone.
         if (isSidekick && leaderHasReleased) {
-            // Keep object_control* flags true so the sidekick CPU controller
-            // and physics continue to treat the player as cage-locked
-            // (matching ROM's persistent obj_ctrl=$43 marker on Tails). The
-            // sidekick stays in stuck-frozen state, awaiting the
-            // Tails_CPU_flight_timer despawn-and-respawn that frees her.
-            player.setObjectControlled(true);
-            player.setObjectControlAllowsCpu(true);
+            // Keep ROM bit-0 suppression only when this rider was already in
+            // the loc_3394C/loc_339B6 cooldown path. A normal cage latch sets
+            // object_control bits 6+1 at sonic3k.asm:69937-69938, not bit 0;
+            // when the leader-released d6 quirk makes the P2 call fall
+            // through to loc_338D8 and exit at tst.b object_control(a1)
+            // (sonic3k.asm:69873-69898), ROM leaves those bits alone and
+            // Tails movement still runs.
+            if (state.cooldown != 0) {
+                player.setObjectControlled(true);
+                player.setObjectControlAllowsCpu(true);
+                player.setObjectControlSuppressesMovement(true);
+            } else {
+                markNormalLatchObjectControl(player);
+            }
             // Clear the latched solid object id so wall-collision suppression
             // doesn't carry over from the cage capture state. This branch
             // mirrors ROM's "frozen sidekick" behaviour where the cage no
@@ -416,6 +412,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
             // air-recapture), never bit 7, so the sidekick CPU keeps running.
             player.setObjectControlAllowsCpu(true);
+            player.setObjectControlSuppressesMovement(true);
             restoreObjectLatchIfTerrainClearedIt(player);
             updateReleaseRide(player, state);
             return;
@@ -436,6 +433,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             // See beginLatchedCooldown: ROM cage uses bits 1+6 (and 0 on
             // air-recapture), never bit 7, so the sidekick CPU keeps running.
             player.setObjectControlAllowsCpu(true);
+            player.setObjectControlSuppressesMovement(true);
             updateReleaseRide(player, state);
             return;
         }
@@ -489,7 +487,11 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
     }
 
     private boolean tryJumpRelease(int frameCounter, AbstractPlayableSprite player, CageState state) {
-        if (!player.isJumpJustPressed()) {
+        // ROM loc_33ADE masks Ctrl_1_logical/Ctrl_2_logical for A/B/C
+        // (sonic3k.asm:70052-70056), so release uses held button state,
+        // not the jpadhold edge latch. This matters for Tails CPU auto-jump:
+        // Ctrl_2_logical can already be held when the cage enters cooldown.
+        if (!player.isJumpPressed()) {
             return false;
         }
         releaseWithJumpImpulse(frameCounter, player, state);
@@ -524,9 +526,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         player.setObjectMappingFrameControl(true);
         player.setSuppressGroundWallCollision(true);
         player.setLatchedSolidObject(Sonic3kObjectIds.CNZ_WIRE_CAGE, this);
+        markNormalLatchObjectControl(player);
         player.setAngle((byte) rideAngle(state));
         player.setHighPriority((state.phase & 0xFF) >= 0x80);
         applyMappingFrame(player, state.phase, CAPTURE_FRAMES);
+    }
+
+    private void markNormalLatchObjectControl(AbstractPlayableSprite player) {
+        player.setObjectControlled(true);
+        player.setObjectControlAllowsCpu(true);
+        player.setObjectControlSuppressesMovement(false);
     }
 
     private void updateReleaseRide(AbstractPlayableSprite player, CageState state) {
@@ -542,6 +551,14 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                 player.setGSpeed((short) xSpeed);
                 player.setYSpeed((short) 0);
                 player.setAir(true);
+            } else if (vertical == verticalRange) {
+                // ROM loc_33B1E branches to loc_33BBA when the rider is
+                // exactly at the range edge but the phase low bits are
+                // nonzero (sonic3k.asm:70079-70081). That path updates the
+                // x orbit/mapping only; it neither adds cage y_vel nor runs
+                // the loc_33B62 release cleanup.
+                updateReleaseOrbitFrame(player, state);
+                return;
             }
         }
         release(player, state, COOLDOWN_AFTER_RELEASE);
@@ -552,6 +569,15 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             player.setCentreYPreserveSubpixel((short) (player.getCentreY() + verticalVelocity));
         }
         applyCageX(player, state);
+        updateReleaseOrbitFrameAfterX(player, state);
+    }
+
+    private void updateReleaseOrbitFrame(AbstractPlayableSprite player, CageState state) {
+        applyCageX(player, state);
+        updateReleaseOrbitFrameAfterX(player, state);
+    }
+
+    private void updateReleaseOrbitFrameAfterX(AbstractPlayableSprite player, CageState state) {
         player.setOnObject(true);
         player.setAir(false);
         player.setSuppressGroundWallCollision(true);

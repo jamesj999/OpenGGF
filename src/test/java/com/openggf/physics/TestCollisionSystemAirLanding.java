@@ -119,17 +119,38 @@ class TestCollisionSystemAirLanding {
     }
 
     @Test
-    void staleOnObjectFlagDoesNotSuppressTerrainWalkOffWhenUnsupported() {
+    void staleObjectSupportDoesNotSuppressTerrainWalkOffWhenStatusOnObjectIsClear() {
+        AbstractPlayableSprite sprite = newTestSprite();
+        sprite.setAir(false);
+        sprite.setOnObject(false);
+        sprite.setPushing(true);
+
+        CollisionSystem collisionSystem = new CollisionSystem(new StubTerrainCollisionManager(null, null));
+        collisionSystem.resolveGroundAttachment(sprite, 14, () -> true);
+
+        assertTrue(sprite.getAir(), "Stale object-side support must still allow terrain walk-off once Status_OnObj is clear");
+        assertFalse(sprite.getPushing(), "Walk-off should clear pushing just like the normal terrain path");
+    }
+
+    @Test
+    void staleStatusOnObjectDoesNotSuppressTerrainWalkOffWhenObjectSupportIsGone() {
         AbstractPlayableSprite sprite = newTestSprite();
         sprite.setAir(false);
         sprite.setOnObject(true);
         sprite.setPushing(true);
+        sprite.setRolling(false);
+        sprite.setYSpeed((short) 0);
+        sprite.setGSpeed((short) 0x025A);
 
         CollisionSystem collisionSystem = new CollisionSystem(new StubTerrainCollisionManager(null, null));
         collisionSystem.resolveGroundAttachment(sprite, 14, () -> false);
 
-        assertTrue(sprite.getAir(), "Unsupported stale on-object state must still allow terrain walk-off");
-        assertFalse(sprite.getPushing(), "Walk-off should clear pushing just like the normal terrain path");
+        assertTrue(sprite.getAir(), "Stale Status_OnObj must not suppress Player_AnglePos walk-off");
+        assertFalse(sprite.isOnObject(), "Stale object support should be cleared before terrain walk-off");
+        assertFalse(sprite.getPushing(), "Player_AnglePos walk-off clears Status_Push");
+        assertFalse(sprite.getRolling(), "Terrain walk-off should not become a vine/jump release");
+        assertEquals((short) 0, sprite.getYSpeed(), "Walk-off preserves y_vel until gravity runs next frame");
+        assertEquals((short) 0x025A, sprite.getGSpeed(), "Walk-off preserves the ground-speed path");
     }
 
     @Test

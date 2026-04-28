@@ -25,10 +25,12 @@ public record PhysicsFeatureSet(
          *  S1: 0x03 (every 4 frames, andi.b #3,d0). S2/S3K: 0x07 (every 8 frames, andi.b #7,d0). */
         int ringFloorCheckMask,
         /** Ring touch collision half-width in pixels.
-         *  S1/S2: 6 (obColType $47, size index $07). S3K: 8 (x_radius in Obj_Attracted_Ring). */
+         *  S1/S2: 6 (obColType $47, size index $07). S3K normal placed rings:
+         *  6 (sonic3k.asm:18473-18474 Test_Ring_Collisions d1=6, d6=$C). */
         int ringCollisionWidth,
         /** Ring touch collision half-height in pixels.
-         *  S1/S2: 6 (obColType $47, size index $07). S3K: 8 (y_radius in Obj_Attracted_Ring). */
+         *  S1/S2: 6 (obColType $47, size index $07). S3K normal placed rings:
+         *  6 (sonic3k.asm:18473-18474 Test_Ring_Collisions d1=6, d6=$C). */
         int ringCollisionHeight,
         /** Whether lightning shield ring attraction is active.
          *  S3K: true. S1/S2: false (no elemental shields). */
@@ -333,8 +335,9 @@ public record PhysicsFeatureSet(
     public static final int RING_COLLISION_SIZE_S1 = 6;
     /** S1/S2: ring collision half-size 6px (obColType $47, size index $07). */
     public static final int RING_COLLISION_SIZE_S2 = 6;
-    /** S3K: ring collision half-size 8px (x_radius/y_radius in Obj_Attracted_Ring). */
-    public static final int RING_COLLISION_SIZE_S3K = 8;
+    /** S3K: normal placed-ring collision half-size 6px
+     *  (sonic3k.asm:18473-18474 Test_Ring_Collisions d1=6, d6=$C). */
+    public static final int RING_COLLISION_SIZE_S3K = 6;
 
     /** S2: sidekick CPU follow-AI overrides leader's delayed input when |dx| >= 0x10
      *  (s2.asm:38952 TailsCPU_Normal_FollowLeft, s2.asm:38967 TailsCPU_Normal_FollowRight). */

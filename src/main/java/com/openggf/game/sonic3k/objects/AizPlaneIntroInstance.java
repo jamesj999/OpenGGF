@@ -227,26 +227,18 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private static int decompressionCountdown = 0;
 
-    /**
-     * When true, CPU-controlled Tails sidekick is suppressed (ROM: Tails_CPU_routine = $20).
-     * Set during intro init, cleared when Knuckles spawns (routine >= 22).
-     */
-    private static boolean sidekickSuppressed = false;
     private static AizPlaneIntroInstance activeIntroInstance;
 
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
     public static boolean isMainLevelPhaseActive() { return mainLevelPhaseActive; }
     public static void setMainLevelPhaseActive(boolean active) { mainLevelPhaseActive = active; }
-    public static boolean isSidekickSuppressed() { return sidekickSuppressed; }
-    public static void setSidekickSuppressed(boolean suppressed) { sidekickSuppressed = suppressed; }
     public static AizPlaneIntroInstance getActiveIntroInstance() { return activeIntroInstance; }
     public static void resetIntroPhaseState() {
         introScrollOffset = 0;
         mainLevelPhaseActive = false;
         mainLevelTerrainSwapAttempted = false;
         decompressionCountdown = 0;
-        sidekickSuppressed = false;
         activeIntroInstance = null;
     }
 
@@ -647,7 +639,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         LOG.fine("Routine 0: initializing intro sequence");
         resetIntroPhaseState();
         activeIntroInstance = this;
-        sidekickSuppressed = true;
 
         // ROM: set position (0x60, 0x30)
         currentX = 0x60;
@@ -977,9 +968,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
 
         if (checkX >= KNUCKLES_SPAWN_X) {
-            // ROM: Tails regains control when Knuckles appears
-            sidekickSuppressed = false;
-
             // Spawn Knuckles
             ObjectSpawn knuxSpawn = new ObjectSpawn(
                     CutsceneKnucklesAiz1Instance.INIT_X,

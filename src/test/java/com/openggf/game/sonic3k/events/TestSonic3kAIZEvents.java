@@ -18,6 +18,7 @@ import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.LogCaptureHandler;
 import com.openggf.tests.rules.RequiresRom;
@@ -152,6 +153,52 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void introObjectIsReadyBeforeFirstAizGameplayFrame() {
+        AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
+        assertNotNull(intro, "ROM SpawnLevelMainSprites installs Obj_AIZPlaneIntro before first Process_Sprites");
+        assertFalse(GameServices.camera().isLevelStarted());
+
+        AbstractPlayableSprite sonic = fixture.sprite();
+        assertEquals(0x0040, sonic.getCentreX() & 0xFFFF);
+        assertEquals(0x0420, sonic.getCentreY() & 0xFFFF);
+
+        List<AbstractPlayableSprite> sidekicks = GameServices.sprites().getRegisteredSidekicks();
+        assertFalse(sidekicks.isEmpty(), "AIZ Sonic+Tails intro should spawn Player_2 before first frame");
+        AbstractPlayableSprite tails = sidekicks.get(0);
+
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertEquals(0, sonic.getYSpeed() & 0xFFFF,
+                "Obj_AIZPlaneIntro routine 0 should clear y_vel before the first strict frame compare");
+        assertFalse(sonic.getAir(),
+                "Obj_AIZPlaneIntro routine 0 should keep Sonic grounded for the first strict frame compare");
+        assertEquals(0x0020, tails.getCentreX() & 0xFFFF,
+                "Obj_Tails routine 0 leaves Player_2 at the SpawnLevelMainSprites position for one frame");
+        assertEquals(0x0424, tails.getCentreY() & 0xFFFF,
+                "Obj_Tails routine 0 leaves Player_2 at the SpawnLevelMainSprites position for one frame");
+        assertFalse(tails.getAir());
+
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertEquals(0x7F00, tails.getCentreX() & 0xFFFF,
+                "Tails_CPU_Control loc_13A10 parks AIZ intro Tails on the second object tick");
+        assertEquals(0, tails.getCentreY() & 0xFFFF);
+        assertTrue(tails.getAir());
+    }
+
+    @Test
+    public void updateFallbackDoesNotDuplicateExistingIntroObject() {
+        assertEquals(1, countActiveIntroObjects(),
+                "ROM SpawnLevelMainSprites installs exactly one Obj_AIZPlaneIntro object");
+
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.update(0, 0);
+
+        assertEquals(1, countActiveIntroObjects(),
+                "AIZ intro update fallback must reuse the fixed intro object slot");
+    }
+
+    @Test
     public void fireCurtainStateIsInactiveOutsideTransition() {
         Camera camera = GameServices.camera();
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
@@ -187,6 +234,7 @@ public class TestSonic3kAIZEvents {
         assertEquals(0, request.targetZone());
         assertEquals(1, request.targetAct());
         assertFalse(request.preserveMusic());
+        assertTrue(request.preserveLevelGamestate());
         assertFalse(request.showInLevelTitleCard());
         assertEquals(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2, request.mutationKey());
         assertTrue(request.musicOverrideId() >= 0);
@@ -603,6 +651,12 @@ public class TestSonic3kAIZEvents {
             }
             throw e;
         }
+    }
+
+    private static long countActiveIntroObjects() {
+        return GameServices.level().getObjectManager().getActiveObjects().stream()
+                .filter(AizPlaneIntroInstance.class::isInstance)
+                .count();
     }
 }
 

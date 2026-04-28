@@ -49,4 +49,25 @@ class TestObjectControlledGravity {
         assertEquals((short) (before + (short) sonic.getGravity()), after,
                 "y_speed must accumulate gravity when not object-controlled");
     }
+
+    @Test
+    void gravityStillAppliesWhenObjectControlDoesNotSuppressMovement() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 0)
+                .build();
+        AbstractPlayableSprite sonic = fixture.sprite();
+
+        sonic.setAir(true);
+        sonic.setObjectControlled(true);
+        sonic.setObjectControlAllowsCpu(true);
+        sonic.setObjectControlSuppressesMovement(false);
+        sonic.setYSpeed((short) 0);
+        short before = sonic.getYSpeed();
+
+        fixture.stepFrame(false, false, false, false, false);
+
+        short after = sonic.getYSpeed();
+        assertEquals((short) (before + (short) sonic.getGravity()), after,
+                "ROM object_control bits without bit 0 should not skip movement gravity");
+    }
 }

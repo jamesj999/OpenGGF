@@ -11,6 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -148,6 +149,7 @@ class TestSonic3kSpringObjectInstance {
                 "sub_23190 applies the horizontal spring nudge even for airborne side contact");
         assertEquals(0x1000, player.getXSpeed() & 0xFFFF);
         assertEquals(0x1000, player.getGSpeed() & 0xFFFF);
+        assertFalse(player.getAir(), "Horizontal spring launch leaves the player in grounded movement");
     }
 
     @Test
@@ -165,6 +167,48 @@ class TestSonic3kSpringObjectInstance {
         assertEquals(true, horizontal.usesInclusiveRightEdge(),
                 "Obj_Spring_Horizontal uses SolidObjectFull2_1P, whose x-window rejects with bhi");
         assertEquals(false, vertical.usesInclusiveRightEdge());
+    }
+
+    @Test
+    void horizontalSpringLandingHandoffTriggersOnDescendingAirborneFrame() throws Exception {
+        Sonic3kSpringObjectInstance spring = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x1D37, 0x08B0, Sonic3kObjectIds.SPRING, 0x12, 1, false, 0));
+        spring.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(spring, "ensureInitialized");
+
+        TestableSprite tooEarly = new TestableSprite("tails_p2");
+        tooEarly.setCentreX((short) 0x1D21);
+        tooEarly.setCentreY((short) 0x08AF);
+        tooEarly.setAir(true);
+        tooEarly.setXSpeed((short) -0x0048);
+        tooEarly.setYSpeed((short) 0x0150);
+
+        invoke(spring, "checkHorizontalApproach", new Class<?>[]{AbstractPlayableSprite.class}, tooEarly);
+        assertEquals(0xFFB8, tooEarly.getXSpeed() & 0xFFFF,
+                "The landing handoff must not fire before the player reaches the spring's Y line");
+
+        TestableSprite player = new TestableSprite("tails_p2");
+        player.setCentreX((short) 0x1D21);
+        player.setCentreY((short) 0x08B0);
+        player.setAir(true);
+        player.setXSpeed((short) -0x0048);
+        player.setYSpeed((short) 0x0150);
+        player.setGSpeed((short) 0);
+        player.setAngle((byte) 0xCE);
+        player.setGroundMode(GroundMode.RIGHTWALL);
+
+        invoke(spring, "checkHorizontalApproach", new Class<?>[]{AbstractPlayableSprite.class}, player);
+
+        assertEquals(0x1D29, player.getCentreX() & 0xFFFF,
+                "CNZ F3649: flipped horizontal spring applies the ROM +8 x_pos nudge");
+        assertEquals(0xF600, player.getXSpeed() & 0xFFFF);
+        assertEquals(0xF600, player.getGSpeed() & 0xFFFF);
+        assertEquals(0, player.getAngle() & 0xFF,
+                "The same-frame landing handoff must clear the cage-orbit angle before the spring launch");
+        assertEquals(GroundMode.GROUND, player.getGroundMode(),
+                "The same-frame landing handoff must mirror ROM's grounded mode before sub_2326C fires");
+        assertFalse(player.getAir(),
+                "The handoff mirrors ROM's same-frame air->ground transition before the horizontal spring launch");
     }
 
     private static Object invoke(Object target, String methodName) throws Exception {

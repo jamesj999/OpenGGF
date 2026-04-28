@@ -15,6 +15,7 @@ public final class SeamlessLevelTransitionRequest {
     private final int targetAct;
     private final boolean deactivateLevelNow;
     private final boolean preserveMusic;
+    private final boolean preserveLevelGamestate;
     private final boolean showInLevelTitleCard;
     private final boolean forceAirOnStaleObjectSupportLoss;
     private final boolean preserveOffsetCameraPosition;
@@ -33,6 +34,7 @@ public final class SeamlessLevelTransitionRequest {
         this.targetAct = builder.targetAct;
         this.deactivateLevelNow = builder.deactivateLevelNow;
         this.preserveMusic = builder.preserveMusic;
+        this.preserveLevelGamestate = builder.preserveLevelGamestate;
         this.showInLevelTitleCard = builder.showInLevelTitleCard;
         this.forceAirOnStaleObjectSupportLoss = builder.forceAirOnStaleObjectSupportLoss;
         this.preserveOffsetCameraPosition = builder.preserveOffsetCameraPosition;
@@ -64,6 +66,10 @@ public final class SeamlessLevelTransitionRequest {
 
     public boolean preserveMusic() {
         return preserveMusic;
+    }
+
+    public boolean preserveLevelGamestate() {
+        return preserveLevelGamestate;
     }
 
     public boolean showInLevelTitleCard() {
@@ -120,6 +126,7 @@ public final class SeamlessLevelTransitionRequest {
         private int targetAct = -1;
         private boolean deactivateLevelNow;
         private boolean preserveMusic = true;
+        private boolean preserveLevelGamestate;
         private boolean showInLevelTitleCard;
         private boolean forceAirOnStaleObjectSupportLoss;
         private boolean preserveOffsetCameraPosition;
@@ -149,6 +156,11 @@ public final class SeamlessLevelTransitionRequest {
 
         public Builder preserveMusic(boolean preserveMusic) {
             this.preserveMusic = preserveMusic;
+            return this;
+        }
+
+        public Builder preserveLevelGamestate(boolean preserveLevelGamestate) {
+            this.preserveLevelGamestate = preserveLevelGamestate;
             return this;
         }
 

@@ -355,13 +355,17 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
         if (!rising) {
             if (isPlayerRiding()) {
                 rising = true;
+                // ROM Platform_Rising sets $3C/y_radius and returns; MoveSprite2
+                // starts on the next object update (sonic3k.asm locret_25200).
+                return;
             } else {
                 return;
             }
         }
 
-        // MoveSprite2 via SubpixelMotion (ROM: ext.l d0; asl.l #8,d0; add.l d0,d3)
-        SubpixelMotion.moveSprite2(risingState);
+        // ROM MoveSprite2 updates the 32-bit object position with velocity << 8
+        // (sonic3k.asm:36053-36062), preserving the full 16-bit fractional word.
+        SubpixelMotion.speedToPos(risingState);
         y = risingState.y;
 
         // Accelerate upward only when below target (sonic3k.asm:50477-50483)

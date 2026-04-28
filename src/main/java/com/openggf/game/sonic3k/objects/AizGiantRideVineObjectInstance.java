@@ -47,6 +47,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
     private final Segment first;
     private final Segment[] chain;
     private final AizVineHandleLogic.State handle = new AizVineHandleLogic.State();
+    private boolean childSlotsReserved;
     private boolean activatedSwingStarted;
     private boolean activatedSwingReturning;
     private int activatedSwingAngle;
@@ -106,8 +107,14 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
     }
 
     @Override
+    public int getReservedChildSlotCount() {
+        return romChildSlotCount();
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        reserveRomChildSlots();
         int gameplayFrameCounter = frameCounter;
         ObjectServices svc = tryServices();
         if (svc != null && svc.levelManager() != null) {
@@ -248,6 +255,27 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
         if (services().levelManager() != null && services().levelManager().usesInlineObjectSolidResolution()) {
             AizVineHandleLogic.updatePostPlayer(handle, player, sidekick);
         }
+    }
+
+    private void reserveRomChildSlots() {
+        if (childSlotsReserved || getSlotIndex() < 0) {
+            return;
+        }
+        childSlotsReserved = true;
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
+            return;
+        }
+        int childCount = romChildSlotCount();
+        if (childCount > 0) {
+            svc.objectManager().allocateChildSlotsAfter(spawn, childCount, getSlotIndex());
+        }
+    }
+
+    private int romChildSlotCount() {
+        // Obj_AIZGiantRideVine allocates one child, then dbf allocates the
+        // remaining low-nibble count; the final child is rewritten as the handle.
+        return segmentCount + 1;
     }
 
     private void clearGrabbedPlayers() {

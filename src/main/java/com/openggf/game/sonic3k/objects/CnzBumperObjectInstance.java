@@ -44,6 +44,8 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
 
     private int currentX;
     private int currentY;
+    private int touchX;
+    private int touchY;
     private int animFrame;
     private int animTimer;
     private int scoreHits;
@@ -56,14 +58,25 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
         this.originY = spawn.y();
         this.currentX = originX;
         this.currentY = originY;
+        this.touchX = originX;
+        this.touchY = originY;
         this.initialAngle = spawn.subtype() & 0xFF;
         this.reverseOrbit = (spawn.renderFlags() & 0x1) != 0;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        updateOrbit(frameCounter);
+        if (initialAngle == 0) {
+            updateOrbit(frameCounter);
+            processPendingTouches(frameCounter);
+            updateAnimation();
+            return;
+        }
+
         processPendingTouches(frameCounter);
+        touchX = currentX;
+        touchY = currentY;
+        updateOrbit(frameCounter);
         updateAnimation();
     }
 
@@ -85,6 +98,14 @@ public class CnzBumperObjectInstance extends AbstractObjectInstance
     @Override
     public boolean requiresContinuousTouchCallbacks() {
         return true;
+    }
+
+    @Override
+    public TouchRegion[] getMultiTouchRegions() {
+        if (initialAngle == 0) {
+            return null;
+        }
+        return new TouchRegion[] { new TouchRegion(touchX, touchY, COLLISION_FLAGS) };
     }
 
     @Override
