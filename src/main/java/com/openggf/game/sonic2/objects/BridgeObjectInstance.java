@@ -152,6 +152,16 @@ public class BridgeObjectInstance extends BoxObjectInstance
     }
 
     @Override
+    public boolean usesSlopeForNewLanding() {
+        // ROM parity: Obj11_EHZ computes/depresses the log child Y values before
+        // sub_F872 (docs/s2disasm/s2.asm:21995-22032), but non-standing players
+        // enter PlatformObject11_cont (22160-22172). That helper lands against
+        // y_pos(a0)-d3 (35692-35712), not the child log Y table. The depressed
+        // child Y is used only after the standing bit is already set (22120-22155).
+        return false;
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         // Standing state is latched from the explicit checkpoint batch, matching
         // the bridge's in-object PlatformObject11_cont flow.

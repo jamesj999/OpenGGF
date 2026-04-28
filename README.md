@@ -227,6 +227,11 @@ further S3K parity work.
   F2165 by gating S3K Tails CPU frame checks onto the stored `Level_frame_counter` read
   during `Process_Sprites` (sonic3k.asm:7884-7894/26474-26531/38898-38900) instead of
   the one-tick-ahead inline fallback argument.
+- **S2 EHZ trace replay fixes:** EHZ first-error advances F2911 -> F2945 by keeping new
+  non-riding bridge contacts on the flat `PlatformObject11_cont` landing surface while
+  preserving depressed bridge-log samples only for already-standing riders, matching
+  `Obj11_EHZ` and `PlatformObject11_cont` in `docs/s2disasm/s2.asm:21995-22032`,
+  `22120-22172`, and `35692-35712`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
