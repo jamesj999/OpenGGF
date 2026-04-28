@@ -43,8 +43,8 @@ public record TraceCharacterState(
         if (sprite == null) {
             return absent();
         }
-        ObjectManager om = GameServices.level() != null
-                ? GameServices.level().getObjectManager() : null;
+        var level = GameServices.levelOrNull();
+        ObjectManager om = level != null ? level.getObjectManager() : null;
         int standOnSlot = -1;
         if (om != null) {
             ObjectInstance ridingObj = om.getRidingObject(sprite);

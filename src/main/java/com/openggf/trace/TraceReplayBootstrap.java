@@ -61,8 +61,9 @@ public final class TraceReplayBootstrap {
 
     public static TraceObjectSnapshotBinder.Result applyPreTraceState(TraceData trace,
                                                                      TraceReplayFixture fixture) {
+        var level = GameServices.levelOrNull();
         return TraceObjectSnapshotBinder.apply(
-                GameServices.level() != null ? GameServices.level().getObjectManager() : null,
+                level != null ? level.getObjectManager() : null,
                 List.of());
     }
 

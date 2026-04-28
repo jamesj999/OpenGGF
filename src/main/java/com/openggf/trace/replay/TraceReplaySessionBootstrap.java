@@ -2,7 +2,6 @@ package com.openggf.trace.replay;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.InitStep;
@@ -57,7 +56,7 @@ public final class TraceReplaySessionBootstrap {
      * the first ROM-accurate collision or enemy destruction.
      */
     public static void resetLevelSubsystemsForReplay() {
-        LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+        LevelInitProfile profile = GameServices.module().getLevelInitProfile();
         for (InitStep step : profile.perTestResetSteps()) {
             try {
                 step.execute();
@@ -76,7 +75,7 @@ public final class TraceReplaySessionBootstrap {
         // eyelid flicker) and causes subpixel drift that surfaces at
         // the first enemy destruction.
         if (GameServices.runtimeOrNull() != null) {
-            GameRng rng = GameServices.rng();
+            GameRng rng = GameServices.rngOrNull();
             if (rng != null) {
                 rng.setSeed(0L);
             }
@@ -96,7 +95,7 @@ public final class TraceReplaySessionBootstrap {
      * session tears down.
      */
     public static void prepareConfiguration(TraceData trace, TraceMetadata meta) {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
 
         // Team: the recorded trace dictates the team. If metadata
         // didn't record one (legacy), force Sonic-solo â€” the trace
@@ -131,7 +130,7 @@ public final class TraceReplaySessionBootstrap {
     }
 
     public static ConfigSnapshot snapshotGameplayConfig() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         return new ConfigSnapshot(
                 config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE),
                 config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE),
@@ -143,7 +142,7 @@ public final class TraceReplaySessionBootstrap {
         if (snapshot == null) {
             return;
         }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         restore(config, SonicConfiguration.MAIN_CHARACTER_CODE, snapshot.mainCharacterCode());
         restore(config, SonicConfiguration.SIDEKICK_CHARACTER_CODE, snapshot.sidekickCharacterCode());
         restore(config, SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, snapshot.crossGameFeaturesEnabled());
@@ -294,19 +293,19 @@ public final class TraceReplaySessionBootstrap {
         // initial load, which drifts physics at the first collision.
         sprite.setCentreX(meta.startX());
         sprite.setCentreY(meta.startY());
-        if (GameServices.module() != null && GameServices.level() != null) {
+        var level = GameServices.levelOrNull();
+        if (level != null) {
             GameplayTeamBootstrap.repositionRegisteredSidekicks(
                     GameServices.module(),
-                    GameServices.level());
-        }
-        if (GameServices.level() != null) {
-            GroundSensor.setLevelManager(GameServices.level());
-            GameServices.level().initCameraForLevel();
-            GameServices.level().initLevelEventsForLevel();
+                    level);
+            GroundSensor.setLevelManager(level);
+            level.initCameraForLevel();
+            level.initLevelEventsForLevel();
         }
         // Ground snap: 14 subpixel threshold matches the fixture.
-        if (GameServices.collision() != null) {
-            GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+        var collision = GameServices.collisionOrNull();
+        if (collision != null) {
+            collision.resolveGroundAttachment(sprite, 14, () -> false);
         }
     }
 
