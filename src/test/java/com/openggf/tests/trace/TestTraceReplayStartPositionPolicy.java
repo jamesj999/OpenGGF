@@ -128,10 +128,10 @@ class TestTraceReplayStartPositionPolicy {
                 TraceReplayBootstrap.recordingStartFrameForTraceReplay(trace),
                 "Frame 0 is seed-compared after the native sidekick prelude, so the first "
                         + "driven row (trace frame 1) starts from the frame-0 input.");
-        assertEquals(0,
+        assertEquals(1,
                 TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
-                "CNZ frame 0 is compared as a seed row, so no separate oscillator "
-                        + "pre-advance is required.");
+                "CNZ frame 0 is seed-compared, not driven, but the ROM row has already "
+                        + "passed one OscillateNumDo tick.");
     }
 
     @Test

@@ -250,9 +250,9 @@ public final class CnzBalloonInstance extends AbstractObjectInstance
             // ROM Anim - Balloon.asm pop sequences end with $FB. The S3K animator
             // ($FB code) increments routine and the next frame moves x_pos to
             // $7F00, where Sprite_CheckDeleteTouch3 (sonic3k.asm:37369) calls
-            // Delete_Current_Sprite when the balloon is past the camera margin.
+            // Delete_Current_Sprite only when the normal offscreen test later
+            // decides the balloon is past the camera margin.
             movedOffscreen = true;
-            setDestroyed(true);
         }
     }
 

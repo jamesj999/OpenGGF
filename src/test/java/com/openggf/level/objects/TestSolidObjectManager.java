@@ -481,7 +481,7 @@ public class TestSolidObjectManager {
     }
 
     @Test
-    public void cnzTrapDoorSolidObjectTopRejectsExactSurfaceBoundaryAndLandsOnePixelInside() {
+    public void cnzTrapDoorSolidObjectTopAcceptsExactSurfaceBoundaryAndLandsOnePixelInside() {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x44, 0, 0, false, 0);
         CnzTrapDoorInstance object = new CnzTrapDoorInstance(spawn);
         ObjectManager manager = buildManager(object);
@@ -500,10 +500,12 @@ public class TestSolidObjectManager {
 
         manager.updateSolidContacts(exactBoundary);
 
-        assertFalse(exactBoundary.isOnObject(),
-                "CNZ trap door SolidObjectTop should reject the ROM d0 == 0 boundary");
-        assertTrue(exactBoundary.getAir());
-        assertEquals(0x100, exactBoundary.getYSpeed());
+        assertTrue(exactBoundary.isOnObject(),
+                "S3K SolidObjectTop accepts the ROM d0 == 0 boundary (sonic3k.asm:41996-42015)");
+        assertFalse(exactBoundary.getAir());
+        assertEquals(0, exactBoundary.getYSpeed());
+        assertEquals(100 - params.groundHalfHeight() - exactBoundary.getYRadius() - 1,
+                exactBoundary.getCentreY());
 
         TestPlayableSprite insideBoundary = new TestPlayableSprite((short) 0, (short) 0);
         insideBoundary.useFeatureSet(PhysicsFeatureSet.SONIC_3K);

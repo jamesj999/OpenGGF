@@ -176,6 +176,14 @@ public final class TraceReplayBootstrap {
         if (seedTraceIndex < 0 || seedTraceIndex >= trace.frameCount()) {
             return 0;
         }
+        if (usesSidekickTitleCardSeedFrame(trace)) {
+            // The S3K Sonic+Tails seed row is not driven through a full engine
+            // frame, but the ROM row has already passed LevelLoop's
+            // OscillateNumDo after Process_Sprites (sonic3k.asm:7884-7910).
+            // Apply the metadata's one-time pre-trace oscillator tick so
+            // later CNZ objects read the same previous-frame oscillation phase.
+            return trace.metadata().preTraceOscillationFrames();
+        }
         int firstComparedGameplayFrame =
                 trace.getFrame(seedTraceIndex).gameplayFrameCounter();
         // The replay loop steps the seed trace row before comparing it. A row
