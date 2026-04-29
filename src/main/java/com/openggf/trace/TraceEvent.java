@@ -61,10 +61,9 @@ public sealed interface TraceEvent {
     /**
      * Per-frame snapshot of the Tails CPU global block (sonic3k.constants.asm:618-626)
      * plus {@code Ctrl_2_logical} (held + pressed). Emitted on every recorded trace
-     * frame by the v6+ recorder so engine replay can hydrate
-     * {@link com.openggf.sprites.playable.SidekickCpuController} state from
-     * authoritative ROM values rather than relying on the engine's CPU state
-     * machine staying in sync. Older traces (schema &lt; 6) never emit this event.
+     * frame by the v6+ recorder as diagnostic comparison context for the
+     * engine's native {@link com.openggf.sprites.playable.SidekickCpuController}
+     * state machine. Older traces (schema &lt; 6) never emit this event.
      *
      * <p>Field layout:
      * <ul>
@@ -215,6 +214,46 @@ public sealed interface TraceEvent {
          */
         public record Hit(int pc, int value) {}
     }
+
+    /**
+     * Per-frame focused diagnostic for Tails CPU's normal follow step in S3K.
+     * Captures the ROM state around {@code loc_13DD0}, the generated delayed
+     * input word, and the state before/after {@code Tails_InputAcceleration_Path}
+     * (docs/skdisasm/sonic3k.asm:26702-26705, 26717-26741, 27798-27805,
+     * 28103-28122, 27957-28017). Diagnostic only: never hydrated into engine
+     * state.
+     */
+    record TailsCpuNormalStep(int frame, String character, int status,
+                              int objectControl, int groundVel, int xVel,
+                              int delayedStat, int delayedInput,
+                              String loc13dd0Branch, int ctrl2Logical,
+                              int ctrl2HeldLogical, int pathPreGroundVel,
+                              int pathPreXVel, int pathPreStatus,
+                              int pathPostGroundVel, int pathPostXVel,
+                              int pathPostStatus)
+        implements TraceEvent {}
+
+    /**
+     * Per-frame focused diagnostic for the sidekick's interact object in S3K.
+     * Captures the sidekick's raw interact pointer and the target object's key
+     * bytes needed to diagnose AIZ object ride/grab handoffs
+     * (docs/skdisasm/sonic3k.asm:28407-28451, 43758-43810, 46481-46549,
+     * 46602-46631, 46709-46743, 46749-46789, 46929-46950). Diagnostic only:
+     * never hydrated into engine state.
+     */
+    record SidekickInteractObjectState(int frame, String character, int interact,
+                                       int interactSlot, int tailsRenderFlags,
+                                       int tailsObjectControl, int tailsStatus,
+                                       boolean tailsOnObject, int objectCode,
+                                       int objectRoutine, int objectStatus,
+                                       short objectX, short objectY,
+                                       int objectSubtype, int objectRenderFlags,
+                                       int objectObjectControl,
+                                       boolean objectActive,
+                                       boolean objectDestroyed,
+                                       boolean objectP1Standing,
+                                       boolean objectP2Standing)
+        implements TraceEvent {}
 
     /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
@@ -401,6 +440,47 @@ public sealed interface TraceEvent {
                     }
                     yield new VelocityWrite(frame, parseCharacter(node), xWrites, yWrites);
                 }
+                case "tails_cpu_normal_step" -> new TailsCpuNormalStep(
+                    frame,
+                    parseCharacter(node),
+                    parseHexInt(node, "status"),
+                    parseHexInt(node, "object_control"),
+                    parseHexInt(node, "ground_vel"),
+                    parseHexInt(node, "x_vel"),
+                    parseHexInt(node, "delayed_stat"),
+                    parseHexInt(node, "delayed_input"),
+                    node.has("loc_13dd0_branch") ? node.get("loc_13dd0_branch").asText() : "",
+                    parseHexInt(node, "ctrl2_logical"),
+                    parseHexInt(node, "ctrl2_held_logical"),
+                    parseHexInt(node, "path_pre_ground_vel"),
+                    parseHexInt(node, "path_pre_x_vel"),
+                    parseHexInt(node, "path_pre_status"),
+                    parseHexInt(node, "path_post_ground_vel"),
+                    parseHexInt(node, "path_post_x_vel"),
+                    parseHexInt(node, "path_post_status")
+                );
+                case "sidekick_interact_object" -> new SidekickInteractObjectState(
+                    frame,
+                    parseCharacter(node),
+                    parseHexInt(node, "interact"),
+                    node.has("interact_slot") ? node.get("interact_slot").asInt() : 0,
+                    parseHexInt(node, "tails_render_flags"),
+                    parseHexInt(node, "tails_object_control"),
+                    parseHexInt(node, "tails_status"),
+                    node.has("tails_on_object") && node.get("tails_on_object").asBoolean(),
+                    parseHexInt(node, "object_code"),
+                    parseHexInt(node, "object_routine"),
+                    parseHexInt(node, "object_status"),
+                    parseHexShort(node, "object_x"),
+                    parseHexShort(node, "object_y"),
+                    parseHexInt(node, "object_subtype"),
+                    parseHexInt(node, "object_render_flags"),
+                    parseHexInt(node, "object_object_control"),
+                    node.has("object_active") && node.get("object_active").asBoolean(),
+                    node.has("object_destroyed") && node.get("object_destroyed").asBoolean(),
+                    node.has("object_p1_standing") && node.get("object_p1_standing").asBoolean(),
+                    node.has("object_p2_standing") && node.get("object_p2_standing").asBoolean()
+                );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
                     Map<String, Object> fields = new LinkedHashMap<>();

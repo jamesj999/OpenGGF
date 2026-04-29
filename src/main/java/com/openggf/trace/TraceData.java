@@ -159,6 +159,14 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.VelocityWrite.class)) {
             missing.add("velocity_write_per_frame");
         }
+        if (metadata.hasPerFrameTailsCpuNormalStep()
+                && !hasEventOfType(TraceEvent.TailsCpuNormalStep.class)) {
+            missing.add("tails_cpu_normal_step_per_frame");
+        }
+        if (metadata.hasPerFrameSidekickInteractObject()
+                && !hasEventOfType(TraceEvent.SidekickInteractObjectState.class)) {
+            missing.add("sidekick_interact_object_per_frame");
+        }
         return missing;
     }
 
@@ -273,10 +281,9 @@ public class TraceData {
      * without v6+ per-frame CPU snapshots or when no event is present for that
      * frame/character.
      *
-     * <p>Used by the trace replay test to hydrate {@link
-     * com.openggf.sprites.playable.SidekickCpuController} state from
-     * authoritative ROM values each frame, eliminating CPU-state drift as a
-     * divergence source while leaving physics divergences fully visible.
+     * <p><strong>Diagnostic only.</strong> Used by trace replay reports/tests
+     * to compare engine sidekick CPU state against ROM values. It must never
+     * be copied into engine state during the replay loop.
      */
     public TraceEvent.CpuState cpuStateForFrame(int frame, String characterCode) {
         if (characterCode == null || characterCode.isBlank()) {
@@ -334,6 +341,50 @@ public class TraceData {
             if (event instanceof TraceEvent.VelocityWrite vw
                     && characterCode.equalsIgnoreCase(vw.character())) {
                 return vw;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused S3K Tails CPU normal-step diagnostic for the
+     * requested frame and character, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> This is report context for the
+     * native engine simulation; replay code must not hydrate state from it.
+     */
+    public TraceEvent.TailsCpuNormalStep tailsCpuNormalStepForFrame(
+            int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.TailsCpuNormalStep state
+                    && characterCode.equalsIgnoreCase(state.character())) {
+                return state;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused S3K sidekick interact-object diagnostic for the
+     * requested frame and character, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> This is report context for object
+     * handoff diagnosis; replay code must not hydrate state from it.
+     */
+    public TraceEvent.SidekickInteractObjectState sidekickInteractObjectStateForFrame(
+            int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.SidekickInteractObjectState state
+                    && characterCode.equalsIgnoreCase(state.character())) {
+                return state;
             }
         }
         return null;

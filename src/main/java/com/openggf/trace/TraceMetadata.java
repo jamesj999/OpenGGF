@@ -167,6 +167,25 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("velocity_write_per_frame");
     }
 
+    /**
+     * Whether the trace emits per-frame {@code tails_cpu_normal_step} events,
+     * the focused S3K Tails CPU normal-follow diagnostic for CNZ/AIZ frontiers.
+     */
+    public boolean hasPerFrameTailsCpuNormalStep() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("tails_cpu_normal_step_per_frame");
+    }
+
+    /**
+     * Whether the trace emits per-frame {@code sidekick_interact_object}
+     * events, the focused S3K sidekick interact-object diagnostic for AIZ
+     * ride/grab handoff frontiers.
+     */
+    public boolean hasPerFrameSidekickInteractObject() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("sidekick_interact_object_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
