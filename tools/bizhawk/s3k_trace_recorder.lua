@@ -63,6 +63,14 @@
 -- state at entry). Used to root-cause CNZ1 trace F2222 release-cooldown
 -- divergence where the engine fires Tails's release one frame earlier
 -- than ROM despite both seeing Ctrl_2_pressed_logical=$48.
+-- v6.5-s3k changes: add comparison-only sidekick diagnostics for the
+-- current AIZ/CNZ trace frontiers: tails_cpu_normal_step (Tails CPU
+-- normal-follow branch/input/path state; sonic3k.asm:26702-26705,
+-- 26717-26741, 27798-27805, 28103-28122, 27957-28017) and
+-- sidekick_interact_object (Tails interact pointer/object snapshot;
+-- sonic3k.asm:28407-28451, 43758-43810, 46481-46549, 46602-46631,
+-- 46709-46743, 46749-46789, 46929-46950). Diagnostic-only; no CSV
+-- schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -175,6 +183,11 @@ local ADDR_TAILS_CPU_JUMPING     = ADDR_TAILS_CPU_AUTO_JUMP_FLAG
 --   $F66B Ctrl_2_pressed_logical (byte)
 local ADDR_CTRL2_HELD_LOGICAL    = 0xF66A
 local ADDR_CTRL2_PRESSED_LOGICAL = 0xF66B
+-- Tails normal-follow delay tables. Addresses derived from
+-- docs/skdisasm/sonic3k.constants.asm:331-333 and 368.
+local ADDR_STAT_TABLE        = 0xE400
+local ADDR_POS_TABLE         = 0xE500
+local ADDR_POS_TABLE_INDEX   = 0xEE26
 
 local INPUT_UP    = 0x01
 local INPUT_DOWN  = 0x02
@@ -230,6 +243,11 @@ local CAGE_HOOK_LOC_339A0 = 0x339A0
 local CAGE_HOOK_LOC_33ADE = 0x33ADE
 local CAGE_HOOK_LOC_33B1E = 0x33B1E
 local CAGE_HOOK_LOC_33B62 = 0x33B62
+-- Tails CPU normal-follow and path diagnostics.
+local TAILS_CPU_HOOK_LOC_13DD0 = 0x13DD0
+local TAILS_CPU_HOOK_LOC_13EB8 = 0x13EB8
+local TAILS_PATH_HOOK_LOC_14A0A = 0x14A0A
+local TAILS_PATH_HOOK_LOC_14B7A = 0x14B7A
 
 -----------------
 --- State     ---
@@ -280,6 +298,10 @@ local prev_cage_status = -1
 -- velocity_write event listing all writers in temporal order.
 local tails_xvel_writes = {}
 local tails_yvel_writes = {}
+
+-- Per-frame focused Tails CPU normal-step diagnostics. Populated by
+-- memoryexecute hooks during the ROM frame and flushed from on_frame_end.
+local tails_cpu_normal_step = nil
 
 local physics_file = nil
 local aux_file = nil
@@ -544,6 +566,10 @@ local function reset_recording_state()
     prev_zone_id_for_transition = nil
     prev_act_for_transition = nil
     pre_trace_snapshots_written = false
+    cage_hits = {}
+    tails_xvel_writes = {}
+    tails_yvel_writes = {}
+    tails_cpu_normal_step = nil
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -586,16 +612,18 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.4-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.5-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
     -- schema bump. v6.3 adds cage_state_per_frame and cage_execution.
     -- v6.4 adds velocity_write_per_frame (Tails x_vel/y_vel write hooks
-    -- with M68K PC for CNZ1 F3649 root-cause). All diagnostic-only.
+    -- with M68K PC for CNZ1 F3649 root-cause). v6.5 adds
+    -- tails_cpu_normal_step_per_frame and sidekick_interact_object_per_frame.
+    -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame"],\n')
+    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"],\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -1002,7 +1030,7 @@ local function write_object_states_per_frame(player1_x, player1_y, player2_prese
                 and math.abs(obj_y - player2_y) <= OBJECT_PROXIMITY
             if near_p1 or near_p2 then
                 local status_byte = mainmemory.read_u8(addr + OFF_STATUS)
-                local subtype = mainmemory.read_u8(addr + 0x1C)
+                local subtype = mainmemory.read_u8(addr + 0x2C)
                 local x_radius = mainmemory.read_u8(addr + OFF_RADIUS_X)
                 local y_radius = mainmemory.read_u8(addr + OFF_RADIUS_Y)
                 local routine_byte = mainmemory.read_u8(addr + OFF_ROUTINE)
@@ -1018,6 +1046,70 @@ local function write_object_states_per_frame(player1_x, player1_y, player2_prese
             end
         end
     end
+end
+
+local function write_sidekick_interact_object_state(player2_present)
+    if not aux_file then return end
+    if not player2_present then return end
+
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local interact_addr = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_STAND_ON_OBJ)
+    local interact_slot = interact_addr_to_slot(interact_addr)
+    local tails_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
+    local tails_object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL)
+    local tails_render_flags = mainmemory.read_u8(SIDEKICK_BASE + 0x04)
+    local tails_on_object = (tails_status & STATUS_ON_OBJECT) ~= 0
+
+    local obj_addr = OBJ_TABLE_START + (interact_slot * OBJ_SLOT_SIZE)
+    local object_code = 0
+    local object_routine = 0
+    local object_status = 0
+    local object_x = 0
+    local object_y = 0
+    local object_subtype = 0
+    local object_render_flags = 0
+    local object_object_control = 0
+    local object_active = false
+    local object_destroyed = true
+    local object_p1_standing = false
+    local object_p2_standing = false
+
+    if interact_slot > 0 and interact_slot < OBJ_TOTAL_SLOTS then
+        object_code = mainmemory.read_u32_be(obj_addr)
+        object_routine = mainmemory.read_u8(obj_addr + OFF_ROUTINE)
+        object_status = mainmemory.read_u8(obj_addr + OFF_STATUS)
+        object_x = mainmemory.read_u16_be(obj_addr + OFF_X_POS)
+        object_y = mainmemory.read_u16_be(obj_addr + OFF_Y_POS)
+        object_subtype = mainmemory.read_u8(obj_addr + 0x2C)
+        object_render_flags = mainmemory.read_u8(obj_addr + 0x04)
+        object_object_control = mainmemory.read_u8(obj_addr + OFF_OBJECT_CONTROL)
+        object_active = object_code ~= 0
+        object_destroyed = object_code == 0
+        object_p1_standing = (object_status & 0x08) ~= 0
+        object_p2_standing = (object_status & 0x10) ~= 0
+    end
+
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"sidekick_interact_object","character":"tails",'
+            .. '"interact":"0x%04X","interact_slot":%d,'
+            .. '"tails_render_flags":"0x%02X","tails_object_control":"0x%02X",'
+            .. '"tails_status":"0x%02X","tails_on_object":%s,'
+            .. '"object_code":"0x%08X","object_routine":"0x%02X",'
+            .. '"object_status":"0x%02X","object_x":"0x%04X","object_y":"0x%04X",'
+            .. '"object_subtype":"0x%02X","object_render_flags":"0x%02X",'
+            .. '"object_object_control":"0x%02X","object_active":%s,'
+            .. '"object_destroyed":%s,"object_p1_standing":%s,'
+            .. '"object_p2_standing":%s}',
+        trace_frame, vfc,
+        interact_addr, interact_slot,
+        tails_render_flags, tails_object_control,
+        tails_status, tostring(tails_on_object),
+        object_code, object_routine,
+        object_status, object_x, object_y,
+        object_subtype, object_render_flags,
+        object_object_control, tostring(object_active),
+        tostring(object_destroyed), tostring(object_p1_standing),
+        tostring(object_p2_standing)))
 end
 
 -- Per-frame INTERACT STATE events. Emit one per active player capturing
@@ -1252,6 +1344,158 @@ local function flush_tails_velocity_writes()
         table.concat(x_parts, ","), table.concat(y_parts, ",")))
     tails_xvel_writes = {}
     tails_yvel_writes = {}
+end
+
+-- =====================================================================
+-- Tails CPU normal-step hooks (v6.5-s3k)
+-- =====================================================================
+-- Focused diagnostics for the current CNZ F3905 frontier. These hooks
+-- capture the ROM-side state around:
+--   loc_13DD0/loc_13EB8 Tails CPU delayed input generation
+--     (sonic3k.asm:26702-26705, 26717-26741)
+--   loc_14A0A/loc_14B7A Tails_InputAcceleration_Path right-input and
+--     post-path state (sonic3k.asm:27798-27805, 28103-28122,
+--     27957-28017)
+-- The event is comparison-only report context and must never feed replay
+-- state.
+
+local function _u16(value)
+    if value < 0 then
+        return value + 0x10000
+    end
+    return value & 0xFFFF
+end
+
+local function _hook_a0_is_tails()
+    local a0 = emu.getregister("M68K A0") or 0
+    return (a0 % 0x10000) == SIDEKICK_BASE
+end
+
+local function _tails_cpu_step()
+    if tails_cpu_normal_step == nil or tails_cpu_normal_step.frame ~= trace_frame then
+        tails_cpu_normal_step = {
+            frame = trace_frame,
+            character = "tails",
+            status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS),
+            object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL),
+            ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA)),
+            x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)),
+            delayed_stat = 0,
+            delayed_input = 0,
+            loc_13dd0_branch = "not_seen",
+            ctrl2_logical = mainmemory.read_u16_be(ADDR_CTRL2_HELD_LOGICAL),
+            ctrl2_held_logical = mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
+            path_pre_ground_vel = 0,
+            path_pre_x_vel = 0,
+            path_pre_status = 0,
+            path_post_ground_vel = 0,
+            path_post_x_vel = 0,
+            path_post_status = 0,
+        }
+    end
+    return tails_cpu_normal_step
+end
+
+local function tails_cpu_record_loc_13dd0()
+    if not aux_file then return end
+    if not started then return end
+    if not _hook_a0_is_tails() then return end
+    local step = _tails_cpu_step()
+    local delayed_index = (mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) - 0x44) & 0xFF
+    step.delayed_input = mainmemory.read_u16_be(ADDR_STAT_TABLE + delayed_index)
+    step.delayed_stat = mainmemory.read_u8(ADDR_STAT_TABLE + delayed_index + 2)
+    local leader_status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
+    local leader_ground_vel = mainmemory.read_s16_be(PLAYER_BASE + OFF_INERTIA)
+    if (leader_status & STATUS_ON_OBJECT) ~= 0 then
+        step.loc_13dd0_branch = "leader_on_object"
+    elseif leader_ground_vel >= 0x400 then
+        step.loc_13dd0_branch = "leader_fast"
+    else
+        step.loc_13dd0_branch = "fallthrough_sub20"
+    end
+end
+
+local function tails_cpu_record_loc_13eb8()
+    if not aux_file then return end
+    if not started then return end
+    if not _hook_a0_is_tails() then return end
+    local step = _tails_cpu_step()
+    local d1 = emu.getregister("M68K D1") or step.delayed_input
+    step.delayed_input = d1 & 0xFFFF
+    step.status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
+    step.object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL)
+    step.ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+end
+
+local function tails_cpu_record_path_pre()
+    if not aux_file then return end
+    if not started then return end
+    if not _hook_a0_is_tails() then return end
+    local step = _tails_cpu_step()
+    step.ctrl2_logical = mainmemory.read_u16_be(ADDR_CTRL2_HELD_LOGICAL)
+    step.ctrl2_held_logical = mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL)
+    step.path_pre_ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.path_pre_x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+    step.path_pre_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
+end
+
+local function tails_cpu_record_path_post()
+    if not aux_file then return end
+    if not started then return end
+    if not _hook_a0_is_tails() then return end
+    local step = _tails_cpu_step()
+    step.path_post_ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.path_post_x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+    step.path_post_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
+end
+
+local tails_cpu_hooks_registered = false
+
+local function register_tails_cpu_normal_step_hooks()
+    if tails_cpu_hooks_registered then return end
+    tails_cpu_hooks_registered = true
+
+    event.onmemoryexecute(tails_cpu_record_loc_13dd0, TAILS_CPU_HOOK_LOC_13DD0)
+    event.onmemoryexecute(tails_cpu_record_loc_13eb8, TAILS_CPU_HOOK_LOC_13EB8)
+    event.onmemoryexecute(tails_cpu_record_path_pre, TAILS_PATH_HOOK_LOC_14A0A)
+    event.onmemoryexecute(tails_cpu_record_path_post, TAILS_PATH_HOOK_LOC_14B7A)
+
+    print(string.format(
+        "Tails CPU normal-step hooks registered: loc_13DD0=0x%05X, loc_13EB8=0x%05X, loc_14A0A=0x%05X, loc_14B7A=0x%05X",
+        TAILS_CPU_HOOK_LOC_13DD0, TAILS_CPU_HOOK_LOC_13EB8,
+        TAILS_PATH_HOOK_LOC_14A0A, TAILS_PATH_HOOK_LOC_14B7A))
+end
+
+local function flush_tails_cpu_normal_step()
+    if not aux_file then return end
+    if tails_cpu_normal_step == nil or tails_cpu_normal_step.frame ~= trace_frame then
+        return
+    end
+    local step = tails_cpu_normal_step
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"tails_cpu_normal_step","character":"tails",'
+            .. '"status":"0x%02X","object_control":"0x%02X",'
+            .. '"ground_vel":"0x%04X","x_vel":"0x%04X",'
+            .. '"delayed_stat":"0x%02X","delayed_input":"0x%04X",'
+            .. '"loc_13dd0_branch":"%s","ctrl2_logical":"0x%04X",'
+            .. '"ctrl2_held_logical":"0x%02X",'
+            .. '"path_pre_ground_vel":"0x%04X","path_pre_x_vel":"0x%04X",'
+            .. '"path_pre_status":"0x%02X",'
+            .. '"path_post_ground_vel":"0x%04X","path_post_x_vel":"0x%04X",'
+            .. '"path_post_status":"0x%02X"}',
+        trace_frame, vfc,
+        step.status, step.object_control,
+        step.ground_vel, step.x_vel,
+        step.delayed_stat, step.delayed_input,
+        step.loc_13dd0_branch, step.ctrl2_logical,
+        step.ctrl2_held_logical,
+        step.path_pre_ground_vel, step.path_pre_x_vel,
+        step.path_pre_status,
+        step.path_post_ground_vel, step.path_post_x_vel,
+        step.path_post_status))
+    tails_cpu_normal_step = nil
 end
 
 local cage_hooks_registered = false
@@ -1562,9 +1806,14 @@ local function on_frame_end()
     prev_status = status
 
     -- Per-frame CPU snapshot (v6 schema). Always emit so the trace replay can
-    -- hydrate engine SidekickCpuController state from authoritative ROM values
-    -- and rule out CPU-state drift as a source of divergence.
+    -- compare SidekickCpuController state against authoritative ROM values and
+    -- rule out CPU-state drift as a source of divergence. Diagnostic-only.
     write_tails_cpu_per_frame()
+
+    -- Focused Tails CPU normal-follow step diagnostics (v6.5 schema).
+    -- memoryexecute hooks collect branch/input/path state during the ROM
+    -- frame, and this flush emits one comparison-only event for the report.
+    flush_tails_cpu_normal_step()
 
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
@@ -1577,6 +1826,7 @@ local function on_frame_end()
     local sk_present = sidekick.present == 1
     write_object_states_per_frame(x, y, sk_present, sidekick.x, sidekick.y)
     write_interact_state_per_frame(sk_present)
+    write_sidekick_interact_object_state(sk_present)
 
     -- Per-frame CNZ wire cage state (v6.3 schema). Emits one cage_state
     -- event per active cage object (per OST slot containing 0x0001365C)
@@ -1632,7 +1882,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.4-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.5-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -1642,6 +1892,9 @@ register_cage_hooks()
 
 -- Register Tails velocity-write hooks. Same lifetime model as cage hooks.
 register_velocity_hooks()
+
+-- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
+register_tails_cpu_normal_step_hooks()
 
 while true do
     on_frame_end()

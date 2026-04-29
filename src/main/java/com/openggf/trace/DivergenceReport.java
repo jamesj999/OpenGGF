@@ -279,6 +279,16 @@ public class DivergenceReport {
         if (velocityWrite != null) {
             diagnostics.add(velocityWrite);
         }
+        TraceEvent.TailsCpuNormalStep cpuNormalStep =
+                traceData.tailsCpuNormalStepForFrame(frame, "tails");
+        if (cpuNormalStep != null) {
+            diagnostics.add(cpuNormalStep);
+        }
+        TraceEvent.SidekickInteractObjectState interactObject =
+                traceData.sidekickInteractObjectStateForFrame(frame, "tails");
+        if (interactObject != null) {
+            diagnostics.add(interactObject);
+        }
         if (!diagnostics.isEmpty()) {
             sb.append("Trace diagnostics @")
                 .append(frame)

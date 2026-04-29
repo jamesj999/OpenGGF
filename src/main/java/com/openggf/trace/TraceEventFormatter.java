@@ -80,6 +80,42 @@ public final class TraceEventFormatter {
                             cage.p2State() & 0xFF);
             case TraceEvent.CageExecution execution ->
                     summariseCageExecution(execution);
+            case TraceEvent.TailsCpuNormalStep step ->
+                    String.format("tailsCpu status=%02X obj=%02X gv=%04X xv=%04X stat=%02X input=%04X branch=%s ctrl2=%04X/%02X post=%04X,%04X,%02X",
+                            step.status() & 0xFF,
+                            step.objectControl() & 0xFF,
+                            step.groundVel() & 0xFFFF,
+                            step.xVel() & 0xFFFF,
+                            step.delayedStat() & 0xFF,
+                            step.delayedInput() & 0xFFFF,
+                            step.loc13dd0Branch(),
+                            step.ctrl2Logical() & 0xFFFF,
+                            step.ctrl2HeldLogical() & 0xFF,
+                            step.pathPostGroundVel() & 0xFFFF,
+                            step.pathPostXVel() & 0xFFFF,
+                            step.pathPostStatus() & 0xFF);
+            case TraceEvent.SidekickInteractObjectState state ->
+                    String.format("%sInteract slot=%d ptr=%04X obj=%08X rtn=%02X st=%02X @%04X,%04X sub=%02X %s rf=%02X obj=%02X onObj=%s objP2=%s active=%s destroyed=%s",
+                            state.character() == null || state.character().isBlank()
+                                    ? "sidekick"
+                                    : state.character(),
+                            state.interactSlot(),
+                            state.interact() & 0xFFFF,
+                            state.objectCode(),
+                            state.objectRoutine() & 0xFF,
+                            state.objectStatus() & 0xFF,
+                            state.objectX() & 0xFFFF,
+                            state.objectY() & 0xFFFF,
+                            state.objectSubtype() & 0xFF,
+                            state.character() == null || state.character().isBlank()
+                                    ? "sidekick"
+                                    : state.character(),
+                            state.tailsRenderFlags() & 0xFF,
+                            state.tailsObjectControl() & 0xFF,
+                            state.tailsOnObject(),
+                            state.objectP2Standing(),
+                            state.objectActive(),
+                            state.objectDestroyed());
             default -> "";
         };
     }

@@ -561,6 +561,86 @@ public class TestTraceDataParsing {
                 data.missingAdvertisedAuxSchemas());
     }
 
+    @Test
+    void parsesS3kSidekickDiagnosticAuxEventsAndMetadataFlags() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-sidekick-diag-trace");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000,1,0050,0288,0010,FFF0,000C,08,1,0,0,8000,4000,02,0A,03
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"vfc":1,"event":"tails_cpu_normal_step","character":"tails","status":"0x00","object_control":"0x00","ground_vel":"0x000C","x_vel":"0x0000","delayed_stat":"0x08","delayed_input":"0x0800","loc_13dd0_branch":"leader_on_object","ctrl2_logical":"0x0808","ctrl2_held_logical":"0x08","path_pre_ground_vel":"0x000C","path_pre_x_vel":"0x0000","path_pre_status":"0x00","path_post_ground_vel":"0x000C","path_post_x_vel":"0x000C","path_post_status":"0x00"}
+            {"frame":0,"vfc":1,"event":"sidekick_interact_object","character":"tails","interact":"0xB128","interact_slot":4,"tails_render_flags":"0x80","tails_object_control":"0x03","tails_status":"0x08","tails_on_object":true,"object_code":"0x000220C2","object_routine":"0x02","object_status":"0x10","object_x":"0x2D95","object_y":"0x0420","object_subtype":"0x40","object_render_flags":"0x80","object_object_control":"0x00","object_active":true,"object_destroyed":false,"object_p1_standing":false,"object_p2_standing":true}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertTrue(data.metadata().hasPerFrameTailsCpuNormalStep());
+        assertTrue(data.metadata().hasPerFrameSidekickInteractObject());
+        TraceEvent.TailsCpuNormalStep cpu = data.tailsCpuNormalStepForFrame(0, "tails");
+        assertNotNull(cpu);
+        assertEquals(0x000C, cpu.pathPostGroundVel());
+        assertEquals("leader_on_object", cpu.loc13dd0Branch());
+        TraceEvent.SidekickInteractObjectState interact = data.sidekickInteractObjectStateForFrame(0, "tails");
+        assertNotNull(interact);
+        assertEquals(4, interact.interactSlot());
+        assertEquals(0x000220C2, interact.objectCode());
+        assertTrue(interact.objectP2Standing());
+    }
+
+    @Test
+    void reportsAdvertisedSidekickDiagnosticsMissingFromAuxStream() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-missing-sidekick-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000,1,0050,0288,0010,FFF0,000C,08,1,0,0,8000,4000,02,0A,03
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"event":"checkpoint","name":"gameplay_start","actual_zone_id":3,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"),
+                data.missingAdvertisedAuxSchemas());
+    }
+
     private static void writeMinimalTraceFiles(Path dir) throws IOException {
         writeMinimalMetadata(dir);
         Files.writeString(dir.resolve("physics.csv"), """

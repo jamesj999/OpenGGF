@@ -130,4 +130,30 @@ public class TestTraceEventFormatting {
         assertEquals("cage s4 @1300,07C0 sub=28 st=09 p1=80/00 p2=C0/01 | cageExec sub_338C4_entry@338C4 cage=B128 player=B04A d5=0800 d6=04 state=01 obj=42 cst=09",
                 TraceEventFormatter.summariseFrameEvents(List.of(cageState, cageExecution)));
     }
+
+    @Test
+    void summarisesS3kTailsCpuNormalStepDiagnostics() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+                """
+                {"frame":3905,"vfc":3906,"event":"tails_cpu_normal_step","character":"tails","status":"0x00","object_control":"0x00","ground_vel":"0x000C","x_vel":"0x0000","delayed_stat":"0x08","delayed_input":"0x0800","loc_13dd0_branch":"leader_on_object","ctrl2_logical":"0x0808","ctrl2_held_logical":"0x08","path_pre_ground_vel":"0x000C","path_pre_x_vel":"0x0000","path_pre_status":"0x00","path_post_ground_vel":"0x000C","path_post_x_vel":"0x000C","path_post_status":"0x00"}
+                """.trim(),
+                mapper);
+
+        assertTrue(event instanceof TraceEvent.TailsCpuNormalStep);
+        assertEquals("tailsCpu status=00 obj=00 gv=000C xv=0000 stat=08 input=0800 branch=leader_on_object ctrl2=0808/08 post=000C,000C,00",
+                TraceEventFormatter.summariseFrameEvents(List.of(event)));
+    }
+
+    @Test
+    void summarisesS3kSidekickInteractObjectDiagnostics() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+                """
+                {"frame":4679,"vfc":4680,"event":"sidekick_interact_object","character":"tails","interact":"0xB128","interact_slot":4,"tails_render_flags":"0x80","tails_object_control":"0x03","tails_status":"0x08","tails_on_object":true,"object_code":"0x000220C2","object_routine":"0x02","object_status":"0x10","object_x":"0x2D95","object_y":"0x0420","object_subtype":"0x40","object_render_flags":"0x80","object_object_control":"0x00","object_active":true,"object_destroyed":false,"object_p1_standing":false,"object_p2_standing":true}
+                """.trim(),
+                mapper);
+
+        assertTrue(event instanceof TraceEvent.SidekickInteractObjectState);
+        assertEquals("tailsInteract slot=4 ptr=B128 obj=000220C2 rtn=02 st=10 @2D95,0420 sub=40 tails rf=80 obj=03 onObj=true objP2=true active=true destroyed=false",
+                TraceEventFormatter.summariseFrameEvents(List.of(event)));
+    }
 }

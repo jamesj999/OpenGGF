@@ -287,6 +287,12 @@ further S3K parity work.
   after leader release, preserving Tails' later wall correction. This follows the CNZ cage
   P2 dirty pass and object-control exit in `docs/skdisasm/sonic3k.asm:69835-69846` and
   `69895-69897`, plus Tails wall correction in `docs/skdisasm/sonic3k.asm:27957-28001`.
+- **Trace recorder v6.5-s3k:** adds comparison-only `tails_cpu_normal_step` and
+  `sidekick_interact_object` aux events to expose the ROM-side Tails CPU branch/input
+  path and sidekick interact object around the current AIZ F4679 and CNZ F3905
+  frontiers. The new diagnostics cite the S3K Tails follow/input/death paths in
+  `docs/skdisasm/sonic3k.asm:26702-26741`, `27798-27805`, `28103-28122`,
+  `28407-28451`, and the AIZ object handoff paths in `43758-43810` and `46481-46950`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
