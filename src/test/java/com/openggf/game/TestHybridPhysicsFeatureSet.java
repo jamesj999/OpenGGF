@@ -53,6 +53,7 @@ public class TestHybridPhysicsFeatureSet {
                 null,  // superSpindashSpeedTable - not donated
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
+                false,  // animationChangeClearsPush - S1 original build does not clear pushing on anim change
                 false,  // airSuperspeedPreserved - S1
                 false,  // slopeRepelChecksOnObject - S1
                 false,  // slopeRepelUsesS3kSlipKick - S1
