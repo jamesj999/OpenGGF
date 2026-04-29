@@ -146,6 +146,30 @@ public final class TraceEventFormatter {
                             state.postMoveY() & 0xFFFF,
                             state.postMoveXVel() & 0xFFFF,
                             state.postMoveYVel() & 0xFFFF);
+            case TraceEvent.AizTransitionFloorSolidState state ->
+                    String.format("aizFloor s%d @%04X,%04X st=%02X stand=%s/%s p1=%s y=%04X yr=%02X st=%02X obj=%02X d=%04X/%04X/%04X p2=%s y=%04X yr=%02X st=%02X obj=%02X d=%04X/%04X/%04X",
+                            state.slot(),
+                            state.objectX() & 0xFFFF,
+                            state.objectY() & 0xFFFF,
+                            state.objectStatus() & 0xFF,
+                            state.p1Standing(),
+                            state.p2Standing(),
+                            state.p1Path(),
+                            state.p1Y() & 0xFFFF,
+                            state.p1YRadius() & 0xFF,
+                            state.p1Status() & 0xFF,
+                            state.p1ObjectControl() & 0xFF,
+                            state.p1D1() & 0xFFFF,
+                            state.p1D2() & 0xFFFF,
+                            state.p1D3() & 0xFFFF,
+                            state.p2Path(),
+                            state.p2Y() & 0xFFFF,
+                            state.p2YRadius() & 0xFF,
+                            state.p2Status() & 0xFF,
+                            state.p2ObjectControl() & 0xFF,
+                            state.p2D1() & 0xFFFF,
+                            state.p2D2() & 0xFFFF,
+                            state.p2D3() & 0xFFFF);
             default -> "";
         };
     }

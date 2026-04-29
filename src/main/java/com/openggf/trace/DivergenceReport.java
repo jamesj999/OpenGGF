@@ -294,6 +294,11 @@ public class DivergenceReport {
         if (aizBoundary != null) {
             diagnostics.add(aizBoundary);
         }
+        TraceEvent.AizTransitionFloorSolidState aizFloor =
+                traceData.aizTransitionFloorSolidStateForFrame(frame);
+        if (aizFloor != null) {
+            diagnostics.add(aizFloor);
+        }
         if (!diagnostics.isEmpty()) {
             sb.append("Trace diagnostics @")
                 .append(frame)

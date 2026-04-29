@@ -77,6 +77,12 @@
 -- pre/post, and end-of-frame post-move state. ROM frame order and relevant
 -- routines: sonic3k.asm:7884-7898, 38298-38316, 38961-38974,
 -- 43776-43810, 28407-28451. Diagnostic-only; no CSV schema change.
+-- v6.7-s3k changes: add AIZ transition-floor SolidObjectTop diagnostics
+-- around F5414-F5416. The event captures Obj_AIZTransitionFloor standing
+-- bits and per-player SolidObjectTop path/register state (d1/d2/d3,
+-- statuses, y_radius) to distinguish why Tails lands while Sonic does not.
+-- ROM refs: sonic3k.asm:104683-104790, 41642-41679, 41793-41818,
+-- 41982-42015. Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -276,6 +282,18 @@ V66 = {
     CAMERA_MIN_Y = 0xEE18,
     CAMERA_MAX_Y = 0xEE1A,
     boundary_state = nil,
+    hooks_registered = false,
+}
+
+local V67 = {
+    AIZ_TRANSITION_FLOOR_CODE = 0x0004FE38,
+    SOLID_TOP_STANDING_EXIT = 0x1E2E0,
+    SOLID_TOP_STANDING_MOVE = 0x1E2F4,
+    SOLID_TOP_FIRST_CHECK = 0x1E42E,
+    SOLID_TOP_FIRST_VERTICAL = 0x1E44C,
+    RIDE_OBJECT_SET_RIDE_BODY = 0x1E4A0,
+    SOLID_TOP_RETURN = 0x1E4D4,
+    state = nil,
     hooks_registered = false,
 }
 
@@ -639,7 +657,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.6-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.7-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -648,12 +666,13 @@ local function write_metadata()
     -- with M68K PC for CNZ1 F3649 root-cause). v6.5 adds
     -- tails_cpu_normal_step_per_frame and sidekick_interact_object_per_frame.
     -- v6.6 adds aiz_boundary_state_per_frame for AIZ F4679 tree/boundary
-    -- pre/post visibility. All diagnostic-only.
+    -- pre/post visibility. v6.7 adds aiz_transition_floor_solid_per_frame
+    -- for AIZ F5415 SolidObjectTop path diagnostics. All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame"]'
     else
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"]'
     end
@@ -1728,6 +1747,258 @@ function V66.register_aiz_boundary_hooks()
         AIZ_BOUNDARY_FRAME_START, AIZ_BOUNDARY_FRAME_END))
 end
 
+-- =====================================================================
+-- AIZ transition floor SolidObjectTop hooks (v6.7-s3k)
+-- =====================================================================
+-- Obj_AIZTransitionFloor is allocated during the AIZ1 fire-refresh path
+-- (sonic3k.asm:104683-104690), then sets status bit 7 and calls
+-- SolidObjectTop with d1=$A0,d2=$10,d3=$10 (sonic3k.asm:104777-104790).
+-- These hooks expose ROM-side SolidObjectTop path evidence only; replay must
+-- never hydrate engine state from this aux event.
+
+local AIZ_TRANSITION_FLOOR_FRAME_START =
+    tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_START") or "5408")
+local AIZ_TRANSITION_FLOOR_FRAME_END =
+    tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_END") or "5438")
+
+function V67.u16(value)
+    if value < 0 then
+        return value + 0x10000
+    end
+    return value & 0xFFFF
+end
+
+function V67.in_window()
+    if trace_frame < AIZ_TRANSITION_FLOOR_FRAME_START
+            or trace_frame > AIZ_TRANSITION_FLOOR_FRAME_END then
+        return false
+    end
+    return mainmemory.read_u8(ADDR_ZONE) == 0
+end
+
+function V67.find_floor()
+    for slot = 0, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        if mainmemory.read_u32_be(addr) == V67.AIZ_TRANSITION_FLOOR_CODE then
+            return slot, addr
+        end
+    end
+    return nil, nil
+end
+
+function V67.a0_floor_slot()
+    local a0 = emu.getregister("M68K A0") or 0
+    local addr = a0 % 0x10000
+    if addr < OBJ_TABLE_START then
+        return nil, nil
+    end
+    local delta = addr - OBJ_TABLE_START
+    if (delta % OBJ_SLOT_SIZE) ~= 0 then
+        return nil, nil
+    end
+    local slot = math.floor(delta / OBJ_SLOT_SIZE)
+    if slot < 0 or slot >= OBJ_TOTAL_SLOTS then
+        return nil, nil
+    end
+    if mainmemory.read_u32_be(addr) ~= V67.AIZ_TRANSITION_FLOOR_CODE then
+        return nil, nil
+    end
+    return slot, addr
+end
+
+function V67.a1_player_key()
+    local a1 = emu.getregister("M68K A1") or 0
+    local addr = a1 % 0x10000
+    if addr == PLAYER_BASE then
+        return "p1", PLAYER_BASE
+    end
+    if addr == SIDEKICK_BASE then
+        return "p2", SIDEKICK_BASE
+    end
+    return nil, nil
+end
+
+function V67.snapshot_player(base)
+    return {
+        status = mainmemory.read_u8(base + OFF_STATUS),
+        object_control = mainmemory.read_u8(base + OFF_OBJECT_CONTROL),
+        y_radius = mainmemory.read_u8(base + OFF_RADIUS_Y),
+        x = mainmemory.read_u16_be(base + OFF_X_POS),
+        y = mainmemory.read_u16_be(base + OFF_Y_POS),
+        y_vel = V67.u16(mainmemory.read_s16_be(base + OFF_Y_VEL)),
+        interact_slot = read_stand_on_slot_for(base),
+    }
+end
+
+function V67.new_player_state(base)
+    local player = V67.snapshot_player(base)
+    player.path = "not_seen"
+    player.d1 = 0
+    player.d2 = 0
+    player.d3 = 0
+    return player
+end
+
+function V67.current(slot, floor_addr)
+    if V67.state == nil or V67.state.frame ~= trace_frame then
+        V67.state = {
+            frame = trace_frame,
+            slot = slot,
+            floor_addr = floor_addr,
+            seen = false,
+            object_status = mainmemory.read_u8(floor_addr + OFF_STATUS),
+            object_x = mainmemory.read_u16_be(floor_addr + OFF_X_POS),
+            object_y = mainmemory.read_u16_be(floor_addr + OFF_Y_POS),
+            p1_standing = (mainmemory.read_u8(floor_addr + OFF_STATUS) & 0x08) ~= 0,
+            p2_standing = (mainmemory.read_u8(floor_addr + OFF_STATUS) & 0x10) ~= 0,
+            p1 = V67.new_player_state(PLAYER_BASE),
+            p2 = V67.new_player_state(SIDEKICK_BASE),
+        }
+    end
+    return V67.state
+end
+
+function V67.capture_regs(player)
+    player.d1 = (emu.getregister("M68K D1") or 0) & 0xFFFF
+    player.d2 = (emu.getregister("M68K D2") or 0) & 0xFFFF
+    player.d3 = (emu.getregister("M68K D3") or 0) & 0xFFFF
+end
+
+function V67.record_path(path)
+    if not aux_file then return end
+    if not started then return end
+    if not V67.in_window() then return end
+    local slot, floor_addr = V67.a0_floor_slot()
+    if floor_addr == nil then return end
+    local key, base = V67.a1_player_key()
+    if key == nil then return end
+    local state = V67.current(slot, floor_addr)
+    local player = V67.snapshot_player(base)
+    local previous = state[key]
+    player.path = path
+    if path == "first_vertical"
+            and (previous.path == "first_check" or previous.path == "first_vertical") then
+        player.d1 = previous.d1
+        player.d2 = previous.d2
+        player.d3 = previous.d3
+    elseif path == "first_landing"
+            and (previous.path == "first_check" or previous.path == "first_vertical") then
+        player.d1 = previous.d1
+        player.d2 = previous.d2
+        player.d3 = previous.d3
+    elseif path == "return" then
+        player.d1 = previous.d1
+        player.d2 = previous.d2
+        player.d3 = previous.d3
+        if previous.path == "first_check" or previous.path == "first_vertical" then
+            player.path = "first_reject"
+        else
+            player.path = previous.path
+        end
+        if player.path == "not_seen" then
+            player.path = "return"
+        end
+    else
+        V67.capture_regs(player)
+    end
+    state[key] = player
+    state.seen = true
+end
+
+function V67.refresh_state(state)
+    local p1_path = state.p1.path
+    local p1_d1 = state.p1.d1
+    local p1_d2 = state.p1.d2
+    local p1_d3 = state.p1.d3
+    local p2_path = state.p2.path
+    local p2_d1 = state.p2.d1
+    local p2_d2 = state.p2.d2
+    local p2_d3 = state.p2.d3
+    local slot, floor_addr = V67.find_floor()
+    if floor_addr ~= nil then
+        state.slot = slot
+        state.floor_addr = floor_addr
+        state.object_status = mainmemory.read_u8(floor_addr + OFF_STATUS)
+        state.object_x = mainmemory.read_u16_be(floor_addr + OFF_X_POS)
+        state.object_y = mainmemory.read_u16_be(floor_addr + OFF_Y_POS)
+        state.p1_standing = (state.object_status & 0x08) ~= 0
+        state.p2_standing = (state.object_status & 0x10) ~= 0
+    end
+    state.p1 = V67.snapshot_player(PLAYER_BASE)
+    state.p2 = V67.snapshot_player(SIDEKICK_BASE)
+    state.p1.path = p1_path
+    state.p1.d1 = p1_d1
+    state.p1.d2 = p1_d2
+    state.p1.d3 = p1_d3
+    state.p2.path = p2_path
+    state.p2.d1 = p2_d1
+    state.p2.d2 = p2_d2
+    state.p2.d3 = p2_d3
+end
+
+function V67.format_player(prefix, player)
+    return string.format(
+        '"%s_path":"%s","%s_d1":"0x%04X","%s_d2":"0x%04X","%s_d3":"0x%04X",'
+            .. '"%s_status":"0x%02X","%s_object_control":"0x%02X",'
+            .. '"%s_y_radius":"0x%02X","%s_x":"0x%04X","%s_y":"0x%04X",'
+            .. '"%s_y_vel":"0x%04X","%s_interact_slot":%d',
+        prefix, player.path,
+        prefix, player.d1, prefix, player.d2, prefix, player.d3,
+        prefix, player.status, prefix, player.object_control,
+        prefix, player.y_radius, prefix, player.x, prefix, player.y,
+        prefix, player.y_vel, prefix, player.interact_slot)
+end
+
+function V67.flush_aiz_transition_floor_solid()
+    if not aux_file then return end
+    if V67.state == nil or V67.state.frame ~= trace_frame then
+        return
+    end
+    local state = V67.state
+    if not state.seen then
+        V67.state = nil
+        return
+    end
+    V67.refresh_state(state)
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"aiz_transition_floor_solid",'
+            .. '"slot":%d,"object_status":"0x%02X","object_x":"0x%04X",'
+            .. '"object_y":"0x%04X","p1_standing":%s,"p2_standing":%s,'
+            .. '%s,%s}',
+        trace_frame, vfc,
+        state.slot, state.object_status, state.object_x, state.object_y,
+        tostring(state.p1_standing), tostring(state.p2_standing),
+        V67.format_player("p1", state.p1),
+        V67.format_player("p2", state.p2)))
+    V67.state = nil
+end
+
+function V67.register_aiz_transition_floor_hooks()
+    if V67.hooks_registered then return end
+    V67.hooks_registered = true
+
+    event.onmemoryexecute(function() V67.record_path("standing_exit") end,
+        V67.SOLID_TOP_STANDING_EXIT)
+    event.onmemoryexecute(function() V67.record_path("standing") end,
+        V67.SOLID_TOP_STANDING_MOVE)
+    event.onmemoryexecute(function() V67.record_path("first_check") end,
+        V67.SOLID_TOP_FIRST_CHECK)
+    event.onmemoryexecute(function() V67.record_path("first_vertical") end,
+        V67.SOLID_TOP_FIRST_VERTICAL)
+    event.onmemoryexecute(function() V67.record_path("first_landing") end,
+        V67.RIDE_OBJECT_SET_RIDE_BODY)
+    event.onmemoryexecute(function() V67.record_path("return") end,
+        V67.SOLID_TOP_RETURN)
+
+    print(string.format(
+        "AIZ transition-floor hooks registered: standing_exit=0x%05X standing=0x%05X first=0x%05X/0x%05X ride=0x%05X return=0x%05X frame_window=[%d,%d]",
+        V67.SOLID_TOP_STANDING_EXIT, V67.SOLID_TOP_STANDING_MOVE,
+        V67.SOLID_TOP_FIRST_CHECK, V67.SOLID_TOP_FIRST_VERTICAL,
+        V67.RIDE_OBJECT_SET_RIDE_BODY, V67.SOLID_TOP_RETURN,
+        AIZ_TRANSITION_FLOOR_FRAME_START, AIZ_TRANSITION_FLOOR_FRAME_END))
+end
+
 local cage_hooks_registered = false
 
 local function register_cage_hooks()
@@ -2050,6 +2321,10 @@ local function on_frame_end()
     -- flushing keeps the aux stream aligned to the comparison sample.
     V66.flush_aiz_boundary_state()
 
+    -- Focused AIZ transition-floor diagnostics (v6.7 schema). Hook callbacks
+    -- capture ROM-side SolidObjectTop branch/register evidence around F5415.
+    V67.flush_aiz_transition_floor_solid()
+
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
     -- platforms, and other oscillating objects.
@@ -2117,7 +2392,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.6-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.7-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -2133,6 +2408,9 @@ V65.register_tails_cpu_normal_step_hooks()
 
 -- Register focused AIZ tree/boundary hooks. Same lifetime model as cage hooks.
 V66.register_aiz_boundary_hooks()
+
+-- Register focused AIZ transition-floor hooks. Same lifetime model as cage hooks.
+V67.register_aiz_transition_floor_hooks()
 
 while true do
     on_frame_end()

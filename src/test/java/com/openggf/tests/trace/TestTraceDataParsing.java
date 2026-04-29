@@ -715,6 +715,85 @@ public class TestTraceDataParsing {
                 data.missingAdvertisedAuxSchemas());
     }
 
+    @Test
+    void parsesS3kAizTransitionFloorDiagnosticsAndMetadataFlag() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-aiz-transition-floor-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_transition_floor_solid_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2FCD,0379,0000,0000,0000,00,0,0,0,CA00,F700,02,2F10,02E0,0049,00,1406,04,1700,0000,1,2FB1,0380,0000,0000,0000,00,0,0,0,9A00,3200,02,08,04
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"vfc":1700,"event":"aiz_transition_floor_solid","slot":4,"object_status":"0x90","object_x":"0x2FB0","object_y":"0x03A0","p1_standing":false,"p2_standing":true,"p1_path":"first_reject","p2_path":"standing","p1_d1":"0x00A0","p1_d2":"0x0010","p1_d3":"0x0010","p1_status":"0x00","p1_object_control":"0x00","p1_y_radius":"0x13","p1_x":"0x2FCD","p1_y":"0x0379","p1_y_vel":"0x0000","p1_interact_slot":4,"p2_d1":"0x00A0","p2_d2":"0x0140","p2_d3":"0x0010","p2_status":"0x08","p2_object_control":"0x00","p2_y_radius":"0x10","p2_x":"0x2FB1","p2_y":"0x0380","p2_y_vel":"0x0000","p2_interact_slot":4}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertTrue(data.metadata().hasPerFrameAizTransitionFloorSolid());
+        TraceEvent.AizTransitionFloorSolidState state =
+                data.aizTransitionFloorSolidStateForFrame(0);
+        assertNotNull(state);
+        assertEquals(4, state.slot());
+        assertTrue(state.p2Standing());
+        assertEquals("first_reject", state.p1Path());
+        assertEquals("standing", state.p2Path());
+        assertEquals(0x00A0, state.p1D1());
+        assertEquals(0x0140, state.p2D2());
+        assertEquals(0x13, state.p1YRadius());
+        assertEquals(0x0380, state.p2Y());
+        assertTrue(data.missingAdvertisedAuxSchemas().isEmpty());
+    }
+
+    @Test
+    void reportsAdvertisedAizTransitionFloorDiagnosticsMissingFromAuxStream() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-missing-aiz-transition-floor-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_transition_floor_solid_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2FCD,0379,0000,0000,0000,00,0,0,0,CA00,F700,02,2F10,02E0,0049,00,1406,04,1700,0000,1,2FB1,0380,0000,0000,0000,00,0,0,0,9A00,3200,02,08,04
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("aiz_transition_floor_solid_per_frame"),
+                data.missingAdvertisedAuxSchemas());
+    }
+
     private static void writeMinimalTraceFiles(Path dir) throws IOException {
         writeMinimalMetadata(dir);
         Files.writeString(dir.resolve("physics.csv"), """

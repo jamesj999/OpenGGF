@@ -209,7 +209,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Trace replay and diagnostics:** S1, S2, and S3K trace replay tooling now has stronger recorder
   schemas, comparison-only aux streams, compressed fixtures, and focused workflows for parity fixes.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
-  sidekick boundary frame while keeping trace data comparison-only.
+  sidekick boundary frame plus transition-floor SolidObjectTop decisions at the F5415 frame while
+  keeping trace data comparison-only.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
   v6.5 replay frontier from F3905 to F4508 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the

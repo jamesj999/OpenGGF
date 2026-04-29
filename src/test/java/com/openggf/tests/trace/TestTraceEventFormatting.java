@@ -169,4 +169,17 @@ public class TestTraceEventFormatting {
         assertEquals("tailsAizBoundary cam=2D80/4000 y=0000/0300 tree=2D40,0402,00F7,0198->2D95,040F,0000,0000 boundary=none 2D95,040F,0000,0000->2D95,040F,0000,0000 post=2D95,040F,0000,0000",
                 TraceEventFormatter.summariseFrameEvents(List.of(event)));
     }
+
+    @Test
+    void summarisesS3kAizTransitionFloorDiagnostics() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+                """
+                {"frame":5415,"vfc":1700,"event":"aiz_transition_floor_solid","slot":4,"object_status":"0x90","object_x":"0x2FB0","object_y":"0x03A0","p1_standing":false,"p2_standing":true,"p1_path":"first_reject","p2_path":"standing","p1_d1":"0x00A0","p1_d2":"0x0010","p1_d3":"0x0010","p1_status":"0x00","p1_object_control":"0x00","p1_y_radius":"0x13","p1_x":"0x2FCD","p1_y":"0x0379","p1_y_vel":"0x0000","p1_interact_slot":4,"p2_d1":"0x00A0","p2_d2":"0x0140","p2_d3":"0x0010","p2_status":"0x08","p2_object_control":"0x00","p2_y_radius":"0x10","p2_x":"0x2FB1","p2_y":"0x0380","p2_y_vel":"0x0000","p2_interact_slot":4}
+                """.trim(),
+                mapper);
+
+        assertTrue(event instanceof TraceEvent.AizTransitionFloorSolidState);
+        assertEquals("aizFloor s4 @2FB0,03A0 st=90 stand=false/true p1=first_reject y=0379 yr=13 st=00 obj=00 d=00A0/0010/0010 p2=standing y=0380 yr=10 st=08 obj=00 d=00A0/0140/0010",
+                TraceEventFormatter.summariseFrameEvents(List.of(event)));
+    }
 }

@@ -171,6 +171,20 @@ public class TestDivergenceReport {
     }
 
     @Test
+    void testContextWindowIncludesAizTransitionFloorDiagnostics() throws IOException {
+        TraceData trace = createTraceDataWithAizTransitionFloorDiagnostics();
+        FrameComparison frame = makeComparison(5, "tails_y", Severity.ERROR, "0x0380", "0x037F");
+
+        DivergenceReport report = new DivergenceReport(List.of(frame), trace);
+        String context = report.getContextWindow(5, 0);
+
+        assertTrue(context.contains("Trace diagnostics @5:"));
+        assertTrue(context.contains("aizFloor s4 @2FB0,03A0 st=90 stand=false/true"));
+        assertTrue(context.contains("p1=first_reject y=0379"));
+        assertTrue(context.contains("p2=standing y=0380"));
+    }
+
+    @Test
     void testTraceBinderBuildReportUsesTraceMetadataContext() throws IOException {
         TraceData trace = createTraceDataWithAuxState();
         TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
@@ -318,6 +332,36 @@ public class TestDivergenceReport {
             """);
         Files.writeString(dir.resolve("aux_state.jsonl"), """
             {"frame":5,"vfc":1126,"event":"aiz_boundary_state","character":"tails","camera_min_x":"0x2D80","camera_max_x":"0x4000","camera_min_y":"0x0000","camera_max_y":"0x0300","tree_pre_x":"0x2D40","tree_pre_y":"0x0402","tree_pre_x_vel":"0x00F7","tree_pre_y_vel":"0x0198","tree_post_x":"0x2D95","tree_post_y":"0x040F","tree_post_x_vel":"0x0000","tree_post_y_vel":"0x0000","boundary_pre_x":"0x2D95","boundary_pre_y":"0x040F","boundary_pre_x_vel":"0x0000","boundary_pre_y_vel":"0x0000","boundary_post_x":"0x2D95","boundary_post_y":"0x040F","boundary_post_x_vel":"0x0000","boundary_post_y_vel":"0x0000","boundary_action":"none","post_move_x":"0x2D95","post_move_y":"0x040F","post_move_x_vel":"0x0000","post_move_y_vel":"0x0000"}
+            """);
+        return TraceData.load(dir);
+    }
+
+    private TraceData createTraceDataWithAizTransitionFloorDiagnostics() throws IOException {
+        Path dir = Files.createTempDirectory("trace-aiz-transition-floor-diag-report");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_transition_floor_solid_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0005,0000,2FCD,0379,0000,0000,0000,00,0,0,0,CA00,F700,02,2F10,02E0,0049,00,1406,04,1700,0000,1,2FB1,0380,0000,0000,0000,00,0,0,0,9A00,3200,02,08,04
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":5,"vfc":1700,"event":"aiz_transition_floor_solid","slot":4,"object_status":"0x90","object_x":"0x2FB0","object_y":"0x03A0","p1_standing":false,"p2_standing":true,"p1_path":"first_reject","p2_path":"standing","p1_d1":"0x00A0","p1_d2":"0x0010","p1_d3":"0x0010","p1_status":"0x00","p1_object_control":"0x00","p1_y_radius":"0x13","p1_x":"0x2FCD","p1_y":"0x0379","p1_y_vel":"0x0000","p1_interact_slot":4,"p2_d1":"0x00A0","p2_d2":"0x0140","p2_d3":"0x0010","p2_status":"0x08","p2_object_control":"0x00","p2_y_radius":"0x10","p2_x":"0x2FB1","p2_y":"0x0380","p2_y_vel":"0x0000","p2_interact_slot":4}
             """);
         return TraceData.load(dir);
     }
