@@ -241,7 +241,10 @@ further S3K parity work.
   `docs/skdisasm/sonic3k.asm:27947-28017`). The active on-object latch pass advances
   F4413 -> F4430 by keeping Obj06 spiral riders attached until the ROM fall-off path
   clears `Status_OnObj`, and by honoring active latched object support before terrain
-  attachment (`docs/s2disasm/s2.asm:46688-46790`, `42559-42571`).
+  attachment (`docs/s2disasm/s2.asm:46688-46790`, `42559-42571`). The diagonal-up
+  spring handoff pass clears the remaining strict replay divergence by applying the
+  ROM `SolidObject_Landed` Y correction before Obj41's `+6` launch nudge, matching
+  `docs/s2disasm/s2.asm:34028-34088`, `34927-35099`, and `35178-35383`.
 - **Cross-game on-object support parity:** `CollisionSystem` now treats active latched
   objects as object support before terrain snap, matching `AnglePos` / `Player_AnglePos`
   early returns in all three games. This intentionally advances S3K CNZ F1638 -> F2137

@@ -5577,6 +5577,13 @@ public class ObjectManager {
                     && relY <= maxTop
                     && isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                 if (apply) {
+                    // ROM parity: S2 SlopedSolid_cont (s2.asm:34927-35099) still
+                    // enters SolidObject_Landed (s2.asm:35178-35383) before Obj41's
+                    // diagonal launch reads y_pos and applies its +6 nudge
+                    // (s2.asm:34028-34088).  The grounded catch window only
+                    // bypasses side classification; it must not bypass the Y snap.
+                    int landedCentreY = playerCenterY - relY + 3;
+                    player.setY((short) (landedCentreY - (player.getHeight() / 2)));
                     player.setAngle((byte) 0);
                     player.setYSpeed((short) 0);
                     player.setGSpeed(player.getXSpeed());
