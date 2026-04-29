@@ -81,6 +81,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // Cascading overwrite: $020E → $0004 at $2B00 → $0C02 at $2D80.
     private static final int PALETTE_MUT_THRESHOLD_DARK = 0x2B00;
     private static final int PALETTE_MUT_THRESHOLD_FIRE = 0x2D80;
+    private static final int FIRE_MIN_X_LOCK = 0x2D80;
     private static final int PALETTE_MUT_COLOR_RED = 0x020E;
     private static final int PALETTE_MUT_COLOR_DARK = 0x0004;
     private static final int PALETTE_MUT_COLOR_FIRE = 0x0C02;
@@ -211,6 +212,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean introNormalRefreshPending;
     private boolean paletteSwapped;
     private boolean boundariesUnlocked;
+    private boolean fireMinXLockReached;
     // Tracks one-shot application of AIZ1SE_ChangeChunk4/3/2/1.
     private int appliedTreeRevealChunkCopiesMask;
 
@@ -425,6 +427,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         introNormalRefreshPending = false;
         paletteSwapped = false;
         boundariesUnlocked = false;
+        fireMinXLockReached = false;
         appliedTreeRevealChunkCopiesMask = 0;
         minibossSpawned = false;
         aiz2ResizeRoutine = 0;
@@ -589,6 +592,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             // sidekick kill-plane fire by one frame at AIZ1 cam_x crossing $2D80.
             resizeMaxYFromX(frameEndCameraX);
             applyResizePaletteMutation(frameEndCameraX);
+            applyAct1FireMinXResize(frameEndCameraX);
         }
 
         updateFireTransition();
@@ -622,6 +626,22 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 return;
             }
         }
+    }
+
+    private void applyAct1FireMinXResize(int cameraX) {
+        if (cameraX < FIRE_MIN_X_LOCK) {
+            return;
+        }
+        if (!fireMinXLockReached) {
+            // ROM AIZ1_Resize loc_1C594 writes Camera_min_X_pos=$2D80
+            // on the threshold frame, then advances Dynamic_resize_routine
+            // (sonic3k.asm:38961-38974). Subsequent routines track
+            // Camera_X_pos into Camera_min_X_pos (sonic3k.asm:38980-39000).
+            camera().setMinX((short) FIRE_MIN_X_LOCK);
+            fireMinXLockReached = true;
+            return;
+        }
+        camera().setMinX((short) cameraX);
     }
 
     /**

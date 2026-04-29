@@ -156,6 +156,25 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void act1ResizeLocksCameraMinXAtFirePaletteGate() {
+        Camera camera = GameServices.camera();
+        var events = new Sonic3kAIZEvents(
+                new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.SKIP_INTRO, null));
+        events.init(0);
+        camera.setX((short) 0x2D80);
+        camera.setY((short) 0x02E0);
+        camera.setMinX((short) 0x1308);
+        camera.setFrozen(true);
+        assertTrue(AizPlaneIntroInstance.isMainLevelPhaseActive(), "test precondition: AIZ main-level phase is active");
+        assertEquals(0x2D80, camera.getX() & 0xFFFF, "test precondition: camera is at the resize gate");
+
+        events.update(0, 0);
+
+        assertEquals(0x2D80, camera.getMinX() & 0xFFFF,
+                "AIZ1_Resize loc_1C594 writes Camera_min_X_pos=$2D80 at the fire palette gate");
+    }
+
+    @Test
     public void introObjectIsReadyBeforeFirstAizGameplayFrame() {
         AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
         assertNotNull(intro, "ROM SpawnLevelMainSprites installs Obj_AIZPlaneIntro before first Process_Sprites");

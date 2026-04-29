@@ -1743,10 +1743,9 @@ public class SidekickCpuController {
      * ROM Kill_Character (sonic3k.asm:21136) entry called from
      * Player_LevelBound (sonic3k.asm:23172) when sidekick crosses bottom
      * kill plane. ROM zeroes x_vel/ground_vel, sets y_vel=-$700, sets
-     * routine=6, sets Status_InAir.  Trace samples at end of frame after
-     * Kill_Character + MoveSprite_TestGravity + Tails_DoLevelCollision
-     * settle velocities back to zero; engine reproduces that observable
-     * end-of-frame state directly (zero vels, in_air, dead state).
+     * routine=6, and calls Player_TouchFloor before setting Status_InAir.
+     * The movement manager suppresses its generic air-gravity tail once this
+     * state is active, preserving the observable end-of-frame zero velocity.
      *
      * Position is intentionally NOT warped this frame; ROM keeps Tails
      * at post-physics position for one frame, then sub_13ECA writes the
@@ -1758,11 +1757,11 @@ public class SidekickCpuController {
         controlCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
+        applyKillCharacterTouchFloorReset();
         sidekick.setXSpeed((short) 0);
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
         sidekick.setHurt(false);
-        sidekick.setRolling(false);
         sidekick.setRollingJump(false);
         sidekick.setOnObject(false);
         sidekick.setPushing(false);
@@ -1776,6 +1775,33 @@ public class SidekickCpuController {
         // NOT object_controlled - DEAD_FALLING is its own dispatch state
         // so updateDeadFalling fires on the next tick regardless.
         lastInteractObjectId = 0;
+    }
+
+    private void applyKillCharacterTouchFloorReset() {
+        int centreX = sidekick.getCentreX();
+        int centreY = sidekick.getCentreY();
+        if (sidekick.getRolling()) {
+            int delta = sidekick.getHeight() - sidekick.getStandYRadius();
+            if ((((sidekick.getAngle() & 0xFF) + 0x40) & 0x80) != 0) {
+                delta = -delta;
+            }
+            // ROM Kill_Character calls Player_TouchFloor before setting death
+            // velocities (sonic3k.asm:21142-21151). For Tails this restores
+            // default radii, clears Status_Roll, and adds the current y_radius
+            // delta to y_pos (sonic3k.asm:29133-29156). Engine centre-Y is
+            // adjusted explicitly because setRolling(false) preserves centre.
+            sidekick.setRolling(false);
+            sidekick.setCentreXPreserveSubpixel((short) centreX);
+            sidekick.setCentreYPreserveSubpixel((short) (centreY + delta));
+        } else if (sidekick.getYRadius() != sidekick.getStandYRadius()
+                || sidekick.getXRadius() != sidekick.getStandXRadius()) {
+            sidekick.restoreDefaultRadii();
+        }
+        sidekick.setAir(false);
+        sidekick.setPushing(false);
+        sidekick.setRollingJump(false);
+        sidekick.setJumping(false);
+        sidekick.setDoubleJumpFlag(0);
     }
 
     /**
