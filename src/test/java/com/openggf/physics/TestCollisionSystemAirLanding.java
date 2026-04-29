@@ -2,9 +2,11 @@ package com.openggf.physics;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GroundMode;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -165,6 +167,29 @@ class TestCollisionSystemAirLanding {
 
         assertFalse(sprite.getAir(), "Supported object riders should not be detached by terrain probes");
         assertEquals(0, terrain.probeCount, "Supported object riders should skip terrain attachment probes");
+    }
+
+    @Test
+    void wallCeilingLandingRollResetPreservesCentreX() throws Exception {
+        Sonic sprite = new Sonic("sonic", (short) 0, (short) 0);
+        sprite.setAir(true);
+        sprite.setGroundMode(GroundMode.RIGHTWALL);
+        sprite.setRolling(true);
+        sprite.setCentreXPreserveSubpixel((short) 0x18C2);
+        sprite.setCentreY((short) 0x0967);
+
+        CollisionSystem collisionSystem = new CollisionSystem(new TerrainCollisionManager());
+        Method method = CollisionSystem.class.getDeclaredMethod(
+                "resetWallCeilingLandingState",
+                AbstractPlayableSprite.class,
+                int.class);
+        method.setAccessible(true);
+        method.invoke(collisionSystem, sprite, 0xA8);
+
+        assertEquals(0x18C2, sprite.getCentreX() & 0xFFFF,
+                "S3K Player_TouchFloor clears roll and adjusts y_pos, not x_pos, on wall landings");
+        assertFalse(sprite.getRolling(), "Wall landing should still clear rolling");
+        assertFalse(sprite.getAir(), "Wall landing should clear airborne state");
     }
 
     private static AbstractPlayableSprite newTestSprite() {
