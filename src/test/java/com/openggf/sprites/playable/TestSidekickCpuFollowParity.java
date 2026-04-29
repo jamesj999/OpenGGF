@@ -469,6 +469,48 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
+    void s3kFarTargetPushGraceDoesNotBypassAutoJumpHeightAndDistanceGates() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setObjectControlled(false);
+        tails.setCentreX((short) 0x1FB5);
+        tails.setCentreY((short) 0x0480);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x2235);
+        Arrays.fill(yHistory, (short) 0x038C);
+        Arrays.fill(inputHistory, (short) AbstractPlayableSprite.INPUT_RIGHT);
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        tails.setPushing(true);
+        controller.update(0x0B3F);
+        tails.setPushing(false);
+        controller.update(0x0B40);
+
+        Assertions.assertAll(
+                () -> assertFalse(controller.getInputJump(),
+                        "AIZ F3169 has only the engine-side push grace left while dy is outside "
+                                + "the local object band; ROM does not branch from loc_13DD0 to "
+                                + "loc_13E9C and must still pass the distance/height gates "
+                                + "(sonic3k.asm:26702-26705,26760-26783)"),
+                () -> assertFalse(controller.getInputJumpPress(),
+                        "ROM keeps Tails grounded here instead of applying Tails_Jump's -$680 y_vel"),
+                () -> assertTrue(controller.getInputRight(),
+                        "With no push-bypass autojump, FollowRight leaves Ctrl_2_logical RIGHT and "
+                                + "grounded Tails movement consumes Acceleration_P2=$000C "
+                                + "(sonic3k.asm:27798-27805,28103-28122)"));
+    }
+
+    @Test
     void normalPushBypassAutoJumpSuppressesFirstAirborneFollowSteeringTick() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");

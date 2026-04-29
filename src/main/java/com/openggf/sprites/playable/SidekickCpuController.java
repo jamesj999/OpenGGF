@@ -622,6 +622,8 @@ public class SidekickCpuController {
                 && pushBypassGraceEnabled
                 && normalPushingGraceFrames > 0
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
+        boolean localGracePushBypass = gracePushBypass
+                && Math.abs(dy) < PUSH_BRIDGE_LOCAL_OBJECT_BAND_Y;
         boolean airbornePushHandoff = false;
         if (suppressNextAirbornePushFollowSteering) {
             // After loc_13DD0 branches to loc_13E9C, Tails_Spin_Freespace runs
@@ -633,7 +635,7 @@ public class SidekickCpuController {
             suppressNextAirbornePushFollowSteering = false;
         }
         boolean skipFollowSteering = currentPushBypass
-                || (gracePushBypass && Math.abs(dy) < PUSH_BRIDGE_LOCAL_OBJECT_BAND_Y)
+                || localGracePushBypass
                 || airbornePushHandoff;
         if (skipFollowSteering) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
@@ -708,11 +710,16 @@ public class SidekickCpuController {
             // would fail, but ROM auto-jumps via the bypass and y_speed becomes
             // -0x680 (Tails_Jump initial velocity).
             //
-            // Auto-jump still needs the short engine-side push continuity bridge:
-            // AIZ inline object ordering can clear the transient engine flag on
-            // the exact 0x40-frame jump cadence even though ROM still reaches
-            // loc_13E9C through the push bypass.
-            boolean pushingBypass = currentPushBypass || gracePushBypass;
+            // Auto-jump still needs the short engine-side push continuity bridge,
+            // but only in the same local object band used for follow steering.
+            // AIZ F2721 has Tails object_control=$20/status=$20 next to the
+            // delayed platform target, so ROM still reaches loc_13E9C through
+            // the push bypass. AIZ F3169 has the same stale engine-side grace
+            // while Tails is far below the delayed leader target; ROM falls
+            // through the normal loc_13E7C distance/height gates instead and
+            // leaves Ctrl_2_logical as RIGHT (sonic3k.asm:26702-26705,
+            // 26760-26783, 27798-27805, 28103-28122).
+            boolean pushingBypass = currentPushBypass || localGracePushBypass;
             boolean passesDistanceGate = pushingBypass
                     || (frameCounter & 0xFF) == 0
                     || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
