@@ -238,7 +238,16 @@ further S3K parity work.
   `22120-22172`, and `35692-35712`. The follow-up sidekick push-clear gate advances
   F2945 -> F4413 by matching S2 `TailsCPU_Normal`'s live `Status_Push` control write
   path without the S3K pre-ground-move velocity clear (`docs/s2disasm/s2.asm:38943-39027`,
-  `docs/skdisasm/sonic3k.asm:27947-28017`).
+  `docs/skdisasm/sonic3k.asm:27947-28017`). The active on-object latch pass advances
+  F4413 -> F4430 by keeping Obj06 spiral riders attached until the ROM fall-off path
+  clears `Status_OnObj`, and by honoring active latched object support before terrain
+  attachment (`docs/s2disasm/s2.asm:46688-46790`, `42559-42571`).
+- **Cross-game on-object support parity:** `CollisionSystem` now treats active latched
+  objects as object support before terrain snap, matching `AnglePos` / `Player_AnglePos`
+  early returns in all three games. This intentionally advances S3K CNZ F1638 -> F2137
+  after scratch ROM diagnostics showed Tails enters `Player_AnglePos` at F1638 with
+  `Status_OnObj` set and therefore skips `FindFloor` (`docs/s1disasm/_incObj/Sonic AnglePos.asm:5-11`,
+  `docs/s2disasm/s2.asm:42559-42571`, `docs/skdisasm/sonic3k.asm:18728-18741`).
 - **S3K AIZ giant ride vine replay fix:** AIZ first-error advances F2696 -> F2709 by
   executing the consolidated giant ride vine at its ROM handle child slot and sampling
   the previous-frame `AIZ_vine_angle`, matching child allocation/routine rewrite and

@@ -1616,6 +1616,10 @@ public class ObjectManager {
         return solidContacts.isAnyPlayerRiding(instance);
     }
 
+    public boolean isActiveObjectInstance(ObjectInstance instance) {
+        return instance != null && activeObjects.containsValue(instance);
+    }
+
     /** Clear this player's riding state. */
     public void clearRidingObject(PlayableEntity player) {
         solidContacts.clearRidingObject(player);

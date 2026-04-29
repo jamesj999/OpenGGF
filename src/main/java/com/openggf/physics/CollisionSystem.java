@@ -4,6 +4,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GroundMode;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.IdentityHashMap;
@@ -188,7 +189,23 @@ public class CollisionSystem {
     }
 
     public boolean hasObjectSupport(AbstractPlayableSprite player) {
-        return isRidingObject(player) || hasStandingContact(player);
+        return isRidingObject(player) || hasStandingContact(player) || hasActiveLatchedObjectSupport(player);
+    }
+
+    private boolean hasActiveLatchedObjectSupport(AbstractPlayableSprite player) {
+        if (player == null || objectManager == null || !player.isOnObject()
+                || player.getLatchedSolidObjectId() == 0) {
+            return false;
+        }
+        ObjectInstance latchedInstance = player.getLatchedSolidObjectInstance();
+        if (!objectManager.isActiveObjectInstance(latchedInstance)) {
+            return false;
+        }
+        // ROM AnglePos exits on Status_OnObj before terrain attachment in all
+        // games (S1 Sonic AnglePos.asm:5-11, S2 s2.asm:42559-42571,
+        // S3K sonic3k.asm:18728-18741). Non-solid controllers such as S2
+        // Obj06 own that bit until their object routine clears it.
+        return true;
     }
 
     public boolean hasEnoughHeadroom(AbstractPlayableSprite player, int hexAngle) {
