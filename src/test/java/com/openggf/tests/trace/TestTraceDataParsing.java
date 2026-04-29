@@ -641,6 +641,80 @@ public class TestTraceDataParsing {
                 data.missingAdvertisedAuxSchemas());
     }
 
+    @Test
+    void parsesS3kAizBoundaryDiagnosticsAndMetadataFlag() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-aiz-boundary-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_boundary_state_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2E2B,0339,0600,0000,0600,00,0,0,0,DA00,3700,02,2D8B,02E0,0049,00,0466,04,058C,0000,1,2D95,040F,0000,0000,0000,00,1,0,0,0000,3A00,06,02,27
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"vfc":1126,"event":"aiz_boundary_state","character":"tails","camera_min_x":"0x2D80","camera_max_x":"0x4000","camera_min_y":"0x0000","camera_max_y":"0x0300","tree_pre_x":"0x2D40","tree_pre_y":"0x0402","tree_pre_x_vel":"0x00F7","tree_pre_y_vel":"0x0198","tree_post_x":"0x2D95","tree_post_y":"0x040F","tree_post_x_vel":"0x0000","tree_post_y_vel":"0x0000","boundary_pre_x":"0x2D95","boundary_pre_y":"0x040F","boundary_pre_x_vel":"0x0000","boundary_pre_y_vel":"0x0000","boundary_post_x":"0x2D95","boundary_post_y":"0x040F","boundary_post_x_vel":"0x0000","boundary_post_y_vel":"0x0000","boundary_action":"none","post_move_x":"0x2D95","post_move_y":"0x040F","post_move_x_vel":"0x0000","post_move_y_vel":"0x0000"}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertTrue(data.metadata().hasPerFrameAizBoundaryState());
+        TraceEvent.AizBoundaryState state = data.aizBoundaryStateForFrame(0, "tails");
+        assertNotNull(state);
+        assertEquals(0x2D80, state.cameraMinX());
+        assertEquals((short) 0x2D95, state.treePostX());
+        assertEquals("none", state.boundaryAction());
+        assertEquals((short) 0x040F, state.postMoveY());
+        assertTrue(data.missingAdvertisedAuxSchemas().isEmpty());
+    }
+
+    @Test
+    void reportsAdvertisedAizBoundaryDiagnosticsMissingFromAuxStream() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-missing-aiz-boundary-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_boundary_state_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2E2B,0339,0600,0000,0600,00,0,0,0,DA00,3700,02,2D8B,02E0,0049,00,0466,04,058C,0000,1,2D95,040F,0000,0000,0000,00,1,0,0,0000,3A00,06,02,27
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("aiz_boundary_state_per_frame"),
+                data.missingAdvertisedAuxSchemas());
+    }
+
     private static void writeMinimalTraceFiles(Path dir) throws IOException {
         writeMinimalMetadata(dir);
         Files.writeString(dir.resolve("physics.csv"), """

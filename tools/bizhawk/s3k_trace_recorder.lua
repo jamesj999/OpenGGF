@@ -71,6 +71,12 @@
 -- sonic3k.asm:28407-28451, 43758-43810, 46481-46549, 46602-46631,
 -- 46709-46743, 46749-46789, 46929-46950). Diagnostic-only; no CSV
 -- schema change.
+-- v6.6-s3k changes: add AIZ boundary/tree diagnostics around the F4679
+-- sidekick divergence. The event captures Camera_min_X/Y and Camera_max_X/Y,
+-- Tails pre/post Tails_Check_Screen_Boundaries, AIZTree_SetPlayerPos
+-- pre/post, and end-of-frame post-move state. ROM frame order and relevant
+-- routines: sonic3k.asm:7884-7898, 38298-38316, 38961-38974,
+-- 43776-43810, 28407-28451. Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -251,6 +257,26 @@ local V65 = {
     TAILS_PATH_HOOK_LOC_14B7A = 0x14B7A,
     normal_step = nil,
     tails_cpu_hooks_registered = false,
+}
+
+V66 = {
+    -- Hook addresses resolved from labels in docs/skdisasm/sonic3k.asm:
+    -- Tails_Check_Screen_Boundaries / locret_14F4A / loc_14F56 / loc_14F5C
+    -- at sonic3k.asm:28407-28451.
+    TAILS_BOUNDARY_ENTRY = 0x14F08,
+    TAILS_BOUNDARY_RETURN = 0x14F4A,
+    TAILS_BOUNDARY_KILL = 0x14F56,
+    TAILS_BOUNDARY_CLAMP = 0x14F5C,
+    -- AIZTree_SetPlayerPos and the instruction immediately after y_vel write
+    -- from sonic3k.asm:43776-43810.
+    AIZ_TREE_SET_PLAYER_POS_ENTRY = 0x1F912,
+    AIZ_TREE_SET_PLAYER_POS_POST_YVEL = 0x1F982,
+    CAMERA_MIN_X = 0xEE14,
+    CAMERA_MAX_X = 0xEE16,
+    CAMERA_MIN_Y = 0xEE18,
+    CAMERA_MAX_Y = 0xEE1A,
+    boundary_state = nil,
+    hooks_registered = false,
 }
 
 -----------------
@@ -570,6 +596,7 @@ local function reset_recording_state()
     tails_xvel_writes = {}
     tails_yvel_writes = {}
     V65.normal_step = nil
+    V66.boundary_state = nil
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -612,7 +639,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.5-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.6-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -620,10 +647,17 @@ local function write_metadata()
     -- v6.4 adds velocity_write_per_frame (Tails x_vel/y_vel write hooks
     -- with M68K PC for CNZ1 F3649 root-cause). v6.5 adds
     -- tails_cpu_normal_step_per_frame and sidekick_interact_object_per_frame.
-    -- All diagnostic-only.
+    -- v6.6 adds aiz_boundary_state_per_frame for AIZ F4679 tree/boundary
+    -- pre/post visibility. All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
-    meta_file:write('  "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"],\n')
+    local aux_schema_extras
+    if is_aiz_end_to_end_profile() then
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame"]'
+    else
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"]'
+    end
+    meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
     meta_file:write('  "bizhawk_version": "' .. BIZHAWK_VERSION .. '",\n')
     meta_file:write('  "genesis_core": "' .. GENESIS_CORE .. '",\n')
@@ -1496,6 +1530,204 @@ function V65.flush_tails_cpu_normal_step()
     V65.normal_step = nil
 end
 
+-- =====================================================================
+-- AIZ boundary/tree hooks (v6.6-s3k)
+-- =====================================================================
+-- Focused diagnostics for the AIZ F4679 sidekick divergence. The ROM level
+-- loop runs Process_Sprites before DeformBgLayer/ScreenEvents
+-- (sonic3k.asm:7884-7898), DeformBgLayer moves camera then runs resize
+-- events (sonic3k.asm:38298-38316), AIZ resize writes Camera_min_X_pos=$2D80
+-- (sonic3k.asm:38961-38974), AIZTree_SetPlayerPos can reposition a player
+-- and write x_vel/y_vel (sonic3k.asm:43776-43810), and
+-- Tails_Check_Screen_Boundaries can clamp/kill using camera bounds
+-- (sonic3k.asm:28407-28451). These hooks expose ROM-side order only; replay
+-- must never hydrate engine state from this aux event.
+
+local AIZ_BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660")
+local AIZ_BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690")
+
+function V66.u16(value)
+    if value < 0 then
+        return value + 0x10000
+    end
+    return value & 0xFFFF
+end
+
+function V66.in_window()
+    if trace_frame < AIZ_BOUNDARY_FRAME_START or trace_frame > AIZ_BOUNDARY_FRAME_END then
+        return false
+    end
+    return mainmemory.read_u8(ADDR_ZONE) == 0
+end
+
+function V66.a0_is_tails()
+    local a0 = emu.getregister("M68K A0") or 0
+    return (a0 % 0x10000) == SIDEKICK_BASE
+end
+
+function V66.a1_is_tails()
+    local a1 = emu.getregister("M68K A1") or 0
+    return (a1 % 0x10000) == SIDEKICK_BASE
+end
+
+function V66.snapshot_character(base)
+    return {
+        x = mainmemory.read_u16_be(base + OFF_X_POS),
+        y = mainmemory.read_u16_be(base + OFF_Y_POS),
+        x_vel = V66.u16(mainmemory.read_s16_be(base + OFF_X_VEL)),
+        y_vel = V66.u16(mainmemory.read_s16_be(base + OFF_Y_VEL)),
+    }
+end
+
+function V66.current()
+    if V66.boundary_state == nil or V66.boundary_state.frame ~= trace_frame then
+        local current = V66.snapshot_character(SIDEKICK_BASE)
+        V66.boundary_state = {
+            frame = trace_frame,
+            character = "tails",
+            camera_min_x = mainmemory.read_u16_be(V66.CAMERA_MIN_X),
+            camera_max_x = mainmemory.read_u16_be(V66.CAMERA_MAX_X),
+            camera_min_y = mainmemory.read_u16_be(V66.CAMERA_MIN_Y),
+            camera_max_y = mainmemory.read_u16_be(V66.CAMERA_MAX_Y),
+            tree_pre = current,
+            tree_post = current,
+            boundary_pre = current,
+            boundary_post = current,
+            boundary_action = "not_seen",
+            post_move = current,
+            seen = false,
+        }
+    end
+    return V66.boundary_state
+end
+
+function V66.refresh_camera(state)
+    state.camera_min_x = mainmemory.read_u16_be(V66.CAMERA_MIN_X)
+    state.camera_max_x = mainmemory.read_u16_be(V66.CAMERA_MAX_X)
+    state.camera_min_y = mainmemory.read_u16_be(V66.CAMERA_MIN_Y)
+    state.camera_max_y = mainmemory.read_u16_be(V66.CAMERA_MAX_Y)
+end
+
+function V66.record_tree_pre()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a1_is_tails() then return end
+    local state = V66.current()
+    V66.refresh_camera(state)
+    state.tree_pre = V66.snapshot_character(SIDEKICK_BASE)
+    state.seen = true
+end
+
+function V66.record_tree_post()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a1_is_tails() then return end
+    local state = V66.current()
+    state.tree_post = V66.snapshot_character(SIDEKICK_BASE)
+    state.seen = true
+end
+
+function V66.record_boundary_pre()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a0_is_tails() then return end
+    local state = V66.current()
+    V66.refresh_camera(state)
+    state.boundary_pre = V66.snapshot_character(SIDEKICK_BASE)
+    state.boundary_action = "none"
+    state.seen = true
+end
+
+function V66.record_boundary_clamp()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a0_is_tails() then return end
+    local state = V66.current()
+    local d0 = emu.getregister("M68K D0") or 0
+    state.boundary_action = string.format("x_clamp_%04X", d0 & 0xFFFF)
+    state.seen = true
+end
+
+function V66.record_boundary_kill()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a0_is_tails() then return end
+    local state = V66.current()
+    state.boundary_action = "kill"
+    state.boundary_post = V66.snapshot_character(SIDEKICK_BASE)
+    state.seen = true
+end
+
+function V66.record_boundary_return()
+    if not aux_file then return end
+    if not started then return end
+    if not V66.in_window() then return end
+    if not V66.a0_is_tails() then return end
+    local state = V66.current()
+    state.boundary_post = V66.snapshot_character(SIDEKICK_BASE)
+    state.seen = true
+end
+
+function V66.format_state(prefix, values)
+    return string.format(
+        '"%s_x":"0x%04X","%s_y":"0x%04X","%s_x_vel":"0x%04X","%s_y_vel":"0x%04X"',
+        prefix, values.x, prefix, values.y, prefix, values.x_vel, prefix, values.y_vel)
+end
+
+function V66.flush_aiz_boundary_state()
+    if not aux_file then return end
+    if V66.boundary_state == nil or V66.boundary_state.frame ~= trace_frame then
+        return
+    end
+    local state = V66.boundary_state
+    if not state.seen then
+        V66.boundary_state = nil
+        return
+    end
+    state.post_move = V66.snapshot_character(SIDEKICK_BASE)
+    V66.refresh_camera(state)
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"aiz_boundary_state","character":"tails",'
+            .. '"camera_min_x":"0x%04X","camera_max_x":"0x%04X",'
+            .. '"camera_min_y":"0x%04X","camera_max_y":"0x%04X",'
+            .. '%s,%s,%s,%s,"boundary_action":"%s",%s}',
+        trace_frame, vfc,
+        state.camera_min_x, state.camera_max_x,
+        state.camera_min_y, state.camera_max_y,
+        V66.format_state("tree_pre", state.tree_pre),
+        V66.format_state("tree_post", state.tree_post),
+        V66.format_state("boundary_pre", state.boundary_pre),
+        V66.format_state("boundary_post", state.boundary_post),
+        state.boundary_action,
+        V66.format_state("post_move", state.post_move)))
+    V66.boundary_state = nil
+end
+
+function V66.register_aiz_boundary_hooks()
+    if V66.hooks_registered then return end
+    V66.hooks_registered = true
+
+    event.onmemoryexecute(V66.record_tree_pre, V66.AIZ_TREE_SET_PLAYER_POS_ENTRY)
+    event.onmemoryexecute(V66.record_tree_post, V66.AIZ_TREE_SET_PLAYER_POS_POST_YVEL)
+    event.onmemoryexecute(V66.record_boundary_pre, V66.TAILS_BOUNDARY_ENTRY)
+    event.onmemoryexecute(V66.record_boundary_return, V66.TAILS_BOUNDARY_RETURN)
+    event.onmemoryexecute(V66.record_boundary_kill, V66.TAILS_BOUNDARY_KILL)
+    event.onmemoryexecute(V66.record_boundary_clamp, V66.TAILS_BOUNDARY_CLAMP)
+
+    print(string.format(
+        "AIZ boundary hooks registered: tree=0x%05X/0x%05X, boundary=0x%05X/0x%05X/0x%05X/0x%05X, frame_window=[%d,%d]",
+        V66.AIZ_TREE_SET_PLAYER_POS_ENTRY, V66.AIZ_TREE_SET_PLAYER_POS_POST_YVEL,
+        V66.TAILS_BOUNDARY_ENTRY, V66.TAILS_BOUNDARY_RETURN,
+        V66.TAILS_BOUNDARY_KILL, V66.TAILS_BOUNDARY_CLAMP,
+        AIZ_BOUNDARY_FRAME_START, AIZ_BOUNDARY_FRAME_END))
+end
+
 local cage_hooks_registered = false
 
 local function register_cage_hooks()
@@ -1813,6 +2045,11 @@ local function on_frame_end()
     -- frame, and this flush emits one comparison-only event for the report.
     V65.flush_tails_cpu_normal_step()
 
+    -- Focused AIZ tree/boundary diagnostics (v6.6 schema). Hook callbacks
+    -- capture ROM-side pre/post state during Process_Sprites, and frame-end
+    -- flushing keeps the aux stream aligned to the comparison sample.
+    V66.flush_aiz_boundary_state()
+
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
     -- platforms, and other oscillating objects.
@@ -1880,7 +2117,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.5-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.6-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -1893,6 +2130,9 @@ register_velocity_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
 V65.register_tails_cpu_normal_step_hooks()
+
+-- Register focused AIZ tree/boundary hooks. Same lifetime model as cage hooks.
+V66.register_aiz_boundary_hooks()
 
 while true do
     on_frame_end()

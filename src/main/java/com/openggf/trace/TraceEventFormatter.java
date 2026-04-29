@@ -116,6 +116,36 @@ public final class TraceEventFormatter {
                             state.objectP2Standing(),
                             state.objectActive(),
                             state.objectDestroyed());
+            case TraceEvent.AizBoundaryState state ->
+                    String.format("%sAizBoundary cam=%04X/%04X y=%04X/%04X tree=%04X,%04X,%04X,%04X->%04X,%04X,%04X,%04X boundary=%s %04X,%04X,%04X,%04X->%04X,%04X,%04X,%04X post=%04X,%04X,%04X,%04X",
+                            state.character() == null || state.character().isBlank()
+                                    ? "sidekick"
+                                    : state.character(),
+                            state.cameraMinX() & 0xFFFF,
+                            state.cameraMaxX() & 0xFFFF,
+                            state.cameraMinY() & 0xFFFF,
+                            state.cameraMaxY() & 0xFFFF,
+                            state.treePreX() & 0xFFFF,
+                            state.treePreY() & 0xFFFF,
+                            state.treePreXVel() & 0xFFFF,
+                            state.treePreYVel() & 0xFFFF,
+                            state.treePostX() & 0xFFFF,
+                            state.treePostY() & 0xFFFF,
+                            state.treePostXVel() & 0xFFFF,
+                            state.treePostYVel() & 0xFFFF,
+                            state.boundaryAction(),
+                            state.boundaryPreX() & 0xFFFF,
+                            state.boundaryPreY() & 0xFFFF,
+                            state.boundaryPreXVel() & 0xFFFF,
+                            state.boundaryPreYVel() & 0xFFFF,
+                            state.boundaryPostX() & 0xFFFF,
+                            state.boundaryPostY() & 0xFFFF,
+                            state.boundaryPostXVel() & 0xFFFF,
+                            state.boundaryPostYVel() & 0xFFFF,
+                            state.postMoveX() & 0xFFFF,
+                            state.postMoveY() & 0xFFFF,
+                            state.postMoveXVel() & 0xFFFF,
+                            state.postMoveYVel() & 0xFFFF);
             default -> "";
         };
     }

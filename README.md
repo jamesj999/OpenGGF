@@ -208,6 +208,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   save handling, and sidekick/object interactions continue to gain ROM-cited behavior and tests.
 - **Trace replay and diagnostics:** S1, S2, and S3K trace replay tooling now has stronger recorder
   schemas, comparison-only aux streams, compressed fixtures, and focused workflows for parity fixes.
+- **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
+  sidekick boundary frame while keeping trace data comparison-only.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
   v6.5 replay frontier from F3905 to F3925 while preserving S1/S2 trace baselines.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged

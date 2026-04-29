@@ -167,6 +167,10 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.SidekickInteractObjectState.class)) {
             missing.add("sidekick_interact_object_per_frame");
         }
+        if (metadata.hasPerFrameAizBoundaryState()
+                && !hasEventOfType(TraceEvent.AizBoundaryState.class)) {
+            missing.add("aiz_boundary_state_per_frame");
+        }
         return missing;
     }
 
@@ -383,6 +387,28 @@ public class TraceData {
         List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
         for (TraceEvent event : events) {
             if (event instanceof TraceEvent.SidekickInteractObjectState state
+                    && characterCode.equalsIgnoreCase(state.character())) {
+                return state;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused S3K AIZ tree/boundary diagnostic for the requested
+     * frame and character, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> This is report context for ROM-side
+     * pre/post visibility; replay code must not hydrate state from it.
+     */
+    public TraceEvent.AizBoundaryState aizBoundaryStateForFrame(
+            int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.AizBoundaryState state
                     && characterCode.equalsIgnoreCase(state.character())) {
                 return state;
             }

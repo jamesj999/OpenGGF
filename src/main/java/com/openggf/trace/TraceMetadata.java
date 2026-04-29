@@ -186,6 +186,15 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("sidekick_interact_object_per_frame");
     }
 
+    /**
+     * Whether the trace emits per-frame {@code aiz_boundary_state} events, the
+     * focused S3K AIZ sidekick tree/boundary diagnostic for F4679.
+     */
+    public boolean hasPerFrameAizBoundaryState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("aiz_boundary_state_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

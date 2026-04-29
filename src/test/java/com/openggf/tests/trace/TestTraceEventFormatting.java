@@ -156,4 +156,17 @@ public class TestTraceEventFormatting {
         assertEquals("tailsInteract slot=4 ptr=B128 obj=000220C2 rtn=02 st=10 @2D95,0420 sub=40 tails rf=80 obj=03 onObj=true objP2=true active=true destroyed=false",
                 TraceEventFormatter.summariseFrameEvents(List.of(event)));
     }
+
+    @Test
+    void summarisesS3kAizBoundaryDiagnostics() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+                """
+                {"frame":4679,"vfc":4680,"event":"aiz_boundary_state","character":"tails","camera_min_x":"0x2D80","camera_max_x":"0x4000","camera_min_y":"0x0000","camera_max_y":"0x0300","tree_pre_x":"0x2D40","tree_pre_y":"0x0402","tree_pre_x_vel":"0x00F7","tree_pre_y_vel":"0x0198","tree_post_x":"0x2D95","tree_post_y":"0x040F","tree_post_x_vel":"0x0000","tree_post_y_vel":"0x0000","boundary_pre_x":"0x2D95","boundary_pre_y":"0x040F","boundary_pre_x_vel":"0x0000","boundary_pre_y_vel":"0x0000","boundary_post_x":"0x2D95","boundary_post_y":"0x040F","boundary_post_x_vel":"0x0000","boundary_post_y_vel":"0x0000","boundary_action":"none","post_move_x":"0x2D95","post_move_y":"0x040F","post_move_x_vel":"0x0000","post_move_y_vel":"0x0000"}
+                """.trim(),
+                mapper);
+
+        assertTrue(event instanceof TraceEvent.AizBoundaryState);
+        assertEquals("tailsAizBoundary cam=2D80/4000 y=0000/0300 tree=2D40,0402,00F7,0198->2D95,040F,0000,0000 boundary=none 2D95,040F,0000,0000->2D95,040F,0000,0000 post=2D95,040F,0000,0000",
+                TraceEventFormatter.summariseFrameEvents(List.of(event)));
+    }
 }
