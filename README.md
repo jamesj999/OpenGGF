@@ -270,7 +270,11 @@ further S3K parity work.
   and `28103-28122`. The follow-up push-grace autojump fix advances F3169 -> F4580
   by limiting the S3K sidekick push-grace bridge to the local object band before
   bypassing ROM's distance/height gates, matching `docs/skdisasm/sonic3k.asm:26702-26705`,
-  `26760-26783`, `27798-27805`, and `28103-28122`.
+  `26760-26783`, `27798-27805`, and `28103-28122`. The hollow-tree nudge fix advances
+  F4580 -> F4652 by resolving only the one-pixel follow nudge sign from adjacent completed
+  leader samples while Sonic is being handed off by AIZ's hollow tree, matching S3K Tails
+  follow/nudge flow in `docs/skdisasm/sonic3k.asm:26683-26741` and hollow-tree player-slot
+  updates in `docs/skdisasm/sonic3k.asm:43649-43655` and `43776-43810`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
