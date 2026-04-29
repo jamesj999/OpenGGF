@@ -259,7 +259,11 @@ further S3K parity work.
   pass then advances F2709 -> F2722 by suppressing S3K follow steering while AIZ inline
   object order bridges a transient push-flag gap, matching Tails CPU push/follow order
   and the vine/platform capture paths in `docs/skdisasm/sonic3k.asm:26182-26220`,
-  `26683-26741`, `44784-44883`, `46481-46743`, and `46749-46950`.
+  `26683-26741`, `44784-44883`, `46481-46743`, and `46749-46950`. The airborne
+  handoff fix advances F2722 -> F3075 by suppressing follow steering for only the
+  first S3K push-bypass airborne rolling tick, matching `Tails_Spin_Freespace` and
+  `Tails_InputAcceleration_Freespace` order in `docs/skdisasm/sonic3k.asm:27765-27784`
+  and `28330-28401`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
