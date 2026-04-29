@@ -145,6 +145,13 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean usesCollisionHalfWidthForTopLanding() {
+        // ROM Bri_Solid passes the already-final PlatformObject width in d1/d2.
+        // Do not apply the generic SolidObject +$B landing-width narrowing.
+        return true;
+    }
+
+    @Override
     public boolean forceAirOnRideExit() {
         return false;
     }
@@ -181,6 +188,10 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (playerOnBridge) {
+            AbstractPlayableSprite currentRider = currentRidingPlayer(player);
+            if (currentRider != null) {
+                updatePlayerLogIndex(currentRider);
+            }
             // Increase depression angle (ramp up)
             // From disassembly: addq.b #4,objoff_3E(a0); cmpi.b #$40,d0
             if (depressionAngle < MAX_DEPRESSION_ANGLE) {
@@ -212,9 +223,9 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
         // Update slope data for collision system
         updateSlopeData();
 
-        // Manual checkpoints replace the legacy post-pass callback, so bridge
-        // bending uses the previously latched rider state and the current
-        // frame's contact updates the rider slot for the next frame.
+        // Manual checkpoints replace the legacy post-pass callback. Already-riding
+        // players update the log index before bending above; new contacts latch here
+        // for the next frame's Bri_WalkOff-equivalent bend.
         SolidCheckpointBatch batch = checkpointAll();
         updateStandingState(player, batch);
     }
@@ -243,6 +254,27 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        updatePlayerLogIndex(standingPlayer);
+    }
+
+    private AbstractPlayableSprite currentRidingPlayer(AbstractPlayableSprite player) {
+        ObjectManager objectManager = services().objectManager();
+        if (objectManager == null) {
+            return null;
+        }
+        if (player != null && objectManager.getRidingObject(player) == this) {
+            return player;
+        }
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            if (sidekick instanceof AbstractPlayableSprite sidekickSprite
+                    && objectManager.getRidingObject(sidekickSprite) == this) {
+                return sidekickSprite;
+            }
+        }
+        return null;
+    }
+
+    private void updatePlayerLogIndex(AbstractPlayableSprite standingPlayer) {
         // From Bri_WalkOff/ExitPlatform2: d0 = (sonicX - bridgeX + logCount*8 + 8) >> 4
         // The +8 offset comes from Bri_Solid: d1 = logCount*8; addq.w #8,d1
         int relX = standingPlayer.getCentreX() - spawn.x() + (logCount * 8) + 8;
