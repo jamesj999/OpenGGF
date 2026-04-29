@@ -274,7 +274,11 @@ further S3K parity work.
   F4580 -> F4652 by resolving only the one-pixel follow nudge sign from adjacent completed
   leader samples while Sonic is being handed off by AIZ's hollow tree, matching S3K Tails
   follow/nudge flow in `docs/skdisasm/sonic3k.asm:26683-26741` and hollow-tree player-slot
-  updates in `docs/skdisasm/sonic3k.asm:43649-43655` and `43776-43810`.
+  updates in `docs/skdisasm/sonic3k.asm:43649-43655` and `43776-43810`. The follow-up
+  hollow-tree release handoff fix advances F4652 -> F4679 by bridging the release sample
+  used by Tails follow steering so the delayed RIGHT input survives the object-order handoff,
+  matching `docs/skdisasm/sonic3k.asm:26672-26732`, `35965-35988`, `43649-43655`,
+  `43688-43693`, and `43776-43810`.
 - **S3K trace replay merge:** integrated origin's AIZ2 end-sequence and MGZ2 boss music
   handoff fixes before pushing the current trace replay round. The local frontier remains
   AIZ F4652 and CNZ F3901 after the merged sidekick/collision/spring fixes.

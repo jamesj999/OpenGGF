@@ -660,14 +660,16 @@ public class SidekickCpuController {
             // S3K: 0x30 (sonic3k.asm:26712 loc_13DF2,
             //            sonic3k.asm:26729 loc_13E26).
             int snapThreshold = resolveFollowSnapThreshold();
-            if (dx < 0) {
-                int absDx = -dx;
+            int steeringDx = resolveFollowSteeringDx(dx, effectiveLeader, leadOffset, leaderStatusOnObject,
+                    snapThreshold);
+            if (steeringDx < 0) {
+                int absDx = -steeringDx;
                 if (absDx >= snapThreshold) {
                     inputLeft = true;
                     inputRight = false;
                 }
-            } else if (dx > 0) {
-                if (dx >= snapThreshold) {
+            } else if (steeringDx > 0) {
+                if (steeringDx >= snapThreshold) {
                     inputRight = true;
                     inputLeft = false;
                 }
@@ -772,13 +774,46 @@ public class SidekickCpuController {
         return ROM_FOLLOW_DELAY_FRAMES;
     }
 
+    private int resolveFollowSteeringDx(int dx, AbstractPlayableSprite effectiveLeader, int leadOffset,
+            boolean leaderStatusOnObject, int snapThreshold) {
+        if (dx >= 0
+                || sidekick.getPhysicsFeatureSet() == null
+                || sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() <= 0
+                || !sidekick.getAir()
+                || !sidekick.getRolling()
+                || (effectiveLeader.isOnObject() && !effectiveLeader.getAir())
+                || !isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
+            return dx;
+        }
+
+        // Tails_Normal reads the delayed Pos_table entry before applying the
+        // FollowLeft/FollowRight threshold (sonic3k.asm:26683-26732). In AIZ,
+        // Obj_AIZHollowTree runs later in Process_Sprites after Player_1 and
+        // Player_2 (sonic3k.asm:35965-35988,43649-43655) and rewrites both
+        // player slots with AIZTree_SetPlayerPos (sonic3k.asm:43776-43810).
+        // During the airborne release, the engine's completed player history
+        // can sit one object-order sample behind the ROM-visible handoff. Use
+        // the adjacent newer sample only when it keeps the same follow side but
+        // falls back below S3K's $30 steering override, preserving the delayed
+        // Ctrl_2 RIGHT/jump bits instead of manufacturing a LEFT pulse.
+        int objectOrderTargetX = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES - 1);
+        if (leadOffset > 0
+                && !leaderStatusOnObject
+                && effectiveLeader.getGSpeed() < 0x400) {
+            objectOrderTargetX -= leadOffset;
+        }
+        int objectOrderDx = objectOrderTargetX - sidekick.getCentreX();
+        if (objectOrderDx <= 0 && -objectOrderDx < snapThreshold) {
+            return objectOrderDx;
+        }
+        return dx;
+    }
+
     private int resolveFollowNudgeDx(int dx, AbstractPlayableSprite effectiveLeader) {
         if (dx <= 0
                 && sidekick.getPhysicsFeatureSet() != null
                 && sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() > 0
-                && effectiveLeader.isOnObject()
-                && !effectiveLeader.getAir()
-                && isAizHollowTreeFollowNudgeContext(effectiveLeader)) {
+                && isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
             // S3K reads Pos_table_index-$44 for the positional follow target
             // (sonic3k.asm:26683-26689), then applies the +1 x_pos nudge in
             // FollowRight when Tails faces right and object_control bit 0 is
@@ -788,11 +823,13 @@ public class SidekickCpuController {
             // adjacent completed leader-position sample while the delayed
             // input/status sample remains aligned.
             int sidekickX = sidekick.getCentreX();
-            int olderObjectOrderDx = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES + 1) - sidekickX;
+            int olderObjectOrderDx = resolveObjectOrderNudgeDx(effectiveLeader, ROM_FOLLOW_DELAY_FRAMES + 1,
+                    sidekickX);
             if (olderObjectOrderDx > 0) {
                 return olderObjectOrderDx;
             }
-            int newerObjectOrderDx = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES - 1) - sidekickX;
+            int newerObjectOrderDx = resolveObjectOrderNudgeDx(effectiveLeader, ROM_FOLLOW_DELAY_FRAMES - 1,
+                    sidekickX);
             if (newerObjectOrderDx > 0) {
                 return newerObjectOrderDx;
             }
@@ -800,11 +837,28 @@ public class SidekickCpuController {
         return dx;
     }
 
+    private int resolveObjectOrderNudgeDx(AbstractPlayableSprite effectiveLeader, int delayFrames, int sidekickX) {
+        int targetX = effectiveLeader.getCentreX(delayFrames);
+        int leadOffset = sidekick.getPhysicsFeatureSet() != null
+                ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
+                : 0;
+        boolean leaderStatusOnObject = effectiveLeader.isOnObject() && !effectiveLeader.getAir();
+        if (leadOffset > 0
+                && !leaderStatusOnObject
+                && effectiveLeader.getGSpeed() < 0x400) {
+            targetX -= leadOffset;
+        }
+        return targetX - sidekickX;
+    }
+
+    private boolean isAizHollowTreeFollowSteeringContext(AbstractPlayableSprite effectiveLeader) {
+        return isAizHollowTreeZone()
+                && (isAizHollowTreeNear(sidekick.getCentreX(), sidekick.getCentreY())
+                    || isAizHollowTreeFollowNudgeContext(effectiveLeader));
+    }
+
     private boolean isAizHollowTreeFollowNudgeContext(AbstractPlayableSprite effectiveLeader) {
-        LevelManager levelManager = sidekick.currentLevelManager();
-        if (levelManager == null
-                || levelManager.getFeatureZoneId() != S3K_ZONE_AIZ
-                || levelManager.getFeatureActId() != 0) {
+        if (!isAizHollowTreeZone()) {
             return false;
         }
         if (effectiveLeader.getLatchedSolidObjectId() == S3K_AIZ_HOLLOW_TREE_OBJECT_ID) {
@@ -816,12 +870,25 @@ public class SidekickCpuController {
             return true;
         }
 
+        return isAizHollowTreeNear(effectiveLeader.getCentreX(), effectiveLeader.getCentreY());
+    }
+
+    private boolean isAizHollowTreeZone() {
+        LevelManager levelManager = sidekick.currentLevelManager();
+        return levelManager != null
+                && levelManager.getFeatureZoneId() == S3K_ZONE_AIZ
+                && levelManager.getFeatureActId() == 0;
+    }
+
+    private boolean isAizHollowTreeNear(int x, int y) {
+        LevelManager levelManager = sidekick.currentLevelManager();
+        if (levelManager == null) {
+            return false;
+        }
         ObjectManager objectManager = levelManager.getObjectManager();
         if (objectManager == null) {
             return false;
         }
-        int leaderX = effectiveLeader.getCentreX();
-        int leaderY = effectiveLeader.getCentreY();
         for (ObjectInstance object : objectManager.getActiveObjects()) {
             if (object == null || object.isDestroyed() || object.getSpawn() == null) {
                 continue;
@@ -829,8 +896,8 @@ public class SidekickCpuController {
             if (object.getSpawn().objectId() != S3K_AIZ_HOLLOW_TREE_OBJECT_ID) {
                 continue;
             }
-            if (Math.abs(object.getX() - leaderX) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_X
-                    && Math.abs(object.getY() - leaderY) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_Y) {
+            if (Math.abs(object.getX() - x) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_X
+                    && Math.abs(object.getY() - y) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_Y) {
                 return true;
             }
         }

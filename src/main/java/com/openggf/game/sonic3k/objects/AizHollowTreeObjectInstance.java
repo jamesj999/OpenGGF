@@ -173,6 +173,13 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
         player.setGSpeed(player.getXSpeed());
         player.setAnimationId(Sonic3kAnimationIds.WALK);
+        // Obj_AIZHollowTree sets object_control bits 6 and 1 only
+        // (sonic3k.asm:43688-43693). Tails_Normal suppresses CPU input only
+        // when object_control bit 7 is set (sonic3k.asm:26672-26673), so keep
+        // the sidekick CPU active while the tree owns path/mapping control.
+        if (player.isCpuControlled()) {
+            player.setObjectControlAllowsCpu(true);
+        }
 
         if (mainPlayer) {
             Camera camera = services().camera();
