@@ -88,6 +88,14 @@ public class DivergenceReport {
                 root.set("latest_zone_act_state", zoneActStateToJson(mapper, zoneActState));
             }
 
+            List<String> missingAuxSchemas = missingAdvertisedAuxSchemas();
+            if (!missingAuxSchemas.isEmpty()) {
+                ArrayNode missingNode = root.putArray("missing_advertised_aux_schemas");
+                for (String schema : missingAuxSchemas) {
+                    missingNode.add(schema);
+                }
+            }
+
             ArrayNode errorsNode = root.putArray("errors");
             for (DivergenceGroup g : errors) {
                 errorsNode.add(groupToJson(mapper, g));
@@ -213,6 +221,15 @@ public class DivergenceReport {
                 .append(TraceEventFormatter.summariseFrameEvents(List.of(zoneActState)))
                 .append("\n");
         }
+
+        List<String> missingAuxSchemas = missingAdvertisedAuxSchemas();
+        if (!missingAuxSchemas.isEmpty()) {
+            sb.append("Missing advertised aux schemas: ")
+                .append(String.join(", ", missingAuxSchemas))
+                .append("\n");
+        }
+
+        appendFocusedTraceDiagnostics(sb, frame);
     }
 
     private int summaryReferenceFrame() {
@@ -240,6 +257,35 @@ public class DivergenceReport {
             return null;
         }
         return traceData.latestZoneActStateAtOrBefore(frame);
+    }
+
+    private List<String> missingAdvertisedAuxSchemas() {
+        return traceData == null
+                ? List.of()
+                : traceData.missingAdvertisedAuxSchemas();
+    }
+
+    private void appendFocusedTraceDiagnostics(StringBuilder sb, int frame) {
+        if (traceData == null || frame < 0) {
+            return;
+        }
+        List<TraceEvent> diagnostics = new ArrayList<>();
+        diagnostics.addAll(traceData.cageStatesForFrame(frame));
+        TraceEvent.CageExecution cageExecution = traceData.cageExecutionForFrame(frame);
+        if (cageExecution != null) {
+            diagnostics.add(cageExecution);
+        }
+        TraceEvent.VelocityWrite velocityWrite = traceData.velocityWriteForFrame(frame, "tails");
+        if (velocityWrite != null) {
+            diagnostics.add(velocityWrite);
+        }
+        if (!diagnostics.isEmpty()) {
+            sb.append("Trace diagnostics @")
+                .append(frame)
+                .append(": ")
+                .append(TraceEventFormatter.summariseFrameEvents(diagnostics))
+                .append("\n");
+        }
     }
 
     private static List<DivergenceGroup> buildGroups(List<FrameComparison> comparisons) {

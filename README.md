@@ -431,6 +431,12 @@ further S3K parity work.
   `0x2A` and labelled the result `object_control`; per `sonic3k.constants.asm:30/57` `0x2A`
   is `status` and the real `object_control` byte is at `0x2E`. v6.3 emits `status`,
   `status_secondary`, and `object_control` as three separate JSON fields.
+- **S3K CNZ cage diagnostics refresh:** the CNZ v6.3 aux stream now actually contains
+  the metadata-advertised `cage_state_per_frame` and `cage_execution_per_frame` records
+  in the gzipped aux fixture, while trace reports flag any advertised aux schema with no
+  matching loaded event. The data remains comparison-only diagnostic input; CNZ stays at
+  F2137, but the divergence context now includes the cage state/execution needed for the
+  next ROM-cited engine fix.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data

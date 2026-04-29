@@ -113,4 +113,21 @@ public class TestTraceEventFormatting {
         assertEquals("cp aiz2_main_gameplay z=0 a=1 ap=0 gm=12 | zoneact z=0 a=1 ap=0 gm=12",
                 TraceEventFormatter.summariseFrameEvents(List.of(checkpoint, zoneActState)));
     }
+
+    @Test
+    void summarisesCnzCageDiagnostics() {
+        TraceEvent cageState = TraceEvent.parseJsonLine(
+                """
+                {"frame":2137,"vfc":2138,"event":"cage_state","slot":4,"x":"0x1300","y":"0x07C0","subtype":"0x28","status":"0x09","p1_phase":"0x80","p1_state":"0x00","p2_phase":"0xC0","p2_state":"0x01"}
+                """.trim(),
+                mapper);
+        TraceEvent cageExecution = TraceEvent.parseJsonLine(
+                """
+                {"frame":2137,"vfc":2138,"event":"cage_execution","hits":[{"branch":"sub_338C4_entry","pc":"0x338C4","cage_addr":"0xB128","player_addr":"0xB04A","state_addr":"0xB15C","d5":"0x0800","d6":"0x04","state_byte":"0x01","player_status":"0x08","player_obj_ctrl":"0x42","cage_status":"0x09"}]}
+                """.trim(),
+                mapper);
+
+        assertEquals("cage s4 @1300,07C0 sub=28 st=09 p1=80/00 p2=C0/01 | cageExec sub_338C4_entry@338C4 cage=B128 player=B04A d5=0800 d6=04 state=01 obj=42 cst=09",
+                TraceEventFormatter.summariseFrameEvents(List.of(cageState, cageExecution)));
+    }
 }
