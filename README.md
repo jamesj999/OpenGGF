@@ -214,6 +214,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   v6.5 replay frontier from F3905 to F4321 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the
   AIZ v6.6 replay frontier from F4679 to F4768.
+- **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
+  event reinitialization, keeping ROM-style pre-frame intro state available to tests.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
   physics differences, configuration UX, debug rendering, and performance hot paths continue to be
   tightened across Sonic 1, Sonic 2, and Sonic 3 & Knuckles.
