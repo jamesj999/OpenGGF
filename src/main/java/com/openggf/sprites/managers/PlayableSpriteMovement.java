@@ -420,6 +420,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				// Continue with normal airborne physics for this frame
 			} else {
 				doLevelBoundary();
+				if (isCpuLevelBoundaryKillActive()) {
+					return;
+				}
 				sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 				// ROM: Knux_DoLevelCollision_CheckRet — custom collision for glide
 				doGlideCollision();
@@ -434,6 +437,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			doChgJumpDir();
 		}
 		doLevelBoundary();
+		if (isCpuLevelBoundaryKillActive()) {
+			// Tails_Check_Screen_Boundaries jumps straight to Kill_Character
+			// when the bottom kill plane is crossed (sonic3k.asm:28442-28443;
+			// s2.asm:39933-39939). Keep the engine's terrain separation pass,
+			// but do not append another generic gravity step after the kill.
+			sprite.updateSensors(originalX, originalY);
+			doLevelCollision(sprite.isForceFloorCheck());
+			return;
+		}
 
 		doObjectMoveAndFall();
 
@@ -1893,6 +1905,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				}
 			}
 		}
+	}
+
+	private boolean isCpuLevelBoundaryKillActive() {
+		SidekickCpuController controller = sprite.getCpuController();
+		return sprite.isCpuControlled()
+				&& controller != null
+				&& controller.getState() == SidekickCpuController.State.DEAD_FALLING;
 	}
 
 	/** AnglePos: Ground terrain collision (s2.asm:42534) */

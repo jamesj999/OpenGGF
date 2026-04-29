@@ -59,6 +59,17 @@ class TestSidekickCpuDespawnParity {
         void usePhysicsFeatureSet(PhysicsFeatureSet featureSet) {
             setPhysicsFeatureSet(featureSet);
         }
+
+        void useS3kTailsRadii() {
+            runHeight = 30;
+            rollHeight = 28;
+            standXRadius = 9;
+            standYRadius = 15;
+            rollXRadius = 7;
+            rollYRadius = 14;
+            setHeight(runHeight);
+            restoreDefaultRadii();
+        }
     }
 
     private static final class DestroyedRideObject extends AbstractObjectInstance {
@@ -151,6 +162,43 @@ class TestSidekickCpuDespawnParity {
         assertTrue(tails.getAir());
         assertTrue(tails.isControlLocked());
         assertTrue(tails.isObjectControlled());
+    }
+
+    @Test
+    void levelBoundaryKillRunsTailsTouchFloorBeforeDeathState() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.usePhysicsFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        tails.useS3kTailsRadii();
+        tails.setCpuControlled(true);
+        tails.setRolling(true);
+        tails.setRollingJump(true);
+        tails.setCentreX((short) 0x2D90);
+        tails.setCentreY((short) 0x0402);
+        tails.setAir(true);
+        tails.setPushing(true);
+        tails.setAngle((byte) 0x00);
+        tails.setXSpeed((short) 0x0000);
+        tails.setYSpeed((short) 0x0198);
+        tails.setGSpeed((short) 0x0000);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.setInitialState(SidekickCpuController.State.NORMAL);
+
+        controller.despawn(SidekickCpuController.DespawnCause.LEVEL_BOUNDARY);
+
+        assertEquals(SidekickCpuController.State.DEAD_FALLING, controller.getState(),
+                "S3K Kill_Character leaves Tails in object routine 6 for one frame");
+        assertEquals((short) 0x040F, tails.getCentreY(),
+                "Tails_TouchFloor applies the rolling height delta before death velocities");
+        assertEquals(15, tails.getYRadius());
+        assertFalse(tails.getRolling());
+        assertTrue(tails.getAir(), "Kill_Character sets Status_InAir after Tails_TouchFloor");
+        assertFalse(tails.getRollingJump());
+        assertFalse(tails.getPushing());
+        assertEquals((short) 0x0000, tails.getXSpeed());
+        assertEquals((short) 0x0000, tails.getYSpeed());
+        assertEquals((short) 0x0000, tails.getGSpeed());
     }
 
     @Test
