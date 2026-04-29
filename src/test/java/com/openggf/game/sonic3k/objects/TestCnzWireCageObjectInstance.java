@@ -4,6 +4,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.tests.HeadlessTestFixture;
@@ -354,6 +355,51 @@ class TestCnzWireCageObjectInstance {
         assertFalse(sidekick.getAir(),
                 "The skipped P2 call still sees ROM's persistent Status_OnObj/grounded latch");
         assertTrue(sidekick.isOnObject());
+    }
+
+    @Test
+    void dirtyD6SidekickLatchSkipsMountedRideWhenNextFrameUsesRealP2StandingBit() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x28, 0, false, 0));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1300);
+        leader.setCentreY((short) 0x07C0);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1200);
+        sidekick.setCentreY((short) 0x07C0);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+
+        sidekick.setCentreX((short) 0x1300);
+        cage.update(1, leader);
+
+        assertTrue(sidekick.isOnObject());
+        assertTrue(sidekick.isObjectControlled());
+        assertEquals(Direction.RIGHT, sidekick.getDirection(),
+                "loc_3397A clears Status_Facing even when loc_33958 latched the left-side phase");
+        short sidekickXAfterDirtyLatch = sidekick.getCentreX();
+        short sidekickYAfterDirtyLatch = sidekick.getCentreY();
+        int sidekickFrameAfterDirtyLatch = sidekick.getMappingFrame();
+
+        cage.update(2, leader);
+
+        assertEquals(sidekickXAfterDirtyLatch, sidekick.getCentreX(),
+                "F2137: dirty d6 wrote the P2 latch under status bit 1, but real d6=4 misses loc_339A0");
+        assertEquals(sidekickYAfterDirtyLatch, sidekick.getCentreY(),
+                "sub_338C4 falls through to loc_338D8 and exits at tst.b object_control(a1)");
+        assertEquals(sidekickFrameAfterDirtyLatch, sidekick.getMappingFrame(),
+                "No mounted orbit/DPLC frame update should run when the cage status bit test misses");
+        assertTrue(sidekick.isObjectControlled(),
+                "ROM leaves object_control bits 6+1 set after the skipped mounted branch");
     }
 
     @Test

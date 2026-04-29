@@ -30,6 +30,9 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
     private static final int JUMP_RELEASE_X_SPEED = 0x800;
     private static final int JUMP_RELEASE_Y_SPEED = -0x200;
     private static final int EDGE_RELEASE_X_SPEED = 0x100;
+    private static final int P1_STANDING_BIT = 3;
+    private static final int P2_STANDING_BIT = 4;
+    private static final int DIRTY_P2_STANDING_BIT = 1;
     private static final int CAPTURE_ANIMATION = 0;
     private static final int RELEASE_ANIMATION = 1;
     private static final int[] CAPTURE_FRAMES = {
@@ -164,15 +167,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                                boolean leaderDplcClobberedD6) {
         CageState state = riders.computeIfAbsent(player, ignored -> new CageState());
         if (state.latched) {
-            if (isSidekick && leaderDplcClobberedD6) {
+            if (state.standingBit != currentStandingBit(isSidekick, leaderDplcClobberedD6)) {
                 /*
-                 * FixBugs-off ROM leaves d6 dirty after Player 1's
-                 * Perform_Player_DPLC loads a new cage mapping frame
-                 * (sonic3k.asm:69842-69847, 70041, 25215-25242). The
-                 * addq.b #1,d6 sequence then tests bit 1 instead of the P2
-                 * standing bit, so sub_338C4 falls through to the capture
-                 * path and exits at tst.b object_control(a1), leaving Tails'
-                 * cage state untouched for this frame.
+                 * ROM tests the current d6 bit in the cage status before
+                 * entering loc_339A0 (sonic3k.asm:69872-69874). With FixBugs
+                 * off, the P2 latch can be written under dirty bit 1 when
+                 * Player 1's Perform_Player_DPLC clobbers d6
+                 * (sonic3k.asm:69835-69846, 70039-70041); on later frames d6
+                 * can be the real P2 standing bit 4, so the mounted branch is
+                 * skipped and loc_338D8 exits at tst.b object_control(a1)
+                 * (sonic3k.asm:69895-69897). Leave the rider state untouched.
                  */
                 restoreObjectLatchIfTerrainClearedIt(player);
                 return;
@@ -192,10 +196,11 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         // ROM still runs the P2 cage capture path after Sonic has released
         // this cage (sonic3k.asm:69835-69846); the leader-release quirk only
         // affects already latched sidekick ride continuation below.
-        tryLatch(player, state);
+        tryLatch(player, state, isSidekick, leaderDplcClobberedD6);
     }
 
-    private void tryLatch(AbstractPlayableSprite player, CageState state) {
+    private void tryLatch(AbstractPlayableSprite player, CageState state, boolean isSidekick,
+                          boolean leaderDplcClobberedD6) {
         if (!canTryCapture(player)) {
             return;
         }
@@ -256,7 +261,7 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             }
         }
 
-        latch(player, state, touchFloorDuringLatch);
+        latch(player, state, touchFloorDuringLatch, isSidekick, leaderDplcClobberedD6);
     }
 
     private boolean canTryCapture(AbstractPlayableSprite player) {
@@ -284,8 +289,10 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         player.setObjectControlSuppressesMovement(true);
     }
 
-    private void latch(AbstractPlayableSprite player, CageState state, boolean touchFloorDuringLatch) {
+    private void latch(AbstractPlayableSprite player, CageState state, boolean touchFloorDuringLatch,
+                       boolean isSidekick, boolean leaderDplcClobberedD6) {
         state.latched = true;
+        state.standingBit = currentStandingBit(isSidekick, leaderDplcClobberedD6);
         if (!touchFloorDuringLatch) {
             state.cooldown = 0;
         }
@@ -320,13 +327,14 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             state.phase = 0x00;
             state.rideAngle = 0x40;
             player.setAngle((byte) state.rideAngle);
-            player.setDirection(Direction.RIGHT);
         } else {
             state.phase = 0x80;
             state.rideAngle = 0xC0;
             player.setAngle((byte) state.rideAngle);
-            player.setDirection(Direction.LEFT);
         }
+        // loc_33958 chooses the left/right cage phase and angle, but
+        // loc_3397A always clears Status_Facing (sonic3k.asm:69923-69935).
+        player.setDirection(Direction.RIGHT);
     }
 
     private void touchFloorForAirLatch(AbstractPlayableSprite player) {
@@ -538,6 +546,13 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         player.setObjectControlSuppressesMovement(false);
     }
 
+    private int currentStandingBit(boolean isSidekick, boolean leaderDplcClobberedD6) {
+        if (!isSidekick) {
+            return P1_STANDING_BIT;
+        }
+        return leaderDplcClobberedD6 ? DIRTY_P2_STANDING_BIT : P2_STANDING_BIT;
+    }
+
     private void updateReleaseRide(AbstractPlayableSprite player, CageState state) {
         if (!player.getAir()) {
             int vertical = player.getCentreY() - spawn.y() + verticalOffset;
@@ -651,5 +666,6 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
         private int phase;
         private int rideAngle;
         private int cooldown;
+        private int standingBit;
     }
 }

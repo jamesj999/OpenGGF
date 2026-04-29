@@ -440,7 +440,10 @@ further S3K parity work.
   in the gzipped aux fixture, while trace reports flag any advertised aux schema with no
   matching loaded event. The data remains comparison-only diagnostic input; CNZ stays at
   F2137, but the divergence context now includes the cage state/execution needed for the
-  next ROM-cited engine fix.
+  next ROM-cited engine fix. The follow-up CNZ wire-cage dirty-sidekick latch fix advances
+  F2137 -> F2821 by remembering the actual cage status bit used at latch time and clearing
+  facing after latch-side selection, matching `sub_338C4` / `loc_3397A` / mounted orbit flow
+  in `docs/skdisasm/sonic3k.asm:69872`, `69895`, `69923`, `69933`, and `70013`.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
