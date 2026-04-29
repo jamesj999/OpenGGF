@@ -358,7 +358,7 @@ class TestCnzWireCageObjectInstance {
     }
 
     @Test
-    void dirtyD6SidekickLatchSkipsMountedRideWhenNextFrameUsesRealP2StandingBit() {
+    void dirtyD6SidekickLatchClearsWallSuppressionAfterLeaderRelease() {
         CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
                 0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x28, 0, false, 0));
         AbstractPlayableSprite leader = HeadlessTestFixture.builder()
@@ -389,6 +389,8 @@ class TestCnzWireCageObjectInstance {
         short sidekickXAfterDirtyLatch = sidekick.getCentreX();
         short sidekickYAfterDirtyLatch = sidekick.getCentreY();
         int sidekickFrameAfterDirtyLatch = sidekick.getMappingFrame();
+        sidekick.setSuppressGroundWallCollision(true);
+        leader.setDead(true);
 
         cage.update(2, leader);
 
@@ -400,6 +402,8 @@ class TestCnzWireCageObjectInstance {
                 "No mounted orbit/DPLC frame update should run when the cage status bit test misses");
         assertTrue(sidekick.isObjectControlled(),
                 "ROM leaves object_control bits 6+1 set after the skipped mounted branch");
+        assertFalse(sidekick.isSuppressGroundWallCollision(),
+                "Once the leader has released, the stale cage latch must not suppress Tails' terrain wall correction");
     }
 
     @Test
