@@ -361,6 +361,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             }
             standing = standing || !player.getAir();
             if (!standing) {
+                clearStaleCylinderSupport(player);
                 releaseSlot(slot, frameCounter, false);
                 return;
             }
@@ -373,6 +374,9 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         }
 
         if (!standing || player.isObjectControlled()) {
+            if (!standing) {
+                clearStaleCylinderSupport(player);
+            }
             return;
         }
         // ROM sub_324C0 (a2)==0 path re-captures immediately - no ROM cooldown.
@@ -382,12 +386,43 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
                 && player.wasRecentlyObjectControlled(frameCounter, RECAPTURE_COOLDOWN_FRAMES)) {
             return;
         }
+        if (playerOnScreen) {
+            applyP2CpuNudgeBeforeFirstCapture(slot, player);
+        }
         captureSlot(slot, player);
     }
 
     private boolean hasStandingBit(AbstractPlayableSprite player) {
         int bit = standingMaskBitFor(player);
         return bit != 0 && (standingMask & bit) != 0;
+    }
+
+    private void applyP2CpuNudgeBeforeFirstCapture(RiderSlot slot, AbstractPlayableSprite player) {
+        if (slot != playerTwoSlot || player == null || !player.isCpuControlled()
+                || player.getAir() || player.getGSpeed() == 0) {
+            return;
+        }
+        var cpu = player.getCpuController();
+        if (cpu == null) {
+            return;
+        }
+        int nudge = cpu.consumePendingGroundedFollowNudge(1);
+        if (nudge == 0) {
+            return;
+        }
+
+        // ROM Tails CPU runs before Obj_CNZCylinder's P2 sub_324C0 pass
+        // (sonic3k.asm:26195-26208, 67656-67672). Its FollowLeft/FollowRight
+        // branches nudge x_pos by one pixel when the delayed target is on the
+        // facing side and ground_vel is nonzero (sonic3k.asm:26717-26724,
+        // 26734-26741). The engine discovers this cylinder standing contact
+        // after the CPU pass, so apply only the CPU-recorded pending nudge
+        // immediately before the first P2 capture consumes the standing bit.
+        if (nudge < 0 && player.getDirection() == Direction.LEFT) {
+            player.shiftX(-1);
+        } else if (nudge > 0 && player.getDirection() == Direction.RIGHT) {
+            player.shiftX(1);
+        }
     }
 
     private void primeDefaultRiderSlots(PlayableEntity playerEntity) {
@@ -485,7 +520,7 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         player.setCentreXPreserveSubpixel((short) (centerX + xOffset));
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
-        player.setGSpeed((short) 0);
+        player.setGSpeed((short) cylinderLaunchGroundSpeed(player));
         player.setPushing(false);
 
         int objectThreshold = slot.priorityThresholdSource & 0xFF;
@@ -494,6 +529,39 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
                 : PLAYER_CAPTURE_PRIORITY);
         applyTwistFrame(player, slot.twistAngle);
         slot.twistAngle = (slot.twistAngle + 2) & 0xFF;
+    }
+
+    private int cylinderLaunchGroundSpeed(AbstractPlayableSprite player) {
+        // ROM sub_324C0 loc_32594 (sonic3k.asm:68045-68056): ground_vel is
+        // cleared, then set to $800 only while the rider is grounded and
+        // abs(y_vel(a0)) has reached the cylinder launch threshold.
+        if (player.getAir() || Math.abs((short) currentYVelocity) < 0x480) {
+            return 0;
+        }
+        return 0x800;
+    }
+
+    private void clearStaleCylinderSupport(AbstractPlayableSprite player) {
+        if (!isLatchedToThisCylinder(player)) {
+            return;
+        }
+        // ROM sub_324C0 loc_32538 (sonic3k.asm:68019-68025) exits the
+        // rider-control path when the cylinder standing bit is clear. Clear
+        // only this cylinder's engine-side latch so the shared SolidObject
+        // finalizer cannot preserve stale object support for a released rider.
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null) {
+            svc.objectManager().clearRidingObject(player);
+        }
+        player.setOnObject(false);
+        player.setLatchedSolidObjectId(0);
+    }
+
+    private boolean isLatchedToThisCylinder(AbstractPlayableSprite player) {
+        if (player == null || player.getLatchedSolidObjectId() != (spawn.objectId() & 0xFF)) {
+            return false;
+        }
+        return player.getLatchedSolidObjectInstance() == this;
     }
 
     private int getPriorityThresholdSource() {
