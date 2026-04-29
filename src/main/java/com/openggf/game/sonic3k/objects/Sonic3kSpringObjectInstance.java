@@ -25,7 +25,10 @@ import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Object 0x07 - Spring (Sonic 3 &amp; Knuckles).
@@ -88,6 +91,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     private final ObjectAnimationState animationState;
     private int mappingFrame;
     private boolean initialized;
+    private final Set<AbstractPlayableSprite> proactiveTriggeredThisUpdate =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
     public Sonic3kSpringObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spring");
@@ -344,6 +349,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
+        proactiveTriggeredThisUpdate.clear();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM sub_2326C (sonic3k.asm:47957) — proactive horizontal-spring zone.
         // The whole routine is gated on `cmpi.b #3,anim(a0) / beq.w locret_23324`
@@ -423,6 +429,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setAir(false);
             player.setYSpeed((short) 0);
         }
+        proactiveTriggeredThisUpdate.add(player);
         applyHorizontalSpring(player);
     }
 
@@ -479,7 +486,43 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        if (springType == TYPE_HORIZONTAL && proactiveTriggeredThisUpdate.contains(player)) {
+            // Obj_Spring_Horizontal calls sub_2326C after both SolidObjectFull2_1P
+            // passes (docs/skdisasm/sonic3k.asm:47779-47814,47957-48024). A player
+            // launched by that proactive path cannot be side-pushed by the same
+            // spring until the next object execution.
+            return false;
+        }
+        boolean skip = springType == TYPE_HORIZONTAL && shouldLetHorizontalProactiveTriggerOwnContact(player);
+        if (skip) {
+            return false;
+        }
         return true;
+    }
+
+    private boolean shouldLetHorizontalProactiveTriggerOwnContact(AbstractPlayableSprite player) {
+        // Obj_Spring_Horizontal runs SolidObjectFull2_1P first, then sub_2326C
+        // (docs/skdisasm/sonic3k.asm:47779-47814). When Tails lands just outside
+        // the side-push box but inside sub_2326C's +/-$28, +/-$18 proactive zone
+        // (sonic3k.asm:47957-48024), ROM skips the side push and only applies
+        // the horizontal spring nudge. Engine generic solid contact includes the
+        // player radius in its X overlap and can otherwise pre-push the player
+        // onto the spring edge before that proactive trigger runs.
+        int dx = player.getCentreX() - spawn.x();
+        int dy = player.getCentreY() - spawn.y();
+        if (dy < -HORIZ_DETECT_Y || dy > HORIZ_DETECT_Y) {
+            return false;
+        }
+
+        int solidHalfWidth = getSolidParams().halfWidth();
+        if (isFlippedHorizontal()) {
+            return dx >= -HORIZ_DETECT_X
+                    && dx < -solidHalfWidth
+                    && horizontalApproachSpeed(player, true) < 0;
+        }
+        return dx <= HORIZ_DETECT_X
+                && dx > solidHalfWidth
+                && horizontalApproachSpeed(player, true) > 0;
     }
 
     /**
