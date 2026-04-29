@@ -699,7 +699,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private boolean spawnIntroObject() {
-        if (hasLiveIntroObject()) {
+        AizPlaneIntroInstance existing = findLiveIntroObject();
+        if (existing != null) {
+            // ROM SpawnLevelMainSprites installs Obj_AIZPlaneIntro in a fixed
+            // dynamic-object slot before the first Process_Sprites call
+            // (sonic3k.asm:7849-7853, 8111-8126). A duplicate engine event init
+            // must re-adopt that live object, not allocate a second parent.
+            AizPlaneIntroInstance.adoptActiveIntroInstance(existing);
             return true;
         }
         LevelManager lm = levelManager();
@@ -719,12 +725,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private boolean hasLiveIntroObject() {
+        return findLiveIntroObject() != null;
+    }
+
+    private AizPlaneIntroInstance findLiveIntroObject() {
         LevelManager lm = levelManager();
         if (lm == null || lm.getObjectManager() == null) {
-            return false;
+            return null;
         }
         return lm.getObjectManager().getActiveObjects().stream()
-                .anyMatch(object -> object instanceof AizPlaneIntroInstance && !object.isDestroyed());
+                .filter(object -> object instanceof AizPlaneIntroInstance intro && !intro.isDestroyed())
+                .map(AizPlaneIntroInstance.class::cast)
+                .findFirst()
+                .orElse(null);
     }
 
     private void applyHollowTreeScreenEvent(int cameraX) {
