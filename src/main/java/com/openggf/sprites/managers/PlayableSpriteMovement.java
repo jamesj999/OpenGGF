@@ -89,6 +89,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private boolean inputUp, inputDown, inputLeft, inputRight;
 	private boolean inputJump, inputJumpPress;
 	private boolean inputRawLeft, inputRawRight;
+	private boolean facingFlipForcesPushClearAfterGroundWall;
 	private boolean wasCrouching;
 
 	public PlayableSpriteMovement(AbstractPlayableSprite sprite,
@@ -124,6 +125,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		inputJumpPress = false;
 		inputRawLeft = false;
 		inputRawRight = false;
+		facingFlipForcesPushClearAfterGroundWall = false;
 		wasCrouching = false;
 	}
 
@@ -254,6 +256,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			jump = false;
 		}
 
+		facingFlipForcesPushClearAfterGroundWall = false;
 		updatePushingOnDirectionChange(left, right);
 
 		short originalX = sprite.getX();
@@ -1529,6 +1532,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed(gSpeed);
 		calculateXYFromGSpeed();
 		collisionSystem().resolveGroundWallCollision(sprite);
+		clearFacingFlipPushAfterGroundWallCollision();
 	}
 
 	/** Sonic_Roll / SonicKnux_Roll: Check if should start rolling.
@@ -2359,9 +2363,29 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void updatePushingOnDirectionChange(boolean left, boolean right) {
 		if (left && !right && sprite.getDirection() == Direction.RIGHT) {
 			sprite.setPushing(false);
+			facingFlipForcesPushClearAfterGroundWall = !sprite.getAir() && !sprite.getRolling();
 		} else if (right && !left && sprite.getDirection() == Direction.LEFT) {
 			sprite.setPushing(false);
+			facingFlipForcesPushClearAfterGroundWall = !sprite.getAir() && !sprite.getRolling();
 		}
+	}
+
+	private void clearFacingFlipPushAfterGroundWallCollision() {
+		if (!facingFlipForcesPushClearAfterGroundWall) {
+			return;
+		}
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (featureSet == null || !featureSet.animationChangeClearsPush()) {
+			return;
+		}
+		// S2/S3K MoveLeft/MoveRight clear pushing and force prev_anim=Run when
+		// facing flips (s2.asm:36569-36570,36632-36633,39541-39542,39604-39605;
+		// sonic3k.asm:27814-27815,28108-28109). Their animation routines then
+		// clear pushing when anim differs from prev_anim (s2.asm:38033-38038,
+		// 40879-40884; sonic3k.asm:29359-29364,29681-29686), after ground-wall
+		// collision can set Status_Push. S1 leaves the animation clear behind a
+		// FixBugs guard, so PhysicsFeatureSet.animationChangeClearsPush() gates it.
+		sprite.setPushing(false);
 	}
 
 	private void clearStaleCpuPushVelocityBeforeGroundMove() {
