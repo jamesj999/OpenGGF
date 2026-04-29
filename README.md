@@ -295,7 +295,9 @@ further S3K parity work.
   `28407-28451`, and the AIZ object handoff paths in `43758-43810` and `46481-46950`.
   The follow-up recorder-local-pressure fix groups v6.5 diagnostic state under
   one Lua table so BizHawk/NLua loads the recorder instead of hitting the main-chunk
-  local-variable limit.
+  local-variable limit. AIZ and CNZ traces are rerecorded against v6.5 on 2026-04-29
+  so the new aux streams are available for the next engine-fix round while remaining
+  comparison-only diagnostic input.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
