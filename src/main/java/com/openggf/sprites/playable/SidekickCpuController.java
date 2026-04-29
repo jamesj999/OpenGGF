@@ -121,6 +121,8 @@ public class SidekickCpuController {
     private int sidekickCount = 1;
     private int normalPushingGraceFrames;
     private boolean suppressNextAirbornePushFollowSteering;
+    private int pendingGroundedFollowNudge;
+    private int pendingGroundedFollowNudgeFrame = -1;
     private boolean aizIntroDormantMarkerPrimed;
     private boolean suppressNextAizIntroNormalMovement;
     private boolean skipPhysicsThisFrame;
@@ -693,21 +695,29 @@ public class SidekickCpuController {
             }
             int nudgeDx = resolveFollowNudgeDx(dx, effectiveLeader);
             if (nudgeDx < 0
-                    && sidekick.getGSpeed() != 0
                     && sidekick.getDirection() == Direction.LEFT
                     // ROM loc_13E0A gates the positional nudge on
                     // object_control bit 0, not on the broader control
                     // lock state (sonic3k.asm:26722-26724).
                     && !sidekick.isObjectControlSuppressesMovement()) {
-                sidekick.shiftX(-1);
+                if (sidekick.getGSpeed() != 0) {
+                    sidekick.shiftX(-1);
+                } else if (sidekick.getAir()) {
+                    pendingGroundedFollowNudge = -1;
+                    pendingGroundedFollowNudgeFrame = frameCounter;
+                }
             } else if (nudgeDx > 0
-                    && sidekick.getGSpeed() != 0
                     && sidekick.getDirection() == Direction.RIGHT
                     // ROM loc_13E34 gates the positional nudge on
                     // object_control bit 0, not on the broader control
                     // lock state (sonic3k.asm:26739-26741).
                     && !sidekick.isObjectControlSuppressesMovement()) {
-                sidekick.shiftX(1);
+                if (sidekick.getGSpeed() != 0) {
+                    sidekick.shiftX(1);
+                } else if (sidekick.getAir()) {
+                    pendingGroundedFollowNudge = 1;
+                    pendingGroundedFollowNudgeFrame = frameCounter;
+                }
             }
         }
 
@@ -1908,6 +1918,19 @@ public class SidekickCpuController {
 
     public SidekickRespawnStrategy getRespawnStrategy() {
         return respawnStrategy;
+    }
+
+    public int consumePendingGroundedFollowNudge(int maxAgeFrames) {
+        if (pendingGroundedFollowNudgeFrame < 0
+                || frameCounter - pendingGroundedFollowNudgeFrame > maxAgeFrames) {
+            pendingGroundedFollowNudge = 0;
+            pendingGroundedFollowNudgeFrame = -1;
+            return 0;
+        }
+        int nudge = pendingGroundedFollowNudge;
+        pendingGroundedFollowNudge = 0;
+        pendingGroundedFollowNudgeFrame = -1;
+        return nudge;
     }
 
     public void setLeader(AbstractPlayableSprite leader) {

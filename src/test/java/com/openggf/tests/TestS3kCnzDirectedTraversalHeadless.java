@@ -433,6 +433,34 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCylinderSeedsGroundVelocityWhenVerticalMotionReachesRomLaunchThreshold() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinderStanding(player, 0x38C0, 0x0800);
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x00, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+        fixture.camera().updatePosition(true);
+
+        waitForCylinderCapture(fixture, player);
+
+        player.setAir(false);
+        setCylinderInt(cylinder, "mode0Velocity", 0x04B0);
+        setCylinderInt(cylinder, "mode0YSubpixel", 0);
+        fixture.stepFrame(false, false, false, false, false);
+
+        assertTrue(player.isObjectControlled(),
+                "The rider should still be captured while testing the hold-slot velocity handoff");
+        assertEquals(0x0800, player.getGSpeed() & 0xFFFF,
+                "ROM sub_324C0:68045-68056 sets ground_vel=$800 when abs(y_vel(a0)) >= $480 and the rider is grounded");
+    }
+
+    @Test
     void cnzCylinderDoesNotCaptureFromSideContactWithoutStandingBit() {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
@@ -449,6 +477,29 @@ public class TestS3kCnzDirectedTraversalHeadless {
 
         assertFalse(player.isObjectControlled(),
                 "The slot-init branch must stay closed when btst d6,status(a0) would fail");
+    }
+
+    @Test
+    void cnzCylinderClearsStaleObjectLatchWhenStandingBitIsGone() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        prepareRiderForCylinder(player, 0x38E8, 0x0800);
+        player.setAir(true);
+
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x41, 0, false, 0));
+        player.setOnObject(true);
+        player.setLatchedSolidObject(Sonic3kObjectIds.CNZ_CYLINDER, cylinder);
+
+        cylinder.update(0, player);
+
+        assertFalse(player.isOnObject(),
+                "ROM sub_324C0:68019-68025 leaves the rider path when the cylinder standing bit is clear");
+        assertEquals(0, player.getLatchedSolidObjectId(),
+                "A stale CNZ cylinder latch must not preserve engine object support after the ROM standing bit clears");
     }
 
     @Test
@@ -660,6 +711,12 @@ public class TestS3kCnzDirectedTraversalHeadless {
         java.lang.reflect.Field field = CnzCylinderInstance.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.getInt(cylinder);
+    }
+
+    private static void setCylinderInt(CnzCylinderInstance cylinder, String fieldName, int value) throws Exception {
+        java.lang.reflect.Field field = CnzCylinderInstance.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(cylinder, value);
     }
 
     private static boolean isPlayerOneSlotActive(CnzCylinderInstance cylinder) throws Exception {
