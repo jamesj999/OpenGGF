@@ -526,6 +526,41 @@ public class TestTraceDataParsing {
         assertEquals(0, state.apparentAct());
     }
 
+    @Test
+    void reportsAdvertisedCageAuxSchemasMissingFromAuxStream() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-trace");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 3,
+              "csv_version": 4,
+              "aux_schema_extras": ["cage_state_per_frame", "cage_execution_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"event":"checkpoint","name":"gameplay_start","actual_zone_id":3,"actual_act":0,"apparent_act":0,"game_mode":12}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("cage_state_per_frame", "cage_execution_per_frame"),
+                data.missingAdvertisedAuxSchemas());
+    }
+
     private static void writeMinimalTraceFiles(Path dir) throws IOException {
         writeMinimalMetadata(dir);
         Files.writeString(dir.resolve("physics.csv"), """
