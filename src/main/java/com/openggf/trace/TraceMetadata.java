@@ -195,6 +195,15 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("aiz_boundary_state_per_frame");
     }
 
+    /**
+     * Whether the trace emits per-frame {@code aiz_transition_floor_solid}
+     * events, the focused S3K AIZ transition floor diagnostic for F5415.
+     */
+    public boolean hasPerFrameAizTransitionFloorSolid() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("aiz_transition_floor_solid_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

@@ -284,6 +284,28 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame AIZ transition-floor solid diagnostic around the F5415
+     * Sonic/Tails split. The ROM spawns {@code Obj_AIZTransitionFloor} during
+     * the AIZ1 fire-refresh sequence (docs/skdisasm/sonic3k.asm:104683-104690)
+     * and then calls {@code SolidObjectTop} with {@code d1=$A0,d2=$10,d3=$10}
+     * (docs/skdisasm/sonic3k.asm:104777-104790). The per-player path strings
+     * expose whether {@code SolidObjectTop_1P} used the already-standing path
+     * or the first-landing check (docs/skdisasm/sonic3k.asm:41793-41818,
+     * 41982-42015). Diagnostic only: never hydrated into engine state.
+     */
+    record AizTransitionFloorSolidState(
+            int frame, int slot, int objectStatus, int objectX, int objectY,
+            boolean p1Standing, boolean p2Standing,
+            String p1Path, String p2Path,
+            int p1D1, int p1D2, int p1D3,
+            int p1Status, int p1ObjectControl, int p1YRadius,
+            int p1X, int p1Y, int p1YVel, int p1InteractSlot,
+            int p2D1, int p2D2, int p2D3,
+            int p2Status, int p2ObjectControl, int p2YRadius,
+            int p2X, int p2Y, int p2YVel, int p2InteractSlot)
+        implements TraceEvent {}
+
+    /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
      * Unknown event types are returned as StateSnapshot with all fields preserved.
      */
@@ -537,6 +559,37 @@ public sealed interface TraceEvent {
                     parseHexInt(node, "post_move_y"),
                     parseHexInt(node, "post_move_x_vel"),
                     parseHexInt(node, "post_move_y_vel")
+                );
+                case "aiz_transition_floor_solid" -> new AizTransitionFloorSolidState(
+                    frame,
+                    node.has("slot") ? node.get("slot").asInt() : -1,
+                    parseHexInt(node, "object_status"),
+                    parseHexInt(node, "object_x"),
+                    parseHexInt(node, "object_y"),
+                    node.has("p1_standing") && node.get("p1_standing").asBoolean(),
+                    node.has("p2_standing") && node.get("p2_standing").asBoolean(),
+                    node.has("p1_path") ? node.get("p1_path").asText() : "",
+                    node.has("p2_path") ? node.get("p2_path").asText() : "",
+                    parseHexInt(node, "p1_d1"),
+                    parseHexInt(node, "p1_d2"),
+                    parseHexInt(node, "p1_d3"),
+                    parseHexInt(node, "p1_status"),
+                    parseHexInt(node, "p1_object_control"),
+                    parseHexInt(node, "p1_y_radius"),
+                    parseHexInt(node, "p1_x"),
+                    parseHexInt(node, "p1_y"),
+                    parseHexInt(node, "p1_y_vel"),
+                    node.has("p1_interact_slot") ? node.get("p1_interact_slot").asInt() : -1,
+                    parseHexInt(node, "p2_d1"),
+                    parseHexInt(node, "p2_d2"),
+                    parseHexInt(node, "p2_d3"),
+                    parseHexInt(node, "p2_status"),
+                    parseHexInt(node, "p2_object_control"),
+                    parseHexInt(node, "p2_y_radius"),
+                    parseHexInt(node, "p2_x"),
+                    parseHexInt(node, "p2_y"),
+                    parseHexInt(node, "p2_y_vel"),
+                    node.has("p2_interact_slot") ? node.get("p2_interact_slot").asInt() : -1
                 );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map

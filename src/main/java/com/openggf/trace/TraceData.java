@@ -171,6 +171,10 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.AizBoundaryState.class)) {
             missing.add("aiz_boundary_state_per_frame");
         }
+        if (metadata.hasPerFrameAizTransitionFloorSolid()
+                && !hasEventOfType(TraceEvent.AizTransitionFloorSolidState.class)) {
+            missing.add("aiz_transition_floor_solid_per_frame");
+        }
         return missing;
     }
 
@@ -410,6 +414,25 @@ public class TraceData {
         for (TraceEvent event : events) {
             if (event instanceof TraceEvent.AizBoundaryState state
                     && characterCode.equalsIgnoreCase(state.character())) {
+                return state;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused S3K AIZ transition-floor solid diagnostic for the
+     * requested frame, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> This exposes ROM-side
+     * {@code SolidObjectTop} path evidence for reports; replay code must not
+     * hydrate state from it.
+     */
+    public TraceEvent.AizTransitionFloorSolidState aizTransitionFloorSolidStateForFrame(
+            int frame) {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.AizTransitionFloorSolidState state) {
                 return state;
             }
         }
