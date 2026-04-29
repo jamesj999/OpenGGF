@@ -787,8 +787,17 @@ public class CollisionSystem {
         boolean preservePinballRoll = featureSet != null && featureSet.pinballLandingPreservesRoll();
         if (sprite.getRolling() && (!sprite.getPinballMode() || !preservePinballRoll)) {
             int oldYRadius = sprite.getYRadius();
+            int centreX = sprite.getCentreX();
             int centreY = sprite.getCentreY();
+            boolean wallLanding = sprite.getGroundMode() == GroundMode.LEFTWALL
+                    || sprite.getGroundMode() == GroundMode.RIGHTWALL;
             sprite.setRolling(false);
+            if (wallLanding) {
+                // S3K Player_TouchFloor restores radii and adjusts y_pos only
+                // (docs/skdisasm/sonic3k.asm:24335-24363). Preserve engine centre X when
+                // leaving the narrower roll shape after updateGroundMode has selected a wall.
+                sprite.setCentreXPreserveSubpixel((short) centreX);
+            }
 
             int delta = oldYRadius - sprite.getStandYRadius();
             if (((angle + 0x40) & 0x80) != 0) {

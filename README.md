@@ -450,7 +450,11 @@ further S3K parity work.
   next ROM-cited engine fix. The follow-up CNZ wire-cage dirty-sidekick latch fix advances
   F2137 -> F2821 by remembering the actual cage status bit used at latch time and clearing
   facing after latch-side selection, matching `sub_338C4` / `loc_3397A` / mounted orbit flow
-  in `docs/skdisasm/sonic3k.asm:69872`, `69895`, `69923`, `69933`, and `70013`.
+  in `docs/skdisasm/sonic3k.asm:69872`, `69895`, `69923`, `69933`, and `70013`. The
+  wall-landing roll-reset fix advances F2821 -> F3649 by preserving `x_pos` when the
+  shared collision path clears rolling after selecting a wall ground mode, matching S3K
+  `Player_TouchFloor` y-only adjustment in `docs/skdisasm/sonic3k.asm:24182-24221` and
+  `24325-24363` plus S2 `ResetOnFloor` parity in `docs/s2disasm/s2.asm:37769-37788`.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
