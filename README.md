@@ -543,7 +543,11 @@ while HCZ now has a larger object/event pass and HCZ1-to-HCZ2 progression.
   fail-fast shader error handling.
 - **Trace replay testing:** automated accuracy verification that records per-frame physics state
   from the real ROM, then replays the same inputs through the engine and compares every field.
-  First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second baseline (S1 MZ1, 7,936
+  First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; the latest GHZ bridge pass fixes
+  the F2967 rider Y divergence by keeping Bri_Solid's final `Plat_NoXCheck` width and updating
+  the rider bend log before sag calculation (`docs/s1disasm/_incObj/11 Bridge.asm:98-114`,
+  `135-152`, `_incObj/sub PlatformObject.asm:19-42`, `58-76`, `_incObj/sub ExitPlatform.asm:8-23`).
+  A second baseline (S1 MZ1, 7,936
   frames) is now in-tree with expanded recorder and divergence diagnostics for ROM/engine parity
   investigation. Supports both BizHawk (Windows, Lua) and **stable-retro** (cross-platform,
   Python) as recording backends — both produce identical output consumed by the same Java test
