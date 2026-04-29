@@ -455,6 +455,10 @@ further S3K parity work.
   shared collision path clears rolling after selecting a wall ground mode, matching S3K
   `Player_TouchFloor` y-only adjustment in `docs/skdisasm/sonic3k.asm:24182-24221` and
   `24325-24363` plus S2 `ResetOnFloor` parity in `docs/s2disasm/s2.asm:37769-37788`.
+  The horizontal-spring handoff fix advances F3649 -> F3845 by leaving the proactive
+  `sub_2326C` strip outside generic spring solidity and suppressing same-update solid
+  contact after the proactive launch, matching `Obj_Spring_Horizontal` ordering in
+  `docs/skdisasm/sonic3k.asm:47779-47814` and `47957-48024`.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data

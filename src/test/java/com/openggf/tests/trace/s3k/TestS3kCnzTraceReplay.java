@@ -26,6 +26,7 @@ public class TestS3kCnzTraceReplay extends AbstractTraceReplayTest {
     private static final int FRAME_FIRST_CARRY_RIGHT_PULSE = 31;
     private static final int FRAME_DELAYED_RIGHT_REACHES_TAILS = 123;
     private static final int FRAME_FIRST_MAIN_JUMP = 142;
+    private static final int FRAME_HORIZONTAL_SPRING_LANDING_HANDOFF = 3649;
 
     @Override
     protected SonicGame game() {
@@ -125,6 +126,25 @@ public class TestS3kCnzTraceReplay extends AbstractTraceReplayTest {
                     "Sonic_Jump should set Status_InAir on the first pressed frame");
             assertEquals(expected.rolling(), sonic.getRolling(),
                     "Sonic_Jump should enter roll/jump radii when jumping from standing");
+        }
+    }
+
+    @Test
+    void traceReplayHorizontalSpringLandingHandoffMatchesFrame3649() throws Exception {
+        try (BootstrappedCnzReplay replay = bootstrappedCnzReplay()) {
+            driveReplayToTraceFrame(
+                    replay.trace(),
+                    replay.fixture(),
+                    replay.replayStart(),
+                    FRAME_HORIZONTAL_SPRING_LANDING_HANDOFF);
+
+            TraceFrame expected = traceFrame(replay.trace(), FRAME_HORIZONTAL_SPRING_LANDING_HANDOFF);
+            AbstractPlayableSprite tails = GameServices.sprites().getRegisteredSidekicks().getFirst();
+            assertEquals(expected.sidekick().x(), tails.getCentreX() & 0xFFFF,
+                    "Frame 3649: ROM skips the horizontal spring side push and reaches "
+                            + "sub_2326C's proactive trigger from outside the side box");
+            assertEquals(expected.sidekick().xSpeed(), tails.getXSpeed(),
+                    "Frame 3649: proactive horizontal spring trigger applies the left spring velocity");
         }
     }
 
