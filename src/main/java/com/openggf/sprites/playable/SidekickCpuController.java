@@ -703,7 +703,13 @@ public class SidekickCpuController {
             }
         }
 
-        if (!jumpingFlag && !sidekick.getAir()) {
+        if (!jumpingFlag) {
+            // ROM runs the auto-jump distance/height/gate path regardless of
+            // Status_InAir; the in-air check only belongs to the existing
+            // Tails_CPU_auto_jump_flag clear path above (S2 s2.asm:38994-39022,
+            // S3K sonic3k.asm:26753-26782). CNZ1 uses this when delayed Sonic
+            // jump input makes Tails airborne one frame before the auto-jump
+            // latch itself fires.
             // ROM sonic3k.asm:26702-26705 (loc_13DD0) and s2.asm:38943-38946
             // (TailsCPU_Normal): if Tails is currently pushing AND the leader was
             // NOT pushing 16 frames ago, branch directly to the auto-jump trigger
