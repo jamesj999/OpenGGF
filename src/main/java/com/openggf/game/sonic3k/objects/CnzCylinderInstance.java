@@ -614,6 +614,19 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         int mask = slotMask(slot);
         nextStandingMask |= mask;
         nextHeldInputMask |= heldInputMaskFor(sprite);
+
+        // ROM Obj_CNZCylinder positions captured riders in sub_324C0 before
+        // calling SolidObjectFull with d4 = current x_pos(a0)
+        // (sonic3k.asm:67656-67672, 68026-68038). SolidObjectFull_1P then
+        // calls MvSonicOnPtfm with that same current anchor, so the platform
+        // X delta is zero for captured riders (sonic3k.asm:41038-41040,
+        // 41667-41679). Keep the standing bit feedback, but do not let the
+        // engine's previous-X riding tracker apply a second carry delta next
+        // frame.
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null && sprite.isObjectControlled()) {
+            svc.objectManager().clearRidingObject(sprite);
+        }
     }
 
     private RiderSlot resolveContactSlot(AbstractPlayableSprite sprite) {

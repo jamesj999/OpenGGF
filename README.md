@@ -211,7 +211,7 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame while keeping trace data comparison-only.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
-  v6.5 replay frontier from F3905 to F4321 while preserving S1/S2 trace baselines.
+  v6.5 replay frontier from F3905 to F4440 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the
   AIZ v6.6 replay frontier from F4679 to F4768.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
