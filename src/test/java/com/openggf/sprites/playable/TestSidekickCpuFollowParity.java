@@ -323,7 +323,7 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
-    void normalPushBypassReplaysFortyFourByteDelayedInput() {
+    void normalPushBypassPreservesDelayedControlWordWhileTestingPushStatus() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
         tails.setCpuControlled(true);
@@ -339,8 +339,8 @@ class TestSidekickCpuFollowParity {
         Arrays.fill(xHistory, (short) 0x1CED);
         Arrays.fill(yHistory, (short) 0x03C0);
         int historyPos = 20;
-        inputHistory[3] = AbstractPlayableSprite.INPUT_RIGHT;
-        inputHistory[4] = 0;
+        inputHistory[3] = 0;
+        inputHistory[4] = AbstractPlayableSprite.INPUT_RIGHT;
         statusHistory[3] = AbstractPlayableSprite.STATUS_ON_OBJECT;
         statusHistory[4] = AbstractPlayableSprite.STATUS_PUSHING;
         sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, historyPos);
@@ -353,8 +353,9 @@ class TestSidekickCpuFollowParity {
         Assertions.assertAll(
                 () -> assertFalse(controller.getInputLeft()),
                 () -> assertEquals(true, controller.getInputRight(),
-                        "ROM loc_13DA6 subtracts $44 from Pos_table_index/Stat_table (sonic3k.asm:26684-26700), "
-                                + "then loc_13DD0 can bypass steering while preserving delayed RIGHT input"));
+                        "ROM loc_13DD0 tests the delayed status byte in d4, but preserves the already-loaded "
+                                + "Ctrl_2 word in d1 when it branches to loc_13E9C "
+                                + "(sonic3k.asm:26696-26705,26775-26785; s2.asm:38939-38946)"));
     }
 
     @Test

@@ -642,7 +642,20 @@ public class SidekickCpuController {
         boolean skipFollowSteering = currentPushBypass
                 || localGracePushBypass
                 || airbornePushHandoff;
-        if (skipFollowSteering) {
+        // ROM loc_13DD0 only uses d4 (the delayed status byte) to decide
+        // whether to bypass FollowLeft/FollowRight. The Ctrl_2 word in d1 was
+        // already loaded from the same Stat_table entry and is preserved when
+        // branching to loc_13E9C (sonic3k.asm:26696-26705,26775-26785; S2
+        // s2.asm:38939-38946). Do not re-read an older input slot here: CNZ1
+        // F3925 has Status_Push set but still carries delayed RIGHT in d1, and
+        // Tails_InputAcceleration_Path consumes it for +$000C ground speed
+        // (sonic3k.asm:27798-27805,28103-28122).
+        //
+        // The S3K-only grace/airborne handoff is not a direct ROM branch; it is
+        // an engine object-order bridge for AIZ's transient push clear. Keep its
+        // older input sample so the existing F2722 airborne handoff remains one
+        // frame behind before normal follow steering resumes.
+        if (localGracePushBypass || airbornePushHandoff) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
             inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
             inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
