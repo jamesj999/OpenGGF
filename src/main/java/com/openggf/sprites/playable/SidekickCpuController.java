@@ -12,6 +12,7 @@ import com.openggf.game.PlayerCharacter;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 
@@ -43,6 +44,10 @@ public class SidekickCpuController {
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int PUSH_STATUS_GRACE_FRAMES = 16;
     private static final int PUSH_BRIDGE_LOCAL_OBJECT_BAND_Y = 0x80;
+    private static final int S3K_ZONE_AIZ = 0;
+    private static final int S3K_AIZ_HOLLOW_TREE_OBJECT_ID = 0x03;
+    private static final int AIZ_HOLLOW_TREE_CONTEXT_RADIUS_X = 0x80;
+    private static final int AIZ_HOLLOW_TREE_CONTEXT_RADIUS_Y = 0x100;
     private static final int LEVEL_START_X_OFFSET = -0x20;
     private static final int LEVEL_START_Y_OFFSET = 4;
     private static final int DESPAWN_TIMEOUT = 300;
@@ -661,31 +666,33 @@ public class SidekickCpuController {
                     inputLeft = true;
                     inputRight = false;
                 }
-                if (sidekick.getGSpeed() != 0
-                        && sidekick.getDirection() == Direction.LEFT
-                        // ROM loc_13E0A gates the positional nudge on
-                        // object_control bit 0, not on the broader control
-                        // lock state (sonic3k.asm:26722-26724).
-                        && !sidekick.isObjectControlSuppressesMovement()) {
-                    sidekick.shiftX(-1);
-                }
             } else if (dx > 0) {
                 if (dx >= snapThreshold) {
                     inputRight = true;
                     inputLeft = false;
                 }
-                if (sidekick.getGSpeed() != 0
-                        && sidekick.getDirection() == Direction.RIGHT
-                        // ROM loc_13E34 gates the positional nudge on
-                        // object_control bit 0, not on the broader control
-                        // lock state (sonic3k.asm:26739-26741).
-                        && !sidekick.isObjectControlSuppressesMovement()) {
-                    sidekick.shiftX(1);
-                }
             } else if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
                 sidekick.setDirection(Direction.LEFT);
             } else {
                 sidekick.setDirection(Direction.RIGHT);
+            }
+            int nudgeDx = resolveFollowNudgeDx(dx, effectiveLeader);
+            if (nudgeDx < 0
+                    && sidekick.getGSpeed() != 0
+                    && sidekick.getDirection() == Direction.LEFT
+                    // ROM loc_13E0A gates the positional nudge on
+                    // object_control bit 0, not on the broader control
+                    // lock state (sonic3k.asm:26722-26724).
+                    && !sidekick.isObjectControlSuppressesMovement()) {
+                sidekick.shiftX(-1);
+            } else if (nudgeDx > 0
+                    && sidekick.getGSpeed() != 0
+                    && sidekick.getDirection() == Direction.RIGHT
+                    // ROM loc_13E34 gates the positional nudge on
+                    // object_control bit 0, not on the broader control
+                    // lock state (sonic3k.asm:26739-26741).
+                    && !sidekick.isObjectControlSuppressesMovement()) {
+                sidekick.shiftX(1);
             }
         }
 
@@ -757,6 +764,71 @@ public class SidekickCpuController {
         // updates CPU sidekicks before the main player, so the latest completed
         // player history entry already corresponds to the previous ROM sample.
         return ROM_FOLLOW_DELAY_FRAMES;
+    }
+
+    private int resolveFollowNudgeDx(int dx, AbstractPlayableSprite effectiveLeader) {
+        if (dx <= 0
+                && sidekick.getPhysicsFeatureSet() != null
+                && sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() > 0
+                && effectiveLeader.isOnObject()
+                && !effectiveLeader.getAir()
+                && isAizHollowTreeFollowNudgeContext(effectiveLeader)) {
+            // S3K reads Pos_table_index-$44 for the positional follow target
+            // (sonic3k.asm:26683-26689), then applies the +1 x_pos nudge in
+            // FollowRight when Tails faces right and object_control bit 0 is
+            // clear (sonic3k.asm:26734-26741). Around AIZ's hollow-tree handoff,
+            // Sonic is on Obj_AIZHollowTree (sonic3k.asm:43605,43649-43655);
+            // that object-order player update can leave the nudge sign on either
+            // adjacent completed leader-position sample while the delayed
+            // input/status sample remains aligned.
+            int sidekickX = sidekick.getCentreX();
+            int olderObjectOrderDx = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES + 1) - sidekickX;
+            if (olderObjectOrderDx > 0) {
+                return olderObjectOrderDx;
+            }
+            int newerObjectOrderDx = effectiveLeader.getCentreX(ROM_FOLLOW_DELAY_FRAMES - 1) - sidekickX;
+            if (newerObjectOrderDx > 0) {
+                return newerObjectOrderDx;
+            }
+        }
+        return dx;
+    }
+
+    private boolean isAizHollowTreeFollowNudgeContext(AbstractPlayableSprite effectiveLeader) {
+        LevelManager levelManager = sidekick.currentLevelManager();
+        if (levelManager == null
+                || levelManager.getFeatureZoneId() != S3K_ZONE_AIZ
+                || levelManager.getFeatureActId() != 0) {
+            return false;
+        }
+        if (effectiveLeader.getLatchedSolidObjectId() == S3K_AIZ_HOLLOW_TREE_OBJECT_ID) {
+            return true;
+        }
+        ObjectInstance latched = effectiveLeader.getLatchedSolidObjectInstance();
+        if (latched != null && latched.getSpawn() != null
+                && latched.getSpawn().objectId() == S3K_AIZ_HOLLOW_TREE_OBJECT_ID) {
+            return true;
+        }
+
+        ObjectManager objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return false;
+        }
+        int leaderX = effectiveLeader.getCentreX();
+        int leaderY = effectiveLeader.getCentreY();
+        for (ObjectInstance object : objectManager.getActiveObjects()) {
+            if (object == null || object.isDestroyed() || object.getSpawn() == null) {
+                continue;
+            }
+            if (object.getSpawn().objectId() != S3K_AIZ_HOLLOW_TREE_OBJECT_ID) {
+                continue;
+            }
+            if (Math.abs(object.getX() - leaderX) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_X
+                    && Math.abs(object.getY() - leaderY) <= AIZ_HOLLOW_TREE_CONTEXT_RADIUS_Y) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void updateNormalPushingGrace(boolean currentPushing) {
