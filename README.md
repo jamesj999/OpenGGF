@@ -255,7 +255,11 @@ further S3K parity work.
   executing the consolidated giant ride vine at its ROM handle child slot and sampling
   the previous-frame `AIZ_vine_angle`, matching child allocation/routine rewrite and
   `LevelLoop` ordering in `docs/skdisasm/sonic3k.asm:46749-46787`, `46929-46950`,
-  `44841-44851`, `7894`, `7910`, `9693`, and `46843`.
+  `44841-44851`, `7894`, `7910`, `9693`, and `46843`. The sidekick push-grace follow
+  pass then advances F2709 -> F2722 by suppressing S3K follow steering while AIZ inline
+  object order bridges a transient push-flag gap, matching Tails CPU push/follow order
+  and the vine/platform capture paths in `docs/skdisasm/sonic3k.asm:26182-26220`,
+  `26683-26741`, `44784-44883`, `46481-46743`, and `46749-46950`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)

@@ -393,6 +393,44 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
+    void normalPushGraceSuppressesStationaryFollowPulseBetweenAizObjectPushFrames() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setCentreX((short) 0x1CED);
+        tails.setCentreY((short) 0x03C0);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x1D40);
+        Arrays.fill(yHistory, (short) 0x03C0);
+        Arrays.fill(statusHistory, AbstractPlayableSprite.STATUS_ON_OBJECT);
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        tails.setPushing(true);
+        controller.update(0x0971);
+        tails.setPushing(false);
+        controller.update(0x0972);
+
+        Assertions.assertAll(
+                () -> assertFalse(controller.getInputLeft()),
+                () -> assertFalse(controller.getInputRight(),
+                        "S3K loc_13DD0 (sonic3k.asm:26702-26705) bypasses follow steering while Tails is "
+                                + "still in the push bridge; AIZ vine/platform ordering clears velocity on "
+                                + "capture only, not on every held frame (sonic3k.asm:44784-44883,"
+                                + "46481-46743,46749-46950)"),
+                () -> assertFalse(controller.getInputJump(),
+                        "Non-cadence bridge frames should suppress follow input without forcing loc_13E9C"));
+    }
+
+    @Test
     void normalAutoJumpCadenceUsesInlineFrameCounterForS3kObjectOrder() throws Exception {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");

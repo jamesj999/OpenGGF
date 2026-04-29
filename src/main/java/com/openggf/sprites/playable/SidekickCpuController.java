@@ -590,9 +590,17 @@ public class SidekickCpuController {
 
         byte pushBypassStatus = effectiveLeader.getStatusHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
         // ROM loc_13DD0 tests Tails' current Status_Push byte before loc_13E9C
-        // (sonic3k.asm:26702-26705). Normal steering must key off the live bit:
-        // when ROM clears push for the two-frame AIZ 3074/3075 gap, Tails resumes
-        // follow-right input and builds the +$0C setup pulse for the next wall hit.
+        // (sonic3k.asm:26702-26705), before the follow-left/right steering
+        // blocks that can write Ctrl_2 left/right or nudge x_pos
+        // (sonic3k.asm:26717-26741). AIZ giant-vine/collapsing-platform object
+        // order can leave the engine's transient push flag clear for an inline
+        // player tick even though ROM still treats Tails as pushing: the platform
+        // resolves solid/release before its collapse transition (sonic3k.asm:
+        // 44784-44883), and the vine handles P1 then P2 after capture has cleared
+        // velocities once but does not keep clearing them while held
+        // (sonic3k.asm:46481-46743,46749-46950). Keep the S3K grace bridge in
+        // front of follow steering as well as the auto-jump gate so these inline
+        // clear ticks do not synthesize a stale +$0C ground-speed pulse.
         boolean currentPushBypass = !sidekick.getAir()
                 && currentPushing
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
@@ -603,13 +611,8 @@ public class SidekickCpuController {
                 && normalPushingGraceFrames > 0
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         boolean autoJumpCadence = (frameCounter & 0x3F) == 0;
-        boolean stationaryClearBetweenPushes = gracePushBypass
-                && !currentPushing
-                && !autoJumpCadence
-                && sidekick.getXSpeed() == 0
-                && sidekick.getGSpeed() == 0;
         boolean skipFollowSteering = currentPushBypass
-                || (gracePushBypass && !stationaryClearBetweenPushes);
+                || gracePushBypass;
         if (skipFollowSteering) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
             inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
