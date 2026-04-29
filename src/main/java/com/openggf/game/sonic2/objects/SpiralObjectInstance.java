@@ -209,9 +209,16 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
     }
 
     private void updateRidingPlayer(int frameCounter, AbstractPlayableSprite player) {
-        if (player.getLatchedSolidObjectId() == Sonic2ObjectIds.SPIRAL && player.getAir()) {
-            player.setAir(false);
+        boolean latchedToThisSpiral = player.getLatchedSolidObjectId() == Sonic2ObjectIds.SPIRAL
+                && player.getLatchedSolidObjectInstance() == this;
+        if (latchedToThisSpiral) {
+            // ROM Obj06 keeps the player in loc_215C0 while this object's standing
+            // bit is set (docs/s2disasm/s2.asm:46688-46764), then clears on_object
+            // only from the spiral fall-off path (lines 46767-46772).
             player.setOnObject(true);
+        }
+        if (latchedToThisSpiral && player.getAir()) {
+            player.setAir(false);
         }
 
         // ROM: loc_215C0
