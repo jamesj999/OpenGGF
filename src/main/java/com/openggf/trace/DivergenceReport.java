@@ -289,6 +289,11 @@ public class DivergenceReport {
         if (interactObject != null) {
             diagnostics.add(interactObject);
         }
+        TraceEvent.AizBoundaryState aizBoundary =
+                traceData.aizBoundaryStateForFrame(frame, "tails");
+        if (aizBoundary != null) {
+            diagnostics.add(aizBoundary);
+        }
         if (!diagnostics.isEmpty()) {
             sb.append("Trace diagnostics @")
                 .append(frame)

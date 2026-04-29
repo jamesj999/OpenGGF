@@ -158,6 +158,19 @@ public class TestDivergenceReport {
     }
 
     @Test
+    void testContextWindowIncludesAizBoundaryDiagnostics() throws IOException {
+        TraceData trace = createTraceDataWithAizBoundaryDiagnostics();
+        FrameComparison frame = makeComparison(5, "tails_y", Severity.ERROR, "0x040F", "0x0403");
+
+        DivergenceReport report = new DivergenceReport(List.of(frame), trace);
+        String context = report.getContextWindow(5, 0);
+
+        assertTrue(context.contains("Trace diagnostics @5:"));
+        assertTrue(context.contains("tailsAizBoundary cam=2D80/4000"));
+        assertTrue(context.contains("boundary=none 2D95,040F,0000,0000->2D95,040F,0000,0000"));
+    }
+
+    @Test
     void testTraceBinderBuildReportUsesTraceMetadataContext() throws IOException {
         TraceData trace = createTraceDataWithAuxState();
         TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
@@ -275,6 +288,36 @@ public class TestDivergenceReport {
         Files.writeString(dir.resolve("aux_state.jsonl"), """
             {"frame":5,"vfc":6,"event":"tails_cpu_normal_step","character":"tails","status":"0x00","object_control":"0x00","ground_vel":"0x000C","x_vel":"0x0000","delayed_stat":"0x08","delayed_input":"0x0800","loc_13dd0_branch":"leader_on_object","ctrl2_logical":"0x0808","ctrl2_held_logical":"0x08","path_pre_ground_vel":"0x000C","path_pre_x_vel":"0x0000","path_pre_status":"0x00","path_post_ground_vel":"0x000C","path_post_x_vel":"0x000C","path_post_status":"0x00"}
             {"frame":5,"vfc":6,"event":"sidekick_interact_object","character":"tails","interact":"0xB128","interact_slot":4,"tails_render_flags":"0x80","tails_object_control":"0x03","tails_status":"0x08","tails_on_object":true,"object_code":"0x000220C2","object_routine":"0x02","object_status":"0x10","object_x":"0x2D95","object_y":"0x0420","object_subtype":"0x40","object_render_flags":"0x80","object_object_control":"0x00","object_active":true,"object_destroyed":false,"object_p1_standing":false,"object_p2_standing":true}
+            """);
+        return TraceData.load(dir);
+    }
+
+    private TraceData createTraceDataWithAizBoundaryDiagnostics() throws IOException {
+        Path dir = Files.createTempDirectory("trace-aiz-boundary-diag-report");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-29",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_boundary_state_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0005,0000,2E2B,0339,0600,0000,0600,00,0,0,0,DA00,3700,02,2D8B,02E0,0049,00,0466,04,058C,0000,1,2D95,040F,0000,0000,0000,00,1,0,0,0000,3A00,06,02,27
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":5,"vfc":1126,"event":"aiz_boundary_state","character":"tails","camera_min_x":"0x2D80","camera_max_x":"0x4000","camera_min_y":"0x0000","camera_max_y":"0x0300","tree_pre_x":"0x2D40","tree_pre_y":"0x0402","tree_pre_x_vel":"0x00F7","tree_pre_y_vel":"0x0198","tree_post_x":"0x2D95","tree_post_y":"0x040F","tree_post_x_vel":"0x0000","tree_post_y_vel":"0x0000","boundary_pre_x":"0x2D95","boundary_pre_y":"0x040F","boundary_pre_x_vel":"0x0000","boundary_pre_y_vel":"0x0000","boundary_post_x":"0x2D95","boundary_post_y":"0x040F","boundary_post_x_vel":"0x0000","boundary_post_y_vel":"0x0000","boundary_action":"none","post_move_x":"0x2D95","post_move_y":"0x040F","post_move_x_vel":"0x0000","post_move_y_vel":"0x0000"}
             """);
         return TraceData.load(dir);
     }

@@ -256,6 +256,34 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame AIZ boundary/tree diagnostic for the sidekick around the
+     * frame-order-sensitive path where {@code Process_Sprites} runs before
+     * {@code DeformBgLayer}/{@code ScreenEvents}
+     * (docs/skdisasm/sonic3k.asm:7884-7898), AIZ resize writes
+     * {@code Camera_min_X_pos=$2D80} (docs/skdisasm/sonic3k.asm:38961-38974),
+     * {@code AIZTree_SetPlayerPos} can reposition and zero velocity
+     * (docs/skdisasm/sonic3k.asm:43776-43810), and
+     * {@code Tails_Check_Screen_Boundaries} can clamp/despawn
+     * (docs/skdisasm/sonic3k.asm:28407-28451). Diagnostic only: never
+     * hydrated into engine state.
+     */
+    record AizBoundaryState(int frame, String character,
+                            int cameraMinX, int cameraMaxX,
+                            int cameraMinY, int cameraMaxY,
+                            int treePreX, int treePreY,
+                            int treePreXVel, int treePreYVel,
+                            int treePostX, int treePostY,
+                            int treePostXVel, int treePostYVel,
+                            int boundaryPreX, int boundaryPreY,
+                            int boundaryPreXVel, int boundaryPreYVel,
+                            int boundaryPostX, int boundaryPostY,
+                            int boundaryPostXVel, int boundaryPostYVel,
+                            String boundaryAction,
+                            int postMoveX, int postMoveY,
+                            int postMoveXVel, int postMoveYVel)
+        implements TraceEvent {}
+
+    /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
      * Unknown event types are returned as StateSnapshot with all fields preserved.
      */
@@ -480,6 +508,35 @@ public sealed interface TraceEvent {
                     node.has("object_destroyed") && node.get("object_destroyed").asBoolean(),
                     node.has("object_p1_standing") && node.get("object_p1_standing").asBoolean(),
                     node.has("object_p2_standing") && node.get("object_p2_standing").asBoolean()
+                );
+                case "aiz_boundary_state" -> new AizBoundaryState(
+                    frame,
+                    parseCharacter(node),
+                    parseHexInt(node, "camera_min_x"),
+                    parseHexInt(node, "camera_max_x"),
+                    parseHexInt(node, "camera_min_y"),
+                    parseHexInt(node, "camera_max_y"),
+                    parseHexInt(node, "tree_pre_x"),
+                    parseHexInt(node, "tree_pre_y"),
+                    parseHexInt(node, "tree_pre_x_vel"),
+                    parseHexInt(node, "tree_pre_y_vel"),
+                    parseHexInt(node, "tree_post_x"),
+                    parseHexInt(node, "tree_post_y"),
+                    parseHexInt(node, "tree_post_x_vel"),
+                    parseHexInt(node, "tree_post_y_vel"),
+                    parseHexInt(node, "boundary_pre_x"),
+                    parseHexInt(node, "boundary_pre_y"),
+                    parseHexInt(node, "boundary_pre_x_vel"),
+                    parseHexInt(node, "boundary_pre_y_vel"),
+                    parseHexInt(node, "boundary_post_x"),
+                    parseHexInt(node, "boundary_post_y"),
+                    parseHexInt(node, "boundary_post_x_vel"),
+                    parseHexInt(node, "boundary_post_y_vel"),
+                    node.has("boundary_action") ? node.get("boundary_action").asText() : "",
+                    parseHexInt(node, "post_move_x"),
+                    parseHexInt(node, "post_move_y"),
+                    parseHexInt(node, "post_move_x_vel"),
+                    parseHexInt(node, "post_move_y_vel")
                 );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map
