@@ -393,7 +393,7 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
-    void normalPushGraceSuppressesStationaryFollowPulseBetweenAizObjectPushFrames() {
+    void normalPushGraceSuppressesGroundedFollowPulseInsideAizObjectBand() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
         tails.setCpuControlled(true);
@@ -409,6 +409,8 @@ class TestSidekickCpuFollowParity {
         Arrays.fill(yHistory, (short) 0x03C0);
         Arrays.fill(statusHistory, AbstractPlayableSprite.STATUS_ON_OBJECT);
         sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
+        sonic.setOnObject(true);
+        sonic.setAir(false);
 
         SidekickCpuController controller = new SidekickCpuController(tails, sonic);
         tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
@@ -422,12 +424,48 @@ class TestSidekickCpuFollowParity {
         Assertions.assertAll(
                 () -> assertFalse(controller.getInputLeft()),
                 () -> assertFalse(controller.getInputRight(),
-                        "S3K loc_13DD0 (sonic3k.asm:26702-26705) bypasses follow steering while Tails is "
-                                + "still in the push bridge; AIZ vine/platform ordering clears velocity on "
-                                + "capture only, not on every held frame (sonic3k.asm:44784-44883,"
-                                + "46481-46743,46749-46950)"),
+                        "S3K loc_13DD0 (sonic3k.asm:26702-26705) bypasses follow steering only while "
+                                + "Status_Push is currently set; AIZ object ordering keeps the engine-side "
+                                + "bridge active only while the vertical delta is still in the local object band"),
                 () -> assertFalse(controller.getInputJump(),
-                        "Non-cadence bridge frames should suppress follow input without forcing loc_13E9C"));
+                        "Non-cadence bridge frames should not force loc_13E9C's jump press"));
+    }
+
+    @Test
+    void s3kClearedPushGraceStillAllowsGroundedFollowRightInput() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setObjectControlled(false);
+        tails.setCentreX((short) 0x1F35);
+        tails.setCentreY((short) 0x049D);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x1F85);
+        Arrays.fill(yHistory, (short) 0x038B);
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        tails.setPushing(true);
+        controller.update(0x0AE0);
+        tails.setPushing(false);
+        controller.update(0x0AE1);
+        tails.setPushing(false);
+        controller.update(0x0AE2);
+
+        assertTrue(controller.getInputRight(),
+                "At AIZ F3075, Tails' current Status_Push is clear, so ROM loc_13DD0 "
+                        + "(sonic3k.asm:26702-26705) falls through to FollowRight; "
+                        + "Tails_InputAcceleration_Path then consumes Ctrl_2_logical RIGHT "
+                        + "and adds Acceleration_P2=$000C (sonic3k.asm:27798-27805,"
+                        + "28103-28122)");
     }
 
     @Test

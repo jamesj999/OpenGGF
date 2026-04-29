@@ -42,6 +42,7 @@ public class SidekickCpuController {
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int PUSH_STATUS_GRACE_FRAMES = 16;
+    private static final int PUSH_BRIDGE_LOCAL_OBJECT_BAND_Y = 0x80;
     private static final int LEVEL_START_X_OFFSET = -0x20;
     private static final int LEVEL_START_Y_OFFSET = 4;
     private static final int DESPAWN_TIMEOUT = 300;
@@ -603,9 +604,15 @@ public class SidekickCpuController {
         // resolves solid/release before its collapse transition (sonic3k.asm:
         // 44784-44883), and the vine handles P1 then P2 after capture has cleared
         // velocities once but does not keep clearing them while held
-        // (sonic3k.asm:46481-46743,46749-46950). Keep the S3K grace bridge in
-        // front of follow steering as well as the auto-jump gate so these inline
-        // clear ticks do not synthesize a stale +$0C ground-speed pulse.
+        // (sonic3k.asm:46481-46743,46749-46950). For follow steering, bridge the
+        // engine-side clear only while Tails is still in the same local object
+        // band as the delayed leader target. The AIZ collapsing-platform/vine
+        // bridge at F2709-F2720 has Tails object_control=$20/status=$20 and a
+        // small vertical delta; F3075 is far below the target, so ROM's normal
+        // height gate (sonic3k.asm:26768-26775) has already left this bridge
+        // context and the current Ctrl_2 RIGHT pulse remains live. Grounded
+        // Tails_InputAcceleration_Path converts that into +$000C ground_vel/x_vel
+        // (sonic3k.asm:27798-27805,28103-28122).
         boolean currentPushBypass = !sidekick.getAir()
                 && currentPushing
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
@@ -615,7 +622,6 @@ public class SidekickCpuController {
                 && pushBypassGraceEnabled
                 && normalPushingGraceFrames > 0
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
-        boolean autoJumpCadence = (frameCounter & 0x3F) == 0;
         boolean airbornePushHandoff = false;
         if (suppressNextAirbornePushFollowSteering) {
             // After loc_13DD0 branches to loc_13E9C, Tails_Spin_Freespace runs
@@ -627,7 +633,7 @@ public class SidekickCpuController {
             suppressNextAirbornePushFollowSteering = false;
         }
         boolean skipFollowSteering = currentPushBypass
-                || gracePushBypass
+                || (gracePushBypass && Math.abs(dy) < PUSH_BRIDGE_LOCAL_OBJECT_BAND_Y)
                 || airbornePushHandoff;
         if (skipFollowSteering) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);

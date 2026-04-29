@@ -263,7 +263,11 @@ further S3K parity work.
   handoff fix advances F2722 -> F3075 by suppressing follow steering for only the
   first S3K push-bypass airborne rolling tick, matching `Tails_Spin_Freespace` and
   `Tails_InputAcceleration_Freespace` order in `docs/skdisasm/sonic3k.asm:27765-27784`
-  and `28330-28401`.
+  and `28330-28401`. The grounded-speed replay fix advances F3075 -> F3169 by keeping
+  S3K CPU Tails's grounded acceleration path alive through the sidekick control copy and
+  height-gate branch, matching `Acceleration_P2=$000C` and the grounded input acceleration
+  flow in `docs/skdisasm/sonic3k.asm:26114`, `26321`, `26768-26775`, `27798-27805`,
+  and `28103-28122`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
