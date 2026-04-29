@@ -1857,12 +1857,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			rightBoundary += RIGHT_EXTRA;
 		}
 
-		// ROM comparison: bhi.s for left (<), bls.s for right (>=)
+		// ROM comparison: left is always bhi.s (<). S1/S2 right uses bls.s
+		// (>=), while S3K uses blo.s (>), gated by PhysicsFeatureSet.
 		if (predictedX < leftBoundary) {
 			sprite.setCentreX((short) leftBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
-		} else if (predictedX >= rightBoundary) {
+		} else if (isPastRightLevelBoundary(predictedX, rightBoundary)) {
 			sprite.setCentreX((short) rightBoundary);
 			sprite.setXSpeed((short) 0);
 			sprite.setGSpeed((short) 0);
@@ -1905,6 +1906,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				}
 			}
 		}
+	}
+
+	private boolean isPastRightLevelBoundary(int predictedX, int rightBoundary) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		return featureSet != null && featureSet.levelBoundaryRightStrict()
+				? predictedX > rightBoundary
+				: predictedX >= rightBoundary;
 	}
 
 	private boolean isCpuLevelBoundaryKillActive() {
