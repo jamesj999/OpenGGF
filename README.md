@@ -267,7 +267,10 @@ further S3K parity work.
   S3K CPU Tails's grounded acceleration path alive through the sidekick control copy and
   height-gate branch, matching `Acceleration_P2=$000C` and the grounded input acceleration
   flow in `docs/skdisasm/sonic3k.asm:26114`, `26321`, `26768-26775`, `27798-27805`,
-  and `28103-28122`.
+  and `28103-28122`. The follow-up push-grace autojump fix advances F3169 -> F4580
+  by limiting the S3K sidekick push-grace bridge to the local object band before
+  bypassing ROM's distance/height gates, matching `docs/skdisasm/sonic3k.asm:26702-26705`,
+  `26760-26783`, `27798-27805`, and `28103-28122`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
