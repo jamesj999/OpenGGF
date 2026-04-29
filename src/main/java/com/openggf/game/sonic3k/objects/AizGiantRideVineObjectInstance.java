@@ -47,6 +47,8 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
     private final Segment first;
     private final Segment[] chain;
     private final AizVineHandleLogic.State handle = new AizVineHandleLogic.State();
+    private boolean childSlotsReserved;
+    private int handleExecutionSlot = -1;
     private boolean activatedSwingStarted;
     private boolean activatedSwingReturning;
     private int activatedSwingAngle;
@@ -106,8 +108,27 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
     }
 
     @Override
+    public int getReservedChildSlotCount() {
+        return romChildSlotCount();
+    }
+
+    @Override
+    public int getExecutionSlotIndex() {
+        // ROM Obj_AIZGiantRideVine keeps the root in its parent slot, then
+        // allocates children after it and rewrites the final child to loc_2257E
+        // (docs/skdisasm/sonic3k.asm:46749-46787, 46929-46950). sub_220C2
+        // player carry runs from that handle child after earlier slots such as
+        // Obj_CollapsingPlatform's loc_205DE solid pass
+        // (docs/skdisasm/sonic3k.asm:44841-44851). Execute the consolidated
+        // Java object at the handle slot once it has been reserved, while
+        // retaining the parent slot for lifecycle and child-slot cleanup.
+        return handleExecutionSlot >= 0 ? handleExecutionSlot : super.getExecutionSlotIndex();
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        reserveRomChildSlots();
         int gameplayFrameCounter = frameCounter;
         ObjectServices svc = tryServices();
         if (svc != null && svc.levelManager() != null) {
@@ -250,6 +271,28 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
         }
     }
 
+    private void reserveRomChildSlots() {
+        if (childSlotsReserved || getSlotIndex() < 0) {
+            return;
+        }
+        childSlotsReserved = true;
+        ObjectServices svc = tryServices();
+        if (svc == null || svc.objectManager() == null) {
+            return;
+        }
+        int childCount = romChildSlotCount();
+        if (childCount > 0) {
+            int[] childSlots = svc.objectManager().allocateChildSlotsAfter(spawn, childCount, getSlotIndex());
+            handleExecutionSlot = childSlots[childSlots.length - 1];
+        }
+    }
+
+    private int romChildSlotCount() {
+        // Obj_AIZGiantRideVine allocates one child, then dbf allocates the
+        // remaining low-nibble count; the final child is rewritten as the handle.
+        return segmentCount + 1;
+    }
+
     private void clearGrabbedPlayers() {
         AbstractPlayableSprite player = resolveMainPlayer();
         var sidekicks = services().sidekicks();
@@ -274,8 +317,13 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
     }
 
     private static int currentAizVineAngleByte(int frameCounter) {
-        // ROM: (AIZ_vine_angle).w is cleared on level init and incremented by $180 each frame.
-        int word = (frameCounter * 0x180) & 0xFFFF;
+        // ROM LevelLoop runs Process_Sprites before ChangeRingFrame
+        // (docs/skdisasm/sonic3k.asm:7894, 7910), and ChangeRingFrame then
+        // increments AIZ_vine_angle by $180 (docs/skdisasm/sonic3k.asm:9693).
+        // Obj_AIZGiantRideVine's loc_2248A reads the word during Process_Sprites
+        // (docs/skdisasm/sonic3k.asm:46843), so object code sees the angle value
+        // accumulated through the previous gameplay frame.
+        int word = (Math.max(0, frameCounter - 1) * 0x180) & 0xFFFF;
         // move.b (AIZ_vine_angle).w,d0 reads the high byte.
         return (word >> 8) & 0xFF;
     }

@@ -466,13 +466,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             AizHollowTreeObjectInstance.resetTreeRevealCounter();
         }
         if (shouldSpawnIntro(act)) {
-            // Suppress Tails sidekick immediately so he doesn't appear before
-            // the intro object's first update(). ROM: Tails_CPU_routine = $20.
             // ROM: SpawnLevelMainSprites clears Level_started_flag as part of the
             // intro bootstrap, before Obj_intPlane executes its first update.
             camera().setLevelStarted(false);
-            AizPlaneIntroInstance.setSidekickSuppressed(true);
-            LOG.info("AIZ1 intro: will spawn intro object");
+            introSpawned = spawnIntroObject();
         } else if (act == 0) {
             // Skip-intro: apply main-level terrain overlays and palette now
             // rather than deferring to the camera X >= $1400 gate in update().
@@ -511,9 +508,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     private void updateAct1(int frameCounter) {
         // Spawn intro object (one-shot)
-        if (!introSpawned && shouldSpawnIntro(0)) {
-            spawnIntroObject();
-            introSpawned = true;
+        if (shouldSpawnIntro(0)
+                && (!introSpawned
+                        || (!camera().isLevelStarted()
+                                && camera().getX() < MIN_X_TRACK_START
+                                && !hasLiveIntroObject()))) {
+            introSpawned = spawnIntroObject();
         }
 
         int cameraX = camera().getX();
@@ -537,6 +537,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // --- Routine 0: Palette swap at camera X >= $1308 ---
         if (!paletteSwapped && cameraX >= PALETTE_SWAP_X) {
             loadPaletteFromPalPointers(PAL_AIZ_INDEX);
+            releaseAizIntroSidekickMarker();
             paletteSwapped = true;
             LOG.info("AIZ1: loaded main palette (PalPointers #0x2A) at cameraX=0x"
                     + Integer.toHexString(cameraX));
@@ -591,6 +592,20 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
 
         updateFireTransition();
+    }
+
+    private void releaseAizIntroSidekickMarker() {
+        // ROM AIZ1_Resize loc_1C4C4 (sonic3k.asm:38898-38900):
+        // after the main AIZ palette handoff, Tails_CPU_routine is set to 2.
+        SpriteManager sm = spriteManager();
+        if (sm == null) {
+            return;
+        }
+        for (AbstractPlayableSprite sidekick : sm.getSidekicks()) {
+            if (sidekick.getCpuController() != null) {
+                sidekick.getCpuController().releaseAizIntroDormantMarker();
+            }
+        }
     }
 
     /**
@@ -663,12 +678,33 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return act == 0 && !bootstrap.isSkipIntro();
     }
 
-    private void spawnIntroObject() {
+    private boolean spawnIntroObject() {
+        if (hasLiveIntroObject()) {
+            return true;
+        }
+        LevelManager lm = levelManager();
+        if (lm == null || lm.getObjectManager() == null) {
+            return false;
+        }
+
+        // ROM SpawnLevelMainSprites installs Obj_AIZPlaneIntro into one fixed object slot.
+        // The event fallback may run through a separate AIZ event instance during bootstrap,
+        // so reuse the existing parent instead of allocating a second scroll controller.
         ObjectSpawn spawn = new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0);
         if (spawnObject(() -> new AizPlaneIntroInstance(spawn)) == null) {
-            return;
+            return false;
         }
         LOG.info("AIZ1 intro: spawned plane intro object");
+        return true;
+    }
+
+    private boolean hasLiveIntroObject() {
+        LevelManager lm = levelManager();
+        if (lm == null || lm.getObjectManager() == null) {
+            return false;
+        }
+        return lm.getObjectManager().getActiveObjects().stream()
+                .anyMatch(object -> object instanceof AizPlaneIntroInstance && !object.isDestroyed());
     }
 
     private void applyHollowTreeScreenEvent(int cameraX) {
@@ -1791,6 +1827,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         // fire overlay continues rendering through the transition.
                         .deactivateLevelNow(false)
                         .preserveMusic(false)
+                        // AIZ1 -> AIZ2 fire transition is the same timed run.
+                        // ROM does not clear Timer or Ring_count here; clearing
+                        // them inflates the AIZ2 results bonus and delays exit.
+                        .preserveLevelGamestate(true)
                         .showInLevelTitleCard(false)
                         .forceAirOnStaleObjectSupportLoss(true)
                         .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2)

@@ -302,6 +302,30 @@ public class HeadlessTestRunner {
     }
 
     /**
+     * Consumes one BK2 input frame without mutating gameplay or timing counters.
+     * Used when native bootstrap code has already reproduced the corresponding
+     * game state, but the replay cursor still needs to move past the movie row.
+     */
+    public int consumeRecordingFrameInputOnly() {
+        if (bk2Movie == null) {
+            throw new IllegalStateException("No BK2 movie loaded. Call setBk2Movie() first.");
+        }
+        if (currentBk2Index >= bk2Movie.getFrameCount()) {
+            throw new IllegalStateException(
+                    "BK2 movie exhausted at index " + currentBk2Index
+                    + " (movie has " + bk2Movie.getFrameCount() + " frames)");
+        }
+
+        Bk2FrameInput frameInput = bk2Movie.getFrame(currentBk2Index);
+        int mask = frameInput.p1InputMask();
+        if (frameInput.p1ActionMask() != 0) {
+            mask |= AbstractPlayableSprite.INPUT_JUMP;
+        }
+        currentBk2Index++;
+        return mask;
+    }
+
+    /**
      * Returns the number of BK2 recording frames remaining.
      *
      * @return Remaining frames, or 0 if no movie is loaded

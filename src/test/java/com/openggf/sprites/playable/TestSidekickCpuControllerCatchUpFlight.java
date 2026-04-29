@@ -55,9 +55,10 @@ class TestSidekickCpuControllerCatchUpFlight {
         assertEquals((short) 0, tails.getXSpeed(), "Velocities zeroed");
         assertEquals((short) 0, tails.getYSpeed(), "Velocities zeroed");
         assertEquals((short) 0, tails.getGSpeed(), "Velocities zeroed");
-        assertEquals(1, tails.getDoubleJumpFlag(),
-                "double_jump_flag set to 1 so flight gravity applies on next tick");
+        assertEquals(0, tails.getDoubleJumpFlag(),
+                "ROM loc_13B50 clears double_jump_flag; catch-up flight is CPU/object-control driven");
         assertTrue(tails.getAir(), "status air bit set");
+        assertTrue(tails.isObjectControlled(), "ROM loc_13B50 writes object_control=$81");
         assertSame(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, controller.getState(),
                 "Transitions to routine 0x04 (FLIGHT_AUTO_RECOVERY) on trigger");
     }
@@ -104,5 +105,28 @@ class TestSidekickCpuControllerCatchUpFlight {
 
         assertSame(SidekickCpuController.State.CATCH_UP_FLIGHT, controller.getState(),
                 "Sonic object-controlled suppresses the 64-frame gate");
+    }
+
+    @Test
+    void catchUpWaitPreservesMarkerObjectControlAndAirState() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setControlLocked(false);
+        tails.setObjectControlled(false);
+        tails.setForcedAnimationId(-1);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.CATCH_UP_FLIGHT, 0);
+
+        controller.update(1);
+
+        assertSame(SidekickCpuController.State.CATCH_UP_FLIGHT, controller.getState(),
+                "Frame 1 has no catch-up trigger");
+        assertTrue(tails.getAir(), "ROM routine 2 wait preserves status.in_air from the marker");
+        assertTrue(tails.isControlLocked(), "ROM routine 2 wait preserves object_control bit 0");
+        assertTrue(tails.isObjectControlled(), "ROM routine 2 wait preserves object_control bit 7");
+        assertTrue(tails.getForcedAnimationId() >= 0, "Wait remains in the fly animation state");
     }
 }

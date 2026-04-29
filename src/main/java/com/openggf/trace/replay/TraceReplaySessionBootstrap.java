@@ -2,7 +2,6 @@ package com.openggf.trace.replay;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.InitStep;
@@ -12,10 +11,12 @@ import com.openggf.game.session.GameplayTeamBootstrap;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
 
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -56,7 +57,7 @@ public final class TraceReplaySessionBootstrap {
      * the first ROM-accurate collision or enemy destruction.
      */
     public static void resetLevelSubsystemsForReplay() {
-        LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+        LevelInitProfile profile = GameServices.module().getLevelInitProfile();
         for (InitStep step : profile.perTestResetSteps()) {
             try {
                 step.execute();
@@ -75,7 +76,7 @@ public final class TraceReplaySessionBootstrap {
         // eyelid flicker) and causes subpixel drift that surfaces at
         // the first enemy destruction.
         if (GameServices.runtimeOrNull() != null) {
-            GameRng rng = GameServices.rng();
+            GameRng rng = GameServices.rngOrNull();
             if (rng != null) {
                 rng.setSeed(0L);
             }
@@ -95,7 +96,7 @@ public final class TraceReplaySessionBootstrap {
      * session tears down.
      */
     public static void prepareConfiguration(TraceData trace, TraceMetadata meta) {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
 
         // Team: the recorded trace dictates the team. If metadata
         // didn't record one (legacy), force Sonic-solo â€” the trace
@@ -130,7 +131,7 @@ public final class TraceReplaySessionBootstrap {
     }
 
     public static ConfigSnapshot snapshotGameplayConfig() {
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         return new ConfigSnapshot(
                 config.getConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE),
                 config.getConfigValue(SonicConfiguration.SIDEKICK_CHARACTER_CODE),
@@ -142,7 +143,7 @@ public final class TraceReplaySessionBootstrap {
         if (snapshot == null) {
             return;
         }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = GameServices.configuration();
         restore(config, SonicConfiguration.MAIN_CHARACTER_CODE, snapshot.mainCharacterCode());
         restore(config, SonicConfiguration.SIDEKICK_CHARACTER_CODE, snapshot.sidekickCharacterCode());
         restore(config, SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, snapshot.crossGameFeaturesEnabled());
@@ -198,8 +199,24 @@ public final class TraceReplaySessionBootstrap {
         for (int i = 0; i < preTraceOsc; i++) {
             OscillationManager.update(-(preTraceOsc - i));
         }
+        OscillationManager.suppressNextFrames(
+                TraceReplayBootstrap.initialOscillationSuppressionFramesForTraceReplay(trace));
         int sidekickPreludeFrames =
                 TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace);
+        int objectPreludeFrames =
+                TraceReplayBootstrap.levelObjectTitleCardPreludeFramesForTraceReplay(trace);
+        if (objectPreludeFrames > 0
+                && fixture.runtime() != null
+                && fixture.runtime().getLevelManager() != null
+                && fixture.runtime().getLevelManager().getObjectManager() != null) {
+            var levelManager = fixture.runtime().getLevelManager();
+            var objectManager = levelManager.getObjectManager();
+            var camera = GameServices.cameraOrNull();
+            int cameraX = camera != null ? camera.getX() : 0;
+            for (int i = 0; i < objectPreludeFrames; i++) {
+                objectManager.update(cameraX, null, List.of(), -(objectPreludeFrames - i), false);
+            }
+        }
         if (sidekickPreludeFrames > 0
                 && fixture.runtime() != null
                 && fixture.runtime().getSpriteManager() != null
@@ -213,6 +230,44 @@ public final class TraceReplaySessionBootstrap {
         TraceReplayBootstrap.ReplayStartState replayStart =
                 TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, fixture);
         return new BootstrapResult(hydration, replayStart);
+    }
+
+    /**
+     * Live trace visualisation starts at trace frame 0 and must not consume
+     * visible trace prefix frames before the first rendered frame. Headless
+     * replay may warm through legacy prefixes to align comparison, but doing
+     * that in the live launcher makes full-intro traces appear to skip ahead.
+     */
+    public static BootstrapResult applyLiveBootstrap(TraceData trace,
+                                                     TraceReplayFixture fixture,
+                                                     int preTraceOscOverride) {
+        int preTraceOsc = TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(
+                trace, preTraceOscOverride);
+        for (int i = 0; i < preTraceOsc; i++) {
+            OscillationManager.update(-(preTraceOsc - i));
+        }
+        TraceObjectSnapshotBinder.Result hydration =
+                TraceReplayBootstrap.applyPreTraceState(trace, fixture);
+        return new BootstrapResult(hydration, TraceReplayBootstrap.ReplayStartState.DEFAULT);
+    }
+
+    /**
+     * Align replay-local gameplay counters once before the comparison loop.
+     * This is bootstrap state equivalent to loading the BK2 save-state point;
+     * it is not per-frame trace hydration. The value comes from the trace row
+     * immediately before the first driven row so native per-frame increments
+     * keep both counters aligned afterward.
+     */
+    public static void alignFrameCountersForReplayStart(TraceFrame previousDriveFrame,
+                                                        TraceFrame firstDriveFrame) {
+        if (previousDriveFrame != null && previousDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.spritesOrNull() != null) {
+            GameServices.spritesOrNull().setFrameCounter(previousDriveFrame.gameplayFrameCounter());
+        }
+        if (firstDriveFrame != null && firstDriveFrame.gameplayFrameCounter() >= 0
+                && GameServices.levelOrNull() != null) {
+            GameServices.levelOrNull().setFrameCounter(firstDriveFrame.gameplayFrameCounter());
+        }
     }
 
     /**
@@ -255,19 +310,19 @@ public final class TraceReplaySessionBootstrap {
         // initial load, which drifts physics at the first collision.
         sprite.setCentreX(meta.startX());
         sprite.setCentreY(meta.startY());
-        if (GameServices.module() != null && GameServices.level() != null) {
+        var level = GameServices.levelOrNull();
+        if (level != null) {
             GameplayTeamBootstrap.repositionRegisteredSidekicks(
                     GameServices.module(),
-                    GameServices.level());
-        }
-        if (GameServices.level() != null) {
-            GroundSensor.setLevelManager(GameServices.level());
-            GameServices.level().initCameraForLevel();
-            GameServices.level().initLevelEventsForLevel();
+                    level);
+            GroundSensor.setLevelManager(level);
+            level.initCameraForLevel();
+            level.initLevelEventsForLevel();
         }
         // Ground snap: 14 subpixel threshold matches the fixture.
-        if (GameServices.collision() != null) {
-            GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+        var collision = GameServices.collisionOrNull();
+        if (collision != null) {
+            collision.resolveGroundAttachment(sprite, 14, () -> false);
         }
     }
 

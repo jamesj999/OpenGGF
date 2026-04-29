@@ -26,7 +26,6 @@ import java.util.List;
  * </ul>
  */
 public class Sonic3kSpikeObjectInstance extends AbstractSpikeObjectInstance {
-
     // Push mode constants (ROM: sub_2438A)
     private static final int PUSH_RATE_PERIOD = 0x10;   // $3A reset value: every 17 frames
     private static final int PUSH_MAX_DISTANCE = 0x20;  // $3C init: 32 pixels total

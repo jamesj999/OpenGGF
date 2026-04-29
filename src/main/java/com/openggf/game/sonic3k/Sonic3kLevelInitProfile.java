@@ -83,17 +83,17 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
 
     @Override
     protected InitStep perTestLeadStep() {
-        return new InitStep("ResetAizSidekickSuppression",
-                "Resets all AizPlaneIntroInstance static phase state (scroll, terrain swap, decompression, sidekick suppression)",
+        return new InitStep("ResetAizIntroPhaseState",
+                "Resets all AizPlaneIntroInstance static phase state (scroll, terrain swap, decompression)",
                 AizPlaneIntroInstance::resetIntroPhaseState);
     }
 
     @Override
     protected List<StaticFixup> gameSpecificFixups() {
         return List.of(
-                new StaticFixup("ResetAizSidekickSuppression",
-                        "AIZ intro sets sidekick suppression flag that persists across level loads",
-                        () -> AizPlaneIntroInstance.setSidekickSuppressed(false))
+                new StaticFixup("ResetAizIntroPhaseState",
+                        "AIZ intro phase state persists across level loads",
+                        AizPlaneIntroInstance::resetIntroPhaseState)
         );
     }
 }

@@ -6,11 +6,13 @@ import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -23,9 +25,11 @@ import com.openggf.game.GroundMode;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ExtendWith(SingletonResetExtension.class)
@@ -77,9 +81,13 @@ public class TestPlayableSpriteMovement {
         }
 
         private void setPhysicsFeatureSetForTest(PhysicsFeatureSet featureSet) throws Exception {
+                setPhysicsFeatureSetForTest(mockSprite, featureSet);
+        }
+
+        private void setPhysicsFeatureSetForTest(AbstractPlayableSprite sprite, PhysicsFeatureSet featureSet) throws Exception {
                 Field field = AbstractPlayableSprite.class.getDeclaredField("physicsFeatureSet");
                 field.setAccessible(true);
-                field.set(mockSprite, featureSet);
+                field.set(sprite, featureSet);
         }
 
         @Test
@@ -727,6 +735,148 @@ public class TestPlayableSpriteMovement {
                 assertEquals((short) 1024, mockSprite.getXSpeed(), "Air control should work when not hurt - right input"); // 1000 + 24
         }
 
+        @Test
+        public void testS3kCpuTailsAirControlUsesCpuLogicalInputWhileControlLocked() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+
+                Tails tails = new Tails("tails", (short) 0, (short) 0);
+                setPhysicsFeatureSetForTest(tails, PhysicsFeatureSet.SONIC_3K);
+                PlayableSpriteMovement tailsMovement = new PlayableSpriteMovement(tails);
+
+                GameServices.camera().setMinX((short) 0);
+                GameServices.camera().setMaxX((short) 0x7FFF);
+                GameServices.camera().setMaxY((short) 0x7FFF);
+                tails.setCpuControlled(true);
+                tails.setControlLocked(true);
+                tails.setSuppressAirCollision(true);
+                tails.setAir(true);
+                tails.setCentreX((short) 0x1269);
+                tails.setCentreY((short) 0x071E);
+                tails.setSubpixelRaw(0xC100, 0x2000);
+                tails.setXSpeed((short) -0x0444);
+                tails.setYSpeed((short) 0x01B8);
+                tails.setGSpeed((short) 0);
+
+                tailsMovement.handleMovement(false, false, true, false, false, false, false, false);
+
+                assertEquals((short) -0x045C, tails.getXSpeed(),
+                                "S3K Tails_InputAcceleration_Freespace applies the CPU left input before movement");
+                assertEquals(0x6500, tails.getXSubpixelRaw(),
+                                "MoveSprite_TestGravity should move with the post-acceleration x_vel");
+                assertEquals(0xD800, tails.getYSubpixelRaw(),
+                                "MoveSprite_TestGravity should move with the old y_vel before +$38 gravity");
+                assertEquals((short) 0x01F0, tails.getYSpeed(),
+                                "MoveSprite_TestGravity applies +$38 gravity after capturing old y_vel");
+                assertTrue(tails.getAir(), "Post-cage Tails should remain airborne on the split frame");
+        }
+
+        @Test
+        public void testS3kDeferredObjectControlReleaseRunsGroundWalkoffPath() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+
+                Tails tails = new Tails("tails_p2", (short) 0, (short) 0);
+                setPhysicsFeatureSetForTest(tails, PhysicsFeatureSet.SONIC_3K);
+                CollisionSystem collisionSystem = new NoGroundAttachmentCollisionSystem();
+                PlayableSpriteMovement tailsMovement = new PlayableSpriteMovement(tails, collisionSystem, GameServices.gameState());
+                installRuntimeCollisionSystem(collisionSystem);
+
+                GameServices.camera().setMinX((short) 0);
+                GameServices.camera().setMaxX((short) 0x7FFF);
+                GameServices.camera().setMaxY((short) 0x7FFF);
+                tails.setCentreX((short) 0x1D44);
+                tails.setCentreY((short) 0x03C3);
+                tails.setSubpixelRaw(0x1000, 0x7000);
+                tails.setAir(false);
+                tails.setRolling(false);
+                tails.setOnObject(false);
+                tails.setAngle((byte) 0);
+                tails.setXSpeed((short) 0);
+                tails.setYSpeed((short) 0);
+                tails.setGSpeed((short) 0x0266);
+
+                // AIZ vine handoff mirrors ROM object_control=$02: object control is
+                // still non-zero for sidekick/ordering gates, but bit 0 no longer owns
+                // movement. Player_AnglePos must still run and take the walkoff branch
+                // when no floor/support is found (sonic3k.asm:18728, 18839-18842).
+                tails.setObjectControlled(true);
+                tails.setObjectControlAllowsCpu(true);
+                tails.setControlLocked(true);
+                tails.deferObjectControlRelease();
+
+                tailsMovement.handleMovement(false, false, false, true, false, false, false, false);
+
+                assertTrue(tails.getAir(), "Non-bit-0 object control must still reach Player_AnglePos walkoff");
+                assertFalse(tails.getRolling(), "Walkoff is not the vine jump/eject path");
+                assertEquals((short) 0, tails.getYSpeed(), "Walkoff itself does not apply gravity until the next air frame");
+                assertEquals((short) 0x0266, tails.getGSpeed(), "Ground inertia is preserved by the walkoff frame");
+        }
+
+        @Test
+        public void testS3kCpuTailsClearsStalePushVelocityBeforeGroundMove() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+
+                Tails tails = new Tails("tails_p2", (short) 0, (short) 0);
+                setPhysicsFeatureSetForTest(tails, PhysicsFeatureSet.SONIC_3K);
+                CollisionSystem collisionSystem = new StableGroundCollisionSystem();
+                PlayableSpriteMovement tailsMovement = new PlayableSpriteMovement(tails, collisionSystem, GameServices.gameState());
+                installRuntimeCollisionSystem(collisionSystem);
+
+                GameServices.camera().setMinX((short) 0);
+                GameServices.camera().setMaxX((short) 0x7FFF);
+                GameServices.camera().setMaxY((short) 0x7FFF);
+                tails.setCpuControlled(true);
+                tails.setAir(false);
+                tails.setPushing(true);
+                tails.setCentreX((short) 0x1CED);
+                tails.setCentreY((short) 0x03C0);
+                tails.setSubpixelRaw(0xEE00, 0x2800);
+                tails.setXSpeed((short) 0x000C);
+                tails.setYSpeed((short) 0);
+                tails.setGSpeed((short) 0x000C);
+
+                tailsMovement.handleMovement(false, false, false, false, false, false, false, false);
+
+                assertEquals((short) 0, tails.getXSpeed(),
+                                "Stale push velocity is cleared before the no-input ground move");
+                assertEquals((short) 0, tails.getGSpeed(),
+                                "Stale push inertia is cleared before the no-input ground move");
+                assertEquals(0xEE00, tails.getXSubpixelRaw(),
+                                "Clearing stale push velocity must not advance x_pos_sub");
+        }
+
+        @Test
+        public void testS3kCpuTailsKeepsCollisionPushXVelocityWhenGroundVelocityIsZero() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+
+                Tails tails = new Tails("tails_p2", (short) 0, (short) 0);
+                setPhysicsFeatureSetForTest(tails, PhysicsFeatureSet.SONIC_3K);
+                CollisionSystem collisionSystem = new PushCollisionVelocitySystem();
+                PlayableSpriteMovement tailsMovement = new PlayableSpriteMovement(tails, collisionSystem, GameServices.gameState());
+                installRuntimeCollisionSystem(collisionSystem);
+
+                GameServices.camera().setMinX((short) 0);
+                GameServices.camera().setMaxX((short) 0x7FFF);
+                GameServices.camera().setMaxY((short) 0x7FFF);
+                tails.setCpuControlled(true);
+                tails.setAir(false);
+                tails.setPushing(true);
+                tails.setCentreX((short) 0x1F35);
+                tails.setCentreY((short) 0x049D);
+                tails.setSubpixelRaw(0x5900, 0x3700);
+                tails.setXSpeed((short) 0);
+                tails.setYSpeed((short) 0);
+                tails.setGSpeed((short) 0x0100);
+
+                tailsMovement.handleMovement(false, false, false, false, false, false, false, false);
+
+                assertEquals((short) -0x00E8, tails.getXSpeed(),
+                                "ROM Tails_InputAcceleration_Path keeps side-collision x_vel after ground_vel is zeroed");
+                assertEquals((short) 0, tails.getGSpeed(),
+                                "The side-collision push frame has already zeroed ground velocity");
+                assertEquals(0x7100, tails.getXSubpixelRaw(),
+                                "MoveSprite_TestGravity2 must advance by the preserved collision x_vel");
+        }
+
         /**
          * Test that rolling is prevented when the down key is locked.
          */
@@ -1108,6 +1258,58 @@ public class TestPlayableSpriteMovement {
                                                 Consumer<AbstractPlayableSprite> landingHandler,
                                                 boolean forceFloorCheck) {
                         probe.accept(sprite, landingHandler, forceFloorCheck);
+                }
+        }
+
+        private static final class NoGroundAttachmentCollisionSystem extends CollisionSystem {
+                private NoGroundAttachmentCollisionSystem() {
+                        super(new TerrainCollisionManager());
+                }
+
+                @Override
+                public void resolveGroundAttachment(AbstractPlayableSprite sprite,
+                                                    int positiveThreshold,
+                                                    BooleanSupplier hasObjectSupport) {
+                        sprite.setAir(true);
+                        sprite.setPushing(false);
+                }
+        }
+
+        private static final class StableGroundCollisionSystem extends CollisionSystem {
+                private StableGroundCollisionSystem() {
+                        super(new TerrainCollisionManager());
+                }
+
+                @Override
+                public void resolveGroundAttachment(AbstractPlayableSprite sprite,
+                                                    int positiveThreshold,
+                                                    BooleanSupplier hasObjectSupport) {
+                        sprite.setAir(false);
+                }
+        }
+
+        private static final class PushCollisionVelocitySystem extends CollisionSystem {
+                private PushCollisionVelocitySystem() {
+                        super(new TerrainCollisionManager());
+                }
+
+                @Override
+                public void resolveGroundAttachment(AbstractPlayableSprite sprite,
+                                                    int positiveThreshold,
+                                                    BooleanSupplier hasObjectSupport) {
+                        sprite.setAir(false);
+                }
+
+                @Override
+                public void resolveGroundWallCollision(AbstractPlayableSprite sprite) {
+                        // ROM Tails_InputAcceleration_Path converts nonzero ground_vel
+                        // to x_vel first, then CalcRoomInFront's push path zeroes
+                        // ground_vel while preserving the collision x_vel for
+                        // MoveSprite_TestGravity2 (sonic3k.asm:27947-27955,
+                        // 27997-28017).
+                        sprite.setXSpeed((short) -0x00E8);
+                        sprite.setGSpeed((short) 0);
+                        sprite.setPushing(true);
                 }
         }
 

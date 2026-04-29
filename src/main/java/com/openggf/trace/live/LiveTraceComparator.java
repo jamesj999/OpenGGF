@@ -198,8 +198,8 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     }
 
     private String summariseNearbyObjects() {
-        ObjectManager om = GameServices.level() != null
-                ? GameServices.level().getObjectManager() : null;
+        var level = GameServices.levelOrNull();
+        ObjectManager om = level != null ? level.getObjectManager() : null;
         if (om == null) {
             return "    (no ObjectManager)";
         }

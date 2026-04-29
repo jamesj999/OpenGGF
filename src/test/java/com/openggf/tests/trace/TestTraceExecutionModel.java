@@ -66,21 +66,17 @@ class TestTraceExecutionModel {
     }
 
     @Test
-    void legacyS3kAizIntroFramesReplayAsFullFramesBeforeGameplayStart() throws Exception {
+    void legacyS3kAizIntroTicksReplayAsFullFramesBeforeGameplayStart() throws Exception {
         TraceData trace = TraceData.load(
                 Path.of("src/test/resources/traces/s3k/aiz1_to_hcz_fullrun"));
         // Frames 500/501 are well into the AIZ1 intro cutscene (past the first
-        // in-level frame at 289, before gameplay_start at 1386). The player is
-        // frozen on the vine with all speed fields zeroed, so the legacy
-        // heuristic's motion check returns FULL_LEVEL_FRAME for this window.
-        // Frames 0/1 were unsuitable for this test because the recorder samples
-        // stale Player_1 RAM (non-zero y_speed) before the level loads, which
-        // flips the heuristic into VBLANK_ONLY even though gameplay_frame_counter
-        // is pinned at 0.
+        // in-level frame at 289, before gameplay_start at 1386). This section
+        // is native level execution, so it must tick as full frames even while
+        // player control is still locked by the intro object.
         TraceFrame previous = trace.getFrame(500);
         TraceFrame current = trace.getFrame(501);
 
-        assertEquals(previous.gameplayFrameCounter(), current.gameplayFrameCounter());
+        assertEquals(previous.gameplayFrameCounter() + 1, current.gameplayFrameCounter());
         assertEquals(TraceExecutionPhase.FULL_LEVEL_FRAME,
                 TraceReplayBootstrap.phaseForReplay(trace, previous, current));
     }

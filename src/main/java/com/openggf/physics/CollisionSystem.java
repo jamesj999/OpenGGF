@@ -4,6 +4,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GroundMode;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.IdentityHashMap;
@@ -188,7 +189,23 @@ public class CollisionSystem {
     }
 
     public boolean hasObjectSupport(AbstractPlayableSprite player) {
-        return isRidingObject(player) || hasStandingContact(player);
+        return isRidingObject(player) || hasStandingContact(player) || hasActiveLatchedObjectSupport(player);
+    }
+
+    private boolean hasActiveLatchedObjectSupport(AbstractPlayableSprite player) {
+        if (player == null || objectManager == null || !player.isOnObject()
+                || player.getLatchedSolidObjectId() == 0) {
+            return false;
+        }
+        ObjectInstance latchedInstance = player.getLatchedSolidObjectInstance();
+        if (!objectManager.isActiveObjectInstance(latchedInstance)) {
+            return false;
+        }
+        // ROM AnglePos exits on Status_OnObj before terrain attachment in all
+        // games (S1 Sonic AnglePos.asm:5-11, S2 s2.asm:42559-42571,
+        // S3K sonic3k.asm:18728-18741). Non-solid controllers such as S2
+        // Obj06 own that bit until their object routine clears it.
+        return true;
     }
 
     public boolean hasEnoughHeadroom(AbstractPlayableSprite player, int hexAngle) {
@@ -294,18 +311,20 @@ public class CollisionSystem {
     public void resolveGroundAttachment(AbstractPlayableSprite sprite,
                                         int positiveThreshold,
                                         BooleanSupplier hasObjectSupport) {
-        // ROM: Sonic_AnglePos runs unconditionally — even when standing on an object.
-        // However, terrain floor snapping and angle updates conflict with the platform's
-        // own Y positioning (MvSonicOnPtfm). The ROM resolves this by running AnglePos
-        // first (probing terrain), then the platform overrides Y via MvSonicOnPtfm.
-        // The engine can't replicate this order (platform riding runs after physics).
-        // Skip the full terrain attachment only while actual object support exists.
-        // A stale on-object bit alone must not suppress the terrain walk-off path;
-        // real support can come either from the previous riding snapshot or from a
-        // same-frame ROM helper object that has opted into pre-movement support.
-        if (hasObjectSupport.getAsBoolean()
-                || (objectManager != null && objectManager.hasPendingStaleObjectSupportLoss(sprite))) {
-            return;
+        // ROM: S1 Sonic_AnglePos, S2 AnglePos, and S3K Player_AnglePos all
+        // return early only when the player's Status_OnObj bit is set
+        // (S3K: docs/skdisasm/sonic3k.asm:18735-18741). Object-side standing
+        // masks can be stale after release; they must not suppress terrain
+        // walk-off and airborne transition checks.
+        if (sprite.isOnObject()) {
+            if (hasObjectSupport == null || hasObjectSupport.getAsBoolean()) {
+                return;
+            }
+            // Engine-side object support can outlive the object/controller that set it
+            // across transitions. The ROM's Player_AnglePos early return only applies
+            // to a live Status_OnObj owner (sonic3k.asm:18735-18741); stale support must
+            // fall through to the terrain walk-off path at sonic3k.asm:18839-18842.
+            sprite.setOnObject(false);
         }
 
         updateGroundMode(sprite);
@@ -315,7 +334,6 @@ public class CollisionSystem {
         SensorResult rightSensor = groundResult[1];
 
         SensorResult selectedResult = selectSensorWithAngle(sprite, rightSensor, leftSensor);
-
         // Refresh ground mode after the angle has been updated by selectSensorWithAngle.
         // The initial updateGroundMode (line 292) uses the PREVIOUS frame's end-angle for
         // sensor configuration. This second call uses the NEW angle from terrain probes,
@@ -326,10 +344,8 @@ public class CollisionSystem {
             if (sprite.isStickToConvex()) {
                 return;
             }
-            if (!hasObjectSupport.getAsBoolean()) {
-                sprite.setAir(true);
-                sprite.setPushing(false);
-            }
+            sprite.setAir(true);
+            sprite.setPushing(false);
             return;
         }
 
@@ -364,10 +380,8 @@ public class CollisionSystem {
                 moveForSensorResult(sprite, selectedResult);
                 return;
             }
-            if (!hasObjectSupport.getAsBoolean()) {
-                sprite.setAir(true);
-                sprite.setPushing(false);
-            }
+            sprite.setAir(true);
+            sprite.setPushing(false);
             return;
         }
 

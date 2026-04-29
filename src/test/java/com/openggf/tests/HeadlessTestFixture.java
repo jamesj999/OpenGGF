@@ -63,6 +63,11 @@ public final class HeadlessTestFixture implements TraceReplayFixture {
         return runner.skipFrameFromRecording();
     }
 
+    /** Consume one BK2 input frame without stepping gameplay or timing counters. */
+    public int consumeRecordingFrameInputOnly() {
+        return runner.consumeRecordingFrameInputOnly();
+    }
+
     /** Advance the BK2 cursor without stepping gameplay. */
     public void advanceRecordingCursor(int frameCount) {
         runner.advanceRecordingCursor(frameCount);

@@ -273,6 +273,39 @@ class TestSpringObjectInstance {
     }
 
     @Test
+    void diagonalGroundedCatchAppliesSolidObjectLandedYBeforeLaunch() {
+        SpringObjectInstance spring = new SpringObjectInstance(
+                new ObjectSpawn(0x0200, 0x0100, 0x41, 0x32, 0x01, false, 0),
+                "DiagSpringFlipped");
+        spring.setServices(new TestObjectServices());
+
+        ObjectManager manager = buildManager(spring);
+        TestableSprite player = new TestableSprite("sonic");
+        player.setWidth(20);
+        player.setHeight(32);
+        player.setAir(false);
+        player.setXSpeed((short) 0x08C9);
+        player.setGSpeed((short) 0x08C9);
+        player.setYSpeed((short) 0);
+        int relX = 13;
+        int relY = 5;
+        player.setCentreX((short) ((spring.getSpawn().x() - spring.getSolidParams().halfWidth() + relX) & 0xFFFF));
+        player.setCentreY((short) groundedDiagonalCatchCentreYForRelY(player, spring, relX, relY));
+        player.setSubpixelRaw(0x2200, 0x3300);
+
+        int expectedLaunchY = solidObjectLandedCentreY(player, relY) + 6;
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertEquals(expectedLaunchY, player.getCentreY() & 0xFFFF,
+                "SlopedSolid_cont must run SolidObject_Landed's Y correction before Obj41_DiagonallyUp adds 6");
+        assertEquals(0xF600, player.getXSpeed() & 0xFFFF);
+        assertEquals(0xF600, player.getYSpeed() & 0xFFFF);
+        assertEquals(0x2200, player.getXSubpixelRaw());
+        assertEquals(0x3300, player.getYSubpixelRaw());
+        assertTrue(player.getAir());
+    }
+
+    @Test
     void diagonalUpSpringRequiresStandingBitBeforeThresholdLaunch() throws Exception {
         SpringObjectInstance spring = new SpringObjectInstance(
                 new ObjectSpawn(0x0200, 0x0100, 0x41, 0x38, 0x00, false, 0),
@@ -351,6 +384,23 @@ class TestSpringObjectInstance {
         player.setCentreY((short) diagonalLandingCentreY(player, spring, relX));
         player.setSubpixelRaw(0x4400, 0x5500);
         return player;
+    }
+
+    private static int groundedDiagonalCatchCentreYForRelY(AbstractPlayableSprite player,
+            SpringObjectInstance spring, int relX, int relY) {
+        int halfWidth = spring.getSolidParams().halfWidth();
+        int width2 = halfWidth * 2;
+        int sampleX = width2 - relX - 1;
+        sampleX >>= 1;
+        int slopeSample = (byte) spring.getSlopeData()[sampleX];
+        int slopeOffset = slopeSample - spring.getSlopeBaseline();
+        int baseY = spring.getSpawn().y() - slopeOffset;
+        int verticalOverlapCompensation = player.getYRadius() + spring.getSolidParams().groundHalfHeight();
+        return baseY - 4 - verticalOverlapCompensation + relY;
+    }
+
+    private static int solidObjectLandedCentreY(AbstractPlayableSprite player, int relY) {
+        return (player.getCentreY() & 0xFFFF) - relY + 3;
     }
 
     private static ObjectManager buildManager(ObjectInstance instance) {

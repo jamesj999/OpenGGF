@@ -487,6 +487,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean objectControlAllowsCpu = false;
         /**
+         * ROM {@code object_control} bit 0 equivalent. S3K uses this bit to skip
+         * the normal player movement dispatch, independently from the bit-7 CPU
+         * and touch-response gates. Defaulting this to true when object control is
+         * asserted preserves existing engine semantics for legacy callers.
+         */
+        protected boolean objectControlSuppressesMovement = false;
+        /**
          * Narrow seam for MGZ top-platform carry. That object uses object control for
          * ownership but still needs SolidObject side/top feedback from its controlling
          * platform instance while the carry is active.
@@ -712,6 +719,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.moveLockTimer = 0;
                 this.objectControlled = false;
                 this.objectControlAllowsCpu = false;
+                this.objectControlSuppressesMovement = false;
                 this.mgzTopPlatformCarrySolidContactObject = null;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
@@ -2161,10 +2169,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.objectControlled = objectControlled;
                 if (objectControlled) {
                         this.deferredObjectControlRelease = false;
+                        this.objectControlSuppressesMovement = true;
                 } else {
                         this.mgzTopPlatformCarrySolidContactObject = null;
                         clearMgzTopPlatformSpringHandoff();
                         this.objectControlAllowsCpu = false;
+                        this.objectControlSuppressesMovement = false;
                 }
         }
 
@@ -2188,6 +2198,18 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setObjectControlAllowsCpu(boolean objectControlAllowsCpu) {
                 this.objectControlAllowsCpu = objectControlAllowsCpu;
+        }
+
+        /**
+         * Returns true when normal movement, gravity, boundary checks, and terrain
+         * collision should be skipped by ROM {@code object_control} bit 0.
+         */
+        public boolean isObjectControlSuppressesMovement() {
+                return objectControlled && objectControlSuppressesMovement;
+        }
+
+        public void setObjectControlSuppressesMovement(boolean objectControlSuppressesMovement) {
+                this.objectControlSuppressesMovement = objectControlSuppressesMovement;
         }
 
         /**
@@ -2301,9 +2323,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Defers object-control release until the end of the current frame.
          * This matches ROM object ordering where Sonic's routine has already
          * run before a later object clears {@code f_playerctrl}.
+         *
+         * <p>For S3K handoffs such as AIZ vines, the deferred marker keeps
+         * object-control ordering visible without preserving ROM
+         * {@code object_control} bit 0 movement ownership. ROM
+         * {@code Player_AnglePos} still runs for non-bit-0 states and takes the
+         * ground walkoff branch when no floor is found
+         * (docs/skdisasm/sonic3k.asm:18728, 18839-18842).
          */
         public void deferObjectControlRelease() {
                 this.deferredObjectControlRelease = true;
+                this.objectControlSuppressesMovement = false;
         }
 
         /**
@@ -2313,6 +2343,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void releaseFromObjectControl(int frameCounter) {
                 this.objectControlled = false;
+                this.objectControlAllowsCpu = false;
+                this.objectControlSuppressesMovement = false;
                 this.mgzTopPlatformCarrySolidContactObject = null;
                 this.objectControlReleasedFrame = frameCounter;
         }
@@ -2814,6 +2846,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 pinballMode = false;
                 pinballSpeedLock = false;
                 objectControlled = false;
+                objectControlAllowsCpu = false;
+                objectControlSuppressesMovement = false;
                 mgzTopPlatformCarrySolidContactObject = null;
                 onObject = false;           // Clear "standing on object" flag
                 latchedSolidObjectId = 0;
@@ -3596,6 +3630,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public void endOfTick() {
                 if (deferredObjectControlRelease) {
                         objectControlled = false;
+                        objectControlAllowsCpu = false;
+                        objectControlSuppressesMovement = false;
                         mgzTopPlatformCarrySolidContactObject = null;
                         deferredObjectControlRelease = false;
                 }

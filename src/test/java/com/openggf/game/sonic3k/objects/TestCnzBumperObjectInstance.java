@@ -133,13 +133,40 @@ class TestCnzBumperObjectInstance {
         bumper.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0x0D53);
         bumper.update(0x0D53, null);
 
-        int dx = bumper.getX() - player.getCentreX();
-        int dy = bumper.getY() - player.getCentreY();
+        int visibleX = bumper.getX();
+        int visibleY = bumper.getY();
+        int dx = visibleX - player.getCentreX();
+        int dy = visibleY - player.getCentreY();
         int visibleLevelFrame = 0x0124 + 1;
         int angle = (TrigLookupTable.calcAngle((short) dx, (short) dy)
                 + ((visibleLevelFrame >>> 8) & 0x03)) & 0xFF;
         assertEquals((short) ((TrigLookupTable.cosHex(angle) * -0x700) >> 8), player.getXSpeed());
         assertEquals((short) ((TrigLookupTable.sinHex(angle) * -0x700) >> 8), player.getYSpeed());
+    }
+
+    @Test
+    void movingBumperExposesPreviousOrbitPointForTouchResponse() throws Exception {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+        LevelManager levelManager = fixture.runtime().getLevelManager();
+        CnzBumperObjectInstance bumper =
+                new CnzBumperObjectInstance(new ObjectSpawn(0x03E8, 0x0630, 0x4A, 0x2B, 0, false, 0));
+        bumper.setServices(new TestObjectServices().withLevelManager(levelManager));
+
+        setLevelFrameCounter(levelManager, 0x015E);
+        bumper.update(0x0D8D, null);
+        int listedX = bumper.getX();
+        int listedY = bumper.getY();
+
+        setLevelFrameCounter(levelManager, 0x015F);
+        bumper.update(0x0D8E, null);
+
+        assertEquals(listedX, bumper.getMultiTouchRegions()[0].x(),
+                "Obj_Bumper joins the collision-response list after orbiting; Sonic's next "
+                        + "ReactToItem sees that prior listed point");
+        assertEquals(listedY, bumper.getMultiTouchRegions()[0].y());
+        assertTrue(bumper.getX() != listedX || bumper.getY() != listedY);
     }
 
     @Test

@@ -87,6 +87,20 @@ public class TestDivergenceReport {
     }
 
     @Test
+    void testContextWindowUsesFrameNumbersNotListIndexes() {
+        FrameComparison f100 = makeMatchComparison(100, (short) 0x50, (short) 0x3B0);
+        FrameComparison f101 = makeComparison(101, "air", Severity.ERROR, "0", "1");
+        FrameComparison f102 = makeMatchComparison(102, (short) 0x54, (short) 0x3B0);
+
+        DivergenceReport report = new DivergenceReport(List.of(f100, f101, f102));
+        String context = report.getContextWindow(101, 1);
+
+        assertTrue(context.contains("100"));
+        assertTrue(context.contains("101"));
+        assertTrue(context.contains("102"));
+    }
+
+    @Test
     void testSummaryIncludesLatestCheckpointAndZoneActState() throws IOException {
         TraceData trace = createTraceDataWithAuxState();
         FrameComparison frame = makeComparison(2, "air", Severity.ERROR, "0", "1");
@@ -221,5 +235,4 @@ public class TestDivergenceReport {
         return TraceData.load(dir);
     }
 }
-
 

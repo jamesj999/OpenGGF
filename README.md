@@ -223,6 +223,47 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
+- **S3K AIZ strict-replay cadence:** the local AIZ trace baseline is restored from F1056 to
+  F2165 by gating S3K Tails CPU frame checks onto the stored `Level_frame_counter` read
+  during `Process_Sprites` (sonic3k.asm:7884-7894/26474-26531/38898-38900) instead of
+  the one-tick-ahead inline fallback argument. The follow-up AIZ oscillator-bootstrap pass
+  advances F2165 -> F2696 by suppressing only the first replay-local oscillator advance for
+  the legacy full-intro trace, preserving the native first `LevelLoop` tick while matching
+  `Obj_FloatingPlatform`'s pre-`OscillateNumDo` table read (sonic3k.asm:7884-7909,
+  50244-50248, 50826-50841).
+- **S2 EHZ trace replay fixes:** EHZ first-error advances F2911 -> F2945 by keeping new
+  non-riding bridge contacts on the flat `PlatformObject11_cont` landing surface while
+  preserving depressed bridge-log samples only for already-standing riders, matching
+  `Obj11_EHZ` and `PlatformObject11_cont` in `docs/s2disasm/s2.asm:21995-22032`,
+  `22120-22172`, and `35692-35712`. The follow-up sidekick push-clear gate advances
+  F2945 -> F4413 by matching S2 `TailsCPU_Normal`'s live `Status_Push` control write
+  path without the S3K pre-ground-move velocity clear (`docs/s2disasm/s2.asm:38943-39027`,
+  `docs/skdisasm/sonic3k.asm:27947-28017`). The active on-object latch pass advances
+  F4413 -> F4430 by keeping Obj06 spiral riders attached until the ROM fall-off path
+  clears `Status_OnObj`, and by honoring active latched object support before terrain
+  attachment (`docs/s2disasm/s2.asm:46688-46790`, `42559-42571`). The diagonal-up
+  spring handoff pass clears the remaining strict replay divergence by applying the
+  ROM `SolidObject_Landed` Y correction before Obj41's `+6` launch nudge, matching
+  `docs/s2disasm/s2.asm:34028-34088`, `34927-35099`, and `35178-35383`.
+- **Cross-game on-object support parity:** `CollisionSystem` now treats active latched
+  objects as object support before terrain snap, matching `AnglePos` / `Player_AnglePos`
+  early returns in all three games. This intentionally advances S3K CNZ F1638 -> F2137
+  after scratch ROM diagnostics showed Tails enters `Player_AnglePos` at F1638 with
+  `Status_OnObj` set and therefore skips `FindFloor` (`docs/s1disasm/_incObj/Sonic AnglePos.asm:5-11`,
+  `docs/s2disasm/s2.asm:42559-42571`, `docs/skdisasm/sonic3k.asm:18728-18741`).
+- **S3K AIZ giant ride vine replay fix:** AIZ first-error advances F2696 -> F2709 by
+  executing the consolidated giant ride vine at its ROM handle child slot and sampling
+  the previous-frame `AIZ_vine_angle`, matching child allocation/routine rewrite and
+  `LevelLoop` ordering in `docs/skdisasm/sonic3k.asm:46749-46787`, `46929-46950`,
+  `44841-44851`, `7894`, `7910`, `9693`, and `46843`. The sidekick push-grace follow
+  pass then advances F2709 -> F2722 by suppressing S3K follow steering while AIZ inline
+  object order bridges a transient push-flag gap, matching Tails CPU push/follow order
+  and the vine/platform capture paths in `docs/skdisasm/sonic3k.asm:26182-26220`,
+  `26683-26741`, `44784-44883`, `46481-46743`, and `46749-46950`. The airborne
+  handoff fix advances F2722 -> F3075 by suppressing follow steering for only the
+  first S3K push-bypass airborne rolling tick, matching `Tails_Spin_Freespace` and
+  `Tails_InputAcceleration_Freespace` order in `docs/skdisasm/sonic3k.asm:27765-27784`
+  and `28330-28401`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
@@ -362,7 +403,11 @@ further S3K parity work.
   then warp-to-marker; engine now models this via a `DespawnCause` enum with a new
   `DEAD_FALLING` state for the in-between frame). The earlier per-frame CPU-state hydration was
   reverted as a violation of the comparison-only invariant — engine state machines now
-  produce ROM-correct values natively.
+  produce ROM-correct values natively. The follow-up CNZ directed-traversal cleanup restores
+  cylinder release and cork-floor rolling checkpoints to ROM object ordering
+  (`Obj_CNZCylinder` still calls `SolidObjectFull` while captured; cork floors cache the
+  roll-break animation checkpoint per rider), keeping the current CNZ first-error at F1638
+  while bringing the focused CNZ headless traversal tests back to green.
 - **Trace recorder v6.4-s3k:** adds frame-window-gated `velocity_write` per-frame events
   via BizHawk Lua `event.onmemorywrite` hooks at Tails's `x_vel` / `y_vel` RAM addresses
   — each write captures the M68K writer PC + post-write value, accumulated per frame and
@@ -390,6 +435,12 @@ further S3K parity work.
   `0x2A` and labelled the result `object_control`; per `sonic3k.constants.asm:30/57` `0x2A`
   is `status` and the real `object_control` byte is at `0x2E`. v6.3 emits `status`,
   `status_secondary`, and `object_control` as three separate JSON fields.
+- **S3K CNZ cage diagnostics refresh:** the CNZ v6.3 aux stream now actually contains
+  the metadata-advertised `cage_state_per_frame` and `cage_execution_per_frame` records
+  in the gzipped aux fixture, while trace reports flag any advertised aux schema with no
+  matching loaded event. The data remains comparison-only diagnostic input; CNZ stays at
+  F2137, but the divergence context now includes the cage state/execution needed for the
+  next ROM-cited engine fix.
 - **CNZ collision probe:** new `-Dcnz.collisionprobe=true` debug flag emits per-frame collision
   pipeline state (entry, mode dispatch, vertical sensor scans, `landOnFloor`) when Tails is in
   a target X/Y window. Zero overhead when off. Used to root-cause F1815 to a CNZ chunk-data
@@ -502,7 +553,11 @@ while HCZ now has a larger object/event pass and HCZ1-to-HCZ2 progression.
   fail-fast shader error handling.
 - **Trace replay testing:** automated accuracy verification that records per-frame physics state
   from the real ROM, then replays the same inputs through the engine and compares every field.
-  First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second baseline (S1 MZ1, 7,936
+  First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; the latest GHZ bridge pass fixes
+  the F2967 rider Y divergence by keeping Bri_Solid's final `Plat_NoXCheck` width and updating
+  the rider bend log before sag calculation (`docs/s1disasm/_incObj/11 Bridge.asm:98-114`,
+  `135-152`, `_incObj/sub PlatformObject.asm:19-42`, `58-76`, `_incObj/sub ExitPlatform.asm:8-23`).
+  A second baseline (S1 MZ1, 7,936
   frames) is now in-tree with expanded recorder and divergence diagnostics for ROM/engine parity
   investigation. Supports both BizHawk (Windows, Lua) and **stable-retro** (cross-platform,
   Python) as recording backends — both produce identical output consumed by the same Java test

@@ -1,5 +1,6 @@
 package com.openggf.tests.trace;
 
+import com.openggf.trace.ToleranceConfig;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class TestTraceReplayInvariantGuard {
@@ -33,6 +35,15 @@ class TestTraceReplayInvariantGuard {
         }
     }
 
+    @Test
+    void defaultTraceReplayToleranceIsStrict() {
+        ToleranceConfig defaults = ToleranceConfig.DEFAULT;
+
+        assertEquals(1, defaults.positionError(), "position delta of one must be an error");
+        assertEquals(1, defaults.speedError(), "speed delta of one must be an error");
+        assertEquals(1, defaults.angleError(), "angle delta of one must be an error");
+    }
+
     private static List<Path> replaySources() throws IOException {
         List<Path> roots = List.of(
                 Path.of("src/main/java/com/openggf/trace"),
@@ -48,6 +59,7 @@ class TestTraceReplayInvariantGuard {
                         .forEach(sources::add);
             }
         }
+        sources.add(Path.of("src/main/java/com/openggf/sprites/playable/SidekickCpuController.java"));
         return sources;
     }
 
@@ -55,8 +67,17 @@ class TestTraceReplayInvariantGuard {
         return line.contains("applyRecordedFirstSidekickState(")
                 || line.contains("applyRecordedFrameState(")
                 || line.contains("applySeededFirstSidekickState(")
+                || line.contains("applySidekickFollowDelayOverride(")
                 || line.contains("hydrateFromRomCpuStatePerFrame(")
                 || line.contains("hydrateRecordedHistory(")
+                || line.contains("sidekickFollowDelayOverrideForTraceReplay(")
+                || line.contains("setTraceReplayFollowDelayFrames(")
+                || line.contains("traceReplayFollowDelayFrames")
+                || line.contains("S3kElasticWindowController")
+                || line.contains(".advanceRecordingCursor(")
+                || line.contains(".isStrictComparisonEnabled()")
+                || line.contains(".strictTraceIndex()")
+                || line.contains(".driveTraceIndex()")
                 || line.contains(".hydrateFromRomSnapshot(")
                 || line.contains("setCentreX(state.")
                 || line.contains("setCentreY(state.")

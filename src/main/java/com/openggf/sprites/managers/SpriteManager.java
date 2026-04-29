@@ -9,14 +9,11 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
-import com.openggf.game.GameId;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
-import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -338,6 +335,7 @@ public class SpriteManager {
 					}
 
 					boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;
+					boolean skipCpuPhysicsThisFrame = false;
 
 					if (playable.isCpuControlled() && playable.getCpuController() != null) {
 						// CPU-controlled sprite: run AI to generate virtual input
@@ -347,6 +345,7 @@ public class SpriteManager {
 							cpuController.setController2Input(p2Held, p2Logical);
 						}
 						cpuController.update(frameCounter);
+						skipCpuPhysicsThisFrame = cpuController.consumeSkipPhysicsThisFrame();
 
 						boolean aiUp = cpuController.getInputUp();
 						boolean aiDown = cpuController.getInputDown();
@@ -375,6 +374,12 @@ public class SpriteManager {
 						// If approaching (respawn in progress) and the strategy handles movement
 						// directly (Tails fly-in, Knuckles glide), skip normal physics.
 						// Strategies that need physics (Sonic walk/spindash) fall through.
+						if (skipCpuPhysicsThisFrame) {
+							playable.getAnimationManager().update(frameCounter);
+							playable.tickStatus();
+							playable.endOfTick();
+							continue;
+						}
 						if (cpuController.isApproaching()
 								&& !cpuController.getRespawnStrategy().requiresPhysics()) {
 							playable.getAnimationManager().update(frameCounter);
@@ -476,6 +481,7 @@ public class SpriteManager {
 							playable.applyQueuedControlStateForFrameStart();
 							var cpuController = playable.getCpuController();
 							cpuController.update(frameCounter);
+							boolean skipCpuPhysicsThisFrame = cpuController.consumeSkipPhysicsThisFrame();
 
 							boolean aiUp = cpuController.getInputUp();
 							boolean aiDown = cpuController.getInputDown();
@@ -497,6 +503,12 @@ public class SpriteManager {
 							publishInputState(playable,
 									aiUp, aiDown, aiLeft, aiRight, aiJump,
 									effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+							if (skipCpuPhysicsThisFrame) {
+								playable.getAnimationManager().update(frameCounter);
+								playable.tickStatus();
+								playable.endOfTick();
+								continue;
+							}
 							if (cpuController.isApproaching()
 									&& !cpuController.getRespawnStrategy().requiresPhysics()) {
 								playable.getAnimationManager().update(frameCounter);
@@ -939,12 +951,6 @@ public class SpriteManager {
 		}
 		int currentZone = lm.getCurrentZone();
 		if (module != null && module.isSidekickSuppressedForZone(currentZone)) return true;
-		if (module != null
-				&& module.getGameId() == GameId.S3K
-				&& currentZone == Sonic3kZoneIds.ZONE_AIZ
-				&& AizPlaneIntroInstance.isSidekickSuppressed()) {
-			return true;
-		}
 		return false;
 	}
 

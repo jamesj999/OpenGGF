@@ -100,6 +100,25 @@ class TestSidekickCpuControllerFlightAutoRecovery {
     }
 
     @Test
+    void onScreenFlightAutoRecoveryReassertsAirBit() {
+        TestableSprite sonic = sonicAt(0x1000, 0x0400);
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x1100);
+        tails.setCentreY((short) 0x0300);
+        tails.setAir(false);
+        tails.setRenderFlagOnScreen(true);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
+
+        controller.update(10);
+
+        assertTrue(tails.getAir(),
+                "ROM Tails_FlySwim_Unknown loc_13C3A ORs Status_InAir every on-screen frame");
+    }
+
+    @Test
     void flightTransitionsToNormalWhenCloseEnoughAndSonicAlive() {
         TestableSprite sonic = sonicAt(0x1000, 0x0400);
         TestableSprite tails = new TestableSprite("tails_p2");
@@ -129,6 +148,31 @@ class TestSidekickCpuControllerFlightAutoRecovery {
                         + "loc_1384A (sonic3k.asm:26213) auto-clears the flag while "
                         + "object_control bit 0 is set; the engine's NORMAL transition clears "
                         + "object_control, so we must clear double_jump_flag explicitly.");
+    }
+
+    @Test
+    void flightDoesNotTransitionToNormalOnSameFrameYReachesTarget() {
+        TestableSprite sonic = sonicAt(0x1000, 0x0400);
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0401);
+        tails.setAir(true);
+        tails.setControlLocked(true);
+        tails.setObjectControlled(true);
+        tails.setRenderFlagOnScreen(true);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
+
+        controller.update(10);
+
+        assertEquals(0x0400, tails.getCentreY() & 0xFFFF,
+                "Routine 4 moves Y by one pixel toward the target");
+        assertSame(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, controller.getState(),
+                "ROM loc_13CBE leaves d1 non-zero when Y only became aligned after the +/-1 step");
+        assertTrue(tails.isObjectControlled(), "object_control=$81 remains set until the following aligned frame");
+        assertTrue(tails.getAir(), "flight recovery remains airborne while object-controlled");
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,6 +104,29 @@ public class TestRingManager {
 
         assertTrue(ringManager.isCollected(spawn),
                 "Ring should collect once the ROM touch window overlaps");
+        assertEquals(1, player.getRingCount());
+    }
+
+    @Test
+    public void testS3kNormalStageRingUsesSixPixelTouchHalfSize() {
+        RingSpawn spawn = new RingSpawn(116, 100);
+        RingManager ringManager = buildRingManager(List.of(spawn));
+        ringManager.reset(0);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 100, (short) 100);
+        player.usePhysicsFeatureSet(PhysicsFeatureSet.SONIC_3K);
+
+        ringManager.collectStageRings(player, 0);
+
+        assertFalse(ringManager.isCollected(spawn),
+                "S3K Test_Ring_Collisions normal path uses d1=6/d6=$C, not the attracted-ring 8px object radius");
+        assertEquals(0, player.getRingCount());
+
+        player.setCentreX((short) 102);
+
+        ringManager.collectStageRings(player, 1);
+
+        assertTrue(ringManager.isCollected(spawn));
         assertEquals(1, player.getRingCount());
     }
 
@@ -256,6 +280,10 @@ public class TestRingManager {
             setHeight(32);
             setCentreX(x);
             setCentreY(y);
+        }
+
+        private void usePhysicsFeatureSet(PhysicsFeatureSet featureSet) {
+            setPhysicsFeatureSet(featureSet);
         }
 
         @Override

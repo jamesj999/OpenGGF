@@ -171,6 +171,10 @@ public class ObjectManager {
         return slotLayout.toExecIndex(slotIndex);
     }
 
+    private int executionSlotIndex(AbstractObjectInstance instance) {
+        return instance.getExecutionSlotIndex();
+    }
+
     private int slotIndexForExec(int execIndex) {
         return slotLayout.toSlotIndex(execIndex);
     }
@@ -438,13 +442,13 @@ public class ObjectManager {
 
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -578,13 +582,13 @@ public class ObjectManager {
         // ROM parity: Build slot-ordered execution array.
         Arrays.fill(execOrder, null);
         for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         for (ObjectInstance inst : dynamicObjects) {
-            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(aoi.getSlotIndex())) {
-                execOrder[execIndexForSlot(aoi.getSlotIndex())] = inst;
+            if (inst instanceof AbstractObjectInstance aoi && isManagedDynamicSlot(executionSlotIndex(aoi))) {
+                execOrder[execIndexForSlot(executionSlotIndex(aoi))] = inst;
             }
         }
         int currentSlotCount = usedSlots.cardinality();
@@ -1612,6 +1616,10 @@ public class ObjectManager {
         return solidContacts.isAnyPlayerRiding(instance);
     }
 
+    public boolean isActiveObjectInstance(ObjectInstance instance) {
+        return instance != null && activeObjects.containsValue(instance);
+    }
+
     /** Clear this player's riding state. */
     public void clearRidingObject(PlayableEntity player) {
         solidContacts.clearRidingObject(player);
@@ -2093,7 +2101,7 @@ public class ObjectManager {
         dynamicFallbackScratch.clear();
         for (ObjectInstance inst : dynamicObjects) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                    && isManagedDynamicSlot(executionSlotIndex(aoi))) {
                 continue;
             }
             dynamicFallbackScratch.add(inst);
@@ -2104,7 +2112,7 @@ public class ObjectManager {
         activeFallbackScratch.clear();
         for (ObjectInstance inst : activeObjects.values()) {
             if (inst instanceof AbstractObjectInstance aoi
-                    && isManagedDynamicSlot(aoi.getSlotIndex())) {
+                    && isManagedDynamicSlot(executionSlotIndex(aoi))) {
                 continue;
             }
             activeFallbackScratch.add(inst);
@@ -3837,6 +3845,12 @@ public class ObjectManager {
                         if (instance instanceof TouchResponseProvider provider2) {
                             hpBeforeHit = provider2.getCollisionProperty();
                         }
+                        // ROM parity (s2.asm:84842-84863): Touch_KillEnemy rewrites
+                        // the badnik slot to ObjID_Explosion before applying the
+                        // bounce at s2.asm:84865-84889. A later touch pass must not
+                        // bounce from an engine instance that was already destroyed.
+                        boolean wasAlreadyDestroyed = instance instanceof AbstractObjectInstance preAoi
+                                && preAoi.isDestroyed();
                         if (instance instanceof TouchResponseAttackable attackable) {
                             attackable.onPlayerAttack(player, result);
                         }
@@ -3848,7 +3862,7 @@ public class ObjectManager {
                                     && player.getPhysicsFeatureSet().bossHitNegatesGroundSpeed()) {
                                 player.setGSpeed((short) -player.getGSpeed());
                             }
-                        } else {
+                        } else if (!wasAlreadyDestroyed) {
                             // Touch_KillEnemy: position-based bounce (one-hit kill)
                             applyEnemyBounce(player, instance);
                         }
@@ -4192,14 +4206,6 @@ public class ObjectManager {
             this.postMovement = postMovement;
             frameCounter++;
             inlineSupportedPlayers.clear();
-            if (player != null && isCurrentlySupported(player)) {
-                inlineSupportedPlayers.add(player);
-            }
-            for (PlayableEntity sidekick : sidekicks) {
-                if (sidekick != null && isCurrentlySupported(sidekick)) {
-                    inlineSupportedPlayers.add(sidekick);
-                }
-            }
         }
 
         void finishInlineFrame(PlayableEntity player, List<? extends PlayableEntity> sidekicks) {
@@ -4487,7 +4493,9 @@ public class ObjectManager {
                 slopeData = sloped.getSlopeData();
             }
 
-            if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+            if (slopeData != null
+                    && instance instanceof SlopedSolidProvider sloped
+                    && shouldUseSlopeForContact(instance, sloped)) {
                 int slopeHalfHeight = params.groundHalfHeight();
                 contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
                         slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
@@ -4552,9 +4560,7 @@ public class ObjectManager {
 
             int boundsX = currentX + params.offsetX();
             int relX = player.getCentreX() - boundsX + ridingHalfWidth;
-            boolean isSloped = (instance instanceof SlopedSolidProvider);
-            int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
-                    && ridingHalfWidth == halfWidth) ? 16 : 0;
+            int stickyX = 0;
             int minRelX = -stickyX;
             int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
             boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
@@ -4671,7 +4677,9 @@ public class ObjectManager {
                         slopeData = sloped.getSlopeData();
                     }
                     SolidContact contact;
-                    if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                    if (slopeData != null
+                            && instance instanceof SlopedSolidProvider sloped
+                            && shouldUseSlopeForContact(instance, sloped)) {
                         int slopeHalfHeight = params.groundHalfHeight();
                         contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
                                 slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
@@ -4945,13 +4953,10 @@ public class ObjectManager {
                 // while delta tracking uses raw object X for movement following.
                 int boundsX = currentX + params.offsetX();
                 int relX = player.getCentreX() - boundsX + ridingHalfWidth;
-                // ROM: ExitPlatform uses exact bounds (relX in [0, width*2)).
-                // The sticky buffer is for engine-side jitter compensation on moving
-                // platforms (S2/S3K), but S1 UNIFIED processes objects after movement
-                // so there's no jitter to compensate. Sloped objects also use exact bounds.
-                boolean isSloped = (ridingObject instanceof SlopedSolidProvider);
-                int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
-                        && ridingHalfWidth == halfWidth) ? 16 : 0;
+                // ROM: ExitPlatform / SolidObject riding checks use exact bounds
+                // (relX in [0, width*2)). Sticky margins belong to the engine's
+                // new-contact jitter compensation, not continued ride support.
+                int stickyX = 0;
                 int minRelX = -stickyX;
                 int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
@@ -5003,6 +5008,16 @@ public class ObjectManager {
                         }
                     }
                 } else {
+                    if (!inBounds) {
+                        // ROM standing-object paths clear Status_OnObj and set
+                        // Status_InAir as soon as the rider leaves the object's
+                        // ride bounds: SolidObjectFull_1P loc_1DC98
+                        // (sonic3k.asm:41030-41034) and SolidObjectTop_1P
+                        // loc_1E2E0 (sonic3k.asm:41807-41812). The interact
+                        // latch can remain non-zero; it is not itself support.
+                        player.setOnObject(false);
+                        player.setAir(true);
+                    }
                     ridingStates.remove(player);
                     ridingObject = null;
                     ridingPieceIndex = -1;
@@ -5106,7 +5121,9 @@ public class ObjectManager {
                     slopeData = sloped.getSlopeData();
                 }
 
-                if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                if (slopeData != null
+                        && instance instanceof SlopedSolidProvider sloped
+                        && shouldUseSlopeForContact(instance, sloped)) {
                     // ROM parity: when already riding a sloped object, the ROM does NOT
                     // re-run SolidObject2F. It only runs ExitPlatform + SlopeObject2,
                     // which is handled by the riding update above. Re-running the full
@@ -5270,6 +5287,10 @@ public class ObjectManager {
                 boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
                     monitorSolidity, useStickyBuffer, instance, -1, apply);
+        }
+
+        private boolean shouldUseSlopeForContact(ObjectInstance instance, SlopedSolidProvider sloped) {
+            return sloped.usesSlopeForNewLanding() || isRidingCurrentPlayerObject(instance);
         }
 
         /**
@@ -5556,6 +5577,13 @@ public class ObjectManager {
                     && relY <= maxTop
                     && isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                 if (apply) {
+                    // ROM parity: S2 SlopedSolid_cont (s2.asm:34927-35099) still
+                    // enters SolidObject_Landed (s2.asm:35178-35383) before Obj41's
+                    // diagonal launch reads y_pos and applies its +6 nudge
+                    // (s2.asm:34028-34088).  The grounded catch window only
+                    // bypasses side classification; it must not bypass the Y snap.
+                    int landedCentreY = playerCenterY - relY + 3;
+                    player.setY((short) (landedCentreY - (player.getHeight() / 2)));
                     player.setAngle((byte) 0);
                     player.setYSpeed((short) 0);
                     player.setGSpeed(player.getXSpeed());

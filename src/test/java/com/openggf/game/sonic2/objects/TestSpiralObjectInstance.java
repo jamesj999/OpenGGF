@@ -138,6 +138,46 @@ class TestSpiralObjectInstance {
                 "Second spiral should own Sonic after the handoff frame");
     }
 
+    @Test
+    void ridingSpiralRestoresOnObjectBeforeApplyingMovement() {
+        SpiralObjectInstance spiral = new SpiralObjectInstance(
+                new ObjectSpawn(0x2640, 0x0280, Sonic2ObjectIds.SPIRAL, 0x00, 0, false, 0),
+                "Spiral");
+        spiral.setServices(new TestObjectServices());
+
+        TestablePlayableSprite sonic = playerAt("sonic", 0x270E, 0x029D);
+        sonic.setAir(false);
+        sonic.setOnObject(false);
+        sonic.setXSpeed((short) 0x08FA);
+        sonic.setGSpeed((short) 0x08FA);
+        sonic.setLatchedSolidObject(Sonic2ObjectIds.SPIRAL, spiral);
+        markRiding(spiral, sonic);
+
+        spiral.update(4413, sonic);
+
+        assertTrue(sonic.isOnObject(),
+                "Obj06 standing-bit ownership should restore Status_OnObj before loc_215C0 movement");
+        assertEquals(0x02A0, sonic.getCentreY() & 0xFFFF,
+                "Obj06 should apply its Y table while the fall-off bounds still pass");
+    }
+
+    @Test
+    void activeLatchedSpiralCountsAsGroundAttachmentSupport() {
+        ObjectSpawn spawn = new ObjectSpawn(0x2640, 0x0280, Sonic2ObjectIds.SPIRAL, 0x00, 0, false, 0);
+        ObjectManager objectManager = newSpiralManager(List.of(spawn));
+        objectManager.reset(0x2400);
+        objectManager.preloadInitialSpawnsForHydration();
+        GameServices.collision().setObjectManager(objectManager);
+
+        SpiralObjectInstance spiral = spiralAt(objectManager, 0x2640);
+        TestablePlayableSprite sonic = playerAt("sonic", 0x270E, 0x02A0);
+        sonic.setOnObject(true);
+        sonic.setLatchedSolidObject(Sonic2ObjectIds.SPIRAL, spiral);
+
+        assertTrue(GameServices.collision().hasObjectSupport(sonic),
+                "AnglePos support should honor active non-solid controller latches");
+    }
+
     private static SpiralObjectInstance newSpiral() {
         return newSpiral(new TestObjectServices());
     }

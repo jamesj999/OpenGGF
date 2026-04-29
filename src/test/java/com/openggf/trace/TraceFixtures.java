@@ -19,6 +19,12 @@ public final class TraceFixtures {
         return new TraceData(metadata, List.copyOf(frames), Map.of());
     }
 
+    /** In-memory TraceData for unit tests with explicit aux events. */
+    public static TraceData trace(TraceMetadata metadata, List<TraceFrame> frames,
+                                  Map<Integer, List<TraceEvent>> eventsByFrame) {
+        return new TraceData(metadata, List.copyOf(frames), Map.copyOf(eventsByFrame));
+    }
+
     /** Minimal metadata stub for unit tests. */
     public static TraceMetadata metadata(String gameId, int zoneId, int act) {
         return new TraceMetadata(

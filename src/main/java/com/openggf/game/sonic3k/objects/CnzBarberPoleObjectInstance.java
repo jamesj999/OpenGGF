@@ -85,7 +85,8 @@ public final class CnzBarberPoleObjectInstance extends AbstractObjectInstance {
         }
 
         int track = player.getCentreX() - spawn.x() + 0x40;
-        boolean inner = (track - (player.isOnObject() ? 0x20 : 0x18)) < (player.isOnObject() ? 0x60 : 0x70);
+        boolean inner = isUnsignedWordBelowAfterSubtract(
+                track, player.isOnObject() ? 0x20 : 0x18, player.isOnObject() ? 0x60 : 0x70);
         latch(player, state, track, inner, 0x20);
     }
 
@@ -106,7 +107,8 @@ public final class CnzBarberPoleObjectInstance extends AbstractObjectInstance {
         }
 
         int track = player.getCentreX() - spawn.x() + 0x60;
-        boolean inner = (track - (player.isOnObject() ? 0x20 : 0x18)) < (player.isOnObject() ? 0x60 : 0x70);
+        boolean inner = isUnsignedWordBelowAfterSubtract(
+                track, player.isOnObject() ? 0x20 : 0x18, player.isOnObject() ? 0x60 : 0x70);
         latch(player, state, track, inner, 0xE0);
     }
 
@@ -228,6 +230,16 @@ public final class CnzBarberPoleObjectInstance extends AbstractObjectInstance {
             return 0x80;
         }
         return curve;
+    }
+
+    private static boolean isUnsignedWordBelowAfterSubtract(int value, int subtract, int limit) {
+        /*
+         * ROM loc_333F2/loc_33472 and mirrored loc_33622/loc_336A0 use
+         * subi.w + cmpi.w + bhs (docs/skdisasm/sonic3k.asm:69399-69402,
+         * 69446-69450, 69610-69614, 69657-69661). Negative results are
+         * 16-bit unsigned underflows and must compare as >= the limit.
+         */
+        return ((value - subtract) & 0xFFFF) < limit;
     }
 
     private void release(AbstractPlayableSprite player, RiderState state) {

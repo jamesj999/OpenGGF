@@ -178,6 +178,43 @@ public class TestActTransitionHeadless {
         assertEquals(ACT_2, lm.getCurrentAct(), "Act should be 2 (index 1) after transition");
     }
 
+    @Test
+    public void executeActTransitionResetsLevelGamestateByDefault() throws Exception {
+        LevelManager lm = GameServices.level();
+        lm.getLevelGamestate().setRings(37);
+        lm.getLevelGamestate().setTimerFrames(1234);
+
+        SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
+                .builder(TransitionType.RELOAD_TARGET_LEVEL)
+                .targetZoneAct(ZONE_EHZ, ACT_2)
+                .preserveMusic(true)
+                .build();
+
+        lm.executeActTransition(request);
+
+        assertEquals(0, lm.getLevelGamestate().getRings());
+        assertEquals(0, lm.getLevelGamestate().getTimerFrames());
+    }
+
+    @Test
+    public void executeActTransitionCanPreserveLevelGamestate() throws Exception {
+        LevelManager lm = GameServices.level();
+        lm.getLevelGamestate().setRings(37);
+        lm.getLevelGamestate().setTimerFrames(1234);
+
+        SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
+                .builder(TransitionType.RELOAD_TARGET_LEVEL)
+                .targetZoneAct(ZONE_EHZ, ACT_2)
+                .preserveMusic(true)
+                .preserveLevelGamestate(true)
+                .build();
+
+        lm.executeActTransition(request);
+
+        assertEquals(37, lm.getLevelGamestate().getRings());
+        assertEquals(1234, lm.getLevelGamestate().getTimerFrames());
+    }
+
     // ========== Manager Windowing Uses Live Camera ==========
 
     @Test

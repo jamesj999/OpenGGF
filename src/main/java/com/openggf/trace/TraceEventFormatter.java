@@ -67,8 +67,46 @@ public final class TraceEventFormatter {
                             nullableInt(state.actualAct()),
                             nullableInt(state.apparentAct()),
                             nullableInt(state.gameMode()));
+            case TraceEvent.CageState cage ->
+                    String.format("cage s%d @%04X,%04X sub=%02X st=%02X p1=%02X/%02X p2=%02X/%02X",
+                            cage.slot(),
+                            cage.x() & 0xFFFF,
+                            cage.y() & 0xFFFF,
+                            cage.subtype() & 0xFF,
+                            cage.status() & 0xFF,
+                            cage.p1Phase() & 0xFF,
+                            cage.p1State() & 0xFF,
+                            cage.p2Phase() & 0xFF,
+                            cage.p2State() & 0xFF);
+            case TraceEvent.CageExecution execution ->
+                    summariseCageExecution(execution);
             default -> "";
         };
+    }
+
+    private static String summariseCageExecution(TraceEvent.CageExecution execution) {
+        if (execution.hits().isEmpty()) {
+            return "cageExec empty";
+        }
+        List<String> parts = new ArrayList<>();
+        int limit = Math.min(3, execution.hits().size());
+        for (int i = 0; i < limit; i++) {
+            TraceEvent.CageExecution.Hit hit = execution.hits().get(i);
+            parts.add(String.format("%s@%05X cage=%04X player=%04X d5=%04X d6=%02X state=%02X obj=%02X cst=%02X",
+                    hit.branch(),
+                    hit.pc(),
+                    hit.cageAddr(),
+                    hit.playerAddr(),
+                    hit.d5() & 0xFFFF,
+                    hit.d6() & 0xFF,
+                    hit.stateByte() & 0xFF,
+                    hit.playerObjCtrl() & 0xFF,
+                    hit.cageStatus() & 0xFF));
+        }
+        String suffix = execution.hits().size() > limit
+                ? String.format(" +%d", execution.hits().size() - limit)
+                : "";
+        return "cageExec " + String.join("; ", parts) + suffix;
     }
 
     private static String nullableInt(Integer value) {

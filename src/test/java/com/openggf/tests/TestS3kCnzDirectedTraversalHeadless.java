@@ -192,6 +192,10 @@ public class TestS3kCnzDirectedTraversalHeadless {
         player.setCentreY((short) 0x04EE);
         player.setAir(true);
         player.setRolling(true);
+        // ROM Obj_CorkFloor samples Player_1+anim before SolidObjectFull
+        // (sonic3k.asm:58493-58505) and treats anim=$02 as the roll-break
+        // condition (sonic3k.asm:58515-58528, 58532-58540).
+        player.setAnimationId(2);
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0x0180);
         player.setGSpeed((short) 0);
@@ -564,6 +568,17 @@ public class TestS3kCnzDirectedTraversalHeadless {
         player.setJumpInputPressed(false);
         player.setAir(true);
         player.setCentreY((short) (player.getCentreY() - 0x20));
+        fixture.stepFrame(false, false, false, false, false);
+
+        // ROM Obj_CNZCylinder consumes the prior standing bit in sub_324C0
+        // before it calls SolidObjectFull for the current object frame
+        // (sonic3k.asm:67656-67672). SolidObjectFull clears the cylinder's
+        // standing bit only after seeing the rider airborne/out of bounds
+        // (sonic3k.asm:41016-41033), so the active-slot release path sees that
+        // loss on the next sub_324C0 pass (sonic3k.asm:68019-68025).
+        assertTrue(player.isObjectControlled());
+        assertTrue(isPlayerOneSlotActive(cylinder));
+
         fixture.stepFrame(false, false, false, false, false);
 
         assertFalse(player.isObjectControlled());

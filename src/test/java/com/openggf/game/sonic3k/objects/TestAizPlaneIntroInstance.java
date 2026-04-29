@@ -3,10 +3,12 @@ package com.openggf.game.sonic3k.objects;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.tests.TestEnvironment;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -79,6 +81,23 @@ public class TestAizPlaneIntroInstance {
         // ROM: camera is NOT frozen; it stays at origin naturally via
         // Level_started_flag. Intro objects use screen-coordinate rendering.
         assertFalse(camera.getFrozen());
+    }
+
+    @Test
+    public void initLeavesCpuSidekickAvailableForSonicAndTailsIntro() {
+        Sonic player = new Sonic("sonic", (short) 0, (short) 0);
+        player.setCentreX((short) 0x40);
+        player.setCentreY((short) 0x420);
+        Tails sidekick = new Tails("tails_p2", (short) 0x20, (short) 0x424);
+        sidekick.setCpuControlled(true);
+        GameServices.sprites().addSprite(sidekick, "tails");
+
+        AizPlaneIntroInstance.resetIntroPhaseState();
+        intro.update(0, player);
+
+        assertEquals(java.util.List.of(sidekick), GameServices.sprites().getSidekicks(),
+                "S&K SpawnLevelMainSprites creates Player_2 and leaves Tails_CPU_routine native; "
+                        + "Obj_AIZPlaneIntro only controls Player_1.");
     }
 
     @Test

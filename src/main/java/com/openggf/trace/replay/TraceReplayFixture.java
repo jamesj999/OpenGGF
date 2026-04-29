@@ -19,6 +19,9 @@ public interface TraceReplayFixture {
     /** Advance BK2 without stepping gameplay (lag frame). Returns the mask. */
     int skipFrameFromRecording();
 
+    /** Consume one BK2 frame without stepping gameplay or timing counters. Returns the mask. */
+    int consumeRecordingFrameInputOnly();
+
     /** Advance the BK2 cursor by N frames, no gameplay ticks. */
     void advanceRecordingCursor(int frameCount);
 }

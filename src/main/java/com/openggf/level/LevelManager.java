@@ -3540,6 +3540,17 @@ public class LevelManager {
         return frameCounter;
     }
 
+    /**
+     * Aligns this manager's level frame counter during one-time replay/bootstrap
+     * setup. ROM {@code Level_frame_counter} is already incremented before
+     * {@code Process_Sprites}; the engine stores the previous completed level
+     * frame here until {@link #update()} runs near the end of
+     * {@code LevelFrameStep}.
+     */
+    public void setFrameCounter(int frameCounter) {
+        this.frameCounter = frameCounter;
+    }
+
     public ZoneFeatureProvider getZoneFeatureProvider() {
         return zoneFeatureProvider;
     }
@@ -4081,9 +4092,12 @@ public class LevelManager {
             checkpointState.clear();
         }
 
-        // 5b. Reset level gamestate (timer + rings) for the new act.
-        // ROM: Timer and ring count reset on act transition. Score carries over.
-        levelGamestate = gameModule.createLevelState();
+        // 5b. Reset level gamestate (timer + rings) for normal act transitions.
+        // AIZ1 fire transition is a mid-level continuity reload; its timer/rings
+        // carry into AIZ2 and feed the final results tally.
+        if (!request.preserveLevelGamestate()) {
+            levelGamestate = gameModule.createLevelState();
+        }
 
         // 6. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
@@ -4567,6 +4581,7 @@ public class LevelManager {
                             .targetZoneAct(currentZone, currentAct)
                             .deactivateLevelNow(request.deactivateLevelNow())
                             .preserveMusic(request.preserveMusic())
+                            .preserveLevelGamestate(request.preserveLevelGamestate())
                             .showInLevelTitleCard(request.showInLevelTitleCard())
                             .forceAirOnStaleObjectSupportLoss(request.forceAirOnStaleObjectSupportLoss())
                             .preserveOffsetCameraPosition(request.preserveOffsetCameraPosition())

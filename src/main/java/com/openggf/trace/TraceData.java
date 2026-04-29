@@ -136,6 +136,51 @@ public class TraceData {
         return result;
     }
 
+    /**
+     * Returns advertised aux schemas that have no matching events in the
+     * loaded aux stream.
+     *
+     * <p><strong>Diagnostic only.</strong> This guards against stale regenerated
+     * fixtures where {@code metadata.json} claims per-frame diagnostics exist
+     * but {@code aux_state.jsonl(.gz)} does not actually contain the records.
+     * The result is used only for reports/tests and never feeds replay state.
+     */
+    public List<String> missingAdvertisedAuxSchemas() {
+        List<String> missing = new ArrayList<>();
+        if (metadata.hasPerFrameCageState()
+                && !hasEventOfType(TraceEvent.CageState.class)) {
+            missing.add("cage_state_per_frame");
+        }
+        if (metadata.hasPerFrameCageExecution()
+                && !hasEventOfType(TraceEvent.CageExecution.class)) {
+            missing.add("cage_execution_per_frame");
+        }
+        if (metadata.hasPerFrameVelocityWrite()
+                && !hasEventOfType(TraceEvent.VelocityWrite.class)) {
+            missing.add("velocity_write_per_frame");
+        }
+        return missing;
+    }
+
+    public List<TraceEvent.CageState> cageStatesForFrame(int frame) {
+        List<TraceEvent.CageState> states = new ArrayList<>();
+        for (TraceEvent event : eventsByFrame.getOrDefault(frame, Collections.emptyList())) {
+            if (event instanceof TraceEvent.CageState state) {
+                states.add(state);
+            }
+        }
+        return states;
+    }
+
+    public TraceEvent.CageExecution cageExecutionForFrame(int frame) {
+        for (TraceEvent event : eventsByFrame.getOrDefault(frame, Collections.emptyList())) {
+            if (event instanceof TraceEvent.CageExecution execution) {
+                return execution;
+            }
+        }
+        return null;
+    }
+
     public TraceEvent.Checkpoint latestCheckpointAtOrBefore(int frame) {
         List<Integer> frames = new ArrayList<>(eventsByFrame.keySet());
         frames.sort(Comparator.reverseOrder());
@@ -166,6 +211,17 @@ public class TraceData {
             }
         }
         return null;
+    }
+
+    private boolean hasEventOfType(Class<? extends TraceEvent> eventType) {
+        for (List<TraceEvent> events : eventsByFrame.values()) {
+            for (TraceEvent event : events) {
+                if (eventType.isInstance(event)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

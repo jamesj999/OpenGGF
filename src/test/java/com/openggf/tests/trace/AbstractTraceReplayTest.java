@@ -42,7 +42,6 @@ import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceObjectSnapshotBinder;
 import com.openggf.trace.TraceReplayBootstrap;
 import com.openggf.trace.replay.TraceReplaySessionBootstrap;
-import com.openggf.tests.trace.s3k.S3kElasticWindowController;
 import com.openggf.tests.trace.s3k.S3kRequiredCheckpointGuard;
 import com.openggf.tests.trace.s3k.S3kReplayCheckpointDetector;
 import org.junit.jupiter.api.Assumptions;
@@ -53,9 +52,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -66,6 +63,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>Originally used JUnit 4 because the ROM fixture was exposed as a JUnit 4 rule.
  */
 public abstract class AbstractTraceReplayTest {
+    private static final boolean S3K_TRACE_PROBES =
+            Boolean.getBoolean("openggf.trace.s3k.probes");
+
     /** Which game ROM this test requires. */
     protected abstract SonicGame game();
 
@@ -159,7 +159,6 @@ public abstract class AbstractTraceReplayTest {
 
             // 5. Run frame-by-frame comparison
             TraceBinder binder = new TraceBinder(tolerances());
-            int firstSubDivFrame = -1;
 
             if ("s3k".equals(meta.game())) {
                 replayS3kTrace(trace, meta, fixture, binder, replayStart);
@@ -187,6 +186,9 @@ public abstract class AbstractTraceReplayTest {
                             "Check bk2_frame_offset in metadata.json.",
                             i, bk2Input, expected.input()));
                     }
+                    if (!TraceReplayBootstrap.shouldCompareGameplayStateForReplay(phase)) {
+                        continue;
+                    }
 
                     // ROM stores centre coordinates at $D008/$D00C. With startPositionIsCentre(),
                     // the sprite's xPixel/yPixel are set to the correct top-left position,
@@ -208,7 +210,6 @@ public abstract class AbstractTraceReplayTest {
                     String engineDiagText = combineDiagnostics(
                             engineDiag.format(),
                             formatCharacterDiagnostics(secondaryCharacterLabel, actualSidekick));
-
                     binder.compareFrame(expected,
                         sprite.getCentreX(), sprite.getCentreY(),
                         sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
@@ -218,23 +219,6 @@ public abstract class AbstractTraceReplayTest {
                         EngineDiagnostics.formattedOnly(engineDiagText),
                         secondaryCharacterLabel, actualSidekick);
 
-                    // Track first subpixel divergence (before it becomes pixel-level)
-                    if (firstSubDivFrame < 0 && expected.xSub() > 0) {
-                        int engXSub = sprite.getXSubpixelRaw();
-                        int romXSub = expected.xSub();
-                        int engYSub = sprite.getYSubpixelRaw();
-                        int romYSub = expected.ySub();
-                        if (engXSub != romXSub || engYSub != romYSub) {
-                            firstSubDivFrame = expected.frame();
-                            System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
-                                "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
-                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
-                                sprite.getCentreX(), sprite.getCentreY(),
-                                sprite.getXSpeed(), expected.xSpeed(),
-                                sprite.getYSpeed(), expected.ySpeed(),
-                                sprite.getAir(), expected.air());
-                        }
-                    }
                 }
             }
 
@@ -292,11 +276,7 @@ public abstract class AbstractTraceReplayTest {
                 ? trace.getFrame(replayStart.seededTraceIndex())
                 : driveTraceIndex > 0 ? trace.getFrame(driveTraceIndex - 1) : null;
         S3kReplayCheckpointDetector detector = new S3kReplayCheckpointDetector();
-        S3kElasticWindowController controller =
-                new S3kElasticWindowController(loadCheckpointFrames(trace));
         S3kRequiredCheckpointGuard checkpointGuard = new S3kRequiredCheckpointGuard();
-        int firstSubDivFrame = -1;
-        int firstSidekickSubDivFrame = -1;
         int firstOscDivFrame = -1;
         Boolean lastEventsFg5 = null;
         boolean hasPerFrameOsc = meta.hasPerFrameOscillationState();
@@ -330,32 +310,27 @@ public abstract class AbstractTraceReplayTest {
                 for (TraceEvent event : trace.getEventsForFrame(frame)) {
                     if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
                         detector.seedCheckpoint(traceCheckpoint.name());
-                        controller.onEntryFrameValidated(traceCheckpoint);
-                        controller.onEngineCheckpoint(traceCheckpoint);
                     }
                 }
             }
-            controller.alignCursorToTraceIndex(replayStart.startingTraceIndex());
         } else if (driveTraceIndex > 0) {
-            // Legacy warmup path: we skipped past every trace checkpoint that
-            // preceded strictStart (e.g. intro_begin at frame 0 for AIZ1).
-            // Seed the detector and open the relevant elastic windows so the
-            // intro cutscene is compared loosely rather than driving strict
-            // comparison against the frozen pre-gameplay player snapshot.
-            // The controller auto-closes each window once the drive cursor
-            // passes its recorded exit frame, so the engine's checkpoint
-            // timing (e.g. title-card overlay activation) does not have to
-            // align exactly with the trace for the replay loop to progress.
+            // Seed only the diagnostic checkpoint detector for trace prefix
+            // frames that the replay policy intentionally starts after.
             for (int frame = 0; frame < driveTraceIndex; frame++) {
                 for (TraceEvent event : trace.getEventsForFrame(frame)) {
                     if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
                         detector.seedCheckpoint(traceCheckpoint.name());
-                        controller.onEntryFrameValidated(traceCheckpoint);
-                        controller.onEngineCheckpoint(traceCheckpoint);
                     }
                 }
             }
-            controller.alignCursorToTraceIndex(driveTraceIndex);
+        } else {
+            // Seed the diagnostic detector for frame-0 checkpoints without
+            // changing the comparison cursor.
+            for (TraceEvent event : trace.getEventsForFrame(0)) {
+                if (event instanceof TraceEvent.Checkpoint traceCheckpoint) {
+                    detector.seedCheckpoint(traceCheckpoint.name());
+                }
+            }
         }
 
         // Align SpriteManager.frameCounter with ROM Level_frame_counter so Tails-CPU
@@ -376,10 +351,9 @@ public abstract class AbstractTraceReplayTest {
         //                                 step fc 1→2 = ROM.gfc(T_1)=2 ✓
         //   * AIZ:  T_289.gfc=0 (still inside intro)         → fc 0→0  (no change),
         //                                 then iter K=290 step fc 0→1 = ROM.gfc(T_290)=1 ✓
-        if (previousDriveFrame != null && previousDriveFrame.gameplayFrameCounter() >= 0
-                && GameServices.sprites() != null) {
-            GameServices.sprites().setFrameCounter(previousDriveFrame.gameplayFrameCounter());
-        }
+        TraceReplaySessionBootstrap.alignFrameCountersForReplayStart(
+                previousDriveFrame,
+                driveTraceIndex < trace.frameCount() ? trace.getFrame(driveTraceIndex) : null);
         while (driveTraceIndex < trace.frameCount()) {
             TraceFrame driveFrame = trace.getFrame(driveTraceIndex);
             TraceExecutionPhase phase =
@@ -392,7 +366,7 @@ public abstract class AbstractTraceReplayTest {
             var titleCardProvider = GameServices.module().getTitleCardProvider();
             boolean titleCardOverlayActive = titleCardProvider != null && titleCardProvider.isOverlayActive();
             boolean titleCardReleaseControl = titleCardProvider != null && titleCardProvider.shouldReleaseControl();
-            if (lastEventsFg5 == null || lastEventsFg5 != probe.eventsFg5()) {
+            if (S3K_TRACE_PROBES && (lastEventsFg5 == null || lastEventsFg5 != probe.eventsFg5())) {
                 System.out.printf("S3K probe frame=%d levelStarted=%b eventsFg5=%b fire=%b zone=%s act=%s apparent=%s moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b tcOverlay=%b tcRelease=%b%n",
                         driveFrame.frame(),
                         probe.levelStarted(),
@@ -410,7 +384,7 @@ public abstract class AbstractTraceReplayTest {
                 lastEventsFg5 = probe.eventsFg5();
             }
             TraceEvent.Checkpoint engineCheckpoint = detector.observe(probe);
-            if (engineCheckpoint != null) {
+            if (S3K_TRACE_PROBES && engineCheckpoint != null) {
                 System.out.printf("S3K engine checkpoint frame=%d name=%s zone=%s act=%s apparent=%s levelStarted=%b moveLock=%d ctrlLocked=%b objCtrl=%b hidden=%b eventsFg5=%b tcOverlay=%b tcRelease=%b%n",
                         driveFrame.frame(),
                         engineCheckpoint.name(),
@@ -426,15 +400,12 @@ public abstract class AbstractTraceReplayTest {
                         titleCardOverlayActive,
                         titleCardReleaseControl);
             }
-            controller.onEngineTick();
-            controller.assertWithinDriftBudget();
-
             // Diagnostic-only: when the trace carries per-frame oscillation
             // snapshots (v6.1+ S3K recorder), compare engine OscillationManager
-            // state to ROM Oscillating_table state at this frame and print the
-            // first divergence. Engine must produce the correct phase
+            // state to ROM Oscillating_table state at this frame when probes
+            // are enabled. Engine must produce the correct phase
             // natively — never hydrate from these values.
-            if (hasPerFrameOsc && firstOscDivFrame < 0) {
+            if (S3K_TRACE_PROBES && hasPerFrameOsc && firstOscDivFrame < 0) {
                 TraceEvent.OscillationState romOsc = trace.oscillationStateForFrame(driveFrame.frame());
                 if (romOsc != null && romOsc.oscTable() != null && romOsc.oscTable().length == 0x42) {
                     byte[] eng = com.openggf.game.OscillationManager.snapshotRomFormatBytes();
@@ -452,22 +423,19 @@ public abstract class AbstractTraceReplayTest {
                 }
             }
 
-            if (controller.isStrictComparisonEnabled()) {
-                int strictTraceIndex = controller.strictTraceIndex();
-                TraceFrame expected = trace.getFrame(strictTraceIndex);
+            if (TraceReplayBootstrap.shouldCompareGameplayStateForReplay(phase)) {
                 TraceReplayBootstrap.ReplayPrimaryState actualPrimary =
                         TraceReplayBootstrap.capturePrimaryReplayStateForComparison(
-                                trace, expected, fixture.sprite());
+                                trace, driveFrame, fixture.sprite());
                 EngineDiagnostics engineDiag = captureEngineDiagnostics(fixture.sprite());
                 String romDiag = combineDiagnostics(
-                        expected.hasExtendedData() ? expected.formatDiagnostics() : "",
-                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(strictTraceIndex)));
+                        driveFrame.hasExtendedData() ? driveFrame.formatDiagnostics() : "",
+                        TraceEventFormatter.summariseFrameEvents(trace.getEventsForFrame(driveTraceIndex)));
                 TraceCharacterState actualSidekick = captureFirstSidekickState();
                 String secondaryCharacterLabel = meta.recordedSidekicks().isEmpty()
                         ? "sidekick"
                         : meta.recordedSidekicks().getFirst();
-
-                binder.compareFrame(expected,
+                binder.compareFrame(driveFrame,
                         actualPrimary.x(), actualPrimary.y(),
                         actualPrimary.xSpeed(), actualPrimary.ySpeed(), actualPrimary.gSpeed(),
                         actualPrimary.angle(),
@@ -476,92 +444,20 @@ public abstract class AbstractTraceReplayTest {
                         engineDiag,
                         secondaryCharacterLabel,
                         actualSidekick);
-
-                TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(strictTraceIndex);
-                if (traceCheckpoint != null && traceCheckpoint.frame() == strictTraceIndex) {
-                    checkpointGuard.validateStrictEntry(
-                            strictTraceIndex,
-                            traceCheckpoint,
-                            engineCheckpoint,
-                            detector.requiredCheckpointNamesReached());
-                    controller.onEntryFrameValidated(traceCheckpoint);
-                }
-
-                if (firstSubDivFrame < 0 && expected.xSub() > 0) {
-                    int engXSub = actualPrimary.xSub();
-                    int romXSub = expected.xSub();
-                    int engYSub = actualPrimary.ySub();
-                    int romYSub = expected.ySub();
-                    if (engXSub != romXSub || engYSub != romYSub) {
-                        firstSubDivFrame = expected.frame();
-                        System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
-                                        "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
-                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
-                                actualPrimary.x(), actualPrimary.y(),
-                                actualPrimary.xSpeed(), expected.xSpeed(),
-                                actualPrimary.ySpeed(), expected.ySpeed(),
-                                actualPrimary.air(), expected.air());
-                    }
-                }
-                if (firstSidekickSubDivFrame < 0
-                        && expected.sidekick() != null
-                        && actualSidekick != null
-                        && expected.sidekick().present()
-                        && actualSidekick.present()) {
-                    int engXSub = actualSidekick.xSub();
-                    int romXSub = expected.sidekick().xSub();
-                    int engYSub = actualSidekick.ySub();
-                    int romYSub = expected.sidekick().ySub();
-                    if (engXSub != romXSub || engYSub != romYSub) {
-                        firstSidekickSubDivFrame = expected.frame();
-                        System.out.printf("FIRST SIDEKICK SUB DIVERGENCE at frame %d: "
-                                        + "xsub ROM=0x%04X ENG=0x%04X ysub ROM=0x%04X ENG=0x%04X "
-                                        + "cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
-                                expected.frame(), romXSub, engXSub, romYSub, engYSub,
-                                actualSidekick.x(), actualSidekick.y(),
-                                actualSidekick.xSpeed(), expected.sidekick().xSpeed(),
-                                actualSidekick.ySpeed(), expected.sidekick().ySpeed(),
-                                actualSidekick.air(), expected.sidekick().air());
-                    }
-                }
             }
 
-            boolean strictBeforeCheckpoint = controller.isStrictComparisonEnabled();
-            int naturalNextDriveIndex = driveTraceIndex + 1;
-            if (engineCheckpoint != null) {
-                controller.onEngineCheckpoint(engineCheckpoint);
-                int skippedTraceFrames = controller.driveTraceIndex() - naturalNextDriveIndex;
-                if (skippedTraceFrames > 0) {
-                    fixture.advanceRecordingCursor(skippedTraceFrames);
-                }
+            TraceEvent.Checkpoint traceCheckpoint = trace.latestCheckpointAtOrBefore(driveTraceIndex);
+            if (traceCheckpoint != null && traceCheckpoint.frame() == driveTraceIndex) {
+                checkpointGuard.validateStrictEntry(
+                        driveTraceIndex,
+                        traceCheckpoint,
+                        engineCheckpoint,
+                        detector.requiredCheckpointNamesReached());
             }
 
-            if (engineCheckpoint != null
-                    && !strictBeforeCheckpoint
-                    && controller.isStrictComparisonEnabled()) {
-                driveTraceIndex = controller.driveTraceIndex();
-                previousDriveFrame = driveTraceIndex > 0
-                        ? trace.getFrame(driveTraceIndex - 1)
-                        : null;
-                continue;
-            }
-
-            controller.advanceDriveCursor();
-            driveTraceIndex = controller.driveTraceIndex();
+            driveTraceIndex++;
             previousDriveFrame = driveFrame;
         }
-    }
-
-    private Map<String, Integer> loadCheckpointFrames(TraceData trace) {
-        Map<String, Integer> frames = new LinkedHashMap<>();
-        for (int frame = 0; frame < trace.frameCount(); frame++) {
-            for (TraceEvent event : trace.getEventsForFrame(frame)) {
-                if (event instanceof TraceEvent.Checkpoint checkpoint) {
-                    frames.putIfAbsent(checkpoint.name(), checkpoint.frame());
-                }
-            }
-        }
-        return frames;
     }
 
     private S3kCheckpointProbe captureS3kProbe(int replayFrame, AbstractPlayableSprite sprite) {
@@ -656,7 +552,6 @@ public abstract class AbstractTraceReplayTest {
         return captureCharacterState(spriteManager.getRegisteredSidekicks().getFirst());
     }
 
-
     private TraceCharacterState captureCharacterState(AbstractPlayableSprite sprite) {
         ObjectManager om = GameServices.level() != null
                 ? GameServices.level().getObjectManager() : null;
@@ -695,9 +590,6 @@ public abstract class AbstractTraceReplayTest {
                 statusByte,
                 standOnSlot);
     }
-
-
-
 
     /**
      * Capture engine-side diagnostic state for the context window.

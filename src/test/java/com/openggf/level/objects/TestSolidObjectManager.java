@@ -109,6 +109,67 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void walkingPastRidingBoundsClearsOnObjectAndSetsAirEvenWithLatchedInteract() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        int centreY = 100 - params.groundHalfHeight() - player.getYRadius();
+        player.setCentreY((short) centreY);
+        player.setYSpeed((short) 0);
+        player.setAir(true);
+
+        manager.updateSolidContacts(player);
+        assertTrue(player.isOnObject());
+        assertFalse(player.getAir());
+
+        player.setLatchedSolidObject(object.getSpawn().objectId(), object);
+        player.setCentreX((short) (100 + (params.halfWidth() * 2) + 1));
+
+        manager.updateSolidContacts(player);
+
+        assertFalse(player.isOnObject(),
+                "S3K SolidObjectFull_1P/SolidObjectTop_1P clear Status_OnObj when riding bounds are left");
+        assertTrue(player.getAir(),
+                "S3K SolidObjectFull_1P/SolidObjectTop_1P set Status_InAir on riding walkoff");
+        assertEquals(object.getSpawn().objectId(), player.getLatchedSolidObjectId(),
+                "The ROM interact slot can remain latched after Status_OnObj is cleared");
+    }
+
+    @Test
+    public void walkingToExactRightRidingBoundaryClearsOnObjectWithoutStickyExtension() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        TestSolidObject object = new TestSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(20);
+        player.setCentreX((short) 100);
+        int centreY = 100 - params.groundHalfHeight() - player.getYRadius();
+        player.setCentreY((short) centreY);
+        player.setYSpeed((short) 0);
+        player.setAir(true);
+
+        manager.updateSolidContacts(player);
+        assertTrue(player.isOnObject());
+        assertFalse(player.getAir());
+
+        player.setCentreX((short) (100 + params.halfWidth()));
+
+        manager.updateSolidContacts(player);
+
+        assertFalse(player.isOnObject(),
+                "S3K SolidObjectFull_1P/SolidObjectTop_1P treat relX == width*2 as outside ride bounds");
+        assertTrue(player.getAir(),
+                "Leaving exact ride bounds sets Status_InAir instead of extending support with a sticky buffer");
+    }
+
+    @Test
     public void testHeadroomDistanceUpward() {
         SolidObjectParams params = new SolidObjectParams(16, 8, 8);
         TestSolidObject object = new TestSolidObject(100, 70, params);
@@ -420,7 +481,7 @@ public class TestSolidObjectManager {
     }
 
     @Test
-    public void cnzTrapDoorSolidObjectTopRejectsExactSurfaceBoundaryAndLandsOnePixelInside() {
+    public void cnzTrapDoorSolidObjectTopAcceptsExactSurfaceBoundaryAndLandsOnePixelInside() {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x44, 0, 0, false, 0);
         CnzTrapDoorInstance object = new CnzTrapDoorInstance(spawn);
         ObjectManager manager = buildManager(object);
@@ -439,10 +500,12 @@ public class TestSolidObjectManager {
 
         manager.updateSolidContacts(exactBoundary);
 
-        assertFalse(exactBoundary.isOnObject(),
-                "CNZ trap door SolidObjectTop should reject the ROM d0 == 0 boundary");
-        assertTrue(exactBoundary.getAir());
-        assertEquals(0x100, exactBoundary.getYSpeed());
+        assertTrue(exactBoundary.isOnObject(),
+                "S3K SolidObjectTop accepts the ROM d0 == 0 boundary (sonic3k.asm:41996-42015)");
+        assertFalse(exactBoundary.getAir());
+        assertEquals(0, exactBoundary.getYSpeed());
+        assertEquals(100 - params.groundHalfHeight() - exactBoundary.getYRadius() - 1,
+                exactBoundary.getCentreY());
 
         TestPlayableSprite insideBoundary = new TestPlayableSprite((short) 0, (short) 0);
         insideBoundary.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
