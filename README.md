@@ -211,7 +211,7 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame while keeping trace data comparison-only.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
-  v6.5 replay frontier from F3905 to F3925 while preserving S1/S2 trace baselines.
+  v6.5 replay frontier from F3905 to F4321 while preserving S1/S2 trace baselines.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
   physics differences, configuration UX, debug rendering, and performance hot paths continue to be
   tightened across Sonic 1, Sonic 2, and Sonic 3 & Knuckles.
