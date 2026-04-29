@@ -244,10 +244,14 @@ local CAGE_HOOK_LOC_33ADE = 0x33ADE
 local CAGE_HOOK_LOC_33B1E = 0x33B1E
 local CAGE_HOOK_LOC_33B62 = 0x33B62
 -- Tails CPU normal-follow and path diagnostics.
-local TAILS_CPU_HOOK_LOC_13DD0 = 0x13DD0
-local TAILS_CPU_HOOK_LOC_13EB8 = 0x13EB8
-local TAILS_PATH_HOOK_LOC_14A0A = 0x14A0A
-local TAILS_PATH_HOOK_LOC_14B7A = 0x14B7A
+local V65 = {
+    TAILS_CPU_HOOK_LOC_13DD0 = 0x13DD0,
+    TAILS_CPU_HOOK_LOC_13EB8 = 0x13EB8,
+    TAILS_PATH_HOOK_LOC_14A0A = 0x14A0A,
+    TAILS_PATH_HOOK_LOC_14B7A = 0x14B7A,
+    normal_step = nil,
+    tails_cpu_hooks_registered = false,
+}
 
 -----------------
 --- State     ---
@@ -298,10 +302,6 @@ local prev_cage_status = -1
 -- velocity_write event listing all writers in temporal order.
 local tails_xvel_writes = {}
 local tails_yvel_writes = {}
-
--- Per-frame focused Tails CPU normal-step diagnostics. Populated by
--- memoryexecute hooks during the ROM frame and flushed from on_frame_end.
-local tails_cpu_normal_step = nil
 
 local physics_file = nil
 local aux_file = nil
@@ -569,7 +569,7 @@ local function reset_recording_state()
     cage_hits = {}
     tails_xvel_writes = {}
     tails_yvel_writes = {}
-    tails_cpu_normal_step = nil
+    V65.normal_step = nil
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -1359,27 +1359,27 @@ end
 -- The event is comparison-only report context and must never feed replay
 -- state.
 
-local function _u16(value)
+function V65.u16(value)
     if value < 0 then
         return value + 0x10000
     end
     return value & 0xFFFF
 end
 
-local function _hook_a0_is_tails()
+function V65.hook_a0_is_tails()
     local a0 = emu.getregister("M68K A0") or 0
     return (a0 % 0x10000) == SIDEKICK_BASE
 end
 
-local function _tails_cpu_step()
-    if tails_cpu_normal_step == nil or tails_cpu_normal_step.frame ~= trace_frame then
-        tails_cpu_normal_step = {
+function V65.tails_cpu_step()
+    if V65.normal_step == nil or V65.normal_step.frame ~= trace_frame then
+        V65.normal_step = {
             frame = trace_frame,
             character = "tails",
             status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS),
             object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL),
-            ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA)),
-            x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)),
+            ground_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA)),
+            x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)),
             delayed_stat = 0,
             delayed_input = 0,
             loc_13dd0_branch = "not_seen",
@@ -1393,14 +1393,14 @@ local function _tails_cpu_step()
             path_post_status = 0,
         }
     end
-    return tails_cpu_normal_step
+    return V65.normal_step
 end
 
-local function tails_cpu_record_loc_13dd0()
+function V65.tails_cpu_record_loc_13dd0()
     if not aux_file then return end
     if not started then return end
-    if not _hook_a0_is_tails() then return end
-    local step = _tails_cpu_step()
+    if not V65.hook_a0_is_tails() then return end
+    local step = V65.tails_cpu_step()
     local delayed_index = (mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) - 0x44) & 0xFF
     step.delayed_input = mainmemory.read_u16_be(ADDR_STAT_TABLE + delayed_index)
     step.delayed_stat = mainmemory.read_u8(ADDR_STAT_TABLE + delayed_index + 2)
@@ -1415,64 +1415,62 @@ local function tails_cpu_record_loc_13dd0()
     end
 end
 
-local function tails_cpu_record_loc_13eb8()
+function V65.tails_cpu_record_loc_13eb8()
     if not aux_file then return end
     if not started then return end
-    if not _hook_a0_is_tails() then return end
-    local step = _tails_cpu_step()
+    if not V65.hook_a0_is_tails() then return end
+    local step = V65.tails_cpu_step()
     local d1 = emu.getregister("M68K D1") or step.delayed_input
     step.delayed_input = d1 & 0xFFFF
     step.status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
     step.object_control = mainmemory.read_u8(SIDEKICK_BASE + OFF_OBJECT_CONTROL)
-    step.ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
-    step.x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+    step.ground_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
 end
 
-local function tails_cpu_record_path_pre()
+function V65.tails_cpu_record_path_pre()
     if not aux_file then return end
     if not started then return end
-    if not _hook_a0_is_tails() then return end
-    local step = _tails_cpu_step()
+    if not V65.hook_a0_is_tails() then return end
+    local step = V65.tails_cpu_step()
     step.ctrl2_logical = mainmemory.read_u16_be(ADDR_CTRL2_HELD_LOGICAL)
     step.ctrl2_held_logical = mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL)
-    step.path_pre_ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
-    step.path_pre_x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+    step.path_pre_ground_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.path_pre_x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
     step.path_pre_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
 end
 
-local function tails_cpu_record_path_post()
+function V65.tails_cpu_record_path_post()
     if not aux_file then return end
     if not started then return end
-    if not _hook_a0_is_tails() then return end
-    local step = _tails_cpu_step()
-    step.path_post_ground_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
-    step.path_post_x_vel = _u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
+    if not V65.hook_a0_is_tails() then return end
+    local step = V65.tails_cpu_step()
+    step.path_post_ground_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_INERTIA))
+    step.path_post_x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL))
     step.path_post_status = mainmemory.read_u8(SIDEKICK_BASE + OFF_STATUS)
 end
 
-local tails_cpu_hooks_registered = false
+function V65.register_tails_cpu_normal_step_hooks()
+    if V65.tails_cpu_hooks_registered then return end
+    V65.tails_cpu_hooks_registered = true
 
-local function register_tails_cpu_normal_step_hooks()
-    if tails_cpu_hooks_registered then return end
-    tails_cpu_hooks_registered = true
-
-    event.onmemoryexecute(tails_cpu_record_loc_13dd0, TAILS_CPU_HOOK_LOC_13DD0)
-    event.onmemoryexecute(tails_cpu_record_loc_13eb8, TAILS_CPU_HOOK_LOC_13EB8)
-    event.onmemoryexecute(tails_cpu_record_path_pre, TAILS_PATH_HOOK_LOC_14A0A)
-    event.onmemoryexecute(tails_cpu_record_path_post, TAILS_PATH_HOOK_LOC_14B7A)
+    event.onmemoryexecute(V65.tails_cpu_record_loc_13dd0, V65.TAILS_CPU_HOOK_LOC_13DD0)
+    event.onmemoryexecute(V65.tails_cpu_record_loc_13eb8, V65.TAILS_CPU_HOOK_LOC_13EB8)
+    event.onmemoryexecute(V65.tails_cpu_record_path_pre, V65.TAILS_PATH_HOOK_LOC_14A0A)
+    event.onmemoryexecute(V65.tails_cpu_record_path_post, V65.TAILS_PATH_HOOK_LOC_14B7A)
 
     print(string.format(
         "Tails CPU normal-step hooks registered: loc_13DD0=0x%05X, loc_13EB8=0x%05X, loc_14A0A=0x%05X, loc_14B7A=0x%05X",
-        TAILS_CPU_HOOK_LOC_13DD0, TAILS_CPU_HOOK_LOC_13EB8,
-        TAILS_PATH_HOOK_LOC_14A0A, TAILS_PATH_HOOK_LOC_14B7A))
+        V65.TAILS_CPU_HOOK_LOC_13DD0, V65.TAILS_CPU_HOOK_LOC_13EB8,
+        V65.TAILS_PATH_HOOK_LOC_14A0A, V65.TAILS_PATH_HOOK_LOC_14B7A))
 end
 
-local function flush_tails_cpu_normal_step()
+function V65.flush_tails_cpu_normal_step()
     if not aux_file then return end
-    if tails_cpu_normal_step == nil or tails_cpu_normal_step.frame ~= trace_frame then
+    if V65.normal_step == nil or V65.normal_step.frame ~= trace_frame then
         return
     end
-    local step = tails_cpu_normal_step
+    local step = V65.normal_step
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     write_aux(string.format(
         '{"frame":%d,"vfc":%d,"event":"tails_cpu_normal_step","character":"tails",'
@@ -1495,7 +1493,7 @@ local function flush_tails_cpu_normal_step()
         step.path_pre_status,
         step.path_post_ground_vel, step.path_post_x_vel,
         step.path_post_status))
-    tails_cpu_normal_step = nil
+    V65.normal_step = nil
 end
 
 local cage_hooks_registered = false
@@ -1813,7 +1811,7 @@ local function on_frame_end()
     -- Focused Tails CPU normal-follow step diagnostics (v6.5 schema).
     -- memoryexecute hooks collect branch/input/path state during the ROM
     -- frame, and this flush emits one comparison-only event for the report.
-    flush_tails_cpu_normal_step()
+    V65.flush_tails_cpu_normal_step()
 
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
@@ -1894,7 +1892,7 @@ register_cage_hooks()
 register_velocity_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
-register_tails_cpu_normal_step_hooks()
+V65.register_tails_cpu_normal_step_hooks()
 
 while true do
     on_frame_end()

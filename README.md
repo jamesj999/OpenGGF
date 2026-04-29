@@ -293,6 +293,9 @@ further S3K parity work.
   frontiers. The new diagnostics cite the S3K Tails follow/input/death paths in
   `docs/skdisasm/sonic3k.asm:26702-26741`, `27798-27805`, `28103-28122`,
   `28407-28451`, and the AIZ object handoff paths in `43758-43810` and `46481-46950`.
+  The follow-up recorder-local-pressure fix groups v6.5 diagnostic state under
+  one Lua table so BizHawk/NLua loads the recorder instead of hitting the main-chunk
+  local-variable limit.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
