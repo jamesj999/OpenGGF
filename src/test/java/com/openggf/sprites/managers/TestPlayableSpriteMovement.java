@@ -112,6 +112,54 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void s3kRightLevelBoundaryAllowsEqualPredictedPosition() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x2ED0);
+                GameServices.gameState().setCurrentBossId(0);
+
+                int rightBoundary = 0x2ED0 + 320 - 24 + 64;
+                mockSprite.setCentreX((short) rightBoundary);
+                mockSprite.setSubpixelRaw(0, 0);
+                mockSprite.setXSpeed((short) 0x000C);
+                mockSprite.setGSpeed((short) 0x000C);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals(rightBoundary, mockSprite.getCentreX() & 0xFFFF,
+                                "S3K Player_LevelBound uses blo.s, so equality does not clamp");
+                assertEquals(0x000C, mockSprite.getXSpeed(),
+                                "S3K should preserve the first rightward acceleration at the exact right boundary");
+                assertEquals(0x000C, mockSprite.getGSpeed(),
+                                "S3K should preserve ground speed at the exact right boundary");
+        }
+
+        @Test
+        public void s2RightLevelBoundaryClampsEqualPredictedPosition() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x2ED0);
+                GameServices.gameState().setCurrentBossId(0);
+
+                int rightBoundary = 0x2ED0 + 320 - 24 + 64;
+                mockSprite.setCentreX((short) rightBoundary);
+                mockSprite.setSubpixelRaw(0, 0);
+                mockSprite.setXSpeed((short) 0x000C);
+                mockSprite.setGSpeed((short) 0x000C);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals(rightBoundary, mockSprite.getCentreX() & 0xFFFF,
+                                "S2 Sonic_LevelBound uses bls.s, so equality clamps at the right boundary");
+                assertEquals(0, mockSprite.getXSpeed(), "S2 equality clamp should clear xSpeed");
+                assertEquals(0, mockSprite.getGSpeed(), "S2 equality clamp should clear gSpeed");
+        }
+
+        @Test
         public void testCalculateLandingRightSlope() throws Exception {
                 // Angle 0x20 (32). Slope \ (Down-Right).
                 // ySpeed 500 (falling). xSpeed 0.
