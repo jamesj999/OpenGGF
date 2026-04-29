@@ -11,6 +11,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.AizObjectEventBridge;
 import com.openggf.game.sonic3k.events.CnzObjectEventBridge;
 import com.openggf.game.sonic3k.events.HczObjectEventBridge;
+import com.openggf.game.sonic3k.events.MgzObjectEventBridge;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kCNZEvents;
 import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
@@ -50,7 +51,8 @@ import java.util.logging.Logger;
  * Zone event handlers will be added incrementally per zone.
  */
 public class Sonic3kLevelEventManager extends AbstractLevelEventManager
-        implements AizObjectEventBridge, CnzObjectEventBridge, HczObjectEventBridge, S3kTransitionEventBridge {
+        implements AizObjectEventBridge, CnzObjectEventBridge, HczObjectEventBridge, MgzObjectEventBridge,
+        S3kTransitionEventBridge {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
     private static final int PACHINKO_TOP_EXIT_Y = -0x20;
 
@@ -507,6 +509,13 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     /** Returns the HCZ zone events handler, or null if not in HCZ. */
     public Sonic3kMGZEvents getMgzEvents() {
         return mgzEvents;
+    }
+
+    @Override
+    public void triggerBossCollapseHandoff() {
+        if (mgzEvents != null) {
+            mgzEvents.triggerBossCollapseHandoff();
+        }
     }
 
     public Sonic3kHCZEvents getHczEvents() {

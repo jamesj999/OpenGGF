@@ -289,6 +289,32 @@ class TestSonic3kMgz2BgRiseEvents {
     }
 
     @Test
+    void sonicRise_liftsEveryActiveSidekickBySameDeltaAsFocusedPlayer() {
+        AbstractPlayableSprite player = placePlayer(0x3500, 0x0850);
+        TestablePlayableSprite tails = new TestablePlayableSprite("tails", (short) 0x3500, (short) 0x0A81);
+        TestablePlayableSprite knuckles = new TestablePlayableSprite("knuckles", (short) 0x3500, (short) 0x0A90);
+        tails.setCpuControlled(true);
+        knuckles.setCpuControlled(true);
+        GameServices.sprites().addSprite(tails, "tails");
+        GameServices.sprites().addSprite(knuckles, "knuckles");
+        Sonic3kMGZEvents events = new Sonic3kMGZEvents();
+        events.init(1);
+        tick(events, 0);
+
+        player.setCentreX((short) 0x3D60);
+        player.setCentreY((short) 0x0A81);
+        int tailsStartY = tails.getCentreY();
+        int knucklesStartY = knuckles.getCentreY();
+
+        tick(events, 1);
+
+        assertEquals(tailsStartY - 1, tails.getCentreY(),
+                "MGZ2 floor rise should lift the first sidekick by the same rise delta as Sonic");
+        assertEquals(knucklesStartY - 1, knuckles.getCentreY(),
+                "MGZ2 floor rise should lift later active sidekicks for the multi-sidekick extension");
+    }
+
+    @Test
     void finalTimedShake_expiresAfterTheRomCountdown() {
         AbstractPlayableSprite player = placePlayer(0x3500, 0x0850);
         Sonic3kMGZEvents events = new Sonic3kMGZEvents();

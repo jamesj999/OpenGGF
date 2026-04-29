@@ -9,11 +9,10 @@ import com.openggf.game.GameModule;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.RuntimeManager;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
-import com.openggf.game.sonic3k.events.Sonic3kMGZEvents;
+import com.openggf.game.sonic3k.events.MgzObjectEventBridge;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
@@ -25,6 +24,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.tests.FullReset;
 import com.openggf.tests.SingletonResetExtension;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import org.mockito.MockedStatic;
@@ -166,7 +166,7 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void rendersTerrainDrillAfterRobotnikShipSoDrillStaysVisibleInFront() throws Exception {
+    void rendersRomBackDrillPieceBeforeMainBodyAndShip() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         MgzDrillingRobotnikInstance boss = createBoss(services);
         boss.update(0, null);
@@ -177,14 +177,33 @@ class TestMgzDrillingRobotnikInstance {
         boss.appendRenderCommands(new ArrayList<>());
 
         InOrder order = inOrder(services.drillRenderer, services.shipRenderer);
+        order.verify(services.drillRenderer).drawFrameIndex(eq(1), anyInt(), anyInt(), eq(false), eq(false));
         order.verify(services.drillRenderer).drawFrameIndex(eq(0), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer).drawFrameIndex(eq(4), anyInt(), anyInt(), eq(false), eq(false));
         order.verify(services.shipRenderer).drawFrameIndex(eq(9), anyInt(), anyInt(), eq(false), eq(false));
         order.verify(services.shipRenderer).drawFrameIndex(anyInt(), anyInt(), anyInt(), eq(false), eq(false));
-        order.verify(services.drillRenderer).drawFrameIndex(eq(1), anyInt(), anyInt(), eq(false), eq(false));
-        order.verify(services.drillRenderer).drawFrameIndex(eq(4), anyInt(), anyInt(), eq(false), eq(false));
-        order.verify(services.drillRenderer, times(2))
-                .drawFrameIndex(eq(6), anyInt(), anyInt(), eq(false), eq(false));
         order.verify(services.drillRenderer).drawFrameIndex(eq(0x0F), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer).drawFrameIndex(eq(6), anyInt(), anyInt(), eq(false), eq(false));
+    }
+
+    @Test
+    void splitsThrusterFlamesIntoRomPriorityBuckets() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        MgzDrillingRobotnikInstance boss = createBoss(services);
+        boss.update(0, null);
+
+        setPrivateInt(boss, "waitTimer", 0);
+        boss.getState().routine = staticInt("ROUTINE_DRILL_DROP");
+
+        boss.appendRenderCommands(new ArrayList<>());
+
+        InOrder order = inOrder(services.drillRenderer, services.shipRenderer);
+        order.verify(services.drillRenderer).drawFrameIndex(eq(0), eq(0x08E0), eq(0x0690), eq(false), eq(false));
+        order.verify(services.drillRenderer)
+                .drawFrameIndex(eq(0x19), eq(0x08D4), eq(0x06B8), eq(false), eq(false), eq(0));
+        order.verify(services.shipRenderer).drawFrameIndex(eq(9), anyInt(), anyInt(), eq(false), eq(false));
+        order.verify(services.drillRenderer)
+                .drawFrameIndex(eq(0x19), eq(0x08E8), eq(0x06B8), eq(false), eq(false), eq(0));
     }
 
     @Test
@@ -447,7 +466,7 @@ class TestMgzDrillingRobotnikInstance {
         Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
         capsule.setServices(services);
 
-        Method openCapsule = Aiz2EndEggCapsuleInstance.class.getDeclaredMethod("openCapsule");
+        Method openCapsule = AbstractS3kFloatingEndEggCapsuleInstance.class.getDeclaredMethod("openCapsule");
         openCapsule.setAccessible(true);
         openCapsule.invoke(capsule);
 
@@ -512,7 +531,7 @@ class TestMgzDrillingRobotnikInstance {
     }
 
     @Test
-    void mgzFloatingCapsuleStartsResultsDuringFlyOffWithoutFreezingPlayers() throws Exception {
+    void mgzFloatingCapsuleWaitsForSonicToBeCarriedBeforeStartingResults() throws Exception {
         RecordingServices services = new RecordingServices(camera);
         GameStateManager gameState = new GameStateManager();
         services.withGameState(gameState);
@@ -531,14 +550,98 @@ class TestMgzDrillingRobotnikInstance {
 
         capsule.update(1, player);
 
+        assertFalse(gameState.isEndOfLevelActive(),
+                "ROM sub_86984 should wait for Flying_carrying_Sonic_flag before starting MGZ results for Sonic");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .noneMatch(Mgz2ResultsScreenObjectInstance.class::isInstance),
+                "MGZ capsule should not start results unconditionally while Sonic is merely airborne");
+    }
+
+    @Test
+    void mgzFloatingCapsuleStartsResultsDuringTailsCarryFlyOffWithoutFreezingPlayers() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        services.withZoneAct(2, 1);
+        SonicConfigurationService config = mock(SonicConfigurationService.class);
+        when(config.getString(SonicConfiguration.MAIN_CHARACTER_CODE)).thenReturn("sonic");
+        when(config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE)).thenReturn("tails");
+        services.withConfiguration(config);
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+        setPrivateBoolean(capsule, "opened", true);
+        setPrivateInt(capsule, "postOpenTimer", 0);
+        Sonic player = new Sonic("sonic", (short) 0x3D00, (short) 0x0660);
+        player.setAir(true);
+        player.setRenderFlagOnScreen(true);
+        player.setAnimationId(4);
+        Tails tails = new Tails("tails", (short) 0x3D00, (short) 0x0630);
+        SidekickCpuController controller = new SidekickCpuController(tails, player);
+        tails.setCpuController(controller);
+        setPrivateBoolean(controller, "flyingCarryingFlag", true);
+        services.withSidekicks(java.util.List.of(tails));
+
+        capsule.update(1, player);
+
         assertTrue(gameState.isEndOfLevelActive());
         assertTrue(services.objectManager().getActiveObjects().stream()
-                        .anyMatch(S3kResultsScreenObjectInstance.class::isInstance),
+                        .anyMatch(Mgz2ResultsScreenObjectInstance.class::isInstance),
                 "MGZ capsule should start results while the Tails-carry/flying exit is still active");
         assertFalse(player.isObjectControlled(),
                 "MGZ must not reuse AIZ2's victory-pose lock because Sonic/Tails keep flying during results");
         assertFalse(player.isControlLocked());
         assertEquals(4, player.getAnimationId());
+    }
+
+    @Test
+    void mgzFloatingCapsuleStartsResultsForTailsEvenWhileAirborne() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        services.withZoneAct(2, 1);
+        SonicConfigurationService config = mock(SonicConfigurationService.class);
+        when(config.getString(SonicConfiguration.MAIN_CHARACTER_CODE)).thenReturn("tails");
+        when(config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE)).thenReturn("");
+        services.withConfiguration(config);
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+        setPrivateBoolean(capsule, "opened", true);
+        setPrivateInt(capsule, "postOpenTimer", 0);
+        Tails player = new Tails("tails", (short) 0x3D00, (short) 0x0660);
+        player.setAir(true);
+        player.setRenderFlagOnScreen(true);
+
+        capsule.update(1, player);
+
+        assertTrue(gameState.isEndOfLevelActive(),
+                "ROM sub_86984 allows character_id=1 (Tails) to start MGZ results without a ground requirement");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .anyMatch(Mgz2ResultsScreenObjectInstance.class::isInstance));
+    }
+
+    @Test
+    void mgzFloatingCapsuleWaitsWhenPlayerRenderFlagIsKnownOffScreen() throws Exception {
+        RecordingServices services = new RecordingServices(camera);
+        GameStateManager gameState = new GameStateManager();
+        services.withGameState(gameState);
+        services.withZoneAct(2, 1);
+        SonicConfigurationService config = mock(SonicConfigurationService.class);
+        when(config.getString(SonicConfiguration.MAIN_CHARACTER_CODE)).thenReturn("tails");
+        when(config.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE)).thenReturn("");
+        services.withConfiguration(config);
+        Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
+        capsule.setServices(services);
+        setPrivateBoolean(capsule, "opened", true);
+        setPrivateInt(capsule, "postOpenTimer", 0);
+        Tails player = new Tails("tails", (short) 0x3D00, (short) 0x0660);
+        player.setRenderFlagOnScreen(false);
+
+        capsule.update(1, player);
+
+        assertFalse(gameState.isEndOfLevelActive(),
+                "ROM sub_86984 waits while render_flags bit 7 reports Player 1 off-screen");
+        assertTrue(services.objectManager().getActiveObjects().stream()
+                        .noneMatch(Mgz2ResultsScreenObjectInstance.class::isInstance));
     }
 
     @Test
@@ -556,6 +659,9 @@ class TestMgzDrillingRobotnikInstance {
         player.setControlLocked(false);
         Tails tails = new Tails("tails", (short) 0x3D00, (short) 0x0630);
         tails.setObjectControlled(true);
+        SidekickCpuController controller = new SidekickCpuController(tails, player);
+        tails.setCpuController(controller);
+        setPrivateBoolean(controller, "flyingCarryingFlag", true);
         services.withSidekicks(java.util.List.of(tails));
         Mgz2EndEggCapsuleInstance capsule = Mgz2EndEggCapsuleInstance.createForCamera(0x3C80, 0x0600);
         capsule.setServices(services);
@@ -681,8 +787,8 @@ class TestMgzDrillingRobotnikInstance {
     @Test
     void repeatedEndBossFloorImpactsRequestCollapseOnlyOnce() throws Exception {
         RecordingServices services = new RecordingServices(camera);
-        CountingMgzEvents mgzEvents = new CountingMgzEvents();
-        services.withLevelEventProvider(new MgzEventManagerForTest(mgzEvents));
+        RecordingMgzEventBridge mgzEvents = new RecordingMgzEventBridge();
+        services.withLevelEventProvider(mgzEvents);
         MgzEndBossInstance boss = createEndBoss(services);
         setPrivateInt(boss, "waitTimer", 0);
         setPrivateInt(boss, "yVel", 0x400);
@@ -1054,25 +1160,20 @@ class TestMgzDrillingRobotnikInstance {
         }
     }
 
-    private static final class CountingMgzEvents extends Sonic3kMGZEvents {
+    private static final class RecordingMgzEventBridge implements LevelEventProvider, MgzObjectEventBridge {
         private int collapseHandoffCount;
+
+        @Override
+        public void initLevel(int zone, int act) {
+        }
+
+        @Override
+        public void update() {
+        }
 
         @Override
         public void triggerBossCollapseHandoff() {
             collapseHandoffCount++;
-        }
-    }
-
-    private static final class MgzEventManagerForTest extends Sonic3kLevelEventManager {
-        private final Sonic3kMGZEvents mgzEvents;
-
-        private MgzEventManagerForTest(Sonic3kMGZEvents mgzEvents) {
-            this.mgzEvents = mgzEvents;
-        }
-
-        @Override
-        public Sonic3kMGZEvents getMgzEvents() {
-            return mgzEvents;
         }
     }
 }

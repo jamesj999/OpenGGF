@@ -190,5 +190,10 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isPersistent() {
+        return !isDestroyed();
+    }
+
+    @Override
     public int getPriorityBucket() { return 4; }
 }

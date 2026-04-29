@@ -6,13 +6,13 @@ import com.openggf.game.GameModule;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.S3kPaletteOwners;
 import com.openggf.game.sonic3k.S3kPaletteWriteSupport;
-import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.events.S3kMgzEventWriteSupport;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -25,6 +25,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.SwingMotion;
 
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -77,6 +78,28 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
     private static final int ROUTINE_HANG = 6;
     private static final int ROUTINE_CEILING_ESCAPE = 0x16;
     private static final int ROUTINE_ESCAPE_WAIT = 0x18;
+
+    /*
+     * End-boss routine mapping:
+     * ROUTINE_INIT hidden/setup path Java 0x00 => ROM 0x00/0x02 (loc_6C354, then loc_6C3E6 wait)
+     * ROUTINE_END_DESCEND 0x30 => ROM 0x04 loc_6C416
+     * ROUTINE_END_SWING 0x32 => ROM 0x06 loc_6C43A
+     * ROUTINE_END_ANGLE_SETTLE 0x33 => ROM 0x08 loc_6C45A
+     * ROUTINE_END_PRE_FLOOR_DROP 0x35 => ROM 0x0A loc_6C3E6
+     * ROUTINE_END_FLOOR_DROP 0x34 => ROM 0x0C loc_6C4B2
+     * ROUTINE_END_IMPACT_WAIT 0x37 => ROM 0x0E loc_6C4F2
+     * ROUTINE_END_RECOVER 0x36 => ROM 0x10 loc_6C514
+     * ROUTINE_END_POST_RECOVER_WAIT 0x3C => ROM 0x12 loc_6C3E6
+     * ROUTINE_END_POST_RECOVER_SETTLE 0x3E => ROM 0x14 loc_6C546
+     * ROUTINE_END_AIR_WAIT 0x40 => ROM 0x16 loc_6C3E6
+     * ROUTINE_END_AIR_RISE 0x42 => ROM 0x18 loc_6C514
+     * ROUTINE_END_AIR_APPROACH 0x44 => ROM 0x1A loc_6C5C4
+     * ROUTINE_END_AIR_SWEEP 0x46 => ROM 0x1C loc_6C5FE
+     * ROUTINE_END_ATTACK_WAIT 0x48 => ROM 0x1E loc_6C4F2
+     * ROUTINE_END_ATTACK_MOVE 0x20 => ROM 0x20 loc_6C514
+     * ROUTINE_END_DEFEATED 0x3A => Java defeat handoff for kill branch at MGZ2_SpecialCheckHit / loc_6D60A
+     * ROUTINE_END_ACTIVE 0x38 => Java-only/test helper; no production assignment found
+     */
     private static final int ROUTINE_END_DESCEND = 0x30;
     private static final int ROUTINE_END_SWING = 0x32;
     private static final int ROUTINE_END_ANGLE_SETTLE = 0x33;
@@ -649,10 +672,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         }
         floorImpactTriggered = true;
         services().playSfx(Sonic3kSfx.BOSS_HIT_FLOOR.id);
-        if (services().levelEventProvider() instanceof Sonic3kLevelEventManager manager
-                && manager.getMgzEvents() != null) {
-            manager.getMgzEvents().triggerBossCollapseHandoff();
-        }
+        S3kMgzEventWriteSupport.triggerBossCollapseHandoff(services());
     }
 
     /** ROM: loc_6C014 — play collapse SFX, then enter the drill drop. */
@@ -802,6 +822,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         if (artQueued) {
             return;
         }
+        services().fadeOutMusic();
         ensureArtLoaded();
         loadBossPalette();
         artQueued = true;
@@ -862,8 +883,8 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             if (module != null && module.getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
                 manager.setBossActive(active);
             }
-        } catch (Exception e) {
-            LOG.fine(() -> "MgzDrillingRobotnikInstance.setGenericBossFlag: " + e.getMessage());
+        } catch (RuntimeException e) {
+            LOG.log(Level.WARNING, "MgzDrillingRobotnikInstance.setGenericBossFlag failed", e);
         }
     }
 
@@ -1038,19 +1059,29 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         PatternSpriteRenderer drillRenderer = getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS);
         PatternSpriteRenderer shipRenderer = getRenderer(Sonic3kObjectArtKeys.ROBOTNIK_SHIP);
 
-        // The ROM uses separate child sprites. In this inlined composite, draw
-        // the base body first, the pod/head next, then the terrain-destruction
-        // drill child pieces so the active drill remains visible over the craft.
+        // The ROM uses separate child sprites queued by priority. Higher
+        // priority words are farther back in the S3K sprite table, so the
+        // inlined composite draws $380 pieces first, then $300, then lower
+        // front buckets like the ship/head/flames.
 
-        // 1) Drill body — frame 0 of Map_MGZEndBoss (includes the silver
-        //    cockpit-top and side panels; the ROM's drill "cone" silhouette is
-        //    made up of piece 1 (y=-32, 32×24) plus the drill-bit children
-        //    overlaid on top of it).
+        // 1) Back drill piece — word_6D77C priority $380, mapping frame 1.
         if (drillRenderer != null) {
-            drillRenderer.drawFrameIndex(currentDrillBodyFrame(), state.x, state.y, flipX, false);
+            drawDrillPart(drillRenderer, STATIC_DRILL_PIECE[0], STATIC_DRILL_PIECE[1], STATIC_DRILL_PIECE[2]);
+            drawDrillPart(drillRenderer, lowerDrillPart(1));
         }
 
-        // 2) Robotnik pod + head (ROM: Child1_MakeRoboShip3 + Child1_MakeRoboHead).
+        // 2) Drill body — ObjDat_MGZDrillBoss priority $300, frame 0 of
+        //    Map_MGZEndBoss. The angled child also starts in the $300 bucket.
+        if (drillRenderer != null) {
+            drillRenderer.drawFrameIndex(currentDrillBodyFrame(), state.x, state.y, flipX, false);
+            drawDrillPart(drillRenderer, angledDrillPiece());
+            if (shouldDrawThrusterFlames()) {
+                drawThrusterFlame(drillRenderer, 1);
+            }
+        }
+
+        // 3) Robotnik pod + head (ROM: Child1_MakeRoboShip3 + Child1_MakeRoboHead,
+        //    ObjDat_RobotnikShip/Head priority $280).
         if (shipRenderer != null) {
             int podOffX = flipX ? -POD_OFFSET_X : POD_OFFSET_X;
             int podX = state.x + podOffX;
@@ -1074,16 +1105,11 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
             shipRenderer.drawFrameIndex(headFrame, headX, headY, flipX, false);
         }
 
-        // 3) Drill-piece children (ChildObjDat_6D7C0) and their visible
+        // 4) Front drill-piece children (ChildObjDat_6D7C0) and their visible
         //    sub-children. The second piece carries the drill head assembly
         //    (loc_6C9E8), while the lower thruster housings each have a flame/
         //    drill-tip child (loc_6CF20).
         if (drillRenderer != null) {
-            drawDrillPart(drillRenderer, STATIC_DRILL_PIECE[0], STATIC_DRILL_PIECE[1], STATIC_DRILL_PIECE[2]);
-            DrillPart angledPiece = angledDrillPiece();
-            drawDrillPart(drillRenderer, angledPiece);
-            drawDrillPart(drillRenderer, lowerDrillPart(0));
-            drawDrillPart(drillRenderer, lowerDrillPart(1));
             DrillPart drillHead = drillHeadPart();
             drillRenderer.drawFrameIndex(
                     drillHead.frame(),
@@ -1091,21 +1117,13 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
                     state.y + drillHead.offY(),
                     flipX,
                     false);
+            drawDrillPart(drillRenderer, lowerDrillPart(0));
             if (shouldDrawThrusterFlames()) {
-                for (int i = 0; i < 2; i++) {
-                    DrillPart flame = thrusterFlamePart(i);
-                    drillRenderer.drawFrameIndex(
-                            flame.frame(),
-                            state.x + renderOffsetX(flame.offX()),
-                            state.y + flame.offY(),
-                            flipX,
-                            false,
-                            THRUSTER_FLAME_PALETTE_LINE);
-                }
+                drawThrusterFlame(drillRenderer, 0);
             }
         }
 
-        // 4) Falling debris chunks (ChildObjDat_6D7EA) — 10 particles spawned
+        // 5) Falling debris chunks (ChildObjDat_6D7EA) — 10 particles spawned
         //    during drop that arc outward under gravity.
         if (fallingDebrisSpawned) {
             PatternSpriteRenderer debrisRenderer = getRenderer(Sonic3kObjectArtKeys.MGZ_ENDBOSS_DEBRIS);
@@ -1153,6 +1171,17 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
 
     private void drawDrillPart(PatternSpriteRenderer drillRenderer, int frame, int offX, int offY) {
         drillRenderer.drawFrameIndex(frame, state.x + renderOffsetX(offX), state.y + offY, flipX, false);
+    }
+
+    private void drawThrusterFlame(PatternSpriteRenderer drillRenderer, int lowerIndex) {
+        DrillPart flame = thrusterFlamePart(lowerIndex);
+        drillRenderer.drawFrameIndex(
+                flame.frame(),
+                state.x + renderOffsetX(flame.offX()),
+                state.y + flame.offY(),
+                flipX,
+                false,
+                THRUSTER_FLAME_PALETTE_LINE);
     }
 
     private int renderOffsetX(int offX) {

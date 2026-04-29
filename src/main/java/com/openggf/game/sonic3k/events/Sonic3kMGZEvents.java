@@ -168,7 +168,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             0x0000, 0x0F00, 0x0000, 0x0F80, 0x0000, 0x1000, 0x0080, 0x0480,
     };
 
-    private static volatile byte[] cachedMgzQuakeChunkData;
+    private volatile byte[] cachedMgzQuakeChunkData;
 
     // ========================================================================
     // Act 2 collapse / screen-event state
@@ -773,8 +773,8 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             if (module().getLevelEventProvider() instanceof AbstractLevelEventManager manager) {
                 manager.setBossActive(active);
             }
-        } catch (Exception e) {
-            LOG.fine(() -> "Sonic3kMGZEvents.setGenericBossFlag: " + e.getMessage());
+        } catch (RuntimeException e) {
+            LOG.log(java.util.logging.Level.WARNING, "Sonic3kMGZEvents.setGenericBossFlag failed", e);
         }
     }
 
@@ -1012,9 +1012,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
                 return;
             }
             bgRiseMotionStarted = true;
-            short minXTarget = camera().getMinXTarget();
             camera().setMinX(camera().getX());
-            camera().setMinXTarget(minXTarget);
         }
         advanceBgRise(player, playerX);
     }
@@ -1080,9 +1078,10 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
             return;
         }
 
-        AbstractPlayableSprite playerTwo = sidekicks.getFirst();
-        if (playerTwo != null && playerTwo != player) {
-            playerTwo.setCentreY((short) (playerTwo.getCentreY() - delta));
+        for (AbstractPlayableSprite sidekick : sidekicks) {
+            if (sidekick != null && sidekick != player) {
+                sidekick.setCentreY((short) (sidekick.getCentreY() - delta));
+            }
         }
     }
 
@@ -1588,7 +1587,7 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         if (cached != null) {
             return cached;
         }
-        synchronized (Sonic3kMGZEvents.class) {
+        synchronized (this) {
             if (cachedMgzQuakeChunkData != null) {
                 return cachedMgzQuakeChunkData;
             }
