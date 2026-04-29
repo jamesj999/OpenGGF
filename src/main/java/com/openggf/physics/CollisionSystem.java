@@ -188,6 +188,18 @@ public class CollisionSystem {
         }
     }
 
+    /**
+     * Sonic_Jump clears the player's on-object status bit before objects run.
+     * Some object routines still consume their standing routine once later in
+     * the same frame, so the engine riding record may need to survive until
+     * that object's inline solid checkpoint.
+     */
+    public void clearRidingObjectForJump(AbstractPlayableSprite player) {
+        if (objectManager != null) {
+            objectManager.clearRidingObjectForJump(player);
+        }
+    }
+
     public boolean hasObjectSupport(AbstractPlayableSprite player) {
         return isRidingObject(player) || hasStandingContact(player) || hasActiveLatchedObjectSupport(player);
     }

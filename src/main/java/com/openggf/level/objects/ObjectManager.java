@@ -1625,6 +1625,17 @@ public class ObjectManager {
         solidContacts.clearRidingObject(player);
     }
 
+    /**
+     * Clear riding state for Sonic_Jump's status-bit release.
+     * <p>
+     * Most engine ride records can be removed immediately. Objects whose ROM
+     * routine still applies {@code MvSonicOnPtfm2} after {@code ExitPlatform}
+     * keep the record until their own inline checkpoint consumes the release.
+     */
+    public void clearRidingObjectForJump(PlayableEntity player) {
+        solidContacts.clearRidingObjectForJump(player);
+    }
+
     public void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
         solidContacts.forceAirOnStaleObjectSupportLoss(player);
     }
@@ -4117,6 +4128,17 @@ public class ObjectManager {
             }
         }
 
+        void clearRidingObjectForJump(PlayableEntity player) {
+            if (player == null) {
+                return;
+            }
+            RidingState state = ridingStates.get(player);
+            if (state != null && carriesAirborneRiderAfterExitPlatform(state.object)) {
+                return;
+            }
+            clearRidingObject(player);
+        }
+
         void forceAirOnStaleObjectSupportLoss(PlayableEntity player) {
             if (player != null) {
                 forceAirOnStaleSupportLoss.add(player);
@@ -4363,7 +4385,8 @@ public class ObjectManager {
             int ridingY = state != null ? state.y : 0;
             int ridingPieceIndex = state != null ? state.pieceIndex : -1;
 
-            if (ridingObject != null && player.getAir()) {
+            if (ridingObject != null && player.getAir()
+                    && !carriesAirborneRiderAfterExitPlatform(ridingObject)) {
                 ridingStates.remove(player);
                 ridingObject = null;
                 ridingPieceIndex = -1;
@@ -4543,10 +4566,15 @@ public class ObjectManager {
                 params = provider.getSolidParams();
             }
 
-            // ROM PlatformObject_SingleCharacter / SlopedPlatform_SingleCharacter:
-            // once the rider's in_air bit is set, ExitPlatform stops here and clears
-            // the standing state instead of applying one more frame of platform carry.
             if (player.getAir()) {
+                if (provider.carriesAirborneRiderAfterExitPlatform()) {
+                    // Sonic 1 Obj52 MBlock_StandOn is not a normal PlatformObject
+                    // continued-riding path: it calls ExitPlatform, moves the block,
+                    // then still calls MvSonicOnPtfm2. That preserves the platform
+                    // delta on the jump-off frame while leaving Sonic airborne.
+                    applyRidingCarry(player, instance, provider, params,
+                            currentX, currentY, ridingX);
+                }
                 ridingStates.remove(player);
                 player.setOnObject(false);
                 player.setAir(true);
@@ -4613,6 +4641,32 @@ public class ObjectManager {
                 player.setAir(true);
             }
             return null;
+        }
+
+        private boolean carriesAirborneRiderAfterExitPlatform(ObjectInstance object) {
+            return object instanceof SolidObjectProvider provider
+                    && provider.carriesAirborneRiderAfterExitPlatform();
+        }
+
+        private void applyRidingCarry(PlayableEntity player, ObjectInstance instance,
+                SolidObjectProvider provider, SolidObjectParams params,
+                int currentX, int currentY, int ridingX) {
+            int deltaX = currentX - ridingX;
+            if (deltaX != 0) {
+                player.shiftX(deltaX);
+            }
+
+            int surfaceOffset;
+            if (instance instanceof SlopedSolidProvider sloped) {
+                int slopeAnchorX = currentX + params.offsetX();
+                int slopeY = sampleSlopeY(player, slopeAnchorX, params.halfWidth(), sloped);
+                surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.groundHalfHeight();
+            } else {
+                surfaceOffset = params.groundHalfHeight();
+            }
+            int newCentreY = currentY + params.offsetY() - surfaceOffset - player.getYRadius();
+            int newY = newCentreY - (player.getHeight() / 2);
+            player.setY((short) newY);
         }
 
         private ContactKind toContactKind(SolidContact contact) {

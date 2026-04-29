@@ -557,9 +557,12 @@ while HCZ now has a larger object/event pass and HCZ1-to-HCZ2 progression.
   the F2967 rider Y divergence by keeping Bri_Solid's final `Plat_NoXCheck` width and updating
   the rider bend log before sag calculation (`docs/s1disasm/_incObj/11 Bridge.asm:98-114`,
   `135-152`, `_incObj/sub PlatformObject.asm:19-42`, `58-76`, `_incObj/sub ExitPlatform.asm:8-23`).
-  A second baseline (S1 MZ1, 7,936
-  frames) is now in-tree with expanded recorder and divergence diagnostics for ROM/engine parity
-  investigation. Supports both BizHawk (Windows, Lua) and **stable-retro** (cross-platform,
+  A second baseline (S1 MZ1, 7,936 frames) now passes after the Obj52 Moving Block
+  jump-carry fix: S1 `MBlock_StandOn` clears Sonic's on-object status via
+  `ExitPlatform`, then still moves the block and applies one final `MvSonicOnPtfm2`
+  carry on the jump-off frame (`docs/s1disasm/_incObj/52 Moving Blocks.asm:65-83`,
+  `_incObj/sub ExitPlatform.asm:5-24`, `_incObj/15 Swinging Platforms.asm:177-194`).
+  Supports both BizHawk (Windows, Lua) and **stable-retro** (cross-platform,
   Python) as recording backends — both produce identical output consumed by the same Java test
   infrastructure.
 - Comprehensive user guide, 15+ design specs and implementation plans, and broad test coverage

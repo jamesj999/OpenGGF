@@ -598,8 +598,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return false;
 		}
 
-		// ROM: bclr #sta_onObj,obStatus(a0) — clear riding/on-object state before jump
-		collisionSystem().clearRidingObject(sprite);
+		// ROM: bclr #sta_onObj,obStatus(a0) clears Sonic's status bit before
+		// objects run. Obj52 still consumes its routine-4 carry later that frame.
+		collisionSystem().clearRidingObjectForJump(sprite);
 		sprite.setOnObject(false);
 		boolean wasRolling = sprite.getRolling();
 
