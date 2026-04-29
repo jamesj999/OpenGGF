@@ -58,6 +58,17 @@ public class TestS3kBossExplosionController {
     }
 
     @Test
+    public void tickAndDrainNeverReturnsMoreThanOnePendingExplosionPerFrame() {
+        var controller = new S3kBossExplosionController(160, 112, 2);
+
+        for (int frame = 0; frame < 200 && !controller.isFinished(); frame++) {
+            controller.tick();
+            assertTrue(controller.drainPendingExplosions().size() <= 1,
+                    "A single frame should never produce more than one pending explosion");
+        }
+    }
+
+    @Test
     public void explosionOffsetsAreWithinRange() {
         var controller = new S3kBossExplosionController(160, 112, 2);
         // Skip to first explosion (2 wait frames + 1 spawn frame)
@@ -72,5 +83,4 @@ public class TestS3kBossExplosionController {
         }
     }
 }
-
 

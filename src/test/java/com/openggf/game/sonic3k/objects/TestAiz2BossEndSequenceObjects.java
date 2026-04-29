@@ -10,6 +10,9 @@ import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.bosses.HczEndBossEggCapsuleInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.EggPrisonAnimalInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.TestObjectServices;
@@ -36,6 +39,34 @@ class TestAiz2BossEndSequenceObjects {
         Aiz2BossEndSequenceState.reset();
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
+    }
+
+    @Test
+    void route8FloatingCapsulesShareNeutralBaseWithoutGroundCapsules() throws Exception {
+        Class<?> floatingBase = Class.forName(
+                "com.openggf.game.sonic3k.objects.AbstractS3kFloatingEndEggCapsuleInstance");
+
+        assertEquals(floatingBase, Aiz2EndEggCapsuleInstance.class.getSuperclass());
+        assertEquals(floatingBase, Mgz2EndEggCapsuleInstance.class.getSuperclass());
+        assertFalse(floatingBase.isAssignableFrom(CnzEggCapsuleInstance.class));
+        assertFalse(floatingBase.isAssignableFrom(HczEndBossEggCapsuleInstance.class));
+    }
+
+    @Test
+    void floatingCapsuleBaseUsesPlainAnimalsWhileAizOptsIntoHighPriorityAnimals() {
+        ObjectSpawn spawn = new ObjectSpawn(0x1000, 0x0200, 0x28, 0, 0, false, 0);
+        NeutralFloatingCapsuleForTest neutral = new NeutralFloatingCapsuleForTest();
+        AizFloatingCapsuleForTest aiz = new AizFloatingCapsuleForTest();
+
+        AbstractObjectInstance neutralAnimal = neutral.createAnimal(spawn);
+        AbstractObjectInstance aizAnimal = aiz.createAnimal(spawn);
+
+        assertTrue(neutralAnimal instanceof EggPrisonAnimalInstance);
+        assertFalse(neutralAnimal.isHighPriority(),
+                "The shared floating capsule base should not encode AIZ waterfall foreground priority");
+        assertTrue(aizAnimal instanceof EggPrisonAnimalInstance);
+        assertTrue(aizAnimal.isHighPriority(),
+                "AIZ keeps its local high-priority animal behavior for foreground waterfall tiles");
     }
 
     @Test
@@ -158,7 +189,7 @@ class TestAiz2BossEndSequenceObjects {
     }
 
     private static void setField(Object target, String fieldName, int value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+        Field field = findField(target.getClass(), fieldName);
         field.setAccessible(true);
         if (field.getType() == boolean.class) {
             field.setBoolean(target, value != 0);
@@ -173,6 +204,38 @@ class TestAiz2BossEndSequenceObjects {
         field.setAccessible(true);
         Class<E> enumType = (Class<E>) field.getType();
         field.set(target, Enum.valueOf(enumType, enumName));
+    }
+
+    private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {
+        Class<?> current = type;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
+    }
+
+    private static final class NeutralFloatingCapsuleForTest extends AbstractS3kFloatingEndEggCapsuleInstance {
+        NeutralFloatingCapsuleForTest() {
+            super(0, 0, "NeutralFloatingCapsuleForTest");
+        }
+
+        AbstractObjectInstance createAnimal(ObjectSpawn spawn) {
+            return createCapsuleAnimal(spawn, 0, 0, 0);
+        }
+    }
+
+    private static final class AizFloatingCapsuleForTest extends Aiz2EndEggCapsuleInstance {
+        AizFloatingCapsuleForTest() {
+            super(0, 0);
+        }
+
+        AbstractObjectInstance createAnimal(ObjectSpawn spawn) {
+            return createCapsuleAnimal(spawn, 0, 0, 0);
+        }
     }
 
     private static final class RecordingServices extends TestObjectServices {
@@ -192,5 +255,3 @@ class TestAiz2BossEndSequenceObjects {
         }
     }
 }
-
-
