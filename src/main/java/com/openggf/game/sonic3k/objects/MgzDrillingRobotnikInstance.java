@@ -802,6 +802,7 @@ public class MgzDrillingRobotnikInstance extends AbstractBossInstance {
         if (artQueued) {
             return;
         }
+        services().fadeOutMusic();
         ensureArtLoaded();
         loadBossPalette();
         artQueued = true;
