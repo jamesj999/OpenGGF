@@ -431,6 +431,57 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
+    void normalPushBypassAutoJumpSuppressesFirstAirborneFollowSteeringTick() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setPushing(true);
+        tails.setCentreX((short) 0x1CED);
+        tails.setCentreY((short) 0x03C0);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x1D40);
+        Arrays.fill(yHistory, (short) 0x03C0);
+        Arrays.fill(statusHistory, AbstractPlayableSprite.STATUS_ON_OBJECT);
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 20);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        controller.update(0x0980);
+        Assertions.assertAll(
+                () -> assertTrue(controller.getInputJump(),
+                        "ROM loc_13DD0 reaches loc_13E9C on the push-bypass cadence"),
+                () -> assertTrue(controller.getInputJumpPress(),
+                        "F2721 writes the jump press before Tails enters the rolling airborne routine"));
+
+        tails.setAir(true);
+        tails.setRolling(true);
+        tails.setPushing(false);
+        controller.update(0x0981);
+
+        Assertions.assertAll(
+                () -> assertFalse(controller.getInputLeft()),
+                () -> assertFalse(controller.getInputRight(),
+                        "F2722 runs Tails_Spin_Freespace (sonic3k.asm:27765-27784), but ROM's preceding "
+                                + "push-bypass object-control order leaves Ctrl_2 without RIGHT until the "
+                                + "next frame, avoiding an early +$18 from Tails_InputAcceleration_Freespace "
+                                + "(sonic3k.asm:28330-28401)"),
+                () -> assertTrue(controller.getInputJump(),
+                        "The held jump from loc_13E9C remains live during the one-frame airborne handoff"));
+
+        controller.update(0x0982);
+
+        assertTrue(controller.getInputRight(),
+                "F2723 should resume normal follow steering so airborne acceleration starts one frame later");
+    }
+
+    @Test
     void normalAutoJumpCadenceUsesInlineFrameCounterForS3kObjectOrder() throws Exception {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");

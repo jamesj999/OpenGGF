@@ -114,6 +114,7 @@ public class SidekickCpuController {
     private int normalFrameCount;
     private int sidekickCount = 1;
     private int normalPushingGraceFrames;
+    private boolean suppressNextAirbornePushFollowSteering;
     private boolean aizIntroDormantMarkerPrimed;
     private boolean suppressNextAizIntroNormalMovement;
     private boolean skipPhysicsThisFrame;
@@ -453,11 +454,13 @@ public class SidekickCpuController {
         despawnCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
+        suppressNextAirbornePushFollowSteering = false;
     }
 
     private void updateApproaching() {
         if (checkDespawn()) {
             normalPushingGraceFrames = 0;
+            suppressNextAirbornePushFollowSteering = false;
             return;
         }
 
@@ -503,6 +506,7 @@ public class SidekickCpuController {
             // and caused a new first-divergence at AIZ frame 1611.
             flightTimer = 0;
             normalPushingGraceFrames = 0;
+            suppressNextAirbornePushFollowSteering = false;
             // S2 TailsCPU_Normal writes obj_control=$81 on dead-Sonic
             // recovery (s2.asm:38910-38915); S3K loc_13D4A does the same
             // before entering Tails_FlySwim_Unknown (sonic3k.asm:26656-26665).
@@ -515,6 +519,7 @@ public class SidekickCpuController {
         }
         if (sidekick.getDead()) {
             normalPushingGraceFrames = 0;
+            suppressNextAirbornePushFollowSteering = false;
             return;
         }
         if (checkDespawn()) {
@@ -611,8 +616,19 @@ public class SidekickCpuController {
                 && normalPushingGraceFrames > 0
                 && (pushBypassStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         boolean autoJumpCadence = (frameCounter & 0x3F) == 0;
+        boolean airbornePushHandoff = false;
+        if (suppressNextAirbornePushFollowSteering) {
+            // After loc_13DD0 branches to loc_13E9C, Tails_Spin_Freespace runs
+            // next frame when Status_InAir|Roll is set (sonic3k.asm:27765-27784).
+            // The ROM-side object/platform handoff has not yet produced a fresh
+            // follow-steering Ctrl_2 RIGHT bit for Tails_InputAcceleration_Freespace
+            // (sonic3k.asm:28330-28401), so suppress only that first airborne tick.
+            airbornePushHandoff = sidekick.getAir();
+            suppressNextAirbornePushFollowSteering = false;
+        }
         boolean skipFollowSteering = currentPushBypass
-                || gracePushBypass;
+                || gracePushBypass
+                || airbornePushHandoff;
         if (skipFollowSteering) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
             inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
@@ -703,6 +719,9 @@ public class SidekickCpuController {
                 inputJump = true;
                 inputJumpPress = true;
                 jumpingFlag = true;
+                if (pushingBypass && pushBypassGraceEnabled) {
+                    suppressNextAirbornePushFollowSteering = true;
+                }
             }
         }
 
@@ -1748,6 +1767,7 @@ public class SidekickCpuController {
         skipPhysicsThisFrame = false;
         normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
         normalPushingGraceFrames = 0;
+        suppressNextAirbornePushFollowSteering = false;
         if (state != State.CARRYING && state != State.CARRY_INIT) {
             mgzCarryIntroAscend = false;
             mgzCarryFlapTimer = 0;
@@ -1774,6 +1794,7 @@ public class SidekickCpuController {
         this.jumpingFlag = jumping;
         this.normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
         normalPushingGraceFrames = 0;
+        suppressNextAirbornePushFollowSteering = false;
         clearInputs();
     }
 
@@ -1786,6 +1807,7 @@ public class SidekickCpuController {
         suppressNextAizIntroNormalMovement = false;
         skipPhysicsThisFrame = false;
         this.normalFrameCount = normalFrames;
+        suppressNextAirbornePushFollowSteering = false;
     }
 
     /**
@@ -1958,6 +1980,7 @@ public class SidekickCpuController {
         normalFrameCount = 0;
         jumpingFlag = false;
         normalPushingGraceFrames = 0;
+        suppressNextAirbornePushFollowSteering = false;
         aizIntroDormantMarkerPrimed = false;
         suppressNextAizIntroNormalMovement = false;
         skipPhysicsThisFrame = false;
