@@ -178,6 +178,16 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                  * skipped and loc_338D8 exits at tst.b object_control(a1)
                  * (sonic3k.asm:69895-69897). Leave the rider state untouched.
                  */
+                if (isSidekick && leaderHasReleased) {
+                    /*
+                     * The stale latch no longer suppresses sidekick terrain
+                     * wall checks once the ROM path falls out before the ride
+                     * continuation. This preserves the later left-wall
+                     * correction in Tails_InputAcceleration_Path
+                     * (sonic3k.asm:27957-28001).
+                     */
+                    player.setSuppressGroundWallCollision(false);
+                }
                 restoreObjectLatchIfTerrainClearedIt(player);
                 return;
             }

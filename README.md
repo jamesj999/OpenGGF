@@ -278,6 +278,11 @@ further S3K parity work.
 - **S3K trace replay merge:** integrated origin's AIZ2 end-sequence and MGZ2 boss music
   handoff fixes before pushing the current trace replay round. The local frontier remains
   AIZ F4652 and CNZ F3901 after the merged sidekick/collision/spring fixes.
+- **S3K CNZ cage sidekick replay fix:** CNZ first-error advances F3901 -> F3905 by
+  clearing stale sidekick ground-wall suppression once the dirty-d6 cage latch falls out
+  after leader release, preserving Tails' later wall correction. This follows the CNZ cage
+  P2 dirty pass and object-control exit in `docs/skdisasm/sonic3k.asm:69835-69846` and
+  `69895-69897`, plus Tails wall correction in `docs/skdisasm/sonic3k.asm:27957-28001`.
 - **S3K trace replay fixes:** AIZ first-error advanced 2590 → 2667 → 2721 → 2919 → 3834 → 2202
   → 4679 → 5497 → 5736 → 6066 → 6255 → 6313 → 6736 → 6911 → 7127 (round 25 lands a
   destroy-reason distinction: ROM `Sprite_OnScreen_Test` (sonic3k.asm:37271 loc_1B5A0)
