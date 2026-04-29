@@ -250,6 +250,11 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean carriesAirborneRiderAfterExitPlatform() {
+        return true;
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         // Standing state is driven via manual checkpoints in update().
     }

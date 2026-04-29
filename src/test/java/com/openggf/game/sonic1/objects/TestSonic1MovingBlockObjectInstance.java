@@ -1,12 +1,17 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.solid.DefaultSolidExecutionRegistry;
 import com.openggf.game.solid.SolidCheckpointBatch;
+import com.openggf.game.solid.SolidExecutionRegistry;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.StubObjectServices;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +27,15 @@ class TestSonic1MovingBlockObjectInstance {
 
     @BeforeEach
     void setUp() {
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.createGameplay();
         OscillationManager.resetForSonic1();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -43,18 +56,57 @@ class TestSonic1MovingBlockObjectInstance {
                 "Moving block update should still end at the moved X");
     }
 
+    @Test
+    void movingBlockCarriesPlayerOnJumpOffFrame() {
+        Sonic1MovingBlockObjectInstance block =
+                new Sonic1MovingBlockObjectInstance(new ObjectSpawn(0x107D, 0x0408, 0x52, 0x13, 0, false, 0));
+        ObjectManager manager = buildManager(block);
+        TestPlayableSprite player = new TestPlayableSprite();
+        player.setCentreX((short) 0x1090);
+        player.setCentreY((short) (0x0408 - 9 - player.getYRadius()));
+        player.setAir(false);
+        player.setOnObject(false);
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+        assertEquals(0x107E, block.getX(), "type 03 block should advance one pixel while ridden");
+        assertEquals(0x1090, player.getCentreX() & 0xFFFF,
+                "initial landing frame only establishes the riding object");
+        assertEquals(block, manager.getRidingObject(player));
+
+        manager.clearRidingObjectForJump(player);
+        player.setAir(true);
+        player.setOnObject(false);
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertEquals(0x107F, block.getX(), "block should keep sliding on the jump-off frame");
+        assertEquals(0x1091, player.getCentreX() & 0xFFFF,
+                "S1 Obj52 MBlock_StandOn applies MvSonicOnPtfm2 after ExitPlatform");
+        assertEquals(0x0408 - 9 - player.getYRadius(), player.getCentreY() & 0xFFFF,
+                "MvSonicOnPtfm2 snaps to obY - 9 - y_radius using centre-coordinate semantics");
+        assertEquals(null, manager.getRidingObject(player));
+        assertEquals(false, player.isOnObject());
+        assertEquals(true, player.getAir());
+    }
+
     private static void setPrivateInt(Object instance, String fieldName, int value) throws Exception {
         Field field = instance.getClass().getSuperclass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setInt(instance, value);
     }
 
-    private static ObjectManager buildManager(ProbeMovingBlock block) {
+    private static ObjectManager buildManager(Sonic1MovingBlockObjectInstance block) {
         ObjectManager[] holder = new ObjectManager[1];
+        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
         ObjectServices services = new StubObjectServices() {
             @Override
             public ObjectManager objectManager() {
                 return holder[0];
+            }
+
+            @Override
+            public SolidExecutionRegistry solidExecutionRegistry() {
+                return solidExecutionRegistry;
             }
         };
 

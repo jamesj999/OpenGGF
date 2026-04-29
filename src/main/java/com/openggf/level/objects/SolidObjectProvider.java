@@ -157,6 +157,21 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether this object's continued-riding routine still applies its platform
+     * carry after {@code ExitPlatform} has cleared the player's on-object flag
+     * because the player jumped.
+     * <p>
+     * Most platform helpers stop as soon as the rider is airborne. Sonic 1 Obj52
+     * is a narrow exception: {@code MBlock_StandOn} calls {@code ExitPlatform},
+     * then moves the block, then unconditionally calls {@code MvSonicOnPtfm2}.
+     * See {@code docs/s1disasm/_incObj/52 Moving Blocks.asm:65-83} and
+     * {@code docs/s1disasm/_incObj/15 Swinging Platforms.asm:177-194}.
+     */
+    default boolean carriesAirborneRiderAfterExitPlatform() {
+        return false;
+    }
+
+    /**
      * Whether the {@code SolidObject_cont} on-screen gate (engine flag
      * {@link com.openggf.game.PhysicsFeatureSet#solidObjectOffscreenGate()})
      * should be bypassed for this object's new-contact resolution path.
