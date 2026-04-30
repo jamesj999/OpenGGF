@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K CNZ F7614 SolidObject top-lift attempt deferred (doc-only):**
+  Round-2 investigation of the `loc_1E154` lift hypothesis from the
+  v6.10-s3k recorder data updated `docs/S3K_KNOWN_BUGS.md` CNZ F7614
+  entry. Located the engine analogue
+  (`ObjectManager.SolidContacts.resolveContactInternal` lines
+  5969-5988); cross-referenced sonic3k.asm:41606-41624. The ROM
+  precondition for `loc_1E154` (post-`andi.w #$FFF` d3 < $10, where
+  d3 derives from `(y_pos(a1) - y_pos(a0)) + 4 + d2_orig + y_radius`)
+  does NOT match the F7614 trace numerics: with Tails y=0x04B1,
+  spring y=0x04D0, d2_orig=8, y_radius=14, the computed d3=0x0FFB
+  triggers `bhs.w loc_1E0A2` (no contact), so `loc_1E154` should
+  never run from the Player_2 call. Aux-state confirms the spring's
+  status=0x01 has both `pX_standing_bit` (bits 3,4) clear, so the
+  call enters via `beq.w SolidObject_cont` rather than the
+  `MvSonicOnPtfm` bit-set path. The captured PCs at `0x1E172` /
+  `0x1E182` are therefore inconsistent with the observed geometry —
+  possible causes (byte-write hook frame-bucket lag, Player_1 vs
+  Player_2 (a1) ambiguity, or address-mapping shift between
+  `loc_<addr>` labels and runtime PCs) need recorder disambiguation
+  before an engine change can land safely. Engine fix not implemented;
+  implementing a `subq.w #1; sub.w d3` analogue blindly on the
+  engine's top-contact resolver would risk a +2 px cross-game
+  regression on AIZ/MGZ/HCZ contacts that currently match ROM. CNZ
+  baseline stays at F7614 (3200 errors); AIZ at F7171; S1 GHZ, S1
+  MZ1, S2 EHZ unchanged. No engine code change in this commit.
 - **S3K AIZ F7171 documented (doc-only):** New
   `docs/S3K_KNOWN_BUGS.md` entry for the AIZ trace replay's F7171
   first-error (`tails_x_speed mismatch expected=0x0000
