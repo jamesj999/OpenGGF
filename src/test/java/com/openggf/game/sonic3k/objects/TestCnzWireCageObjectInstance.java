@@ -148,6 +148,33 @@ class TestCnzWireCageObjectInstance {
     }
 
     @Test
+    void airborneNonzeroAngleHighSpeedCapturePreservesXSpeed() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1D80, 0x0540, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x18, 0, false, 0));
+        cage.setServices(new TestObjectServices());
+        AbstractPlayableSprite player = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+
+        player.setCentreX((short) 0x1DCE);
+        player.setCentreY((short) 0x05F3);
+        player.setAir(true);
+        player.setAngle((byte) 0x2C);
+        player.setXSpeed((short) -0x0717);
+        player.setYSpeed((short) -0x0D4A);
+        player.setGSpeed((short) -0x0F1E);
+
+        cage.update(0, player);
+
+        assertTrue(player.isOnObject());
+        assertFalse(player.getAir());
+        assertEquals((short) -0x0717, player.getXSpeed(),
+                "Obj_CNZWireCage clears Status_InAir before sub_33C34 on the nonzero-angle high-speed path, "
+                        + "so sub_33C34 does not zero x_vel");
+    }
+
+    @Test
     void airborneNonRollingSidekickCaptureRestoresTailsRadiusBeforeOrbitX() {
         CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
                 0x1300, 0x07C0, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x1E, 1, false, 0));
