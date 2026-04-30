@@ -705,6 +705,7 @@ public abstract class AbstractTraceReplayTest {
             nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
                     EngineNearbyObjectFormatter.summarise(nearbyObjects));
+            solidEvent = combineDiagnostics(solidEvent, summariseSidekickCpuDiagnostics());
             solidEvent = combineDiagnostics(solidEvent, summariseSidekickCylinderDiagnostics(om));
         }
 
@@ -747,6 +748,18 @@ public abstract class AbstractTraceReplayTest {
                     sidekick.getCentreY() & 0xFFFF);
         }
         return String.join(" | ", parts);
+    }
+
+    private String summariseSidekickCpuDiagnostics() {
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getRegisteredSidekicks().isEmpty()) {
+            return "eng-tails-cpu none sidekick=missing";
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getRegisteredSidekicks().getFirst();
+        if (sidekick.getCpuController() == null) {
+            return "eng-tails-cpu none controller=missing";
+        }
+        return sidekick.getCpuController().formatLatestNormalStepDiagnostics();
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

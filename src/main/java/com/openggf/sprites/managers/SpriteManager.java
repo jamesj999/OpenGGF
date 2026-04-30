@@ -336,10 +336,12 @@ public class SpriteManager {
 
 					boolean effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, effectiveTest;
 					boolean skipCpuPhysicsThisFrame = false;
+					SidekickCpuController cpuControllerForDiagnostics = null;
 
 					if (playable.isCpuControlled() && playable.getCpuController() != null) {
 						// CPU-controlled sprite: run AI to generate virtual input
 						var cpuController = playable.getCpuController();
+						cpuControllerForDiagnostics = cpuController;
 						boolean isFirstSidekick = !sidekicks.isEmpty() && sidekicks.getFirst() == playable;
 						if (isFirstSidekick) {
 							cpuController.setController2Input(p2Held, p2Logical);
@@ -417,6 +419,9 @@ public class SpriteManager {
 					tickPlayablePhysics(playable, effectiveUp, effectiveDown, effectiveLeft,
 							effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown,
 							levelManager, frameCounter);
+					if (cpuControllerForDiagnostics != null) {
+						cpuControllerForDiagnostics.recordDiagnosticPostPhysics();
+					}
 				} finally {
 					runDeferredPostTickMutations(playable);
 					activePlayableUpdate = null;

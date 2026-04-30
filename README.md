@@ -213,7 +213,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;
   S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
-  F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit.
+  F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit, and engine-side
+  sidekick CPU/control diagnostics around the F5087 blocker.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
   v6.5/v6.7 replay frontier from F3905 to F5087 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the

@@ -3493,6 +3493,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
+         * Returns the circular history slot index used by delayed follower reads.
+         * Diagnostic-only: replay reports use this to compare engine history
+         * selection against ROM Stat_table/Pos_table evidence.
+         */
+        public final int getHistorySlotIndex(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += inputHistory.length;
+                }
+                return desired;
+        }
+
+        /**
          * Returns the recorded status flags from framesBehind frames ago.
          * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
          * Use STATUS_FACING_LEFT/IN_AIR/ROLLING/PUSHING constants to test individual bits.
