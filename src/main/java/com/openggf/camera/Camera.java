@@ -3,6 +3,7 @@ package com.openggf.camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
+import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
@@ -658,6 +659,33 @@ public class Camera {
 	 */
 	public void setVerticalWrapEnabled(boolean enabled) {
 		setVerticalWrapEnabled(enabled, VERTICAL_WRAP_RANGE);
+	}
+
+	/**
+	 * Applies the S3K {@code Screen_Y_wrap_value} mask to a playable object's ROM
+	 * {@code y_pos} equivalent when vertical wrapping is active.
+	 * <p>ROM references:
+	 * {@code docs/skdisasm/sonic3k.asm:21989-21992} (Sonic),
+	 * {@code docs/skdisasm/sonic3k.asm:25708-25711} (Tails/player display path),
+	 * {@code docs/skdisasm/sonic3k.asm:26233-26236} (Tails control).
+	 *
+	 * @return true when the sprite's Y coordinate changed.
+	 */
+	public boolean applyScreenYWrapValue(AbstractPlayableSprite sprite) {
+		if (!verticalWrapEnabled || sprite == null) {
+			return false;
+		}
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		if (fs == null || !fs.useScreenYWrapValueForVisibility()) {
+			return false;
+		}
+		short before = sprite.getCentreY();
+		short after = (short) (before & verticalWrapMask);
+		if (after == before) {
+			return false;
+		}
+		sprite.setCentreY(after);
+		return true;
 	}
 
 	/**

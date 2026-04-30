@@ -1,5 +1,6 @@
 package com.openggf.sprites.managers;
 
+import com.openggf.camera.Camera;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
@@ -88,6 +89,24 @@ public class TestPlayableSpriteMovement {
                 Field field = AbstractPlayableSprite.class.getDeclaredField("physicsFeatureSet");
                 field.setAccessible(true);
                 field.set(sprite, featureSet);
+        }
+
+        @Test
+        public void s3kVerticalWrapMasksYAfterControlEvenWhenObjectControlsMovement() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                Camera camera = GameServices.camera();
+                camera.setMinY((short) -0x100);
+                camera.setMaxY((short) 0x1000);
+                camera.setVerticalWrapEnabled(true, 0x1000);
+
+                mockSprite.setObjectControlled(true);
+                mockSprite.setCentreY((short) 0x1001);
+
+                manager.handleMovement(false, false, false, false, false, false, false, false);
+
+                assertEquals((short) 0x0001, mockSprite.getCentreY(),
+                                "S3K Sonic_Control still applies Screen_Y_wrap_value after object_control skips movement");
         }
 
         @Test
