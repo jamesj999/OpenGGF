@@ -782,6 +782,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Lightning double jump: upward velocity boost (s3.asm:21094-21102) */
 	private void lightningShieldJump() {
 		sprite.setYSpeed((short) -0x580);
+		// ROM Sonic_LightningShield clears jumping(a0) after writing y_vel
+		// (docs/skdisasm/sonic3k.asm:23433-23440).  Without clearing the
+		// engine latch, the next jump-button release re-applies the normal
+		// jump-height cap and overwrites the double-jump velocity.
+		sprite.setJumping(false);
+		jumpPressed = false;
+		jumpReleasedSinceJump = false;
 		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
 		var shield = sprite.getShieldObject();
 		if (shield != null) shield.onAbilityActivated(1);
