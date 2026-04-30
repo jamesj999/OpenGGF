@@ -74,6 +74,25 @@ class TestSonic3kMonitorObjectInstance {
         assertFalse(monitor.isSolidFor(player));
     }
 
+    @Test
+    void breakWithPriorPushingContactReleasesPlayerIntoAir() {
+        Sonic3kMonitorObjectInstance monitor = monitor();
+        DummyPlayer player = new DummyPlayer();
+        player.setRolling(true);
+        player.setAnimationId(Sonic3kAnimationIds.ROLL);
+        player.setYSpeed((short) 0);
+        player.setAir(false);
+        player.setPushing(true);
+
+        monitor.setPlayerPushing(player, true);
+        monitor.onTouchResponse(player, TOUCH_RESULT, 1);
+
+        assertTrue(player.getAir(),
+                "Obj_MonitorBreak sets Status_InAir when the monitor still has p1_pushing set");
+        assertFalse(player.getPushing(),
+                "Obj_MonitorBreak clears the player's pushing status via andi.b #$D7");
+    }
+
     private static Sonic3kMonitorObjectInstance monitor() {
         Sonic3kMonitorObjectInstance monitor = new Sonic3kMonitorObjectInstance(
                 new ObjectSpawn(0x1E30, 0x0530, 0x01, 0x03, 0, false, 0));
