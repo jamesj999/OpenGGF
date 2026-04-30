@@ -433,6 +433,83 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
+    void groundedPushGracePreservesCurrentDelayedControlWord() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setCentreX((short) 0x1CE0);
+        tails.setCentreY((short) 0x03C0);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x1D20);
+        Arrays.fill(yHistory, (short) 0x03C0);
+        int historyPos = 20;
+        inputHistory[3] = 0;
+        inputHistory[4] = AbstractPlayableSprite.INPUT_RIGHT;
+        statusHistory[3] = 0;
+        statusHistory[4] = 0;
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, historyPos);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        tails.setPushing(true);
+        controller.update(0x13DE);
+        tails.setPushing(false);
+        controller.update(0x13DF);
+
+        assertTrue(controller.getInputRight(),
+                "CNZ grounded release mirrors ROM loc_13DD0: d4 tests the delayed Status_Push byte, "
+                        + "but the already-loaded d1 Ctrl_2 word is preserved for the cylinder/P2 and "
+                        + "Tails_InputAcceleration_Path paths (sonic3k.asm:26696-26705,26775-26785,"
+                        + "67656-67672,27798-27805,28103-28122)");
+    }
+
+    @Test
+    void groundedPushGraceKeepsOlderControlWordForAizObjectOrderBridge() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setAir(false);
+        tails.setCentreX((short) 0x1CED);
+        tails.setCentreY((short) 0x03C0);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x1D40);
+        Arrays.fill(yHistory, (short) 0x03C0);
+        int historyPos = 20;
+        inputHistory[3] = 0;
+        inputHistory[4] = AbstractPlayableSprite.INPUT_RIGHT;
+        statusHistory[3] = AbstractPlayableSprite.STATUS_ON_OBJECT;
+        statusHistory[4] = AbstractPlayableSprite.STATUS_ON_OBJECT;
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, historyPos);
+        sonic.setOnObject(true);
+        sonic.setAir(false);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        tails.setPushing(true);
+        controller.update(0x0971);
+        tails.setPushing(false);
+        controller.update(0x0972);
+
+        assertFalse(controller.getInputRight(),
+                "AIZ object-order bridge keeps the older input sample while the delayed leader target still has "
+                        + "Status_OnObj; SolidObjectTop can clear the rider after the platform/object slot has "
+                        + "already supplied the ROM handoff (sonic3k.asm:26690-26705,41668-41679,41793-41818)");
+    }
+
+    @Test
     void s3kClearedPushGraceStillAllowsGroundedFollowRightInput() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
