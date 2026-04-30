@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K Kill_Character y-velocity preservation (sidekick LEVEL_BOUNDARY
+  kill):** `SidekickCpuController.beginLevelBoundaryKill` previously
+  zeroed `y_vel` after Kill_Character's other writes.  ROM
+  `Kill_Character` at `sonic3k.asm:21149` writes `y_vel = -$700`
+  (not zero); the kill is reached via `jmp` from
+  `Tails_Check_Screen_Boundaries` (`sonic3k.asm:28443`) and
+  Kill_Character's `rts` (`sonic3k.asm:21159`) unwinds to the
+  caller of `Tails_Check_Screen_Boundaries`, so for Tails the next
+  pipeline step at `sonic3k.asm:27526` is
+  `MoveSprite_TestGravity2` -> `MoveSprite2`
+  (`sonic3k.asm:36088,36053`), which applies the freshly written
+  `y_vel = -$700` to `y_pos` in the same frame.  Trace
+  `aiz1_to_hcz_fullrun` F7171 records the post-shift state
+  (`tails_y = $0477` from `$047E`, `y_vel = -$700`).  Engine now
+  preserves `y_vel = -$700` so the airborne movement manager's
+  SpeedToPos-equivalent reproduces the in-frame 7-pixel upward
+  shift.  AIZ trace first-error advances from F7171 to F4679
+  (a new earlier divergence inside the AIZ1 right-boundary clamp,
+  documented in `docs/S3K_KNOWN_BUGS.md`).  S3K CNZ trace
+  first-error stays at F7614; S1 GHZ, S1 MZ1, and S2 EHZ traces
+  remain green.  Regression test
+  `TestSidekickCpuDespawnParity#levelBoundaryKillRunsTailsTouchFloorBeforeDeathState`
+  was calibrated to the bug's `y_vel = 0` and is now updated to
+  `y_vel = -$700`.
+
 - **S3K AIZ apparent-act resize gating (S3K-only):**
   `Sonic3kAIZEvents.updateAiz2SonicResize1` and
   `updateAiz2KnuxResize1` now gate the miniboss-skip path on

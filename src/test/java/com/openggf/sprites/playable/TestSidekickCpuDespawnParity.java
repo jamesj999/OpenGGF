@@ -197,7 +197,16 @@ class TestSidekickCpuDespawnParity {
         assertFalse(tails.getRollingJump());
         assertFalse(tails.getPushing());
         assertEquals((short) 0x0000, tails.getXSpeed());
-        assertEquals((short) 0x0000, tails.getYSpeed());
+        // ROM Kill_Character (sonic3k.asm:21149) writes y_vel=-$700, NOT zero.
+        // The kill is reached via `jmp` from Tails_Check_Screen_Boundaries
+        // (sonic3k.asm:28443), and Kill_Character's `rts` (sonic3k.asm:21159)
+        // unwinds to the caller of Tails_Check_Screen_Boundaries
+        // (e.g. Tails_Stand_Path at sonic3k.asm:27526), which then runs
+        // MoveSprite_TestGravity2 (->MoveSprite2 at sonic3k.asm:36088,36053)
+        // applying the negative y-velocity to y_pos in the same frame.
+        // Trace AIZ F7171 records the post-shift state with y_vel=-$700
+        // retained.
+        assertEquals((short) -0x700, tails.getYSpeed());
         assertEquals((short) 0x0000, tails.getGSpeed());
     }
 
