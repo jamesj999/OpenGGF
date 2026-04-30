@@ -6,6 +6,20 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F4679 sidekick LEVEL_BOUNDARY kill y_pos delta fix:**
+  `SidekickCpuController.applyKillCharacterTouchFloorReset` previously
+  computed the post-Kill_Character y_pos shift as
+  `getHeight() - getStandYRadius()` (28 - 15 = +13 px for a Tails
+  roll->stand transition) instead of ROM's
+  `old_y_radius - default_y_radius` (14 - 15 = -1 px;
+  `sonic3k.asm:29134-29156`, `Tails_TouchFloor`).  When the sidekick
+  reached `Kill_Character` while rolling, the wrong delta plus the
+  height-derived `getCentreY()` jump inside `setRolling(false)`
+  shifted Tails's centre-Y by +13/+14 px instead of -1 px,
+  producing the residual 16-px gap (`tails_y = 0x041F` vs ROM
+  `0x040F`) at AIZ trace F4679.  After the fix the AIZ trace first
+  strict error advances from F4679 to F7171 (1050 -> 1049 errors);
+  CNZ/EHZ/GHZ/MZ1 baselines stay green.
 - **S3K Tails LEVEL_BOUNDARY kill post-MoveSprite step (AIZ1 F4679,
   partial fix):**  When `PlayableSpriteMovement.modeAirborne` detects
   the CPU sidekick `LEVEL_BOUNDARY` kill (engine equivalent of ROM
