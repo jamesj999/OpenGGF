@@ -228,7 +228,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **S3K trace replay fixes:** Marble Garden frame-zero replay timing now treats traces whose
   first row already contains Sonic's input-driven movement as native frame-zero rows while still
   keeping the S3K sidekick setup prelude, and the S3K `Screen_Y_wrap_value` mask now wraps
-  playable Y at MGZ's `$1000` boundary, advancing the MGZ replay frontier from F0 to F51.
+  playable Y at MGZ's `$1000` boundary while preserving the low `y_sub` word, advancing the
+  MGZ replay frontier from F0 to F63.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
