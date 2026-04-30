@@ -713,7 +713,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.10-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.11-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
