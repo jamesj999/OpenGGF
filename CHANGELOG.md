@@ -6,6 +6,42 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7171 kill-plane one-frame ordering + post-`sub_13ECA`
+  MoveSprite step fix (F7171 -> F7235):** two compounding causes for
+  the AIZ trace's F7171 first-error advance.  (a)
+  `Sonic3kAIZEvents.updateAiz2SonicResize2` read
+  `camera().getX()` instead of the predicted end-of-frame camera X.
+  ROM `Do_ResizeEvents` runs *inside* `DeformBgLayer` after
+  `MoveCameraX` (sonic3k.asm:38303-38316), so the resize threshold
+  observes the camera position the next frame's player physics will
+  see.  Engine `LevelFrameStep` runs events (step 4) before the
+  camera step (step 5), so reading `getX()` gave the previous frame's
+  cam-X value.  Result: at F7170 ROM saw cam=`0xED4 ≥ 0xED0` and
+  narrowed `Camera_max_Y_pos = $2B8`; engine read cam=`0xECE` and
+  skipped, so F7171 `Tails_Check_Screen_Boundaries` (sonic3k.asm:
+  28428-28443) saw the still-default `$590` cap and missed the kill
+  plane.  Fix: switch `updateAiz2SonicResize2` to
+  `camera().previewNextX() & 0xFFFF` (mirroring the established AIZ1
+  pattern at `updateAct1` line ~515).  Other AIZ2 resize routines
+  retain `getX()` to keep `TestSonic3kAIZEvents` (which directly
+  pokes the camera) green.  (b) `SidekickCpuController.updateDeadFalling`
+  was overwriting the preserved `Kill_Character` `y_vel = -$700` with
+  `setYSpeed(0x38)`.  ROM Frame N+1 enters the death routine
+  `loc_157C8` (sonic3k.asm:29283), `bsr.w sub_123C2` reaches
+  `sub_13ECA` (sonic3k.asm:26800-26809) which warps `(x_pos, y_pos) =
+  ($7F00, 0)` and explicitly does **not** touch `y_vel`, returns
+  to `loc_157C8`, and `jsr (MoveSprite_TestGravity).l` falls through
+  to `MoveSprite` (sonic3k.asm:36032-36042) which shifts `y_pos` by
+  the still-preserved `y_vel = -$700` *before* the `+$38` gravity
+  write, producing the trace's `(y = -7, y_vel = -$06C8)` at F7172.
+  The engine's `applyDespawnMarker` flips `objectControlSuppressesMovement`
+  to true (via `setObjectControlled(true)`), which short-circuits the
+  regular `PlayableSpriteMovement` path, so the post-warp `MoveSprite`
+  never ran.  Fix: capture `oldYSpeed` before the warp, call
+  `applyDespawnMarker()`, then inline the `MoveSprite`-equivalent
+  (`y_pos += oldYSpeed >> 8`, `y_vel = oldYSpeed + $38`).  Combined
+  fixes advance the AIZ trace first strict error from F7171 to F7235
+  (1049 → 1044 errors).  CNZ/EHZ/GHZ/MZ1 baselines stay green.
 - **S3K AIZ F4679 sidekick LEVEL_BOUNDARY kill y_pos delta fix:**
   `SidekickCpuController.applyKillCharacterTouchFloorReset` previously
   computed the post-Kill_Character y_pos shift as

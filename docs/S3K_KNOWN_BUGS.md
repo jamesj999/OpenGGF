@@ -2727,3 +2727,87 @@ Tails_TouchFloor:
 
 Source: `SidekickCpuController.applyKillCharacterTouchFloorReset`
 (commit `bugfix/ai-aiz-f4679-residual-16px`).
+
+#### Resolution — `AIZ2_SonicResize2` one-frame ordering + post-`sub_13ECA` MoveSprite step
+
+The F7171 mismatch had two compounding causes that landed
+together on this iteration:
+
+1. **`AIZ2_SonicResize2` ran one frame late.**  ROM
+   `Do_ResizeEvents` runs *inside* `DeformBgLayer`
+   (sonic3k.asm:38303-38316) **after** `MoveCameraX` has
+   committed the new `Camera_X_pos`.  Engine
+   `LevelFrameStep` runs events (step 4) **before** the
+   camera step (step 5), so `camera().getX()` returns the
+   previous frame's value.  At F7170, ROM saw cam=`0xED4 ≥
+   0xED0` and narrowed `Camera_max_Y_pos` to `$2B8` (the
+   miniboss-area cap).  The engine's `updateAiz2SonicResize2`
+   read cam=`0xECE` (end-of-F7169) and skipped the narrow,
+   so F7171's `Tails_Check_Screen_Boundaries` (sonic3k.asm:
+   28428-28443) saw the still-default `$590` cap, missed
+   the kill plane, and Tails kept following Sonic instead
+   of dying.  Fix: read `camera().previewNextX() & 0xFFFF`
+   in `updateAiz2SonicResize2` so the check sees the same
+   `Camera_X_pos` the next frame's player physics will see,
+   matching the ROM call order.  This mirrors the prior
+   AIZ1 fix at line ~515 in `Sonic3kAIZEvents.updateAct1`
+   (CHANGELOG entry "AIZ1 dynamic-resize one-frame ordering
+   fix").  Other `updateAiz2SonicResizeN` /
+   `updateAiz2KnuxResizeN` routines retained
+   `camera().getX()` to keep `TestSonic3kAIZEvents` passing
+   (those tests directly poke the camera and rely on the
+   raw value).
+
+2. **`updateDeadFalling` overwrote the preserved
+   `Kill_Character` y-velocity.**  ROM Frame N+1 enters the
+   death routine `loc_157C8` (sonic3k.asm:29283), calls
+   `sub_123C2` → `sub_13ECA` (sonic3k.asm:26800-26809) which
+   warps `x_pos = $7F00, y_pos = 0` and crucially does **not**
+   touch `y_vel`, then returns to `loc_157C8` and runs
+   `MoveSprite_TestGravity` (sonic3k.asm:29285) which falls
+   through to `MoveSprite` (sonic3k.asm:36032-36042).
+   `MoveSprite` shifts `y_pos` by the still-preserved
+   `y_vel = -$700` *before* the `+$38` gravity write,
+   producing the trace's `(y = -$0007, y_vel = -$06C8)` at
+   F7172.  The engine's `applyDespawnMarker` sets
+   `objectControlled = true`, which flips
+   `objectControlSuppressesMovement` (see
+   `AbstractPlayableSprite.setObjectControlled`) and
+   short-circuits the regular `PlayableSpriteMovement` path,
+   so the post-warp `MoveSprite` step never ran.
+   `updateDeadFalling` was instead writing
+   `setYSpeed(0x38)` straight, calibrated to a different
+   ROM scenario where `y_vel` happened to enter sub_13ECA
+   as `0`.  Fix: capture `oldYSpeed` (from the preserved
+   Kill_Character `-$700`), call `applyDespawnMarker()` to
+   warp x/y/state, then apply the inlined
+   `MoveSprite`-equivalent — `y_pos += oldYSpeed >> 8` and
+   `y_vel = oldYSpeed + $38`.  This produces the F7172
+   `(y = -7, y_vel = -$06C8)` end-of-frame state ROM records.
+
+After both fixes the AIZ trace first strict error advances
+from F7171 to F7235 (1049 → 1044 errors, F7172-F7234 all
+green).  F7235 is a Sonic-side rolling `g_speed` divergence
+(`g_speed = 0x0768` engine vs `0x0800` ROM at the rolling
+top-speed cap) that is independent of the kill-plane chain
+and out of scope for this iteration.
+
+ROM cite block (sonic3k.asm:36032-36042, `MoveSprite`):
+
+```
+MoveSprite:
+    move.w  x_vel(a0),d0
+    ext.l   d0
+    lsl.l   #8,d0
+    add.l   d0,x_pos(a0)
+    move.w  y_vel(a0),d0     ; OLD y_vel for position
+    addi.w  #$38,y_vel(a0)   ; gravity AFTER capturing OLD y_vel
+    ext.l   d0
+    lsl.l   #8,d0
+    add.l   d0,y_pos(a0)     ; y_pos += OLD y_vel >> 8
+    rts
+```
+
+Sources: `Sonic3kAIZEvents.updateAiz2SonicResize2`,
+`SidekickCpuController.updateDeadFalling` (commit
+`bugfix/ai-aiz-f7171-leader-fast-redux`).

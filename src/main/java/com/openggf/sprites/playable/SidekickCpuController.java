@@ -2107,16 +2107,42 @@ public class SidekickCpuController {
      * One-frame death-routine equivalent of ROM loc_1578E ->
      * loc_157C8 -> sub_123C2 -> sub_13ECA. Runs the frame after
      * beginLevelBoundaryKill.  Mirrors ROM where the dispatcher enters
-     * the death routine, sub_123C2 (sonic3k.asm:24538) sees Tails fell
-     * below Camera_Y_pos+0x100, branches to sub_13ECA (sonic3k.asm:26800)
-     * which warps to (0x7F00, 0) and resets Tails_CPU_routine=2; then
-     * post-warp MoveSprite_TestGravity adds +$38 air gravity to y_vel.
+     * the death routine; sub_123C2 (sonic3k.asm:24538-24578) sees Tails
+     * fell below Camera_Y_pos+0x100, sets Tails_CPU_routine=2 and
+     * branches to sub_13ECA (sonic3k.asm:26800-26809) which warps
+     * x_pos=0x7F00, y_pos=0 (and clears double_jump_flag, sets
+     * object_control=$81, Status_InAir).  Control then unwinds via the
+     * <code>bsr</code> at sonic3k.asm:29284 back to {@code loc_157C8}, where
+     * <code>jsr (MoveSprite_TestGravity).l</code> at line 29285 falls through to
+     * {@code MoveSprite} (sonic3k.asm:36032-36042) and applies the still-
+     * preserved {@code y_vel = -$700} (Kill_Character at sonic3k.asm:21149)
+     * to {@code y_pos} <em>before</em> the +$38 gravity write, shifting Tails
+     * 7 px up to {@code y_pos = -7} and leaving {@code y_vel = -$6C8}.
+     * Trace AIZ F7172 records exactly that: {@code y = -0x0007},
+     * {@code y_vel = -0x06C8}.
+     *
+     * <p>{@link #applyDespawnMarker()} flips
+     * {@link AbstractPlayableSprite#setObjectControlled(boolean)} to true,
+     * which enables {@code objectControlSuppressesMovement} and short-circuits
+     * the regular {@link com.openggf.sprites.managers.PlayableSpriteMovement}
+     * path entirely.  The post-warp MoveSprite step is therefore inlined here
+     * to mirror the ROM call chain.  We capture {@code y_vel} before the warp
+     * because {@link #applyDespawnMarker()} preserves velocity (sub_13ECA does
+     * not touch x_vel/y_vel/ground_vel) but we still want to be explicit about
+     * the order of operations matching {@code MoveSprite}.
      */
     private void updateDeadFalling() {
+        // ROM MoveSprite (sonic3k.asm:36037-36041) uses the OLD y_vel for
+        // position before adding gravity; sub_13ECA does not touch y_vel so
+        // the value entering MoveSprite is the Kill_Character write of -$700.
+        short oldYSpeed = sidekick.getYSpeed();
         applyDespawnMarker();
-        // ROM MoveSprite_TestGravity post-sub_13ECA (sonic3k.asm:36077):
-        // y_vel was 0, addi.w #$38, y_vel -> y_vel = 0x38.
-        sidekick.setYSpeed((short) 0x38);
+        // sub_13ECA wrote y_pos=0; now apply MoveSprite's position step
+        // using the pre-gravity y_vel.
+        int newCentreY = (sidekick.getCentreY() & 0xFFFF) + (oldYSpeed >> 8);
+        sidekick.setCentreYPreserveSubpixel((short) newCentreY);
+        // MoveSprite then adds +$38 (sonic3k.asm:36038) to y_vel.
+        sidekick.setYSpeed((short) (oldYSpeed + 0x38));
     }
 
     /**
