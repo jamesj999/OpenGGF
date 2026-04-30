@@ -1741,31 +1741,96 @@ write that has not yet been identified.
    end-of-instruction state by one byte. Treat the PCs as
    load-bearing and the `val`s as a hint, not a ground truth.
 
-2. **Engine-side fix candidate (deferred).** The PCs above point at
-   the engine's `SolidObjectProvider` top-contact resolution as the
-   missing -2 px (or, in trace-coordinates, missing +2 px because
-   ROM's overall delta is +3 while the engine only produces +1). The
-   engine's solid-object top resolver should mirror `loc_1E154`'s
-   `subq.w #1` plus the `sub.w d3` lift on top contact in normal
-   gravity. A follow-up round should:
+2. **Engine-side fix attempted, deferred (round 2026-04-30).** The PCs
+   above point at the engine's `SolidObjectProvider` top-contact
+   resolution as the missing -2 px (or, in trace-coordinates, missing
+   +2 px because ROM's overall delta is +3 while the engine only
+   produces +1). Direct engine-side analogy and ROM walkthrough were
+   completed but the `loc_1E154` precondition arithmetic does not
+   match the captured PCs:
 
-   - Locate the engine equivalent of `loc_1E154` in
-     `com.openggf.level.objects.SolidObjectProvider` /
-     `MultiPieceSolidProvider` and verify the lift sequence matches
-     the ROM order (`subq.w #1` then `sub.w d3`).
-   - Confirm the spring's stand-on bit-set + standOn(slot=$11) flow
-     reaches the top-resolution path on the same frame `Tails_Jump`
-     fires (object-loop ordering: object update first, then player).
-   - Gate any per-game divergence via `PhysicsFeatureSet`, never
-     `if (gameId == GameId.S3K)`.
+   - **Engine `loc_1E154` analogue located.** The
+     `loc_1E154`/`loc_1E17E` lift sequence in `SolidObject_cont`
+     (sonic3k.asm:41606-41624) writes
+     `y_pos(a1) = y_pos(a0) - d2_orig - y_radius - 1` on top-contact
+     resolution. The engine equivalent is
+     `ObjectManager.SolidContacts.resolveContactInternal` (lines
+     5969-5988) which sets
+     `newCenterY = playerCenterY - distY + 3`; substituting
+     `distY = playerCenterY - anchorY + 4 + maxTop` gives
+     `newCenterY = anchorY - maxTop - 1` — algebraically equivalent
+     to ROM (with `playerHalfHeight` factored back via `setY()` /
+     centre rounding). The engine therefore matches ROM when this
+     resolver path actually fires.
 
-3. **Object-loop ordering check.** The 2 px could come from another
-   object slot whose update order has Tails effects. A frame-by-frame
-   walk of `Process_Sprites` order at vfc=7615 would isolate which
-   object touches `Player_2.y_pos` between Tails's CPU/Tails_Modes
-   pass and end-of-frame. The new `position_write` events make this
-   tractable (cross-reference the captured PCs against the
-   `object_state` slot dumps for the same frame).
+   - **Object-side `pX_standing_bit` was clear at F7613 end.**
+     Aux-state `object_state` for slot 17 at vfc=7614 reports
+     `status=0x01`: only bit 0 is set, both `p1_standing_bit=3` and
+     `p2_standing_bit=4` are clear (sonic3k.constants.asm:133-134).
+     So the spring's `SolidObjectFull2_1P` Player_2 call on F7614
+     enters via `beq.w SolidObject_cont` (sonic3k.asm:41067), NOT via
+     the bit-set / `MvSonicOnPtfm` path.
+
+   - **`loc_1E154` precondition does NOT match the trace numbers.**
+     With Tails y_pos(a1) = 0x04B1 (post `Tails_Jump` rolling +1),
+     spring y_pos(a0) = 0x04D0, d2_orig = 8 (Spring_Down d2 arg),
+     y_radius = 14 (Tails post-rolling), default_y_radius = 15:
+     `loc_1DFD6` computes
+     `d3 = (0x04B1 - 0x04D0) + 4 + 8 + 14 = -5 -> 0xFFFB` ->
+     `andi.w #$FFF, d3 -> 0x0FFB`,
+     `d4 = 15 + 8 + 8 + 14 = $2D`;
+     `cmp.w d4, d3` -> `0x0FFB > $2D` ->
+     `bhs.w loc_1E0A2` (no contact). For `loc_1E154` to fire,
+     pre-`andi` d3 must be in `[0, $F]`, i.e. Tails y_pos must be in
+     `[0x04B6, 0x04C5]`; 0x04B1 is 5 px above that window.
+
+   - The captured PCs `0x1E172` / `0x1E182` with `character="tails"`
+     are therefore not consistent with the geometry the trace shows
+     on F7614. Possibilities to confirm with a recorder revision:
+     - byte-write hook frame-bucket lag (the post-write u16 is read
+       after the second byte fires, so the event may be ascribed to
+       the wrong vfc/frame);
+     - the recorder filters by Player_2 base address, but `(a1)` at
+       0x1E172 / 0x1E182 may be Player_1 — the spring's
+       `SolidObjectFull2_1P` runs both player calls back-to-back from
+       `Obj_Spring_Down` and the Tails-y_pos-watching hook can fire
+       on a Player_1 write if the watch range is wider than expected;
+     - a different routine (not `loc_1E154`) is at the disassembly-
+       equivalent address in the actual ROM (the disasm uses
+       `loc_<addr>` labels but the runtime-PC-to-disasm-line mapping
+       must be confirmed with `RomOffsetFinder` or an ROM byte dump
+       at offset 0x1E170+).
+
+   - Engine fix not implemented this round. Implementing the
+     `subq.w #1; sub.w d3` lift on the engine's
+     `resolveContactInternal` path with the precondition unverified
+     risks producing a +2 px lift on every frame the
+     `loc_1E154`-equivalent fires (which today is many AIZ/MGZ/HCZ
+     contacts, not just CNZ F7614) — a cross-game regression.
+
+3. **Next-round actions before implementing the fix:**
+
+   - **Disambiguate (a1) at 0x1E172 / 0x1E182.** Extend the recorder
+     to capture `a1` at the moment of the y_pos write event (or
+     widen the write-watch to capture both Player_1 and Player_2
+     with a `character` field derived from the address itself).
+   - **Verify `default_y_radius(a1)` and `y_radius(a1)` at
+     SolidObject_cont entry on F7614.** Tails_Jump writes
+     `y_radius=$E` BEFORE its `sub.w d0,y_pos(a0)`; the spring
+     slot runs after Tails_Jump so the values should be 14/15. Add
+     these to the `aux_state` dump for vfc=7615.
+   - **Confirm address mapping `loc_1E154 = 0x1E154`.** The disasm
+     `loc_<hex>` convention assumes ROM-position labels, but the
+     `s3k_trace_recorder.lua` PC values come from emulator runtime;
+     confirm the ROM at offset 0x1E172 actually decodes to
+     `subq.w #1, y_pos(a1)` (use RomOffsetFinder or a byte dump to
+     inspect the bytes at 0x1E170+).
+   - **Object-loop ordering check.** A frame-by-frame walk of
+     `Process_Sprites` order at vfc=7615 would isolate which slot
+     touches `Player_2.y_pos` between Tails's `Tails_Modes` pass and
+     end-of-frame. The new `position_write` events make this
+     tractable (cross-reference the captured PCs against the
+     `object_state` slot dumps for the same frame).
 
 ### Removal Condition
 
