@@ -6,6 +6,35 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7171 documented (doc-only):** New
+  `docs/S3K_KNOWN_BUGS.md` entry for the AIZ trace replay's F7171
+  first-error (`tails_x_speed mismatch expected=0x0000
+  actual=0x0120`). ROM-side analysis confirms Tails enters
+  `Kill_Character` (sonic3k.asm:21141 `loc_1036E`) at F7171:
+  `y_speed = -0x0700`, `x_speed = 0`, `g_speed = 0`,
+  `routine = 6`, `air = 1`, with the next frame fielding the
+  off-screen-watchdog respawn (`sub_13ECA` at sonic3k.asm:26800
+  writes `x_pos = 0x7F00`). The engine, by contrast, runs a
+  normal `SidekickCpuController.updateNormal()` `branch=
+  leader_fast` step (Sonic's `g_speed = 0x0600 ≥ 0x0400` per
+  sonic3k.asm:26692-26694) and writes `tails_x_speed =
+  0x0120`, never invoking the kill chain. Auto-jump (`loc_13E9C`
+  at sonic3k.asm:26775), `Tails_Jump` (sonic3k.asm:28519), and
+  `Obj_TwistedRamp` (sonic3k.asm:50001) were all ruled out.
+  The most promising kill candidate is
+  `Tails_Check_Screen_Boundaries` (sonic3k.asm:28428-28431)
+  via `Player_LevelBound` semantics: ROM compares
+  `y_pos > Camera_max_Y_pos + 0xE0` using ROM-centre `y_pos`,
+  while the engine's `PlayableSpriteMovement.doLevelBoundary`
+  (line ~1891) compares `sprite.getY()` (top-left). Tails's
+  `height_pixels = 0x18` introduces an off-by-12 that delays
+  the engine's kill trigger by 12 pixels relative to ROM. The
+  `0x047E → 0x0477` y-shift inside F7171 (after Kill_Character
+  zeros velocities and writes `y_vel = -0x0700`) needs an
+  extended ROM trace recorder probe to pinpoint which post-Kill
+  call site applies the velocity to position. No engine code
+  change in this commit. AIZ trace baseline stays at F7171
+  (1049 errors); CNZ baseline stays at F7614 (3200 errors).
 - **S3K AIZ F7127 Tails phantom-landing fixed:** Resolves the AIZ
   trace replay first-error blocker by promoting
   `Sonic3kCollapsingPlatformObjectInstance` from `state=2` (solid-stay)

@@ -33,6 +33,7 @@ Entries should include:
 15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (RESOLVED)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
 16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
 17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (RESOLVED)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
+18. [AIZ2 Trace F7171 — Tails Killed Mid-Run vs. Engine Continuing Follow-Steering (OPEN — next AIZ blocker)](#aiz2-trace-f7171--tails-killed-mid-run-vs-engine-continuing-follow-steering)
 
 ---
 
@@ -1869,3 +1870,195 @@ candidates above. The fix must:
 - Keep S1 GHZ, S1 MZ1, S2 EHZ traces green.
 - If the fix is per-game, gate it through `PhysicsFeatureSet`, not
   `if (gameId == GameId.S3K)`.
+
+---
+
+## AIZ2 Trace F7171 — Tails Killed Mid-Run vs. Engine Continuing Follow-Steering
+
+**Status:** OPEN — next AIZ trace blocker after F7127 was resolved.
+
+**Location:** AIZ2 reload-resume run (`cp aiz2_reload_resume z=0 a=1 ap=0
+gm=12`). Tails is following Sonic east through the corridor near
+`y_pos ≈ 0x047E`. Sonic is at `y_pos = 0x02FA`, well above. The two
+players are at very different y-positions; Tails is on a lower path.
+
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
+`TestS3kAizTraceReplay#replayMatchesTrace` first strict error at
+F7171, 1049 errors, 0 warnings.
+
+### Symptom
+
+```text
+First error: frame 7171 -- tails_x_speed mismatch
+    (expected=0x0000, actual=0x0120)
+```
+
+`target/trace-reports/s3k_aiz1_context.txt` rows F7166-F7172 show:
+
+| Frame | tails_x | tails_y | xv | yv | gv | air |
+|-------|---------|---------|----|----|----|-----|
+| F7170 | 0x0ECE  | 0x047E  | 0x0114 | 0x0000 | 0x0114 | 0 |
+| F7171 ROM | 0x0ECF | **0x0477** | **0x0000** | **-0x0700** | **0x0000** | **1** |
+| F7171 ENG | 0x0ED0 | 0x047E  | 0x0120 | 0x0000 | 0x0120 | 0 |
+| F7172 ROM | **0x7F00** | -0x0007 | 0x0000 | 0x0000 | 0x0000 | 1 |
+
+The ROM-side shape is unmistakable: `y_speed = -0x0700`,
+`x_speed = 0`, `g_speed = 0`, `air = 1`, with `routine = 6` written
+into the sidekick's routine field at F7172 (per the
+`sidekick=...rtn=06` aux line). This is **`Kill_Character`**
+(sonic3k.asm:21141 `loc_1036E`):
+
+```asm
+loc_1036E:
+    clr.b   status_secondary(a0)
+    clr.b   status_tertiary(a0)
+    move.b  #6,routine(a0)             ; routine 6 = dead/falling
+    jsr     (Player_TouchFloor).l       ; restore default radii
+    bset    #Status_InAir,status(a0)    ; air = 1
+    move.w  #-$700,y_vel(a0)            ; bounce-up velocity
+    move.w  #0,x_vel(a0)
+    move.w  #0,ground_vel(a0)
+    move.b  #$18,anim(a0)               ; death-animation id
+```
+
+The next frame F7172 then shows `tails_x = 0x7F00, tails_y = -0x0007`
+— i.e. the Tails-CPU off-screen-watchdog respawn path
+(`sub_13ECA` at sonic3k.asm:26800 writes `x_pos = 0x7F00`,
+`y_pos = 0`) has fired, after which `MoveSprite_TestGravity`
+(sonic3k.asm:36077) adds `+0x38` to `y_vel` and applies the velocity
+to position, dropping y from 0 to -7. This confirms the death-and-
+respawn chain ran end-to-end on the ROM side.
+
+The engine, by contrast, runs `SidekickCpuController.updateNormal()`
+with `branch=leader_fast` (Sonic's `g_speed = 0x0600 ≥ 0x0400`,
+sonic3k.asm:26692-26694) and writes `tails_x_speed = 0x0120`,
+`tails_g_speed = 0x0120`, `tails_y_speed = 0`, `air = 0` — a normal
+right-input acceleration step, never invoking `Kill_Character`.
+
+### What kills ROM Tails at F7171
+
+The trigger is **not** any of:
+
+- `Tails_CPU_Control` (sonic3k.asm:26354+): Both ROM and engine see
+  `branch=leader_fast`, `ctrl2=0x0808` (right-pressed only, **no
+  jump button**), `dx=0x004C`, `dy=0xFE7B`. The auto-jump latch at
+  `loc_13E9C` (sonic3k.asm:26775) fails its 64-frame gate
+  (`(Level_frame_counter+1).w & $3F = 0x18 ≠ 0`) and the distance
+  gate (`|dx|=0x4C ≥ $40` and `Level_frame_counter & $FF =
+  0xD8 ≠ 0`). So neither path reaches `loc_13E9C` — Tails is not
+  jumping.
+- `Tails_Jump` (sonic3k.asm:28519): reads
+  `Ctrl_2_pressed_logical & A|B|C`. Trace `ctrl2=0808/08` has no
+  jump-press bit (high byte `$08` = right_pressed, not A/B/C).
+- `Obj_TwistedRamp` (sonic3k.asm:50001): launch gate requires
+  `x_vel ≥ $400`. Tails has `x_vel = 0x0114 < 0x0400` → falls through.
+
+The candidates that DO write `y_vel = -0x0700` AND zero `x_vel`/
+`ground_vel` simultaneously are:
+
+1. **`Player_LevelBound` / `Tails_Check_Screen_Boundaries` →
+   `Kill_Character`** (sonic3k.asm:23172 / 28407 → 21141). Tails's
+   y_pos=0x047E exceeds `Camera_max_Y_pos + 0xE0` (the bottom
+   kill plane). `Tails_Check_Screen_Boundaries` `jmp`s into
+   `Kill_Character`, which is reached BEFORE `MoveSprite` in the
+   call chain — this means Tails position at F7171 stays at 0x047E,
+   which contradicts the observed F7171 `tails_y = 0x0477`.
+2. **`TouchResponse` hit on a deadly enemy/spike** (sonic3k.asm:
+   26266 inside `Obj_Tails`). `TouchResponse` runs AFTER
+   `Tails_Modes` / `MoveSprite`, so position has already advanced by
+   one frame's velocity, then `Hurt_Sonic` → `loc_1036E`
+   `Kill_Character` is invoked. The 7-pixel y-decrease (0x047E →
+   0x0477) is consistent with `MoveSprite_TestGravity2` having
+   already run with `y_vel = -0x0700` set BY a previous call —
+   **but** `Tails_Stand_Path` only calls `MoveSprite` once.
+3. **`sub_F846` background-collision crush kill** (sonic3k.asm:
+   19946 + 27531-27533): inside `Tails_Stand_Path` the sequence
+   `bsr.w sub_F846 / tst.w d1 / bmi.w Kill_Character` fires when
+   `Background_collision_flag` is set and `FindFloor` returns a
+   negative penetration. AIZ2 does not normally enable
+   `Background_collision_flag`, so this candidate is unlikely.
+
+The **observed F7171 position shift `0x047E → 0x0477` (y up by 7
+pixels)** can only be produced by `MoveSprite` running with
+`y_vel = -0x0700` already in place. The simplest reading consistent
+with the trace is that `Kill_Character` ran early in the frame
+(probably from the boundary check), which set `y_vel = -0x0700`,
+and the post-Kill flow somehow also reached `MoveSprite_TestGravity2`
+to apply that velocity. Locating the exact call site needs an
+extended ROM trace recorder — the current aux only samples
+end-of-frame state.
+
+### Diagnosed Constraints
+
+- `sprite.getY()` returns top-left Y, but ROM `y_pos(a0)` is
+  ROM-centre Y. The engine's level-boundary check
+  (`PlayableSpriteMovement.doLevelBoundary`, line ~1891):
+  ```java
+  if (sprite.getY() > effectiveMaxY + 224) {
+      ...
+      cpuController.despawn(LEVEL_BOUNDARY);
+  ```
+  computes `getY()` = `centreY - height/2`. For Tails with
+  `height_pixels = 0x18 = 24`, `getY() = y_pos - 12`. The engine
+  therefore triggers the boundary kill **12 pixels below** where
+  ROM does. This is a long-standing latent off-by-12 that has not
+  surfaced before because most kill-plane crossings happen far
+  below the threshold (where the 12-pixel gap is invisible).
+- ROM `Tails_Check_Screen_Boundaries` (sonic3k.asm:28428-28431)
+  uses `cmp.w y_pos(a0),(Camera_max_Y_pos+0xE0) / blt.s` which is
+  `y_pos > maxY + 0xE0` semantically (m68k `cmp.w src,dst` →
+  `dst - src` then `blt` on signed-less). The engine's `>` matches
+  this comparator; only the `getY()` vs `getCentreY()` side is off.
+- Switching the engine to `getCentreY()` is a global change that
+  affects Sonic too (Sonic height_pixels = 0x28 → 20 px offset).
+  Audit needed: do other AIZ/CNZ traces depend on the current
+  off-by-12 boundary semantics? `TestS3kAizTraceReplay`,
+  `TestS3kCnzTraceReplay`, `TestS3kMgzTraceReplay` should be
+  re-run after any change.
+- The 7-pixel y-up at F7171 (after Kill_Character zeroes velocities
+  but writes `y_vel=-0x0700`) needs an extended recorder probe to
+  pinpoint whether `MoveSprite` ran post-Kill or whether
+  `Player_TouchFloor` shifts `y_pos` for a non-rolling sidekick
+  in some path the engine hasn't replicated.
+
+### Ruled-Out Hypotheses
+
+- **`Tails_CPU_auto_jump_flag` or `loc_13E9C` auto-jump**: The
+  64-frame and distance gates fail at F7171 (`Level_frame_counter
+  = 0x1AD8`, `|dx| = 0x4C ≥ $40`). Neither ROM nor engine sees the
+  auto-jump trigger fire.
+- **`Tails_CPU_flight_timer` despawn warp via `sub_13EFC`**: At
+  F7171 Tails is on-screen (Sonic is at `y_pos=0x02FA`, Tails at
+  `y_pos=0x047E`, both inside the camera 0x0EDA cam-X window of
+  ±320). The trace `tails rf=04` shows render_flags bit 7 clear
+  (off-screen high-bit), but Tails was visible in prior frames
+  and the timer would not have accumulated the 5*60 frames needed
+  to trigger `sub_13ECA` from this branch.
+- **Tails_TwistedRamp launch**: requires `x_vel ≥ 0x0400`; Tails
+  has only `0x0114`.
+
+### Removal Condition
+
+Remove this entry once `TestS3kAizTraceReplay#replayMatchesTrace`
+advances past F7171 with a ROM-cited fix. The fix must:
+
+- Cite ROM lines in `docs/skdisasm/sonic3k.asm` for any
+  `Player_LevelBound` / `Tails_Check_Screen_Boundaries` /
+  `Kill_Character` / `TouchResponse` / `sub_F846` rule it changes.
+- Preserve the comparison-only trace invariant (no per-frame
+  writes from CSV/aux into the engine in committed test code).
+- Keep S1 GHZ, S1 MZ1, S2 EHZ, S3K AIZ post-F7127, and S3K CNZ
+  pre-F7614 traces green (CNZ first-error must stay at or advance
+  past F7614).
+- If the fix is per-game, gate it through `PhysicsFeatureSet`,
+  not `if (gameId == GameId.S3K)`.
+- The boundary-kill `getY()` vs `getCentreY()` divergence
+  identified above is the most promising candidate. Before
+  switching, audit Sonic-side kill behaviour across traces
+  (existing AIZ/CNZ blockers in this file may have implicitly
+  calibrated against the off-by-12 semantics). The shared
+  `getY()` call lives in `PlayableSpriteMovement.doLevelBoundary`
+  (line ~1891), used uniformly by all sprites; if the change
+  is needed only for sidekicks, gate via a new
+  `PhysicsFeatureSet.levelBoundaryUsesCentreY` flag that defaults
+  to `false` for current behaviour.
