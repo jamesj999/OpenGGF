@@ -709,6 +709,40 @@ class TestSidekickCpuFollowParity {
         }
     }
 
+    @Test
+    void s3kCatchUpFlightOnlyBlocksOnLeaderObjectControlSignBit() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+        tails.setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+
+        sonic.setCentreX((short) 0x0B78);
+        sonic.setCentreY((short) 0x0325);
+        sonic.setObjectControlled(true);
+        sonic.setObjectControlAllowsCpu(true);
+
+        tails.setCentreX((short) 0x7F00);
+        tails.setCentreY((short) 0x0000);
+        tails.setXSpeed((short) 0x0445);
+        tails.setGSpeed((short) 0x0445);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.CATCH_UP_FLIGHT, 0);
+
+        controller.update(0x1780);
+
+        Assertions.assertAll(
+                () -> assertSame(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, controller.getState(),
+                        "ROM Tails_Catch_Up_Flying blocks only when Sonic object_control is negative "
+                                + "(sonic3k.asm:26478-26488)"),
+                () -> assertEquals(0x0B78, tails.getCentreX() & 0xFFFF),
+                () -> assertEquals(0x0265, tails.getCentreY() & 0xFFFF),
+                () -> assertEquals(0, tails.getXSpeed(),
+                        "ROM loc_13B50 zeroes x_vel on the catch-up warp (sonic3k.asm:26503-26506)"),
+                () -> assertEquals(0, tails.getGSpeed(),
+                        "ROM loc_13B50 zeroes ground_vel on the catch-up warp (sonic3k.asm:26503-26506)"));
+    }
+
     private static void setLevelFrameCounter(int value) throws Exception {
         Field frameCounter = GameServices.level().getClass().getDeclaredField("frameCounter");
         frameCounter.setAccessible(true);

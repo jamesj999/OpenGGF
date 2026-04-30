@@ -219,8 +219,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   input timing, and S3K air right-wall separation now advance the CNZ v6.5/v6.7 replay frontier
   from F3905 to F5274 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
-  object handoff, and reload frame-counter cadence now advance the AIZ v6.6/v6.9 replay frontier
-  from F4679 to F6313.
+  object handoff, reload frame-counter cadence, and catch-up flight gating now advance the AIZ
+  v6.6/v6.9 replay frontier from F4679 to F6920.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
   event reinitialization, keeping ROM-style pre-frame intro state available to tests.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
