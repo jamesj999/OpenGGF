@@ -450,6 +450,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
+    public int getMonitorSolidObjectVerticalOffset() {
+        // ROM: SolidObject_Monitor_SonicKnux falls through to SolidObject_cont
+        // (docs/skdisasm/sonic3k.asm:40559-40576), whose normal-gravity path
+        // adds +4 before the d2/y_radius overlap check (lines 41429-41432).
+        return 4;
+    }
+
+    @Override
     public boolean usesStickyContactBuffer() {
         // Monitors are static objects — the sticky buffer is only needed for
         // moving platforms to compensate for execution-order jitter. Using it
