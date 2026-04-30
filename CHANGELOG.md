@@ -2,6 +2,17 @@
 
 All notable changes to the OpenGGF project are documented in this file.
 
+## Unreleased
+
+- **S3K Sonic Fire Shield Dash** (`PlayableSpriteMovement.fireShieldDash`): the
+  airborne fire-shield ability now writes `ground_vel` alongside `x_vel`,
+  matching ROM `Sonic_FireShield` (`docs/skdisasm/sonic3k.asm:23424-23426`).
+  Previously only `x_vel` was set, so `ground_vel` retained the pre-dash value
+  (e.g. AIZ trace F7235 expected `g_speed = 0x0800`, observed stale
+  `g_speed = 0x0768`). Affects Sonic only; Tails/Knuckles do not have a fire
+  dash. No physics-feature gating needed because `fireShieldDash()` is only
+  reached when S3K's `elementalShieldsEnabled` feature flag is true.
+
 ## v0.5.20260411 (Released 2026-04-11)
 
 Analysis range: `v0.4.20260304..v0.5.20260411` on `develop` (`2479` commits, `2298` non-merge commits,
