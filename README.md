@@ -261,8 +261,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   solidity applies the ROM `SolidObject_cont` vertical overlap offset while clearing stale P2
   standing bits on no-contact; lightning shield sparks now allocate even without headless art and
   lightning double-jump clears the ROM jump-height latch, while move-lock-filtered sidekick
-  steering still blocks roll entry from raw held left/right, advancing the MGZ replay frontier
-  from F0 to F667.
+  steering still blocks roll entry from raw held left/right, and S3K negative-min-Y object loading
+  now applies the ROM vertical band instead of spawning every non-counter object, advancing the MGZ
+  replay frontier from F0 to F754.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
