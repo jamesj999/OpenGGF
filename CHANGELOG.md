@@ -6,6 +6,18 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K Sonic Fire Shield Dash sets ground_vel alongside x_vel
+  (AIZ F7235):** `PlayableSpriteMovement.fireShieldDash` previously
+  only wrote `x_vel`, leaving `ground_vel` at the pre-dash value
+  (e.g. the rolling-jump's preserved `g_speed = 0x0768` carried
+  airborne). ROM `Sonic_FireShield` (sonic3k.asm:23411-23430) writes
+  BOTH `x_vel` and `ground_vel` to ±$800 in the same `move.w d0,
+  x_vel(a0); move.w d0, ground_vel(a0)` line pair. Engine now does
+  the same; AIZ trace replay first strict error advances from F7235
+  (g_speed mismatch 0x0768 vs ROM 0x0800) to the next downstream
+  divergence. Affects Sonic only -- Tails/Knuckles have no fire dash.
+  No PhysicsFeatureSet flag needed: `fireShieldDash()` is only reached
+  when S3K's `elementalShieldsEnabled` feature flag is true.
 - **S3K AIZ F7171 kill-plane one-frame ordering + post-`sub_13ECA`
   MoveSprite step fix (F7171 -> F7235):** two compounding causes for
   the AIZ trace's F7171 first-error advance.  (a)

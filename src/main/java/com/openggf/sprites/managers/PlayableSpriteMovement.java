@@ -770,7 +770,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Fire dash: horizontal burst in facing direction (sonic3k.asm:23411-23430) */
 	private void fireShieldDash() {
 		int dir = sprite.getDirection() == Direction.RIGHT ? 1 : -1;
-		sprite.setXSpeed((short) (0x800 * dir));
+		short dashSpeed = (short) (0x800 * dir);
+		sprite.setXSpeed(dashSpeed);
+		// ROM (sonic3k.asm:23424-23426): the dash sets ground_vel alongside
+		// x_vel so that ground_vel survives the next landing's `ground_vel =
+		// x_vel` reseed and matches ROM diagnostics during the airborne dash
+		// frame. Omitting this leaves the previous frame's ground_vel intact
+		// (e.g. AIZ trace F7235 expected 0x0800, observed stale 0x0768).
+		sprite.setGSpeed(dashSpeed);
 		sprite.setYSpeed((short) 0);
 		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
 		sprite.resetPositionHistory();
