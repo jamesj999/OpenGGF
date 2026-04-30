@@ -6,6 +6,30 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K BizHawk recorder v6.10-s3k — CNZ position-write window
+  widened, Tails F7614 PCs captured:** Bumps
+  `tools/bizhawk/s3k_trace_recorder.lua` to v6.10-s3k. The default
+  `position_write_per_frame` capture window now includes a CNZ2
+  F7600-7625 sub-window in addition to the original CNZ1 F4788-4792
+  window, and the existing `OGGF_S3K_POSITION_WRITE_RANGE` env-var
+  override accepts semicolon-separated multi-windows (e.g.
+  `4788-4792;7600-7625`). The CNZ trace fixture under
+  `src/test/resources/traces/s3k/cnz/` was regenerated against the
+  unchanged BK2 movie so `aux_state.jsonl.gz` now carries
+  `position_write` events at F7600-7625. The captured PCs at
+  trace_frame=7614 are `0x150D0` (Tails_Jump's
+  `sub.w d0,y_pos(a0)` post-instruction, sonic3k.asm:28577),
+  `0x1E172` (post `subq.w #1,y_pos(a1)`), and `0x1E182` (post
+  `sub.w d3,y_pos(a1)`); the latter two map to `loc_1E154` of
+  `SolidObjectFull/SolidObject_cont` (sonic3k.asm:41606-41624) — the
+  top-of-platform push-up branch. This identifies the engine's
+  solid-object top-contact resolver as the +2 px residual source
+  (Tails was still latched on `Spring_Down` slot $11 with
+  `tailsInteract sub=$12`). Engine fix is deferred to a follow-up
+  round; CNZ trace replay still fails at F7614 but the diagnostic
+  data is now in the fixture. AIZ F7171, S1 GHZ, S1 MZ1, S2 EHZ
+  baselines unchanged. Doc + recorder + fixture commit, no engine
+  source changes.
 - **S3K AIZ F7127 Tails phantom-landing fixed:** Resolves the AIZ
   trace replay first-error blocker by promoting
   `Sonic3kCollapsingPlatformObjectInstance` from `state=2` (solid-stay)
