@@ -1859,7 +1859,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int leftBoundary = minX + LEFT_OFFSET;
 		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
-		if (!gameState().isBossFightActive() && !gameState().isEndOfLevelActive()) {
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		// S3K Player_Boundary_Sides/Tails_Check_Screen_Boundaries use
+		// Camera_max_X_pos+$128 directly, with no normal-play +$40 extension
+		// (sonic3k.asm:23183-23186, 28418-28421).
+		boolean usesRomMaxPlus128 = featureSet != null && featureSet.levelBoundaryRightStrict();
+		if (!usesRomMaxPlus128 && !gameState().isBossFightActive() && !gameState().isEndOfLevelActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
 
