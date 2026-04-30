@@ -12,6 +12,7 @@ import com.openggf.game.save.SelectedTeam;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
+import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
@@ -35,6 +36,7 @@ import java.util.logging.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -319,6 +321,37 @@ public class TestSonic3kAIZEvents {
         }
 
         assertTrue(sawMutationBeforeReload, "Expected mutation applied during fire transition before reload");
+    }
+
+    @Test
+    public void fireTransitionKeepsLiveTerrainTablesUntilActReload() {
+        Sonic3kLevel level = (Sonic3kLevel) GameServices.level().getCurrentLevel();
+
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x2F10);
+        camera.setY((short) 0x0200);
+
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        events.setEventsFg5(true);
+
+        int[][] blocksBefore = snapshotBlocks(level);
+        int[][] chunksBefore = snapshotChunks(level);
+
+        boolean reachedFireMutationHandoff = false;
+        for (int i = 0; i < 260 && !events.isAct2TransitionRequested(); i++) {
+            events.update(0, i);
+            if (events.isFireTransitionActive() && events.getFireTransitionBgY() >= 0x190) {
+                reachedFireMutationHandoff = true;
+                break;
+            }
+        }
+
+        assertTrue(reachedFireMutationHandoff, "Expected AIZ1 fire mutation handoff before act reload");
+        assert2dArrayEquals(blocksBefore, snapshotBlocks(level),
+                "AIZ1 fire handoff must not expose AIZ2 block terrain before Load_Level/LoadSolids");
+        assert2dArrayEquals(chunksBefore, snapshotChunks(level),
+                "AIZ1 fire handoff must not expose AIZ2 chunk terrain before Load_Level/LoadSolids");
     }
 
     @Test
@@ -817,5 +850,30 @@ public class TestSonic3kAIZEvents {
         return GameServices.level().getObjectManager().getActiveObjects().stream()
                 .filter(AizPlaneIntroInstance.class::isInstance)
                 .count();
+    }
+
+    private static int[][] snapshotBlocks(Sonic3kLevel level) {
+        int[][] snapshot = new int[level.getBlockCount()][];
+        for (int i = 0; i < level.getBlockCount(); i++) {
+            snapshot[i] = level.getBlock(i).saveState();
+        }
+        return snapshot;
+    }
+
+    private static int[][] snapshotChunks(Sonic3kLevel level) {
+        int[][] snapshot = new int[level.getChunkCount()][];
+        for (int i = 0; i < level.getChunkCount(); i++) {
+            snapshot[i] = level.getChunk(i).saveState();
+        }
+        return snapshot;
+    }
+
+    private static void assert2dArrayEquals(int[][] expected, int[][] actual, String message) {
+        assertEquals(expected.length, actual.length, message + " length");
+        for (int i = 0; i < expected.length; i++) {
+            if (!Arrays.equals(expected[i], actual[i])) {
+                throw new AssertionError(message + " at index " + i);
+            }
+        }
     }
 }

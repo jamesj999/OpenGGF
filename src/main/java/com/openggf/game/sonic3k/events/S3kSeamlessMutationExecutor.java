@@ -34,11 +34,7 @@ public final class S3kSeamlessMutationExecutor {
     public static final String MUTATION_AIZ1_POST_RELOAD_ACT2 = "s3k.aiz1.post_reload_act2";
     private static final int LLB_PRIMARY_ART = 0;
     private static final int LLB_SECONDARY_ART = 4;
-    private static final int LLB_PRIMARY_BLOCKS = 8;
-    private static final int LLB_SECONDARY_BLOCKS = 12;
-    private static final int LLB_PRIMARY_CHUNKS = 16;
     private static final int AIZ2_LEVEL_LOAD_BLOCK_INDEX = 1;
-    private static final int AIZ_SECONDARY_BLOCKS_DEST_OFFSET_BYTES = 0x0AB8;
     private static final int AIZ_SECONDARY_ART_DEST_TILE = 0x01FC;
     private static final int PAL_POINTER_AIZ_FIRE_INDEX = 0x0B;
     private static final int PLC_SPIKES_SPRINGS = 0x4E;
@@ -80,18 +76,14 @@ public final class S3kSeamlessMutationExecutor {
                 return;
             }
 
-            // AIZ1BGE_FireTransition:
-            // Queue_Kos(AIZ2_128x128), Queue_Kos(AIZ2_16x16_Primary),
-            // Queue_Kos(AIZ2_16x16_Secondary @ +$AB8),
-            // Queue_Kos_Module(AIZ2_8x8_Primary @ tile 0),
-            // Queue_Kos_Module(AIZ2_8x8_Secondary @ tile $1FC).
+            // AIZ1BGE_FireTransition queues AIZ2 block/chunk/art work, then
+            // allocates Obj_AIZTransitionFloor and enters delayed fire refresh
+            // (docs/skdisasm/sonic3k.asm:104664-104691, 104701-104714).
+            // Load_Level/LoadSolids are later in AIZ1BGE_Finish after the Kos
+            // queue drains (docs/skdisasm/sonic3k.asm:104725-104738). Keep live
+            // terrain tables stable here; exposing the AIZ2 block/chunk tables
+            // immediately lets terrain collision preempt the transition floor.
             applyImmediateMutation(levelManager, context -> {
-                sonic3kLevel.applyBlockOverlay(overlay.primaryBlocks128x128(), 0, false);
-                sonic3kLevel.applyChunkOverlay(overlay.primaryBlocks16x16(), 0, false);
-                sonic3kLevel.applyChunkOverlay(
-                        overlay.secondaryBlocks16x16(),
-                        AIZ_SECONDARY_BLOCKS_DEST_OFFSET_BYTES,
-                        false);
                 sonic3kLevel.applyPatternOverlay(overlay.primaryTiles8x8(), 0, false);
                 sonic3kLevel.applyPatternOverlay(
                         overlay.secondaryTiles8x8(),
@@ -196,32 +188,20 @@ public final class S3kSeamlessMutationExecutor {
                 + AIZ2_LEVEL_LOAD_BLOCK_INDEX * Sonic3kConstants.LEVEL_LOAD_BLOCK_ENTRY_SIZE;
         int primaryArtAddr = rom.read32BitAddr(entryAddr + LLB_PRIMARY_ART) & 0x00FFFFFF;
         int secondaryArtAddr = rom.read32BitAddr(entryAddr + LLB_SECONDARY_ART) & 0x00FFFFFF;
-        int primaryBlocksAddr = rom.read32BitAddr(entryAddr + LLB_PRIMARY_BLOCKS) & 0x00FFFFFF;
-        int secondaryBlocksAddr = rom.read32BitAddr(entryAddr + LLB_SECONDARY_BLOCKS) & 0x00FFFFFF;
-        int primaryChunksAddr = rom.read32BitAddr(entryAddr + LLB_PRIMARY_CHUNKS) & 0x00FFFFFF;
 
         ResourceLoader loader = new ResourceLoader(rom);
         byte[] primaryTiles8x8 = loader.loadSingle(LoadOp.kosinskiMBase(primaryArtAddr));
         byte[] secondaryTiles8x8 = loader.loadSingle(LoadOp.kosinskiMBase(secondaryArtAddr));
-        byte[] primaryBlocks16x16 = loader.loadSingle(LoadOp.kosinskiBase(primaryBlocksAddr));
-        byte[] secondaryBlocks16x16 = loader.loadSingle(LoadOp.kosinskiBase(secondaryBlocksAddr));
-        byte[] primaryBlocks128x128 = loader.loadSingle(LoadOp.kosinskiBase(primaryChunksAddr));
 
         cachedAizFireOverlay = new AizFireOverlayData(
                 primaryTiles8x8,
-                secondaryTiles8x8,
-                primaryBlocks16x16,
-                secondaryBlocks16x16,
-                primaryBlocks128x128);
+                secondaryTiles8x8);
         return cachedAizFireOverlay;
     }
 
     private record AizFireOverlayData(
             byte[] primaryTiles8x8,
-            byte[] secondaryTiles8x8,
-            byte[] primaryBlocks16x16,
-            byte[] secondaryBlocks16x16,
-            byte[] primaryBlocks128x128) {
+            byte[] secondaryTiles8x8) {
     }
 
     private static final class AizAct2LayoutAdjuster {
