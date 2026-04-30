@@ -6,6 +6,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7127 Tails phantom-landing fixed:** Resolves the AIZ
+  trace replay first-error blocker by promoting
+  `Sonic3kCollapsingPlatformObjectInstance` from `state=2` (solid-stay)
+  to `state=3` (falling/non-solid) unconditionally on the frame after
+  its post-fragment timer underflows, mirroring ROM `loc_205DE`
+  (sonic3k.asm:44850-44854). The previous engine logic only advanced
+  to state 3 when a player happened to be standing on the platform
+  during a solid pass after `releasePending` was set (via
+  `onSolidContact` and `sub_205FC` at sonic3k.asm:44864), which is
+  correct only when a rider stays through fragmentation; ROM's
+  transition is unconditional. After Sonic walked across an AIZ2
+  collapse platform around F6929 and jumped off mid-stay, the engine
+  left the invisible-but-still-solid parent in state 2 indefinitely,
+  so Tails passing through the platform's X range at F7127
+  phantom-landed on a surface ROM had already demoted to
+  fragments-only. AIZ trace first-error advances from F7127 to F7171
+  (1062 → 1049 errors); CNZ F7614 / S1 GHZ / S1 MZ1 / S2 EHZ traces
+  unchanged.
 - **S3K AIZ F7127 + CNZ F7614 sidekick blockers documented:** Two
   next-blocker trace replay divergences captured in
   `docs/S3K_KNOWN_BUGS.md` with detailed ROM-cited diagnosis. AIZ F7127

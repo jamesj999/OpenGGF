@@ -32,7 +32,7 @@ Entries should include:
 14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
 15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (RESOLVED)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
 16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
-17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (OPEN — next AIZ blocker)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
+17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (RESOLVED)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
 
 ---
 
@@ -1640,6 +1640,36 @@ S1 GHZ/MZ, S2 EHZ, or S3K AIZ baselines.
 ---
 
 ## AIZ2 Trace F7127 — Tails Phantom Landing While Falling
+
+**Status:** RESOLVED — root cause was a stuck `state==2`
+(solid-stay) on `Sonic3kCollapsingPlatformObjectInstance` after Sonic
+left the platform mid-stay, leaving the invisible-but-still-solid parent
+in place indefinitely so that Tails (passing through the X range ~250
+frames later) snap-landed on a phantom surface that ROM had already
+demoted to the falling/fragments-only state. Fix: the engine's
+`update()` switch in `Sonic3kCollapsingPlatformObjectInstance` now
+unconditionally promotes `state=2` → `state=3` on the frame after
+`releasePending` is set, mirroring ROM `loc_205DE` (sonic3k.asm:44850-44854)
+which rewrites the action pointer to `loc_20620` whenever `$38`
+underflows, regardless of whether either player still has the platform's
+standing bit set. Previously the engine waited for the next solid pass
+to see a standing contact via `onSolidContact` (sonic3k.asm:44864
+`sub_205FC`) before transitioning, which is correct ONLY when the player
+stays on the platform through fragmentation; ROM's transition is
+unconditional.
+
+The trace report's first error advances from F7127 to F7171 with this
+fix in place. The four candidates flagged in the prior round
+(collision-index off-by-one, top-solid-bit mismatch, AIZ2 reload-resume
+pointer staleness, Tails airborne-rolling y_radius rule) were all ruled
+out: the engine sensor probe at F7126/F7127 reported `dist=4` (no
+penetration) and `resolved=false`, confirming terrain collision was
+correct. The actual landing came from `ObjectManager.SolidContacts.
+resolveContactInternal:5977` (the flat-solid top-landing path) chained
+from `resolveSlopedContact:5679` for the F7126 CollapsingPlatform spawn
+at `(0x0E70, 0x0368)`, which Sonic had triggered around F6929 (state=0
+→ 1) and which the engine had carried through state=2 from ~F6943
+onward without ever advancing to state=3.
 
 **Location:** Sidekick airborne→ground transition path (Tails following
 Sonic into the AIZ2 narrow corridor near `(0x0E42, 0x033B)`).
