@@ -77,6 +77,15 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     private int angle;
     private int mappingFrame;
     private int animFrameTimer = 0;
+    private String playerTwoDiagnosticBranch = "none";
+    private int playerTwoPreX = -1;
+    private int playerTwoPreXSubpixel = -1;
+    private int playerTwoPostX = -1;
+    private int playerTwoPostXSubpixel = -1;
+    private int playerTwoPreStatus = -1;
+    private int playerTwoPostStatus = -1;
+    private int playerTwoPreObjectControl = -1;
+    private int playerTwoPostObjectControl = -1;
 
     public CnzCylinderInstance(ObjectSpawn spawn) {
         super(spawn, "CNZCylinder");
@@ -331,7 +340,9 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         AbstractPlayableSprite player = slot.player;
         if (player == null || player.getDead() || player.isHurt()) {
             if (slot.active) {
+                beginPlayerTwoDiagnostic(slot, "release_invalid", player);
                 releaseSlot(slot, frameCounter, false);
+                endPlayerTwoDiagnostic(slot, player);
             }
             slot.contactLatched = false;
             return;
@@ -356,18 +367,26 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         if (slot.active) {
             if (!playerOnScreen) {
                 // ROM loc_325F2: bset Status_InAir, object_control=0, (a2)=0.
+                beginPlayerTwoDiagnostic(slot, "release_offscreen", player);
                 releaseSlot(slot, frameCounter, false);
+                endPlayerTwoDiagnostic(slot, player);
                 return;
             }
             standing = standing || !player.getAir();
             if (!standing) {
+                beginPlayerTwoDiagnostic(slot, "release_no_standing", player);
                 clearStaleCylinderSupport(player);
                 releaseSlot(slot, frameCounter, false);
+                endPlayerTwoDiagnostic(slot, player);
                 return;
             }
+            beginPlayerTwoDiagnostic(slot, "hold", player);
             holdSlot(slot);
+            endPlayerTwoDiagnostic(slot, player);
             if (player.isJumpPressed()) {
+                beginPlayerTwoDiagnostic(slot, "release_jump", player);
                 releaseSlot(slot, frameCounter, true);
+                endPlayerTwoDiagnostic(slot, player);
                 return;
             }
             return;
@@ -387,9 +406,13 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             return;
         }
         if (playerOnScreen) {
+            beginPlayerTwoDiagnostic(slot, "capture", player);
             applyP2CpuNudgeBeforeFirstCapture(slot, player);
+        } else {
+            beginPlayerTwoDiagnostic(slot, "capture_offscreen", player);
         }
         captureSlot(slot, player);
+        endPlayerTwoDiagnostic(slot, player);
     }
 
     private boolean hasStandingBit(AbstractPlayableSprite player) {
@@ -767,5 +790,75 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             mask |= AbstractPlayableSprite.INPUT_DOWN;
         }
         return mask;
+    }
+
+    private void beginPlayerTwoDiagnostic(RiderSlot slot, String branch,
+                                          AbstractPlayableSprite player) {
+        if (slot != playerTwoSlot || player == null) {
+            return;
+        }
+        playerTwoDiagnosticBranch = branch;
+        playerTwoPreX = player.getCentreX() & 0xFFFF;
+        playerTwoPreXSubpixel = player.getXSubpixelRaw() & 0xFFFF;
+        playerTwoPreStatus = diagnosticStatusByte(player);
+        playerTwoPreObjectControl = player.isObjectControlled() ? 0x03 : 0x00;
+        playerTwoPostX = playerTwoPreX;
+        playerTwoPostXSubpixel = playerTwoPreXSubpixel;
+        playerTwoPostStatus = playerTwoPreStatus;
+        playerTwoPostObjectControl = playerTwoPreObjectControl;
+    }
+
+    private void endPlayerTwoDiagnostic(RiderSlot slot, AbstractPlayableSprite player) {
+        if (slot != playerTwoSlot || player == null) {
+            return;
+        }
+        playerTwoPostX = player.getCentreX() & 0xFFFF;
+        playerTwoPostXSubpixel = player.getXSubpixelRaw() & 0xFFFF;
+        playerTwoPostStatus = diagnosticStatusByte(player);
+        playerTwoPostObjectControl = player.isObjectControlled() ? 0x03 : 0x00;
+    }
+
+    private static int diagnosticStatusByte(AbstractPlayableSprite player) {
+        int status = 0;
+        if (player.getDirection() == Direction.LEFT) {
+            status |= 0x01;
+        }
+        if (player.getAir()) {
+            status |= 0x02;
+        }
+        if (player.getRolling()) {
+            status |= 0x04;
+        }
+        if (player.isOnObject()) {
+            status |= 0x08;
+        }
+        if (player.isInWater()) {
+            status |= 0x40;
+        }
+        return status;
+    }
+
+    @Override
+    public String traceDebugDetails() {
+        return String.format(
+                "cyl center=%04X,%04X yv=%04X masks=%02X/%02X p2=%s pre=%04X.%02X,%02X/%02X post=%04X.%02X,%02X/%02X slot=%s,%02X,%02X,%02X",
+                centerX & 0xFFFF,
+                centerY & 0xFFFF,
+                currentYVelocity & 0xFFFF,
+                standingMask & 0xFF,
+                nextStandingMask & 0xFF,
+                playerTwoDiagnosticBranch,
+                playerTwoPreX & 0xFFFF,
+                playerTwoPreXSubpixel & 0xFF,
+                playerTwoPreStatus & 0xFF,
+                playerTwoPreObjectControl & 0xFF,
+                playerTwoPostX & 0xFFFF,
+                playerTwoPostXSubpixel & 0xFF,
+                playerTwoPostStatus & 0xFF,
+                playerTwoPostObjectControl & 0xFF,
+                playerTwoSlot.active,
+                playerTwoSlot.twistAngle & 0xFF,
+                playerTwoSlot.horizontalDistance & 0xFF,
+                playerTwoSlot.priorityThresholdSource & 0xFF);
     }
 }

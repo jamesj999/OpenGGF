@@ -36,6 +36,12 @@ further S3K parity work.
   `trace-replay-bug-fixing` skill (mirrored in `.claude/skills/skill.md` and
   `.agents/skills/SKILL.md`) codifies the comparison-only invariant, the four mission rules, the
   diagnose-fix-regen-loop workflow, and pointers to disassembly and process skills.
+- **S3K CNZ F4508 diagnostics:** the S3K recorder now emits comparison-only CNZ cylinder
+  P1/P2 slot snapshots and P2 execution-hook hits around `sub_324C0` / `MvSonicOnPtfm`
+  (`docs/skdisasm/sonic3k.asm:67656-67672`, `67985-68056`, `41667-41679`), and the CNZ
+  trace fixture has been regenerated with these aux events. The new report context shows ROM
+  reaches the cylinder handler at F4508 with Tails already at `x=1BB8`, while the engine still
+  reaches its equivalent path at `x=1BB9`.
 - **S3K AIZ strict-replay cadence:** the local AIZ trace baseline is restored from F1056 to
   F2165 by gating S3K Tails CPU frame checks onto the stored `Level_frame_counter` read
   during `Process_Sprites` (sonic3k.asm:7884-7894/26474-26531/38898-38900) instead of

@@ -83,6 +83,10 @@
 -- statuses, y_radius) to distinguish why Tails lands while Sonic does not.
 -- ROM refs: sonic3k.asm:104683-104790, 41642-41679, 41793-41818,
 -- 41982-42015. Diagnostic-only; no CSV schema change.
+-- v6.7-s3k also adds CNZ cylinder diagnostics for the F4508 blocker:
+-- per-frame cylinder P1/P2 slot bytes plus P2 execution-hook hits around
+-- sub_324C0 and MvSonicOnPtfm (sonic3k.asm:67656-67672, 67985-68012,
+-- 68019-68038, 41667-41679). Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -153,6 +157,7 @@ local OBJ_DYNAMIC_START     = 3
 local OBJ_DYNAMIC_COUNT     = 90
 local SIDEKICK_BASE         = OBJ_TABLE_START + OBJ_SLOT_SIZE
 local OBJ_CNZ_BALLOON       = 0x00031754
+OBJ_CNZ_CYLINDER            = 0x00032188
 local OBJ_ID_CNZ_BALLOON    = 0x41
 
 local ADDR_FRAMECOUNT       = 0xFE04
@@ -285,7 +290,7 @@ V66 = {
     hooks_registered = false,
 }
 
-local V67 = {
+local V67_AIZ = {
     AIZ_TRANSITION_FLOOR_CODE = 0x0004FE38,
     SOLID_TOP_STANDING_EXIT = 0x1E2E0,
     SOLID_TOP_STANDING_MOVE = 0x1E2F4,
@@ -294,6 +299,23 @@ local V67 = {
     RIDE_OBJECT_SET_RIDE_BODY = 0x1E4A0,
     SOLID_TOP_RETURN = 0x1E4D4,
     state = nil,
+    hooks_registered = false,
+}
+
+local V67_CNZ = {
+    -- Hook addresses resolved from docs/skdisasm/sonic3k.asm:
+    -- Obj_CNZCylinder P2 call order at 67656-67667, sub_324C0 at 67985,
+    -- active rider path at 68019/68045/68081, and MvSonicOnPtfm at 41667.
+    CNZ_CYLINDER_SUB_324C0 = 0x324C0,
+    CNZ_CYLINDER_LOC_32538 = 0x32538,
+    CNZ_CYLINDER_LOC_32594 = 0x32594,
+    CNZ_CYLINDER_LOC_32604 = 0x32604,
+    CNZ_CYLINDER_LOC_3260A = 0x3260A,
+    MV_SONIC_ON_PTFM_LOC_1E1CA = 0x1E1CA,
+    MV_SONIC_ON_PTFM_RETURN = 0x1E1F2,
+    CNZ_CYLINDER_FRAME_START = 4490,
+    CNZ_CYLINDER_FRAME_END = 4512,
+    cnz_cylinder_hits = {},
     hooks_registered = false,
 }
 
@@ -346,7 +368,6 @@ local prev_cage_status = -1
 -- velocity_write event listing all writers in temporal order.
 local tails_xvel_writes = {}
 local tails_yvel_writes = {}
-
 local physics_file = nil
 local aux_file = nil
 
@@ -615,6 +636,7 @@ local function reset_recording_state()
     tails_yvel_writes = {}
     V65.normal_step = nil
     V66.boundary_state = nil
+    V67_CNZ.cnz_cylinder_hits = {}
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -667,14 +689,16 @@ local function write_metadata()
     -- tails_cpu_normal_step_per_frame and sidekick_interact_object_per_frame.
     -- v6.6 adds aiz_boundary_state_per_frame for AIZ F4679 tree/boundary
     -- pre/post visibility. v6.7 adds aiz_transition_floor_solid_per_frame
-    -- for AIZ F5415 SolidObjectTop path diagnostics. All diagnostic-only.
+    -- for AIZ F5415 SolidObjectTop path diagnostics and CNZ cylinder
+    -- state/execution diagnostics for the F4508 P2 x-position blocker.
+    -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -1400,6 +1424,185 @@ local function flush_tails_velocity_writes()
 end
 
 -- =====================================================================
+-- CNZ cylinder P2 execution/state diagnostics (v6.7-s3k)
+-- =====================================================================
+-- Frame-range filtered because execution hooks fire from shared platform
+-- paths. The default window surrounds the CNZ F4508 divergence.
+V67_CNZ.cnz_cyl_range = os.getenv("OGGF_S3K_CNZ_CYLINDER_RANGE")
+if V67_CNZ.cnz_cyl_range and V67_CNZ.cnz_cyl_range ~= "" then
+    V67_CNZ.cnz_cyl_range_start, V67_CNZ.cnz_cyl_range_end =
+        V67_CNZ.cnz_cyl_range:match("^(%d+)%-(%d+)$")
+    if V67_CNZ.cnz_cyl_range_start and V67_CNZ.cnz_cyl_range_end then
+        V67_CNZ.CNZ_CYLINDER_FRAME_START = tonumber(V67_CNZ.cnz_cyl_range_start)
+        V67_CNZ.CNZ_CYLINDER_FRAME_END = tonumber(V67_CNZ.cnz_cyl_range_end)
+    else
+        print("WARN: invalid OGGF_S3K_CNZ_CYLINDER_RANGE, expected <start>-<end>: "
+            .. V67_CNZ.cnz_cyl_range)
+    end
+end
+
+function V67_CNZ.cnz_cylinder_in_window()
+    return trace_frame >= V67_CNZ.CNZ_CYLINDER_FRAME_START
+        and trace_frame <= V67_CNZ.CNZ_CYLINDER_FRAME_END
+end
+
+function V67_CNZ.is_cnz_cylinder_addr(addr)
+    if addr < OBJ_TABLE_START or addr > 0xFFFF - OBJ_SLOT_SIZE then
+        return false
+    end
+    return mainmemory.read_u32_be(addr) == OBJ_CNZ_CYLINDER
+end
+
+function V67_CNZ.record_cnz_cylinder_hit(branch)
+    if not aux_file then return end
+    if not started then return end
+    if not V67_CNZ.cnz_cylinder_in_window() then return end
+
+    local a0 = emu.getregister("M68K A0") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local a2 = emu.getregister("M68K A2") or 0
+    local d2 = emu.getregister("M68K D2") or 0
+    local d4 = emu.getregister("M68K D4") or 0
+    local d5 = emu.getregister("M68K D5") or 0
+    local d6 = emu.getregister("M68K D6") or 0
+    local pc = emu.getregister("M68K PC") or 0
+
+    local cylinder_addr = a0 % 0x10000
+    local player_addr = a1 % 0x10000
+    local state_addr = a2 % 0x10000
+
+    if player_addr ~= SIDEKICK_BASE then return end
+    if not V67_CNZ.is_cnz_cylinder_addr(cylinder_addr) then return end
+
+    local slot_state = 0
+    local slot_angle = 0
+    local slot_distance = 0
+    local slot_threshold = 0
+    if state_addr >= OBJ_TABLE_START and state_addr <= 0xFFFF - 4 then
+        slot_state = mainmemory.read_u8(state_addr)
+        slot_angle = mainmemory.read_u8(state_addr + 1)
+        slot_distance = mainmemory.read_u8(state_addr + 2)
+        slot_threshold = mainmemory.read_u8(state_addr + 3)
+    end
+
+    table.insert(V67_CNZ.cnz_cylinder_hits, {
+        branch = branch,
+        pc = pc,
+        cylinder_addr = cylinder_addr,
+        player_addr = player_addr,
+        state_addr = state_addr,
+        d2 = d2 % 0x10000,
+        d4 = d4 % 0x10000,
+        d5 = d5 % 0x10000,
+        d6 = d6 % 0x100,
+        cylinder_status = mainmemory.read_u8(cylinder_addr + OFF_STATUS),
+        slot_state = slot_state,
+        slot_angle = slot_angle,
+        slot_distance = slot_distance,
+        slot_threshold = slot_threshold,
+        player_x = mainmemory.read_u16_be(player_addr + OFF_X_POS),
+        player_x_sub = mainmemory.read_u16_be(player_addr + OFF_X_SUB),
+        player_y = mainmemory.read_u16_be(player_addr + OFF_Y_POS),
+        player_y_sub = mainmemory.read_u16_be(player_addr + OFF_Y_SUB),
+        player_status = mainmemory.read_u8(player_addr + OFF_STATUS),
+        player_obj_ctrl = mainmemory.read_u8(player_addr + OFF_OBJECT_CONTROL),
+    })
+end
+
+function V67_CNZ.register_cnz_cylinder_hooks()
+    if V67_CNZ.hooks_registered then return end
+    V67_CNZ.hooks_registered = true
+
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("sub_324C0_entry") end,
+        V67_CNZ.CNZ_CYLINDER_SUB_324C0)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("loc_32538_active") end,
+        V67_CNZ.CNZ_CYLINDER_LOC_32538)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("loc_32594_after_x") end,
+        V67_CNZ.CNZ_CYLINDER_LOC_32594)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("loc_32604_clear") end,
+        V67_CNZ.CNZ_CYLINDER_LOC_32604)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("loc_3260A_twist") end,
+        V67_CNZ.CNZ_CYLINDER_LOC_3260A)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("MvSonicOnPtfm_pre") end,
+        V67_CNZ.MV_SONIC_ON_PTFM_LOC_1E1CA)
+    event.onmemoryexecute(function() V67_CNZ.record_cnz_cylinder_hit("MvSonicOnPtfm_post") end,
+        V67_CNZ.MV_SONIC_ON_PTFM_RETURN)
+
+    print(string.format(
+        "CNZ cylinder hooks registered: sub_324C0=0x%05X, active=0x%05X, mv=0x%05X/0x%05X, frame_window=[%d,%d]",
+        V67_CNZ.CNZ_CYLINDER_SUB_324C0,
+        V67_CNZ.CNZ_CYLINDER_LOC_32538,
+        V67_CNZ.MV_SONIC_ON_PTFM_LOC_1E1CA,
+        V67_CNZ.MV_SONIC_ON_PTFM_RETURN,
+        V67_CNZ.CNZ_CYLINDER_FRAME_START,
+        V67_CNZ.CNZ_CYLINDER_FRAME_END))
+end
+
+function V67_CNZ.flush_cnz_cylinder_hits()
+    if not aux_file then return end
+    if #V67_CNZ.cnz_cylinder_hits == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local parts = {}
+    for _, hit in ipairs(V67_CNZ.cnz_cylinder_hits) do
+        table.insert(parts, string.format(
+            '{"branch":"%s","pc":"0x%05X","cylinder_addr":"0x%04X",'
+                .. '"player_addr":"0x%04X","state_addr":"0x%04X",'
+                .. '"d2":"0x%04X","d4":"0x%04X","d5":"0x%04X","d6":"0x%02X",'
+                .. '"cylinder_status":"0x%02X","slot_state":"0x%02X",'
+                .. '"slot_angle":"0x%02X","slot_distance":"0x%02X",'
+                .. '"slot_threshold":"0x%02X","player_x":"0x%04X",'
+                .. '"player_x_sub":"0x%04X","player_y":"0x%04X",'
+                .. '"player_y_sub":"0x%04X","player_status":"0x%02X",'
+                .. '"player_obj_ctrl":"0x%02X"}',
+            hit.branch, hit.pc, hit.cylinder_addr, hit.player_addr,
+            hit.state_addr, hit.d2, hit.d4, hit.d5, hit.d6,
+            hit.cylinder_status, hit.slot_state, hit.slot_angle,
+            hit.slot_distance, hit.slot_threshold, hit.player_x,
+            hit.player_x_sub, hit.player_y, hit.player_y_sub,
+            hit.player_status, hit.player_obj_ctrl))
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"cnz_cylinder_execution","hits":[%s]}',
+        trace_frame, vfc, table.concat(parts, ",")))
+    V67_CNZ.cnz_cylinder_hits = {}
+end
+
+function V67_CNZ.emit_cnz_cylinder_state_per_frame()
+    if not aux_file then return end
+    if not V67_CNZ.cnz_cylinder_in_window() then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for slot = 0, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local code = mainmemory.read_u32_be(addr)
+        if code == OBJ_CNZ_CYLINDER then
+            write_aux(string.format(
+                '{"frame":%d,"vfc":%d,"event":"cnz_cylinder_state","slot":%d,'
+                    .. '"x":"0x%04X","y":"0x%04X","subtype":"0x%02X",'
+                    .. '"status":"0x%02X","routine":"0x%02X","render_flags":"0x%02X",'
+                    .. '"p1_state":"0x%02X","p1_angle":"0x%02X",'
+                    .. '"p1_distance":"0x%02X","p1_threshold":"0x%02X",'
+                    .. '"p2_state":"0x%02X","p2_angle":"0x%02X",'
+                    .. '"p2_distance":"0x%02X","p2_threshold":"0x%02X"}',
+                trace_frame, vfc, slot,
+                mainmemory.read_u16_be(addr + OFF_X_POS),
+                mainmemory.read_u16_be(addr + OFF_Y_POS),
+                mainmemory.read_u8(addr + 0x2C),
+                mainmemory.read_u8(addr + OFF_STATUS),
+                mainmemory.read_u8(addr + OFF_ROUTINE),
+                mainmemory.read_u8(addr + 0x04),
+                mainmemory.read_u8(addr + 0x32),
+                mainmemory.read_u8(addr + 0x33),
+                mainmemory.read_u8(addr + 0x34),
+                mainmemory.read_u8(addr + 0x35),
+                mainmemory.read_u8(addr + 0x36),
+                mainmemory.read_u8(addr + 0x37),
+                mainmemory.read_u8(addr + 0x38),
+                mainmemory.read_u8(addr + 0x39)))
+        end
+    end
+end
+
+-- =====================================================================
 -- Tails CPU normal-step hooks (v6.5-s3k)
 -- =====================================================================
 -- Focused diagnostics for the current CNZ F3905 frontier. These hooks
@@ -1761,14 +1964,14 @@ local AIZ_TRANSITION_FLOOR_FRAME_START =
 local AIZ_TRANSITION_FLOOR_FRAME_END =
     tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_END") or "5438")
 
-function V67.u16(value)
+function V67_AIZ.u16(value)
     if value < 0 then
         return value + 0x10000
     end
     return value & 0xFFFF
 end
 
-function V67.in_window()
+function V67_AIZ.in_window()
     if trace_frame < AIZ_TRANSITION_FLOOR_FRAME_START
             or trace_frame > AIZ_TRANSITION_FLOOR_FRAME_END then
         return false
@@ -1776,17 +1979,17 @@ function V67.in_window()
     return mainmemory.read_u8(ADDR_ZONE) == 0
 end
 
-function V67.find_floor()
+function V67_AIZ.find_floor()
     for slot = 0, OBJ_TOTAL_SLOTS - 1 do
         local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
-        if mainmemory.read_u32_be(addr) == V67.AIZ_TRANSITION_FLOOR_CODE then
+        if mainmemory.read_u32_be(addr) == V67_AIZ.AIZ_TRANSITION_FLOOR_CODE then
             return slot, addr
         end
     end
     return nil, nil
 end
 
-function V67.a0_floor_slot()
+function V67_AIZ.a0_floor_slot()
     local a0 = emu.getregister("M68K A0") or 0
     local addr = a0 % 0x10000
     if addr < OBJ_TABLE_START then
@@ -1800,13 +2003,13 @@ function V67.a0_floor_slot()
     if slot < 0 or slot >= OBJ_TOTAL_SLOTS then
         return nil, nil
     end
-    if mainmemory.read_u32_be(addr) ~= V67.AIZ_TRANSITION_FLOOR_CODE then
+    if mainmemory.read_u32_be(addr) ~= V67_AIZ.AIZ_TRANSITION_FLOOR_CODE then
         return nil, nil
     end
     return slot, addr
 end
 
-function V67.a1_player_key()
+function V67_AIZ.a1_player_key()
     local a1 = emu.getregister("M68K A1") or 0
     local addr = a1 % 0x10000
     if addr == PLAYER_BASE then
@@ -1818,20 +2021,20 @@ function V67.a1_player_key()
     return nil, nil
 end
 
-function V67.snapshot_player(base)
+function V67_AIZ.snapshot_player(base)
     return {
         status = mainmemory.read_u8(base + OFF_STATUS),
         object_control = mainmemory.read_u8(base + OFF_OBJECT_CONTROL),
         y_radius = mainmemory.read_u8(base + OFF_RADIUS_Y),
         x = mainmemory.read_u16_be(base + OFF_X_POS),
         y = mainmemory.read_u16_be(base + OFF_Y_POS),
-        y_vel = V67.u16(mainmemory.read_s16_be(base + OFF_Y_VEL)),
+        y_vel = V67_AIZ.u16(mainmemory.read_s16_be(base + OFF_Y_VEL)),
         interact_slot = read_stand_on_slot_for(base),
     }
 end
 
-function V67.new_player_state(base)
-    local player = V67.snapshot_player(base)
+function V67_AIZ.new_player_state(base)
+    local player = V67_AIZ.snapshot_player(base)
     player.path = "not_seen"
     player.d1 = 0
     player.d2 = 0
@@ -1839,9 +2042,9 @@ function V67.new_player_state(base)
     return player
 end
 
-function V67.current(slot, floor_addr)
-    if V67.state == nil or V67.state.frame ~= trace_frame then
-        V67.state = {
+function V67_AIZ.current(slot, floor_addr)
+    if V67_AIZ.state == nil or V67_AIZ.state.frame ~= trace_frame then
+        V67_AIZ.state = {
             frame = trace_frame,
             slot = slot,
             floor_addr = floor_addr,
@@ -1851,29 +2054,29 @@ function V67.current(slot, floor_addr)
             object_y = mainmemory.read_u16_be(floor_addr + OFF_Y_POS),
             p1_standing = (mainmemory.read_u8(floor_addr + OFF_STATUS) & 0x08) ~= 0,
             p2_standing = (mainmemory.read_u8(floor_addr + OFF_STATUS) & 0x10) ~= 0,
-            p1 = V67.new_player_state(PLAYER_BASE),
-            p2 = V67.new_player_state(SIDEKICK_BASE),
+            p1 = V67_AIZ.new_player_state(PLAYER_BASE),
+            p2 = V67_AIZ.new_player_state(SIDEKICK_BASE),
         }
     end
-    return V67.state
+    return V67_AIZ.state
 end
 
-function V67.capture_regs(player)
+function V67_AIZ.capture_regs(player)
     player.d1 = (emu.getregister("M68K D1") or 0) & 0xFFFF
     player.d2 = (emu.getregister("M68K D2") or 0) & 0xFFFF
     player.d3 = (emu.getregister("M68K D3") or 0) & 0xFFFF
 end
 
-function V67.record_path(path)
+function V67_AIZ.record_path(path)
     if not aux_file then return end
     if not started then return end
-    if not V67.in_window() then return end
-    local slot, floor_addr = V67.a0_floor_slot()
+    if not V67_AIZ.in_window() then return end
+    local slot, floor_addr = V67_AIZ.a0_floor_slot()
     if floor_addr == nil then return end
-    local key, base = V67.a1_player_key()
+    local key, base = V67_AIZ.a1_player_key()
     if key == nil then return end
-    local state = V67.current(slot, floor_addr)
-    local player = V67.snapshot_player(base)
+    local state = V67_AIZ.current(slot, floor_addr)
+    local player = V67_AIZ.snapshot_player(base)
     local previous = state[key]
     player.path = path
     if path == "first_vertical"
@@ -1899,13 +2102,13 @@ function V67.record_path(path)
             player.path = "return"
         end
     else
-        V67.capture_regs(player)
+        V67_AIZ.capture_regs(player)
     end
     state[key] = player
     state.seen = true
 end
 
-function V67.refresh_state(state)
+function V67_AIZ.refresh_state(state)
     local p1_path = state.p1.path
     local p1_d1 = state.p1.d1
     local p1_d2 = state.p1.d2
@@ -1914,7 +2117,7 @@ function V67.refresh_state(state)
     local p2_d1 = state.p2.d1
     local p2_d2 = state.p2.d2
     local p2_d3 = state.p2.d3
-    local slot, floor_addr = V67.find_floor()
+    local slot, floor_addr = V67_AIZ.find_floor()
     if floor_addr ~= nil then
         state.slot = slot
         state.floor_addr = floor_addr
@@ -1924,8 +2127,8 @@ function V67.refresh_state(state)
         state.p1_standing = (state.object_status & 0x08) ~= 0
         state.p2_standing = (state.object_status & 0x10) ~= 0
     end
-    state.p1 = V67.snapshot_player(PLAYER_BASE)
-    state.p2 = V67.snapshot_player(SIDEKICK_BASE)
+    state.p1 = V67_AIZ.snapshot_player(PLAYER_BASE)
+    state.p2 = V67_AIZ.snapshot_player(SIDEKICK_BASE)
     state.p1.path = p1_path
     state.p1.d1 = p1_d1
     state.p1.d2 = p1_d2
@@ -1936,7 +2139,7 @@ function V67.refresh_state(state)
     state.p2.d3 = p2_d3
 end
 
-function V67.format_player(prefix, player)
+function V67_AIZ.format_player(prefix, player)
     return string.format(
         '"%s_path":"%s","%s_d1":"0x%04X","%s_d2":"0x%04X","%s_d3":"0x%04X",'
             .. '"%s_status":"0x%02X","%s_object_control":"0x%02X",'
@@ -1949,17 +2152,17 @@ function V67.format_player(prefix, player)
         prefix, player.y_vel, prefix, player.interact_slot)
 end
 
-function V67.flush_aiz_transition_floor_solid()
+function V67_AIZ.flush_aiz_transition_floor_solid()
     if not aux_file then return end
-    if V67.state == nil or V67.state.frame ~= trace_frame then
+    if V67_AIZ.state == nil or V67_AIZ.state.frame ~= trace_frame then
         return
     end
-    local state = V67.state
+    local state = V67_AIZ.state
     if not state.seen then
-        V67.state = nil
+        V67_AIZ.state = nil
         return
     end
-    V67.refresh_state(state)
+    V67_AIZ.refresh_state(state)
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     write_aux(string.format(
         '{"frame":%d,"vfc":%d,"event":"aiz_transition_floor_solid",'
@@ -1969,33 +2172,33 @@ function V67.flush_aiz_transition_floor_solid()
         trace_frame, vfc,
         state.slot, state.object_status, state.object_x, state.object_y,
         tostring(state.p1_standing), tostring(state.p2_standing),
-        V67.format_player("p1", state.p1),
-        V67.format_player("p2", state.p2)))
-    V67.state = nil
+        V67_AIZ.format_player("p1", state.p1),
+        V67_AIZ.format_player("p2", state.p2)))
+    V67_AIZ.state = nil
 end
 
-function V67.register_aiz_transition_floor_hooks()
-    if V67.hooks_registered then return end
-    V67.hooks_registered = true
+function V67_AIZ.register_aiz_transition_floor_hooks()
+    if V67_AIZ.hooks_registered then return end
+    V67_AIZ.hooks_registered = true
 
-    event.onmemoryexecute(function() V67.record_path("standing_exit") end,
-        V67.SOLID_TOP_STANDING_EXIT)
-    event.onmemoryexecute(function() V67.record_path("standing") end,
-        V67.SOLID_TOP_STANDING_MOVE)
-    event.onmemoryexecute(function() V67.record_path("first_check") end,
-        V67.SOLID_TOP_FIRST_CHECK)
-    event.onmemoryexecute(function() V67.record_path("first_vertical") end,
-        V67.SOLID_TOP_FIRST_VERTICAL)
-    event.onmemoryexecute(function() V67.record_path("first_landing") end,
-        V67.RIDE_OBJECT_SET_RIDE_BODY)
-    event.onmemoryexecute(function() V67.record_path("return") end,
-        V67.SOLID_TOP_RETURN)
+    event.onmemoryexecute(function() V67_AIZ.record_path("standing_exit") end,
+        V67_AIZ.SOLID_TOP_STANDING_EXIT)
+    event.onmemoryexecute(function() V67_AIZ.record_path("standing") end,
+        V67_AIZ.SOLID_TOP_STANDING_MOVE)
+    event.onmemoryexecute(function() V67_AIZ.record_path("first_check") end,
+        V67_AIZ.SOLID_TOP_FIRST_CHECK)
+    event.onmemoryexecute(function() V67_AIZ.record_path("first_vertical") end,
+        V67_AIZ.SOLID_TOP_FIRST_VERTICAL)
+    event.onmemoryexecute(function() V67_AIZ.record_path("first_landing") end,
+        V67_AIZ.RIDE_OBJECT_SET_RIDE_BODY)
+    event.onmemoryexecute(function() V67_AIZ.record_path("return") end,
+        V67_AIZ.SOLID_TOP_RETURN)
 
     print(string.format(
         "AIZ transition-floor hooks registered: standing_exit=0x%05X standing=0x%05X first=0x%05X/0x%05X ride=0x%05X return=0x%05X frame_window=[%d,%d]",
-        V67.SOLID_TOP_STANDING_EXIT, V67.SOLID_TOP_STANDING_MOVE,
-        V67.SOLID_TOP_FIRST_CHECK, V67.SOLID_TOP_FIRST_VERTICAL,
-        V67.RIDE_OBJECT_SET_RIDE_BODY, V67.SOLID_TOP_RETURN,
+        V67_AIZ.SOLID_TOP_STANDING_EXIT, V67_AIZ.SOLID_TOP_STANDING_MOVE,
+        V67_AIZ.SOLID_TOP_FIRST_CHECK, V67_AIZ.SOLID_TOP_FIRST_VERTICAL,
+        V67_AIZ.RIDE_OBJECT_SET_RIDE_BODY, V67_AIZ.SOLID_TOP_RETURN,
         AIZ_TRANSITION_FLOOR_FRAME_START, AIZ_TRANSITION_FLOOR_FRAME_END))
 end
 
@@ -2323,7 +2526,7 @@ local function on_frame_end()
 
     -- Focused AIZ transition-floor diagnostics (v6.7 schema). Hook callbacks
     -- capture ROM-side SolidObjectTop branch/register evidence around F5415.
-    V67.flush_aiz_transition_floor_solid()
+    V67_AIZ.flush_aiz_transition_floor_solid()
 
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
@@ -2337,6 +2540,12 @@ local function on_frame_end()
     write_object_states_per_frame(x, y, sk_present, sidekick.x, sidekick.y)
     write_interact_state_per_frame(sk_present)
     write_sidekick_interact_object_state(sk_present)
+
+    -- Focused CNZ cylinder diagnostics (v6.7 schema). State polling captures
+    -- P1/P2 slot bytes after the frame. Execution hooks show P2 x/subpixel at
+    -- sub_324C0 and MvSonicOnPtfm branch points during the frame.
+    V67_CNZ.emit_cnz_cylinder_state_per_frame()
+    V67_CNZ.flush_cnz_cylinder_hits()
 
     -- Per-frame CNZ wire cage state (v6.3 schema). Emits one cage_state
     -- event per active cage object (per OST slot containing 0x0001365C)
@@ -2410,7 +2619,10 @@ V65.register_tails_cpu_normal_step_hooks()
 V66.register_aiz_boundary_hooks()
 
 -- Register focused AIZ transition-floor hooks. Same lifetime model as cage hooks.
-V67.register_aiz_transition_floor_hooks()
+V67_AIZ.register_aiz_transition_floor_hooks()
+
+-- Register focused CNZ cylinder P2 hooks. Same lifetime model as cage hooks.
+V67_CNZ.register_cnz_cylinder_hooks()
 
 while true do
     on_frame_end()

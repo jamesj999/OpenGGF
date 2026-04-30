@@ -289,6 +289,12 @@ public class DivergenceReport {
         if (interactObject != null) {
             diagnostics.add(interactObject);
         }
+        diagnostics.addAll(traceData.cnzCylinderStatesForFrame(frame));
+        TraceEvent.CnzCylinderExecution cnzCylinderExecution =
+                traceData.cnzCylinderExecutionForFrame(frame);
+        if (cnzCylinderExecution != null) {
+            diagnostics.add(cnzCylinderExecution);
+        }
         TraceEvent.AizBoundaryState aizBoundary =
                 traceData.aizBoundaryStateForFrame(frame, "tails");
         if (aizBoundary != null) {

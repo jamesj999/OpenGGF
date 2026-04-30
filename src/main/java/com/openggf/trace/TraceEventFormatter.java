@@ -116,6 +116,22 @@ public final class TraceEventFormatter {
                             state.objectP2Standing(),
                             state.objectActive(),
                             state.objectDestroyed());
+            case TraceEvent.CnzCylinderState state ->
+                    String.format("cnzCyl s%d @%04X,%04X st=%02X p1=%02X/%02X/%02X/%02X p2=%02X/%02X/%02X/%02X",
+                            state.slot(),
+                            state.x() & 0xFFFF,
+                            state.y() & 0xFFFF,
+                            state.status() & 0xFF,
+                            state.p1State() & 0xFF,
+                            state.p1Angle() & 0xFF,
+                            state.p1Distance() & 0xFF,
+                            state.p1Threshold() & 0xFF,
+                            state.p2State() & 0xFF,
+                            state.p2Angle() & 0xFF,
+                            state.p2Distance() & 0xFF,
+                            state.p2Threshold() & 0xFF);
+            case TraceEvent.CnzCylinderExecution execution ->
+                    summariseCnzCylinderExecution(execution);
             case TraceEvent.AizBoundaryState state ->
                     String.format("%sAizBoundary cam=%04X/%04X y=%04X/%04X tree=%04X,%04X,%04X,%04X->%04X,%04X,%04X,%04X boundary=%s %04X,%04X,%04X,%04X->%04X,%04X,%04X,%04X post=%04X,%04X,%04X,%04X",
                             state.character() == null || state.character().isBlank()
@@ -197,6 +213,36 @@ public final class TraceEventFormatter {
                 ? String.format(" +%d", execution.hits().size() - limit)
                 : "";
         return "cageExec " + String.join("; ", parts) + suffix;
+    }
+
+    private static String summariseCnzCylinderExecution(TraceEvent.CnzCylinderExecution execution) {
+        if (execution.hits().isEmpty()) {
+            return "cnzCylExec empty";
+        }
+        List<String> parts = new ArrayList<>();
+        int limit = Math.min(5, execution.hits().size());
+        for (int i = 0; i < limit; i++) {
+            TraceEvent.CnzCylinderExecution.Hit hit = execution.hits().get(i);
+            parts.add(String.format("%s@%05X x=%04X.%02X y=%04X.%02X st=%02X obj=%02X slot=%02X/%02X/%02X/%02X d2=%04X d4=%04X",
+                    hit.branch(),
+                    hit.pc(),
+                    hit.playerX() & 0xFFFF,
+                    hit.playerXSub() & 0xFF,
+                    hit.playerY() & 0xFFFF,
+                    hit.playerYSub() & 0xFF,
+                    hit.playerStatus() & 0xFF,
+                    hit.playerObjectControl() & 0xFF,
+                    hit.slotState() & 0xFF,
+                    hit.slotAngle() & 0xFF,
+                    hit.slotDistance() & 0xFF,
+                    hit.slotThreshold() & 0xFF,
+                    hit.d2() & 0xFFFF,
+                    hit.d4() & 0xFFFF));
+        }
+        String suffix = execution.hits().size() > limit
+                ? String.format(" +%d", execution.hits().size() - limit)
+                : "";
+        return "cnzCylExec " + String.join("; ", parts) + suffix;
     }
 
     private static String nullableInt(Integer value) {
