@@ -6,6 +6,21 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7127 + CNZ F7614 sidekick blockers documented:** Two
+  next-blocker trace replay divergences captured in
+  `docs/S3K_KNOWN_BUGS.md` with detailed ROM-cited diagnosis. AIZ F7127
+  is a Tails phantom-landing (engine lands sidekick 2 px above ROM
+  while ROM keeps falling) inside AIZ2 — root cause not yet isolated
+  among four candidates (collision-index off-by-one, top-solid-bit
+  mismatch, AIZ2 reload pointer staleness, airborne-rolling y_radius
+  drift). CNZ F7614 was previously diagnosed as a horizontal-spring
+  landing snap; revised analysis shows the launch velocity
+  `tails_y_speed=-0x0680` does not match `Obj_Spring_Horizontal`
+  (sonic3k.asm:47891-47950) and instead matches `Obj_CNZCylinder`'s
+  auto-jump release (sonic3k.asm:68066-68067) — entry rewritten to
+  point at the cylinder ride/release path. Both blockers preserve the
+  comparison-only trace invariant; doc-only commit, no code changes.
+
 The detailed 0.6 prerelease notes below were moved out of README.md so the README can stay concise.
 
 Development since `v0.5.20260411` has focused on making the in-engine editor usable without
