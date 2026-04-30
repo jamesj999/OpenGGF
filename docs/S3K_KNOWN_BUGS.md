@@ -2123,3 +2123,73 @@ advances past F7171 with a ROM-cited fix. The fix must:
   is needed only for sidekicks, gate via a new
   `PhysicsFeatureSet.levelBoundaryUsesCentreY` flag that defaults
   to `false` for current behaviour.
+
+### Cross-Game Audit (2026-04-30)
+
+All three games' bottom-boundary checks compare against
+`y_pos(a0)` / `obY(a0)` — i.e. ROM-centre Y, not top-left:
+
+| Game | ROM | File:Line | Compare |
+|------|-----|-----------|---------|
+| S1 (Sonic) | `Sonic_LevelBound` `.bottom` | `s1disasm/_incObj/01 Sonic.asm:1014` | `cmp.w obY(a0),d0 / blt.s .bottom` |
+| S2 (Sonic) | `Sonic_LevelBound` `Sonic_Boundary_CheckBottom` | `s2.asm:36936-36951` | `cmp.w y_pos(a0),d0 / blt.s Sonic_Boundary_Bottom` |
+| S3K (Sonic) | `Player_LevelBound` `Player_Boundary_CheckBottom` | `sonic3k.asm:23188-23196` | `cmp.w y_pos(a0),d0 / blt.s Player_Boundary_Bottom` |
+| S3K (Tails CPU) | `Tails_Check_Screen_Boundaries` `loc_14F30` | `sonic3k.asm:28423-28431` | `cmp.w y_pos(a0),d0 / blt.s loc_14F56` |
+
+S2 also has a `fixBugs` block (s2.asm:36938-36948) clamping
+`Camera_Max_Y_pos` to its target, which the engine already mirrors via
+`Math.max(camera.getMaxY(), camera.getMaxYTarget())`. S1 has the
+equivalent `FixBugs` clamp at s1disasm/_incObj/01 Sonic.asm:1003-1012.
+
+Engine `PlayableSpriteMovement.doLevelBoundary` (~line 1891) compares
+`sprite.getY()` (top-left) instead of centre, which is the off-by-
+`height/2` divergence. For Tails (`height_pixels = 0x18 = 24`)
+that is 12 px; for Sonic (`height_pixels = 0x28 = 40`) that is 20 px.
+
+The kill velocity writes (`x_vel = 0`, `y_vel = -0x700`,
+`ground_vel = 0`) inside `Kill_Character` (sonic3k.asm:21141-21151)
+are already replicated by:
+
+- `SidekickCpuController.beginLevelBoundaryKill` for the CPU sidekick
+  path (`AbstractPlayableSprite.setXSpeed/YSpeed/GSpeed` zeroes,
+  sets `air=true`, then routine-6-equivalent `DEAD_FALLING` state).
+- `AbstractPlayableSprite.applyDeath` for the human-controlled path
+  (matches the same field writes with `setYSpeed((short) -0x700)`,
+  see `applyPitDeath`).
+
+So the missing piece is purely the **comparand**: switch
+`sprite.getY()` to `sprite.getCentreY()` for the bottom kill plane
+test. The proposed `PhysicsFeatureSet.levelBoundaryUsesCentreY`
+flag should default to `true` for `SONIC_3K` (ROM-accurate) and
+`false` for `SONIC_1` and `SONIC_2` until their trace baselines
+are verified to honour the same kill semantics. The S1 GHZ/MZ1
+and S2 EHZ traces were recorded against the engine's existing
+top-left compare, so flipping the global default is too risky in
+the same change. Once S3K AIZ/CNZ progress past their current
+blockers, S1/S2 should be re-recorded or re-validated and the
+flag can be flipped to `true` for all three games.
+
+### Implementation Plan (Pending)
+
+1. Add `boolean levelBoundaryUsesCentreY` to `PhysicsFeatureSet`,
+   `true` for `SONIC_3K`, `false` for `SONIC_1`/`SONIC_2`.
+2. In `PlayableSpriteMovement.doLevelBoundary` (line 1891), branch
+   on the flag and substitute `sprite.getCentreY()` when set:
+   ```java
+   int boundaryY = (featureSet != null && featureSet.levelBoundaryUsesCentreY())
+           ? sprite.getCentreY() & 0xFFFF
+           : sprite.getY() & 0xFFFF;
+   if (boundaryY > effectiveMaxY + 224) { ... }
+   ```
+3. Add a regression test
+   `TestSidekickLevelBoundaryKillCentreY` covering Tails crossing
+   the bottom plane at centre-Y vs top-Y for both flag values
+   (S2 default off — kills 12 px later; S3K on — kills at ROM
+   parity).
+4. Re-run `TestS3kAizTraceReplay`, `TestS3kCnzTraceReplay`,
+   `TestS3kMgzTraceReplay`, `TestS2Ehz1TraceReplay`,
+   `TestS1Ghz1TraceReplay`, `TestS1Mz1TraceReplay` and confirm:
+   - AIZ first-error advances past F7171.
+   - CNZ first-error stays at or past F7614.
+   - S2 EHZ baseline unchanged.
+   - S1 traces unchanged.
