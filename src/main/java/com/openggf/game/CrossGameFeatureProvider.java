@@ -514,6 +514,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.pinballLandingPreservesRoll(),   // pinballLandingPreservesRoll (from base game)
                 baseFeatureSet.topSolidLandingAllowsZeroDist(), // topSolidLandingAllowsZeroDist (from base game)
                 baseFeatureSet.airBottomSolidHitClearsGroundSpeed(), // airBottomSolidHitClearsGroundSpeed (from base game)
+                baseFeatureSet.airRightWallHitContinuesIntoCeilingSeparation(), // airRightWallHitContinuesIntoCeilingSeparation (from base game)
                 baseFeatureSet.fullSolidBottomOverlapUsesCurrentYRadiusOnly(), // fullSolidBottomOverlapUsesCurrentYRadiusOnly (from base game)
                 baseFeatureSet.fastScrollCap(),                 // fastScrollCap (from base game)
                 baseFeatureSet.bossHitNegatesGroundSpeed(),     // bossHitNegatesGroundSpeed (from base game)

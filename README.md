@@ -215,9 +215,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
   F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit, and engine-side
   sidekick CPU/control diagnostics around the F5087 blocker.
-- **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering and grounded release
-  input timing now advance the CNZ v6.5/v6.7 replay frontier from F3905 to F5236 while
-  preserving S1/S2 trace baselines.
+- **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
+  input timing, and S3K air right-wall separation now advance the CNZ v6.5/v6.7 replay frontier
+  from F3905 to F5274 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, and reload frame-counter cadence now advance the AIZ v6.6/v6.9 replay frontier
   from F4679 to F6313.
