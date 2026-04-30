@@ -79,7 +79,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // sidekickPushBypassUsesGraceStatus - S1 has no CPU sidekick
                 false,  // sidekickClearsStalePushVelocityBeforeGroundMove - S1 has no CPU sidekick
                 false,  // sidekickCpuUsesLevelFrameCounter - S1 has no CPU sidekick
-                false   // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
+                false,  // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
+                false   // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
         );
 
         // Verify spindash is enabled (donor contribution)

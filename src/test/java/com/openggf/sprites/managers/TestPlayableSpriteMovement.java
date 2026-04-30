@@ -159,6 +159,177 @@ public class TestPlayableSpriteMovement {
                 assertEquals(0, mockSprite.getGSpeed(), "S2 equality clamp should clear gSpeed");
         }
 
+        // ====================================================================
+        // Bottom level-boundary kill plane (centre-Y vs top-left)
+        //
+        // ROM cites:
+        //   S1  Sonic_LevelBound .bottom:           cmp.w obY(a0),d0 / blt.s
+        //                                            (s1disasm/_incObj/01 Sonic.asm:1014)
+        //   S2  Sonic_LevelBound CheckBottom:       cmp.w y_pos(a0),d0 / blt.s
+        //                                            (s2.asm:36950)
+        //   S3K Player_LevelBound CheckBottom:      cmp.w y_pos(a0),d0 / blt.s
+        //                                            (sonic3k.asm:23195)
+        //   S3K Tails_Check_Screen_Boundaries:      cmp.w y_pos(a0),d0 / blt.s
+        //                                            (sonic3k.asm:28430-28431)
+        // The ROM word at y_pos(a0) is the player's centre-Y.
+        // ====================================================================
+
+        @Test
+        public void s3kBottomLevelBoundaryUsesCentreY() throws Exception {
+                // Place a Tails-sized sprite (height = 24 px, half = 12) so its
+                // centreY sits 1 px past the kill threshold but its top-left
+                // getY() sits exactly AT the threshold. With centre-Y compare
+                // (S3K), kill fires; with top-left compare it would not.
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setHeight(24); // Tails height_pixels = 0x18
+
+                int maxY = 0x02B8; // ROM AIZ2 boss-area Camera_max_Y_pos
+                int killThreshold = maxY + 224; // ROM: Camera_max_Y_pos + $E0
+                GameServices.camera().setMaxY((short) maxY);
+                GameServices.camera().setMaxYTarget((short) maxY);
+                GameServices.camera().setLevelStarted(true);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x4000);
+
+                // centreY = killThreshold + 1 → top-left getY = killThreshold - 11.
+                // Top-left compare would not trigger (getY <= threshold), but
+                // centre-Y compare does (centreY > threshold).
+                short centreY = (short) (killThreshold + 1);
+                mockSprite.setCentreY(centreY);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x0150);
+                mockSprite.setGSpeed((short) 0);
+                mockSprite.setCentreX((short) 0x1000);
+
+                // Sanity check: with top-left semantics this would not trigger.
+                assertTrue(mockSprite.getY() <= killThreshold,
+                                "Top-left getY must NOT exceed threshold for the test to be meaningful");
+                assertTrue(mockSprite.getCentreY() > killThreshold,
+                                "Centre-Y must exceed threshold so the centre-Y compare fires");
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertTrue(mockSprite.getDead(),
+                                "S3K centre-Y boundary kill should fire when centreY > maxY+0xE0 "
+                                                + "(sonic3k.asm:23195 cmp.w y_pos(a0),d0 / blt.s)");
+                assertEquals(0, mockSprite.getXSpeed(),
+                                "Kill_Character zeroes x_vel (sonic3k.asm:21148)");
+                assertEquals(0, mockSprite.getGSpeed(),
+                                "Kill_Character zeroes ground_vel (sonic3k.asm:21149)");
+                assertEquals((short) -0x0700, mockSprite.getYSpeed(),
+                                "Kill_Character writes y_vel = -$700 (sonic3k.asm:21147)");
+        }
+
+        @Test
+        public void s2BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation() throws Exception {
+                // S2 ROM uses centre-Y at s2.asm:36950, but S2 trace baselines
+                // (EHZ) were calibrated against the engine's top-left compare;
+                // the levelBoundaryUsesCentreY flag is FALSE for SONIC_2 to
+                // preserve those baselines until they are re-validated.
+                // Kill must NOT fire for the same centreY-just-past geometry.
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+                mockSprite.setHeight(24);
+
+                int maxY = 0x02B8;
+                int killThreshold = maxY + 224;
+                GameServices.camera().setMaxY((short) maxY);
+                GameServices.camera().setMaxYTarget((short) maxY);
+                GameServices.camera().setLevelStarted(true);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x4000);
+
+                short centreY = (short) (killThreshold + 1);
+                mockSprite.setCentreY(centreY);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x0150);
+                mockSprite.setGSpeed((short) 0);
+                mockSprite.setCentreX((short) 0x1000);
+
+                assertFalse(PhysicsFeatureSet.SONIC_2.levelBoundaryUsesCentreY(),
+                                "S2 flag must remain false until S2 traces are re-validated");
+                assertTrue(mockSprite.getY() <= killThreshold,
+                                "Top-left getY must NOT exceed threshold (S2 keeps top-left compare)");
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertFalse(mockSprite.getDead(),
+                                "S2 keeps the engine's top-left compare; this geometry must not kill");
+        }
+
+        @Test
+        public void s1BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation() throws Exception {
+                // S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014,
+                // but S1 trace baselines (GHZ/MZ1) were calibrated against the
+                // engine's top-left compare; flag is FALSE for SONIC_1.
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_1);
+                mockSprite.setHeight(40); // Sonic height_pixels = 0x28
+
+                int maxY = 0x02B8;
+                int killThreshold = maxY + 224;
+                GameServices.camera().setMaxY((short) maxY);
+                GameServices.camera().setMaxYTarget((short) maxY);
+                GameServices.camera().setLevelStarted(true);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x4000);
+
+                // For Sonic the centre-vs-top gap is 20 px. centreY = threshold + 1
+                // → top-left getY = threshold - 19, well below threshold.
+                short centreY = (short) (killThreshold + 1);
+                mockSprite.setCentreY(centreY);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x0150);
+                mockSprite.setGSpeed((short) 0);
+                mockSprite.setCentreX((short) 0x1000);
+
+                assertFalse(PhysicsFeatureSet.SONIC_1.levelBoundaryUsesCentreY(),
+                                "S1 flag must remain false until S1 traces are re-validated");
+                assertTrue(mockSprite.getY() <= killThreshold,
+                                "Top-left getY must NOT exceed threshold (S1 keeps top-left compare)");
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertFalse(mockSprite.getDead(),
+                                "S1 keeps the engine's top-left compare; this geometry must not kill");
+        }
+
+        @Test
+        public void s3kBottomLevelBoundaryRespectsTopLeftWhenCentreYBelowThreshold() throws Exception {
+                // Reverse case: when centreY is BELOW the threshold (no kill),
+                // S3K must not fire just because top-left getY would also be
+                // below. Confirms the centre-Y compare is not stricter than
+                // ROM in the negative direction.
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setHeight(24);
+
+                int maxY = 0x02B8;
+                int killThreshold = maxY + 224;
+                GameServices.camera().setMaxY((short) maxY);
+                GameServices.camera().setMaxYTarget((short) maxY);
+                GameServices.camera().setLevelStarted(true);
+                GameServices.camera().setMinX((short) 0x0200);
+                GameServices.camera().setMaxX((short) 0x4000);
+
+                short centreY = (short) (killThreshold - 1);
+                mockSprite.setCentreY(centreY);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x0150);
+                mockSprite.setGSpeed((short) 0);
+                mockSprite.setCentreX((short) 0x1000);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doLevelBoundary");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertFalse(mockSprite.getDead(),
+                                "Kill must not fire when centreY <= maxY+0xE0 (sonic3k.asm:23195 blt.s)");
+        }
+
         @Test
         public void testCalculateLandingRightSlope() throws Exception {
                 // Angle 0x20 (32). Slope \ (Down-Right).

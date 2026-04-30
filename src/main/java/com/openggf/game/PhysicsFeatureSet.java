@@ -375,7 +375,51 @@ public record PhysicsFeatureSet(
          * (s1disasm/_incObj/01 Sonic.asm:998 {@code bls.s .sides}) matches
          * S2 — non-strict.
          */
-        boolean levelBoundaryRightStrict
+        boolean levelBoundaryRightStrict,
+        /**
+         * Whether the bottom level-boundary kill plane test compares the
+         * sprite's ROM-centre Y ({@code getCentreY()}) instead of the
+         * engine top-left Y ({@code getY()}).
+         *
+         * <p>All three games' bottom-boundary checks read the player's
+         * {@code y_pos(a0)} word, which is ROM-centre Y:
+         * <ul>
+         *   <li>S1 {@code Sonic_LevelBound .bottom}:
+         *       {@code cmp.w obY(a0),d0 / blt.s .bottom}
+         *       (s1disasm/_incObj/01 Sonic.asm:1014).</li>
+         *   <li>S2 {@code Sonic_LevelBound Sonic_Boundary_CheckBottom}:
+         *       {@code cmp.w y_pos(a0),d0 / blt.s Sonic_Boundary_Bottom}
+         *       (s2.asm:36950).</li>
+         *   <li>S3K {@code Player_LevelBound Player_Boundary_CheckBottom}:
+         *       {@code cmp.w y_pos(a0),d0 / blt.s Player_Boundary_Bottom}
+         *       (sonic3k.asm:23195).</li>
+         *   <li>S3K {@code Tails_Check_Screen_Boundaries loc_14F30}:
+         *       {@code cmp.w y_pos(a0),d0 / blt.s loc_14F56}
+         *       (sonic3k.asm:28430-28431).</li>
+         * </ul>
+         *
+         * <p>The engine has historically compared {@code getY()} (top-left)
+         * here. For Sonic ({@code height_pixels = 0x28 = 40}) that is a
+         * 20-px gap; for Tails ({@code height_pixels = 0x18 = 24}) it is
+         * 12-px. Switching to {@code getCentreY()} matches ROM exactly
+         * (the ensuing {@code Kill_Character} writes y_vel = -$700, x_vel
+         * = 0, ground_vel = 0 at sonic3k.asm:21141-21151 are already
+         * replicated by {@code AbstractPlayableSprite.applyDeath} and
+         * {@code SidekickCpuController.beginLevelBoundaryKill}).
+         *
+         * <p>S3K: {@code true}. Required to fix AIZ trace replay F7171
+         * sidekick boundary kill (Tails {@code y_pos = 0x047E} versus the
+         * ROM kill-plane the engine missed by 12 px).
+         *
+         * <p>S1/S2: {@code false} for now. The S1 GHZ/MZ1 and S2 EHZ trace
+         * baselines were recorded against the engine's existing top-left
+         * compare; flipping the global default in the same change risks
+         * unrelated regressions. Once S3K AIZ/CNZ progress past their
+         * current blockers, S1/S2 should be re-recorded or re-validated
+         * and the flag flipped to {@code true} for all three games (ROM
+         * parity for S1 and S2 is already established by the cites above).
+         */
+        boolean levelBoundaryUsesCentreY
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -451,7 +495,8 @@ public record PhysicsFeatureSet(
             false /* sidekickPushBypassUsesGraceStatus: S1 has no Tails CPU */,
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S1 has no Tails CPU */,
             false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
-            false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */);
+            false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */,
+            false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -470,7 +515,8 @@ public record PhysicsFeatureSet(
             false /* sidekickPushBypassUsesGraceStatus: S2 TailsCPU_Normal uses live Status_Push only (s2.asm:38943-38946) */,
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S2 TailsCPU_Normal writes Ctrl_2_Logical without clearing velocity (s2.asm:38943-39027) */,
             false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
-            false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */);
+            false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */,
+            false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -493,7 +539,8 @@ public record PhysicsFeatureSet(
             true /* sidekickPushBypassUsesGraceStatus: preserve ROM-visible transient push continuity for S3K object ordering (sonic3k.asm:26702-26705) */,
             true /* sidekickClearsStalePushVelocityBeforeGroundMove: S3K ground projection/push path clears ground_vel while preserving collision x_vel (sonic3k.asm:27947-28017) */,
             true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
-            true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 — see PhysicsFeatureSet javadoc for AIZ F4768 cite */);
+            true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 -- see PhysicsFeatureSet javadoc for AIZ F4768 cite */,
+            true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

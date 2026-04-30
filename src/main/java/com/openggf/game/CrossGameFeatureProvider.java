@@ -533,7 +533,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.sidekickPushBypassUsesGraceStatus(), // sidekickPushBypassUsesGraceStatus (from base game)
                 baseFeatureSet.sidekickClearsStalePushVelocityBeforeGroundMove(), // sidekickClearsStalePushVelocityBeforeGroundMove (from base game)
                 baseFeatureSet.sidekickCpuUsesLevelFrameCounter(), // sidekickCpuUsesLevelFrameCounter (from base game)
-                baseFeatureSet.levelBoundaryRightStrict() // levelBoundaryRightStrict (from base game)
+                baseFeatureSet.levelBoundaryRightStrict(), // levelBoundaryRightStrict (from base game)
+                baseFeatureSet.levelBoundaryUsesCentreY() // levelBoundaryUsesCentreY (from base game)
         );
     }
 
