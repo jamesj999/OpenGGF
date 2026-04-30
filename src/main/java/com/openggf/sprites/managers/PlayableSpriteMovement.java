@@ -444,10 +444,27 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		doLevelBoundary();
 		if (isCpuLevelBoundaryKillActive()) {
-			// Tails_Check_Screen_Boundaries jumps straight to Kill_Character
-			// when the bottom kill plane is crossed (sonic3k.asm:28442-28443;
-			// s2.asm:39933-39939). Keep the engine's terrain separation pass,
-			// but do not append another generic gravity step after the kill.
+			// ROM Tails_Check_Screen_Boundaries reaches Kill_Character via
+			// `jmp` (sonic3k.asm:28442-28443 loc_14F56). Kill_Character ends
+			// with `rts` (sonic3k.asm:21158-21159), which unwinds to the
+			// caller of Tails_Check_Screen_Boundaries — for the airborne
+			// path that's `Tails_Stand_Freespace` (sonic3k.asm:27553), where
+			// control resumes at `jsr (MoveSprite_TestGravity).l`
+			// (sonic3k.asm:27559). MoveSprite_TestGravity falls through to
+			// MoveSprite (sonic3k.asm:36032-36042) which applies gravity and
+			// shifts y_pos by the freshly-written Kill_Character `y_vel = -$700`
+			// (sonic3k.asm:21149). Tails_DoLevelCollision (sonic3k.asm:28871)
+			// then runs and is the post-kill landing pass that produces the
+			// trace's end-of-frame `(y, vels=0)` sample.
+			//
+			// AIZ F4679 (cp aiz1_intro_refresh_begin) trace: pre-kill
+			// `(0x2D40, 0x0402, vels=(0x00F7, 0x0198))`, post-kill ROM
+			// `(0x2D95, 0x040F, vels=0)`. Skipping doObjectMoveAndFall() and
+			// going straight to collision left Tails 32 px below ROM because
+			// the missing MoveSprite step prevents the y_vel=-$700 from
+			// shifting Tails up before the collision sensors snap him to
+			// ground.
+			doObjectMoveAndFall();
 			sprite.updateSensors(originalX, originalY);
 			doLevelCollision(sprite.isForceFloorCheck());
 			return;
