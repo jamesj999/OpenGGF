@@ -4358,6 +4358,9 @@ public class ObjectManager {
                         result.kind(), result.standingNow(), result.pushingNow()));
                 cacheHeadroomSnapshot(player, player.getAngle(),
                         getHeadroomDistance(player, player.getAngle()));
+                if (compatibilityCallbacks && instance instanceof SolidObjectListener listener) {
+                    listener.onSolidContactCleared(player, frameCounter);
+                }
             } else {
                 PlayerSolidContactResult result = new PlayerSolidContactResult(
                         toContactKind(contact),
@@ -5238,6 +5241,9 @@ public class ObjectManager {
                 }
 
                 if (contact == null) {
+                    if (instance instanceof SolidObjectListener listener) {
+                        listener.onSolidContactCleared(player, frameCounter);
+                    }
                     continue;
                 }
                 applyNonUnifiedTopSolidLandingHeightOverride(

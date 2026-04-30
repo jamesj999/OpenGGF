@@ -230,8 +230,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   keeping the S3K sidekick setup prelude, and the S3K `Screen_Y_wrap_value` mask now wraps
   playable and camera-focused Y at MGZ's `$1000` boundary while preserving the low `y_sub` word,
   S3K monitor break now releases recorded standing/pushing players into air, and S3K monitor
-  solidity applies the ROM `SolidObject_cont` vertical overlap offset, advancing the MGZ replay
-  frontier from F0 to F342.
+  solidity applies the ROM `SolidObject_cont` vertical overlap offset while clearing stale P2
+  standing bits on no-contact, advancing the MGZ replay frontier from F0 to F498.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.

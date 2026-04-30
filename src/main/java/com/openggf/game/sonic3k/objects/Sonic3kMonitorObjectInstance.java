@@ -494,6 +494,26 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
+    public void onSolidContactCleared(PlayableEntity playerEntity, int frameCounter) {
+        if (playerEntity == null) {
+            return;
+        }
+        if (!playerEntity.isCpuControlled()) {
+            return;
+        }
+
+        // ROM: the sidekick monitor path uses p2_standing_bit (sonic3k.asm:
+        // 40492-40494), and Obj_MonitorBreak releases P2 only if p2_standing or
+        // p2_pushing is still set (40624-40638). MGZ aux at F342 has the monitor
+        // status clear while Tails remains grounded, so clear stale engine-side P2
+        // bookkeeping on no-contact without disturbing the P1 break-release path.
+        solidStatusBits &= ~P2_CONTACT_MASK;
+        if (p2SolidContact == playerEntity) {
+            p2SolidContact = null;
+        }
+    }
+
+    @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(3);
     }
