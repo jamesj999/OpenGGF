@@ -1720,6 +1720,24 @@ public class ObjectManager {
     }
 
     /**
+     * Resolves a newly-created ROM helper's inline solid checkpoint immediately.
+     * <p>
+     * Some S3K event routines allocate an object from a background/event path after
+     * this engine's normal object pass has already run for the frame, while the ROM
+     * object still executes its {@code SolidObjectTop} call in that same frame. The
+     * AIZ transition floor is allocated at docs/skdisasm/sonic3k.asm:104685-104687,
+     * then its object routine calls {@code SolidObjectTop} at 104777-104790.
+     */
+    public void processImmediateInlineSolidCheckpoint(ObjectInstance object,
+            PlayableEntity player, List<? extends PlayableEntity> sidekicks) {
+        if (object == null) {
+            return;
+        }
+        List<? extends PlayableEntity> activeSidekicks = sidekicks != null ? sidekicks : List.of();
+        solidContacts.processCompatibilityCheckpoint(object, player, activeSidekicks, true);
+    }
+
+    /**
      * Refresh the SolidContacts riding tracking position for an object after it has moved itself.
      * Prevents the delta from that movement being double-applied to riding players.
      */

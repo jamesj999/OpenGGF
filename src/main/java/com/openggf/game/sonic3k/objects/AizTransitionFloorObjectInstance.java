@@ -52,6 +52,14 @@ public final class AizTransitionFloorObjectInstance extends AbstractObjectInstan
     }
 
     @Override
+    public boolean rejectsZeroDistanceTopSolidLanding() {
+        // ROM first-landing range accepts d0 in [-$10,-1] only: after the
+        // positive-separation reject, cmpi.w #-$10,d0 / blo rejects d0 == 0.
+        // See docs/skdisasm/sonic3k.asm:41982-42015.
+        return true;
+    }
+
+    @Override
     public boolean providesPreMovementGroundAttachmentSupport() {
         return true;
     }
