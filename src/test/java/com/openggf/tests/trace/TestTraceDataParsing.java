@@ -642,6 +642,46 @@ public class TestTraceDataParsing {
     }
 
     @Test
+    void parsesS3kPositionWriteDiagnosticsAndMetadataFlag() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-position-write-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "cnz",
+              "zone_id": 3,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["position_write_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,0080,03A0,0000,0000,0000,00,0,0,0,0000,0000,02,0000,0000,0000,00,0001,00,0001,0000,1,7F00,0000,0000,0000,0000,00,1,0,0,0000,0000,02,02,09
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"vfc":1,"event":"position_write","character":"tails","x_pos_writes":[{"pc":"0x13ECA","val":"0x7F00"},{"pc":"0x1E1CA","val":"0x6125"}],"y_pos_writes":[{"pc":"0x13ECA","val":"0x0000"}]}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertTrue(data.metadata().hasPerFramePositionWrite());
+        TraceEvent.PositionWrite write = data.positionWriteForFrame(0, "tails");
+        assertNotNull(write);
+        assertEquals(2, write.xPosWrites().size());
+        assertEquals(0x1E1CA, write.xPosWrites().get(1).pc());
+        assertEquals(0x6125, write.xPosWrites().get(1).value());
+        assertEquals(0x13ECA, write.yPosWrites().getFirst().pc());
+    }
+
+    @Test
     void parsesS3kAizBoundaryDiagnosticsAndMetadataFlag() throws IOException {
         Path dir = Files.createTempDirectory("s3k-aiz-boundary-diag");
         Files.writeString(dir.resolve("metadata.json"), """

@@ -159,6 +159,10 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.VelocityWrite.class)) {
             missing.add("velocity_write_per_frame");
         }
+        if (metadata.hasPerFramePositionWrite()
+                && !hasEventOfType(TraceEvent.PositionWrite.class)) {
+            missing.add("position_write_per_frame");
+        }
         if (metadata.hasPerFrameTailsCpuNormalStep()
                 && !hasEventOfType(TraceEvent.TailsCpuNormalStep.class)) {
             missing.add("tails_cpu_normal_step_per_frame");
@@ -357,6 +361,28 @@ public class TraceData {
             if (event instanceof TraceEvent.VelocityWrite vw
                     && characterCode.equalsIgnoreCase(vw.character())) {
                 return vw;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the per-frame {@link TraceEvent.PositionWrite} event for the
+     * requested trace frame and character, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> Captures M68K writes to the
+     * sidekick's {@code x_pos}/{@code y_pos} during ROM frame processing,
+     * with each writing-instruction PC. Used to root-cause CNZ1 trace F4790.
+     */
+    public TraceEvent.PositionWrite positionWriteForFrame(int frame, String characterCode) {
+        if (characterCode == null || characterCode.isBlank()) {
+            return null;
+        }
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.PositionWrite pw
+                    && characterCode.equalsIgnoreCase(pw.character())) {
+                return pw;
             }
         }
         return null;

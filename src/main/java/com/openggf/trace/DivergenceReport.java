@@ -279,6 +279,10 @@ public class DivergenceReport {
         if (velocityWrite != null) {
             diagnostics.add(velocityWrite);
         }
+        TraceEvent.PositionWrite positionWrite = traceData.positionWriteForFrame(frame, "tails");
+        if (positionWrite != null) {
+            diagnostics.add(positionWrite);
+        }
         TraceEvent.TailsCpuNormalStep cpuNormalStep =
                 traceData.tailsCpuNormalStepForFrame(frame, "tails");
         if (cpuNormalStep != null) {
