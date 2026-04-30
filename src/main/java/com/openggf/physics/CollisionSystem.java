@@ -333,7 +333,9 @@ public class CollisionSystem {
         // masks can be stale after release; they must not suppress terrain
         // walk-off and airborne transition checks.
         if (sprite.isOnObject()) {
-            if (hasObjectSupport == null || hasObjectSupport.getAsBoolean()) {
+            if (hasObjectSupport == null
+                    || hasObjectSupport.getAsBoolean()
+                    || hasPendingStaleObjectSupportLoss(sprite)) {
                 return;
             }
             // Engine-side object support can outlive the object/controller that set it
@@ -402,6 +404,20 @@ public class CollisionSystem {
         }
 
         moveForSensorResult(sprite, selectedResult);
+    }
+
+    private boolean hasPendingStaleObjectSupportLoss(AbstractPlayableSprite sprite) {
+        // AIZ1->AIZ2 reload order is a special case of that same Status_OnObj
+        // rule. The ROM performs Load_Level/LoadSolids and player coordinate
+        // offsets in the level-event path (docs/skdisasm/sonic3k.asm:104725-104756),
+        // then the next player slot still sees Status_OnObj and skips AnglePos.
+        // Later in that ExecuteObjects pass, Obj_AIZTransitionFloor observes
+        // Current_act != 0, moves to x=$7FFF, and still calls SolidObjectTop
+        // (104777-104790); the standing branch then clears OnObj/sets InAir
+        // without moving the player (41793-41818, 41642-41679). Preserve the
+        // status-bit skip until ObjectManager's inline finalizer consumes the
+        // pending loss marker.
+        return objectManager != null && objectManager.hasPendingStaleObjectSupportLoss(sprite);
     }
 
     private boolean isZoneActZero(AbstractPlayableSprite sprite) {
