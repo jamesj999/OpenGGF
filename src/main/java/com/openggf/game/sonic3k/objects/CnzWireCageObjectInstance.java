@@ -293,10 +293,12 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
                 services.objectManager().clearRidingObject(player);
             }
         }
+        // ROM clears Status_InAir before sub_33C34 on the nonzero-angle,
+        // |ground_vel| >= $400 capture path (docs/skdisasm/sonic3k.asm:69905-69916),
+        // so sub_33C34 only zeroes x_vel when the touch-floor branch remains
+        // airborne (docs/skdisasm/sonic3k.asm:70170-70175).
         if (touchFloorDuringLatch && player.getAir()) {
             touchFloorForAirLatch(player);
-        } else if (player.getAir()) {
-            player.setXSpeed((short) 0);
         }
 
         player.setOnObject(true);
