@@ -806,6 +806,26 @@ public class SidekickCpuController {
         //     is already faster than the follower can chase.
         // S2 has no equivalent (s2.asm:38933 reads d2 directly), so the
         // offset is gated by PhysicsFeatureSet.sidekickFollowLeadOffset().
+        //
+        // The OnObj read here is mid-frame relative to the leader's tick:
+        // ROM only clears Status_OnObj later, in solid-object processing
+        // (sub_1FF1E sonic3k.asm:44306-44319, loc_1FFC4 sonic3k.asm:44369-44381),
+        // which runs AFTER Tails_CPU_Control. Sonic_Jump (sonic3k.asm:
+        // 23288-23354) sets Status_InAir but never clears Status_OnObj.
+        // The engine's PlayableSpriteMovement.doJump (line 642) and the
+        // air-unseat path in ObjectManager.processInlineObjectForPlayer clear
+        // onObject EARLIER in the same frame, so the live isOnObject() value
+        // here can already reflect the leader's post-tick state. The
+        // frame-start snapshot {@link AbstractPlayableSprite#getOnObjectAtFrameStart()}
+        // (captured by SpriteManager.beginPlayableFrame before any player
+        // ticks run) is intended to recover the ROM mid-frame view, but is
+        // NOT plumbed in here yet — the engine's own frame-start OnObj
+        // diverges from ROM's mid-frame OnObj at some object-release
+        // transitions (see docs/S3K_KNOWN_BUGS.md, CNZ F7872 / AIZ F7381),
+        // so swapping in the snapshot alone regresses AIZ1 around F2021.
+        // Resolving that requires aligning the engine's OnObj clear timing
+        // with ROM's solid-object-processing-driven clear; until then this
+        // gate keeps the existing live read plus {@code !getAir()} heuristic.
         int leadOffset = sidekick.getPhysicsFeatureSet() != null
                 ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
                 : 0;
