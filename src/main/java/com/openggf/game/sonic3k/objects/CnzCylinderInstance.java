@@ -392,7 +392,18 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
             return;
         }
 
-        if (!standing || player.isObjectControlled()) {
+        // ROM sub_13ECA can write the offscreen CPU marker with
+        // object_control=$81 before Obj_CNZCylinder's P2 sub_324C0 pass
+        // (sonic3k.asm:26800-26809, 67656-67672). The inactive-cylinder path
+        // only tests the preserved standing bit before writing
+        // object_control=$03 and clearing Status_InAir (sonic3k.asm:
+        // 67985-68005), so do not let the engine's object-control boolean
+        // block that same-frame recapture.
+        boolean recapturesCpuMarkerFromStandingBit = standing
+                && !playerOnScreen
+                && player.isCpuControlled()
+                && player.isObjectControlled();
+        if (!standing || (player.isObjectControlled() && !recapturesCpuMarkerFromStandingBit)) {
             if (!standing) {
                 clearStaleCylinderSupport(player);
             }
