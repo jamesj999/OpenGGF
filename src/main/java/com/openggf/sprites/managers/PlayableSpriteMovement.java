@@ -301,15 +301,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			jumpPressed = false;
 		}
 
-		// Recover transient desync where object contact exists but air flag is stale.
-		// This can happen around moving/sloped solids and causes jump presses to be
-		// evaluated in airborne mode for one frame.
+		// Recover transient desync where a concrete standing/riding solid contact
+		// exists but air flag is stale. Do not treat a latched Status_OnObj owner
+		// alone as grounding support: S3K Tails_Control dispatches from status
+		// bits after only the object_control bit-0 gate (docs/skdisasm/sonic3k.asm:
+		// 26210-26229), so CNZ cylinder release frames with both Status_InAir and
+		// Status_OnObj set still run airborne movement before Obj_CNZCylinder's
+		// Player_2 sub_324C0 pass (docs/skdisasm/sonic3k.asm:67656-67667).
+		// Grounding those latch-only frames skips the ROM's air acceleration and
+		// misses the x_sub boundary crossing seen at CNZ1 F4508.
 		// S1 (UNIFIED): skip this recovery. The pre-movement solid pass is skipped for
 		// S1, so riding state from the previous frame hasn't been cleaned up yet.
-		// hasObjectSupport() would return true from stale riding data, incorrectly
+		// hasGroundingObjectSupport() would return true from stale riding data, incorrectly
 		// forcing Sonic to ground mode. The post-movement solid pass (step 4) handles
 		// the cleanup correctly for S1.
-		if (!isUnifiedCollision() && sprite.getAir() && hasObjectSupport() && sprite.getYSpeed() >= 0) {
+		if (!isUnifiedCollision() && sprite.getAir() && hasGroundingObjectSupport() && sprite.getYSpeed() >= 0) {
 			sprite.setAir(false);
 			sprite.setOnObject(true);
 		}
@@ -2682,6 +2688,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasObjectSupport() {
 		return collisionSystem().hasObjectSupport(sprite);
+	}
+
+	private boolean hasGroundingObjectSupport() {
+		return collisionSystem().hasGroundingObjectSupport(sprite);
 	}
 
 	private void clearRidingObject() {
