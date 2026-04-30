@@ -180,7 +180,7 @@ class TestCnzWireCageObjectInstance {
     }
 
     @Test
-    void heldJumpDuringLatchedCooldownReleasesLikeCtrlLogicalAndPreservesSubpixels() {
+    void jumpPressedLogicalDuringLatchedCooldownReleasesAndPreservesSubpixels() {
         CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
                 0x1D80, 0x0540, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x18, 1, false, 0xA540));
         cage.setServices(new TestObjectServices());
@@ -200,7 +200,7 @@ class TestCnzWireCageObjectInstance {
         player.setGSpeed((short) -0x330);
         player.setSubpixelRaw(0x6500, 0xD800);
 
-        player.setJumpInputPressed(true);
+        player.setJumpInputPressed(false);
         cage.update(0, player);
         player.setJumpInputPressed(true);
         cage.update(1, player);
@@ -213,6 +213,38 @@ class TestCnzWireCageObjectInstance {
                 "loc_33B62 clears the cage latch without touching x_sub");
         assertEquals(0xD800, player.getYSubpixelRaw(),
                 "loc_33B62 clears the cage latch without touching y_sub");
+    }
+
+    @Test
+    void heldJumpWithoutLowBytePressDoesNotReleaseFromLatchedCooldown() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1D80, 0x0540, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x18, 1, false, 0xA540));
+        cage.setServices(new TestObjectServices());
+        AbstractPlayableSprite player = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+
+        player.setAir(true);
+        player.setRolling(true);
+        player.applyCustomRadii(7, 14);
+        player.setCentreX((short) 0x1DD0);
+        player.setCentreY((short) 0x04ED);
+        player.setAngle((byte) 0);
+        player.setXSpeed((short) -0x573);
+        player.setYSpeed((short) -0x3A8);
+        player.setGSpeed((short) -0x330);
+
+        player.setJumpInputPressed(true);
+        cage.update(0, player);
+        player.setJumpInputPressed(true);
+        cage.update(1, player);
+
+        assertTrue(player.isOnObject(),
+                "loc_33ADE masks only the low Ctrl_logical byte; held-only A/B/C does not release");
+        assertFalse(player.getAir());
+        assertNotEquals((short) 0x0800, player.getXSpeed());
+        assertNotEquals((short) JUMP_RELEASE_Y_SPEED_FOR_TEST, player.getYSpeed());
     }
 
     @Test
@@ -474,6 +506,42 @@ class TestCnzWireCageObjectInstance {
                 "When the leader-released d6 quirk makes the P2 cage call fall through, ROM leaves bits 6+1 alone");
         assertTrue(sidekick.isObjectControlled());
         assertTrue(sidekick.isObjectControlAllowsCpu());
+    }
+
+    @Test
+    void cleanSidekickStandingBitContinuesMountedRideOnLeaderReleaseFrame() {
+        CnzWireCageObjectInstance cage = new CnzWireCageObjectInstance(new ObjectSpawn(
+                0x1D80, 0x0540, Sonic3kObjectIds.CNZ_WIRE_CAGE, 0x18, 1, false, 1));
+        AbstractPlayableSprite leader = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build()
+                .sprite();
+        Tails sidekick = new Tails("tails", (short) 0, (short) 0);
+        cage.setServices(new TestObjectServices().withSidekicks(List.of(sidekick)));
+
+        leader.setCentreX((short) 0x1D80);
+        leader.setCentreY((short) 0x0540);
+        leader.setAir(false);
+        leader.setGSpeed((short) 0x0800);
+        sidekick.setCentreX((short) 0x1D80);
+        sidekick.setCentreY((short) 0x0540);
+        sidekick.setAir(false);
+        sidekick.setGSpeed((short) 0x0800);
+
+        cage.update(0, leader);
+        sidekick.setGSpeed((short) 0x02F0);
+        leader.setAir(true);
+        leader.setJumping(true);
+        short sidekickXBeforeLeaderRelease = sidekick.getCentreX();
+
+        cage.update(1, leader);
+
+        assertEquals((short) 0x1DCF, sidekick.getCentreX(),
+                "Sonic release clears P1 standing only; clean P2 bit 4 still reaches loc_339A0 "
+                        + "and runs the release-ride orbit update");
+        assertNotEquals(sidekickXBeforeLeaderRelease, sidekick.getCentreX());
+        assertTrue(sidekick.isObjectControlSuppressesMovement(),
+                "Low-speed mounted P2 path reaches loc_339B6 and sets object_control bit 0");
     }
 
     private static final int JUMP_RELEASE_Y_SPEED_FOR_TEST = -0x200;

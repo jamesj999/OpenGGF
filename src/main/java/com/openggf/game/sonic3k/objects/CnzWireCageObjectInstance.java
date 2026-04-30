@@ -51,34 +51,14 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
 
     /**
      * Tracks whether the leader (Player 1) has been the cage's primary rider
-     * since the cage object instance was constructed. Once the leader has
-     * been latched onto this cage and subsequently released, the cage's
-     * per-frame {@code sub_338C4} call for the sidekick falls through to
-     * the capture-attempt path because ROM's d6 register is no longer
-     * corrupted by {@code Perform_Player_DPLC} (which only ran while the
-     * leader was actively rotating in {@code loc_33A6A} or
-     * {@code loc_33BAA}).
-     *
-     * <p>With d6 = {@code p2_standing_bit} = 4 (the correct value), the
-     * cage's {@code btst d6,status(a0)} test fails (the cage's status byte
-     * has the original capture bit set at position 1 due to the d6
-     * corruption-by-1 from the {@code FixBugs}-disabled
-     * {@code addq.b #1,d6} sequence at {@code sonic3k.asm:69843}).
-     * The cage falls through to {@code loc_338D8} which immediately exits
-     * at {@code tst.b object_control(a1)} because the sidekick's
-     * {@code object_control} byte still carries the cage's capture marker
-     * (bits 6+1, set by {@code loc_3397A}). Net effect: ROM cage does
-     * nothing for the sidekick once the leader has released, leaving the
-     * sidekick frozen in {@code Status_OnObj} with stale velocities.
-     *
-     * <p>The engine doesn't model the {@code FixBugs}-off d6 corruption
-     * directly. Instead, when the leader has released this cage, we treat
-     * the sidekick's residual latch as a "stuck-frozen" state matching ROM
-     * and skip the cooldown-branch input check (which would otherwise fire
-     * a release that ROM never produces). Confirmed at CNZ1 trace F2222
-     * where ROM Tails stays at {@code y_speed=-0x02EA} from F2218 through
-     * F2256 (when {@code Tails_CPU} despawn-and-respawn fires) but the
-     * engine fired the cage's {@code -0x200} release at F2222.
+     * since this cage instance was constructed. After Player 1 releases,
+     * this only affects sidekick latches whose standing bit was written
+     * under the dirty {@code d6=1} path: ROM's later P2 call uses the clean
+     * {@code d6=4} from {@code docs/skdisasm/sonic3k.asm:69835-69846}, so
+     * {@code btst d6,status(a0)} misses at
+     * {@code docs/skdisasm/sonic3k.asm:69872-69874} and falls out before the
+     * mounted branch. Clean P2 latches still have status bit 4 set and must
+     * continue through {@code loc_339A0}.
      */
     private boolean leaderHasReleased;
 
@@ -384,44 +364,6 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        // ROM parity: once the leader has released this cage, sub_338C4's
-        // d6-driven btst-against-cage-status test is no longer satisfied for
-        // the sidekick (Perform_Player_DPLC stops corrupting d6 to 1). The
-        // ROM falls through to the capture-attempt path which exits at
-        // tst.b object_control(a1). Net effect: ROM cage doesn't release
-        // the sidekick on jump press, doesn't continue the ride, and just
-        // leaves the sidekick frozen with stale velocities. CNZ1 trace
-        // F2200-F2256 confirms this. Mirror by skipping the
-        // cooldown-branch input check and the release-ride machinery for
-        // the sidekick once the leader is gone.
-        if (isSidekick && leaderHasReleased) {
-            // Keep ROM bit-0 suppression only when this rider was already in
-            // the loc_3394C/loc_339B6 cooldown path. A normal cage latch sets
-            // object_control bits 6+1 at sonic3k.asm:69937-69938, not bit 0;
-            // when the leader-released d6 quirk makes the P2 call fall
-            // through to loc_338D8 and exit at tst.b object_control(a1)
-            // (sonic3k.asm:69873-69898), ROM leaves those bits alone and
-            // Tails movement still runs.
-            if (state.cooldown != 0) {
-                player.setObjectControlled(true);
-                player.setObjectControlAllowsCpu(true);
-                player.setObjectControlSuppressesMovement(true);
-            } else {
-                markNormalLatchObjectControl(player);
-            }
-            // Clear the latched solid object id so wall-collision suppression
-            // doesn't carry over from the cage capture state. This branch
-            // mirrors ROM's "frozen sidekick" behaviour where the cage no
-            // longer governs Tails' physics, so engine wall-collision must
-            // not be suppressed by the stale cage latch. CNZ1 trace F3901
-            // reproduces: Tails landed on flat terrain inside the cage's
-            // bounding box; ROM detects a left-wall sensor hit (Status_Push
-            // set, x_vel=-0x00E8), engine had wall-collision suppress
-            // lingering from the prior latch and clipped past the wall.
-            player.setSuppressGroundWallCollision(false);
-            return;
-        }
-
         if (state.cooldown != 0) {
             if (tryJumpRelease(frameCounter, player, state)) {
                 return;
@@ -505,11 +447,13 @@ public final class CnzWireCageObjectInstance extends AbstractObjectInstance {
     }
 
     private boolean tryJumpRelease(int frameCounter, AbstractPlayableSprite player, CageState state) {
-        // ROM loc_33ADE masks Ctrl_1_logical/Ctrl_2_logical for A/B/C
-        // (sonic3k.asm:70052-70056), so release uses held button state,
-        // not the jpadhold edge latch. This matters for Tails CPU auto-jump:
-        // Ctrl_2_logical can already be held when the cage enters cooldown.
-        if (!player.isJumpPressed()) {
+        // ROM loc_33ADE masks the low byte of Ctrl_1_logical/Ctrl_2_logical
+        // for A/B/C (docs/skdisasm/sonic3k.asm:70052-70056; button masks at
+        // docs/skdisasm/sonic3k.constants.asm:167-169). The high byte may
+        // contain held A/B/C, but held-only values such as $4808 must fall
+        // through to loc_33B1E; only a low-byte A/B/C press launches the
+        // rider.
+        if (!player.isJumpJustPressed()) {
             return false;
         }
         releaseWithJumpImpulse(frameCounter, player, state);
