@@ -678,6 +678,30 @@ public class TestPlayableSpriteMovement {
                 assertEquals((short) 2976, mockSprite.getXSpeed(), "Air drag SHOULD apply at ySpeed = -1024");
         }
 
+        @Test
+        public void s3kLightningShieldClearsJumpHeightLatchLikeRomJumpingByte() throws Exception {
+                manager.setJumpHeightLatch();
+                mockSprite.setJumping(true);
+                mockSprite.setAir(true);
+                mockSprite.setYSpeed((short) -0x510);
+
+                Method lightningShieldJump = PlayableSpriteMovement.class.getDeclaredMethod("lightningShieldJump");
+                lightningShieldJump.setAccessible(true);
+                lightningShieldJump.invoke(manager);
+
+                assertEquals((short) -0x580, mockSprite.getYSpeed(), "Lightning shield writes the ROM y_vel");
+                assertFalse(mockSprite.isJumping(), "ROM Sonic_LightningShield clears jumping(a0)");
+
+                mockSprite.setYSpeed((short) -0x510);
+                setInputState(false, false, false, false, false);
+                Method doJumpHeight = PlayableSpriteMovement.class.getDeclaredMethod("doJumpHeight");
+                doJumpHeight.setAccessible(true);
+                doJumpHeight.invoke(manager);
+
+                assertEquals((short) -0x510, mockSprite.getYSpeed(),
+                                "After lightning shield, jump release must not reapply the -$400 jump-height cap");
+        }
+
         /**
          * Test that jumping on a slope correctly uses the terrain angle for velocity.
          */
