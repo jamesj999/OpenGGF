@@ -258,12 +258,18 @@ local OBJECT_PROXIMITY = 160
 -- move.l #loc_3385E,(a0) on init at 0x33854 / sonic3k.asm:69827).
 -- Used to root-cause CNZ1 trace F2222 cage release-cooldown divergence
 -- where engine fires release one frame ahead of ROM.
-local CAGE_HOOK_LOC_3385E = 0x3385E
-local CAGE_HOOK_SUB_338C4 = 0x338C4
-local CAGE_HOOK_LOC_339A0 = 0x339A0
-local CAGE_HOOK_LOC_33ADE = 0x33ADE
-local CAGE_HOOK_LOC_33B1E = 0x33B1E
-local CAGE_HOOK_LOC_33B62 = 0x33B62
+local CAGE_DIAG = {
+    HOOK_LOC_3385E = 0x3385E,
+    HOOK_SUB_338C4 = 0x338C4,
+    HOOK_LOC_339A0 = 0x339A0,
+    HOOK_LOC_33ADE = 0x33ADE,
+    HOOK_LOC_33B1E = 0x33B1E,
+    HOOK_LOC_33B62 = 0x33B62,
+    hooks_registered = false,
+    hits = {},
+    INIT_PTR = 0x00033836,       -- Obj_CNZWireCage (label at sonic3k.asm:69813)
+    FRAME_PTR = 0x0003385E,      -- loc_3385E (per-frame entry at sonic3k.asm:69829)
+}
 -- Tails CPU normal-follow and path diagnostics.
 local V65 = {
     TAILS_CPU_HOOK_LOC_13DD0 = 0x13DD0,
@@ -355,8 +361,6 @@ local pre_trace_snapshots_written = false
 -- on_frame_end and flushed as cage_execution events. We can't write directly
 -- to aux_file from within the memoryexecute callback because we'd interleave
 -- with the main scan loop, and we want one summary event per frame.
-local cage_hits = {}
-
 -- Track cage state byte (1(a2)) per player across frames. Emit a
 -- cage_state_change event when a transition is detected. We poll this
 -- inside on_frame_end since memoryexecute can't read $30(a0) without
@@ -370,10 +374,14 @@ local prev_cage_status = -1
 -- hit captures the M68K PC at the write site so we can identify exactly
 -- which ROM routine wrote the value. Flushed once per frame as a single
 -- velocity_write event listing all writers in temporal order.
-local tails_xvel_writes = {}
-local tails_yvel_writes = {}
-local tails_xpos_writes = {}
-local tails_ypos_writes = {}
+local WRITE_DIAG = {
+    tails_xvel_writes = {},
+    tails_yvel_writes = {},
+    tails_xpos_writes = {},
+    tails_ypos_writes = {},
+    velocity_hooks_registered = false,
+    position_hooks_registered = false,
+}
 local physics_file = nil
 local aux_file = nil
 
@@ -637,11 +645,11 @@ local function reset_recording_state()
     prev_zone_id_for_transition = nil
     prev_act_for_transition = nil
     pre_trace_snapshots_written = false
-    cage_hits = {}
-    tails_xvel_writes = {}
-    tails_yvel_writes = {}
-    tails_xpos_writes = {}
-    tails_ypos_writes = {}
+    CAGE_DIAG.hits = {}
+    WRITE_DIAG.tails_xvel_writes = {}
+    WRITE_DIAG.tails_yvel_writes = {}
+    WRITE_DIAG.tails_xpos_writes = {}
+    WRITE_DIAG.tails_ypos_writes = {}
     V65.normal_step = nil
     V66.boundary_state = nil
     V67_CNZ.cnz_cylinder_hits = {}
@@ -1257,7 +1265,7 @@ end
 -- captured a2 address, because that's what the cage's mounted-mode
 -- branches at loc_339A0/loc_33ADE test against.
 --
--- The hooks accumulate to cage_hits[] which is flushed at the start of
+-- The hooks accumulate to CAGE_DIAG.hits[] which is flushed at the start of
 -- each on_frame_end into a single cage_execution event listing each
 -- branch entered with its register state. This minimises aux file size
 -- (typically ~6 hits/frame when both players interact with one cage)
@@ -1302,7 +1310,7 @@ local function cage_record_hit(branch)
         cage_status = mainmemory.read_u8(cage_addr + OFF_STATUS)
     end
 
-    table.insert(cage_hits, {
+    table.insert(CAGE_DIAG.hits, {
         branch = branch,
         pc = pc,
         cage_addr = cage_addr,
@@ -1335,11 +1343,11 @@ end
 -- $FFFF0000-$FFFFFFFF Genesis work RAM), not the bus-truncated mainmemory
 -- offset. See docs/BizHawk-2.11-win-x64/Lua/Genesis/Earthworm Jim 2.lua for
 -- the precedent (`event.onmemorywrite(..., 0xffa1d4)` for M68K $FFFFA1D4).
-local M68K_RAM_BASE         = 0xFF0000
-local TAILS_XVEL_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL       -- 0xFFB062
-local TAILS_XVEL_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL + 1   -- 0xFFB063
-local TAILS_YVEL_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL       -- 0xFFB064
-local TAILS_YVEL_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL + 1   -- 0xFFB065
+WRITE_DIAG.M68K_RAM_BASE = 0xFF0000
+WRITE_DIAG.TAILS_XVEL_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL       -- 0xFFB062
+WRITE_DIAG.TAILS_XVEL_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_VEL + 1   -- 0xFFB063
+WRITE_DIAG.TAILS_YVEL_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL       -- 0xFFB064
+WRITE_DIAG.TAILS_YVEL_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL + 1   -- 0xFFB065
 
 -- Frame-range filter for velocity-write capture. Tails physics writes
 -- velocity 1-3+ times per frame, which on a 42k-frame trace would add
@@ -1348,49 +1356,54 @@ local TAILS_YVEL_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_VEL + 1   --
 -- can override via OGGF_S3K_VELOCITY_WRITE_RANGE env var (format
 -- "<start>-<end>"; e.g. "0-99999" for full coverage). When unset, no
 -- velocity_write events are recorded outside the default window.
-local VELOCITY_WRITE_FRAME_START = 3640
-local VELOCITY_WRITE_FRAME_END = 3660
+WRITE_DIAG.VELOCITY_WRITE_FRAME_START = 3640
+WRITE_DIAG.VELOCITY_WRITE_FRAME_END = 3660
 
-local _vw_range = os.getenv("OGGF_S3K_VELOCITY_WRITE_RANGE")
-if _vw_range and _vw_range ~= "" then
-    local s, e = _vw_range:match("^(%d+)%-(%d+)$")
-    if s and e then
-        VELOCITY_WRITE_FRAME_START = tonumber(s)
-        VELOCITY_WRITE_FRAME_END = tonumber(e)
+function WRITE_DIAG.apply_frame_range(env_name, start_field, end_field)
+    local range = os.getenv(env_name)
+    if range and range ~= "" then
+        local s, e = range:match("^(%d+)%-(%d+)$")
+        if s and e then
+            WRITE_DIAG[start_field] = tonumber(s)
+            WRITE_DIAG[end_field] = tonumber(e)
+        end
     end
 end
 
-local function _vw_in_window()
-    return trace_frame >= VELOCITY_WRITE_FRAME_START
-        and trace_frame <= VELOCITY_WRITE_FRAME_END
+WRITE_DIAG.apply_frame_range(
+    "OGGF_S3K_VELOCITY_WRITE_RANGE",
+    "VELOCITY_WRITE_FRAME_START",
+    "VELOCITY_WRITE_FRAME_END")
+
+function WRITE_DIAG.vw_in_window()
+    return trace_frame >= WRITE_DIAG.VELOCITY_WRITE_FRAME_START
+        and trace_frame <= WRITE_DIAG.VELOCITY_WRITE_FRAME_END
 end
 
-local function tails_xvel_record_hit()
+function WRITE_DIAG.tails_xvel_record_hit()
     if not aux_file then return end
     if not started then return end
-    if not _vw_in_window() then return end
+    if not WRITE_DIAG.vw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     -- Read the value AFTER the write (mainmemory reflects post-write state).
     local val = mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)
     if val < 0 then val = val + 0x10000 end
-    table.insert(tails_xvel_writes, {pc = pc, val = val})
+    table.insert(WRITE_DIAG.tails_xvel_writes, {pc = pc, val = val})
 end
 
-local function tails_yvel_record_hit()
+function WRITE_DIAG.tails_yvel_record_hit()
     if not aux_file then return end
     if not started then return end
-    if not _vw_in_window() then return end
+    if not WRITE_DIAG.vw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     local val = mainmemory.read_s16_be(SIDEKICK_BASE + OFF_Y_VEL)
     if val < 0 then val = val + 0x10000 end
-    table.insert(tails_yvel_writes, {pc = pc, val = val})
+    table.insert(WRITE_DIAG.tails_yvel_writes, {pc = pc, val = val})
 end
 
-local velocity_hooks_registered = false
-
-local function register_velocity_hooks()
-    if velocity_hooks_registered then return end
-    velocity_hooks_registered = true
+function WRITE_DIAG.register_velocity_hooks()
+    if WRITE_DIAG.velocity_hooks_registered then return end
+    WRITE_DIAG.velocity_hooks_registered = true
 
     -- Hook BOTH the low and high bytes of each velocity word so we
     -- catch byte-granularity writes (rare in Tails physics but possible
@@ -1398,29 +1411,29 @@ local function register_velocity_hooks()
     -- because the post-write read is a u16 of the full word; consecutive
     -- byte writes in the same instruction will fire twice but we only
     -- record the final state per hit.
-    event.onmemorywrite(tails_xvel_record_hit, TAILS_XVEL_LO_ADDR)
-    event.onmemorywrite(tails_xvel_record_hit, TAILS_XVEL_HI_ADDR)
-    event.onmemorywrite(tails_yvel_record_hit, TAILS_YVEL_LO_ADDR)
-    event.onmemorywrite(tails_yvel_record_hit, TAILS_YVEL_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_xvel_record_hit, WRITE_DIAG.TAILS_XVEL_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_xvel_record_hit, WRITE_DIAG.TAILS_XVEL_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_yvel_record_hit, WRITE_DIAG.TAILS_YVEL_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_yvel_record_hit, WRITE_DIAG.TAILS_YVEL_HI_ADDR)
 
     print(string.format(
         "Tails velocity-write hooks registered: x_vel=0x%04X-0x%04X, y_vel=0x%04X-0x%04X, frame_window=[%d,%d]",
-        TAILS_XVEL_LO_ADDR, TAILS_XVEL_HI_ADDR,
-        TAILS_YVEL_LO_ADDR, TAILS_YVEL_HI_ADDR,
-        VELOCITY_WRITE_FRAME_START, VELOCITY_WRITE_FRAME_END))
+        WRITE_DIAG.TAILS_XVEL_LO_ADDR, WRITE_DIAG.TAILS_XVEL_HI_ADDR,
+        WRITE_DIAG.TAILS_YVEL_LO_ADDR, WRITE_DIAG.TAILS_YVEL_HI_ADDR,
+        WRITE_DIAG.VELOCITY_WRITE_FRAME_START, WRITE_DIAG.VELOCITY_WRITE_FRAME_END))
 end
 
-local function flush_tails_velocity_writes()
+function WRITE_DIAG.flush_tails_velocity_writes()
     if not aux_file then return end
-    if #tails_xvel_writes == 0 and #tails_yvel_writes == 0 then return end
+    if #WRITE_DIAG.tails_xvel_writes == 0 and #WRITE_DIAG.tails_yvel_writes == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local x_parts = {}
-    for _, hit in ipairs(tails_xvel_writes) do
+    for _, hit in ipairs(WRITE_DIAG.tails_xvel_writes) do
         x_parts[#x_parts + 1] = string.format(
             '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
     end
     local y_parts = {}
-    for _, hit in ipairs(tails_yvel_writes) do
+    for _, hit in ipairs(WRITE_DIAG.tails_yvel_writes) do
         y_parts[#y_parts + 1] = string.format(
             '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
     end
@@ -1429,8 +1442,8 @@ local function flush_tails_velocity_writes()
             .. '"x_vel_writes":[%s],"y_vel_writes":[%s]}',
         trace_frame, vfc,
         table.concat(x_parts, ","), table.concat(y_parts, ",")))
-    tails_xvel_writes = {}
-    tails_yvel_writes = {}
+    WRITE_DIAG.tails_xvel_writes = {}
+    WRITE_DIAG.tails_yvel_writes = {}
 end
 
 -- =====================================================================
@@ -1444,75 +1457,69 @@ end
 -- captured CNZ cylinder sub_324C0 inactive path does not itself write
 -- x_pos (sonic3k.asm:26800-26809, 67985-68012).
 
-local TAILS_XPOS_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS       -- 0xFFB05A
-local TAILS_XPOS_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS + 1   -- 0xFFB05B
-local TAILS_YPOS_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS       -- 0xFFB05E
-local TAILS_YPOS_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS + 1   -- 0xFFB05F
+WRITE_DIAG.TAILS_XPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS       -- 0xFFB05A
+WRITE_DIAG.TAILS_XPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS + 1   -- 0xFFB05B
+WRITE_DIAG.TAILS_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS       -- 0xFFB05E
+WRITE_DIAG.TAILS_YPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS + 1   -- 0xFFB05F
 
-local POSITION_WRITE_FRAME_START = 4788
-local POSITION_WRITE_FRAME_END = 4792
+WRITE_DIAG.POSITION_WRITE_FRAME_START = 4788
+WRITE_DIAG.POSITION_WRITE_FRAME_END = 4792
 
-local _pw_range = os.getenv("OGGF_S3K_POSITION_WRITE_RANGE")
-if _pw_range and _pw_range ~= "" then
-    local s, e = _pw_range:match("^(%d+)%-(%d+)$")
-    if s and e then
-        POSITION_WRITE_FRAME_START = tonumber(s)
-        POSITION_WRITE_FRAME_END = tonumber(e)
-    end
+WRITE_DIAG.apply_frame_range(
+    "OGGF_S3K_POSITION_WRITE_RANGE",
+    "POSITION_WRITE_FRAME_START",
+    "POSITION_WRITE_FRAME_END")
+
+function WRITE_DIAG.pw_in_window()
+    return trace_frame >= WRITE_DIAG.POSITION_WRITE_FRAME_START
+        and trace_frame <= WRITE_DIAG.POSITION_WRITE_FRAME_END
 end
 
-local function _pw_in_window()
-    return trace_frame >= POSITION_WRITE_FRAME_START
-        and trace_frame <= POSITION_WRITE_FRAME_END
-end
-
-local function tails_xpos_record_hit()
+function WRITE_DIAG.tails_xpos_record_hit()
     if not aux_file then return end
     if not started then return end
-    if not _pw_in_window() then return end
+    if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
-    table.insert(tails_xpos_writes, {pc = pc, val = val})
+    table.insert(WRITE_DIAG.tails_xpos_writes, {pc = pc, val = val})
 end
 
-local function tails_ypos_record_hit()
+function WRITE_DIAG.tails_ypos_record_hit()
     if not aux_file then return end
     if not started then return end
-    if not _pw_in_window() then return end
+    if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
-    table.insert(tails_ypos_writes, {pc = pc, val = val})
+    table.insert(WRITE_DIAG.tails_ypos_writes, {pc = pc, val = val})
 end
 
-local position_hooks_registered = false
+function WRITE_DIAG.register_position_hooks()
+    if WRITE_DIAG.position_hooks_registered then return end
+    WRITE_DIAG.position_hooks_registered = true
 
-local function register_position_hooks()
-    if position_hooks_registered then return end
-    position_hooks_registered = true
-
-    event.onmemorywrite(tails_xpos_record_hit, TAILS_XPOS_LO_ADDR)
-    event.onmemorywrite(tails_xpos_record_hit, TAILS_XPOS_HI_ADDR)
-    event.onmemorywrite(tails_ypos_record_hit, TAILS_YPOS_LO_ADDR)
-    event.onmemorywrite(tails_ypos_record_hit, TAILS_YPOS_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_HI_ADDR)
 
     print(string.format(
         "Tails position-write hooks registered: x_pos=0x%04X-0x%04X, y_pos=0x%04X-0x%04X, frame_window=[%d,%d]",
-        TAILS_XPOS_LO_ADDR, TAILS_XPOS_HI_ADDR,
-        TAILS_YPOS_LO_ADDR, TAILS_YPOS_HI_ADDR,
-        POSITION_WRITE_FRAME_START, POSITION_WRITE_FRAME_END))
+        WRITE_DIAG.TAILS_XPOS_LO_ADDR, WRITE_DIAG.TAILS_XPOS_HI_ADDR,
+        WRITE_DIAG.TAILS_YPOS_LO_ADDR, WRITE_DIAG.TAILS_YPOS_HI_ADDR,
+        WRITE_DIAG.POSITION_WRITE_FRAME_START, WRITE_DIAG.POSITION_WRITE_FRAME_END))
 end
 
-local function flush_tails_position_writes()
+function WRITE_DIAG.flush_tails_position_writes()
     if not aux_file then return end
-    if #tails_xpos_writes == 0 and #tails_ypos_writes == 0 then return end
+    if #WRITE_DIAG.tails_xpos_writes == 0 and #WRITE_DIAG.tails_ypos_writes == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local x_parts = {}
-    for _, hit in ipairs(tails_xpos_writes) do
+    for _, hit in ipairs(WRITE_DIAG.tails_xpos_writes) do
         x_parts[#x_parts + 1] = string.format(
             '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
     end
     local y_parts = {}
-    for _, hit in ipairs(tails_ypos_writes) do
+    for _, hit in ipairs(WRITE_DIAG.tails_ypos_writes) do
         y_parts[#y_parts + 1] = string.format(
             '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
     end
@@ -1521,8 +1528,8 @@ local function flush_tails_position_writes()
             .. '"x_pos_writes":[%s],"y_pos_writes":[%s]}',
         trace_frame, vfc,
         table.concat(x_parts, ","), table.concat(y_parts, ",")))
-    tails_xpos_writes = {}
-    tails_ypos_writes = {}
+    WRITE_DIAG.tails_xpos_writes = {}
+    WRITE_DIAG.tails_ypos_writes = {}
 end
 
 -- =====================================================================
@@ -1867,8 +1874,8 @@ end
 -- (sonic3k.asm:28407-28451). These hooks expose ROM-side order only; replay
 -- must never hydrate engine state from this aux event.
 
-local AIZ_BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660")
-local AIZ_BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690")
+V66.AIZ_BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660")
+V66.AIZ_BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690")
 
 function V66.u16(value)
     if value < 0 then
@@ -1878,7 +1885,7 @@ function V66.u16(value)
 end
 
 function V66.in_window()
-    if trace_frame < AIZ_BOUNDARY_FRAME_START or trace_frame > AIZ_BOUNDARY_FRAME_END then
+    if trace_frame < V66.AIZ_BOUNDARY_FRAME_START or trace_frame > V66.AIZ_BOUNDARY_FRAME_END then
         return false
     end
     return mainmemory.read_u8(ADDR_ZONE) == 0
@@ -2049,7 +2056,7 @@ function V66.register_aiz_boundary_hooks()
         V66.AIZ_TREE_SET_PLAYER_POS_ENTRY, V66.AIZ_TREE_SET_PLAYER_POS_POST_YVEL,
         V66.TAILS_BOUNDARY_ENTRY, V66.TAILS_BOUNDARY_RETURN,
         V66.TAILS_BOUNDARY_KILL, V66.TAILS_BOUNDARY_CLAMP,
-        AIZ_BOUNDARY_FRAME_START, AIZ_BOUNDARY_FRAME_END))
+        V66.AIZ_BOUNDARY_FRAME_START, V66.AIZ_BOUNDARY_FRAME_END))
 end
 
 -- =====================================================================
@@ -2061,9 +2068,9 @@ end
 -- These hooks expose ROM-side SolidObjectTop path evidence only; replay must
 -- never hydrate engine state from this aux event.
 
-local AIZ_TRANSITION_FLOOR_FRAME_START =
+V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START =
     tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_START") or "5408")
-local AIZ_TRANSITION_FLOOR_FRAME_END =
+V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END =
     tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_END") or "5438")
 
 function V67_AIZ.u16(value)
@@ -2074,8 +2081,8 @@ function V67_AIZ.u16(value)
 end
 
 function V67_AIZ.in_window()
-    if trace_frame < AIZ_TRANSITION_FLOOR_FRAME_START
-            or trace_frame > AIZ_TRANSITION_FLOOR_FRAME_END then
+    if trace_frame < V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START
+            or trace_frame > V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END then
         return false
     end
     return mainmemory.read_u8(ADDR_ZONE) == 0
@@ -2301,14 +2308,12 @@ function V67_AIZ.register_aiz_transition_floor_hooks()
         V67_AIZ.SOLID_TOP_STANDING_EXIT, V67_AIZ.SOLID_TOP_STANDING_MOVE,
         V67_AIZ.SOLID_TOP_FIRST_CHECK, V67_AIZ.SOLID_TOP_FIRST_VERTICAL,
         V67_AIZ.RIDE_OBJECT_SET_RIDE_BODY, V67_AIZ.SOLID_TOP_RETURN,
-        AIZ_TRANSITION_FLOOR_FRAME_START, AIZ_TRANSITION_FLOOR_FRAME_END))
+        V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START, V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END))
 end
 
-local cage_hooks_registered = false
-
-local function register_cage_hooks()
-    if cage_hooks_registered then return end
-    cage_hooks_registered = true
+function CAGE_DIAG.register_cage_hooks()
+    if CAGE_DIAG.hooks_registered then return end
+    CAGE_DIAG.hooks_registered = true
 
     -- Hook the entry of each branch we care about. The execution order
     -- is: 3385E -> sub_338C4 -> [loc_339A0|capture-attempt] -> [loc_33ADE
@@ -2319,29 +2324,29 @@ local function register_cage_hooks()
     -- IMPORTANT: hooks fire on PRE-fetch of the instruction at the address.
     -- Register state captures the pre-instruction register file.
     event.onmemoryexecute(function() cage_record_hit("sub_338C4_entry") end,
-        CAGE_HOOK_SUB_338C4)
+        CAGE_DIAG.HOOK_SUB_338C4)
     event.onmemoryexecute(function() cage_record_hit("loc_339A0_mounted") end,
-        CAGE_HOOK_LOC_339A0)
+        CAGE_DIAG.HOOK_LOC_339A0)
     event.onmemoryexecute(function() cage_record_hit("loc_33ADE_cooldown") end,
-        CAGE_HOOK_LOC_33ADE)
+        CAGE_DIAG.HOOK_LOC_33ADE)
     event.onmemoryexecute(function() cage_record_hit("loc_33B1E_continue") end,
-        CAGE_HOOK_LOC_33B1E)
+        CAGE_DIAG.HOOK_LOC_33B1E)
     event.onmemoryexecute(function() cage_record_hit("loc_33B62_release") end,
-        CAGE_HOOK_LOC_33B62)
+        CAGE_DIAG.HOOK_LOC_33B62)
 
     print(string.format(
         "Cage execution hooks registered: sub_338C4=0x%05X, loc_339A0=0x%05X, "
             .. "loc_33ADE=0x%05X, loc_33B1E=0x%05X, loc_33B62=0x%05X",
-        CAGE_HOOK_SUB_338C4, CAGE_HOOK_LOC_339A0, CAGE_HOOK_LOC_33ADE,
-        CAGE_HOOK_LOC_33B1E, CAGE_HOOK_LOC_33B62))
+        CAGE_DIAG.HOOK_SUB_338C4, CAGE_DIAG.HOOK_LOC_339A0, CAGE_DIAG.HOOK_LOC_33ADE,
+        CAGE_DIAG.HOOK_LOC_33B1E, CAGE_DIAG.HOOK_LOC_33B62))
 end
 
-local function flush_cage_hits()
+function CAGE_DIAG.flush_cage_hits()
     if not aux_file then return end
-    if #cage_hits == 0 then return end
+    if #CAGE_DIAG.hits == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     local parts = {}
-    for _, hit in ipairs(cage_hits) do
+    for _, hit in ipairs(CAGE_DIAG.hits) do
         parts[#parts + 1] = string.format(
             '{"branch":"%s","pc":"0x%05X","cage_addr":"0x%04X",'
                 .. '"player_addr":"0x%04X","state_addr":"0x%04X",'
@@ -2355,7 +2360,7 @@ local function flush_cage_hits()
     write_aux(string.format(
         '{"frame":%d,"vfc":%d,"event":"cage_execution","hits":[%s]}',
         trace_frame, vfc, table.concat(parts, ",")))
-    cage_hits = {}
+    CAGE_DIAG.hits = {}
 end
 
 -- Per-frame poll for cage state-byte transitions. Walks all OST slots
@@ -2365,16 +2370,13 @@ end
 -- We accept either as the cage signature. Emits a cage_state event
 -- per active cage with the per-player phase/state bytes ($30/$31 for P1,
 -- $34/$35 for P2) plus the cage's status byte and position.
-local CAGE_INIT_PTR = 0x00033836       -- Obj_CNZWireCage (label at sonic3k.asm:69813)
-local CAGE_FRAME_PTR = 0x0003385E      -- loc_3385E (per-frame entry at sonic3k.asm:69829)
-
-local function emit_cage_state_per_frame()
+function CAGE_DIAG.emit_cage_state_per_frame()
     if not aux_file then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     for slot = 0, OBJ_TOTAL_SLOTS - 1 do
         local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
         local code = mainmemory.read_u32_be(addr)
-        if code == CAGE_INIT_PTR or code == CAGE_FRAME_PTR then
+        if code == CAGE_DIAG.INIT_PTR or code == CAGE_DIAG.FRAME_PTR then
             local p1_state = mainmemory.read_u8(addr + 0x31)
             local p2_state = mainmemory.read_u8(addr + 0x35)
             local cage_status = mainmemory.read_u8(addr + OFF_STATUS)
@@ -2653,18 +2655,18 @@ local function on_frame_end()
     -- event per active cage object (per OST slot containing 0x0001365C)
     -- with the cage's status, both player phase/state bytes, and pos.
     -- Used to root-cause CNZ1 trace F2222 release-cooldown divergence.
-    emit_cage_state_per_frame()
+    CAGE_DIAG.emit_cage_state_per_frame()
 
     -- Per-frame CNZ wire cage execution hits (v6.3 schema). The
     -- memoryexecute hooks accumulate hits during frame processing into
-    -- cage_hits[]; we flush them as a single event per frame so the
+    -- CAGE_DIAG.hits[]; we flush them as a single event per frame so the
     -- aux stream stays tidy. Each hit captures the cage branch entered
     -- (sub_338C4 entry, loc_339A0 mounted, loc_33ADE cooldown,
     -- loc_33B1E continue, loc_33B62 release) plus register state
     -- (a0/a1/a2/d5/d6) and the per-player state byte and player
     -- object_control. This lets us trace exactly which path the cage
     -- took for each player on each frame.
-    flush_cage_hits()
+    CAGE_DIAG.flush_cage_hits()
 
     -- Per-frame Tails velocity-write hits (v6.4-s3k schema). The
     -- onmemorywrite hooks accumulate every write to Tails x_vel/y_vel
@@ -2673,12 +2675,12 @@ local function on_frame_end()
     -- instruction plus the value written. Used to identify the ROM
     -- code path that sets Tails x_vel = -$0A00 at CNZ1 F3649 where
     -- the engine only reaches -$60 (a 1-frame phase shift).
-    flush_tails_velocity_writes()
+    WRITE_DIAG.flush_tails_velocity_writes()
 
     -- Focused Tails position-write hits (v6.8-s3k schema). The
     -- onmemorywrite hooks capture the M68K PCs that write Tails x_pos/y_pos
     -- around CNZ1 F4790's CPU marker/cylinder recapture window.
-    flush_tails_position_writes()
+    WRITE_DIAG.flush_tails_position_writes()
 
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
@@ -2714,13 +2716,13 @@ print(string.format("S3K Trace Recorder v6.8-s3k loaded. Profile=%s. Waiting for
 -- before the main loop runs so the memoryexecute callbacks are armed for
 -- every frame the script processes. Only active when 'started' so we
 -- don't accumulate hits during pre-trace level loading.
-register_cage_hooks()
+CAGE_DIAG.register_cage_hooks()
 
 -- Register Tails velocity-write hooks. Same lifetime model as cage hooks.
-register_velocity_hooks()
+WRITE_DIAG.register_velocity_hooks()
 
 -- Register Tails position-write hooks. Same lifetime model as cage hooks.
-register_position_hooks()
+WRITE_DIAG.register_position_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
 V65.register_tails_cpu_normal_step_hooks()
