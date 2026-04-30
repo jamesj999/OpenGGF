@@ -234,6 +234,15 @@ public record TraceMetadata(
                 && auxSchemaExtras.contains("aiz_transition_floor_solid_per_frame");
     }
 
+    /**
+     * Whether the trace emits per-frame {@code aiz_handoff_terrain_state}
+     * events, the focused S3K AIZ fire-handoff terrain diagnostic for F5435.
+     */
+    public boolean hasPerFrameAizHandoffTerrainState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("aiz_handoff_terrain_state_per_frame");
+    }
+
     /** Load metadata from a metadata.json file. */
     public static TraceMetadata load(Path metadataFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper();

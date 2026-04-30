@@ -91,6 +91,10 @@
 -- M68K PCs writing Tails x_pos/y_pos around the CPU marker/cylinder
 -- recapture window (sonic3k.asm:26800-26809, 67985-68012).
 -- Diagnostic-only; no CSV schema change.
+-- v6.9-s3k adds focused AIZ fire-handoff terrain diagnostics for F5435:
+-- delayed redraw / Load_Level state plus ROM Sonic_CheckFloor return and
+-- SolidObjectTop vertical-gate state (sonic3k.asm:104664-104738,
+-- 19839-19891, 41982-42015). Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -296,6 +300,8 @@ V66 = {
     CAMERA_MAX_X = 0xEE16,
     CAMERA_MIN_Y = 0xEE18,
     CAMERA_MAX_Y = 0xEE1A,
+    BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660"),
+    BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690"),
     boundary_state = nil,
     hooks_registered = false,
 }
@@ -308,6 +314,10 @@ local V67_AIZ = {
     SOLID_TOP_FIRST_VERTICAL = 0x1E44C,
     RIDE_OBJECT_SET_RIDE_BODY = 0x1E4A0,
     SOLID_TOP_RETURN = 0x1E4D4,
+    TRANSITION_FLOOR_FRAME_START =
+        tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_START") or "5408"),
+    TRANSITION_FLOOR_FRAME_END =
+        tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_END") or "5438"),
     state = nil,
     hooks_registered = false,
 }
@@ -695,7 +705,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.8-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.9-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -709,12 +719,14 @@ local function write_metadata()
     -- state/execution diagnostics for the F4508 P2 x-position blocker.
     -- v6.8 adds position_write_per_frame for the CNZ F4790 Tails x_pos
     -- write-source blocker.
+    -- v6.9 adds aiz_handoff_terrain_state_per_frame for the AIZ F5435
+    -- delayed fire handoff terrain / SolidObjectTop blocker.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame"]'
     else
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
     end
@@ -1874,9 +1886,6 @@ end
 -- (sonic3k.asm:28407-28451). These hooks expose ROM-side order only; replay
 -- must never hydrate engine state from this aux event.
 
-V66.AIZ_BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660")
-V66.AIZ_BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690")
-
 function V66.u16(value)
     if value < 0 then
         return value + 0x10000
@@ -1885,7 +1894,7 @@ function V66.u16(value)
 end
 
 function V66.in_window()
-    if trace_frame < V66.AIZ_BOUNDARY_FRAME_START or trace_frame > V66.AIZ_BOUNDARY_FRAME_END then
+    if trace_frame < V66.BOUNDARY_FRAME_START or trace_frame > V66.BOUNDARY_FRAME_END then
         return false
     end
     return mainmemory.read_u8(ADDR_ZONE) == 0
@@ -2056,7 +2065,7 @@ function V66.register_aiz_boundary_hooks()
         V66.AIZ_TREE_SET_PLAYER_POS_ENTRY, V66.AIZ_TREE_SET_PLAYER_POS_POST_YVEL,
         V66.TAILS_BOUNDARY_ENTRY, V66.TAILS_BOUNDARY_RETURN,
         V66.TAILS_BOUNDARY_KILL, V66.TAILS_BOUNDARY_CLAMP,
-        V66.AIZ_BOUNDARY_FRAME_START, V66.AIZ_BOUNDARY_FRAME_END))
+        V66.BOUNDARY_FRAME_START, V66.BOUNDARY_FRAME_END))
 end
 
 -- =====================================================================
@@ -2068,11 +2077,6 @@ end
 -- These hooks expose ROM-side SolidObjectTop path evidence only; replay must
 -- never hydrate engine state from this aux event.
 
-V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START =
-    tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_START") or "5408")
-V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END =
-    tonumber(os.getenv("OGGF_S3K_AIZ_TRANSITION_FLOOR_FRAME_END") or "5438")
-
 function V67_AIZ.u16(value)
     if value < 0 then
         return value + 0x10000
@@ -2081,8 +2085,8 @@ function V67_AIZ.u16(value)
 end
 
 function V67_AIZ.in_window()
-    if trace_frame < V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START
-            or trace_frame > V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END then
+    if trace_frame < V67_AIZ.TRANSITION_FLOOR_FRAME_START
+            or trace_frame > V67_AIZ.TRANSITION_FLOOR_FRAME_END then
         return false
     end
     return mainmemory.read_u8(ADDR_ZONE) == 0
@@ -2308,7 +2312,184 @@ function V67_AIZ.register_aiz_transition_floor_hooks()
         V67_AIZ.SOLID_TOP_STANDING_EXIT, V67_AIZ.SOLID_TOP_STANDING_MOVE,
         V67_AIZ.SOLID_TOP_FIRST_CHECK, V67_AIZ.SOLID_TOP_FIRST_VERTICAL,
         V67_AIZ.RIDE_OBJECT_SET_RIDE_BODY, V67_AIZ.SOLID_TOP_RETURN,
-        V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_START, V67_AIZ.AIZ_TRANSITION_FLOOR_FRAME_END))
+        V67_AIZ.TRANSITION_FLOOR_FRAME_START, V67_AIZ.TRANSITION_FLOOR_FRAME_END))
+end
+
+-- =====================================================================
+-- AIZ fire handoff terrain / delayed-refresh hooks (v6.9-s3k)
+-- =====================================================================
+-- The AIZ1 fire handoff queues AIZ2 art/layout, allocates the transition
+-- floor, then advances through delayed redraw before Load_Level/LoadSolids
+-- (sonic3k.asm:104664-104738). These hooks add comparison-only evidence for
+-- the F5435 Sonic first-landing split: the most recent Sonic_CheckFloor return
+-- (sonic3k.asm:19839-19891) and the SolidObjectTop vertical gate
+-- (sonic3k.asm:41982-42015). Replay must never hydrate engine state from it.
+
+local V69_AIZ = {
+    ADDR_EVENTS_ROUTINE_BG = 0xEEC2,
+    ADDR_DRAW_DELAYED_POSITION = 0xEEC8,
+    ADDR_DRAW_DELAYED_ROWCOUNT = 0xEECA,
+    ADDR_DYNAMIC_RESIZE_ROUTINE = 0xEE33,
+    ADDR_OBJECT_LOAD_ROUTINE = 0xF76C,
+    ADDR_RINGS_MANAGER_ROUTINE = 0xF710,
+    ADDR_KOS_MODULES_LEFT = 0xFF04,
+    OFF_TOP_SOLID_BIT = 0x46,
+    HANDOFF_TERRAIN_FRAME_START =
+        tonumber(os.getenv("OGGF_S3K_AIZ_HANDOFF_TERRAIN_FRAME_START") or "5430"),
+    HANDOFF_TERRAIN_FRAME_END =
+        tonumber(os.getenv("OGGF_S3K_AIZ_HANDOFF_TERRAIN_FRAME_END") or "5438"),
+    SONIC_CHECK_FLOOR_RETURN = 0x0F7F8,
+    SOLID_TOP_FIRST_VERTICAL = V67_AIZ.SOLID_TOP_FIRST_VERTICAL,
+    RIDE_OBJECT_SET_RIDE_BODY = V67_AIZ.RIDE_OBJECT_SET_RIDE_BODY,
+    state = nil,
+    hooks_registered = false,
+}
+
+function V69_AIZ.in_window()
+    if trace_frame < V69_AIZ.HANDOFF_TERRAIN_FRAME_START
+            or trace_frame > V69_AIZ.HANDOFF_TERRAIN_FRAME_END then
+        return false
+    end
+    return mainmemory.read_u8(ADDR_ZONE) == 0
+end
+
+function V69_AIZ.current()
+    if V69_AIZ.state == nil or V69_AIZ.state.frame ~= trace_frame then
+        V69_AIZ.state = {
+            frame = trace_frame,
+            sonic_floor_seen = false,
+            sonic_floor_distance = 0,
+            sonic_floor_angle = 0,
+            sonic_floor_probe_x = 0,
+            sonic_floor_probe_y = 0,
+            solid_vertical_seen = false,
+            solid_pre_y = 0,
+            solid_surface_y = 0,
+            solid_delta = 0,
+        }
+    end
+    return V69_AIZ.state
+end
+
+function V69_AIZ.record_sonic_check_floor_return()
+    if not aux_file then return end
+    if not started then return end
+    if not V69_AIZ.in_window() then return end
+    local a0 = (emu.getregister("M68K A0") or 0) % 0x10000
+    if a0 ~= PLAYER_BASE then return end
+
+    local state = V69_AIZ.current()
+    local p1_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
+    local p1_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
+    local p1_y_radius = mainmemory.read_u8(PLAYER_BASE + OFF_RADIUS_Y)
+    state.sonic_floor_seen = true
+    state.sonic_floor_distance = V67_AIZ.u16((emu.getregister("M68K D1") or 0) & 0xFFFF)
+    state.sonic_floor_angle = (emu.getregister("M68K D3") or 0) & 0xFF
+    state.sonic_floor_probe_x = p1_x
+    state.sonic_floor_probe_y = (p1_y + p1_y_radius) & 0xFFFF
+end
+
+function V69_AIZ.record_solid_vertical()
+    if not aux_file then return end
+    if not started then return end
+    if not V69_AIZ.in_window() then return end
+    local slot, floor_addr = V67_AIZ.a0_floor_slot()
+    if floor_addr == nil then return end
+    local key, base = V67_AIZ.a1_player_key()
+    if key ~= "p1" or base ~= PLAYER_BASE then return end
+
+    local d3 = (emu.getregister("M68K D3") or 0) & 0xFFFF
+    local state = V69_AIZ.current()
+    state.solid_vertical_seen = true
+    state.solid_pre_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
+    state.solid_surface_y = (mainmemory.read_u16_be(floor_addr + OFF_Y_POS) - d3) & 0xFFFF
+    state.solid_delta = (emu.getregister("M68K D0") or 0) & 0xFFFF
+end
+
+function V69_AIZ.record_solid_landing()
+    if not aux_file then return end
+    if not started then return end
+    if not V69_AIZ.in_window() then return end
+    local slot, floor_addr = V67_AIZ.a0_floor_slot()
+    if floor_addr == nil then return end
+    local key = V67_AIZ.a1_player_key()
+    if key ~= "p1" then return end
+
+    local state = V69_AIZ.current()
+    state.solid_vertical_seen = true
+    state.solid_delta = (emu.getregister("M68K D0") or 0) & 0xFFFF
+    if state.solid_pre_y == 0 then
+        state.solid_pre_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
+    end
+    if state.solid_surface_y == 0 then
+        local d3 = (emu.getregister("M68K D3") or 0) & 0xFFFF
+        state.solid_surface_y = (mainmemory.read_u16_be(floor_addr + OFF_Y_POS) - d3) & 0xFFFF
+    end
+end
+
+function V69_AIZ.flush_aiz_handoff_terrain_state()
+    if not aux_file then return end
+    if not started then return end
+    if not V69_AIZ.in_window() then
+        V69_AIZ.state = nil
+        return
+    end
+
+    local state = V69_AIZ.current()
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"aiz_handoff_terrain_state",'
+            .. '"events_bg":"0x%04X","draw_pos":"0x%04X","draw_rows":"0x%04X",'
+            .. '"kos_modules_left":"0x%02X","current_zone_act":"0x%04X",'
+            .. '"dynamic_resize":"0x%02X","object_load":"0x%02X","rings_manager":"0x%02X",'
+            .. '"p1_x":"0x%04X","p1_y":"0x%04X","p1_status":"0x%02X",'
+            .. '"p1_y_radius":"0x%02X","p1_top_solid":"0x%02X",'
+            .. '"sonic_floor_seen":%s,"sonic_floor_distance":"0x%04X",'
+            .. '"sonic_floor_angle":"0x%02X","sonic_floor_probe_x":"0x%04X",'
+            .. '"sonic_floor_probe_y":"0x%04X","solid_vertical_seen":%s,'
+            .. '"solid_pre_y":"0x%04X","solid_surface_y":"0x%04X","solid_delta":"0x%04X"}',
+        trace_frame, vfc,
+        mainmemory.read_u16_be(V69_AIZ.ADDR_EVENTS_ROUTINE_BG),
+        mainmemory.read_u16_be(V69_AIZ.ADDR_DRAW_DELAYED_POSITION),
+        mainmemory.read_u16_be(V69_AIZ.ADDR_DRAW_DELAYED_ROWCOUNT),
+        mainmemory.read_u8(V69_AIZ.ADDR_KOS_MODULES_LEFT),
+        mainmemory.read_u16_be(ADDR_ZONE),
+        mainmemory.read_u8(V69_AIZ.ADDR_DYNAMIC_RESIZE_ROUTINE),
+        mainmemory.read_u8(V69_AIZ.ADDR_OBJECT_LOAD_ROUTINE),
+        mainmemory.read_u8(V69_AIZ.ADDR_RINGS_MANAGER_ROUTINE),
+        mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS),
+        mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS),
+        mainmemory.read_u8(PLAYER_BASE + OFF_STATUS),
+        mainmemory.read_u8(PLAYER_BASE + OFF_RADIUS_Y),
+        mainmemory.read_u8(PLAYER_BASE + V69_AIZ.OFF_TOP_SOLID_BIT),
+        tostring(state.sonic_floor_seen),
+        state.sonic_floor_distance & 0xFFFF,
+        state.sonic_floor_angle & 0xFF,
+        state.sonic_floor_probe_x & 0xFFFF,
+        state.sonic_floor_probe_y & 0xFFFF,
+        tostring(state.solid_vertical_seen),
+        state.solid_pre_y & 0xFFFF,
+        state.solid_surface_y & 0xFFFF,
+        state.solid_delta & 0xFFFF))
+    V69_AIZ.state = nil
+end
+
+function V69_AIZ.register_aiz_handoff_terrain_hooks()
+    if V69_AIZ.hooks_registered then return end
+    V69_AIZ.hooks_registered = true
+    event.onmemoryexecute(V69_AIZ.record_sonic_check_floor_return,
+        V69_AIZ.SONIC_CHECK_FLOOR_RETURN)
+    event.onmemoryexecute(V69_AIZ.record_solid_vertical,
+        V69_AIZ.SOLID_TOP_FIRST_VERTICAL)
+    event.onmemoryexecute(V69_AIZ.record_solid_landing,
+        V69_AIZ.RIDE_OBJECT_SET_RIDE_BODY)
+    print(string.format(
+        "AIZ handoff terrain hooks registered: floor_ret=0x%05X solid=0x%05X/0x%05X frame_window=[%d,%d]",
+        V69_AIZ.SONIC_CHECK_FLOOR_RETURN,
+        V69_AIZ.SOLID_TOP_FIRST_VERTICAL,
+        V69_AIZ.RIDE_OBJECT_SET_RIDE_BODY,
+        V69_AIZ.HANDOFF_TERRAIN_FRAME_START,
+        V69_AIZ.HANDOFF_TERRAIN_FRAME_END))
 end
 
 function CAGE_DIAG.register_cage_hooks()
@@ -2404,7 +2585,7 @@ end
 --- Main Loop ---
 -----------------
 
-local function on_frame_end()
+function on_frame_end()
     if finished then
         return
     end
@@ -2632,6 +2813,11 @@ local function on_frame_end()
     -- capture ROM-side SolidObjectTop branch/register evidence around F5415.
     V67_AIZ.flush_aiz_transition_floor_solid()
 
+    -- Focused AIZ fire-handoff terrain diagnostics (v6.9 schema). Hook
+    -- callbacks capture ROM-side Sonic_CheckFloor and SolidObjectTop terrain
+    -- evidence while this flush adds delayed redraw / Load_Level state.
+    V69_AIZ.flush_aiz_handoff_terrain_state()
+
     -- Per-frame oscillation snapshot (v6.1 schema). Always emit so the trace
     -- replay can ROM-verify the global oscillator phase used by HoverFan,
     -- platforms, and other oscillating objects.
@@ -2693,7 +2879,7 @@ end
 
 os.execute("mkdir \"" .. OUTPUT_DIR .. "\" 2>NUL")
 
-local HEADLESS_VISIBLE = false
+HEADLESS_VISIBLE = false
 if HEADLESS then
     emu.limitframerate(false)
     client.speedmode(6400)
@@ -2702,15 +2888,15 @@ if HEADLESS then
     end
 end
 
-local wait_desc
+WAIT_DESC = nil
 if is_aiz_end_to_end_profile() then
-    wait_desc = "BK2 frame 0"
+    WAIT_DESC = "BK2 frame 0"
 elseif is_level_gated_reset_aware_profile() then
-    wait_desc = "level gameplay (Game_Mode=0x0C, reset-aware discards on soft-reset to title)"
+    WAIT_DESC = "level gameplay (Game_Mode=0x0C, reset-aware discards on soft-reset to title)"
 else
-    wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
+    WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.8-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.9-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -2733,6 +2919,9 @@ V66.register_aiz_boundary_hooks()
 -- Register focused AIZ transition-floor hooks. Same lifetime model as cage hooks.
 V67_AIZ.register_aiz_transition_floor_hooks()
 
+-- Register focused AIZ handoff terrain hooks. Same lifetime model as cage hooks.
+V69_AIZ.register_aiz_handoff_terrain_hooks()
+
 -- Register focused CNZ cylinder P2 hooks. Same lifetime model as cage hooks.
 V67_CNZ.register_cnz_cylinder_hooks()
 
@@ -2742,12 +2931,12 @@ while true do
     if finished then
         print("Recording complete. Writing final output...")
         if is_level_gated_reset_aware_profile() and aux_file then
-            local end_zone = mainmemory.read_u8(ADDR_ZONE)
-            local end_act = mainmemory.read_u8(ADDR_ACT)
-            local end_apparent_act = mainmemory.read_u8(ADDR_APPARENT_ACT)
-            local end_game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
+            END_ZONE = mainmemory.read_u8(ADDR_ZONE)
+            END_ACT = mainmemory.read_u8(ADDR_ACT)
+            END_APPARENT_ACT = mainmemory.read_u8(ADDR_APPARENT_ACT)
+            END_GAME_MODE = mainmemory.read_u8(ADDR_GAME_MODE)
             emit_checkpoint_once(trace_frame, "gameplay_end",
-                end_zone, end_act, end_apparent_act, end_game_mode, nil)
+                END_ZONE, END_ACT, END_APPARENT_ACT, END_GAME_MODE, nil)
         end
         if physics_file then physics_file:flush() end
         write_metadata()

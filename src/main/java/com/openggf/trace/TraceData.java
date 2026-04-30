@@ -187,6 +187,10 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.AizTransitionFloorSolidState.class)) {
             missing.add("aiz_transition_floor_solid_per_frame");
         }
+        if (metadata.hasPerFrameAizHandoffTerrainState()
+                && !hasEventOfType(TraceEvent.AizHandoffTerrainState.class)) {
+            missing.add("aiz_handoff_terrain_state_per_frame");
+        }
         return missing;
     }
 
@@ -486,6 +490,24 @@ public class TraceData {
         List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
         for (TraceEvent event : events) {
             if (event instanceof TraceEvent.AizTransitionFloorSolidState state) {
+                return state;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the focused S3K AIZ fire-handoff terrain diagnostic for the
+     * requested frame, or {@code null} when absent.
+     *
+     * <p><strong>Diagnostic only.</strong> This exposes ROM-side terrain and
+     * delayed-refresh state for reports; replay code must not hydrate state
+     * from it.
+     */
+    public TraceEvent.AizHandoffTerrainState aizHandoffTerrainStateForFrame(int frame) {
+        List<TraceEvent> events = eventsByFrame.getOrDefault(frame, Collections.emptyList());
+        for (TraceEvent event : events) {
+            if (event instanceof TraceEvent.AizHandoffTerrainState state) {
                 return state;
             }
         }

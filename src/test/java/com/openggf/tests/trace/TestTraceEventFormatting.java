@@ -182,4 +182,17 @@ public class TestTraceEventFormatting {
         assertEquals("aizFloor s4 @2FB0,03A0 st=90 stand=false/true p1=first_reject y=0379 yr=13 st=00 obj=00 d=00A0/0010/0010 p2=standing y=0380 yr=10 st=08 obj=00 d=00A0/0140/0010",
                 TraceEventFormatter.summariseFrameEvents(List.of(event)));
     }
+
+    @Test
+    void summarisesS3kAizHandoffTerrainDiagnostics() {
+        TraceEvent event = TraceEvent.parseJsonLine(
+                """
+                {"frame":5435,"vfc":1700,"event":"aiz_handoff_terrain_state","events_bg":"0x0010","draw_pos":"0x00A0","draw_rows":"0x0004","kos_modules_left":"0x00","current_zone_act":"0x0000","dynamic_resize":"0x00","object_load":"0x00","rings_manager":"0x00","p1_x":"0x2FCD","p1_y":"0x0379","p1_status":"0x00","p1_y_radius":"0x13","p1_top_solid":"0x0C","sonic_floor_seen":true,"sonic_floor_distance":"0x0000","sonic_floor_angle":"0x00","sonic_floor_probe_x":"0x2FE0","sonic_floor_probe_y":"0x038C","solid_vertical_seen":true,"solid_pre_y":"0x0379","solid_surface_y":"0x0390","solid_delta":"0x0000"}
+                """.trim(),
+                mapper);
+
+        assertTrue(event instanceof TraceEvent.AizHandoffTerrainState);
+        assertEquals("aizHandoff bg=0010 draw=00A0/0004 kos=00 za=0000 dyn=00 objLoad=00 rings=00 p1=2FCD,0379 st=00 yr=13 top=0C floor=seen d=0000 a=00 probe=2FE0,038C solid=seen preY=0379 surf=0390 d=0000",
+                TraceEventFormatter.summariseFrameEvents(List.of(event)));
+    }
 }

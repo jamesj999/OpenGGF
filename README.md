@@ -209,8 +209,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Trace replay and diagnostics:** S1, S2, and S3K trace replay tooling now has stronger recorder
   schemas, comparison-only aux streams, compressed fixtures, and focused workflows for parity fixes.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
-  sidekick boundary frame plus transition-floor SolidObjectTop decisions at the F5415 frame while
-  keeping trace data comparison-only; S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
+  sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
+  fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;
+  S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
   F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ

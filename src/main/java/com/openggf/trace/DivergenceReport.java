@@ -309,6 +309,11 @@ public class DivergenceReport {
         if (aizFloor != null) {
             diagnostics.add(aizFloor);
         }
+        TraceEvent.AizHandoffTerrainState aizHandoffTerrain =
+                traceData.aizHandoffTerrainStateForFrame(frame);
+        if (aizHandoffTerrain != null) {
+            diagnostics.add(aizHandoffTerrain);
+        }
         if (!diagnostics.isEmpty()) {
             sb.append("Trace diagnostics @")
                 .append(frame)
