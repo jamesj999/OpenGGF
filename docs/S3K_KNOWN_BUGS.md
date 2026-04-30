@@ -2978,6 +2978,50 @@ needs cross-game (S1/S2/S3K) test coverage to avoid silently breaking
 the existing leader-on-object branches in those games (S2 follow code
 also reads `Status_OnObj` from the leader at `s2.asm:38933`+).
 
+**Update (branch `bugfix/ai-on-object-at-frame-start`):** The
+infrastructure half of option **(B)** has landed: a new
+`onObjectAtFrameStart` field on `AbstractPlayableSprite` plus
+`captureOnObjectAtFrameStart()` / `getOnObjectAtFrameStart()`
+accessors, with the capture wired into all three
+`SpriteManager.beginPlayableFrame` call sites
+(`update`, `updateWithoutInput`, `warmUpCpuSidekicksOnly`) so every
+playable sees its frame-start OnObj snapshotted before any player
+tick can mutate it. The accessors are covered by
+`TestOnObjectAtFrameStartSnapshot`. **However the snapshot is not yet
+plumbed into `SidekickCpuController.normalStep`** because swapping it
+in for the existing
+`isOnObject() && !getAir()` gate uncovered a deeper engine-side OnObj
+divergence that the snapshot alone cannot fix:
+
+- Dropping the `&& !getAir()` filter and using only the snapshot at
+  the line 812 / 1058 / 1119 gates DOES correctly flip CNZ F7872
+  from engine `follow_steering` to the ROM-matching
+  `leader_on_object` branch — F7872 advances to F7919.
+- BUT it regresses AIZ1 to a new first error at F2021 (was F7381):
+  Tails ends up 1 px more EAST than ROM. At F2021, ROM Sonic has
+  `Status_OnObj=0` mid-frame (lua records `branch=fallthrough_sub20`)
+  but the engine's frame-start snapshot reads OnObj=true, because
+  the engine had `onObject=true` set at the END of F2020 while ROM
+  had cleared it. So engine and ROM disagree about the frame-start
+  OnObj value itself — the snapshot accurately captures the engine's
+  state, but the engine's state diverged from ROM at F2020-end.
+
+This is a different layer of the same bug: engine paths that SET or
+CLEAR OnObj at object boundaries don't match ROM's
+`sub_1FF1E`/`loc_1FFC4`/`SolidObjectTop` timing, so even a perfect
+mid-frame snapshot inherits that earlier drift. Fully closing the
+gap therefore needs option (A) — aligning the engine's OnObj clear
+timing with ROM's object-phase processing — or a more selective
+combination (e.g. snapshot only when the engine and ROM agree at the
+frame boundary, fall back to live read otherwise). Both require
+deeper investigation than this branch carried.
+
+The snapshot infrastructure is left in place as the foundation for
+the eventual option (B) wiring; until then `SidekickCpuController`
+keeps its existing `isOnObject() && !getAir()` heuristic and
+documents the unresolved root cause (engine OnObj clear/set timing
+vs ROM object-phase processing) inline at the gate.
+
 **Removal condition**
 
 Either:

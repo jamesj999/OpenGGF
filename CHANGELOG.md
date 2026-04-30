@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **`AbstractPlayableSprite.onObjectAtFrameStart` snapshot scaffolding
+  (CNZ F7872 / AIZ F7381 follow-steering OnObj timing gap, partial):**
+  added a frame-start `Status_OnObj` snapshot
+  (`captureOnObjectAtFrameStart()` / `getOnObjectAtFrameStart()`) on
+  `AbstractPlayableSprite`, captured for every playable in
+  `SpriteManager.beginPlayableFrame` before any player tick runs. The
+  snapshot mirrors the ROM mid-frame view used by `Tails_CPU_Control`
+  at `loc_13DA6` (sonic3k.asm:26688-26700) and `TailsCPU_Normal`
+  (s2.asm:38933+), where `Status_OnObj` is read before `sub_1FF1E`
+  (sonic3k.asm:44306-44319) and `loc_1FFC4` (sonic3k.asm:44369-44381)
+  clear the bit; in the engine `PlayableSpriteMovement.doJump` and the
+  air-unseat path in `ObjectManager.processInlineObjectForPlayer` clear
+  it earlier in the same frame. Wiring the snapshot into
+  `SidekickCpuController.normalStep`'s `loc_13DA6` mirror in place of
+  the existing `isOnObject() && !getAir()` heuristic does flip CNZ
+  F7872 (engine `follow_steering` -> ROM-matching `leader_on_object`,
+  first error advances to F7919) but uncovered a deeper engine-side
+  OnObj clear/set divergence that regresses AIZ1 to F2021 (engine's
+  frame-start OnObj diverges from ROM's mid-frame OnObj at object-
+  release transitions); see `docs/S3K_KNOWN_BUGS.md` "CNZ1 Trace
+  F7872" for the full trace. Live behaviour is unchanged on this
+  branch (the snapshot is scaffolded but not yet read by the follow-
+  steering gate). Cross-game (S1 GHZ/MZ1, S2 EHZ) trace replays
+  remain green. Tests: `TestOnObjectAtFrameStartSnapshot` covers the
+  snapshot semantics.
 - **S3K Sonic Fire Shield Dash sets ground_vel alongside x_vel
   (AIZ F7235):** `PlayableSpriteMovement.fireShieldDash` previously
   only wrote `x_vel`, leaving `ground_vel` at the pre-dash value
