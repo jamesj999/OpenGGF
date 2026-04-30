@@ -1299,13 +1299,14 @@ public class SidekickCpuController {
         }
 
         if (!trigger) {
-            // ROM routine 2 waits with the marker/object-control state still
-            // resident in Player_2 RAM. Reassert the split engine flags so an
-            // earlier terrain/solid pass cannot turn the wait state into normal
-            // ground physics before the 64-frame or P2-input trigger fires.
+            // ROM routine 2's wait path only returns: Tails_Catch_Up_Flying
+            // branches to locret_13BF6 without writing object_control until
+            // the catch-up trigger fires (sonic3k.asm:26474-26500). Preserve
+            // the current object-control state so CNZ cylinder releases
+            // (sonic3k.asm:68071-68077) can expose the marker to the same
+            // screen-boundary/movement writes recorded at CNZ1 F4790.
             sidekick.setAir(true);
             sidekick.setControlLocked(true);
-            sidekick.setObjectControlled(true);
             sidekick.setForcedAnimationId(flyAnimId);
             return;
         }

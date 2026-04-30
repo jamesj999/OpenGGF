@@ -215,7 +215,7 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
   F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
-  v6.5/v6.7 replay frontier from F3905 to F4790 while preserving S1/S2 trace baselines.
+  v6.5/v6.7 replay frontier from F3905 to F5087 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the
   AIZ v6.6 replay frontier from F4679 to F5435.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
