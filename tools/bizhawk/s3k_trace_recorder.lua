@@ -705,7 +705,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.9-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.10-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -721,6 +721,11 @@ local function write_metadata()
     -- write-source blocker.
     -- v6.9 adds aiz_handoff_terrain_state_per_frame for the AIZ F5435
     -- delayed fire handoff terrain / SolidObjectTop blocker.
+    -- v6.10 widens the default position_write_per_frame window to include
+    -- a CNZ2 F7614 sub-window (7600-7625) and adds multi-range support
+    -- via the existing OGGF_S3K_POSITION_WRITE_RANGE env var
+    -- ("4788-4792;7600-7625" syntax). Used to root-cause the Tails Jump
+    -- frame +2 px y_pos delta (sonic3k.asm:28534-28547).
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
@@ -1382,6 +1387,45 @@ function WRITE_DIAG.apply_frame_range(env_name, start_field, end_field)
     end
 end
 
+-- Multi-range filter: accepts the same env var format as apply_frame_range
+-- but supports semicolon-separated ranges (e.g. "4788-4792;7600-7625"). When
+-- set, replaces the legacy single window (start_field/end_field) with a list
+-- of [start,end] pairs stored in `ranges_field`. The single-window in_window
+-- helpers stay valid because we keep start/end as the bounding pair too. The
+-- new in_any_window helper consults the list (or falls back to the single
+-- window when no list is configured).
+function WRITE_DIAG.apply_frame_ranges(env_name, start_field, end_field, ranges_field)
+    local range = os.getenv(env_name)
+    if not range or range == "" then return end
+    local pairs_list = {}
+    for piece in string.gmatch(range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            pairs_list[#pairs_list + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #pairs_list == 0 then return end
+    WRITE_DIAG[ranges_field] = pairs_list
+    -- Keep start/end as overall bounds for compatibility.
+    local lo, hi = pairs_list[1][1], pairs_list[1][2]
+    for i = 2, #pairs_list do
+        if pairs_list[i][1] < lo then lo = pairs_list[i][1] end
+        if pairs_list[i][2] > hi then hi = pairs_list[i][2] end
+    end
+    WRITE_DIAG[start_field] = lo
+    WRITE_DIAG[end_field] = hi
+end
+
+function WRITE_DIAG.frame_in_ranges(frame, ranges, start_default, end_default)
+    if ranges and #ranges > 0 then
+        for _, pair in ipairs(ranges) do
+            if frame >= pair[1] and frame <= pair[2] then return true end
+        end
+        return false
+    end
+    return frame >= start_default and frame <= end_default
+end
+
 WRITE_DIAG.apply_frame_range(
     "OGGF_S3K_VELOCITY_WRITE_RANGE",
     "VELOCITY_WRITE_FRAME_START",
@@ -1475,16 +1519,35 @@ WRITE_DIAG.TAILS_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y
 WRITE_DIAG.TAILS_YPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS + 1   -- 0xFFB05F
 
 WRITE_DIAG.POSITION_WRITE_FRAME_START = 4788
-WRITE_DIAG.POSITION_WRITE_FRAME_END = 4792
+WRITE_DIAG.POSITION_WRITE_FRAME_END = 7625
+-- Default-active windows for v6.10-s3k profile.
+--   [4788,4792] — CNZ1 F4790 Tails x_pos write-source diagnostic
+--                 (sub_13ECA / cylinder inactive path; original v6.8 use case).
+--   [7600,7625] — CNZ2 F7614 Tails Jump-frame y_pos +2 px diagnostic
+--                 (sonic3k.asm:28534-28547 Tails_Jump output, +2 residual).
+-- Operators wanting full coverage can override OGGF_S3K_POSITION_WRITE_RANGE
+-- (e.g. "0-99999"). Multi-window override syntax: "4788-4792;7600-7625".
+WRITE_DIAG.POSITION_WRITE_RANGES = {
+    {4788, 4792},
+    {7600, 7625},
+}
 
 WRITE_DIAG.apply_frame_range(
     "OGGF_S3K_POSITION_WRITE_RANGE",
     "POSITION_WRITE_FRAME_START",
     "POSITION_WRITE_FRAME_END")
+WRITE_DIAG.apply_frame_ranges(
+    "OGGF_S3K_POSITION_WRITE_RANGE",
+    "POSITION_WRITE_FRAME_START",
+    "POSITION_WRITE_FRAME_END",
+    "POSITION_WRITE_RANGES")
 
 function WRITE_DIAG.pw_in_window()
-    return trace_frame >= WRITE_DIAG.POSITION_WRITE_FRAME_START
-        and trace_frame <= WRITE_DIAG.POSITION_WRITE_FRAME_END
+    return WRITE_DIAG.frame_in_ranges(
+        trace_frame,
+        WRITE_DIAG.POSITION_WRITE_RANGES,
+        WRITE_DIAG.POSITION_WRITE_FRAME_START,
+        WRITE_DIAG.POSITION_WRITE_FRAME_END)
 end
 
 function WRITE_DIAG.tails_xpos_record_hit()

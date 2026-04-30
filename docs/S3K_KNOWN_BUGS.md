@@ -1684,27 +1684,88 @@ write that has not yet been identified.
 
 ### Next Steps
 
-1. **Recorder extension.** Add a per-frame y_pos write hook for
-   Tails (similar to existing `velocity_write_per_frame`) so the
-   trace can identify the exact PCs that wrote y_pos on F7614. Without
-   this, the +2 source remains a black box. The recorder already has
-   the infrastructure (`tools/bizhawk/s3k_trace_recorder.lua`'s
-   `velocity_write` plumbing); a `position_write_per_frame` event
-   schema bump is the cleanest path.
-2. **Object-loop ordering check.** The 2 px could come from another
+1. **Recorder extension landed (v6.10-s3k).** The Bizhawk recorder
+   `tools/bizhawk/s3k_trace_recorder.lua` already had the
+   `position_write_per_frame` plumbing (added in v6.8 for the CNZ1
+   F4790 work, mirroring `velocity_write_per_frame`). On this branch
+   the default capture window now also covers F7600-7625 in addition
+   to the original F4788-4792, and the env-var override
+   `OGGF_S3K_POSITION_WRITE_RANGE` accepts semicolon-separated
+   multi-windows (e.g. `4788-4792;7600-7625`). The CNZ fixture under
+   `src/test/resources/traces/s3k/cnz/` was regenerated with the new
+   window so `aux_state.jsonl.gz` now carries `position_write` events
+   at F7600-7625 as well.
+
+   The captured PCs at trace_frame=7614 (vfc=7615) are:
+
+   ```
+   y_pos_writes: [
+     {pc:0x150D0, val:0x04B0},   # post Tails_Jump sub.w d0,y_pos(a0)
+     {pc:0x1E172, val:0x04B1},   # post subq.w #1,y_pos(a1)  in loc_1E154
+     {pc:0x1E182, val:0x04B0}    # post sub.w  d3,y_pos(a1)  in loc_1E154
+   ]
+   ```
+
+   Mapping back to ROM:
+   - `0x150D0` is the instruction immediately after `loc_150CC`'s
+     `sub.w d0,y_pos(a0)` in `Tails_Jump`
+     (sonic3k.asm:28576-28579) — the rolling-radius +1 px adjustment
+     the engine already replicates via `getRollHeightAdjustment()`.
+   - `0x1E172` and `0x1E182` are inside `loc_1E154` of
+     `SolidObjectFull/SolidObject_cont` (sonic3k.asm:41606-41624) —
+     the **top-of-platform** push-up branch:
+
+     ```
+     loc_1E154:
+         subq.w  #4,d3
+         ...
+         subq.w  #1,y_pos(a1)            ; ← 0x1E172 captures post-write
+         tst.b   (Reverse_gravity_flag).w
+         beq.s   loc_1E17E
+         neg.w   d3
+         addq.w  #2,y_pos(a1)
+     loc_1E17E:
+         sub.w   d3,y_pos(a1)            ; ← 0x1E182 captures post-write
+     ```
+
+     This means the `Spring_Down` (subtype=$12) at slot $11 — which
+     `tailsInteract sub=$12` and `stand_on_obj=0x11` confirm Tails
+     was still latched against on F7614 — is calling
+     `SolidObjectFull2_1P` and reaching the top-side branch to
+     re-seat Tails one pixel above the spring's top + the d3 lift,
+     **not** the cylinder hypothesis from prior rounds.
+
+   Note on hook timing: BizHawk's `event.onmemorywrite` reads back
+   the post-write `u16` value, but byte-granular hooks fire per byte
+   so the `val` reported for word writes can lag the actual
+   end-of-instruction state by one byte. Treat the PCs as
+   load-bearing and the `val`s as a hint, not a ground truth.
+
+2. **Engine-side fix candidate (deferred).** The PCs above point at
+   the engine's `SolidObjectProvider` top-contact resolution as the
+   missing -2 px (or, in trace-coordinates, missing +2 px because
+   ROM's overall delta is +3 while the engine only produces +1). The
+   engine's solid-object top resolver should mirror `loc_1E154`'s
+   `subq.w #1` plus the `sub.w d3` lift on top contact in normal
+   gravity. A follow-up round should:
+
+   - Locate the engine equivalent of `loc_1E154` in
+     `com.openggf.level.objects.SolidObjectProvider` /
+     `MultiPieceSolidProvider` and verify the lift sequence matches
+     the ROM order (`subq.w #1` then `sub.w d3`).
+   - Confirm the spring's stand-on bit-set + standOn(slot=$11) flow
+     reaches the top-resolution path on the same frame `Tails_Jump`
+     fires (object-loop ordering: object update first, then player).
+   - Gate any per-game divergence via `PhysicsFeatureSet`, never
+     `if (gameId == GameId.S3K)`.
+
+3. **Object-loop ordering check.** The 2 px could come from another
    object slot whose update order has Tails effects. A frame-by-frame
    walk of `Process_Sprites` order at vfc=7615 would isolate which
    object touches `Player_2.y_pos` between Tails's CPU/Tails_Modes
-   pass and end-of-frame.
-3. **Pos_table re-seat.** Tails CPU's `loc_13C50` block
-   (sonic3k.asm:26557-26625) reads `Pos_table` for the delayed
-   leader-position target. The walking step is ±1 px per frame, but
-   if Tails was teleported earlier (e.g. flight back to leader) and
-   the table delivers a y target offset by $20, the `add.w d2, y_pos`
-   step could produce ±1 toward target each frame, repeated over
-   sequential CPU frames — that doesn't fit the observed single-frame
-   +2, but the routine's full state machine should still be audited
-   against engine `SidekickCpuController`.
+   pass and end-of-frame. The new `position_write` events make this
+   tractable (cross-reference the captured PCs against the
+   `object_state` slot dumps for the same frame).
 
 ### Removal Condition
 
