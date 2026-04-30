@@ -48,6 +48,27 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
+    /**
+     * Cached camera bounds snapshot from the PREVIOUS frame. Used by the
+     * solid-contact on-screen gate to mirror the ROM's render_flags bit 7,
+     * which is set during {@code Render_Sprites} at the end of frame N and
+     * read by {@code SolidObjectFull} during frame N+1's ExecuteObjects
+     * (sonic3k.asm:36336-36370 Render_Sprites; sonic3k.asm:41390-41392
+     * loc_1DF88 / SolidObjectFull_1P). The current-frame camera position
+     * is one frame ahead of the ROM's gate, allowing landings the ROM
+     * rejects at the boundary (CNZ horizontal door at sonic3k.asm:66036+
+     * is the canonical case).
+     */
+    private static CameraBounds previousFrameCameraBounds = new CameraBounds(0, 0, 320, 224);
+
+    /**
+     * True until the first {@link #updateCameraBounds(int, int, int, int, int)}
+     * call; while set, the previous-frame snapshot mirrors the current bounds
+     * so single-frame headless tests don't get a one-frame initialisation
+     * lag from the empty default snapshot.
+     */
+    private static boolean cameraBoundsInitialised;
+
     protected final ObjectSpawn spawn;
     protected final String name;
     private boolean destroyed;
@@ -147,8 +168,38 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      *                          When > 0, Y visibility checks use modular arithmetic.
      */
     public static void updateCameraBounds(int left, int top, int right, int bottom, int verticalWrapRange) {
+        // Roll the current frame's camera into the previous-frame snapshot so
+        // the solid-contact gate (isWithinSolidContactBounds) sees the camera
+        // position that ROM's render_flags bit 7 was computed against. The
+        // ROM Render_Sprites step that sets bit 7 runs at the end of frame N;
+        // SolidObjectFull on frame N+1 reads it. Capturing the prior bounds
+        // BEFORE applying the new ones keeps the engine gate one frame
+        // behind the live camera, matching the ROM observation order.
+        if (cameraBoundsInitialised) {
+            previousFrameCameraBounds.update(
+                    cameraBounds.left(), cameraBounds.top(),
+                    cameraBounds.right(), cameraBounds.bottom());
+        } else {
+            // First-frame init: previous mirrors current so single-frame
+            // headless tests don't see an empty default snapshot.
+            previousFrameCameraBounds.update(left, top, right, bottom);
+            cameraBoundsInitialised = true;
+        }
         cameraBounds.update(left, top, right, bottom);
         cameraBounds.setVerticalWrapRange(verticalWrapRange);
+    }
+
+    /**
+     * Reset the previous-frame snapshot so the next
+     * {@link #updateCameraBounds(int, int, int, int, int)} call mirrors the
+     * current camera. Used by test infrastructure that recycles the static
+     * camera bounds across fresh fixtures (each fixture starts with a fresh
+     * level / camera and should not inherit the prior fixture's snapshot).
+     */
+    public static void resetCameraBoundsForTests() {
+        cameraBoundsInitialised = false;
+        cameraBounds.update(0, 0, 320, 224);
+        previousFrameCameraBounds.update(0, 0, 320, 224);
     }
 
     @Override
@@ -512,14 +563,34 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         // ROM Render_Sprites (sonic3k.asm:36336-36370 SolidObject_OnScreenTest,
         // s2.asm:35140-35145, s1disasm Solid_ChkEnter / SolidObject2F) sets
         // render_flags bit 7 when the object's bounding box overlaps the
-        // 320x224 screen rectangle. Engines mirror this with a center+margin
-        // viewport test using ROM's typical width_pixels (16 px) as the
-        // margin: that matches the spike, monitor, and small block sprite
-        // sizes used throughout the gameplay objects without depending on
-        // SolidObjectParams.halfWidth (which mirrors collision halfwidth, a
-        // larger value and would let the gate stay open for objects ROM
-        // already culls).
-        return cameraBounds.contains(getX(), getY(), 16);
+        // 320x224 screen rectangle. The bounding box is centered on x_pos with
+        // half-width = width_pixels(a0) (sonic3k.asm:36347 reads width_pixels
+        // into d2, then 36350/36353 add/subtract d2 from (x_pos - cam) before
+        // comparing against [0, 320]). Most gameplay objects use width_pixels=16,
+        // but larger sprites (e.g. the CNZ horizontal door at sonic3k.asm:66167
+        // byte_30FCE = $20, $08) use a wider rendered half-width and stay
+        // on-screen longer than a hardcoded 16-px margin allows. Defer to the
+        // per-object on-screen half-width so collision parity matches the ROM
+        // for both small and large sprites.
+        //
+        // Use the PREVIOUS frame's camera bounds: ROM's bit 7 is set by
+        // Render_Sprites at the end of frame N and read by SolidObjectFull
+        // during frame N+1's ExecuteObjects. The current-frame camera would
+        // be one frame ahead of the ROM gate.
+        return previousFrameCameraBounds.contains(getX(), getY(), getOnScreenHalfWidth());
+    }
+
+    /**
+     * Per-object rendered half-width used by the on-screen / solid-contact
+     * gate. ROM equivalent: {@code width_pixels(a0)} as read by Render_Sprites
+     * (sonic3k.asm:36347 / s2.asm equivalent). Defaults to the widely shared
+     * gameplay sprite half-width of 16 px so existing call sites stay
+     * unchanged; objects with a wider rendered footprint (e.g. CNZ horizontal
+     * door byte_30FCE = $20, $08 at sonic3k.asm:66167) override this to match
+     * the ROM-side on-screen test.
+     */
+    public int getOnScreenHalfWidth() {
+        return 16;
     }
 
     /**

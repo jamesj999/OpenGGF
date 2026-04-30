@@ -121,6 +121,19 @@ public class DoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getOnScreenHalfWidth() {
+        // ROM byte_30FCE (sonic3k.asm:66167) sets width_pixels = $20 for the
+        // horizontal CNZ door; byte_30E18 sets width_pixels per vertical-door
+        // variant (HCZ/CNZ/DEZ). The horizontal half-width $20 is wider than
+        // the engine's default 16-px on-screen margin, so the camera+margin
+        // gate must use the ROM rendered half-width to match the ROM
+        // SolidObject_OnScreenTest (sonic3k.asm:36336-36370). Vertical
+        // variants share the same field; using halfWidth here keeps the
+        // engine in sync regardless of variant.
+        return halfWidth;
+    }
+
+    @Override
     public boolean isTopSolidOnly() {
         return false;
     }

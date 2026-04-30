@@ -27,6 +27,13 @@ further S3K parity work.
   player state explicitly, tightening ROM parity across rideable, breakable, and trigger-driven
   objects in S1, S2, and S3K and fixing follow-on regressions in springs, dash triggers, and
   collapsing solids.
+- **Solid-contact on-screen gate parity:** `AbstractObjectInstance.isWithinSolidContactBounds`
+  now uses each object's ROM `width_pixels` (via the new `getOnScreenHalfWidth()` accessor) and a
+  one-frame-old camera snapshot, mirroring `Render_Sprites` (sonic3k.asm:36336-36370) writing
+  `render_flags` bit 7 at the END of frame N for `SolidObjectFull` to read on frame N+1. The CNZ
+  horizontal door (`byte_30FCE = $20, $08` at sonic3k.asm:66167) overrides the accessor so its
+  wider rendered footprint stays solid for Tails at the camera boundary. CNZ trace replay first
+  strict error advances from F6304 to F7614 (1,310 frames).
 - **Trace replay tooling:** S2/S3K trace recorder and replay fixtures now capture BK2-backed frame
   data, object snapshots, sidekick state, and S3K AIZ/CNZ parity probes for regression work. The
   trace recorder is now at v6.1-s3k with per-frame Tails CPU state events plus per-frame
