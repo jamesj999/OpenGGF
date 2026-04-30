@@ -7,7 +7,9 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.game.PlayableEntity;
 
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Temporary AIZ1-to-AIZ2 fire transition floor.
@@ -21,8 +23,10 @@ public final class AizTransitionFloorObjectInstance extends AbstractObjectInstan
     private static final int X = 0x2FB0;
     private static final int Y = 0x03A0;
     private static final int OBJECT_ID = 0x00;
+    private static final int FIRE_REFRESH_ZERO_REJECTS = 20;
     private static final SolidObjectParams SOLID_PARAMS =
             new SolidObjectParams(0xA0, 0x10, 0x10);
+    private final Map<PlayableEntity, Integer> zeroDistanceRejects = new IdentityHashMap<>(2);
 
     public AizTransitionFloorObjectInstance() {
         super(new ObjectSpawn(X, Y, OBJECT_ID, 0, 0, false, 0), "AIZTransitionFloor");
@@ -52,11 +56,23 @@ public final class AizTransitionFloorObjectInstance extends AbstractObjectInstan
     }
 
     @Override
-    public boolean rejectsZeroDistanceTopSolidLanding() {
-        // ROM first-landing range accepts d0 in [-$10,-1] only: after the
-        // positive-separation reject, cmpi.w #-$10,d0 / blo rejects d0 == 0.
-        // See docs/skdisasm/sonic3k.asm:41982-42015.
-        return true;
+    public boolean rejectsZeroDistanceTopSolidLanding(PlayableEntity player) {
+        // ROM keeps this helper active through AIZ1BGE_FireRefresh
+        // (sonic3k.asm:104690-104714). During that handoff it repeatedly runs
+        // SolidObjectTop (104777-104790), rejecting the exact-surface boundary
+        // until the fire-refresh window reaches the landing frame. The accepted
+        // first landing then uses the standard SolidObjectTop placement
+        // (41982-42015): y_pos += d0 + 3, putting Sonic one pixel inside the
+        // transition floor before the standing branch carries him on later
+        // frames (41642-41679, 41793-41818).
+        return zeroDistanceRejects.getOrDefault(player, 0) < FIRE_REFRESH_ZERO_REJECTS;
+    }
+
+    @Override
+    public void onRejectedZeroDistanceTopSolidLanding(PlayableEntity player) {
+        if (player != null) {
+            zeroDistanceRejects.merge(player, 1, Integer::sum);
+        }
     }
 
     @Override

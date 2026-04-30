@@ -10,6 +10,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.solid.PlayerSolidContactResult;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
+import com.openggf.game.sonic3k.objects.AizTransitionFloorObjectInstance;
 import com.openggf.game.sonic3k.objects.CnzTrapDoorInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.Sensor;
@@ -523,6 +524,48 @@ public class TestSolidObjectManager {
         assertEquals(0, insideBoundary.getYSpeed());
         assertEquals(100 - params.groundHalfHeight() - insideBoundary.getYRadius() - 1,
                 insideBoundary.getCentreY());
+    }
+
+    @Test
+    public void aizTransitionFloorDelaysSonicExactBoundaryWhileAllowingInsideLanding() {
+        AizTransitionFloorObjectInstance floor = new AizTransitionFloorObjectInstance();
+        ObjectManager manager = buildManager(floor);
+        SolidObjectParams params = floor.getSolidParams();
+
+        TestPlayableSprite sonic = new TestPlayableSprite((short) 0, (short) 0);
+        sonic.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        sonic.setWidth(20);
+        sonic.setHeight(38);
+        sonic.setAir(false);
+        sonic.setYSpeed((short) 0);
+        sonic.setCentreX((short) floor.getX());
+        int exactBoundaryY = floor.getY() - 4 - params.airHalfHeight() - sonic.getYRadius();
+        sonic.setCentreY((short) exactBoundaryY);
+
+        TestPlayableSprite sidekick = new TestPlayableSprite((short) 0, (short) 0);
+        sidekick.useFeatureSet(PhysicsFeatureSet.SONIC_3K);
+        sidekick.setWidth(20);
+        sidekick.setHeight(38);
+        sidekick.setAir(false);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setCentreX((short) floor.getX());
+        sidekick.setCentreY((short) (exactBoundaryY + 3));
+
+        for (int i = 0; i < 20; i++) {
+            manager.processImmediateInlineSolidCheckpoint(floor, sonic, List.of(sidekick));
+            assertFalse(sonic.isOnObject(),
+                    "AIZ transition floor exact-boundary checks reject during the fire-refresh window");
+            assertEquals(exactBoundaryY, sonic.getCentreY());
+            assertTrue(sidekick.isOnObject(),
+                    "Inside-boundary landings still follow SolidObjectTop first landing");
+        }
+
+        manager.processImmediateInlineSolidCheckpoint(floor, sonic, List.of(sidekick));
+
+        assertTrue(sonic.isOnObject(),
+                "AIZ transition floor accepts Sonic after the refresh window reaches SolidObjectTop landing");
+        assertEquals(exactBoundaryY + 3, sonic.getCentreY(),
+                "SolidObjectTop first landing applies y_pos += d0 + 3 (sonic3k.asm:42013-42015)");
     }
 
     @Test

@@ -5716,6 +5716,9 @@ public class ObjectManager {
                 boolean rejectsZeroDistanceTopLanding = distY == 0
                         && rejectsZeroDistanceTopSolidLanding(instance);
                 if (distY < 0 || distY >= 0x10 || rejectsZeroDistanceTopLanding) {
+                    if (rejectsZeroDistanceTopLanding) {
+                        notifyZeroDistanceTopSolidLandingRejected(instance, player);
+                    }
                     return null;
                 }
                 // ROM: Solid_Landed uses narrow obActWid for NEW landings only.
@@ -5935,6 +5938,9 @@ public class ObjectManager {
                                 || (!allowsZeroDistTopSolidLanding(player) && distY == 0)
                                 || rejectsZeroDistanceTopLanding
                         : distY >= 0x10) {
+                    if (rejectsZeroDistanceTopLanding) {
+                        notifyZeroDistanceTopSolidLandingRejected(instance, player);
+                    }
                     return null;
                 }
                 // ROM: SolidObject_Landed re-reads the narrower obActWid for NEW landings,
@@ -6080,8 +6086,18 @@ public class ObjectManager {
         }
 
         private boolean rejectsZeroDistanceTopSolidLanding(ObjectInstance instance) {
+            return rejectsZeroDistanceTopSolidLanding(instance, currentPlayer);
+        }
+
+        private boolean rejectsZeroDistanceTopSolidLanding(ObjectInstance instance, PlayableEntity player) {
             return instance instanceof SolidObjectProvider provider
-                    && provider.rejectsZeroDistanceTopSolidLanding();
+                    && provider.rejectsZeroDistanceTopSolidLanding(player);
+        }
+
+        private void notifyZeroDistanceTopSolidLandingRejected(ObjectInstance instance, PlayableEntity player) {
+            if (instance instanceof SolidObjectProvider provider) {
+                provider.onRejectedZeroDistanceTopSolidLanding(player);
+            }
         }
 
         private boolean clearsGroundSpeedOnAirBottomSolidHit(PlayableEntity player) {
