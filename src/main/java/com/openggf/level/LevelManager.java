@@ -4619,11 +4619,19 @@ public class LevelManager {
      * 64-frame jump-cadence check — fire on the same frames as the ROM after
      * AIZ act 1 → act 2 reload.
      *
+     * <p>S3K sidekick CPU now resolves this gate through the stored
+     * {@code LevelManager.frameCounter}, so keep that counter aligned with the
+     * sprite-manager gameplay counter here.
+     *
      * <p>Only applies to RELOAD transitions: MUTATE_ONLY runs in places
      * (e.g. AIZ1 fire-transition art overlay) that may execute mid-frame
      * without skipping the rest of the gameplay loop.
      */
     private void advanceFrameCounterAcrossSeamlessReload() {
+        // ROM keeps Level_frame_counter ticking through AIZ's reload frame
+        // (docs/skdisasm/sonic3k.asm:7884-7894); S3K Tails CPU reads it for
+        // loc_13E9C's 64-frame auto-jump gate (docs/skdisasm/sonic3k.asm:26775-26782).
+        frameCounter++;
         SpriteManager spriteManager = GameServices.spritesOrNull();
         if (spriteManager != null) {
             spriteManager.setFrameCounter(spriteManager.getFrameCounter() + 1);
