@@ -2564,3 +2564,49 @@ investigation:
 A separate iteration is required to instrument the
 camera-min-X timing and the post-kill collision quadrant to
 finish closing F4679.
+
+#### Resolution — `applyKillCharacterTouchFloorReset` y_pos delta computed from full height instead of y_radius
+
+The residual 16-px gap at F4679 was traced (2026-04-30 iter-22)
+to `SidekickCpuController.applyKillCharacterTouchFloorReset`.
+When the rolling branch fires, it adjusts the sidekick's
+centre-Y by `delta` to mirror ROM `Tails_TouchFloor`'s
+`add.w d0, y_pos(a0)` step.  ROM computes
+`d0 = old_y_radius - default_y_radius` (sonic3k.asm:29134-29141),
+which for Tails roll->stand is `14 - 15 = -1` px.
+
+The engine instead read
+`delta = sidekick.getHeight() - sidekick.getStandYRadius()`,
+which for the same roll->stand transition returns
+`28 - 15 = +13` px (full visual height vs radius), shifting
+Tails's centre-Y +13 in the wrong direction whenever the
+sidekick was rolling at the moment of the kill.  Combined
+with the +1 px from the height-based `getCentreY()` jump
+inside `setRolling(false)`, the engine ended F4679 with
+`tails_y = 0x041F` versus ROM `0x040F` (16-px gap).
+
+The fix replaces the buggy expression with
+`sidekick.getYRadius() - sidekick.getStandYRadius()`.  After
+the fix the AIZ trace first strict error advances from
+F4679 to F7171 (1050 -> 1049 errors).  Engine state at
+F4679 now matches ROM: `tails_y = 0x040F`, `vels = 0`,
+`x = 0x2D95`.
+
+ROM cite block (sonic3k.asm:29133-29156, `Tails_TouchFloor`):
+
+```
+Tails_TouchFloor:
+    move.b  y_radius(a0),d0          ; d0 = OLD y_radius
+    move.b  default_y_radius(a0),y_radius(a0)
+    btst    #Status_Roll,status(a0)
+    beq.s   loc_1565E                ; not rolling -> skip y_pos delta
+    bclr    #Status_Roll,status(a0)
+    ...
+    sub.b   default_y_radius(a0),d0  ; d0 = old_y_radius - default_y_radius
+    ext.w   d0
+    ...
+    add.w   d0,y_pos(a0)             ; y_pos += d0 (sign-flipped by angle)
+```
+
+Source: `SidekickCpuController.applyKillCharacterTouchFloorReset`
+(commit `bugfix/ai-aiz-f4679-residual-16px`).

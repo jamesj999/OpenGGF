@@ -2067,15 +2067,28 @@ public class SidekickCpuController {
         int centreX = sidekick.getCentreX();
         int centreY = sidekick.getCentreY();
         if (sidekick.getRolling()) {
-            int delta = sidekick.getHeight() - sidekick.getStandYRadius();
-            if ((((sidekick.getAngle() & 0xFF) + 0x40) & 0x80) != 0) {
-                delta = -delta;
-            }
             // ROM Kill_Character calls Player_TouchFloor before setting death
             // velocities (sonic3k.asm:21142-21151). For Tails this restores
             // default radii, clears Status_Roll, and adds the current y_radius
-            // delta to y_pos (sonic3k.asm:29133-29156). Engine centre-Y is
-            // adjusted explicitly because setRolling(false) preserves centre.
+            // delta to y_pos (sonic3k.asm:29133-29156).
+            //
+            // ROM Tails_TouchFloor (sonic3k.asm:29133-29156):
+            //   move.b y_radius(a0),d0          ; d0 = OLD y_radius
+            //   move.b default_y_radius(a0),y_radius(a0)
+            //   ...
+            //   sub.b default_y_radius(a0),d0   ; d0 = old_y_radius - default_y_radius
+            //   ext.w d0
+            //   ...
+            //   add.w d0,y_pos(a0)              ; y_pos += d0 (sign-flipped by angle)
+            //
+            // The delta is the radius difference, NOT half the height difference.
+            // Reading sidekick.getHeight() (full height = 2 * y_radius) instead
+            // of getYRadius() previously returned ~13 px on Tails roll->stand,
+            // shifting end-of-frame y by +13 — see AIZ F4679 (16 px gap).
+            int delta = sidekick.getYRadius() - sidekick.getStandYRadius();
+            if ((((sidekick.getAngle() & 0xFF) + 0x40) & 0x80) != 0) {
+                delta = -delta;
+            }
             sidekick.setRolling(false);
             sidekick.setCentreXPreserveSubpixel((short) centreX);
             sidekick.setCentreYPreserveSubpixel((short) (centreY + delta));

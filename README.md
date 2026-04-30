@@ -236,10 +236,14 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   `apparent_zone_and_act == 1` (matching ROM `sonic3k.asm:39053`/`:39164`) instead of the
   heuristic `enteredAsAct2`, and the sidekick LEVEL_BOUNDARY kill now writes `y_vel = -0x700`
   (matching ROM `Kill_Character` at `sonic3k.asm:21149`) so `MoveSprite_TestGravity2` produces
-  the ROM-correct in-frame upward shift after the kill. The fix correctly enters the kill state
-  at F7171 but surfaces an earlier AIZ1 right-boundary 32-px y-gap divergence at F4679 that
-  was previously masked. Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ
-  visualiser sessions match headless replay's seed/cursor policy.
+  the ROM-correct in-frame upward shift after the kill, and runs the post-Kill_Character
+  MoveSprite step before collision (matching ROM `Tails_Stand_Freespace` at
+  `sonic3k.asm:27559`); the kill's touch-floor reset rolling-radius adjustment now uses
+  ROM's `old_y_radius - default_y_radius` formula (matching `sonic3k.asm:29134-29156`) instead
+  of the engine's prior `getHeight() - getStandYRadius()` -- the latter was injecting a +13
+  px error into rolling sidekick deaths and is fully resolved at F4679 (1050 -> 1049 errors).
+  Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
+  match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
