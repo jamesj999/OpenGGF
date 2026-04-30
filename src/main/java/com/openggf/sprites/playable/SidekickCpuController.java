@@ -2003,15 +2003,37 @@ public class SidekickCpuController {
     }
 
     /**
-     * ROM Kill_Character (sonic3k.asm:21136) entry called from
-     * Player_LevelBound (sonic3k.asm:23172) when sidekick crosses bottom
-     * kill plane. ROM zeroes x_vel/ground_vel, sets y_vel=-$700, sets
-     * routine=6, and calls Player_TouchFloor before setting Status_InAir.
-     * The movement manager suppresses its generic air-gravity tail once this
-     * state is active, preserving the observable end-of-frame zero velocity.
+     * ROM Kill_Character (sonic3k.asm:21136-21159) entry reached from
+     * Tails_Check_Screen_Boundaries (sonic3k.asm:28442-28443
+     * `loc_14F56: jmp (Kill_Character).l`) when the sidekick crosses the
+     * bottom kill plane. ROM Kill_Character at sonic3k.asm:21148-21151
+     * writes:
      *
-     * Position is intentionally NOT warped this frame; ROM keeps Tails
-     * at post-physics position for one frame, then sub_13ECA writes the
+     * <pre>
+     *     bset    #Status_InAir,status(a0)
+     *     move.w  #-$700,y_vel(a0)
+     *     move.w  #0,x_vel(a0)
+     *     move.w  #0,ground_vel(a0)
+     * </pre>
+     *
+     * y_vel is set to {@code -$700}, NOT zero. Because Kill_Character was
+     * reached via {@code jmp} (not {@code jsr}), the {@code rts} at
+     * sonic3k.asm:21159 unwinds to Kill_Character's caller's caller — for
+     * Tails the relevant chain is Tails_Stand_Path
+     * (sonic3k.asm:27520-27526), so control falls through to
+     * {@code jsr (MoveSprite_TestGravity2).l} on line 27526.
+     * MoveSprite_TestGravity2 with Reverse_gravity_flag clear is just
+     * MoveSprite2 (sonic3k.asm:36088-36101) which applies the freshly
+     * written {@code y_vel = -$700} to {@code y_pos}, shifting Tails up by
+     * 7 pixels in the same frame. Trace AIZ F7171 records the post-shift
+     * state: {@code y_pos = $0477} (down 7 from $047E) with
+     * {@code y_vel = -$700} retained. Engine therefore preserves the
+     * negative y-velocity so the airborne movement manager's
+     * SpeedToPos-equivalent ({@code modeNormal} → {@code sprite.move})
+     * applies the same 7-pixel shift inside the kill frame.
+     *
+     * Position is intentionally NOT warped this frame; ROM keeps Tails at
+     * post-MoveSprite2 position for one frame, then sub_13ECA writes the
      * marker on Frame N+1 (see updateDeadFalling).
      */
     private void beginLevelBoundaryKill() {
@@ -2022,7 +2044,8 @@ public class SidekickCpuController {
         jumpingFlag = false;
         applyKillCharacterTouchFloorReset();
         sidekick.setXSpeed((short) 0);
-        sidekick.setYSpeed((short) 0);
+        // ROM Kill_Character (sonic3k.asm:21149) writes y_vel=-$700.
+        sidekick.setYSpeed((short) -0x700);
         sidekick.setGSpeed((short) 0);
         sidekick.setHurt(false);
         sidekick.setRollingJump(false);
@@ -2044,15 +2067,28 @@ public class SidekickCpuController {
         int centreX = sidekick.getCentreX();
         int centreY = sidekick.getCentreY();
         if (sidekick.getRolling()) {
-            int delta = sidekick.getHeight() - sidekick.getStandYRadius();
-            if ((((sidekick.getAngle() & 0xFF) + 0x40) & 0x80) != 0) {
-                delta = -delta;
-            }
             // ROM Kill_Character calls Player_TouchFloor before setting death
             // velocities (sonic3k.asm:21142-21151). For Tails this restores
             // default radii, clears Status_Roll, and adds the current y_radius
-            // delta to y_pos (sonic3k.asm:29133-29156). Engine centre-Y is
-            // adjusted explicitly because setRolling(false) preserves centre.
+            // delta to y_pos (sonic3k.asm:29133-29156).
+            //
+            // ROM Tails_TouchFloor (sonic3k.asm:29133-29156):
+            //   move.b y_radius(a0),d0          ; d0 = OLD y_radius
+            //   move.b default_y_radius(a0),y_radius(a0)
+            //   ...
+            //   sub.b default_y_radius(a0),d0   ; d0 = old_y_radius - default_y_radius
+            //   ext.w d0
+            //   ...
+            //   add.w d0,y_pos(a0)              ; y_pos += d0 (sign-flipped by angle)
+            //
+            // The delta is the radius difference, NOT half the height difference.
+            // Reading sidekick.getHeight() (full height = 2 * y_radius) instead
+            // of getYRadius() previously returned ~13 px on Tails roll->stand,
+            // shifting end-of-frame y by +13 — see AIZ F4679 (16 px gap).
+            int delta = sidekick.getYRadius() - sidekick.getStandYRadius();
+            if ((((sidekick.getAngle() & 0xFF) + 0x40) & 0x80) != 0) {
+                delta = -delta;
+            }
             sidekick.setRolling(false);
             sidekick.setCentreXPreserveSubpixel((short) centreX);
             sidekick.setCentreYPreserveSubpixel((short) (centreY + delta));
@@ -2071,16 +2107,42 @@ public class SidekickCpuController {
      * One-frame death-routine equivalent of ROM loc_1578E ->
      * loc_157C8 -> sub_123C2 -> sub_13ECA. Runs the frame after
      * beginLevelBoundaryKill.  Mirrors ROM where the dispatcher enters
-     * the death routine, sub_123C2 (sonic3k.asm:24538) sees Tails fell
-     * below Camera_Y_pos+0x100, branches to sub_13ECA (sonic3k.asm:26800)
-     * which warps to (0x7F00, 0) and resets Tails_CPU_routine=2; then
-     * post-warp MoveSprite_TestGravity adds +$38 air gravity to y_vel.
+     * the death routine; sub_123C2 (sonic3k.asm:24538-24578) sees Tails
+     * fell below Camera_Y_pos+0x100, sets Tails_CPU_routine=2 and
+     * branches to sub_13ECA (sonic3k.asm:26800-26809) which warps
+     * x_pos=0x7F00, y_pos=0 (and clears double_jump_flag, sets
+     * object_control=$81, Status_InAir).  Control then unwinds via the
+     * <code>bsr</code> at sonic3k.asm:29284 back to {@code loc_157C8}, where
+     * <code>jsr (MoveSprite_TestGravity).l</code> at line 29285 falls through to
+     * {@code MoveSprite} (sonic3k.asm:36032-36042) and applies the still-
+     * preserved {@code y_vel = -$700} (Kill_Character at sonic3k.asm:21149)
+     * to {@code y_pos} <em>before</em> the +$38 gravity write, shifting Tails
+     * 7 px up to {@code y_pos = -7} and leaving {@code y_vel = -$6C8}.
+     * Trace AIZ F7172 records exactly that: {@code y = -0x0007},
+     * {@code y_vel = -0x06C8}.
+     *
+     * <p>{@link #applyDespawnMarker()} flips
+     * {@link AbstractPlayableSprite#setObjectControlled(boolean)} to true,
+     * which enables {@code objectControlSuppressesMovement} and short-circuits
+     * the regular {@link com.openggf.sprites.managers.PlayableSpriteMovement}
+     * path entirely.  The post-warp MoveSprite step is therefore inlined here
+     * to mirror the ROM call chain.  We capture {@code y_vel} before the warp
+     * because {@link #applyDespawnMarker()} preserves velocity (sub_13ECA does
+     * not touch x_vel/y_vel/ground_vel) but we still want to be explicit about
+     * the order of operations matching {@code MoveSprite}.
      */
     private void updateDeadFalling() {
+        // ROM MoveSprite (sonic3k.asm:36037-36041) uses the OLD y_vel for
+        // position before adding gravity; sub_13ECA does not touch y_vel so
+        // the value entering MoveSprite is the Kill_Character write of -$700.
+        short oldYSpeed = sidekick.getYSpeed();
         applyDespawnMarker();
-        // ROM MoveSprite_TestGravity post-sub_13ECA (sonic3k.asm:36077):
-        // y_vel was 0, addi.w #$38, y_vel -> y_vel = 0x38.
-        sidekick.setYSpeed((short) 0x38);
+        // sub_13ECA wrote y_pos=0; now apply MoveSprite's position step
+        // using the pre-gravity y_vel.
+        int newCentreY = (sidekick.getCentreY() & 0xFFFF) + (oldYSpeed >> 8);
+        sidekick.setCentreYPreserveSubpixel((short) newCentreY);
+        // MoveSprite then adds +$38 (sonic3k.asm:36038) to y_vel.
+        sidekick.setYSpeed((short) (oldYSpeed + 0x38));
     }
 
     /**

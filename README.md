@@ -214,17 +214,45 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
   F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit, and engine-side
-  sidekick CPU/control diagnostics around the F5087 blocker.
+  sidekick CPU/control diagnostics around the F5087 blocker. S3K v6.11-s3k now records `(a1)`/`(a0)`
+  M68K registers per `position_write` hit and a new `solid_object_cont_entry` event capturing
+  `y_radius`/`default_y_radius` at `SolidObject_cont` entry so the CNZ F7614 geometric contradiction
+  (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
+  resolved once the trace is regenerated.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
-  velocity, horizontal-spring airborne contact handling, and the SolidObject on-screen gate now
+  velocity, horizontal-spring airborne contact handling, the SolidObject on-screen gate now
   reading per-object width_pixels against the previous frame's camera (matching ROM render_flags
-  bit 7 timing) advance the CNZ v6.5/v6.7 replay frontier from F3905 to F7614 while preserving
-  S1/S2 trace baselines.
+  bit 7 timing), and the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
+  (matching ROM `loc_1E154`'s position lift before the upward-velocity check at
+  `sonic3k.asm:41606-41632`, gated S3K-only) with per-(player, object) standing-bit tracking
+  mirroring ROM `a0.d6` semantics now advance the CNZ v6.5/v6.7 replay frontier from F3905 to
+  F7872 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
-  platform state-1→state-2 transition slope-sample skip now advance the AIZ v6.6/v6.9 replay
-  frontier from F4679 to F7127.
+  platform state-1→state-2 transition slope-sample skip, and the state-2→state-3 unconditional
+  promotion (releasing stuck rider state when the platform's stay timer expires with no player
+  standing), and the new `levelBoundaryUsesCentreY` feature flag (matching ROM `Player_LevelBound`
+  / `Tails_Check_Screen_Boundaries` centre-Y compare for S3K) now advance the AIZ v6.6/v6.9 replay
+  frontier from F4679 to F7171; the centre-Y flag is ROM-correct and gated S3K-only pending S1/S2
+  trace re-validation; the AIZ2 SonicResize1 miniboss-skip now gates on
+  `apparent_zone_and_act == 1` (matching ROM `sonic3k.asm:39053`/`:39164`) instead of the
+  heuristic `enteredAsAct2`, and the sidekick LEVEL_BOUNDARY kill now writes `y_vel = -0x700`
+  (matching ROM `Kill_Character` at `sonic3k.asm:21149`) so `MoveSprite_TestGravity2` produces
+  the ROM-correct in-frame upward shift after the kill, and runs the post-Kill_Character
+  MoveSprite step before collision (matching ROM `Tails_Stand_Freespace` at
+  `sonic3k.asm:27559`); the kill's touch-floor reset rolling-radius adjustment now uses
+  ROM's `old_y_radius - default_y_radius` formula (matching `sonic3k.asm:29134-29156`) instead
+  of the engine's prior `getHeight() - getStandYRadius()` -- the latter was injecting a +13
+  px error into rolling sidekick deaths and is fully resolved at F4679 (1050 -> 1049 errors).
+  AIZ2 SonicResize2 now reads `camera().previewNextX()` (matching ROM's `Do_ResizeEvents`
+  ordering inside `DeformBgLayer` AFTER `MoveCameraX` at `sonic3k.asm:38303-38316`) and the
+  sidekick dead-falling path now preserves `Kill_Character`'s `y_vel = -0x700` across the
+  `sub_13ECA` despawn warp (matching ROM `MoveSprite_TestGravity` shifting y_pos by the
+  preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), advancing the
+  AIZ replay frontier to F7235 (Sonic-rolling top-speed cap divergence, separate blocker).
+  Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
+  match headless replay's seed/cursor policy.
 - **S3K trace replay fixes:** Marble Garden frame-zero replay timing now treats traces whose
   first row already contains Sonic's input-driven movement as native frame-zero rows while still
   keeping the S3K sidekick setup prelude, and the S3K `Screen_Y_wrap_value` mask now wraps

@@ -292,6 +292,7 @@ Physics differences across S1/S2/S3K are handled through a layered provider syst
 | `elementalShieldsEnabled` | `false` | `false` | `true` | S3K fire/lightning/bubble shield mechanics |
 | `angleDiffCardinalSnap` | `false` | `true` | `true` | S2/S3K: snap to cardinal when sensor angle diff >= 0x20 |
 | `extendedEdgeBalance` | `false` | `true` | `true` | S2/S3K: 4 balance states, precarious check; S1: single state, force face edge |
+| `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` | `false` | `false` | `true` | S3K `loc_1E154` (sonic3k.asm:41606-41632) writes the top-branch position lift before `tst.w y_vel(a1)`; S1/S2 `Solid_Landed` bails on upward y_vel before any lift |
 
 ### Collision Model: UNIFIED vs DUAL_PATH
 

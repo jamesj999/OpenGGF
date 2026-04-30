@@ -16,6 +16,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.testmode.TraceHudOverlay;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceData;
+import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceReplayBootstrap;
 import com.openggf.trace.catalog.TraceEntry;
 import com.openggf.trace.live.LiveTraceComparator;
@@ -201,9 +202,15 @@ public final class TraceSessionLauncher {
             // helper's hydration steps wrote for seeded traces.
             TraceReplaySessionBootstrap.applyStartPositionAndGroundSnap(trace, fixture);
             TraceReplaySessionBootstrap.BootstrapResult boot =
-                    TraceReplaySessionBootstrap.applyLiveBootstrap(trace, fixture, -1);
+                    TraceReplaySessionBootstrap.applyBootstrap(trace, fixture, -1);
 
             int initialCursor = boot.replayStart().startingTraceIndex();
+            TraceFrame previousDriveFrame = boot.replayStart().hasSeededTraceState()
+                    ? trace.getFrame(boot.replayStart().seededTraceIndex())
+                    : initialCursor > 0 ? trace.getFrame(initialCursor - 1) : null;
+            TraceReplaySessionBootstrap.alignFrameCountersForReplayStart(
+                    previousDriveFrame,
+                    initialCursor < trace.frameCount() ? trace.getFrame(initialCursor) : null);
             this.comparator = new LiveTraceComparator(
                     trace,
                     ToleranceConfig.DEFAULT,

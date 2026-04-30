@@ -219,13 +219,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // --- AIZ2 Dynamic_resize_routine state ---
     /** ROM: Dynamic_resize_routine equivalent for act 2. */
     private int aiz2ResizeRoutine;
-    /**
-     * ROM equivalent: {@code Apparent_zone_and_act == AIZ2}.
-     * True when the player entered AIZ2 directly (level select / death restart),
-     * false when arriving through the AIZ1 fire transition.
-     * Controls whether the miniboss area is skipped in SonicResize1/KnuxResize1.
-     */
-    private boolean enteredAsAct2;
 
     // --- Boss / fire transition state ---
     /** One-shot guard for AIZ2 resize boss spawn. */
@@ -431,7 +424,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         appliedTreeRevealChunkCopiesMask = 0;
         minibossSpawned = false;
         aiz2ResizeRoutine = 0;
-        enteredAsAct2 = false;
         eventsFg4 = false;
         eventsFg5 = false;
         bossFlag = false;
@@ -1154,6 +1146,27 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
     }
 
+    /**
+     * Mirrors ROM {@code cmpi.w #1, (Apparent_zone_and_act).w}.
+     *
+     * <p>{@code Apparent_zone_and_act} packs the apparent zone into the high
+     * byte and the apparent act into the low byte.  In AIZ event code the
+     * apparent zone is implicitly AIZ (zone 0), so equality with $0001 is
+     * equivalent to checking that {@link LevelManager#getApparentAct()} is 1.
+     * The engine's seamless AIZ1 -> AIZ2 fire transition (and the trace
+     * reload-resume path) preserves apparentAct, matching ROM where
+     * {@code AIZ1_AIZ2_Transition} (sonic3k.asm:104627) does not write
+     * {@code Apparent_zone_and_act}.  Direct AIZ2 entry (level select,
+     * starpost respawn from a saved AIZ2 starpost) sets it to $0001 via
+     * {@code LevelSelect_StartZone} (sonic3k.asm:10222) /
+     * {@code Load_Starpost_Settings} (sonic3k.asm:61760), which the engine
+     * mirrors through {@link LevelManager#loadZoneAndAct(int, int)} and the
+     * results-screen handoff that calls {@link ObjectServices#setApparentAct(int)}.
+     */
+    private boolean isApparentAct2() {
+        return levelManager().getApparentAct() == 1;
+    }
+
     // --- Sonic resize routines (sonic3k.asm:39046-39153) ---
 
     /** ROM: AIZ2_SonicResize1 — set maxY=$590 at camera X >= $2E0. */
@@ -1163,12 +1176,18 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
         aiz2ResizeRoutine = 4;
-        // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
-        // Only skip when the player entered AIZ2 directly (level select / death
-        // restart) — the miniboss has already been defeated in that scenario.
-        // When arriving through the AIZ1 fire transition, the miniboss hasn't
-        // been fought yet, so we must go through SonicResize2.
-        if (enteredAsAct2) {
+        // ROM (sonic3k.asm:39053): cmpi.w #1, (Apparent_zone_and_act).w
+        //   bne.s locret_1C68E
+        // Only skip the miniboss area when ROM's Apparent_zone_and_act equals
+        // AIZ2 (zone=0, act=1). The seamless AIZ1 -> AIZ2 fire transition
+        // (sonic3k.asm:104627 AIZ1_AIZ2_Transition) does NOT update
+        // Apparent_zone_and_act, so it stays at AIZ1=0x0000 across the
+        // continuation; the same applies to the engine's reload-resume path
+        // because the seamless transition coordinator preserves apparentAct.
+        // Direct AIZ2 entry from level select / starpost respawn / save load
+        // sets Apparent_zone_and_act = $0001 (sonic3k.asm:10222, :61760), so
+        // the miniboss-skip path activates only there.
+        if (isApparentAct2()) {
             camera().setMinX((short) AIZ2_SONIC_RESIZE2_LOCK_X);
             aiz2ResizeRoutine = 6; // skip SonicResize2 (miniboss area)
         }
@@ -1176,7 +1195,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     /** ROM: AIZ2_SonicResize2 — continuous maxY + miniboss spawn. */
     private void updateAiz2SonicResize2() {
-        int cameraX = camera().getX();
+        // ROM: Do_ResizeEvents runs *inside* DeformBgLayer (sonic3k.asm:38303-38316)
+        // AFTER MoveCameraX has committed the new Camera_X_pos. Use the predicted
+        // end-of-frame camera X so the maxY narrow at $ED0 fires on the same trace
+        // frame ROM does — otherwise Camera_max_Y_pos lags by one frame, delaying
+        // the sidekick kill-plane fire (Tails_Check_Screen_Boundaries at
+        // sonic3k.asm:28428-28443) when Tails crosses the post-narrow plane.
+        int cameraX = camera().previewNextX() & 0xFFFF;
         int maxY = AIZ2_DEFAULT_MAX_Y;
         if (cameraX >= AIZ2_SONIC_RESIZE2_BOSS_TRIGGER_X) {
             maxY = AIZ2_SONIC_RESIZE2_BOSS_MAX_Y;
@@ -1263,9 +1288,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
         aiz2ResizeRoutine = 0x14;
-        // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
-        // Same gate as SonicResize1 — only skip when entered AIZ2 directly.
-        if (enteredAsAct2) {
+        // ROM (sonic3k.asm:39164): cmpi.w #1, (Apparent_zone_and_act).w —
+        // same gate as SonicResize1. Only skip the miniboss area when
+        // Apparent_zone_and_act equals AIZ2 (direct entry); the AIZ1 fire
+        // transition leaves Apparent_zone_and_act at AIZ1, so the miniboss
+        // path stays active for that arrival case.
+        if (isApparentAct2()) {
             camera().setMinX((short) AIZ2_KNUX_RESIZE2_LOCK_X);
             aiz2ResizeRoutine = 0x16; // skip KnuxResize2 (miniboss area)
         }
@@ -1937,9 +1965,17 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         PendingFireSequence pending = pendingFireSequence;
         if (pending == null) {
-            // No pending fire sequence → entered AIZ2 directly (level select,
-            // death restart).  ROM: Apparent_zone_and_act == AIZ2 here.
-            enteredAsAct2 = true;
+            // No pending fire sequence: AIZ2 was loaded without a queued fire
+            // continuation.  This covers direct AIZ2 entry (level select,
+            // starpost respawn from a saved AIZ2 starpost) AND the trace's
+            // reload-resume path.  ROM does NOT mark all of these as
+            // post-miniboss — only the ones that set Apparent_zone_and_act = $0001
+            // (sonic3k.asm:10222 LevelSelect_StartZone, :61760 Load_Starpost_Settings).
+            // The miniboss-skip gate now reads LevelManager.getApparentAct(),
+            // which mirrors ROM's Apparent_zone_and_act, so we no longer
+            // need a heuristic boolean here.  postFireHazeActive stays true
+            // because the visual haze is the same in both direct-entry and
+            // post-fire-transition cases.
             postFireHazeActive = true;
             return;
         }

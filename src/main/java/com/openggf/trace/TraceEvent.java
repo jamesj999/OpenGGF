@@ -237,10 +237,17 @@ public sealed interface TraceEvent {
 
         /**
          * Single position-write hit. {@code pc} is the M68K program counter
-         * at the writing instruction; {@code value} is the full 16-bit word
-         * value of the position field after the write.
+         * at the writing instruction (post-fetch); {@code value} is the full
+         * 16-bit word value of the position field after the write. {@code a1}
+         * and {@code a0} are the 32-bit M68K address registers captured at
+         * the same moment (added in v6.11-s3k recorder schema). For
+         * pre-v6.11 fixtures the registers default to 0; consumers should
+         * treat 0 as "unknown" rather than "address 0x00000000".
          */
-        public record Hit(int pc, int value) {}
+        public record Hit(int pc, int value, int a1, int a0) {
+            /** Backwards-compatible constructor for pre-v6.11 callers. */
+            public Hit(int pc, int value) { this(pc, value, 0, 0); }
+        }
     }
 
     /**
@@ -576,7 +583,9 @@ public sealed interface TraceEvent {
                         for (JsonNode h : xWritesNode) {
                             xWrites.add(new PositionWrite.Hit(
                                 parseHexInt(h, "pc"),
-                                parseHexInt(h, "val")
+                                parseHexInt(h, "val"),
+                                h.has("a1") ? parseHexInt(h, "a1") : 0,
+                                h.has("a0") ? parseHexInt(h, "a0") : 0
                             ));
                         }
                     }
@@ -586,7 +595,9 @@ public sealed interface TraceEvent {
                         for (JsonNode h : yWritesNode) {
                             yWrites.add(new PositionWrite.Hit(
                                 parseHexInt(h, "pc"),
-                                parseHexInt(h, "val")
+                                parseHexInt(h, "val"),
+                                h.has("a1") ? parseHexInt(h, "a1") : 0,
+                                h.has("a0") ? parseHexInt(h, "a0") : 0
                             ));
                         }
                     }
@@ -812,7 +823,11 @@ public sealed interface TraceEvent {
             return 0;
         }
         String hex = stripHexPrefix(node.get(field).asText());
-        return Integer.parseInt(hex, 16);
+        // Some recorder fields (e.g. M68K address-register snapshots a0/a1
+        // captured by the v6.11-s3k Lua recorder) are emitted as 64-bit
+        // sign-extended values like "0xFFFFFFFFFFFFB000". Parse as a long
+        // and cast to int — only the low 32 bits are semantically used.
+        return (int) Long.parseUnsignedLong(hex, 16);
     }
 
     private static String stripHexPrefix(String value) {

@@ -122,6 +122,22 @@ The JSON groups divergences by field and frame range. The context file is the fa
 the first non-cascading failure — open it, scroll to the first error, look at the side-by-side
 ROM-vs-engine columns.
 
+> **Diagnosing tip — "phantom landing" patterns.** When a sidekick lands on a
+> surface ROM keeps falling through (engine `tails_y_speed=0x0000` and
+> `tails_g_speed=<prior_x_speed>` while ROM `tails_y_speed` keeps advancing
+> by gravity), the fingerprint maps to one of two ROM paths: terrain
+> `Sonic_HitFloor` or solid-object `SolidObjectTopSloped2` /
+> `SolidObject_Landed`. Add a `setGSpeed` velocity-probe in
+> `AbstractPlayableSprite` that prints the call site and check the stack;
+> if it points into `ObjectManager.SolidContacts.resolveContactInternal`,
+> the offender is a solid object whose state machine has drifted from ROM
+> (e.g. AIZ F7127 was the AIZ collapsing platform stuck in
+> `state==2`/solid-stay forever; ROM's `loc_205DE` at sonic3k.asm:44850-44854
+> unconditionally promotes to the falling state when its post-fragment
+> timer underflows, but the engine had been gating that promotion on a
+> still-standing player). The correct fix touches the object's state
+> machine, not the collision sensor.
+
 ## Recording Or Refreshing A Trace
 
 The recorder workflow is game-specific at the BizHawk entrypoint. The emitted trace contract has
@@ -230,6 +246,8 @@ The current set (S3K recorder v6.4-s3k):
 | `cage_state_per_frame` | `cage_state` | CNZ wire-cage status + per-player phase/state bytes |
 | `cage_execution_per_frame` | `cage_execution` | M68K execution-hook hits inside CNZ cage routines (BizHawk Lua `event.onmemoryexecute`) |
 | `velocity_write_per_frame` | `velocity_write` | Per-frame writer-PC trace for Tails `x_vel` / `y_vel` (BizHawk Lua `event.onmemorywrite`, frame-window-gated) |
+| `position_write_per_frame` | `position_write` | Per-frame writer-PC trace for Tails `x_pos` / `y_pos` with the captured `(a1)`/`(a0)` registers (v6.11-s3k recorder; BizHawk Lua `event.onmemorywrite`, frame-window-gated). Used to disambiguate Player_1 vs Player_2 targeting in routines like `SolidObjectFull2_1P` that loop both players |
+| `solid_object_cont_entry_per_frame` | `solid_object_cont_entry` | Per-frame snapshot of `(a0)`/`(a1)`/d1/d2 plus `y_radius`/`default_y_radius` and pixel x/y on entry to `SolidObject_cont` (sonic3k.asm:41394 / ROM 0x1DF90; v6.11-s3k recorder; BizHawk Lua `event.onmemoryexecute`, frame-window-gated). Used to reconstruct the `loc_1DFD6+`/`loc_1E154` push-up branch d3/d4 conditional after the fact |
 
 All event types are **diagnostic only** — they feed the divergence comparator and the
 divergence report's context window. They are never written into engine state by the test
@@ -484,7 +502,19 @@ ROM-citation requirements and per-game parity rules.
   you find yourself wanting to "preserve" or "set" engine fields each frame from the trace,
   the engine probably has a real bug — fix it instead.
 - **Branching on game id in shared physics/AI code.** Per-game divergences must be gated via
-  `PhysicsFeatureSet` flags, never `if (gameId == GameId.S3K)`.
+  `PhysicsFeatureSet` flags, never `if (gameId == GameId.S3K)`. When ROM uses a different
+  semantic on a value that exists across games (e.g. `cmp.w y_pos(a0),d0` in
+  `Player_LevelBound` reads centre-Y while the engine's `getY()` returns top-left), prefer
+  adding a feature flag (default-false on games whose trace baselines were calibrated against
+  the engine's prior behaviour) over flipping the global default in the same change. See
+  `PhysicsFeatureSet.levelBoundaryUsesCentreY` for the canonical example: ROM-cited as correct
+  for S1/S2/S3K but enabled only on S3K initially so S1 GHZ/MZ1 and S2 EHZ baselines stay
+  green until they are re-validated. Another example is
+  `PhysicsFeatureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity`, which enables ROM
+  `loc_1E154` (sonic3k.asm:41606-41632) writing the top-branch position lift before the
+  `tst.w y_vel(a1) / bmi.s loc_1E198` test only on S3K; S1 `Solid_Landed`
+  (s1disasm/_incObj/sub SolidObject.asm:278) and S2 `SolidObject_Landed` (s2.asm:35379-35380)
+  bail on upward y_vel BEFORE any lift, so the flag stays false there.
 - **Edit-tool BOM/CRLF silent failure.** Some files (e.g. `CnzCylinderInstance.java`,
   `AbstractTraceReplayTest.java`) have UTF-8 BOM + CRLF endings. The Claude Code Edit tool
   has been observed to silently fail on these — it returns "successfully" but doesn't write.

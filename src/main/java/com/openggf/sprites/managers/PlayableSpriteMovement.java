@@ -457,10 +457,27 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		doLevelBoundary();
 		if (isCpuLevelBoundaryKillActive()) {
-			// Tails_Check_Screen_Boundaries jumps straight to Kill_Character
-			// when the bottom kill plane is crossed (sonic3k.asm:28442-28443;
-			// s2.asm:39933-39939). Keep the engine's terrain separation pass,
-			// but do not append another generic gravity step after the kill.
+			// ROM Tails_Check_Screen_Boundaries reaches Kill_Character via
+			// `jmp` (sonic3k.asm:28442-28443 loc_14F56). Kill_Character ends
+			// with `rts` (sonic3k.asm:21158-21159), which unwinds to the
+			// caller of Tails_Check_Screen_Boundaries — for the airborne
+			// path that's `Tails_Stand_Freespace` (sonic3k.asm:27553), where
+			// control resumes at `jsr (MoveSprite_TestGravity).l`
+			// (sonic3k.asm:27559). MoveSprite_TestGravity falls through to
+			// MoveSprite (sonic3k.asm:36032-36042) which applies gravity and
+			// shifts y_pos by the freshly-written Kill_Character `y_vel = -$700`
+			// (sonic3k.asm:21149). Tails_DoLevelCollision (sonic3k.asm:28871)
+			// then runs and is the post-kill landing pass that produces the
+			// trace's end-of-frame `(y, vels=0)` sample.
+			//
+			// AIZ F4679 (cp aiz1_intro_refresh_begin) trace: pre-kill
+			// `(0x2D40, 0x0402, vels=(0x00F7, 0x0198))`, post-kill ROM
+			// `(0x2D95, 0x040F, vels=0)`. Skipping doObjectMoveAndFall() and
+			// going straight to collision left Tails 32 px below ROM because
+			// the missing MoveSprite step prevents the y_vel=-$700 from
+			// shifting Tails up before the collision sensors snap him to
+			// ground.
+			doObjectMoveAndFall();
 			sprite.updateSensors(originalX, originalY);
 			doLevelCollision(sprite.isForceFloorCheck());
 			return;
@@ -766,7 +783,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Fire dash: horizontal burst in facing direction (sonic3k.asm:23411-23430) */
 	private void fireShieldDash() {
 		int dir = sprite.getDirection() == Direction.RIGHT ? 1 : -1;
-		sprite.setXSpeed((short) (0x800 * dir));
+		short dashSpeed = (short) (0x800 * dir);
+		sprite.setXSpeed(dashSpeed);
+		// ROM (sonic3k.asm:23424-23426): the dash sets ground_vel alongside
+		// x_vel so that ground_vel survives the next landing's `ground_vel =
+		// x_vel` reseed and matches ROM diagnostics during the airborne dash
+		// frame. Omitting this leaves the previous frame's ground_vel intact
+		// (e.g. AIZ trace F7235 expected 0x0800, observed stale 0x0768).
+		sprite.setGSpeed(dashSpeed);
 		sprite.setYSpeed((short) 0);
 		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
 		sprite.resetPositionHistory();
@@ -1917,7 +1941,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// (camera boundaries may not reflect actual level extents during intro).
 		if (camera.isLevelStarted()) {
 			short effectiveMaxY = (short) maxY;
-			if (sprite.getY() > effectiveMaxY + 224) {
+			// ROM compares the player's y_pos(a0) word, which is centre-Y, not top-left:
+			//   S1 Sonic_LevelBound .bottom: cmp.w obY(a0),d0 / blt.s .bottom
+			//     (s1disasm/_incObj/01 Sonic.asm:1014).
+			//   S2 Sonic_LevelBound Sonic_Boundary_CheckBottom: cmp.w y_pos(a0),d0
+			//     / blt.s Sonic_Boundary_Bottom (s2.asm:36950).
+			//   S3K Player_LevelBound Player_Boundary_CheckBottom: cmp.w y_pos(a0),d0
+			//     / blt.s Player_Boundary_Bottom (sonic3k.asm:23195).
+			//   S3K Tails_Check_Screen_Boundaries loc_14F30: cmp.w y_pos(a0),d0
+			//     / blt.s loc_14F56 (sonic3k.asm:28430-28431).
+			// PhysicsFeatureSet.levelBoundaryUsesCentreY gates centre-Y for the
+			// games whose trace baselines have been validated against ROM
+			// parity (currently only SONIC_3K). S1/S2 stay on top-left until
+			// their trace baselines are re-recorded.
+			boolean useCentreY = featureSet != null && featureSet.levelBoundaryUsesCentreY();
+			int playerY = useCentreY ? sprite.getCentreY() : sprite.getY();
+			if (playerY > effectiveMaxY + 224) {
 				GameModule module = sprite.currentGameModule();
 				LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
 				SidekickCpuController cpuController = sprite.getCpuController();
