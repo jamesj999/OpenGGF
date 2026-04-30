@@ -1541,10 +1541,11 @@ strict error has advanced to F7614 (see the next entry for details).
 
 ---
 
-## CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift
+## CNZ1 Trace F7614 — Tails Jump Frame 2-Pixel y_pos Drift
 
-**Location:** Sidekick spring-bounce vertical-landing path (Tails
-following Sonic into a CNZ spring at @0x0E38,0x04D0 sub=12).
+**Location:** Sidekick `Tails_Jump` execution (CPU-pressed jump while
+Tails is grounded near a CNZ vertical/down spring at @0x0E38,0x04D0
+sub=$12).
 **Trace reference:** `src/test/resources/traces/s3k/cnz` (`cnz1_fullrun`),
 first strict error at frame 7614, 3,200 errors total.
 
@@ -1556,86 +1557,167 @@ first strict error at frame 7614, 3,200 errors total.
 tails_y mismatch (expected=0x04B3, actual=0x04B1)
 ```
 
-Per `target/trace-reports/s3k_cnz1_context.txt` around F7613-F7615:
+Per the recorded `physics.csv` around vfc=7614/7615 (ROM frames F7613/F7614):
 
-- F7613: ROM and engine agree. Tails airborne + rolling, Sonic centred
-  at (0x0CBA,0x044A), Tails at (0x0E40,0x04B0), x_speed -0x00F8,
-  y_speed 0.
-- F7614: ROM has tails_y=0x04B3, y_speed=-0x0680 (Tails just hit the
-  spring and is now flying up); engine has tails_y=0x04B1, identical
-  y_speed. Two-pixel offset suggests the spring's top-landing snap
-  applied a 2-pixel different anchor between the engine and ROM, then
-  the launch velocity took over.
-- ROM diagnostic: `tailsInteract slot=17 ptr=B4EA obj=00023050 rtn=00
-  st=01 @0E38,04D0 sub=12 onObj=false`. The 2-pixel difference cascades
-  for the rest of the run (3,200 trace errors, all derivative of the
-  initial 2-px misalignment between engine and ROM frame timing).
+- F7613 (vfc=7614): tails y=0x04B0, y_sub=0xB000, y_speed=0,
+  status=0x01 (Direction|grounded|not-rolling), y_radius=15
+  (default Tails). Tails has been stationary at (0x0E40,0x04B0) from
+  F7600 through F7613 with y_sub=0xB000 unchanged.
+- F7614 (vfc=7615): tails y=0x04B3, y_sub=0xB000 (UNCHANGED),
+  y_speed=-0x0680 (=$F980 two's complement), status=0x07
+  (Direction|InAir|Roll), y_radius=14 (rolling).
+- Engine end-state at F7614: tails y=0x04B1 (=0x04B0+1), y_speed
+  matches ROM at -0x0680.
+- Subsequent frames: 2-pixel y offset cascades, producing 3,200
+  derivative trace errors.
 
-### Diagnosed Constraints
+The fact that y_sub stays exactly 0xB000 across F7613→F7614 is
+load-bearing: the +3 px change is composed of integer-only word writes
+to `y_pos`, **not** a `MoveSprite` velocity application. (A
+`MoveSprite_TestGravity2` apply with y_vel=-$680 would produce y=0x04AA
+y_sub=0x3000, which is the F7615 state — i.e. MoveSprite runs on F7615,
+not on F7614.)
 
-This is the next blocker after F6304. The recorded `tailsInteract` slot
-points at the horizontal spring at @0x0E38,0x04D0 (sub=$12), but the
-F7614 launch velocity `tails_y_speed=-0x0680` is **not** what
-`Obj_Spring_Horizontal`/`sub_23190` produces (sonic3k.asm:47891-47950
-preserves or zeroes y_vel based on spring subtype; it does not write
-`-$680`). The constant `-$680` is the **CNZ rotating-cylinder
-auto-jump release** velocity at `Obj_CNZCylinder` `loc_325B6`,
-sonic3k.asm:68066-68067:
+### Reframed Diagnosis (this round)
+
+The previous round's "CNZ rotating cylinder release" hypothesis is
+**wrong**. Diagnostic data:
+
+- The aux-state stream contains `cnz_cylinder_state_per_frame` /
+  `cnz_cylinder_execution_per_frame` events when an `Obj_CNZCylinder`
+  is interacting with Tails (e.g. F4490+). **No cylinder events
+  exist anywhere in F7610–F7616.** No cylinder is active.
+- The trace `cpu_state` at F7613 shows `cpu_routine=6, flight_timer=59,
+  ctrl2_pressed=0x04`. At F7614 `flight_timer=60, ctrl2_pressed=0x44`
+  (jump-button bit set). The CPU is forcing a jump on F7614, not
+  releasing from a cylinder.
+- The y_speed constant `-$680` is **also** the value `Tails_Jump`
+  produces from a level (angle=0) ground stance:
+  `sonic3k.asm:28534 move.w #$680, d2; ... muls.w d2, d0; asr.l #8, d0;
+  add.w d0, y_vel(a0)` — with `angle - $40 = $C0`, `sin($C0) = -$100`
+  giving d0 = -$680.
+
+So the F7614 transition is: Tails was on the ground at (0x0E40,0x04B0)
+for 13 frames, the CPU pressed jump, `Tails_Jump` (sonic3k.asm:28519+)
+fires, sets y_vel=-$680, sets rolling radii, and integer-adjusts y_pos
+to compensate.
+
+The recorded `tailsInteract sub=$12` is the **vertical/down** spring at
+slot 17 (subtype=$12 dispatches via
+`lsr.w #3,d0; andi.w #$E,d0` → index 2 → `Spring_Down`,
+sonic3k.asm:47570), NOT a horizontal spring. The spring is not the
+launch source: `Obj_Spring_Down`'s kick `sub_233CA`
+(sonic3k.asm:48088+) requires `d4=-2` from `SolidObjectFull2_1P` and
+produces y_vel=+$A00 (downward, after `neg.w` from stored -$A00),
+which contradicts the observed -$680. Tails's y=0x04B0 is also 8 px
+above where `MvSonicOnPtfm` would seat him on this spring
+(`spring.y - d3 - y_radius = 0x04D0 - 9 - 15 = 0x04B8`), so Tails is
+not actively riding the spring's top surface. The recorded
+`stand_on_obj=0x11` (slot 17) appears to be a stale latch from earlier
+contact.
+
+### Pixel-Accounting
+
+Engine end-of-frame: y=0x04B1 (=0x04B0+1).
+ROM end-of-frame: y=0x04B3 (=0x04B0+3).
+
+`Tails_Jump` on a non-rolling start (sonic3k.asm:28560-28567) writes
+`y_radius=$E`, `x_radius=7`, `anim=2`, sets `Status_Roll`, then
+sonic3k.asm:28571-28577:
 
 ```
-move.w y_vel(a0),y_vel(a1)
-addi.w #-$680,y_vel(a1)      ; cylinder.y_vel + (-$680)
+move.b y_radius(a0),d0       ; d0 = $E
+sub.b  default_y_radius(a0),d0 ; d0 = $E - $F = -1
+ext.w  d0
+sub.w  d0,y_pos(a0)          ; y_pos -= -1 → y_pos += 1
 ```
 
-So the F7614 transition is "Tails was riding a CNZ cylinder, the
-auto-jump trigger fires, cylinder releases Tails into a rolling jump
-with y_vel = cylinder.y_vel - $680". The recorded `tailsInteract`
-sub=$12 is just stale (Tails happened to be near a horizontal spring,
-but the active interaction was the cylinder). The 2-pixel y_pos drift
-must therefore be tracked through `Obj_CNZCylinder`'s ride/release
-math (sonic3k.asm:67985-68078) and `sub_324C0` (sonic3k.asm:67985+),
-not through `Obj_Spring_Horizontal`.
+That accounts for **only +1 px** of the ROM's +3 px. After this,
+`Tails_Jump` returns via `addq.l #4,sp; ... rts`
+(sonic3k.asm:28556) which pops `Tails_Stand_Path`'s return address,
+so `Player_SlopeResist`, `Tails_InputAcceleration_Path`, `Tails_Roll`,
+`Tails_Check_Screen_Boundaries`, `MoveSprite_TestGravity2`,
+`Call_Player_AnglePos`, and `Player_SlopeRepel` are all skipped this
+frame. None of those run on F7614, so the floor-snap path
+(`Player_AnglePos` line 18790: `add.w d1, y_pos(a0)` for d1>0) is not
+reached on the jump frame.
 
-Initial diagnostic trace (this round) verified:
+**Origin of the missing +2 px is unidentified after this round's
+walkthrough.** Candidates ruled out by direct ROM read or trace:
 
-- F7613: ROM and engine agree. Tails airborne+rolling at (0x0E40,0x04B0),
-  x_speed=-0x00F8, y_speed=0.
-- F7614: ROM y=0x04B3, engine y=0x04B1. Both produce y_speed=-0x0680
-  (cylinder release), x_speed=-0x00F8 (preserved from leader).
-- Subsequent frames: 2-pixel y offset cascades for the rest of the
-  run (3,200 errors all derivative).
+- `Tails_Jump` rolling adjustment alone: only +1 px (verified).
+- `Player_AnglePos` floor snap: skipped on jump frame because of
+  `Tails_Jump`'s `addq.l #4,sp` (verified).
+- `MoveSprite_TestGravity2` velocity apply: would change y_sub from
+  0xB000 to 0x3000, but trace y_sub stays 0xB000 — so MoveSprite did
+  not run on F7614.
+- Cylinder release: no cylinder is active at F7610-F7616 (verified
+  by absence of `cnz_cylinder_state_per_frame` events).
+- Spring kick (`sub_233CA`): produces y_vel=+$A00 not -$680, and
+  requires top-landing d4=-2 which is not reached given the 8-px gap
+  between Tails and the spring's seat.
+- `Tails_CPU_Control` cpu_routine=6 path (`loc_13D4A`,
+  sonic3k.asm:26656+): only modifies x_pos, not y_pos.
+- Cylinder/spring per-frame y_pos write loops: no active cylinder;
+  spring's `Obj_Spring_Down` `subq.w #1,y_pos(a1); sub.w d3,y_pos(a1)`
+  block (`loc_1E154` sonic3k.asm:41614-41626) only fires when the
+  rider's bottom-edge probe overlaps the spring's top by < $10 px,
+  which is not the geometry here (rider 8 px above seat).
 
-The cylinder's per-frame y_pos write happens at sonic3k.asm:67056-67057
-(`move.w y_pos(a0),y_pos(a1) / subi.w #$18,y_pos(a1)`) on capture
-only — during ride, only x_pos is updated parametrically; y_pos drifts
-through the airborne/ground update path. The 2-pixel divergence likely
-sits in either:
+### Engine-Side Note
 
-- The cylinder's release frame (loc_325B6): ROM resets y_radius to
-  $E (rolling, sonic3k.asm:68062), engine may be applying the rolling
-  radius after the y_pos snap rather than before, leaving a 1-px
-  ground-sensor mismatch on the next frame.
-- The cylinder's ride-state y_pos write (line 67056-67057, only on
-  initial capture) vs ride-state cylinder rotation: if the engine's
-  ride-frame y_pos applies the cylinder's `subi.w #$18,y_pos(a1)`
-  on every ride frame instead of only on capture, position would
-  drift cumulatively.
+The engine's `PlayableSpriteMovement.doJump`
+(`src/main/java/com/openggf/sprites/managers/PlayableSpriteMovement.java`
+lines 615-655) calls `sprite.applyRollingRadii(true)` then
+`sprite.setY(getY() + getRollHeightAdjustment())`. For Tails,
+`getRollHeightAdjustment()` returns `runHeight - rollHeight = 30 - 28 = 2`
+(`PhysicsProfile.java` lines 67-68; `AbstractPlayableSprite.java`
+line 3110). Adjusting top-left Y by +2 with the new height of 28
+shifts the centre by +2−1 = +1 px (centre = topY + height/2;
+height changed 30→28). So engine centre Y goes 0x04B0 → 0x04B1,
+matching ROM's `Tails_Jump` rolling adjustment.
 
-The recorder already emits per-frame cylinder state and execution
-events (`cnz_cylinder_state_per_frame`, `cnz_cylinder_execution_per_frame`,
-v6.7-s3k schema) for diagnosis without a schema change. Use those
-events around F7610-F7614 to walk the cylinder's per-frame `(a2)`
-state byte and confirm whether the engine's `Sonic3kCnzCylinder*` ride
-implementation matches `sub_324C0` byte-for-byte.
+The engine therefore applies the rolling-radius/centre adjustment
+correctly. The 2-pixel residual must be a separate ROM-side y_pos
+write that has not yet been identified.
+
+### Next Steps
+
+1. **Recorder extension.** Add a per-frame y_pos write hook for
+   Tails (similar to existing `velocity_write_per_frame`) so the
+   trace can identify the exact PCs that wrote y_pos on F7614. Without
+   this, the +2 source remains a black box. The recorder already has
+   the infrastructure (`tools/bizhawk/s3k_trace_recorder.lua`'s
+   `velocity_write` plumbing); a `position_write_per_frame` event
+   schema bump is the cleanest path.
+2. **Object-loop ordering check.** The 2 px could come from another
+   object slot whose update order has Tails effects. A frame-by-frame
+   walk of `Process_Sprites` order at vfc=7615 would isolate which
+   object touches `Player_2.y_pos` between Tails's CPU/Tails_Modes
+   pass and end-of-frame.
+3. **Pos_table re-seat.** Tails CPU's `loc_13C50` block
+   (sonic3k.asm:26557-26625) reads `Pos_table` for the delayed
+   leader-position target. The walking step is ±1 px per frame, but
+   if Tails was teleported earlier (e.g. flight back to leader) and
+   the table delivers a y target offset by $20, the `add.w d2, y_pos`
+   step could produce ±1 toward target each frame, repeated over
+   sequential CPU frames — that doesn't fit the observed single-frame
+   +2, but the routine's full state machine should still be audited
+   against engine `SidekickCpuController`.
 
 ### Removal Condition
 
 Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
-advances past F7614 with a ROM-cited fix mapped to the
-`Obj_CNZCylinder` ride / release path
-(`sub_324C0` sonic3k.asm:67985+, `loc_325B6` sonic3k.asm:68058+),
-preserves the comparison-only invariant, and does not regress
-S1 GHZ/MZ, S2 EHZ, or S3K AIZ baselines.
+advances past F7614 with a ROM-cited fix that explains the +3 px
+y_pos delta on the `Tails_Jump` frame. The fix must:
+
+- Cite ROM lines in `docs/skdisasm/sonic3k.asm` for the y_pos write
+  it implements.
+- Preserve the comparison-only trace invariant (no per-frame writes
+  from CSV/aux into the engine in committed test code).
+- Keep S1 GHZ, S1 MZ1, S2 EHZ, and S3K AIZ traces green.
+- If the fix is per-game, gate it through `PhysicsFeatureSet`, not
+  `if (gameId == GameId.S3K)`.
 
 ---
 

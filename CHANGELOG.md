@@ -6,20 +6,48 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
-- **S3K AIZ F7127 + CNZ F7614 sidekick blockers documented:** Two
-  next-blocker trace replay divergences captured in
+- **S3K CNZ F7614 blocker re-diagnosed as `Tails_Jump`, not cylinder
+  release:** Investigation of the F7614 trace replay divergence ruled
+  out the prior round's CNZ rotating-cylinder hypothesis. The aux
+  stream contains zero `cnz_cylinder_state_per_frame` events anywhere
+  in F7610-F7616, confirming no cylinder is active. The launch
+  velocity `tails_y_speed=-$680` is in fact what `Tails_Jump` produces
+  from a level-ground stance (sonic3k.asm:28534-28547: angle-aware
+  `muls.w d2, d0; asr.l #8, d0; add.w d0, y_vel(a0)` with d2=$680
+  and `sin($C0) = -$100`). The CPU-pressed jump on F7614
+  (`flight_timer=60`, `ctrl2_pressed=0x44`) drives `Tails_Stand_Path`
+  through `Tails_Jump`'s rolling adjustment (sonic3k.asm:28571-28577,
+  `y_pos += 1`), then `addq.l #4,sp; rts` skips the rest of
+  `Tails_Stand_Path` so `Player_AnglePos` does not run on the jump
+  frame. Tails_Jump alone accounts for only +1 px of the ROM's
+  observed +3 px y_pos delta; the engine's
+  `getRollHeightAdjustment()=2` produces the same +1 px centre shift
+  (height-aware top-left adjustment with rolling height change). The
+  remaining +2 px source is **not yet identified** — a recorder
+  extension to capture per-frame y_pos write PCs is required (similar
+  to existing `velocity_write_per_frame` plumbing in
+  `tools/bizhawk/s3k_trace_recorder.lua`). The recorded
+  `tailsInteract sub=$12` is a vertical/down spring (`Spring_Down`)
+  at slot 17, not horizontal as previously assumed; the spring's
+  geometry places its seat 8 px below Tails so it cannot be the
+  +2 px source via standard `MvSonicOnPtfm` pathing. The CNZ F7614
+  entry in `docs/S3K_KNOWN_BUGS.md` is rewritten with the reframed
+  diagnosis, the full rule-out matrix, and concrete next-step
+  recorder/analysis tasks. Doc-only commit, no engine changes.
+
+- **S3K AIZ F7127 + CNZ F7614 sidekick blockers documented (prior
+  round):** Two next-blocker trace replay divergences captured in
   `docs/S3K_KNOWN_BUGS.md` with detailed ROM-cited diagnosis. AIZ F7127
   is a Tails phantom-landing (engine lands sidekick 2 px above ROM
   while ROM keeps falling) inside AIZ2 — root cause not yet isolated
   among four candidates (collision-index off-by-one, top-solid-bit
   mismatch, AIZ2 reload pointer staleness, airborne-rolling y_radius
-  drift). CNZ F7614 was previously diagnosed as a horizontal-spring
-  landing snap; revised analysis shows the launch velocity
-  `tails_y_speed=-0x0680` does not match `Obj_Spring_Horizontal`
-  (sonic3k.asm:47891-47950) and instead matches `Obj_CNZCylinder`'s
-  auto-jump release (sonic3k.asm:68066-68067) — entry rewritten to
-  point at the cylinder ride/release path. Both blockers preserve the
-  comparison-only trace invariant; doc-only commit, no code changes.
+  drift). The CNZ F7614 cylinder hypothesis was superseded in the
+  next round (above); the prior horizontal-spring hypothesis was
+  superseded by the cylinder hypothesis here; the current diagnosis
+  is Tails_Jump-driven (see entry above). All blocker rounds preserve
+  the comparison-only trace invariant; doc-only commits, no engine
+  state changes.
 
 The detailed 0.6 prerelease notes below were moved out of README.md so the README can stay concise.
 
