@@ -6,6 +6,27 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K Tails LEVEL_BOUNDARY kill post-MoveSprite step (AIZ1 F4679,
+  partial fix):**  When `PlayableSpriteMovement.modeAirborne` detects
+  the CPU sidekick `LEVEL_BOUNDARY` kill (engine equivalent of ROM
+  `Tails_Check_Screen_Boundaries -> jmp Kill_Character` at
+  `sonic3k.asm:28443`/`21149`-`21159`), it previously skipped
+  `doObjectMoveAndFall` and ran collision directly.  ROM
+  `Kill_Character` ends with `rts` which unwinds to the caller of
+  `Tails_Check_Screen_Boundaries`; for the airborne mode that's
+  `Tails_Stand_Freespace` (`sonic3k.asm:27553-27567`), where the
+  next call is `jsr (MoveSprite_TestGravity).l`
+  (`sonic3k.asm:27559`).  `MoveSprite_TestGravity -> MoveSprite`
+  (`sonic3k.asm:36032-36042`) applies gravity and shifts `y_pos` by
+  the freshly written `y_vel = -$700`, moving Tails up 7 px before
+  `Tails_DoLevelCollision` lands him.  The engine kill path now
+  invokes `doObjectMoveAndFall()` before the collision pass to
+  mirror this MoveSprite step.  AIZ trace F4679 advances from
+  `tails_y = 0x042F` to `tails_y = 0x041F` (16 px improvement; ROM
+  expects `0x040F`).  The remaining 16 px gap is documented in
+  `docs/S3K_KNOWN_BUGS.md` (residual blocker on the AIZ1
+  fire-transition camera-min-X timing / post-kill collision
+  quadrant).
 - **S3K Kill_Character y-velocity preservation (sidekick LEVEL_BOUNDARY
   kill):** `SidekickCpuController.beginLevelBoundaryKill` previously
   zeroed `y_vel` after Kill_Character's other writes.  ROM

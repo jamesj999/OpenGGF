@@ -2483,17 +2483,84 @@ a separate AIZ1 fire-transition physics gap (likely tied to
 the bridge/tree object solidity or a secondary boundary
 clamp) that the F7171 fix surfaces but does not address.
 
-#### Residual blocker — AIZ1 bridge/boundary clamp divergence at F4679
+#### Residual blocker — AIZ1 left-boundary kill post-MoveSprite gap at F4679
 
 `tailsAizBoundary cam=2D8B/4000 y=02E0/02E0 tree=2D41,0402,010F,0198->2D41,0402,010F,0198 boundary=kill 2D41,0402,010F,0198->2D90,0402,0000,0198 post=2D95,040F,0000,0000`
 
-ROM clamps Tails to right edge then runs the post-clamp
-collision pipeline (MoveSprite_TestGravity2 -> MoveSprite2 ->
-Player_AnglePos -> Player_SlopeRepel -> ...) and lands at
-`(0x2D95, 0x040F)` with vels=(0,0).  Engine ends at
-`(0x2D??, 0x042F)`.  The 32-pixel y-down gap suggests the
-engine is missing the right-boundary clamp's x_vel/g_vel zero
-write or its post-clamp ground reattachment, allowing Tails
-to fall further with continued horizontal momentum off the
-collapsed bridge.  A separate diagnostic pass on the AIZ1
-fire-transition right-boundary clamp logic is required.
+The earlier diagnosis ("32-pixel y-down gap, right-boundary
+clamp") was partially incorrect.  Re-examination of the
+recorder hooks (`tools/bizhawk/s3k_trace_recorder.lua` lines
+2095-2103, 2152-2161) and ROM
+`Tails_Check_Screen_Boundaries` (sonic3k.asm:28407-28451)
+shows what actually happens at F4679:
+
+1. Tails enters the boundary check at `(0x2D40, 0x0402)`,
+   `vels = (0x010F, 0x0198)`.  `predictedX = x_pos + (x_vel<<8)`
+   ≈ `0x2D42`.
+2. ROM `Camera_min_X_pos` is `0x2D80` at this moment, so
+   `Camera_min_X_pos + 0x10 = 0x2D90 > predictedX` and the
+   `bhi.s loc_14F5C` branch (sonic3k.asm:28417) is taken.  The
+   trace's recorded `cameraMinX = 0x2D8B` is the
+   end-of-frame value (recorder calls `refresh_camera` at
+   flush time, line 2133); the camera scrolled +11 px after
+   the boundary check.
+3. `loc_14F5C` (sonic3k.asm:28446-28451) clamps
+   `x_pos = 0x2D90`, zeros x-subpixel, x_vel and ground_vel,
+   then `bra.s loc_14F30` to the death-plane check.
+4. `loc_14F30` reads `Camera_max_Y_pos = 0x02E0`, computes
+   `0x02E0 + 0xE0 = 0x03C0`, and `cmp.w y_pos, d0 / blt.s`
+   takes the branch to `loc_14F56` because `y_pos = 0x402 > 0x3C0`.
+5. `jmp Kill_Character` runs.  Kill_Character writes
+   `y_vel = -$700` (sonic3k.asm:21149), `x_vel = 0`,
+   `ground_vel = 0`, then `rts`.  Because Kill_Character was
+   reached via `jmp` (not `jsr`), the `rts` unwinds to the
+   caller of Tails_Check_Screen_Boundaries, which for the
+   airborne branch is `Tails_Stand_Freespace` at
+   sonic3k.asm:27553-27567.  The next instruction is
+   `jsr (MoveSprite_TestGravity).l` (sonic3k.asm:27559).
+6. `MoveSprite_TestGravity` falls through to `MoveSprite`
+   (sonic3k.asm:36032-36042) which adds gravity to y_vel and
+   shifts `y_pos` by the **freshly written** `y_vel = -$700`
+   (using the pre-gravity y_vel for position).  Tails moves
+   up 7 px to `y = 0x3FB`.
+7. `Player_JumpAngle` and `Tails_DoLevelCollision` run; the
+   end-of-frame state recorded in the trace is
+   `(0x2D95, 0x040F, vels=0)`.
+
+Engine pre-fix path took the bottom-kill branch in
+`PlayableSpriteMovement.modeAirborne` (line 446) and skipped
+`doObjectMoveAndFall`, going straight from the kill writes to
+`doLevelCollision`.  This left Tails at `y = 0x402` going into
+collision (instead of `0x3FB` after the missing MoveSprite step)
+and produced an end-of-frame `tails_y = 0x042F` — 32 px below ROM.
+
+The pixel/iter-20 fix routes the kill path through
+`doObjectMoveAndFall()` so the post-Kill_Character MoveSprite
+step runs, mirroring ROM's
+`Tails_Stand_Freespace -> MoveSprite_TestGravity` chain.  This
+moves Tails up the missing 7 px and closes 16 px of the gap
+(F4679 advances from `tails_y = 0x042F` to `tails_y = 0x041F`,
+ROM expects `0x040F`).
+
+The remaining 16-px gap is downstream and does not invalidate
+the MoveSprite-step fix.  Likely sources still under
+investigation:
+
+- Engine `camera.getMinX()` at boundary-check time vs ROM
+  `Camera_min_X_pos`.  AIZ1 fire-transition has the hollow-tree
+  object writing camera bounds (`AizHollowTreeObjectInstance`
+  CAMERA_RELEASE_MIN_X = 0x1300) and the AIZ1 dynamic resize
+  (sonic3k.asm:38961-38974) writing `Camera_min_X_pos = 0x2D80`.
+  Frame-order sensitivity here would change `leftBoundary` and
+  thus the post-clamp x_pos that the ground sensor sees.
+- `Tails_DoLevelCollision` ceiling-vs-floor dispatch under
+  `y_vel < 0` (post-Kill_Character moving up).  ROM
+  loc_15538 (ceiling path) walls + ceiling, no ground push;
+  engine `resolveAirCollision` quadrant 0x80 routes to
+  `doCeilingCollision` only.  If the engine's actual
+  end-of-frame y_vel landed in a different quadrant a floor
+  push could explain the residual.
+
+A separate iteration is required to instrument the
+camera-min-X timing and the post-kill collision quadrant to
+finish closing F4679.
