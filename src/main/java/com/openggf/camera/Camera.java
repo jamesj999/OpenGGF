@@ -241,7 +241,10 @@ public class Camera {
 				short oldY = y;
 				y = (short) (y & verticalWrapMask);
 				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
+					// ROM masks the y_pos word only when Screen_Y_wrap_value is active
+					// (sonic3k.asm:21989-21992, 26233-26236; MGZ sets #$FFF at
+					// sonic3k.asm:102200). Preserve y_sub just like a 68000 word write.
+					focusedSprite.setCentreYPreserveSubpixel((short) (focusedSprite.getCentreY() & verticalWrapMask));
 				}
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
@@ -252,7 +255,10 @@ public class Camera {
 				short oldY = y;
 				y = (short) (y - verticalWrapRange);
 				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
+					// ROM masks the y_pos word only when Screen_Y_wrap_value is active
+					// (sonic3k.asm:21989-21992, 26233-26236; MGZ sets #$FFF at
+					// sonic3k.asm:102200). Preserve y_sub just like a 68000 word write.
+					focusedSprite.setCentreYPreserveSubpixel((short) (focusedSprite.getCentreY() & verticalWrapMask));
 				}
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
