@@ -214,7 +214,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
   execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
   F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit, and engine-side
-  sidekick CPU/control diagnostics around the F5087 blocker.
+  sidekick CPU/control diagnostics around the F5087 blocker. S3K v6.11-s3k now records `(a1)`/`(a0)`
+  M68K registers per `position_write` hit and a new `solid_object_cont_entry` event capturing
+  `y_radius`/`default_y_radius` at `SolidObject_cont` entry so the CNZ F7614 geometric contradiction
+  (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
+  resolved once the trace is regenerated.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
   velocity, horizontal-spring airborne contact handling, and the SolidObject on-screen gate now

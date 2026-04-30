@@ -95,6 +95,14 @@
 -- delayed redraw / Load_Level state plus ROM Sonic_CheckFloor return and
 -- SolidObjectTop vertical-gate state (sonic3k.asm:104664-104738,
 -- 19839-19891, 41982-42015). Diagnostic-only; no CSV schema change.
+-- v6.11-s3k extends position_write events with (a1)/(a0) at write time,
+-- and adds a new solid_object_cont_entry event capturing the player's
+-- y_radius/default_y_radius plus (a0)/(a1)/d1/d2 at the SolidObject_cont
+-- label (sonic3k.asm:41394, ROM offset 0x1DF90). Both target the CNZ
+-- F7614 trace-blocker geometric contradiction (loc_1E154 push-up branch
+-- captured at 0x1E172/0x1E182 despite the d3/d4 precondition appearing
+-- to fail per the recorded y_pos/y_radius values). Diagnostic-only; no
+-- CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -726,6 +734,16 @@ local function write_metadata()
     -- via the existing OGGF_S3K_POSITION_WRITE_RANGE env var
     -- ("4788-4792;7600-7625" syntax). Used to root-cause the Tails Jump
     -- frame +2 px y_pos delta (sonic3k.asm:28534-28547).
+    -- v6.11 augments position_write entries with the (a1)/(a0) registers
+    -- captured at the write hit, and adds a new
+    -- solid_object_cont_entry_per_frame event that records (a0)/(a1)/d1/d2
+    -- and the player's y_radius/default_y_radius at the SolidObject_cont
+    -- label (sonic3k.asm:41394 / ROM 0x1DF90). Both target the CNZ F7614
+    -- geometric contradiction: the captured 0x1E172/0x1E182 PCs do not
+    -- match the loc_1E154 d3/d4 precondition with the recorded
+    -- y_pos/y_radius/spring values, so we need to confirm whether (a1)
+    -- was Tails or Sonic at the writes and whether the radii used by the
+    -- conditional matched the post-Tails_Jump expectation (14/15).
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
@@ -733,7 +751,7 @@ local function write_metadata()
     if is_aiz_end_to_end_profile() then
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -1556,7 +1574,16 @@ function WRITE_DIAG.tails_xpos_record_hit()
     if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
-    table.insert(WRITE_DIAG.tails_xpos_writes, {pc = pc, val = val})
+    -- v6.11-s3k: capture (a1) and (a0) at the moment of the write so we can
+    -- disambiguate Tails (Player_2 base $FFB04A) vs Sonic (Player_1 base
+    -- $FFB000) targeting in routines like SolidObjectFull2_1P that loop
+    -- both players back-to-back. The hook fires by addr-match, so (a1) MUST
+    -- be Tails when this fires for an `<op> y_pos(a1)` instruction; capturing
+    -- it explicitly resolves whether the captured PC belongs to a path that
+    -- writes via (a1), via (a0), or via a different addressing mode entirely.
+    local a1 = emu.getregister("M68K A1") or 0
+    local a0 = emu.getregister("M68K A0") or 0
+    table.insert(WRITE_DIAG.tails_xpos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
 end
 
 function WRITE_DIAG.tails_ypos_record_hit()
@@ -1565,7 +1592,13 @@ function WRITE_DIAG.tails_ypos_record_hit()
     if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
     local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
-    table.insert(WRITE_DIAG.tails_ypos_writes, {pc = pc, val = val})
+    -- v6.11-s3k: capture (a1) and (a0) at the moment of the write. See
+    -- tails_xpos_record_hit for rationale; specifically used to confirm
+    -- whether 0x1E172/0x1E182 captured for CNZ F7614 fired with (a1)=Tails
+    -- (Player_2 = $FFB04A) or (a1)=Sonic (Player_1 = $FFB000).
+    local a1 = emu.getregister("M68K A1") or 0
+    local a0 = emu.getregister("M68K A0") or 0
+    table.insert(WRITE_DIAG.tails_ypos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
 end
 
 function WRITE_DIAG.register_position_hooks()
@@ -1588,15 +1621,19 @@ function WRITE_DIAG.flush_tails_position_writes()
     if not aux_file then return end
     if #WRITE_DIAG.tails_xpos_writes == 0 and #WRITE_DIAG.tails_ypos_writes == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    -- v6.11-s3k: include captured (a1)/(a0) per hit so consumers can
+    -- distinguish Player_1 vs Player_2 targeting (e.g. for CNZ F7614).
     local x_parts = {}
     for _, hit in ipairs(WRITE_DIAG.tails_xpos_writes) do
         x_parts[#x_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
+            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
     end
     local y_parts = {}
     for _, hit in ipairs(WRITE_DIAG.tails_ypos_writes) do
         y_parts[#y_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
+            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
     end
     write_aux(string.format(
         '{"frame":%d,"vfc":%d,"event":"position_write","character":"tails",'
@@ -2555,6 +2592,182 @@ function V69_AIZ.register_aiz_handoff_terrain_hooks()
         V69_AIZ.HANDOFF_TERRAIN_FRAME_END))
 end
 
+-- =====================================================================
+-- SolidObject_cont entry geometry hooks (v6.11-s3k)
+-- =====================================================================
+-- Hooks the SolidObject_cont label (sonic3k.asm:41394) every time it
+-- executes, capturing (a0)=solid object addr, (a1)=player addr, the
+-- player's current y_radius and default_y_radius, and the player's
+-- pre-resolution y_pos. The d3/d4 conditional at lines 41422-41441
+-- depends on these radii: with Tails post-Tails_Jump the values should
+-- be 14 (rolling) / 15 (default) per sonic3k.asm:28560-28567, and
+-- the loc_1E154 push-up branch (line 41606+) only fires when
+-- d3 (in [0,$F] post `andi.w #$FFF`) is below
+-- d4 = default_y_radius + d2 + d2 + y_radius. Adding this event lets
+-- us confirm the geometry derivation for the captured 0x1E172/0x1E182
+-- y_pos write PCs at CNZ F7614.
+--
+-- ROM byte address: SolidObject_cont = 0x1DF90. Verified by walking
+-- bytes from line 41390 (loc_1DF88: `tst.b render_flags(a0)` =
+-- `4A 28 0004` at 0x1DF88; `bpl.w` = `6A 00 0114` at 0x1DF8C; first
+-- instruction of SolidObject_cont = `move.w x_pos(a1),d0` =
+-- `30 29 0010` at 0x1DF90).
+--
+-- Frame-range filtered to keep aux volume bounded; SolidObjectFull2_1P
+-- is invoked many times per frame across the OST. Default windows
+-- mirror the position_write windows above (CNZ1 F4788-4792, CNZ2
+-- F7600-7625). Override via OGGF_S3K_SOLID_CONT_RANGE
+-- (single window or semicolon-separated multi-window).
+
+local V611_SOLID = {
+    SOLID_OBJECT_CONT = 0x1DF90,
+    -- Default capture windows; matches WRITE_DIAG.POSITION_WRITE_RANGES.
+    SOLID_CONT_FRAME_START = 4788,
+    SOLID_CONT_FRAME_END = 7625,
+    SOLID_CONT_RANGES = {
+        {4788, 4792},
+        {7600, 7625},
+    },
+    hits = {},
+    hooks_registered = false,
+}
+
+WRITE_DIAG.apply_frame_range = WRITE_DIAG.apply_frame_range -- keep ref
+-- Reuse WRITE_DIAG range parsing helpers; this only requires the table
+-- WRITE_DIAG[start_field], etc. We mirror the same fields onto V611_SOLID.
+local function v611_apply_frame_range(env_name)
+    local range = os.getenv(env_name)
+    if not range or range == "" then return end
+    -- single-window form first
+    local s, e = range:match("^(%d+)%-(%d+)$")
+    if s and e then
+        V611_SOLID.SOLID_CONT_FRAME_START = tonumber(s)
+        V611_SOLID.SOLID_CONT_FRAME_END = tonumber(e)
+    end
+    -- multi-window form ";"-separated
+    local pairs_list = {}
+    for piece in string.gmatch(range, "[^;]+") do
+        local ps, pe = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if ps and pe then
+            pairs_list[#pairs_list + 1] = {tonumber(ps), tonumber(pe)}
+        end
+    end
+    if #pairs_list > 0 then
+        V611_SOLID.SOLID_CONT_RANGES = pairs_list
+        local lo, hi = pairs_list[1][1], pairs_list[1][2]
+        for i = 2, #pairs_list do
+            if pairs_list[i][1] < lo then lo = pairs_list[i][1] end
+            if pairs_list[i][2] > hi then hi = pairs_list[i][2] end
+        end
+        V611_SOLID.SOLID_CONT_FRAME_START = lo
+        V611_SOLID.SOLID_CONT_FRAME_END = hi
+    end
+end
+v611_apply_frame_range("OGGF_S3K_SOLID_CONT_RANGE")
+
+function V611_SOLID.in_window()
+    return WRITE_DIAG.frame_in_ranges(
+        trace_frame,
+        V611_SOLID.SOLID_CONT_RANGES,
+        V611_SOLID.SOLID_CONT_FRAME_START,
+        V611_SOLID.SOLID_CONT_FRAME_END)
+end
+
+function V611_SOLID.record_solid_object_cont_entry()
+    if not aux_file then return end
+    if not started then return end
+    if not V611_SOLID.in_window() then return end
+
+    local a0 = emu.getregister("M68K A0") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local d1 = emu.getregister("M68K D1") or 0
+    local d2 = emu.getregister("M68K D2") or 0
+    local pc = emu.getregister("M68K PC") or 0
+
+    -- (a1) low 16 bits = M68K $FFFF... offset; mainmemory uses the
+    -- bus-truncated form so we read radii from the low word of a1.
+    local a1_lo = a1 % 0x10000
+    local a0_lo = a0 % 0x10000
+
+    -- Read player y_radius / default_y_radius. default_y_radius lives at
+    -- offset 0x16 in S3K player struct (sonic3k.constants.asm). Players
+    -- only: skip when (a1) does not look like an OST slot.
+    local y_radius = 0
+    local default_y_radius = 0
+    local player_y = 0
+    local player_x = 0
+    local player_status = 0
+    if a1_lo >= OBJ_TABLE_START and a1_lo <= 0xFFFF - OBJ_SLOT_SIZE then
+        y_radius = mainmemory.read_u8(a1_lo + OFF_RADIUS_Y)
+        -- default_y_radius = $16 in S3K player struct
+        -- (Tails: 15 standing, 14 rolling). Verified vs sonic3k.constants.asm.
+        default_y_radius = mainmemory.read_u8(a1_lo + 0x16)
+        player_y = mainmemory.read_u16_be(a1_lo + OFF_Y_POS)
+        player_x = mainmemory.read_u16_be(a1_lo + OFF_X_POS)
+        player_status = mainmemory.read_u8(a1_lo + OFF_STATUS)
+    end
+
+    -- Read solid object's pixel position too so the geometry math can be
+    -- verified post-hoc (matches the d3 derivation in loc_1DFD6+).
+    local solid_y = 0
+    local solid_x = 0
+    if a0_lo >= OBJ_TABLE_START and a0_lo <= 0xFFFF - OBJ_SLOT_SIZE then
+        solid_y = mainmemory.read_u16_be(a0_lo + OFF_Y_POS)
+        solid_x = mainmemory.read_u16_be(a0_lo + OFF_X_POS)
+    end
+
+    table.insert(V611_SOLID.hits, {
+        pc = pc,
+        a0 = a0,
+        a1 = a1,
+        d1 = d1 % 0x10000,
+        d2 = d2 % 0x10000,
+        y_radius = y_radius,
+        default_y_radius = default_y_radius,
+        player_x = player_x,
+        player_y = player_y,
+        player_status = player_status,
+        solid_x = solid_x,
+        solid_y = solid_y,
+    })
+end
+
+function V611_SOLID.flush_solid_object_cont_entries()
+    if not aux_file then return end
+    if not started then return end
+    if #V611_SOLID.hits == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local parts = {}
+    for _, hit in ipairs(V611_SOLID.hits) do
+        parts[#parts + 1] = string.format(
+            '{"pc":"0x%05X","a0":"0x%08X","a1":"0x%08X",'
+                .. '"d1":"0x%04X","d2":"0x%04X",'
+                .. '"y_radius":"0x%02X","default_y_radius":"0x%02X",'
+                .. '"player_x":"0x%04X","player_y":"0x%04X",'
+                .. '"player_status":"0x%02X",'
+                .. '"solid_x":"0x%04X","solid_y":"0x%04X"}',
+            hit.pc, hit.a0, hit.a1, hit.d1, hit.d2,
+            hit.y_radius, hit.default_y_radius,
+            hit.player_x, hit.player_y, hit.player_status,
+            hit.solid_x, hit.solid_y)
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"solid_object_cont_entry","entries":[%s]}',
+        trace_frame, vfc, table.concat(parts, ",")))
+    V611_SOLID.hits = {}
+end
+
+function V611_SOLID.register_hooks()
+    if V611_SOLID.hooks_registered then return end
+    V611_SOLID.hooks_registered = true
+    event.onmemoryexecute(V611_SOLID.record_solid_object_cont_entry,
+        V611_SOLID.SOLID_OBJECT_CONT)
+    print(string.format(
+        "SolidObject_cont entry hook registered: pc=0x%05X frame_window=[%d,%d]",
+        V611_SOLID.SOLID_OBJECT_CONT,
+        V611_SOLID.SOLID_CONT_FRAME_START, V611_SOLID.SOLID_CONT_FRAME_END))
+end
+
 function CAGE_DIAG.register_cage_hooks()
     if CAGE_DIAG.hooks_registered then return end
     CAGE_DIAG.hooks_registered = true
@@ -2928,8 +3141,17 @@ function on_frame_end()
 
     -- Focused Tails position-write hits (v6.8-s3k schema). The
     -- onmemorywrite hooks capture the M68K PCs that write Tails x_pos/y_pos
-    -- around CNZ1 F4790's CPU marker/cylinder recapture window.
+    -- around CNZ1 F4790's CPU marker/cylinder recapture window. v6.11-s3k
+    -- extends each hit with (a1)/(a0) at write-time so consumers can confirm
+    -- whether SolidObjectFull2_1P-style routines wrote via the Tails or
+    -- Sonic player base register.
     WRITE_DIAG.flush_tails_position_writes()
+
+    -- SolidObject_cont entry hits (v6.11-s3k). Hooks 0x1DF90 and captures
+    -- (a0)/(a1)/d1/d2 plus the player's y_radius and default_y_radius so
+    -- the d3/d4 conditional in loc_1DFD6+/loc_1E154 can be reconstructed
+    -- post-hoc. Diagnostic-only.
+    V611_SOLID.flush_solid_object_cont_entries()
 
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
@@ -2959,7 +3181,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.9-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.11-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -2987,6 +3209,11 @@ V69_AIZ.register_aiz_handoff_terrain_hooks()
 
 -- Register focused CNZ cylinder P2 hooks. Same lifetime model as cage hooks.
 V67_CNZ.register_cnz_cylinder_hooks()
+
+-- Register SolidObject_cont entry hook (v6.11-s3k). Same lifetime model
+-- as cage hooks. Captures geometry inputs to the loc_1DFD6/loc_1E154
+-- conditional path used by Spring_Down/SolidObjectFull2_1P at CNZ F7614.
+V611_SOLID.register_hooks()
 
 while true do
     on_frame_end()

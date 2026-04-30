@@ -1808,29 +1808,101 @@ write that has not yet been identified.
      `loc_1E154`-equivalent fires (which today is many AIZ/MGZ/HCZ
      contacts, not just CNZ F7614) — a cross-game regression.
 
-3. **Next-round actions before implementing the fix:**
+3. **Recorder extended to v6.11-s3k (round 2026-04-30).** Two diagnostic
+   improvements landed on `bugfix/ai-cnz-recorder-a1-target-and-radius`
+   to address the geometric contradiction; the regenerated CNZ fixture is
+   deferred to a follow-up round (no BizHawk in this agent environment):
 
-   - **Disambiguate (a1) at 0x1E172 / 0x1E182.** Extend the recorder
-     to capture `a1` at the moment of the y_pos write event (or
-     widen the write-watch to capture both Player_1 and Player_2
-     with a `character` field derived from the address itself).
-   - **Verify `default_y_radius(a1)` and `y_radius(a1)` at
-     SolidObject_cont entry on F7614.** Tails_Jump writes
-     `y_radius=$E` BEFORE its `sub.w d0,y_pos(a0)`; the spring
-     slot runs after Tails_Jump so the values should be 14/15. Add
-     these to the `aux_state` dump for vfc=7615.
-   - **Confirm address mapping `loc_1E154 = 0x1E154`.** The disasm
-     `loc_<hex>` convention assumes ROM-position labels, but the
-     `s3k_trace_recorder.lua` PC values come from emulator runtime;
-     confirm the ROM at offset 0x1E172 actually decodes to
-     `subq.w #1, y_pos(a1)` (use RomOffsetFinder or a byte dump to
-     inspect the bytes at 0x1E170+).
+   - **`position_write` hits now record `(a1)` and `(a0)`.** The
+     `WRITE_DIAG.tails_xpos_record_hit` /
+     `WRITE_DIAG.tails_ypos_record_hit` callbacks in
+     `tools/bizhawk/s3k_trace_recorder.lua` now snapshot the M68K A0
+     and A1 registers at the moment the `event.onmemorywrite` callback
+     fires, and the per-frame `position_write` JSON event embeds them
+     as `"a1":"0x........"` and `"a0":"0x........"` per hit. With the
+     write-watch armed on Tails's address `(a1)` MUST be Tails when the
+     hook fires for an `<op> y_pos(a1)` instruction, so a Player_1
+     value would prove the hook is being attributed to the wrong
+     `(an)` mode (e.g. an `(a0)` write that aliased the Tails address).
+     Tracked in `TraceEvent.PositionWrite.Hit` as `int a1, int a0`
+     fields with a 2-arg compatibility constructor for pre-v6.11
+     fixtures.
+   - **New `solid_object_cont_entry` event.** A new
+     `event.onmemoryexecute` hook at PC=`0x1DF90` (the byte address of
+     the `SolidObject_cont` label, sonic3k.asm:41394 — verified by
+     walking ROM bytes from `loc_1DF88`'s `4A 28 0004` /
+     `tst.b render_flags(a0)` at `0x1DF88`, then `6A 00 0114` /
+     `bpl.w loc_1E0A2` at `0x1DF8C`, then
+     `30 29 0010` / `move.w x_pos(a1),d0` at `0x1DF90`) records the
+     `(a0)`/`(a1)`/d1/d2 register state along with the player's
+     `y_radius` and `default_y_radius` (read live from RAM at
+     `(a1) + 0x1E` and `(a1) + 0x16`), plus the player's pixel x/y and
+     status. Default capture window mirrors `position_write`
+     (`{4788-4792, 7600-7625}`); operators can override via the new
+     `OGGF_S3K_SOLID_CONT_RANGE` env var (single `<lo>-<hi>` window or
+     semicolon-separated multi-window). The aux schema advertises this
+     event via the new `solid_object_cont_entry_per_frame` extra; the
+     parser's `default ->` branch in `TraceEvent.parseEvent` tolerates
+     it as a `StateSnapshot` for fixtures that lack a typed model.
+
+   **ROM byte mapping verified.** Direct hex dump of
+   `Sonic and Knuckles & Sonic 3 (W) [!].gen` at offset `0x1E150`
+   confirms the `loc_1E154` block bytes match sonic3k.asm:41606-41624
+   exactly. Specifically:
+   - `0x1E154`: `5943` = `subq.w #4, d3`
+   - `0x1E16E`: `5369 0014` = **`subq.w #1, y_pos(a1)`**
+     (post-instruction PC = `0x1E172` ✓ matches the captured value)
+   - `0x1E17E`: `9769 0014` = **`sub.w d3, y_pos(a1)`**
+     (post-instruction PC = `0x1E182` ✓ matches the captured value)
+
+   So `0x1E172` and `0x1E182` are the post-fetch PCs immediately AFTER
+   the corresponding `<op> y_pos(a1)` instructions in the loc_1E154
+   push-up branch. The disasm-label-to-ROM-offset mapping is
+   straightforward (`loc_<hex>` = ROM byte offset); the captured PCs
+   include BizHawk's standard "PC after instruction completion" lag
+   for `event.onmemorywrite`. **Confirmed: 0x1E172 and 0x1E182 are
+   inside the loc_1E154 push-up branch.** Possibility (3) from prior
+   round (different routine at the disasm-equivalent address) is
+   **ruled out**.
+
+4. **Next-round actions (require BizHawk fixture regeneration):**
+
+   With v6.11-s3k armed, the next BizHawk re-record needs to set
+   `OGGF_S3K_TRACE_PROFILE=cnz1_fullrun`,
+   `OGGF_S3K_POSITION_WRITE_RANGE=4788-4792;7600-7625` (default), and
+   leave `OGGF_S3K_SOLID_CONT_RANGE` unset to take the default
+   `{4788-4792, 7600-7625}` window. The regenerated
+   `src/test/resources/traces/s3k/cnz/aux_state.jsonl.gz` should then
+   contain, at trace_frame=7614:
+
+   - `position_write` event with each of the three captured y_pos hits
+     now carrying `a1`/`a0` — confirming whether `(a1)` was Tails
+     ($FFB04A low word) or Sonic ($FFB000 low word) at write time, and
+     whether `(a0)` points to the Spring_Down slot or some other OST
+     slot.
+   - One or more `solid_object_cont_entry` events for the same frame
+     showing `(a0)`/`(a1)`, `y_radius`, `default_y_radius`, and the
+     pre-resolution `player_y` so the d3/d4 derivation in
+     `loc_1DFD6`+ can be reconstructed exactly.
+
+   If the regenerated trace shows `(a1)=$FFB04A` (Tails) at
+   `0x1E172`/`0x1E182` AND the recorded `y_radius`/`default_y_radius`
+   are 14/15, then the geometric contradiction stands and the next
+   investigation must look for a different `(a0)` solid object whose
+   y_pos differs from the Spring_Down's `0x04D0` (e.g. a different
+   slot reaching `loc_1E154` against Tails on the same frame).
+
+   If `(a1)=$FFB000` (Sonic) at one or both PCs, then the recorder's
+   address-watch is firing on an aliased Player_1 write and the prior
+   round's "captured PCs prove a top-lift on Tails" conclusion is
+   void; the F7614 +2 px residual must originate elsewhere.
+
    - **Object-loop ordering check.** A frame-by-frame walk of
      `Process_Sprites` order at vfc=7615 would isolate which slot
      touches `Player_2.y_pos` between Tails's `Tails_Modes` pass and
-     end-of-frame. The new `position_write` events make this
-     tractable (cross-reference the captured PCs against the
-     `object_state` slot dumps for the same frame).
+     end-of-frame. The new `position_write` `(a0)` field combined with
+     `solid_object_cont_entry`'s `(a0)` (and its `solid_x`/`solid_y`)
+     makes this tractable without an additional recorder revision.
 
 ### Removal Condition
 
