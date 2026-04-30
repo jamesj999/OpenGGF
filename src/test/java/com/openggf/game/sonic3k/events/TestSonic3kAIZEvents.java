@@ -647,6 +647,11 @@ public class TestSonic3kAIZEvents {
 
         // Direct entry: no pending fire sequence
         Sonic3kAIZEvents.resetGlobalState();
+        // ROM: LevelSelect_StartZone (sonic3k.asm:10222) and
+        // Load_Starpost_Settings (sonic3k.asm:61760) set Apparent_zone_and_act
+        // = $0001 for direct AIZ2 entry; the engine mirrors this through
+        // LevelManager.setApparentAct.
+        GameServices.level().setApparentAct(1);
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(1);  // Act 2 directly, no fire transition
 
@@ -661,6 +666,41 @@ public class TestSonic3kAIZEvents {
         // minX SHOULD be set to $F50 (skipping miniboss area)
         int minX = camera.getMinX() & 0xFFFF;
         assertEquals(0x0F50, minX, "Camera minX should be locked to $F50 for direct AIZ2 entry");
+    }
+
+    /**
+     * Reload-resume gating: when AIZ2 is loaded with no pending fire sequence
+     * but apparentAct == 0 (e.g., trace reload-resume after the AIZ1 fire
+     * transition was committed), SonicResize1 must NOT skip the miniboss
+     * path.  This is the regression caught by the AIZ trace at F7171:
+     * the old heuristic set enteredAsAct2 = true whenever
+     * pendingFireSequence == null, which flipped the engine into the
+     * post-miniboss branch even though ROM's Apparent_zone_and_act stayed
+     * at 0.  ROM cite: sonic3k.asm:39046-39058 (AIZ2_SonicResize1).
+     */
+    @Test
+    public void aiz2ReloadResumeWithApparentAct0DoesNotSkipMinibossPath() {
+        Camera camera = GameServices.camera();
+
+        Sonic3kAIZEvents.resetGlobalState();
+        // ROM: AIZ1_AIZ2_Transition (sonic3k.asm:104627) does not write
+        // Apparent_zone_and_act; it stays at AIZ1=$0000 across the
+        // continuation.  The engine's seamless transition coordinator
+        // preserves apparentAct, matching this.
+        GameServices.level().setApparentAct(0);
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1); // Act 2 reload-resume, no pending fire sequence
+
+        camera.setX((short) 0x0300);
+        camera.setY((short) 0x0200);
+        camera.setMinX((short) 0);
+
+        events.update(1, 0);
+
+        int minX = camera.getMinX() & 0xFFFF;
+        assertTrue(minX < 0x0F50,
+                "Camera minX must NOT be locked to miniboss area on reload-resume with apparentAct=0, was 0x"
+                        + Integer.toHexString(minX));
     }
 
     @Test

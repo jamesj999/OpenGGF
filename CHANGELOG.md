@@ -6,6 +6,41 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ apparent-act resize gating (S3K-only):**
+  `Sonic3kAIZEvents.updateAiz2SonicResize1` and
+  `updateAiz2KnuxResize1` now gate the miniboss-skip path on
+  `LevelManager.getApparentAct() == 1` (mirroring ROM
+  `Apparent_zone_and_act`) instead of the legacy `enteredAsAct2`
+  boolean, which was set to `true` on every reload-resume that
+  arrived without a queued fire continuation and therefore
+  flipped the engine into the post-miniboss branch even when ROM
+  kept `Apparent_zone_and_act = 0` (e.g., trace reload-resume
+  after the AIZ1 fire transition).  ROM cites:
+  `sonic3k.asm:39046-39058` (AIZ2_SonicResize1 apparent-act gate
+  `cmpi.w #1,(Apparent_zone_and_act).w`),
+  `sonic3k.asm:39157-39174` (AIZ2_KnuxResize1 same gate),
+  `sonic3k.asm:104627` (AIZ1_AIZ2_Transition does not write
+  `Apparent_zone_and_act`), `sonic3k.asm:10222`
+  (LevelSelect_StartZone sets it to `$0001`),
+  `sonic3k.asm:61760` (Load_Starpost_Settings restore).
+  Engine's `LevelManager.apparentAct` already mirrors ROM's
+  Apparent_zone_and_act lifecycle (preserved across the seamless
+  AIZ1 -> AIZ2 fire transition; written through
+  `loadZoneAndAct`/results-screen handoff for direct-entry
+  paths), so no new tracker was needed.  Regression coverage:
+  `TestSonic3kAIZEvents.aiz2ReloadResumeWithApparentAct0DoesNotSkipMinibossPath`
+  (new) and the existing
+  `aiz2FromFireTransitionDoesNotSkipMinibossPath` /
+  `aiz2DirectEntrySkipsMinibossPath` pair (the latter now
+  primes `setApparentAct(1)` to mirror ROM's
+  LevelSelect_StartZone). The AIZ trace first-error frame
+  remains at F7171 because of a now-exposed downstream
+  geometry/collision divergence in the AIZ2 miniboss-area
+  approach (engine Sonic stalls at `cameraX=0x0E15`,
+  `spriteX=0x0EB5`, never reaching the `0x0ED0` narrow
+  trigger) — documented as a follow-up blocker in
+  `docs/S3K_KNOWN_BUGS.md`. CNZ stays at F7614, MGZ at F0; S1
+  GHZ/MZ1, S2 EHZ unchanged.
 - **S3K AIZ F7171 centre-Y level-boundary flag added (S3K-only):** New
   `PhysicsFeatureSet.levelBoundaryUsesCentreY` flag (true for
   `SONIC_3K`, false for `SONIC_1`/`SONIC_2`) makes
