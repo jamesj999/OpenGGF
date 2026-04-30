@@ -1527,8 +1527,8 @@ public class SidekickCpuController {
     /**
      * ROM {@code Tails_Catch_Up_Flying} (sonic3k.asm:26474). Entered when
      * {@code Tails_CPU_routine == 2}. Waits on either (a) the sidekick's Ctrl_2
-     * A/B/C/START press, or (b) a 64-frame gate firing while Sonic is not
-     * object-controlled and not super. On trigger, teleports Tails to
+     * A/B/C/START press, or (b) a 64-frame gate firing while Sonic's
+     * object_control sign bit is clear and Sonic is not super. On trigger, teleports Tails to
      * (Sonic.x, Sonic.y - 0xC0), sets routine = 4, and enters flight AI.
      *
      * <p>Stubbed in Task 2; body lands in Task 4.
@@ -1541,9 +1541,10 @@ public class SidekickCpuController {
         if ((controller2Logical & (AbstractPlayableSprite.INPUT_JUMP | INPUT_START)) != 0) {
             trigger = true;
         } else {
-            // 64-frame gate, suppressed if Sonic is object-controlled (bit 7) or super.
+            // ROM checks Sonic's object_control with `bmi`, so only bit 7 suppresses
+            // the 64-frame catch-up warp (sonic3k.asm:26478-26488).
             if ((frameCounter & 0x3F) == 0
-                    && !leader.isObjectControlled()
+                    && (!leader.isObjectControlled() || leader.isObjectControlAllowsCpu())
                     && !leader.isSuperSonic()) {
                 trigger = true;
             }
