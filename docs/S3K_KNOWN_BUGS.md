@@ -32,6 +32,7 @@ Entries should include:
 14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
 15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (RESOLVED)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
 16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
+17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (OPEN — next AIZ blocker)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
 
 ---
 
@@ -1572,24 +1573,187 @@ Per `target/trace-reports/s3k_cnz1_context.txt` around F7613-F7615:
 
 ### Diagnosed Constraints
 
-This is the next blocker after F6304. The interaction is the CNZ spring
-sub=$12 (yellow horizontal spring) catching Tails as a sidekick. The
-2-pixel drift is consistent with either (a) the engine snapping to a
-different `top_y` than ROM, or (b) a one-frame offset in when the spring
-fires its `applyHorizontalSpring` vs ROM. Needs deeper investigation on
-the per-frame ordering of the spring's `onSolidContact` handoff and the
-sidekick CPU controller's velocity update.
+This is the next blocker after F6304. The recorded `tailsInteract` slot
+points at the horizontal spring at @0x0E38,0x04D0 (sub=$12), but the
+F7614 launch velocity `tails_y_speed=-0x0680` is **not** what
+`Obj_Spring_Horizontal`/`sub_23190` produces (sonic3k.asm:47891-47950
+preserves or zeroes y_vel based on spring subtype; it does not write
+`-$680`). The constant `-$680` is the **CNZ rotating-cylinder
+auto-jump release** velocity at `Obj_CNZCylinder` `loc_325B6`,
+sonic3k.asm:68066-68067:
 
-The recorder already emits enough data
-(`cpu_state_per_frame`, `interact_state_per_frame`,
-`sidekick_interact_object_per_frame`) for diagnosis without a schema
-change.
+```
+move.w y_vel(a0),y_vel(a1)
+addi.w #-$680,y_vel(a1)      ; cylinder.y_vel + (-$680)
+```
+
+So the F7614 transition is "Tails was riding a CNZ cylinder, the
+auto-jump trigger fires, cylinder releases Tails into a rolling jump
+with y_vel = cylinder.y_vel - $680". The recorded `tailsInteract`
+sub=$12 is just stale (Tails happened to be near a horizontal spring,
+but the active interaction was the cylinder). The 2-pixel y_pos drift
+must therefore be tracked through `Obj_CNZCylinder`'s ride/release
+math (sonic3k.asm:67985-68078) and `sub_324C0` (sonic3k.asm:67985+),
+not through `Obj_Spring_Horizontal`.
+
+Initial diagnostic trace (this round) verified:
+
+- F7613: ROM and engine agree. Tails airborne+rolling at (0x0E40,0x04B0),
+  x_speed=-0x00F8, y_speed=0.
+- F7614: ROM y=0x04B3, engine y=0x04B1. Both produce y_speed=-0x0680
+  (cylinder release), x_speed=-0x00F8 (preserved from leader).
+- Subsequent frames: 2-pixel y offset cascades for the rest of the
+  run (3,200 errors all derivative).
+
+The cylinder's per-frame y_pos write happens at sonic3k.asm:67056-67057
+(`move.w y_pos(a0),y_pos(a1) / subi.w #$18,y_pos(a1)`) on capture
+only — during ride, only x_pos is updated parametrically; y_pos drifts
+through the airborne/ground update path. The 2-pixel divergence likely
+sits in either:
+
+- The cylinder's release frame (loc_325B6): ROM resets y_radius to
+  $E (rolling, sonic3k.asm:68062), engine may be applying the rolling
+  radius after the y_pos snap rather than before, leaving a 1-px
+  ground-sensor mismatch on the next frame.
+- The cylinder's ride-state y_pos write (line 67056-67057, only on
+  initial capture) vs ride-state cylinder rotation: if the engine's
+  ride-frame y_pos applies the cylinder's `subi.w #$18,y_pos(a1)`
+  on every ride frame instead of only on capture, position would
+  drift cumulatively.
+
+The recorder already emits per-frame cylinder state and execution
+events (`cnz_cylinder_state_per_frame`, `cnz_cylinder_execution_per_frame`,
+v6.7-s3k schema) for diagnosis without a schema change. Use those
+events around F7610-F7614 to walk the cylinder's per-frame `(a2)`
+state byte and confirm whether the engine's `Sonic3kCnzCylinder*` ride
+implementation matches `sub_324C0` byte-for-byte.
 
 ### Removal Condition
 
 Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
-advances past F7614 with a ROM-cited fix
-(`Obj_Spring_Horizontal` / spring landing logic in `sub_23190` and
-`sub_2326C`, sonic3k.asm:47771+), preserves the comparison-only
-invariant, and does not regress S1 GHZ/MZ, S2 EHZ, or S3K AIZ
-baselines.
+advances past F7614 with a ROM-cited fix mapped to the
+`Obj_CNZCylinder` ride / release path
+(`sub_324C0` sonic3k.asm:67985+, `loc_325B6` sonic3k.asm:68058+),
+preserves the comparison-only invariant, and does not regress
+S1 GHZ/MZ, S2 EHZ, or S3K AIZ baselines.
+
+---
+
+## AIZ2 Trace F7127 — Tails Phantom Landing While Falling
+
+**Location:** Sidekick airborne→ground transition path (Tails following
+Sonic into the AIZ2 narrow corridor near `(0x0E42, 0x033B)`).
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`
+(`aiz1_to_hcz_fullrun` profile), first strict error at frame 7127,
+1,062 errors total.
+
+### Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first fails at F7127:
+
+```text
+tails_y mismatch (expected=0x033B, actual=0x0339)
+```
+
+Per `target/trace-reports/s3k_aiz1_context.txt` around F7126-F7136:
+
+- F7126: ROM and engine agree. Tails airborne+rolling at
+  `(0x0E3E, 0x0335)`, x_speed=0x046C, y_speed=0x05B0 (falling fast),
+  ground_vel=0x00A8, x_radius/y_radius standard.
+- F7127: ROM has `tails_y=0x033B, y_speed=0x05E8, air=1, ground_vel=0x00A8`
+  (Tails continues falling, gravity adds 0x38 to y_speed).
+  Engine has `tails_y=0x0339, y_speed=0x0000, air=0,
+  ground_vel=0x0484` (engine LANDS Tails, sets ground_vel=former
+  x_speed). The 2-pixel y mismatch and the air=0 vs air=1 are the
+  load-bearing divergences.
+- F7128-F7140: Engine Tails walks slowly along non-existent terrain
+  while ROM Tails keeps falling (y goes 0x033B→0x0340→0x0347→…,
+  y_speed gains 0x38 per frame as expected for free-fall under
+  gravity 0x38). The engine's phantom-landing y_pos drifts up by
+  ~1 px per ~2 frames as it tries to walk a flat surface.
+
+Diagnostic line at F7127:
+```
+tailsCpu status=06 obj=00 gv=00A8 xv=046C stat=06 input=7800
+        branch=fallthrough_sub20 ctrl2=0000/00 post=0000,0000,00
+tailsInteract slot=16 ptr=B4A0 obj=0002BF5A rtn=00 st=00 @0F85,0338
+        sub=00 onObj=false objP2=false active=true
+```
+
+The recorded `branch=fallthrough_sub20` is **not** the divergence
+itself; it is just the lua's diagnostic snapshot of which path the
+ROM's `Tails_CPU_Control` (sonic3k.asm:26696, `loc_13DD0`) entered for
+the *next* frame's input mask. At F7127, both ROM and engine see
+Tails_CPU's leader sample as "leader grounded, slow gv<$400, no
+on-object" → the d2 target gets `subi.w #$20,d2` (sonic3k.asm:26694),
+hence the lua's `fallthrough_sub20` label. This is purely an input
+mask, not a position write.
+
+The interact slot's `obj=0002BF5A` resolves to `Obj_AnimatedStillSprites`
+(sonic3k.asm:60394, `loc_2BF5A`) — a non-solid display object — so the
+engine's `tailsInteract.active=true` is a stale visual reference, not a
+solid-object collision.
+
+### Diagnosed Constraints
+
+The shape of the divergence (engine landing Tails 2 px above where ROM
+keeps falling, with engine `ground_vel = 0x0484` exactly equal to the
+prior `x_speed`) implies:
+
+1. The engine's terrain probe (`CollisionSystem.resolveAirCollision`,
+   `src/main/java/com/openggf/physics/CollisionSystem.java:476`) detects
+   ground at engine `y=0x0339` and runs the airborne-landing handler,
+   which sets `y_speed=0`, `ground_vel=x_speed`, clears `air`.
+2. ROM's equivalent (`Sonic_DoLevelCollision` / `Tails_TouchFloor`,
+   sonic3k.asm:24340-24369) finds *no* floor at the same y, so Tails
+   continues falling.
+
+This is at the AIZ2 reload-resume checkpoint (`cp aiz2_reload_resume
+z=0 a=1 ap=0 gm=12`) so the divergence is **inside AIZ2**'s level
+collision data after the AIZ1→AIZ2 seamless transition. Possible
+causes:
+
+- **AIZ2 collision-index off-by-one** in the engine's collision
+  array load (`Sonic3kLevel.loadChunksWithCollision` /
+  `decodeCollisionPointer`). A misaligned collision index for a
+  specific AIZ2 chunk would phantom-place a floor 2 px higher than
+  ROM at this exact location.
+- **Top-solid bit (`top_solid_bit` / `lrb_solid_bit`)** mismatch. AIZ2
+  uses dual-path collision (DUAL_PATH model, sonic3k.asm:41051+).
+  If the engine has Tails reading the wrong path (Primary vs
+  Secondary), a phantom floor could appear.
+- **Camera-bound AIZ2 reload offset** — prior bugs in this file
+  (F5497, F5736) document the AIZ2 reload checkpoint as fragile;
+  another stale bound or path table after the seamless transition
+  could plant a phantom floor pointer.
+- **Y-radius drift** — Tails airborne+rolling has y_radius=$0E (14)
+  in ROM (sonic3k.asm:68062 sets it on jump-from-cylinder; rolling
+  also sets y_radius=$0E in `Sonic_RollMode` / `Sonic_Roll_BalanceCheck`,
+  sonic3k.asm:24400+). If the engine's airborne ground-sensor probe
+  uses 16 (standing) instead of 14 (rolling) for the y-offset, the
+  sensor would hit ground 2 px earlier — exactly the observed shape.
+
+The ROM's airborne floor probe uses `y_radius` (current, 14 when
+rolling) to compute the sensor offset. Engine ground sensors (S3K
+DUAL_PATH, `Sensor.scan` callers) need to be audited for whether they
+read CURRENT y_radius or default y_radius for sidekick airborne probes.
+
+This entry intentionally does not propose a fix until the camera bound
+state, AIZ2 collision pointer table, and the airborne-rolling sensor
+y_offset are each independently verified against `target/trace-reports/`
+diagnostic output around F7126-F7128.
+
+### Removal Condition
+
+Remove this entry once `TestS3kAizTraceReplay#replayMatchesTrace`
+advances past F7127 with a ROM-cited fix mapped to one of the four
+candidates above. The fix must:
+
+- Cite ROM lines in `docs/skdisasm/sonic3k.asm` for any sensor /
+  collision / radius rule it changes (and cross-check `s2disasm` if
+  the rule is shared).
+- Preserve the comparison-only trace invariant (no per-frame writes
+  from CSV/aux into the engine in committed test code).
+- Keep S1 GHZ, S1 MZ1, S2 EHZ traces green.
+- If the fix is per-game, gate it through `PhysicsFeatureSet`, not
+  `if (gameId == GameId.S3K)`.
