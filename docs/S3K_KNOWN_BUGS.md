@@ -1198,3 +1198,70 @@ Removed.  `TestS3kCnzTraceReplay`'s first strict error advanced from F3649
 to F3845 (a 196-frame advance into a different, sidekick-physics divergence
 already on the open list).  Cross-game baselines unchanged: S1 GHZ green,
 S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6313.
+
+---
+
+## AIZ Trace F6920 -- Sloped Collapsing Platform Ride Sample Ordering
+
+**Location:** `Sonic3kCollapsingPlatformObjectInstance`,
+`ObjectManager.SolidContacts.processInlineRidingObject`.
+**ROM Reference:** `SolidObjSloped2` (sonic3k.asm:41727),
+`SolidObjectTopSloped2_1P` (sonic3k.asm:41840),
+`Obj_CollapsingPlatform` `sub_205B6` / `loc_205DE`
+(sonic3k.asm:44835, 44841).
+**Trace reference:** `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun`,
+first strict error at frame 6920.
+
+### Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` currently first fails at
+F6920:
+
+```text
+y mismatch (expected=0x0342, actual=0x0341)
+```
+
+The trace has Sonic riding AIZ collapsing platform object 0x04 at
+`x=0x0E70, y=0x0368`, ROM routine `loc_205DE`. X velocity, ground
+velocity, angle, status bits, and object latch all still match at the
+first failing frame, so this is a one-pixel vertical ride-surface ordering
+problem rather than a broad physics divergence.
+
+### Diagnosed Constraints
+
+The ROM's continued-riding path samples sloped solids in
+`SolidObjSloped2`: it computes `x_pos(player) - x_pos(object) + halfWidth`,
+shifts right by one, applies horizontal flip after the shift, reads the raw
+slope byte, writes `player.y_pos = object.y_pos - slope - y_radius`, then
+applies object X carry (`sub.w d2,x_pos(a1)`) (sonic3k.asm:41727-41744).
+S2's `MvSonicOnSlope` mirrors this order (s2.asm:35429), and S1's
+`SlopeObject2` does the same for its riding path
+(`docs/s1disasm/_incObj/53 Collapsing Floors.asm:221`).
+
+That cross-game order rules out a simple "sample previous X" patch in the
+shared rider path. A prior local experiment that sampled the previous X for
+S3K sloped riding fixed the F6920 shape but regressed AIZ F5904 from
+`y=0x0317` to `y=0x0316`, which means the signal is not "always previous X".
+Any real fix needs to preserve the shared S1/S2/S3K slope sample order above,
+or gate a proven S3K-specific divergence through `PhysicsFeatureSet`.
+
+The object-level ordering signal is real but not yet isolated enough to land:
+S3K `Obj_CollapsingPlatform` state `loc_205DE` calls `sub_205B6` before
+decrementing its stay timer and before releasing the rider
+(sonic3k.asm:44841), and `sub_205B6` itself calls
+`SolidObjectTopSloped2` before `Sprite_OnScreen_Test`
+(sonic3k.asm:44835). The engine currently keeps this object in
+`AUTO_AFTER_UPDATE` mode and compensates state-2 release timing with an extra
+stored tick. Moving it to the existing manual-checkpoint pattern used by S2
+collapsing platforms is the likely architecture direction, but that rewrite
+must re-home the standing-trigger, solid-stay, release, and F6255 off-screen
+delete sequencing together; changing only the slope sample or only the
+release tick is a trace-shaped hack.
+
+### Removal Condition
+
+Remove this entry once the AIZ collapsing platform uses a ROM-cited
+checkpoint order that keeps F5904 and F6920 both correct, leaves CNZ F5679 no
+worse, and does not regress S1 GHZ/MZ or S2 EHZ trace baselines. The trace
+comparison must remain comparison-only: no per-frame state hydration from
+trace data.
