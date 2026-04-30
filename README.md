@@ -211,8 +211,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame plus transition-floor SolidObjectTop decisions at the F5415 frame while
   keeping trace data comparison-only; S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
-  execution state around the F4508 frame plus focused Tails position-write hooks around F4790, with
-  recorder diagnostic locals compacted under BizHawk's NLua limit.
+  execution state around the F4508 frame plus regenerated focused Tails position-write hooks around
+  F4790, with recorder diagnostic locals compacted under BizHawk's NLua limit.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
   v6.5/v6.7 replay frontier from F3905 to F4790 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the
