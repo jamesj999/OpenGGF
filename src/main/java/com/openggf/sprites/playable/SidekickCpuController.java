@@ -882,11 +882,21 @@ public class SidekickCpuController {
         // Tails_InputAcceleration_Path consumes it for +$000C ground speed
         // (sonic3k.asm:27798-27805,28103-28122).
         //
-        // The S3K-only grace/airborne handoff is not a direct ROM branch; it is
-        // an engine object-order bridge for AIZ's transient push clear. Keep its
-        // older input sample so the existing F2722 airborne handoff remains one
-        // frame behind before normal follow steering resumes.
-        if (localGracePushBypass || airbornePushHandoff) {
+        // The S3K-only AIZ grace/airborne handoff is not a direct ROM branch;
+        // it is an engine object-order bridge for AIZ's transient push clear.
+        // Keep its older input sample while the delayed leader target is still
+        // on an object: SolidObjectTop can clear Status_OnObj/Status_InAir
+        // after the platform has already supplied the ROM handoff (sonic3k.asm:
+        // 26690-26705,41668-41679,41793-41818). Grounded grace with no
+        // leader-on-object status is the CNZ cylinder release shape instead;
+        // it preserves the already-loaded d1 Ctrl_2 word after
+        // Tails_CPU_Control, and the cylinder/P2 and path-acceleration paths
+        // consume that same sample (sonic3k.asm:26195-26208,67656-67672,
+        // 27798-27805,28103-28122).
+        boolean aizObjectOrderGrace = localGracePushBypass
+                && (leaderStatusOnObject
+                || (recordedStatus & AbstractPlayableSprite.STATUS_ON_OBJECT) != 0);
+        if (airbornePushHandoff || aizObjectOrderGrace) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
             inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
             inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
@@ -1015,7 +1025,7 @@ public class SidekickCpuController {
             skipPhysicsThisFrame = true;
         }
         updateNormalPushingGrace(currentPushing);
-        int reportedDelayFrames = (localGracePushBypass || airbornePushHandoff)
+        int reportedDelayFrames = (airbornePushHandoff || aizObjectOrderGrace)
                 ? ROM_PUSH_BYPASS_STAT_DELAY_FRAMES
                 : followStatDelayFrames;
         finishNormalStepDiagnostics(diagnostics, followBranch,
