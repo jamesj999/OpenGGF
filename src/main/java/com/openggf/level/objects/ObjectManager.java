@@ -4544,6 +4544,7 @@ public class ObjectManager {
             } else {
                 contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                         provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                        provider.getMonitorSolidObjectVerticalOffset(),
                         useStickyBuffer, instance, true);
             }
 
@@ -4771,6 +4772,7 @@ public class ObjectManager {
                     } else {
                         contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                                 provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                                provider.getMonitorSolidObjectVerticalOffset(),
                                 useStickyBuffer, instance, false);
                     }
                     if (contact != null && contact.standing()) {
@@ -4833,7 +4835,7 @@ public class ObjectManager {
 
                 // Multi-piece solids don't use monitor solidity
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, false);
+                        multiPiece.isTopSolidOnly(), false, 0, useStickyBuffer, instance, false);
                 if (contact != null && contact.standing()) {
                     return true;
                 }
@@ -5231,6 +5233,7 @@ public class ObjectManager {
                 } else {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                            provider.getMonitorSolidObjectVerticalOffset(),
                             useStickyBuffer, instance, true);
                 }
 
@@ -5317,7 +5320,7 @@ public class ObjectManager {
                 // Multi-piece solids don't use monitor solidity
                 // Pass piece index so sticky buffer only applies to the piece being ridden
                 SolidContact contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
-                        multiPiece.isTopSolidOnly(), false, useStickyBuffer, instance, i, true);
+                        multiPiece.isTopSolidOnly(), false, 0, useStickyBuffer, instance, i, true);
 
                 if (contact == null) {
                     continue;
@@ -5368,9 +5371,10 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
+                boolean monitorSolidity, int monitorVerticalOffset,
+                boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
-                    monitorSolidity, useStickyBuffer, instance, -1, apply);
+                    monitorSolidity, monitorVerticalOffset, useStickyBuffer, instance, -1, apply);
         }
 
         private boolean shouldUseSlopeForContact(ObjectInstance instance, SlopedSolidProvider sloped) {
@@ -5383,7 +5387,8 @@ public class ObjectManager {
          */
         private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
-                boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
+                boolean monitorSolidity, int monitorVerticalOffset,
+                boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
             int playerCenterX = player.getCentreX();
             int playerCenterY = player.getCentreY();
 
@@ -5399,8 +5404,10 @@ public class ObjectManager {
             int totalHeight = usesCurrentYRadiusOnlyForFullSolidBottomOverlap(player)
                     ? maxTop * 2
                     : maxTop + (monitorSolidity ? maxTop : halfHeight + getSolidTopYRadius(player));
-            // SPG: Monitors don't add +4 during vertical overlap check
-            int verticalOffset = monitorSolidity ? 0 : 4;
+            // SPG-style monitor callers keep zero here. S3K monitors branch into
+            // SolidObject_cont, which adds +4 before the d2/y_radius overlap check
+            // (docs/skdisasm/sonic3k.asm:40575-40576, 41429-41432).
+            int verticalOffset = monitorSolidity ? monitorVerticalOffset : 4;
             // ROM: s2.asm:35147 uses andi.w #$7FF,d0 to handle VDP Y-coordinate
             // wrapping near y_pos=0 (16-bit hardware arithmetic). The engine uses
             // 32-bit absolute coordinates with no wrapping, so the mask must NOT be
