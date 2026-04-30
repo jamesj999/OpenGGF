@@ -1092,6 +1092,24 @@ public class TestPlayableSpriteMovement {
                 assertTrue(mockSprite.getRolling(), "Rolling should work when not transitioning from crouch");
         }
 
+        @Test
+        public void testMoveLockFilteredDirectionStillPreventsRoll() throws Exception {
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setCrouching(false);
+                mockSprite.setGSpeed((short) 500);
+
+                setInputState(false, false, true, false, false);
+                setRawHorizontalInput(true, false);
+
+                Method rollMethod = PlayableSpriteMovement.class.getDeclaredMethod("doCheckStartRoll");
+                rollMethod.setAccessible(true);
+                rollMethod.invoke(manager);
+
+                assertFalse(mockSprite.getRolling(),
+                                "ROM roll entry reads held left/right even when move_lock filtered movement input");
+        }
+
         /**
          * Test that jumpPressed is reset when springing starts.
          */
@@ -1234,6 +1252,15 @@ public class TestPlayableSpriteMovement {
                 Field wasCrouchingField = PlayableSpriteMovement.class.getDeclaredField("wasCrouching");
                 wasCrouchingField.setAccessible(true);
                 wasCrouchingField.set(manager, wasCrouching);
+        }
+
+        private void setRawHorizontalInput(boolean left, boolean right) throws Exception {
+                Field rawLeftField = PlayableSpriteMovement.class.getDeclaredField("inputRawLeft");
+                Field rawRightField = PlayableSpriteMovement.class.getDeclaredField("inputRawRight");
+                rawLeftField.setAccessible(true);
+                rawRightField.setAccessible(true);
+                rawLeftField.set(manager, left);
+                rawRightField.set(manager, right);
         }
 
         // ========================================

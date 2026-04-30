@@ -1584,7 +1584,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int rollThreshold = (fs != null && fs.movingCrouchThreshold() > 0)
 				? fs.movingCrouchThreshold() : minStartRollSpeed;
 		if (Math.abs(gSpeed) < rollThreshold) return;
-		if (inputLeft || inputRight) return;
+		// ROM roll-entry tests the held controller bits directly, not the
+		// move_lock-filtered left/right movement inputs. This matters for CPU
+		// Tails when follow steering generates left+down while move_lock is
+		// active: S3K runs Tails_InputAcceleration_Path first, where move_lock
+		// skips acceleration, then sub_134BA still rejects rolling if
+		// Ctrl_2_held_logical has left/right (docs/skdisasm/sonic3k.asm:
+		// 25741-25747, 27796-27800, 25907-25910). S1/S2 use the same
+		// held-left/right roll gate (docs/s1disasm/_incObj/01 Sonic.asm:
+		// 899-902; docs/s2disasm/s2.asm:36960-36963,39939-39942).
+		if (inputLeft || inputRight || inputRawLeft || inputRawRight) return;
 		if (!inputDown) return;
 		if (sprite.getAir() || sprite.getRolling()) return;
 
