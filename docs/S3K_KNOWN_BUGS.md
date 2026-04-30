@@ -30,7 +30,8 @@ Entries should include:
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
 13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-resolved)
 14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
-15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (OPEN — needs Tails-side door SolidObjectFull approach-from-above gating)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
+15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (RESOLVED)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
+16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
 
 ---
 
@@ -1406,7 +1407,25 @@ regressions.
 
 ---
 
-## CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader
+## CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (RESOLVED)
+
+**Status:** Resolved on `bugfix/ai-cnz-f6304-airborne-latch` (2026-04-30).
+The first strict CNZ1 trace error advances from F6304 to F7614 (a
+1,310-frame jump). Cause was the engine's solid-contact on-screen gate
+(`AbstractObjectInstance.isWithinSolidContactBounds`) using a hardcoded
+16-px margin and the current frame's camera position. ROM
+`Render_Sprites` (sonic3k.asm:36336-36370) computes the on-screen flag
+from each object's `width_pixels` (CNZ horizontal door byte_30FCE at
+sonic3k.asm:66167 = `$20, $08`), and that flag is written at the END of
+frame N — `SolidObjectFull` on frame N+1 reads the prior frame's value.
+The fix exposes `getOnScreenHalfWidth()` on `AbstractObjectInstance`
+(default 16, overridden to ROM `width_pixels` for the door) and adds a
+`previousFrameCameraBounds` snapshot rolled forward in
+`updateCameraBounds` so the gate matches ROM's one-frame-old observation
+order. Cross-game safe: the gate is still feature-flagged on
+`PhysicsFeatureSet.solidObjectOffscreenGate` (S3K only); the new accessor
+just sharpens the per-object margin and the snapshot timing. Verified
+green: S1 GHZ, S1 MZ, S2 EHZ, S3K AIZ first-error stable at F6920.
 
 **Location:** `DoorObjectInstance` (sub=$80 horizontal-door variant),
 `ObjectManager.SolidContacts` (Tails-side `SolidObjectFull` resolution),
@@ -1516,9 +1535,61 @@ blocker.
 
 ### Removal Condition
 
+Removed on resolution: `TestS3kCnzTraceReplay#replayMatchesTrace` first
+strict error has advanced to F7614 (see the next entry for details).
+
+---
+
+## CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift
+
+**Location:** Sidekick spring-bounce vertical-landing path (Tails
+following Sonic into a CNZ spring at @0x0E38,0x04D0 sub=12).
+**Trace reference:** `src/test/resources/traces/s3k/cnz` (`cnz1_fullrun`),
+first strict error at frame 7614, 3,200 errors total.
+
+### Symptom
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first fails at F7614:
+
+```text
+tails_y mismatch (expected=0x04B3, actual=0x04B1)
+```
+
+Per `target/trace-reports/s3k_cnz1_context.txt` around F7613-F7615:
+
+- F7613: ROM and engine agree. Tails airborne + rolling, Sonic centred
+  at (0x0CBA,0x044A), Tails at (0x0E40,0x04B0), x_speed -0x00F8,
+  y_speed 0.
+- F7614: ROM has tails_y=0x04B3, y_speed=-0x0680 (Tails just hit the
+  spring and is now flying up); engine has tails_y=0x04B1, identical
+  y_speed. Two-pixel offset suggests the spring's top-landing snap
+  applied a 2-pixel different anchor between the engine and ROM, then
+  the launch velocity took over.
+- ROM diagnostic: `tailsInteract slot=17 ptr=B4EA obj=00023050 rtn=00
+  st=01 @0E38,04D0 sub=12 onObj=false`. The 2-pixel difference cascades
+  for the rest of the run (3,200 trace errors, all derivative of the
+  initial 2-px misalignment between engine and ROM frame timing).
+
+### Diagnosed Constraints
+
+This is the next blocker after F6304. The interaction is the CNZ spring
+sub=$12 (yellow horizontal spring) catching Tails as a sidekick. The
+2-pixel drift is consistent with either (a) the engine snapping to a
+different `top_y` than ROM, or (b) a one-frame offset in when the spring
+fires its `applyHorizontalSpring` vs ROM. Needs deeper investigation on
+the per-frame ordering of the spring's `onSolidContact` handoff and the
+sidekick CPU controller's velocity update.
+
+The recorder already emits enough data
+(`cpu_state_per_frame`, `interact_state_per_frame`,
+`sidekick_interact_object_per_frame`) for diagnosis without a schema
+change.
+
+### Removal Condition
+
 Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
-advances past F6304 with a fix that is ROM-cited (`loc_31034` /
-`SolidObjectFull` references), preserves the comparison-only invariant
-(no trace-data write-back into engine state in the per-frame test
-loop), keeps S1 GHZ/MZ traces and S2 EHZ trace at their current
-baselines, and does not regress S3K AIZ past F6920.
+advances past F7614 with a ROM-cited fix
+(`Obj_Spring_Horizontal` / spring landing logic in `sub_23190` and
+`sub_2326C`, sonic3k.asm:47771+), preserves the comparison-only
+invariant, and does not regress S1 GHZ/MZ, S2 EHZ, or S3K AIZ
+baselines.

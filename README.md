@@ -217,8 +217,10 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   sidekick CPU/control diagnostics around the F5087 blocker.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
-  velocity, and horizontal-spring airborne contact handling now advance the CNZ v6.5/v6.7 replay
-  frontier from F3905 to F6304 while preserving S1/S2 trace baselines.
+  velocity, horizontal-spring airborne contact handling, and the SolidObject on-screen gate now
+  reading per-object width_pixels against the previous frame's camera (matching ROM render_flags
+  bit 7 timing) advance the CNZ v6.5/v6.7 replay frontier from F3905 to F7614 while preserving
+  S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
   platform state-1→state-2 transition slope-sample skip now advance the AIZ v6.6/v6.9 replay

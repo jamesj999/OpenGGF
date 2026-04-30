@@ -206,6 +206,13 @@ public class TestS3kCnzDirectedTraversalHeadless {
         objectManager.addDynamicObject(floor);
 
         fixture.camera().updatePosition(true);
+        // Two frames: the first lets the engine's previous-frame on-screen
+        // gate catch up to the post-teleport camera (ROM mirrors this with
+        // render_flags bit 7 from the prior Render_Sprites pass — after a
+        // headless camera snap the engine's gate needs one frame to settle
+        // its previous-frame snapshot to the new viewport before
+        // SolidObjectFull will run on objects in the freshly-on-screen band).
+        fixture.stepFrame(false, false, false, false, false);
         fixture.stepFrame(false, false, false, false, false);
 
         assertTrue((boolean) getPrivateField(floor, "savedPreContactRolling"),
