@@ -6,6 +6,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K trace recorder v6.11-s3k — diagnostic capture for CNZ F7614
+  geometric contradiction (recorder + parser + doc):** Extended
+  `tools/bizhawk/s3k_trace_recorder.lua` so each `position_write` hit
+  also records the M68K `(a1)` / `(a0)` registers at the moment of the
+  byte-write callback (so consumers can disambiguate Player_1 vs
+  Player_2 targeting in `SolidObjectFull2_1P`-style routines that loop
+  both players back-to-back), and added a new `solid_object_cont_entry`
+  event hooked at PC=`0x1DF90` (sonic3k.asm:41394 — verified by hex
+  dump of `Sonic and Knuckles & Sonic 3 (W) [!].gen` walking
+  instruction bytes from `loc_1DF88`) capturing `(a0)`/`(a1)`/d1/d2
+  plus the player's `y_radius`/`default_y_radius` and pixel position so
+  the `loc_1DFD6+` / `loc_1E154` d3/d4 conditional can be reconstructed
+  post-hoc. Default capture window mirrors `position_write`
+  (`{4788-4792, 7600-7625}`); operators can override via
+  `OGGF_S3K_SOLID_CONT_RANGE`. ROM byte mapping confirmed: `0x1E172`
+  and `0x1E182` are the post-fetch PCs of `subq.w #1, y_pos(a1)`
+  (instruction at `0x1E16E`) and `sub.w d3, y_pos(a1)` (instruction at
+  `0x1E17E`) respectively — both inside the `loc_1E154` push-up
+  branch, so the prior round's "different routine at runtime PC"
+  hypothesis is ruled out. Java parser
+  (`TraceEvent.PositionWrite.Hit`) extended with `int a1, int a0`
+  fields plus a 2-arg compatibility constructor for pre-v6.11
+  fixtures; the new `solid_object_cont_entry` event currently parses
+  via the `default ->` `StateSnapshot` branch (no typed model needed
+  this round). CNZ trace fixture regeneration is deferred (no BizHawk
+  in this agent environment); next round records the trace with
+  v6.11-s3k armed and revisits the geometric contradiction with the
+  new `(a1)` / radii ground truth in hand.
+  `docs/S3K_KNOWN_BUGS.md` CNZ F7614 entry updated with the
+  instrumentation changes, the verified ROM byte mapping, and the
+  next-round acceptance criteria. Diagnostic-only; no engine state
+  hydrated from the trace; cross-game traces unaffected.
 - **S3K CNZ F7614 SolidObject top-lift attempt deferred (doc-only):**
   Round-2 investigation of the `loc_1E154` lift hypothesis from the
   v6.10-s3k recorder data updated `docs/S3K_KNOWN_BUGS.md` CNZ F7614
