@@ -1904,6 +1904,58 @@ write that has not yet been identified.
      `solid_object_cont_entry`'s `(a0)` (and its `solid_x`/`solid_y`)
      makes this tractable without an additional recorder revision.
 
+5. **"Tails despawn" hypothesis refuted (round 2026-04-30 followup).**
+   A round-launch user observation suggested ROM might have despawned
+   Tails by F7614 so that the captured `0x1E172`/`0x1E182` y_pos writes
+   were actually targeting Sonic via aliased addressing rather than
+   Tails. The recorded fixture does not support this:
+
+   - **Tails is alive and active across F7600-F7625.** The committed
+     `physics.csv.gz` rows for vfc=7601-7626 show
+     `sidekick_present=1`, `sidekick_routine=0x02`, `sidekick_status_byte`
+     transitioning `0x01` (grounded, facing-right) -> `0x07`
+     (grounded+InAir+Roll set by `Tails_Jump`) on vfc=7615 (F7614),
+     and `sidekick_x` / `sidekick_y` updating every frame from the
+     stationary `(0x0E47, 0x04B0)` pre-jump position into the post-jump
+     parabola `(0x0E3F, 0x04B3)` -> `(0x0E26, 0x047D)`. A despawned
+     Tails would have frozen coordinates and routine 0; the trace shows
+     the opposite. Captured by reading the gzip CSV with
+     `gameplay_frame_counter=0x1DB0..0x1DC8`, sidekick_* columns 22-36.
+   - **Watch addresses physically pin to Player_2.** The recorder
+     hooks `event.onmemorywrite` at byte addresses
+     `M68K_RAM_BASE + 0xB04A + 0x14` and `+ 0x15`
+     (`tools/bizhawk/s3k_trace_recorder.lua` lines 1534-1611, with
+     `OBJ_TABLE_START = 0xB000`, `OBJ_SLOT_SIZE = 0x4A`,
+     `SIDEKICK_BASE = 0xB04A`, `OFF_Y_POS = 0x14`). The watched bytes
+     `$FFFFB05E` / `$FFFFB05F` are exactly Player_2's `y_pos` field
+     (Player_2 base = `$FFFFB04A`, `y_pos` = offset $14). For
+     `subq.w #1, y_pos(a1)` at runtime PC `0x1E16E` to fire the hook,
+     `(a1) + 0x14` MUST equal `$FFFFB05E`, hence `(a1) = $FFFFB04A =
+     Player_2 = Tails`. The "(a1) was Sonic" path is not physically
+     reachable through this hook; a Sonic-targeted write of the same
+     instruction would write to `$FFFFB014` and silently miss the
+     watch entirely.
+   - **CSV column inventory used.** Columns 0,2-9,18-22,23-29,30-36 of
+     the CSV header (`frame, x, y, x_speed, y_speed, g_speed, angle,
+     air, rolling, gameplay_frame_counter, stand_on_obj, vblank_counter,
+     lag_counter, sidekick_present, sidekick_x, sidekick_y,
+     sidekick_x_speed, sidekick_y_speed, sidekick_g_speed,
+     sidekick_angle, sidekick_air, sidekick_rolling, sidekick_ground_mode,
+     sidekick_x_sub, sidekick_y_sub, sidekick_routine,
+     sidekick_status_byte, sidekick_stand_on_obj`) confirm the above.
+
+   So the despawn hypothesis is **ruled out** without needing the
+   v6.11-s3k regeneration. The geometric contradiction stands as
+   stated in step 2 above: with `(a1)` definitively Tails and the
+   captured y_pos values bracketing a `subq.w #1` then `sub.w d3`
+   pattern that only appears in `loc_1E154` (ROM bytes verified in
+   step 3), the ROM is reaching `loc_1E154` against Tails on F7614
+   for some `(a0)` whose geometry differs from the Spring_Down at
+   slot $11. The next-round actions in step 4 (regenerate fixture
+   with v6.11-s3k armed so the captured `(a0)` reveals which solid
+   object is the lifter) remain the unblocking step. No engine code
+   change is safe to land in this round; doc-only.
+
 ### Removal Condition
 
 Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
