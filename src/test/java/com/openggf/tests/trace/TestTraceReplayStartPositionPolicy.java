@@ -143,6 +143,30 @@ class TestTraceReplayStartPositionPolicy {
     }
 
     @Test
+    void s3kMgzGameplayTraceDrivesFrameZeroWhenSonicAlreadyMoved() throws Exception {
+        TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/mgz"));
+
+        assertEquals(0x18, trace.getFrame(0).xSpeed(),
+                "MGZ frame 0 is after the first input-driven Obj_Sonic update: "
+                        + "Sonic_Move accelerates right and MoveSprite_TestGravity applies gravity "
+                        + "(docs/skdisasm/sonic3k.asm:7888-7894, 21967-21985, 22350-22361, "
+                        + "22428-22443, 22858-22876, 36068-36077).");
+        assertEquals(1,
+                TraceReplayBootstrap.sidekickTitleCardPreludeFramesForTraceReplay(trace),
+                "S3K level setup runs Process_Sprites before the first LevelLoop frame, so Tails "
+                        + "must receive the native sidekick prelude that advances routine 0 to "
+                        + "routine 2 (docs/skdisasm/sonic3k.asm:7848-7853, 26085-26156).");
+        assertEquals(TraceReplayBootstrap.ReplayStartState.DEFAULT,
+                TraceReplayBootstrap.applyReplayStartStateForTraceReplay(trace, null),
+                "MGZ frame 0 is not a sidekick-only seed row. Sonic has already moved, so the "
+                        + "first BK2 input must still be stepped and compared natively.");
+        assertEquals(0,
+                TraceReplayBootstrap.preTraceOscillationFramesForTraceReplay(trace, -1),
+                "Driving frame 0 natively also runs the first OscillateNumDo pass in the normal "
+                        + "LevelLoop order (docs/skdisasm/sonic3k.asm:7888-7909).");
+    }
+
+    @Test
     void s3kGameplayTraceStillDoesNotSeedFrameZeroWhenObjectSnapshotsExist() throws Exception {
         TraceData trace = TraceData.load(Path.of("src/test/resources/traces/s3k/cnz"));
 
