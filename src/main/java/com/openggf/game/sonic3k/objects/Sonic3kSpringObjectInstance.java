@@ -212,6 +212,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * - Does NOT set airborne
      */
     private void applyHorizontalSpring(AbstractPlayableSprite player) {
+        boolean wasAirborne = player.getAir();
         int strength = getStrength(); // starts negative
         boolean flipped = isFlippedHorizontal();
 
@@ -229,11 +230,16 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setCentreXPreserveSubpixel((short) newX);
         player.setXSpeed((short) strength);
         player.setDirection(dir);
-        // sub_2326C reaches sub_23190 only after Status_InAir is clear.
-        // Engine landing handoff can arrive here before normal floor cleanup.
-        player.setAir(false);
-        player.setAngle((byte) 0);
-        player.setGroundMode(GroundMode.GROUND);
+        // ROM sub_23190 updates x_vel/ground_vel and lock state but never
+        // clears Status_InAir (docs/skdisasm/sonic3k.asm:47771-47815,
+        // 47829-47864). Keep airborne side contacts airborne; only the
+        // grounded/proactive sub_2326C path is known to arrive with Status_InAir
+        // already clear (sonic3k.asm:47957-48024).
+        if (!wasAirborne) {
+            player.setAir(false);
+            player.setAngle((byte) 0);
+            player.setGroundMode(GroundMode.GROUND);
+        }
 
         // ROM: Horizontal springs set gSpeed = x_vel, stay grounded
         player.setGSpeed((short) strength);
