@@ -168,6 +168,18 @@ public record TraceMetadata(
     }
 
     /**
+     * Whether the trace's aux_state.jsonl emits per-frame
+     * {@code position_write} events (the v6.8+ S3K recorder extension that
+     * captures M68K writes to the sidekick's {@code x_pos}/{@code y_pos}
+     * RAM words, with each hit's writing-instruction PC). Used to root-cause
+     * the CNZ1 trace F4790 Tails {@code x_pos} write.
+     */
+    public boolean hasPerFramePositionWrite() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("position_write_per_frame");
+    }
+
+    /**
      * Whether the trace emits per-frame {@code tails_cpu_normal_step} events,
      * the focused S3K Tails CPU normal-follow diagnostic for CNZ/AIZ frontiers.
      */

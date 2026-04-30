@@ -80,6 +80,10 @@ public final class TraceEventFormatter {
                             cage.p2State() & 0xFF);
             case TraceEvent.CageExecution execution ->
                     summariseCageExecution(execution);
+            case TraceEvent.VelocityWrite write ->
+                    summariseVelocityWrite(write);
+            case TraceEvent.PositionWrite write ->
+                    summarisePositionWrite(write);
             case TraceEvent.TailsCpuNormalStep step ->
                     String.format("tailsCpu status=%02X obj=%02X gv=%04X xv=%04X stat=%02X input=%04X branch=%s ctrl2=%04X/%02X post=%04X,%04X,%02X",
                             step.status() & 0xFF,
@@ -243,6 +247,46 @@ public final class TraceEventFormatter {
                 ? String.format(" +%d", execution.hits().size() - limit)
                 : "";
         return "cnzCylExec " + String.join("; ", parts) + suffix;
+    }
+
+    private static String summariseVelocityWrite(TraceEvent.VelocityWrite write) {
+        return summariseWriteHits("tailsVelWrite", write.xVelWrites(), write.yVelWrites());
+    }
+
+    private static String summarisePositionWrite(TraceEvent.PositionWrite write) {
+        return summariseWriteHits("tailsPosWrite", write.xPosWrites(), write.yPosWrites());
+    }
+
+    private static String summariseWriteHits(String label,
+                                             List<? extends Record> xHits,
+                                             List<? extends Record> yHits) {
+        List<String> parts = new ArrayList<>();
+        appendWriteHits(parts, "x", xHits);
+        appendWriteHits(parts, "y", yHits);
+        return parts.isEmpty() ? label + " empty" : label + " " + String.join(" ", parts);
+    }
+
+    private static void appendWriteHits(List<String> parts, String axis,
+                                        List<? extends Record> hits) {
+        int limit = Math.min(4, hits.size());
+        for (int i = 0; i < limit; i++) {
+            Record record = hits.get(i);
+            int pc;
+            int value;
+            if (record instanceof TraceEvent.VelocityWrite.Hit hit) {
+                pc = hit.pc();
+                value = hit.value();
+            } else if (record instanceof TraceEvent.PositionWrite.Hit hit) {
+                pc = hit.pc();
+                value = hit.value();
+            } else {
+                continue;
+            }
+            parts.add(String.format("%s@%05X=%04X", axis, pc, value & 0xFFFF));
+        }
+        if (hits.size() > limit) {
+            parts.add(String.format("%s+%d", axis, hits.size() - limit));
+        }
     }
 
     private static String nullableInt(Integer value) {

@@ -216,6 +216,34 @@ public sealed interface TraceEvent {
     }
 
     /**
+     * Per-frame summary of all M68K writes to a player's {@code x_pos} and
+     * {@code y_pos} RAM words, captured by the v6.8+ S3K recorder via
+     * {@code event.onmemorywrite} hooks. Each write records the M68K PC of
+     * the writing instruction plus the resulting word value.
+     *
+     * <p>Currently emitted only for Tails ({@code character = "tails"}).
+     * Used to root-cause the CNZ1 trace F4790 divergence where ROM Tails
+     * {@code x_pos} changes from $7F00 to $6125 after {@code sub_13ECA}'s
+     * CPU marker path, while the captured cylinder recapture path does not
+     * itself write {@code x_pos} (docs/skdisasm/sonic3k.asm:26800-26809,
+     * 67985-68012).
+     *
+     * <p><strong>Diagnostic only:</strong> never hydrated into engine state.
+     */
+    record PositionWrite(int frame, String character,
+                         java.util.List<Hit> xPosWrites,
+                         java.util.List<Hit> yPosWrites)
+        implements TraceEvent {
+
+        /**
+         * Single position-write hit. {@code pc} is the M68K program counter
+         * at the writing instruction; {@code value} is the full 16-bit word
+         * value of the position field after the write.
+         */
+        public record Hit(int pc, int value) {}
+    }
+
+    /**
      * Per-frame focused diagnostic for Tails CPU's normal follow step in S3K.
      * Captures the ROM state around {@code loc_13DD0}, the generated delayed
      * input word, and the state before/after {@code Tails_InputAcceleration_Path}
@@ -522,6 +550,29 @@ public sealed interface TraceEvent {
                         }
                     }
                     yield new VelocityWrite(frame, parseCharacter(node), xWrites, yWrites);
+                }
+                case "position_write" -> {
+                    java.util.List<PositionWrite.Hit> xWrites = new java.util.ArrayList<>();
+                    JsonNode xWritesNode = node.get("x_pos_writes");
+                    if (xWritesNode != null && xWritesNode.isArray()) {
+                        for (JsonNode h : xWritesNode) {
+                            xWrites.add(new PositionWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    java.util.List<PositionWrite.Hit> yWrites = new java.util.ArrayList<>();
+                    JsonNode yWritesNode = node.get("y_pos_writes");
+                    if (yWritesNode != null && yWritesNode.isArray()) {
+                        for (JsonNode h : yWritesNode) {
+                            yWrites.add(new PositionWrite.Hit(
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "val")
+                            ));
+                        }
+                    }
+                    yield new PositionWrite(frame, parseCharacter(node), xWrites, yWrites);
                 }
                 case "tails_cpu_normal_step" -> new TailsCpuNormalStep(
                     frame,

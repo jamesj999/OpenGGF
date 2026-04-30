@@ -87,6 +87,10 @@
 -- per-frame cylinder P1/P2 slot bytes plus P2 execution-hook hits around
 -- sub_324C0 and MvSonicOnPtfm (sonic3k.asm:67656-67672, 67985-68012,
 -- 68019-68038, 41667-41679). Diagnostic-only; no CSV schema change.
+-- v6.8-s3k adds focused Tails position-write hooks for CNZ F4790:
+-- M68K PCs writing Tails x_pos/y_pos around the CPU marker/cylinder
+-- recapture window (sonic3k.asm:26800-26809, 67985-68012).
+-- Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -368,6 +372,8 @@ local prev_cage_status = -1
 -- velocity_write event listing all writers in temporal order.
 local tails_xvel_writes = {}
 local tails_yvel_writes = {}
+local tails_xpos_writes = {}
+local tails_ypos_writes = {}
 local physics_file = nil
 local aux_file = nil
 
@@ -634,6 +640,8 @@ local function reset_recording_state()
     cage_hits = {}
     tails_xvel_writes = {}
     tails_yvel_writes = {}
+    tails_xpos_writes = {}
+    tails_ypos_writes = {}
     V65.normal_step = nil
     V66.boundary_state = nil
     V67_CNZ.cnz_cylinder_hits = {}
@@ -679,7 +687,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.7-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.8-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -691,6 +699,8 @@ local function write_metadata()
     -- pre/post visibility. v6.7 adds aiz_transition_floor_solid_per_frame
     -- for AIZ F5415 SolidObjectTop path diagnostics and CNZ cylinder
     -- state/execution diagnostics for the F4508 P2 x-position blocker.
+    -- v6.8 adds position_write_per_frame for the CNZ F4790 Tails x_pos
+    -- write-source blocker.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
@@ -698,7 +708,7 @@ local function write_metadata()
     if is_aiz_end_to_end_profile() then
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -1421,6 +1431,98 @@ local function flush_tails_velocity_writes()
         table.concat(x_parts, ","), table.concat(y_parts, ",")))
     tails_xvel_writes = {}
     tails_yvel_writes = {}
+end
+
+-- =====================================================================
+-- Tails position-write hooks (v6.8-s3k)
+-- =====================================================================
+-- Hooks every byte/word write to Tails's x_pos ($FFB05A-$FFB05B) and
+-- y_pos ($FFB05E-$FFB05F) RAM words. Each hit captures the writing M68K
+-- PC and the resulting word value. Diagnostic-only: this never feeds
+-- replay state. Added for CNZ1 F4790, where ROM Tails x_pos changes from
+-- $7F00 to $6125 after sub_13ECA's CPU marker write, but the currently
+-- captured CNZ cylinder sub_324C0 inactive path does not itself write
+-- x_pos (sonic3k.asm:26800-26809, 67985-68012).
+
+local TAILS_XPOS_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS       -- 0xFFB05A
+local TAILS_XPOS_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS + 1   -- 0xFFB05B
+local TAILS_YPOS_LO_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS       -- 0xFFB05E
+local TAILS_YPOS_HI_ADDR    = M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS + 1   -- 0xFFB05F
+
+local POSITION_WRITE_FRAME_START = 4788
+local POSITION_WRITE_FRAME_END = 4792
+
+local _pw_range = os.getenv("OGGF_S3K_POSITION_WRITE_RANGE")
+if _pw_range and _pw_range ~= "" then
+    local s, e = _pw_range:match("^(%d+)%-(%d+)$")
+    if s and e then
+        POSITION_WRITE_FRAME_START = tonumber(s)
+        POSITION_WRITE_FRAME_END = tonumber(e)
+    end
+end
+
+local function _pw_in_window()
+    return trace_frame >= POSITION_WRITE_FRAME_START
+        and trace_frame <= POSITION_WRITE_FRAME_END
+end
+
+local function tails_xpos_record_hit()
+    if not aux_file then return end
+    if not started then return end
+    if not _pw_in_window() then return end
+    local pc = emu.getregister("M68K PC") or 0
+    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
+    table.insert(tails_xpos_writes, {pc = pc, val = val})
+end
+
+local function tails_ypos_record_hit()
+    if not aux_file then return end
+    if not started then return end
+    if not _pw_in_window() then return end
+    local pc = emu.getregister("M68K PC") or 0
+    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
+    table.insert(tails_ypos_writes, {pc = pc, val = val})
+end
+
+local position_hooks_registered = false
+
+local function register_position_hooks()
+    if position_hooks_registered then return end
+    position_hooks_registered = true
+
+    event.onmemorywrite(tails_xpos_record_hit, TAILS_XPOS_LO_ADDR)
+    event.onmemorywrite(tails_xpos_record_hit, TAILS_XPOS_HI_ADDR)
+    event.onmemorywrite(tails_ypos_record_hit, TAILS_YPOS_LO_ADDR)
+    event.onmemorywrite(tails_ypos_record_hit, TAILS_YPOS_HI_ADDR)
+
+    print(string.format(
+        "Tails position-write hooks registered: x_pos=0x%04X-0x%04X, y_pos=0x%04X-0x%04X, frame_window=[%d,%d]",
+        TAILS_XPOS_LO_ADDR, TAILS_XPOS_HI_ADDR,
+        TAILS_YPOS_LO_ADDR, TAILS_YPOS_HI_ADDR,
+        POSITION_WRITE_FRAME_START, POSITION_WRITE_FRAME_END))
+end
+
+local function flush_tails_position_writes()
+    if not aux_file then return end
+    if #tails_xpos_writes == 0 and #tails_ypos_writes == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local x_parts = {}
+    for _, hit in ipairs(tails_xpos_writes) do
+        x_parts[#x_parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+    end
+    local y_parts = {}
+    for _, hit in ipairs(tails_ypos_writes) do
+        y_parts[#y_parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X"}', hit.pc, hit.val)
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"position_write","character":"tails",'
+            .. '"x_pos_writes":[%s],"y_pos_writes":[%s]}',
+        trace_frame, vfc,
+        table.concat(x_parts, ","), table.concat(y_parts, ",")))
+    tails_xpos_writes = {}
+    tails_ypos_writes = {}
 end
 
 -- =====================================================================
@@ -2573,6 +2675,11 @@ local function on_frame_end()
     -- the engine only reaches -$60 (a 1-frame phase shift).
     flush_tails_velocity_writes()
 
+    -- Focused Tails position-write hits (v6.8-s3k schema). The
+    -- onmemorywrite hooks capture the M68K PCs that write Tails x_pos/y_pos
+    -- around CNZ1 F4790's CPU marker/cylinder recapture window.
+    flush_tails_position_writes()
+
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
         write_state_snapshot()
     end
@@ -2601,7 +2708,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.7-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.8-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -2611,6 +2718,9 @@ register_cage_hooks()
 
 -- Register Tails velocity-write hooks. Same lifetime model as cage hooks.
 register_velocity_hooks()
+
+-- Register Tails position-write hooks. Same lifetime model as cage hooks.
+register_position_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
 V65.register_tails_cpu_normal_step_hooks()
