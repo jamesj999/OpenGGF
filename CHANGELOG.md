@@ -6,6 +6,21 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K trace fixture v6.11-s3k parser support:** the v6.11-s3k
+  Bizhawk recorder emits 64-bit hex strings for the `(a0)` / `(a1)`
+  M68K register fields in `position_write` events (e.g.
+  `"a1":"0xFFFFFFFFFFFFB04A"`) because Lua's `string.format("%08X",
+  reg)` under-truncates negative integers.  `TraceEvent.parseHexInt`
+  now uses `Long.parseUnsignedLong` and casts to `int`, so only the
+  low 32 bits (the M68K bus address) are kept.  Without this the
+  CNZ test fails to load the regenerated fixture with
+  `NumberFormatException: For input string: "FFFFFFFFFFFFB000"`.
+  The CNZ F7614 root-cause trace evidence captured by the new
+  `position_write a0/a1` fields and `solid_object_cont_entry`
+  events is documented in `docs/S3K_KNOWN_BUGS.md` (round
+  2026-04-30 followup): the lifter is `Obj_Spring_Horizontal`
+  (slot $11, d2=$0E), not `Obj_Spring_Down`, and ROM `loc_1E154`
+  with d3=1 produces the missing +2 px of the +3 px y_pos delta.
 - **S3K Tails LEVEL_BOUNDARY kill post-MoveSprite step (AIZ1 F4679,
   partial fix):**  When `PlayableSpriteMovement.modeAirborne` detects
   the CPU sidekick `LEVEL_BOUNDARY` kill (engine equivalent of ROM
