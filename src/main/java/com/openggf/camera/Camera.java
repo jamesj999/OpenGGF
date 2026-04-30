@@ -684,7 +684,7 @@ public class Camera {
 		if (after == before) {
 			return false;
 		}
-		sprite.setCentreY(after);
+		sprite.setCentreYPreserveSubpixel(after);
 		return true;
 	}
 
