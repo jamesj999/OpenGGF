@@ -1195,7 +1195,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     /** ROM: AIZ2_SonicResize2 — continuous maxY + miniboss spawn. */
     private void updateAiz2SonicResize2() {
-        int cameraX = camera().getX();
+        // ROM: Do_ResizeEvents runs *inside* DeformBgLayer (sonic3k.asm:38303-38316)
+        // AFTER MoveCameraX has committed the new Camera_X_pos. Use the predicted
+        // end-of-frame camera X so the maxY narrow at $ED0 fires on the same trace
+        // frame ROM does — otherwise Camera_max_Y_pos lags by one frame, delaying
+        // the sidekick kill-plane fire (Tails_Check_Screen_Boundaries at
+        // sonic3k.asm:28428-28443) when Tails crosses the post-narrow plane.
+        int cameraX = camera().previewNextX() & 0xFFFF;
         int maxY = AIZ2_DEFAULT_MAX_Y;
         if (cameraX >= AIZ2_SONIC_RESIZE2_BOSS_TRIGGER_X) {
             maxY = AIZ2_SONIC_RESIZE2_BOSS_MAX_Y;
