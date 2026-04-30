@@ -122,6 +122,22 @@ The JSON groups divergences by field and frame range. The context file is the fa
 the first non-cascading failure — open it, scroll to the first error, look at the side-by-side
 ROM-vs-engine columns.
 
+> **Diagnosing tip — "phantom landing" patterns.** When a sidekick lands on a
+> surface ROM keeps falling through (engine `tails_y_speed=0x0000` and
+> `tails_g_speed=<prior_x_speed>` while ROM `tails_y_speed` keeps advancing
+> by gravity), the fingerprint maps to one of two ROM paths: terrain
+> `Sonic_HitFloor` or solid-object `SolidObjectTopSloped2` /
+> `SolidObject_Landed`. Add a `setGSpeed` velocity-probe in
+> `AbstractPlayableSprite` that prints the call site and check the stack;
+> if it points into `ObjectManager.SolidContacts.resolveContactInternal`,
+> the offender is a solid object whose state machine has drifted from ROM
+> (e.g. AIZ F7127 was the AIZ collapsing platform stuck in
+> `state==2`/solid-stay forever; ROM's `loc_205DE` at sonic3k.asm:44850-44854
+> unconditionally promotes to the falling state when its post-fragment
+> timer underflows, but the engine had been gating that promotion on a
+> still-standing player). The correct fix touches the object's state
+> machine, not the collision sensor.
+
 ## Recording Or Refreshing A Trace
 
 The recorder workflow is game-specific at the BizHawk entrypoint. The emitted trace contract has

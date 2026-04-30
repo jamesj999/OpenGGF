@@ -373,6 +373,23 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 // fall away beneath them. ROM calls sub_205B6 before decrementing
                 // $38, so the normal solid pass must still see this object as solid.
                 if (releasePending) {
+                    // ROM loc_205DE (sonic3k.asm:44850-44854): when $38 decrements
+                    // to zero, the action pointer is unconditionally rewritten to
+                    // loc_20620 (the falling-fragments state) -- the player-release
+                    // calls that follow (sub_205FC at sonic3k.asm:44864) only
+                    // *additionally* unseat any player who happened to still be
+                    // standing on the platform that frame. ROM does NOT wait for
+                    // the next solid pass to see a standing contact before
+                    // transitioning, so neither should the engine. Without this
+                    // unconditional promotion, a platform whose player jumped or
+                    // walked off mid-stay (Sonic-jumps-off pattern) sits in
+                    // state==2 forever, and a later sidekick passing through the
+                    // X range gets phantom-landed (AIZ trace F7127 reproduces this
+                    // when Sonic flies past the platform around F6929-F6943,
+                    // collapse + solid-stay completes by ~F6984, and Tails arrives
+                    // at F7127 to find an indefinitely-solid invisible platform).
+                    state = 3;
+                    releasePending = false;
                     break;
                 }
                 solidStayTimer--;
