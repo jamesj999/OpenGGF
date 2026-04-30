@@ -234,8 +234,12 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   frontier from F4679 to F7171; the centre-Y flag is ROM-correct and gated S3K-only pending S1/S2
   trace re-validation; the AIZ2 SonicResize1 miniboss-skip now gates on
   `apparent_zone_and_act == 1` (matching ROM `sonic3k.asm:39053`/`:39164`) instead of the
-  heuristic `enteredAsAct2`, but a third blocker (Sonic stalls at `cameraX=0x0E15` and never
-  reaches the `cameraX>=0x0ED0` narrow trigger) holds F7171 for now.
+  heuristic `enteredAsAct2`, and the sidekick LEVEL_BOUNDARY kill now writes `y_vel = -0x700`
+  (matching ROM `Kill_Character` at `sonic3k.asm:21149`) so `MoveSprite_TestGravity2` produces
+  the ROM-correct in-frame upward shift after the kill. The fix correctly enters the kill state
+  at F7171 but surfaces an earlier AIZ1 right-boundary 32-px y-gap divergence at F4679 that
+  was previously masked. Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ
+  visualiser sessions match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.

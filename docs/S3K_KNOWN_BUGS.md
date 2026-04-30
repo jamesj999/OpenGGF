@@ -2380,3 +2380,68 @@ gating fix are both ROM-parity correct on their own; the AIZ
 trace first-error frame remains at F7171 and is now blocked by
 the geometry/collision divergence rather than by miss-gated
 resize state.
+
+### Update (2026-04-30) — Sonic stall resolved; F7171 advances to F4679
+
+Subsequent diagnostic re-capture confirmed Sonic now reaches
+the AIZ2 miniboss-area approach: at F7171 ROM cam=`0x0EDA` and
+the engine cam matches.  Sonic position at F7170 also matches
+ROM (`x = 0x0F74`).  The remaining F7171 mismatch was therefore
+not "Sonic stalls"; instead the diff was Tails-only:
+
+| Frame | tails_x | tails_y | xv | yv | gv | air |
+|-------|---------|---------|----|----|----|-----|
+| F7171 ROM | 0x0ECF | **0x0477** | **0x0000** | **-0x0700** | **0x0000** | **1** |
+| F7171 ENG (post-y_vel-fix) | 0x0ED0 | 0x047E | 0x0000 | 0x0000 | 0x0000 | 1 |
+
+Engine boundary check was firing the kill on the right frame,
+zeroing x_vel/g_vel and setting Status_InAir, but
+`SidekickCpuController.beginLevelBoundaryKill` was zeroing
+y_vel as well.  ROM Kill_Character at sonic3k.asm:21149 writes
+`y_vel = -$700`, not zero.  Because Tails_Check_Screen_Boundaries
+reaches Kill_Character via `jmp` (sonic3k.asm:28443) and
+Kill_Character ends with `rts` (sonic3k.asm:21159), control
+unwinds to the *caller of* Tails_Check_Screen_Boundaries —
+inside Tails_Stand_Path at sonic3k.asm:27526 the next call is
+`MoveSprite_TestGravity2`, which falls through to MoveSprite2
+(sonic3k.asm:36088,36053) and applies the freshly written
+`y_vel = -$700` to `y_pos`.  That is the 7-pixel y-up
+(`0x047E -> 0x0477`) recorded in the trace at F7171.
+
+`SidekickCpuController.beginLevelBoundaryKill` now sets
+`y_vel = -0x700` so the airborne movement manager's
+SpeedToPos-equivalent (`modeNormal -> sprite.move`) replicates
+the same in-frame 7-pixel shift.  The legacy
+`TestSidekickCpuDespawnParity#levelBoundaryKillRunsTailsTouchFloorBeforeDeathState`
+expected `y_vel = 0` post-kill; that expectation was calibrated
+to the bug, so it is updated to `y_vel = -0x700` with the new
+ROM cite block.
+
+The AIZ trace first-error advances from F7171 to F4679,
+inside the AIZ1→AIZ2 fire-transition window
+(`cp aiz1_intro_refresh_begin`, cam ~`0x2D90`).  At F4679 ROM
+records `tails_y = 0x040F` while the engine reports
+`tails_y = 0x042F`.  The trace's `tailsAizBoundary` aux row
+shows the boundary-check function clamped Tails to the right
+edge (`x = 0x2D90`, `x_vel = 0`, `g_vel = 0`) without entering
+the death path — so this is *not* a Kill_Character case; ROM
+end-of-frame `y_vel = 0` is consistent with a non-kill flow.
+Engine end-of-frame divergence (~32 px) at F4679 is therefore
+a separate AIZ1 fire-transition physics gap (likely tied to
+the bridge/tree object solidity or a secondary boundary
+clamp) that the F7171 fix surfaces but does not address.
+
+#### Residual blocker — AIZ1 bridge/boundary clamp divergence at F4679
+
+`tailsAizBoundary cam=2D8B/4000 y=02E0/02E0 tree=2D41,0402,010F,0198->2D41,0402,010F,0198 boundary=kill 2D41,0402,010F,0198->2D90,0402,0000,0198 post=2D95,040F,0000,0000`
+
+ROM clamps Tails to right edge then runs the post-clamp
+collision pipeline (MoveSprite_TestGravity2 -> MoveSprite2 ->
+Player_AnglePos -> Player_SlopeRepel -> ...) and lands at
+`(0x2D95, 0x040F)` with vels=(0,0).  Engine ends at
+`(0x2D??, 0x042F)`.  The 32-pixel y-down gap suggests the
+engine is missing the right-boundary clamp's x_vel/g_vel zero
+write or its post-clamp ground reattachment, allowing Tails
+to fall further with continued horizontal momentum off the
+collapsed bridge.  A separate diagnostic pass on the AIZ1
+fire-transition right-boundary clamp logic is required.

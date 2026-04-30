@@ -2003,15 +2003,37 @@ public class SidekickCpuController {
     }
 
     /**
-     * ROM Kill_Character (sonic3k.asm:21136) entry called from
-     * Player_LevelBound (sonic3k.asm:23172) when sidekick crosses bottom
-     * kill plane. ROM zeroes x_vel/ground_vel, sets y_vel=-$700, sets
-     * routine=6, and calls Player_TouchFloor before setting Status_InAir.
-     * The movement manager suppresses its generic air-gravity tail once this
-     * state is active, preserving the observable end-of-frame zero velocity.
+     * ROM Kill_Character (sonic3k.asm:21136-21159) entry reached from
+     * Tails_Check_Screen_Boundaries (sonic3k.asm:28442-28443
+     * `loc_14F56: jmp (Kill_Character).l`) when the sidekick crosses the
+     * bottom kill plane. ROM Kill_Character at sonic3k.asm:21148-21151
+     * writes:
      *
-     * Position is intentionally NOT warped this frame; ROM keeps Tails
-     * at post-physics position for one frame, then sub_13ECA writes the
+     * <pre>
+     *     bset    #Status_InAir,status(a0)
+     *     move.w  #-$700,y_vel(a0)
+     *     move.w  #0,x_vel(a0)
+     *     move.w  #0,ground_vel(a0)
+     * </pre>
+     *
+     * y_vel is set to {@code -$700}, NOT zero. Because Kill_Character was
+     * reached via {@code jmp} (not {@code jsr}), the {@code rts} at
+     * sonic3k.asm:21159 unwinds to Kill_Character's caller's caller — for
+     * Tails the relevant chain is Tails_Stand_Path
+     * (sonic3k.asm:27520-27526), so control falls through to
+     * {@code jsr (MoveSprite_TestGravity2).l} on line 27526.
+     * MoveSprite_TestGravity2 with Reverse_gravity_flag clear is just
+     * MoveSprite2 (sonic3k.asm:36088-36101) which applies the freshly
+     * written {@code y_vel = -$700} to {@code y_pos}, shifting Tails up by
+     * 7 pixels in the same frame. Trace AIZ F7171 records the post-shift
+     * state: {@code y_pos = $0477} (down 7 from $047E) with
+     * {@code y_vel = -$700} retained. Engine therefore preserves the
+     * negative y-velocity so the airborne movement manager's
+     * SpeedToPos-equivalent ({@code modeNormal} → {@code sprite.move})
+     * applies the same 7-pixel shift inside the kill frame.
+     *
+     * Position is intentionally NOT warped this frame; ROM keeps Tails at
+     * post-MoveSprite2 position for one frame, then sub_13ECA writes the
      * marker on Frame N+1 (see updateDeadFalling).
      */
     private void beginLevelBoundaryKill() {
@@ -2022,7 +2044,8 @@ public class SidekickCpuController {
         jumpingFlag = false;
         applyKillCharacterTouchFloorReset();
         sidekick.setXSpeed((short) 0);
-        sidekick.setYSpeed((short) 0);
+        // ROM Kill_Character (sonic3k.asm:21149) writes y_vel=-$700.
+        sidekick.setYSpeed((short) -0x700);
         sidekick.setGSpeed((short) 0);
         sidekick.setHurt(false);
         sidekick.setRollingJump(false);
