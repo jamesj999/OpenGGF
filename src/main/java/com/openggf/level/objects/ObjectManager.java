@@ -46,6 +46,7 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
@@ -4058,6 +4059,111 @@ public class ObjectManager {
                 Collections.newSetFromMap(new IdentityHashMap<>());
         private final Set<PlayableEntity> forceAirOnStaleSupportLoss =
                 Collections.newSetFromMap(new IdentityHashMap<>());
+        // Per-player set of solid object spawn keys whose ROM-equivalent
+        // "object standing-bit" (a0.d6) is currently SET on this player.
+        // ROM SolidObjectFull2_1P (sonic3k.asm:41066-41084):
+        //   - btst d6, status(a0)
+        //   - beq SolidObject_cont          ; bit CLEAR -> full collision check
+        //   - btst Status_InAir, status(a1)
+        //   - bne loc_1DCF0                 ; player airborne -> air-unseat
+        //   - ... MvSonicOnPtfm continued-ride path
+        //   loc_1DCF0: bclr Status_OnObj, status(a1); bset Status_InAir, status(a1);
+        //              bclr d6, status(a0); moveq #0,d4; rts
+        // The bit is SET by RideObject_SetRide (line 42022-42044) when a player
+        // first STANDS on the object, and stays set until the air-unseat path
+        // clears it.  That makes "spring kick + immediately airborne" route to
+        // air-unseat (no lift) on the next frame, while a fresh contact (with
+        // d6 clear) routes through SolidObject_cont where loc_1E154 fires.
+        //
+        // The engine's resolveContactInternal lift gate uses this latch to
+        // mirror that behaviour: when the bit is set on the player for this
+        // instance, skip the S3K-only loc_1E154 upward-velocity lift.
+        //
+        // Keyed by ObjectSpawn (or instance fallback) so the latch survives
+        // when an object slot is unloaded and reloaded.
+        private final Map<PlayableEntity, Set<Object>> objectStandingBitSet =
+                new IdentityHashMap<>(2);
+        // Per-frame snapshot of bits cleared during this frame's
+        // processInlineObjectForPlayer. resolveContactInternal's lift gate
+        // consults this AFTER the bit was cleared so it reads the value ROM
+        // would have seen at SolidObjectFull2_1P entry. Cleared per-frame
+        // (beginInlineFrame).
+        private final Map<PlayableEntity, Set<Object>> objectStandingBitSnapshot =
+                new IdentityHashMap<>(2);
+
+        private static Object airUnseatLatchKeyFor(ObjectInstance instance) {
+            if (instance == null) {
+                return null;
+            }
+            ObjectSpawn spawn = instance.getSpawn();
+            // Spawn record is stable across slot reload; fall back to the
+            // instance reference for dynamic / spawn-less objects.
+            return spawn != null ? spawn : instance;
+        }
+
+        private void setObjectStandingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            if (key == null) {
+                return;
+            }
+            objectStandingBitSet
+                    .computeIfAbsent(player, p -> new HashSet<>())
+                    .add(key);
+        }
+
+        private boolean hasObjectStandingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return false;
+            }
+            Set<Object> set = objectStandingBitSet.get(player);
+            if (set == null) {
+                return false;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            return key != null && set.contains(key);
+        }
+
+        private void clearObjectStandingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return;
+            }
+            Set<Object> set = objectStandingBitSet.get(player);
+            if (set == null) {
+                return;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            if (key != null) {
+                set.remove(key);
+            }
+        }
+
+        private void snapshotObjectStandingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            if (key == null) {
+                return;
+            }
+            objectStandingBitSnapshot
+                    .computeIfAbsent(player, p -> new HashSet<>())
+                    .add(key);
+        }
+
+        private boolean wasObjectStandingBitSetThisFrame(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return false;
+            }
+            Set<Object> set = objectStandingBitSnapshot.get(player);
+            if (set == null) {
+                return false;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            return key != null && set.contains(key);
+        }
         private PlayableEntity currentPlayer; // set during update() for internal use
 
         // ROM: objects like Obj_AIZLRZEMZRock save player velocity/anim BEFORE calling
@@ -4095,6 +4201,8 @@ public class ObjectManager {
             ridingStates.clear();
             latestStandingSnapshots.clear();
             latestHeadroomSnapshots.clear();
+            objectStandingBitSet.clear();
+            objectStandingBitSnapshot.clear();
         }
 
         private void cacheStandingSnapshot(PlayableEntity player, PlayerStandingState snapshot) {
@@ -4246,6 +4354,12 @@ public class ObjectManager {
             this.postMovement = postMovement;
             frameCounter++;
             inlineSupportedPlayers.clear();
+            // objectStandingBitSet intentionally not cleared per-frame: ROM's
+            // a0.d6 standing-bit persists across frames until SolidObjectFull2_1P
+            // explicitly clears it via loc_1DCF0.
+            // objectStandingBitSnapshot IS cleared per-frame: it caches the
+            // pre-clear value of the bit for the lift gate to read.
+            objectStandingBitSnapshot.clear();
         }
 
         void finishInlineFrame(PlayableEntity player, List<? extends PlayableEntity> sidekicks) {
@@ -4405,10 +4519,34 @@ public class ObjectManager {
 
             if (ridingObject != null && player.getAir()
                     && !carriesAirborneRiderAfterExitPlatform(ridingObject)) {
+                // ROM SolidObjectFull2_1P air-unseat path (sonic3k.asm:41070-41084
+                // loc_1DCF0): when the object's a0.d6 standing-bit is still
+                // set and Status_InAir is set on the player, the helper
+                // clears the bit and returns d4=0 WITHOUT falling into
+                // SolidObject_cont, so loc_1E154's position lift never fires.
+                // The bit clear (loc_1DCF0 bclr d6, status(a0)) is per-object
+                // and only fires when the SPRING's own SolidObjectFull2_1P
+                // call runs (`instance == ridingObject`).  Other objects'
+                // SolidObject calls leave this spring's d6 untouched, so we
+                // must NOT clear the bit when a non-riding-object instance
+                // happens to be processed first.
                 ridingStates.remove(player);
                 ridingObject = null;
                 ridingPieceIndex = -1;
                 player.setOnObject(false);
+            }
+            // ROM loc_1DCF0 bit clear (sonic3k.asm:41079-41084) runs when the
+            // OBJECT's own SolidObjectFull2_1P call sees its a0.d6 set and the
+            // player's Status_InAir set.  Snapshot the bit BEFORE clearing so
+            // the resolveContactInternal lift gate (which checks
+            // hasObjectStandingBit on this same instance) sees the pre-clear
+            // state for this frame.  The snapshot lives on a per-frame map
+            // (objectStandingBitSnapshot) keyed by spawn so the lift gate can
+            // consult it after the bit-clear has propagated.
+            if (instance != null && player.getAir()
+                    && hasObjectStandingBit(player, instance)) {
+                snapshotObjectStandingBit(player, instance);
+                clearObjectStandingBit(player, instance);
             }
 
             if (instance == ridingObject && ridingObject instanceof SolidObjectProvider provider) {
@@ -4446,6 +4584,7 @@ public class ObjectManager {
                 if (result.standing()) {
                     ridingStates.put(player, new RidingState(
                             instance, result.ridingX(), result.ridingY(), result.pieceIndex()));
+                    setObjectStandingBit(player, instance);
                     inlineSupportedPlayers.add(player);
                 }
                 return result.aggregateContact();
@@ -4563,6 +4702,7 @@ public class ObjectManager {
             }
             if (contact.standing()) {
                 ridingStates.put(player, new RidingState(instance, instance.getX(), instance.getY(), -1));
+                setObjectStandingBit(player, instance);
                 inlineSupportedPlayers.add(player);
             }
             return contact;
@@ -4625,6 +4765,7 @@ public class ObjectManager {
                 // standing at last frame's y_pos.
                 if (provider.suppressSlopeSampleThisFrame(player)) {
                     ridingStates.put(player, new RidingState(instance, currentX, currentY, ridingPieceIndex));
+                    setObjectStandingBit(player, instance);
                     inlineSupportedPlayers.add(player);
                     return SolidContact.STANDING;
                 }
@@ -4640,6 +4781,7 @@ public class ObjectManager {
                 int newY = newCentreY - (player.getHeight() / 2);
                 player.setY((short) newY);
                 ridingStates.put(player, new RidingState(instance, currentX, currentY, ridingPieceIndex));
+                setObjectStandingBit(player, instance);
 
                 if (provider.dropOnFloor()) {
                     TerrainCheckResult floorCheck = ObjectTerrainUtils.checkFloorDist(
@@ -4966,6 +5108,9 @@ public class ObjectManager {
         void update(PlayableEntity player, boolean postMovement) {
             this.postMovement = postMovement;
             frameCounter++;
+            // objectStandingBitSet intentionally not cleared per-frame: see
+            // beginInlineFrame note. ROM a0.d6 persists across frames.
+            objectStandingBitSnapshot.clear();
             if (player == null || objectManager == null || player.getDead()) {
                 if (player != null) ridingStates.remove(player);
                 return;
@@ -5075,6 +5220,7 @@ public class ObjectManager {
                     ridingY = currentY;
                     // Update state with new tracking position
                     ridingStates.put(player, new RidingState(ridingObject, ridingX, ridingY, ridingPieceIndex));
+                    setObjectStandingBit(player, ridingObject);
 
                     // ROM: DropOnFloor (s2.asm:35810) — after repositioning the player
                     // on a platform, check if terrain is at or above the player's feet.
@@ -5262,6 +5408,7 @@ public class ObjectManager {
 
             if (nextRidingObject != null) {
                 ridingStates.put(player, new RidingState(nextRidingObject, nextRidingX, nextRidingY, nextRidingPieceIndex));
+                setObjectStandingBit(player, nextRidingObject);
             } else {
                 ridingStates.remove(player);
             }
@@ -5926,7 +6073,47 @@ public class ObjectManager {
             }
 
             if (distY >= 0 || (sticky && distY >= -16)) {
-                if (player.getYSpeed() < 0) {
+                boolean upwardVelocity = player.getYSpeed() < 0;
+                // ROM divergence (S3K loc_1E154 vs S1/S2 Solid_Landed),
+                // gated by
+                // PhysicsFeatureSet#solidObjectTopBranchAlwaysLiftsOnUpwardVelocity:
+                //   S3K loc_1E154 (sonic3k.asm:41606-41632) writes the position
+                //   lift (subq.w #1, y_pos(a1) at 41617; sub.w d3, y_pos(a1) at
+                //   41624) BEFORE testing tst.w y_vel(a1) / bmi.s loc_1E198 at
+                //   41625-41626.  When y_vel < 0 it skips RideObject_SetRide
+                //   and returns d4=0 (no contact), but the lift has already
+                //   been applied.  CNZ trace F7614 exercises this when
+                //   Tails_Jump (sonic3k.asm:28519+) sets y_vel=-$680 on the
+                //   same frame Obj_Spring_Horizontal (sonic3k.asm:47771+)
+                //   reaches loc_1E154 with d3=1 against Tails.
+                //   S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278)
+                //   and S2 SolidObject_Landed (s2.asm:35379-35380) test y_vel
+                //   FIRST and branch to SolidObject_Miss with no lift.
+                //
+                // ROM only reaches loc_1E154 via SolidObjectFull2_1P's
+                // SolidObject_cont branch when the object's a0.d6 standing-bit
+                // is CLEAR (sonic3k.asm:41066-41067 btst d6 / beq cont).  When
+                // the bit is still set from a previous landing and the player
+                // is now airborne (e.g. AIZ F2090 yellow up-spring kick:
+                // sub_22F98 sets Status_InAir at sonic3k.asm:47723 but does
+                // not touch a0.d6), the next frame's SolidObjectFull2_1P
+                // routes through loc_1DCF0 (sonic3k.asm:41079-41084) which
+                // clears d6 and returns d4=0 without ever reaching
+                // loc_1E154.  The engine mirrors that ROM bit via
+                // objectStandingBitSet (set by RideObject_SetRide-equivalent
+                // STANDING contacts, cleared at the top of
+                // processInlineObjectForPlayer when the object's own pass
+                // sees the bit set + air), and snapshots the pre-clear value
+                // into objectStandingBitSnapshot so the gate below observes
+                // ROM's "bit was set at routine entry" semantics.
+                boolean objectStandingBitWasSet =
+                        wasObjectStandingBitSetThisFrame(player, instance)
+                                || hasObjectStandingBit(player, instance);
+                boolean s3kAlwaysLifts =
+                        !topSolidOnly
+                                && topBranchAlwaysLiftsOnUpwardVelocity(player)
+                                && !objectStandingBitWasSet;
+                if (upwardVelocity && !s3kAlwaysLifts) {
                     return null;
                 }
 
@@ -5961,6 +6148,14 @@ public class ObjectManager {
                 // SolidObjectTop uses full d1 (same as the initial collision box we
                 // already passed), so no further width check is needed there. Sticky
                 // riders follow the MvSonicOnPtfm / MvSonicOnSlope path instead.
+                //
+                // ROM: loc_1E154 (sonic3k.asm:41608-41616) re-checks the X
+                // overlap against width_pixels(a0) before applying the lift,
+                // so the upward-velocity-and-lift S3K path also needs this
+                // narrow gate.  Sticky riders skip this on the standing branch
+                // because ExitPlatform's full collision width is already in
+                // effect; for the upward-velocity branch the player is by
+                // definition not standing on the object so sticky doesn't apply.
                 if (useTopLandingWidth && !sticky && !topSolidOnly
                         && !isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                     return null;
@@ -5970,6 +6165,18 @@ public class ObjectManager {
                     int newCenterY = playerCenterY - distY + 3;
                     int newY = newCenterY - (player.getHeight() / 2);
                     player.setY((short) newY);
+                    if (upwardVelocity) {
+                        // ROM: loc_1E154 path with tst.w y_vel(a1) / bmi.s
+                        // loc_1E198 (sonic3k.asm:41625-41626) -> moveq #0,d4 /
+                        // rts at 41636-41637.  The position lift fires but
+                        // RideObject_SetRide does not, so we leave angle,
+                        // y_vel, ground_vel, on_object, in_air, rolling, and
+                        // ground_mode untouched.  Reflect this with a "no
+                        // contact" return so the SolidContact pipeline (push
+                        // bookkeeping, riding state, latched solid object)
+                        // matches ROM's d4=0 outcome.
+                        return null;
+                    }
                     // ROM: Solid_ResetFloor / PlatformObject loc_74DC unconditionally
                     // sets angle, ySpeed, and gSpeed for ALL platform landings.
                     player.setAngle((byte) 0);
@@ -5984,6 +6191,20 @@ public class ObjectManager {
                     }
                     // ROM: bset #status.player.on_object (s2.asm:35739)
                     player.setOnObject(true);
+                    // ROM: RideObject_SetRide also sets the object's
+                    // a0.d6 standing-bit (sonic3k.asm:42034 bset d6,
+                    // status(a0)). Mirror that here so a subsequent
+                    // air-unseat correctly routes through the no-lift
+                    // path on the next frame.
+                    if (instance != null) {
+                        setObjectStandingBit(player, instance);
+                    }
+                } else if (upwardVelocity) {
+                    // apply=false geometry probe (collision sensor / debug):
+                    // ROM returns d4=0 (no contact) when y_vel < 0 in the lift
+                    // branch.  Surface that as null to keep probe semantics
+                    // consistent with the apply=true branch above.
+                    return null;
                 }
                 return SolidContact.STANDING;
             }
@@ -6136,6 +6357,21 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.solidObjectOffscreenGate();
+        }
+
+        /**
+         * ROM: {@code loc_1E154} (sonic3k.asm:41606-41632) writes the position
+         * lift before testing {@code y_vel}; {@code Solid_Landed} /
+         * {@code SolidObject_Landed} (S1/S2) test {@code y_vel} first and bail
+         * without lifting. Gated via
+         * {@link PhysicsFeatureSet#solidObjectTopBranchAlwaysLiftsOnUpwardVelocity()}.
+         */
+        private boolean topBranchAlwaysLiftsOnUpwardVelocity(PlayableEntity player) {
+            if (player == null) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
+            return featureSet != null && featureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity();
         }
 
         private boolean preservesEdgeSubpixelMotion(ObjectInstance instance) {

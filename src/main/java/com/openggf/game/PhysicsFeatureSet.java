@@ -419,7 +419,38 @@ public record PhysicsFeatureSet(
          * and the flag flipped to {@code true} for all three games (ROM
          * parity for S1 and S2 is already established by the cites above).
          */
-        boolean levelBoundaryUsesCentreY
+        boolean levelBoundaryUsesCentreY,
+        /**
+         * Whether the {@code SolidObject_cont} top branch (engine
+         * {@code resolveContactInternal} top path, distY in [0, $F]) applies
+         * its position lift even when {@code y_vel < 0} (player moving
+         * upward), and only suppresses the standing/landing state effects.
+         *
+         * <p>S3K: {@code true}. ROM {@code loc_1E154}
+         * (sonic3k.asm:41606-41632) writes {@code subq.w #1, y_pos(a1)} and
+         * {@code sub.w d3, y_pos(a1)} unconditionally before testing
+         * {@code tst.w y_vel(a1) / bmi.s loc_1E198} (line 41625-41626).
+         * When {@code y_vel < 0} ROM skips {@code RideObject_SetRide} and
+         * returns the "no contact" code (d4=0), but the position lift has
+         * already been applied. CNZ trace F7614 exercises this exact case:
+         * Tails has just executed {@code Tails_Jump} (sonic3k.asm:28519+)
+         * which sets {@code y_vel = -$680} on the same frame
+         * {@code Obj_Spring_Horizontal}'s {@code SolidObjectFull2_1P} call
+         * reaches {@code loc_1E154} for the spring at @0x0E38,0x04D0 with
+         * {@code d1=$13, d2=$E, d3=1}; the +2 px lift the ROM produces
+         * (combined with {@code Tails_Jump}'s rolling-radius +1) is the
+         * difference between ROM y=0x04B3 and engine y=0x04B1.
+         *
+         * <p>S1/S2: {@code false}. ROM {@code Solid_Landed}
+         * (s1disasm/_incObj/sub SolidObject.asm:267-286) and
+         * {@code SolidObject_Landed} (s2.asm:35368-35388) both test
+         * {@code y_vel} BEFORE writing the lift: {@code tst.w y_vel(a1) /
+         * bmi.s SolidObject_Miss} (s2.asm:35379-35380). When upward, they
+         * return "no contact" without applying any position change. The
+         * engine's existing {@code y_speed < 0 -> return null} matches S1/S2
+         * exactly.
+         */
+        boolean solidObjectTopBranchAlwaysLiftsOnUpwardVelocity
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -496,7 +527,8 @@ public record PhysicsFeatureSet(
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S1 has no Tails CPU */,
             false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */,
-            false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */);
+            false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */,
+            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -516,7 +548,8 @@ public record PhysicsFeatureSet(
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S2 TailsCPU_Normal writes Ctrl_2_Logical without clearing velocity (s2.asm:38943-39027) */,
             false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */,
-            false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */);
+            false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */,
+            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -540,7 +573,8 @@ public record PhysicsFeatureSet(
             true /* sidekickClearsStalePushVelocityBeforeGroundMove: S3K ground projection/push path clears ground_vel while preserving collision x_vel (sonic3k.asm:27947-28017) */,
             true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 -- see PhysicsFeatureSet javadoc for AIZ F4768 cite */,
-            true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */);
+            true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */,
+            true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

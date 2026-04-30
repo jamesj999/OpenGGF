@@ -6,6 +6,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K CNZ F7614 spring `loc_1E154` upward-velocity lift fix:** the
+  engine's `ObjectManager.SolidContacts.resolveContactInternal` top-
+  branch (`distY` in `[0, $F]`) was returning null whenever
+  `getYSpeed() < 0`, mirroring S1/S2 `Solid_Landed`/`SolidObject_Landed`
+  but skipping the S3K-specific position lift that ROM `loc_1E154`
+  (sonic3k.asm:41606-41632) writes BEFORE its
+  `tst.w y_vel(a1) / bmi.s loc_1E198` check.  Added
+  `PhysicsFeatureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity`
+  (true on S3K, false on S1/S2).  When the flag is set the engine
+  applies the lift (`+(3 - distY)` px to `y_pos(a1)`) on upward-velocity
+  contacts and returns `null` (no STANDING bookkeeping), matching ROM's
+  d4=0 outcome.  CNZ trace F7614 (Tails_Jump on
+  `Obj_Spring_Horizontal` at `(0x0E38, 0x04D0)` with `d3=1`) now applies
+  the missing +2 px (combined with `Tails_Jump`'s rolling-radius +1 the
+  total +3 px matches ROM exactly).
+  To preserve ROM's "lift only on a fresh contact" semantics
+  (`SolidObjectFull2_1P` at sonic3k.asm:41066-41067 only enters
+  `SolidObject_cont` when `a0.d6` is CLEAR) the engine tracks a
+  per-(player, object) standing-bit on `objectStandingBitSet`, set by
+  `RideObject_SetRide`-equivalent STANDING contacts and cleared at the
+  top of `processInlineObjectForPlayer` when the object's own pass sees
+  the bit set + `Status_InAir` set on the player.  The pre-clear value
+  is snapshotted into `objectStandingBitSnapshot` so the lift gate sees
+  ROM's "bit was set at routine entry" semantics.  Without the bit
+  tracking the AIZ yellow up-spring kick aftermath at F2090->F2091
+  (Sonic landing on slot 13 spring at `(0x1980, 0x0439)` with
+  `d3=1`) would lift Sonic +2 px every frame instead of routing
+  through ROM's `loc_1DCF0` air-unseat path.
+  CNZ first error advances from F7614 to F7872 (errors 3200 -> 2774).
+  AIZ first error stays at F7171 (1049 -> 1049).  S1 GHZ, S1 MZ1, S2
+  EHZ baselines unchanged.  New regression test:
+  `TestSolidObjectTopBranchUpwardLift`.
 - **S3K AIZ F4679 sidekick LEVEL_BOUNDARY kill y_pos delta fix:**
   `SidekickCpuController.applyKillCharacterTouchFloorReset` previously
   computed the post-Kill_Character y_pos shift as

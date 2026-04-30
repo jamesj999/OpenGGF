@@ -34,7 +34,7 @@ Current migration status is still partial. On this branch Sonic 2 already uses t
 *   **Status:** ✅ ROM-accurate with extensive validation.
 *   Ground speed model, slope handling, 360° sensor array (A-F), loop ground modes, springs, spindash.
 *   Per-game physics via `PhysicsProfile`, `PhysicsFeatureSet`, and `PhysicsModifiers`. 35+ physics unit tests validate against disassembly.
-*   **Rule:** Per-game behavioral differences must be gated by feature flags (usually on `PhysicsFeatureSet`), **never** by game-name `if/else` chains (e.g. `if (module.getGameId() == GameId.S1)`). When a new ROM-level divergence is discovered, add a flag to `PhysicsFeatureSet`, set the correct value on each game's `SONIC_1` / `SONIC_2` / `SONIC_3K` constant, and branch on the flag at the call site. Always verify values against the disassembly.
+*   **Rule:** Per-game behavioral differences must be gated by feature flags (usually on `PhysicsFeatureSet`), **never** by game-name `if/else` chains (e.g. `if (module.getGameId() == GameId.S1)`). When a new ROM-level divergence is discovered, add a flag to `PhysicsFeatureSet`, set the correct value on each game's `SONIC_1` / `SONIC_2` / `SONIC_3K` constant, and branch on the flag at the call site. Always verify values against the disassembly. (Recent example: `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` gates ROM `loc_1E154` (sonic3k.asm:41606-41632) writing the top-branch position lift before `tst.w y_vel(a1)` on S3K; S1/S2 `Solid_Landed` bails on upward y_vel before any lift.)
 
 ### Audio
 *   **Status:** ✅ Fully implemented.

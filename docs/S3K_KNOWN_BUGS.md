@@ -1542,7 +1542,49 @@ strict error has advanced to F7614 (see the next entry for details).
 
 ---
 
-## CNZ1 Trace F7614 — Tails Jump Frame 2-Pixel y_pos Drift
+## CNZ1 Trace F7614 — Tails Jump Frame 2-Pixel y_pos Drift (RESOLVED)
+
+**Resolution (2026-04-30):** Added
+`PhysicsFeatureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` (true
+on S3K, false on S1/S2) so `ObjectManager.SolidContacts.resolveContactInternal`
+applies the position lift on upward-velocity contacts instead of returning
+null.  The lift mirrors ROM `loc_1E154` (sonic3k.asm:41606-41632) which
+writes `subq.w #1, y_pos(a1)` and `sub.w d3, y_pos(a1)` BEFORE testing
+`tst.w y_vel(a1) / bmi.s loc_1E198` — when y_vel < 0 the standing/
+RideObject_SetRide effect is skipped but the lift has already happened.
+With `distY=1` for the Spring_Horizontal-vs-Tails geometry the lift
+produces +2 px of y_pos shift; combined with `Tails_Jump`'s rolling
+radius adjustment (+1 px) the total +3 px matches the ROM trace exactly
+(0x04B0 -> 0x04B3).
+
+To preserve ROM's "lift only on fresh contact" semantics (ROM
+`SolidObjectFull2_1P` at sonic3k.asm:41066-41067 only enters
+`SolidObject_cont` when the object's `a0.d6` standing-bit is CLEAR), the
+engine tracks a per-(player, object) standing-bit on
+`SolidContacts.objectStandingBitSet` (set by `RideObject_SetRide`-
+equivalent STANDING contacts; cleared at the top of
+`processInlineObjectForPlayer` when the object's own pass sees the bit
+set with the player airborne, mirroring `loc_1DCF0`).  The pre-clear
+value is snapshotted into `objectStandingBitSnapshot` so the lift gate
+in `resolveContactInternal` reads ROM's "bit was set at routine entry"
+state.  Without that tracking, the AIZ yellow up-spring kick aftermath
+at F2090->F2091 (Sonic landing on slot 13 spring at `(0x1980, 0x0439)`
+with `d3=1`) would re-lift Sonic +2 px instead of routing through ROM's
+`loc_1DCF0` air-unseat path.
+
+**Test impact:** CNZ first strict error advances from F7614 to F7872;
+total errors drop from 3200 to 2774.  AIZ first strict error stays at
+F7171.  S1 GHZ, S1 MZ1, S2 EHZ trace baselines unchanged.
+
+**Regression test:** `TestSolidObjectTopBranchUpwardLift` exercises the
+flag values across SONIC_1, SONIC_2, SONIC_3K (failures here flag
+ROM-divergence regressions on the per-game gating).
+
+The historical investigation that led to this fix is preserved below.
+
+---
+
+## CNZ1 Trace F7614 — Tails Jump Frame 2-Pixel y_pos Drift (historical investigation)
 
 **Location:** Sidekick `Tails_Jump` execution (CPU-pressed jump while
 Tails is grounded near a CNZ vertical/down spring at @0x0E38,0x04D0
