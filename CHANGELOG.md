@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K CNZ F7614 doc-only refinement: refute the "Tails despawned in
+  ROM" hypothesis (S3K-only docs):**
+  `docs/S3K_KNOWN_BUGS.md` CNZ F7614 entry extended with a step 5
+  refuting a round-launch hypothesis that ROM might have despawned
+  Tails by F7614, leaving the captured `0x1E172` / `0x1E182` y_pos
+  writes targeting Sonic via aliased addressing. Refutation cites
+  the committed `physics.csv.gz` (`sidekick_present=1`,
+  `sidekick_routine=0x02`, `sidekick_status_byte` transitioning
+  `0x01` -> `0x07` on vfc=7615 i.e. `Tails_Jump`, sidekick_x/y
+  updating every frame across F7600-F7625) and the recorder watch
+  geometry in `tools/bizhawk/s3k_trace_recorder.lua` lines 1534-1611
+  (`OBJ_TABLE_START=0xB000`, `OBJ_SLOT_SIZE=0x4A`,
+  `SIDEKICK_BASE=0xB04A`, `OFF_Y_POS=0x14`, watched bytes
+  `$FFFFB05E` / `$FFFFB05F` are physically Player_2 `y_pos`, so the
+  hook firing for `subq.w #1, y_pos(a1)` at PC `0x1E16E` requires
+  `(a1) = $FFFFB04A = Player_2 = Tails`; a Sonic-targeted write
+  would address `$FFFFB014` and miss the watch entirely). The
+  geometric contradiction documented in step 2 stands, and the
+  next-round actions in step 4 (regenerate the CNZ fixture with
+  v6.11-s3k armed so each `position_write` hit carries `(a1)` /
+  `(a0)` and `solid_object_cont_entry` events expose the lifter
+  `(a0)`) remain the unblocking step. No engine code change in
+  this round; CNZ trace replay first-error stays at F7614 (3,200
+  errors), AIZ stays at F7171, S1 GHZ, S1 MZ1, S2 EHZ unchanged.
+
 - **S3K AIZ apparent-act resize gating (S3K-only):**
   `Sonic3kAIZEvents.updateAiz2SonicResize1` and
   `updateAiz2KnuxResize1` now gate the miniboss-skip path on
