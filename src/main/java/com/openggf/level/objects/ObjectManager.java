@@ -2077,27 +2077,51 @@ public class ObjectManager {
 
 
 
-    private boolean isSpawnVerticallyEligibleForLoad(ObjectSpawn spawn) {
-        if (spawn == null || placement.isCounterBasedRespawn() || camera == null) {
-            return true;
-        }
-        return isNonCounterSpawnVerticallyEligible(spawn, camera.getY(), camera.getMinY());
-    }
-
-    static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY) {
-        if ((spawn.rawYWord() & 0x8000) != 0) {
-            return true;
-        }
-        if ((short) cameraMinY < 0) {
-            return true;
+        private boolean isSpawnVerticallyEligibleForLoad(ObjectSpawn spawn) {
+            if (spawn == null || placement.isCounterBasedRespawn() || camera == null) {
+                return true;
+            }
+            int wrapRange = camera.isVerticalWrapEnabled() ? camera.getVerticalWrapRange() : 0;
+            return isNonCounterSpawnVerticallyEligible(spawn, camera.getY(), camera.getMinY(), wrapRange);
         }
 
-        int cameraChunkY = cameraY & 0xFF80;
-        int windowTop = Math.max(0, cameraChunkY - 0x80);
-        int windowBottom = cameraChunkY + 0x200;
-        int spawnY = spawn.rawYWord() & 0x0FFF;
-        return spawnY >= windowTop && spawnY <= windowBottom;
-    }
+        static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY) {
+            return isNonCounterSpawnVerticallyEligible(spawn, cameraY, cameraMinY, 0);
+        }
+
+        static boolean isNonCounterSpawnVerticallyEligible(ObjectSpawn spawn, int cameraY, int cameraMinY,
+                int verticalWrapRange) {
+            if ((spawn.rawYWord() & 0x8000) != 0) {
+                return true;
+            }
+
+            int cameraChunkY = cameraY & 0xFF80;
+            int windowTop = cameraChunkY - 0x80;
+            int windowBottom = cameraChunkY + 0x200;
+            int spawnY = spawn.rawYWord() & 0x0FFF;
+
+            if ((short) cameraMinY < 0) {
+                // ROM: Load_Sprites selects loc_1BA92 (normal range) while the
+                // vertical load band is inside Screen_Y_wrap_value+1, and selects
+                // loc_1BA40 (split range) only when the band crosses the wrap
+                // boundary (sonic3k.asm:37546-37589, 37803-37843,
+                // 37846-37874). Negative Camera_min_Y_pos does not mean
+                // "load every Y"; MGZ1 F667 depends on the 0x0834 bridge staying
+                // unloaded while the camera band is 0x0580..0x0800.
+                int wrapRange = verticalWrapRange > 0 ? verticalWrapRange : 0x1000;
+                int wrapMask = wrapRange - 1;
+                if (windowTop < 0) {
+                    return spawnY >= (windowTop & wrapMask) || spawnY <= windowBottom;
+                }
+                if (windowBottom > wrapRange) {
+                    return spawnY >= windowTop || spawnY <= (windowBottom & wrapMask);
+                }
+                return spawnY >= windowTop && spawnY <= windowBottom;
+            }
+
+            windowTop = Math.max(0, windowTop);
+            return spawnY >= windowTop && spawnY <= windowBottom;
+        }
 
     /**
      * Enables vertical wrap Y adjustment on GraphicsManager if the camera has
