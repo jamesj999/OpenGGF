@@ -190,6 +190,30 @@ public final class TraceEventFormatter {
                             state.p2D1() & 0xFFFF,
                             state.p2D2() & 0xFFFF,
                             state.p2D3() & 0xFFFF);
+            case TraceEvent.AizHandoffTerrainState state ->
+                    String.format("aizHandoff bg=%04X draw=%04X/%04X kos=%02X za=%04X dyn=%02X objLoad=%02X rings=%02X p1=%04X,%04X st=%02X yr=%02X top=%02X floor=%s d=%04X a=%02X probe=%04X,%04X solid=%s preY=%04X surf=%04X d=%04X",
+                            state.eventsBg() & 0xFFFF,
+                            state.drawPos() & 0xFFFF,
+                            state.drawRows() & 0xFFFF,
+                            state.kosModulesLeft() & 0xFF,
+                            state.currentZoneAct() & 0xFFFF,
+                            state.dynamicResize() & 0xFF,
+                            state.objectLoad() & 0xFF,
+                            state.ringsManager() & 0xFF,
+                            state.p1X() & 0xFFFF,
+                            state.p1Y() & 0xFFFF,
+                            state.p1Status() & 0xFF,
+                            state.p1YRadius() & 0xFF,
+                            state.p1TopSolid() & 0xFF,
+                            state.sonicFloorSeen() ? "seen" : "none",
+                            state.sonicFloorDistance() & 0xFFFF,
+                            state.sonicFloorAngle() & 0xFF,
+                            state.sonicFloorProbeX() & 0xFFFF,
+                            state.sonicFloorProbeY() & 0xFFFF,
+                            state.solidVerticalSeen() ? "seen" : "none",
+                            state.solidPreY() & 0xFFFF,
+                            state.solidSurfaceY() & 0xFFFF,
+                            state.solidDelta() & 0xFFFF);
             default -> "";
         };
     }

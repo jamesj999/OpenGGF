@@ -367,6 +367,24 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame AIZ fire-handoff terrain diagnostic around the F5435
+     * transition-floor first landing. Captures delayed redraw / Load_Level
+     * state from the handoff window (docs/skdisasm/sonic3k.asm:104664-104738)
+     * plus ROM floor-check and SolidObjectTop vertical-gate evidence
+     * (docs/skdisasm/sonic3k.asm:19839-19891, 41982-42015). Diagnostic only:
+     * never hydrated into replay state.
+     */
+    record AizHandoffTerrainState(
+            int frame, int eventsBg, int drawPos, int drawRows,
+            int kosModulesLeft, int currentZoneAct,
+            int dynamicResize, int objectLoad, int ringsManager,
+            int p1X, int p1Y, int p1Status, int p1YRadius, int p1TopSolid,
+            boolean sonicFloorSeen, int sonicFloorDistance, int sonicFloorAngle,
+            int sonicFloorProbeX, int sonicFloorProbeY,
+            boolean solidVerticalSeen, int solidPreY, int solidSurfaceY, int solidDelta)
+        implements TraceEvent {}
+
+    /**
      * Parse a single JSONL line into the appropriate TraceEvent subtype.
      * Unknown event types are returned as StateSnapshot with all fields preserved.
      */
@@ -723,6 +741,31 @@ public sealed interface TraceEvent {
                     parseHexInt(node, "p2_y"),
                     parseHexInt(node, "p2_y_vel"),
                     node.has("p2_interact_slot") ? node.get("p2_interact_slot").asInt() : -1
+                );
+                case "aiz_handoff_terrain_state" -> new AizHandoffTerrainState(
+                    frame,
+                    parseHexInt(node, "events_bg"),
+                    parseHexInt(node, "draw_pos"),
+                    parseHexInt(node, "draw_rows"),
+                    parseHexInt(node, "kos_modules_left"),
+                    parseHexInt(node, "current_zone_act"),
+                    parseHexInt(node, "dynamic_resize"),
+                    parseHexInt(node, "object_load"),
+                    parseHexInt(node, "rings_manager"),
+                    parseHexInt(node, "p1_x"),
+                    parseHexInt(node, "p1_y"),
+                    parseHexInt(node, "p1_status"),
+                    parseHexInt(node, "p1_y_radius"),
+                    parseHexInt(node, "p1_top_solid"),
+                    node.has("sonic_floor_seen") && node.get("sonic_floor_seen").asBoolean(),
+                    parseHexInt(node, "sonic_floor_distance"),
+                    parseHexInt(node, "sonic_floor_angle"),
+                    parseHexInt(node, "sonic_floor_probe_x"),
+                    parseHexInt(node, "sonic_floor_probe_y"),
+                    node.has("solid_vertical_seen") && node.get("solid_vertical_seen").asBoolean(),
+                    parseHexInt(node, "solid_pre_y"),
+                    parseHexInt(node, "solid_surface_y"),
+                    parseHexInt(node, "solid_delta")
                 );
                 default -> {
                     // state_snapshot or unknown: preserve all fields as map

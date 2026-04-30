@@ -834,6 +834,85 @@ public class TestTraceDataParsing {
                 data.missingAdvertisedAuxSchemas());
     }
 
+    @Test
+    void parsesS3kAizHandoffTerrainDiagnosticsAndMetadataFlag() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-aiz-handoff-terrain-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_handoff_terrain_state_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2FCD,0379,0000,0000,0000,00,0,0,0,CA00,F700,02,2F10,02E0,0049,00,1406,04,1700,0000,1,2FB1,0380,0000,0000,0000,00,0,0,0,9A00,3200,02,08,04
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), """
+            {"frame":0,"vfc":1700,"event":"aiz_handoff_terrain_state","events_bg":"0x0010","draw_pos":"0x00A0","draw_rows":"0x0004","kos_modules_left":"0x00","current_zone_act":"0x0000","dynamic_resize":"0x00","object_load":"0x00","rings_manager":"0x00","p1_x":"0x2FCD","p1_y":"0x0379","p1_status":"0x00","p1_y_radius":"0x13","p1_top_solid":"0x0C","sonic_floor_seen":true,"sonic_floor_distance":"0x0000","sonic_floor_angle":"0x00","sonic_floor_probe_x":"0x2FE0","sonic_floor_probe_y":"0x038C","solid_vertical_seen":true,"solid_pre_y":"0x0379","solid_surface_y":"0x0390","solid_delta":"0x0000"}
+            """);
+
+        TraceData data = TraceData.load(dir);
+
+        assertTrue(data.metadata().hasPerFrameAizHandoffTerrainState());
+        TraceEvent.AizHandoffTerrainState state =
+                data.aizHandoffTerrainStateForFrame(0);
+        assertNotNull(state);
+        assertEquals(0x0010, state.eventsBg());
+        assertEquals(0x0004, state.drawRows());
+        assertEquals(0x0379, state.p1Y());
+        assertTrue(state.sonicFloorSeen());
+        assertEquals(0, state.sonicFloorDistance());
+        assertEquals(0x2FE0, state.sonicFloorProbeX());
+        assertTrue(state.solidVerticalSeen());
+        assertEquals(0x0390, state.solidSurfaceY());
+        assertTrue(data.missingAdvertisedAuxSchemas().isEmpty());
+    }
+
+    @Test
+    void reportsAdvertisedAizHandoffTerrainDiagnosticsMissingFromAuxStream() throws IOException {
+        Path dir = Files.createTempDirectory("s3k-missing-aiz-handoff-terrain-diag");
+        Files.writeString(dir.resolve("metadata.json"), """
+            {
+              "game": "s3k",
+              "zone": "aiz",
+              "zone_id": 0,
+              "act": 1,
+              "bk2_frame_offset": 0,
+              "trace_frame_count": 1,
+              "start_x": "0x0080",
+              "start_y": "0x03A0",
+              "recording_date": "2026-04-30",
+              "lua_script_version": "test",
+              "trace_schema": 5,
+              "csv_version": 5,
+              "aux_schema_extras": ["aiz_handoff_terrain_state_per_frame"],
+              "rom_checksum": "test"
+            }
+            """);
+        Files.writeString(dir.resolve("physics.csv"), """
+            frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,gameplay_frame_counter,stand_on_obj,vblank_counter,lag_counter,sidekick_present,sidekick_x,sidekick_y,sidekick_x_speed,sidekick_y_speed,sidekick_g_speed,sidekick_angle,sidekick_air,sidekick_rolling,sidekick_ground_mode,sidekick_x_sub,sidekick_y_sub,sidekick_routine,sidekick_status_byte,sidekick_stand_on_obj
+            0000,0000,2FCD,0379,0000,0000,0000,00,0,0,0,CA00,F700,02,2F10,02E0,0049,00,1406,04,1700,0000,1,2FB1,0380,0000,0000,0000,00,0,0,0,9A00,3200,02,08,04
+            """);
+        Files.writeString(dir.resolve("aux_state.jsonl"), "");
+
+        TraceData data = TraceData.load(dir);
+
+        assertEquals(List.of("aiz_handoff_terrain_state_per_frame"),
+                data.missingAdvertisedAuxSchemas());
+    }
+
     private static void writeMinimalTraceFiles(Path dir) throws IOException {
         writeMinimalMetadata(dir);
         Files.writeString(dir.resolve("physics.csv"), """
