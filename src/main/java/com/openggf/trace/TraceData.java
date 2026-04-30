@@ -167,6 +167,14 @@ public class TraceData {
                 && !hasEventOfType(TraceEvent.SidekickInteractObjectState.class)) {
             missing.add("sidekick_interact_object_per_frame");
         }
+        if (metadata.hasPerFrameCnzCylinderState()
+                && !hasEventOfType(TraceEvent.CnzCylinderState.class)) {
+            missing.add("cnz_cylinder_state_per_frame");
+        }
+        if (metadata.hasPerFrameCnzCylinderExecution()
+                && !hasEventOfType(TraceEvent.CnzCylinderExecution.class)) {
+            missing.add("cnz_cylinder_execution_per_frame");
+        }
         if (metadata.hasPerFrameAizBoundaryState()
                 && !hasEventOfType(TraceEvent.AizBoundaryState.class)) {
             missing.add("aiz_boundary_state_per_frame");
@@ -389,6 +397,25 @@ public class TraceData {
             if (event instanceof TraceEvent.SidekickInteractObjectState state
                     && characterCode.equalsIgnoreCase(state.character())) {
                 return state;
+            }
+        }
+        return null;
+    }
+
+    public List<TraceEvent.CnzCylinderState> cnzCylinderStatesForFrame(int frame) {
+        List<TraceEvent.CnzCylinderState> states = new ArrayList<>();
+        for (TraceEvent event : eventsByFrame.getOrDefault(frame, Collections.emptyList())) {
+            if (event instanceof TraceEvent.CnzCylinderState state) {
+                states.add(state);
+            }
+        }
+        return states;
+    }
+
+    public TraceEvent.CnzCylinderExecution cnzCylinderExecutionForFrame(int frame) {
+        for (TraceEvent event : eventsByFrame.getOrDefault(frame, Collections.emptyList())) {
+            if (event instanceof TraceEvent.CnzCylinderExecution execution) {
+                return execution;
             }
         }
         return null;

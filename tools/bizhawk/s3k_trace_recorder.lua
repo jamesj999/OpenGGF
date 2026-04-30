@@ -77,6 +77,10 @@
 -- pre/post, and end-of-frame post-move state. ROM frame order and relevant
 -- routines: sonic3k.asm:7884-7898, 38298-38316, 38961-38974,
 -- 43776-43810, 28407-28451. Diagnostic-only; no CSV schema change.
+-- v6.7-s3k changes: add CNZ cylinder diagnostics for the F4508 blocker:
+-- per-frame cylinder P1/P2 slot bytes plus P2 execution-hook hits around
+-- sub_324C0 and MvSonicOnPtfm (sonic3k.asm:67656-67672, 67985-68012,
+-- 68019-68038, 41667-41679). Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -147,6 +151,7 @@ local OBJ_DYNAMIC_START     = 3
 local OBJ_DYNAMIC_COUNT     = 90
 local SIDEKICK_BASE         = OBJ_TABLE_START + OBJ_SLOT_SIZE
 local OBJ_CNZ_BALLOON       = 0x00031754
+OBJ_CNZ_CYLINDER            = 0x00032188
 local OBJ_ID_CNZ_BALLOON    = 0x41
 
 local ADDR_FRAMECOUNT       = 0xFE04
@@ -279,6 +284,23 @@ V66 = {
     hooks_registered = false,
 }
 
+V67 = {
+    -- Hook addresses resolved from docs/skdisasm/sonic3k.asm:
+    -- Obj_CNZCylinder P2 call order at 67656-67667, sub_324C0 at 67985,
+    -- active rider path at 68019/68045/68081, and MvSonicOnPtfm at 41667.
+    CNZ_CYLINDER_SUB_324C0 = 0x324C0,
+    CNZ_CYLINDER_LOC_32538 = 0x32538,
+    CNZ_CYLINDER_LOC_32594 = 0x32594,
+    CNZ_CYLINDER_LOC_32604 = 0x32604,
+    CNZ_CYLINDER_LOC_3260A = 0x3260A,
+    MV_SONIC_ON_PTFM_LOC_1E1CA = 0x1E1CA,
+    MV_SONIC_ON_PTFM_RETURN = 0x1E1F2,
+    CNZ_CYLINDER_FRAME_START = 4490,
+    CNZ_CYLINDER_FRAME_END = 4512,
+    cnz_cylinder_hits = {},
+    hooks_registered = false,
+}
+
 -----------------
 --- State     ---
 -----------------
@@ -328,7 +350,6 @@ local prev_cage_status = -1
 -- velocity_write event listing all writers in temporal order.
 local tails_xvel_writes = {}
 local tails_yvel_writes = {}
-
 local physics_file = nil
 local aux_file = nil
 
@@ -597,6 +618,7 @@ local function reset_recording_state()
     tails_yvel_writes = {}
     V65.normal_step = nil
     V66.boundary_state = nil
+    V67.cnz_cylinder_hits = {}
     os.remove(OUTPUT_DIR .. "physics.csv")
     os.remove(OUTPUT_DIR .. "aux_state.jsonl")
     os.remove(OUTPUT_DIR .. "metadata.json")
@@ -639,7 +661,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.6-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.7-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -648,14 +670,15 @@ local function write_metadata()
     -- with M68K PC for CNZ1 F3649 root-cause). v6.5 adds
     -- tails_cpu_normal_step_per_frame and sidekick_interact_object_per_frame.
     -- v6.6 adds aiz_boundary_state_per_frame for AIZ F4679 tree/boundary
-    -- pre/post visibility. All diagnostic-only.
+    -- pre/post visibility. v6.7 adds CNZ cylinder state/execution
+    -- diagnostics for the F4508 P2 x-position blocker. All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -1381,6 +1404,185 @@ local function flush_tails_velocity_writes()
 end
 
 -- =====================================================================
+-- CNZ cylinder P2 execution/state diagnostics (v6.7-s3k)
+-- =====================================================================
+-- Frame-range filtered because execution hooks fire from shared platform
+-- paths. The default window surrounds the CNZ F4508 divergence.
+V67.cnz_cyl_range = os.getenv("OGGF_S3K_CNZ_CYLINDER_RANGE")
+if V67.cnz_cyl_range and V67.cnz_cyl_range ~= "" then
+    V67.cnz_cyl_range_start, V67.cnz_cyl_range_end =
+        V67.cnz_cyl_range:match("^(%d+)%-(%d+)$")
+    if V67.cnz_cyl_range_start and V67.cnz_cyl_range_end then
+        V67.CNZ_CYLINDER_FRAME_START = tonumber(V67.cnz_cyl_range_start)
+        V67.CNZ_CYLINDER_FRAME_END = tonumber(V67.cnz_cyl_range_end)
+    else
+        print("WARN: invalid OGGF_S3K_CNZ_CYLINDER_RANGE, expected <start>-<end>: "
+            .. V67.cnz_cyl_range)
+    end
+end
+
+function V67.cnz_cylinder_in_window()
+    return trace_frame >= V67.CNZ_CYLINDER_FRAME_START
+        and trace_frame <= V67.CNZ_CYLINDER_FRAME_END
+end
+
+function V67.is_cnz_cylinder_addr(addr)
+    if addr < OBJ_TABLE_START or addr > 0xFFFF - OBJ_SLOT_SIZE then
+        return false
+    end
+    return mainmemory.read_u32_be(addr) == OBJ_CNZ_CYLINDER
+end
+
+function V67.record_cnz_cylinder_hit(branch)
+    if not aux_file then return end
+    if not started then return end
+    if not V67.cnz_cylinder_in_window() then return end
+
+    local a0 = emu.getregister("M68K A0") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local a2 = emu.getregister("M68K A2") or 0
+    local d2 = emu.getregister("M68K D2") or 0
+    local d4 = emu.getregister("M68K D4") or 0
+    local d5 = emu.getregister("M68K D5") or 0
+    local d6 = emu.getregister("M68K D6") or 0
+    local pc = emu.getregister("M68K PC") or 0
+
+    local cylinder_addr = a0 % 0x10000
+    local player_addr = a1 % 0x10000
+    local state_addr = a2 % 0x10000
+
+    if player_addr ~= SIDEKICK_BASE then return end
+    if not V67.is_cnz_cylinder_addr(cylinder_addr) then return end
+
+    local slot_state = 0
+    local slot_angle = 0
+    local slot_distance = 0
+    local slot_threshold = 0
+    if state_addr >= OBJ_TABLE_START and state_addr <= 0xFFFF - 4 then
+        slot_state = mainmemory.read_u8(state_addr)
+        slot_angle = mainmemory.read_u8(state_addr + 1)
+        slot_distance = mainmemory.read_u8(state_addr + 2)
+        slot_threshold = mainmemory.read_u8(state_addr + 3)
+    end
+
+    table.insert(V67.cnz_cylinder_hits, {
+        branch = branch,
+        pc = pc,
+        cylinder_addr = cylinder_addr,
+        player_addr = player_addr,
+        state_addr = state_addr,
+        d2 = d2 % 0x10000,
+        d4 = d4 % 0x10000,
+        d5 = d5 % 0x10000,
+        d6 = d6 % 0x100,
+        cylinder_status = mainmemory.read_u8(cylinder_addr + OFF_STATUS),
+        slot_state = slot_state,
+        slot_angle = slot_angle,
+        slot_distance = slot_distance,
+        slot_threshold = slot_threshold,
+        player_x = mainmemory.read_u16_be(player_addr + OFF_X_POS),
+        player_x_sub = mainmemory.read_u16_be(player_addr + OFF_X_SUB),
+        player_y = mainmemory.read_u16_be(player_addr + OFF_Y_POS),
+        player_y_sub = mainmemory.read_u16_be(player_addr + OFF_Y_SUB),
+        player_status = mainmemory.read_u8(player_addr + OFF_STATUS),
+        player_obj_ctrl = mainmemory.read_u8(player_addr + OFF_OBJECT_CONTROL),
+    })
+end
+
+function V67.register_cnz_cylinder_hooks()
+    if V67.hooks_registered then return end
+    V67.hooks_registered = true
+
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("sub_324C0_entry") end,
+        V67.CNZ_CYLINDER_SUB_324C0)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("loc_32538_active") end,
+        V67.CNZ_CYLINDER_LOC_32538)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("loc_32594_after_x") end,
+        V67.CNZ_CYLINDER_LOC_32594)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("loc_32604_clear") end,
+        V67.CNZ_CYLINDER_LOC_32604)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("loc_3260A_twist") end,
+        V67.CNZ_CYLINDER_LOC_3260A)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("MvSonicOnPtfm_pre") end,
+        V67.MV_SONIC_ON_PTFM_LOC_1E1CA)
+    event.onmemoryexecute(function() V67.record_cnz_cylinder_hit("MvSonicOnPtfm_post") end,
+        V67.MV_SONIC_ON_PTFM_RETURN)
+
+    print(string.format(
+        "CNZ cylinder hooks registered: sub_324C0=0x%05X, active=0x%05X, mv=0x%05X/0x%05X, frame_window=[%d,%d]",
+        V67.CNZ_CYLINDER_SUB_324C0,
+        V67.CNZ_CYLINDER_LOC_32538,
+        V67.MV_SONIC_ON_PTFM_LOC_1E1CA,
+        V67.MV_SONIC_ON_PTFM_RETURN,
+        V67.CNZ_CYLINDER_FRAME_START,
+        V67.CNZ_CYLINDER_FRAME_END))
+end
+
+function V67.flush_cnz_cylinder_hits()
+    if not aux_file then return end
+    if #V67.cnz_cylinder_hits == 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local parts = {}
+    for _, hit in ipairs(V67.cnz_cylinder_hits) do
+        table.insert(parts, string.format(
+            '{"branch":"%s","pc":"0x%05X","cylinder_addr":"0x%04X",'
+                .. '"player_addr":"0x%04X","state_addr":"0x%04X",'
+                .. '"d2":"0x%04X","d4":"0x%04X","d5":"0x%04X","d6":"0x%02X",'
+                .. '"cylinder_status":"0x%02X","slot_state":"0x%02X",'
+                .. '"slot_angle":"0x%02X","slot_distance":"0x%02X",'
+                .. '"slot_threshold":"0x%02X","player_x":"0x%04X",'
+                .. '"player_x_sub":"0x%04X","player_y":"0x%04X",'
+                .. '"player_y_sub":"0x%04X","player_status":"0x%02X",'
+                .. '"player_obj_ctrl":"0x%02X"}',
+            hit.branch, hit.pc, hit.cylinder_addr, hit.player_addr,
+            hit.state_addr, hit.d2, hit.d4, hit.d5, hit.d6,
+            hit.cylinder_status, hit.slot_state, hit.slot_angle,
+            hit.slot_distance, hit.slot_threshold, hit.player_x,
+            hit.player_x_sub, hit.player_y, hit.player_y_sub,
+            hit.player_status, hit.player_obj_ctrl))
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"cnz_cylinder_execution","hits":[%s]}',
+        trace_frame, vfc, table.concat(parts, ",")))
+    V67.cnz_cylinder_hits = {}
+end
+
+function V67.emit_cnz_cylinder_state_per_frame()
+    if not aux_file then return end
+    if not V67.cnz_cylinder_in_window() then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for slot = 0, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local code = mainmemory.read_u32_be(addr)
+        if code == OBJ_CNZ_CYLINDER then
+            write_aux(string.format(
+                '{"frame":%d,"vfc":%d,"event":"cnz_cylinder_state","slot":%d,'
+                    .. '"x":"0x%04X","y":"0x%04X","subtype":"0x%02X",'
+                    .. '"status":"0x%02X","routine":"0x%02X","render_flags":"0x%02X",'
+                    .. '"p1_state":"0x%02X","p1_angle":"0x%02X",'
+                    .. '"p1_distance":"0x%02X","p1_threshold":"0x%02X",'
+                    .. '"p2_state":"0x%02X","p2_angle":"0x%02X",'
+                    .. '"p2_distance":"0x%02X","p2_threshold":"0x%02X"}',
+                trace_frame, vfc, slot,
+                mainmemory.read_u16_be(addr + OFF_X_POS),
+                mainmemory.read_u16_be(addr + OFF_Y_POS),
+                mainmemory.read_u8(addr + 0x2C),
+                mainmemory.read_u8(addr + OFF_STATUS),
+                mainmemory.read_u8(addr + OFF_ROUTINE),
+                mainmemory.read_u8(addr + 0x04),
+                mainmemory.read_u8(addr + 0x32),
+                mainmemory.read_u8(addr + 0x33),
+                mainmemory.read_u8(addr + 0x34),
+                mainmemory.read_u8(addr + 0x35),
+                mainmemory.read_u8(addr + 0x36),
+                mainmemory.read_u8(addr + 0x37),
+                mainmemory.read_u8(addr + 0x38),
+                mainmemory.read_u8(addr + 0x39)))
+        end
+    end
+end
+
+-- =====================================================================
 -- Tails CPU normal-step hooks (v6.5-s3k)
 -- =====================================================================
 -- Focused diagnostics for the current CNZ F3905 frontier. These hooks
@@ -2063,6 +2265,12 @@ local function on_frame_end()
     write_interact_state_per_frame(sk_present)
     write_sidekick_interact_object_state(sk_present)
 
+    -- Focused CNZ cylinder diagnostics (v6.7 schema). State polling captures
+    -- P1/P2 slot bytes after the frame. Execution hooks show P2 x/subpixel at
+    -- sub_324C0 and MvSonicOnPtfm branch points during the frame.
+    V67.emit_cnz_cylinder_state_per_frame()
+    V67.flush_cnz_cylinder_hits()
+
     -- Per-frame CNZ wire cage state (v6.3 schema). Emits one cage_state
     -- event per active cage object (per OST slot containing 0x0001365C)
     -- with the cage's status, both player phase/state bytes, and pos.
@@ -2117,7 +2325,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     wait_desc = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.6-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
+print(string.format("S3K Trace Recorder v6.7-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, wait_desc))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -2133,6 +2341,9 @@ V65.register_tails_cpu_normal_step_hooks()
 
 -- Register focused AIZ tree/boundary hooks. Same lifetime model as cage hooks.
 V66.register_aiz_boundary_hooks()
+
+-- Register focused CNZ cylinder P2 hooks. Same lifetime model as cage hooks.
+V67.register_cnz_cylinder_hooks()
 
 while true do
     on_frame_end()

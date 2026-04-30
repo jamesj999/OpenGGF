@@ -256,6 +256,39 @@ public sealed interface TraceEvent {
         implements TraceEvent {}
 
     /**
+     * Per-frame CNZ cylinder OST snapshot. Captures the object bytes that
+     * {@code Obj_CNZCylinder} uses as the P1/P2 {@code sub_324C0} state blocks:
+     * $32-$35 for P1 and $36-$39 for P2 (docs/skdisasm/sonic3k.asm:67656-67667,
+     * 67985-68012). Diagnostic only: never hydrated into engine state.
+     */
+    record CnzCylinderState(int frame, int slot, short x, short y, int subtype,
+                            int status, int routine, int renderFlags,
+                            int p1State, int p1Angle, int p1Distance,
+                            int p1Threshold, int p2State, int p2Angle,
+                            int p2Distance, int p2Threshold)
+        implements TraceEvent {}
+
+    /**
+     * Per-frame CNZ cylinder execution-hook summary for Tails/P2. Hook hits
+     * surround {@code sub_324C0} and the relevant {@code MvSonicOnPtfm}
+     * platform carry points so the report can show Tails x/subpixel before
+     * and after ROM-side cylinder/platform movement
+     * (docs/skdisasm/sonic3k.asm:67985-68012, 68019-68038, 41667-41679).
+     * Diagnostic only: never hydrated into engine state.
+     */
+    record CnzCylinderExecution(int frame, java.util.List<Hit> hits)
+        implements TraceEvent {
+
+        public record Hit(String branch, int pc, int cylinderAddr,
+                          int playerAddr, int stateAddr, int d2, int d4,
+                          int d5, int d6, int cylinderStatus,
+                          int slotState, int slotAngle, int slotDistance,
+                          int slotThreshold, int playerX, int playerXSub,
+                          int playerY, int playerYSub, int playerStatus,
+                          int playerObjectControl) {}
+    }
+
+    /**
      * Per-frame AIZ boundary/tree diagnostic for the sidekick around the
      * frame-order-sensitive path where {@code Process_Sprites} runs before
      * {@code DeformBgLayer}/{@code ScreenEvents}
@@ -509,6 +542,55 @@ public sealed interface TraceEvent {
                     node.has("object_p1_standing") && node.get("object_p1_standing").asBoolean(),
                     node.has("object_p2_standing") && node.get("object_p2_standing").asBoolean()
                 );
+                case "cnz_cylinder_state" -> new CnzCylinderState(
+                    frame,
+                    node.has("slot") ? node.get("slot").asInt() : -1,
+                    parseHexShort(node, "x"),
+                    parseHexShort(node, "y"),
+                    parseHexInt(node, "subtype"),
+                    parseHexInt(node, "status"),
+                    parseHexInt(node, "routine"),
+                    parseHexInt(node, "render_flags"),
+                    parseHexInt(node, "p1_state"),
+                    parseHexInt(node, "p1_angle"),
+                    parseHexInt(node, "p1_distance"),
+                    parseHexInt(node, "p1_threshold"),
+                    parseHexInt(node, "p2_state"),
+                    parseHexInt(node, "p2_angle"),
+                    parseHexInt(node, "p2_distance"),
+                    parseHexInt(node, "p2_threshold")
+                );
+                case "cnz_cylinder_execution" -> {
+                    java.util.List<CnzCylinderExecution.Hit> hits = new java.util.ArrayList<>();
+                    JsonNode hitsNode = node.get("hits");
+                    if (hitsNode != null && hitsNode.isArray()) {
+                        for (JsonNode h : hitsNode) {
+                            hits.add(new CnzCylinderExecution.Hit(
+                                h.has("branch") ? h.get("branch").asText() : "",
+                                parseHexInt(h, "pc"),
+                                parseHexInt(h, "cylinder_addr"),
+                                parseHexInt(h, "player_addr"),
+                                parseHexInt(h, "state_addr"),
+                                parseHexInt(h, "d2"),
+                                parseHexInt(h, "d4"),
+                                parseHexInt(h, "d5"),
+                                parseHexInt(h, "d6"),
+                                parseHexInt(h, "cylinder_status"),
+                                parseHexInt(h, "slot_state"),
+                                parseHexInt(h, "slot_angle"),
+                                parseHexInt(h, "slot_distance"),
+                                parseHexInt(h, "slot_threshold"),
+                                parseHexInt(h, "player_x"),
+                                parseHexInt(h, "player_x_sub"),
+                                parseHexInt(h, "player_y"),
+                                parseHexInt(h, "player_y_sub"),
+                                parseHexInt(h, "player_status"),
+                                parseHexInt(h, "player_obj_ctrl")
+                            ));
+                        }
+                    }
+                    yield new CnzCylinderExecution(frame, hits);
+                }
                 case "aiz_boundary_state" -> new AizBoundaryState(
                     frame,
                     parseCharacter(node),

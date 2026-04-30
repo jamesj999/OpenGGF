@@ -705,10 +705,48 @@ public abstract class AbstractTraceReplayTest {
             nearbyObjects.sort(Comparator.comparingInt(EngineNearbyObject::slot));
             solidEvent = combineDiagnostics(solidEvent,
                     EngineNearbyObjectFormatter.summarise(nearbyObjects));
+            solidEvent = combineDiagnostics(solidEvent, summariseSidekickCylinderDiagnostics(om));
         }
 
         return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
                 cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
+    }
+
+    private String summariseSidekickCylinderDiagnostics(ObjectManager om) {
+        SpriteManager spriteManager = GameServices.sprites();
+        if (spriteManager == null || spriteManager.getRegisteredSidekicks().isEmpty()) {
+            return "eng-tails-cyl none sidekick=missing";
+        }
+        AbstractPlayableSprite sidekick = spriteManager.getRegisteredSidekicks().getFirst();
+        List<String> parts = new ArrayList<>();
+        for (ObjectInstance instance : om.getActiveObjects()) {
+            if (!(instance instanceof com.openggf.game.sonic3k.objects.CnzCylinderInstance)
+                    || !(instance instanceof AbstractObjectInstance aoi)) {
+                continue;
+            }
+            int dx = Math.abs(aoi.getX() - sidekick.getCentreX());
+            int dy = Math.abs(aoi.getY() - sidekick.getCentreY());
+            if (dx > 2048 || dy > 2048) {
+                continue;
+            }
+            parts.add(String.format("eng-tails-cyl d=%04X,%04X s%d @%04X,%04X %s",
+                    dx & 0xFFFF,
+                    dy & 0xFFFF,
+                    aoi.getSlotIndex(),
+                    aoi.getX() & 0xFFFF,
+                    aoi.getY() & 0xFFFF,
+                    aoi.traceDebugDetails()));
+        }
+        parts.sort(Comparator.naturalOrder());
+        if (parts.size() > 4) {
+            parts = new ArrayList<>(parts.subList(0, 4));
+        }
+        if (parts.isEmpty()) {
+            return String.format("eng-tails-cyl none sidekick=@%04X,%04X",
+                    sidekick.getCentreX() & 0xFFFF,
+                    sidekick.getCentreY() & 0xFFFF);
+        }
+        return String.join(" | ", parts);
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

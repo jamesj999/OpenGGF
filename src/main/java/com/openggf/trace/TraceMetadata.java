@@ -187,6 +187,24 @@ public record TraceMetadata(
     }
 
     /**
+     * Whether the trace emits per-frame CNZ cylinder state snapshots, focused on
+     * the P1/P2 slot bytes consumed by {@code sub_324C0}.
+     */
+    public boolean hasPerFrameCnzCylinderState() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("cnz_cylinder_state_per_frame");
+    }
+
+    /**
+     * Whether the trace emits CNZ cylinder execution-hook hits around
+     * {@code sub_324C0} and {@code MvSonicOnPtfm}.
+     */
+    public boolean hasPerFrameCnzCylinderExecution() {
+        return auxSchemaExtras != null
+                && auxSchemaExtras.contains("cnz_cylinder_execution_per_frame");
+    }
+
+    /**
      * Whether the trace emits per-frame {@code aiz_boundary_state} events, the
      * focused S3K AIZ sidekick tree/boundary diagnostic for F4679.
      */
