@@ -204,6 +204,10 @@ public class CollisionSystem {
         return isRidingObject(player) || hasStandingContact(player) || hasActiveLatchedObjectSupport(player);
     }
 
+    public boolean hasGroundingObjectSupport(AbstractPlayableSprite player) {
+        return isRidingObject(player) || hasStandingContact(player);
+    }
+
     private boolean hasActiveLatchedObjectSupport(AbstractPlayableSprite player) {
         if (player == null || objectManager == null || !player.isOnObject()
                 || player.getLatchedSolidObjectId() == 0) {
