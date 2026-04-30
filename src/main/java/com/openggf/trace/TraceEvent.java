@@ -823,7 +823,11 @@ public sealed interface TraceEvent {
             return 0;
         }
         String hex = stripHexPrefix(node.get(field).asText());
-        return Integer.parseInt(hex, 16);
+        // Some recorder fields (e.g. M68K address-register snapshots a0/a1
+        // captured by the v6.11-s3k Lua recorder) are emitted as 64-bit
+        // sign-extended values like "0xFFFFFFFFFFFFB000". Parse as a long
+        // and cast to int — only the low 32 bits are semantically used.
+        return (int) Long.parseUnsignedLong(hex, 16);
     }
 
     private static String stripHexPrefix(String value) {

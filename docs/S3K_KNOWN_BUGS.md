@@ -1956,6 +1956,123 @@ write that has not yet been identified.
    object is the lifter) remain the unblocking step. No engine code
    change is safe to land in this round; doc-only.
 
+6. **v6.11-s3k fixture regenerated; ROM-side path reframed (round 2026-04-30 followup).**
+   The CNZ fixture under `src/test/resources/traces/s3k/cnz/` was
+   regenerated against `lua_script_version: "6.11-s3k"` (commit
+   `ce4278974`). Two structural findings landed by inspecting the
+   regenerated `aux_state.jsonl.gz`:
+
+   - **`(a0)` at the `loc_1E154` lift PCs is slot $11 = the same
+     spring object Tails was riding.** The `position_write` event at
+     trace_frame=7614 carries `a0=$FFFFB4EA` for both `0x1E172` and
+     `0x1E182` writes (and `a1=$FFFFB04A` = Tails). Slot 17 = $FFB4EA
+     given `OBJ_TABLE_START=$B000` and `OBJ_SLOT_SIZE=$4A`
+     (17×$4A = $4EA). The `object_state` for slot 17 across F7600-7619
+     reports `object_code=0x00023050, subtype=0x12, x=0x0E38,
+     y=0x04D0`. That `object_code` is the function pointer the slot
+     was initialized with by `Obj_Spring`'s dispatch
+     (sonic3k.asm:47500-47513). Subtype `$12` selects index `2` via
+     `lsr.w #3, d0; andi.w #$E, d0` — but **index 2 dispatches to
+     `Spring_Down` per `Spring_Index` (sonic3k.asm:47517-47522)**, not
+     to `Spring_Horizontal` as the d1/d2 width signature alone would
+     suggest. Despite that, the captured d1/d2/d3 values from the
+     regenerated `solid_object_cont_entry` event (`d1=0x0013, d2=0x000E`
+     for the Tails-targeted iterations) match
+     `Obj_Spring_Horizontal` (sonic3k.asm:47772-47774), **not**
+     `Obj_Spring_Down`. The most likely explanation is that the slot's
+     active routine pointer is updated post-init to
+     `Obj_Spring_Horizontal` while the on-disk function-pointer field
+     read by the recorder still shows the original `Obj_Spring`
+     dispatcher pointer; the geometry the SolidObject helpers see
+     belongs to the horizontal variant. Cross-checking with
+     `Obj_Spring_Horizontal`'s `move.w #$13,d1; move.w #$E,d2;
+     move.w #$F,d3` (lines 47772-47774) gives an exact match.
+
+   - **The geometric contradiction in step 2 dissolves.** The
+     "spring is 8 px below the rider's seat" math used `Spring_Down`'s
+     `d2=8`, but the actual lifter at F7614 has `d2=0x0E` (horizontal
+     spring's halfHeight). With Tails y_pos = 0x04B1 (post-`Tails_Jump`
+     rolling +1), spring y_pos = 0x04D0, d2_orig = 0x0E,
+     y_radius = 0x0E (Tails post-roll), default_y_radius = 0x0F:
+     ```
+     loc_1DFD6 d3 = (0x04B1 - 0x04D0) + 4 + 0x0E + 0x0E
+                = -0x1F + 4 + 0x1C
+                = 1
+     cmpi.w #0x10, d3   →  1 < 0x10  →  blo.s loc_1E154 ✓
+     loc_1E154:
+       subq.w #4, d3    →  d3 = -3
+       subq.w #1, y_pos(a1)  → y goes 0x04B1 → 0x04B0   (recorded `0x1E172 val=0x04B1` = pre-write hit timing)
+       sub.w  d3, y_pos(a1)  → y goes 0x04B0 → 0x04B0 - (-3) = 0x04B3 (recorded `0x1E182 val=0x04B0` = pre-write hit timing)
+     ```
+     Net lift on F7614: y goes 0x04B1 → 0x04B3 (+2 px). Combined with
+     `Tails_Jump`'s rolling +1, the total y_pos delta from F7613 end
+     (0x04B0) to F7614 end (0x04B3) is exactly the +3 px the trace
+     shows. **The ROM-side accounting is now complete.**
+
+     The recorded BizHawk hook timing semantics for byte writes:
+     `event.onmemorywrite` reads the watched word's value via
+     `mainmemory.read_u16_be` AT THE MOMENT THE HOOK FIRES. For a
+     `<op>.w y_pos(a1)` instruction the hook fires before the second
+     byte's commit propagates back to `mainmemory`, so the captured
+     `val` corresponds to the **pre-write** word value, not the
+     post-write value. This explains the apparent -1 / -1 readings
+     while the actual instruction effect is -1 (subq) then +3 (sub.w
+     of d3=-3). The aux event field thus reads as "y just before this
+     instruction wrote" rather than "y just after" — load-bearing for
+     post-hoc reconstruction.
+
+   - **Engine-side gap.** The engine's `resolveContactInternal`
+     STANDING path (`ObjectManager.java:5969-5988`) sets
+     `newCenterY = playerCenterY - distY + 3`, which is algebraically
+     equivalent to ROM's `loc_1E154` final y. With `distY=1`,
+     `newCenterY = playerCenterY + 2`, mapping Tails y from 0x04B1 to
+     0x04B3. The engine therefore SHOULD produce 0x04B3 if the spring's
+     resolveContact path fires for Tails on F7614 with these inputs.
+     Engine's actual y at F7614 = 0x04B1 (only the +1 rolling-radius
+     adjustment applied). The remaining gap is in the spring-vs-Tails
+     contact dispatch, not in the lift arithmetic. Possible causes
+     under investigation:
+     - The spring's `isSolidFor` returns false for Tails this frame
+       (e.g. `proactiveTriggeredThisUpdate.contains(player)` from a
+       same-frame proactive trigger that ROM doesn't fire).
+     - Tails's center coordinates at the time of the contact pass
+       differ from ROM's by an integer pixel (e.g. the engine applies
+       Tails_Jump's +1 BEFORE the contact pass while ROM applies it
+       inside the same dispatch — the pre-/post-jump ordering matters
+       for `distY`).
+     - Sidekick's solid-contact pass for this spring is gated off
+       (e.g. `useStickyBuffer=false` for sidekick, or
+       `processCompatibilityCheckpoint` skips Tails when the leader
+       is the active player for that solid).
+
+   - **Trace-event parser fix landed.** The v6.11-s3k recorder emits
+     `a0` and `a1` as 64-bit hex strings (e.g.
+     `"0xFFFFFFFFFFFFB04A"`) because Lua's `string.format("%08X",
+     ...)` with negative numbers under-truncates. The Java parser at
+     `TraceEvent.parseHexInt` previously used `Integer.parseInt(hex,
+     16)`, which fails on values >32-bit. Fixed to use
+     `Long.parseUnsignedLong(hex, 16)` and cast to `int` (only the
+     low 32 bits are semantically used as M68K addresses are
+     24-bit). Without this fix the test cannot even load the
+     regenerated fixture (`NumberFormatException: For input string:
+     "FFFFFFFFFFFFB000"`).
+
+   - **Cross-game safety verified.** S1 GHZ
+     (`TestS1Ghz1TraceReplay`), S1 MZ
+     (`TestS1Mz1TraceReplay`), and S2 EHZ
+     (`TestS2Ehz1TraceReplay`) all PASS with the parser fix in
+     place. AIZ first-error stays at F4679 (existing baseline).
+     CNZ first-error stays at F7614 (the engine fix is deferred —
+     the parser fix is required just to run the test).
+
+   No engine-side fix lands in this round. The remaining work is
+   isolating which dispatch gate prevents the engine from invoking
+   `resolveContactInternal` for the spring/Tails pair on F7614, then
+   landing a ROM-cited fix gated through `PhysicsFeatureSet` or via
+   a spring-instance change that mirrors the ROM `Obj_Spring_Horizontal`
+   per-frame `SolidObjectFull2_1P` dispatch independent of Tails's
+   air state.
+
 ### Removal Condition
 
 Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
