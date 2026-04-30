@@ -27,6 +27,7 @@ public class TestS3kCnzTraceReplay extends AbstractTraceReplayTest {
     private static final int FRAME_DELAYED_RIGHT_REACHES_TAILS = 123;
     private static final int FRAME_FIRST_MAIN_JUMP = 142;
     private static final int FRAME_HORIZONTAL_SPRING_LANDING_HANDOFF = 3649;
+    private static final int FRAME_TAILS_RIGHT_WALL_CEILING_SEPARATION = 5236;
 
     @Override
     protected SonicGame game() {
@@ -145,6 +146,27 @@ public class TestS3kCnzTraceReplay extends AbstractTraceReplayTest {
                             + "sub_2326C's proactive trigger from outside the side box");
             assertEquals(expected.sidekick().xSpeed(), tails.getXSpeed(),
                     "Frame 3649: proactive horizontal spring trigger applies the left spring velocity");
+        }
+    }
+
+    @Test
+    void traceReplayS3kRightWallPathRunsCeilingSeparationOnFrame5236() throws Exception {
+        try (BootstrappedCnzReplay replay = bootstrappedCnzReplay()) {
+            driveReplayToTraceFrame(
+                    replay.trace(),
+                    replay.fixture(),
+                    replay.replayStart(),
+                    FRAME_TAILS_RIGHT_WALL_CEILING_SEPARATION);
+
+            TraceFrame expected = traceFrame(replay.trace(), FRAME_TAILS_RIGHT_WALL_CEILING_SEPARATION);
+            AbstractPlayableSprite tails = GameServices.sprites().getRegisteredSidekicks().getFirst();
+            assertEquals(expected.sidekick().y(), tails.getCentreY() & 0xFFFF,
+                    "Frame 5236: S3K Tails_DoLevelCollision right-wall path must continue into "
+                            + "sub_11FEE ceiling separation instead of returning like S1/S2");
+            assertEquals(expected.sidekick().ySpeed(), tails.getYSpeed(),
+                    "Frame 5236: S3K wall-hit path preserves the post-separation vertical speed");
+            assertEquals(expected.sidekick().gSpeed(), tails.getGSpeed(),
+                    "Frame 5236: S3K wall-hit path copies y_vel to ground_vel before ceiling separation");
         }
     }
 
