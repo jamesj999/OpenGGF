@@ -222,6 +222,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, and catch-up flight gating now advance the AIZ
   v6.6/v6.9 replay frontier from F4679 to F6920.
+- **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
+  ROM constraints so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
   event reinitialization, keeping ROM-style pre-frame intro state available to tests.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
