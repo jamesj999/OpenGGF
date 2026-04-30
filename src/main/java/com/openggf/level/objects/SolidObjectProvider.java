@@ -29,6 +29,18 @@ public interface SolidObjectProvider {
         return false;
     }
 
+    default boolean rejectsZeroDistanceTopSolidLanding(PlayableEntity player) {
+        return rejectsZeroDistanceTopSolidLanding();
+    }
+
+    /**
+     * Called when a top-solid first-landing check reaches the exact surface
+     * boundary and this provider rejected that boundary.
+     */
+    default void onRejectedZeroDistanceTopSolidLanding(PlayableEntity player) {
+        // Default no-op
+    }
+
     /**
      * Whether this solid can keep a grounded player attached during the
      * pre-movement terrain attachment check used by S2/S3K inline solid
