@@ -2329,40 +2329,54 @@ The centre-Y feature flag landed on this branch:
   `s3kBottomLevelBoundaryRespectsTopLeftWhenCentreYBelowThreshold`
   (no false positives below threshold).
 
-### Residual blocker — `enteredAsAct2` / `Apparent_zone_and_act` divergence
+### Resolved — `Apparent_zone_and_act` resize gating
 
-The AIZ trace still fails at the same F7171 frame even with
-centre-Y. Root-cause analysis on this branch:
+The miniboss-skip gate in `Sonic3kAIZEvents.updateAiz2SonicResize1`
+and `updateAiz2KnuxResize1` has been corrected to read
+`LevelManager.getApparentAct()` (mirroring ROM
+`Apparent_zone_and_act`) instead of the legacy `enteredAsAct2`
+boolean, which was set on every reload-resume that lacked a
+queued fire continuation.  ROM cites:
+`sonic3k.asm:39046-39058` (AIZ2_SonicResize1 apparent-act gate),
+`sonic3k.asm:39157-39174` (AIZ2_KnuxResize1 same gate),
+`sonic3k.asm:104627` (AIZ1_AIZ2_Transition does not write
+`Apparent_zone_and_act`), `sonic3k.asm:10222` and `:61760`
+(direct-entry / starpost-restore writes set it to `$0001`).
+Regression coverage in `TestSonic3kAIZEvents`:
+`aiz2FromFireTransitionDoesNotSkipMinibossPath` (existing) and
+`aiz2ReloadResumeWithApparentAct0DoesNotSkipMinibossPath` (new).
 
-- `Sonic3kAIZEvents.updateAiz2SonicResize1` (line 1160-1175)
-  guards the miniboss-skip on `enteredAsAct2`, which is set to
-  `true` in `enterAct2Direct` when no `pendingFireSequence`
-  exists. The trace's `aiz2_reload_resume` checkpoint follows the
-  no-pending-fire path, so the engine sets `enteredAsAct2 = true`,
-  takes the miniboss-skip branch in `SonicResize1`, and advances
-  the resize routine past `SonicResize2`. The camera's
-  `max_Y_pos` therefore stays at `AIZ2_DEFAULT_MAX_Y = 0x0590`.
-- ROM `AIZ2_SonicResize1` (`sonic3k.asm:39046-39058`) instead
-  guards on `Apparent_zone_and_act == 1`. The reload-resume trace
-  has `apparent_act = 0` (it ran through the AIZ1 fire transition
-  internally), so ROM stays in the routine, runs
-  `AIZ2_SonicResize2` (`sonic3k.asm:39062-39085`), and once the
-  camera crosses `0x0ED0` it sets `Camera_max_Y_pos = 0x02B8`.
-- Kill threshold at F7171: ROM `0x02B8 + 0xE0 = 0x0398`, engine
-  `0x0590 + 0xE0 = 0x0670`. Tails `centreY = 0x047E` is past the
-  ROM threshold but well inside the engine threshold, so the
-  centre-Y compare cannot fire.
+### Residual blocker — AIZ2 miniboss-area geometry divergence at F7171
 
-The follow-up fix needs the engine's `enteredAsAct2` (or its
-equivalent) to track ROM `Apparent_zone_and_act` rather than the
-"no pending fire" heuristic, so the reload-resume path keeps
-SonicResize2 active. ROM cites:
-`sonic3k.asm:39046-39058` (`AIZ2_SonicResize1` apparent-act gate),
-`sonic3k.asm:39062-39085` (`AIZ2_SonicResize2` boss-area camera
-narrow), trace checkpoint `aiz2_reload_resume z=0 a=1 ap=0 gm=12`
-(actual_act=1=AIZ2 internal, apparent_act=0=AIZ1 visible).
+After the apparent-act gating fix, the AIZ trace still fails at
+F7171 because of a downstream divergence in the miniboss-area
+geometry, not in the resize gating itself.  Diagnostic capture
+during replay:
 
-Until that lands, the centre-Y change is a no-op for the AIZ
-trace but a strict ROM-parity improvement that prevents Sonic
-from drifting 20 px past the ROM kill plane on any future trace
-where the camera narrows below the engine's old top-left margin.
+- `Sonic3kAIZEvents.updateAiz2SonicResize1` correctly observes
+  `apparentAct = 0` and routes into `SonicResize2` (no
+  miniboss-skip).
+- ROM at F7170 has Sonic at `x = 0x0F74`; the engine's Sonic
+  stops advancing at `cameraX = 0x0E15 / spriteX = 0x0EB5`,
+  ~0xC0 px short of the ROM trajectory and well below the
+  `cameraX >= 0x0ED0` narrow trigger.
+- Because the engine never reaches `cameraX >= 0x0ED0`,
+  `Camera_max_Y_pos` stays at `AIZ2_DEFAULT_MAX_Y = 0x0590` and
+  the centre-Y bottom-kill compare never fires; Tails is alive
+  in the engine but dead in ROM at F7171, producing the
+  cascading divergence.
+
+The follow-up needs to find why the engine's Sonic and camera
+stall around `cameraX = 0x0E15` while in the AIZ2 miniboss-area
+approach.  Likely candidates: AIZ2 collision/layout differences
+in the miniboss-arena entry, missing solid-floor geometry that
+ROM uses to bridge the chasm before the miniboss spawns at
+`Camera_X_pos >= 0x0F50` (`AIZ2_SonicResize2` lock-X), or a
+delta in how the engine handles the miniboss-area approach
+when the player has not yet defeated the miniboss.
+
+Until that lands, the centre-Y change and the apparent-act
+gating fix are both ROM-parity correct on their own; the AIZ
+trace first-error frame remains at F7171 and is now blocked by
+the geometry/collision divergence rather than by miss-gated
+resize state.

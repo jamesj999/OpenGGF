@@ -232,8 +232,10 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   standing), and the new `levelBoundaryUsesCentreY` feature flag (matching ROM `Player_LevelBound`
   / `Tails_Check_Screen_Boundaries` centre-Y compare for S3K) now advance the AIZ v6.6/v6.9 replay
   frontier from F4679 to F7171; the centre-Y flag is ROM-correct and gated S3K-only pending S1/S2
-  trace re-validation, but a second blocker (the AIZ2 SonicResize1 apparent-act gating) holds
-  F7171 for now.
+  trace re-validation; the AIZ2 SonicResize1 miniboss-skip now gates on
+  `apparent_zone_and_act == 1` (matching ROM `sonic3k.asm:39053`/`:39164`) instead of the
+  heuristic `enteredAsAct2`, but a third blocker (Sonic stalls at `cameraX=0x0E15` and never
+  reaches the `cameraX>=0x0ED0` narrow trigger) holds F7171 for now.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
