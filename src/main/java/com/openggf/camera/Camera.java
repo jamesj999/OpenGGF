@@ -240,9 +240,7 @@ public class Camera {
 			if (y <= -0x100) {
 				short oldY = y;
 				y = (short) (y & verticalWrapMask);
-				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
-				}
+				wrapFocusedSpriteYPositionWord();
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
 			}
@@ -251,9 +249,7 @@ public class Camera {
 			else if (y >= verticalWrapRange) {
 				short oldY = y;
 				y = (short) (y - verticalWrapRange);
-				if (focusedSprite != null) {
-					focusedSprite.setCentreY((short) (focusedSprite.getCentreY() & verticalWrapMask));
-				}
+				wrapFocusedSpriteYPositionWord();
 				lastFrameWrapped = true;
 				wrapDeltaY = (short) (y - oldY);
 			}
@@ -270,6 +266,16 @@ public class Camera {
 		if (!lastFrameWrapped) {
 			y = clampAxisWithWrap(y, minY, maxY);
 		}
+	}
+
+	private void wrapFocusedSpriteYPositionWord() {
+		if (focusedSprite == null) {
+			return;
+		}
+		// S3K post-control wrap masks only y_pos with and.w d0,y_pos(a0),
+		// preserving y_sub (docs/skdisasm/sonic3k.asm:21989-21992,
+		// 26233-26236).
+		focusedSprite.setCentreYPreserveSubpixel((short) (focusedSprite.getCentreY() & verticalWrapMask));
 	}
 
 	/**

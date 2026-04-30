@@ -129,6 +129,29 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void s3kCameraUpdateWrapPreservesFocusedSpriteYSubpixelLikeRomWordMask() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                Camera camera = GameServices.camera();
+                camera.setFocusedSprite(mockSprite);
+                camera.setMinY((short) -0x100);
+                camera.setMaxY((short) 0x1000);
+                camera.setY((short) 0x1000);
+                camera.setVerticalWrapEnabled(true, 0x1000);
+
+                mockSprite.setAir(true);
+                mockSprite.setCentreY((short) 0x0083);
+                mockSprite.setSubpixelRaw(0x7000, 0x3000);
+
+                camera.updatePosition();
+
+                assertEquals((short) 0x0083, mockSprite.getCentreY(),
+                                "Camera vertical wrap masks only the high y_pos word");
+                assertEquals(0x3000, mockSprite.getYSubpixelRaw(),
+                                "S3K camera wrap must preserve y_sub like and.w d0,y_pos(a0)");
+        }
+
+        @Test
         public void testEndOfLevelKeepsBossStyleRightBoundaryClamp() throws Exception {
                 GameServices.camera().setMinX((short) 0x0200);
                 GameServices.camera().setMaxX((short) 0x0300);
