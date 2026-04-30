@@ -4616,6 +4616,18 @@ public class ObjectManager {
                 if (deltaX != 0) {
                     player.shiftX(deltaX);
                 }
+                // ROM: S3K Obj_CollapsingPlatform state-1 -> state-2 transition
+                // (sonic3k.asm:44814 loc_20594 -> sonic3k.asm:45394
+                // ObjPlatformCollapse_CreateFragments) skips its sub_205B6
+                // slope-sample / y-write on the transition frame. The provider
+                // signals that one-frame skip via suppressSlopeSampleThisFrame().
+                // Player riding state is preserved unchanged so Sonic continues
+                // standing at last frame's y_pos.
+                if (provider.suppressSlopeSampleThisFrame(player)) {
+                    ridingStates.put(player, new RidingState(instance, currentX, currentY, ridingPieceIndex));
+                    inlineSupportedPlayers.add(player);
+                    return SolidContact.STANDING;
+                }
                 int surfaceOffset;
                 if (instance instanceof SlopedSolidProvider sloped) {
                     int slopeAnchorX = currentX + params.offsetX();

@@ -1202,7 +1202,26 @@ S1 MZ1 F311, S2 EHZ F1151, S3K AIZ F6313.
 
 ---
 
-## AIZ Trace F6920 -- Sloped Collapsing Platform Ride Sample Ordering
+## AIZ Trace F6920 -- Sloped Collapsing Platform Ride Sample Ordering -- RESOLVED
+
+**Resolution:** Fixed by the round-15 introduction of
+`SolidObjectProvider.suppressSlopeSampleThisFrame()` and the matching
+`Sonic3kCollapsingPlatformObjectInstance` `pendingTransitionSkip` /
+`transitionFrameSlopeSkip` flags. ROM `loc_20594`'s state-1 -> state-2
+transition (sonic3k.asm:44820) jumps to `ObjPlatformCollapse_CreateFragments`
+(sonic3k.asm:45394), which `jmp`s to `Play_SFX` without falling through to
+`sub_205B6` (sonic3k.asm:44830) -- so the slope sample is skipped exactly on
+the transition frame. The engine's `update()` runs `performCollapse()` one
+frame earlier than ROM's `$3A` arming (sonic3k.asm:44825 vs the engine's
+`onSolidContact` setting `state=1` on the first standing frame), so the flag
+is staged in `pendingTransitionSkip` during the engine's transition update
+and promoted to `transitionFrameSlopeSkip` in the next update. The post-update
+inline solid pass observes the active flag for exactly one frame, keeps the
+player attached, and skips the y_pos write -- matching ROM's transition
+frame. F5904 (`y=0x0317`) is preserved because that platform is already in
+state 2 throughout. AIZ trace first-error advances from F6920 to F7127.
+
+**Original symptom (kept for context):**
 
 **Location:** `Sonic3kCollapsingPlatformObjectInstance`,
 `ObjectManager.SolidContacts.processInlineRidingObject`.
@@ -1380,11 +1399,10 @@ independent commit since it does not by itself move the F6920 slope sample.
 
 ### Removal Condition
 
-Remove this entry once the AIZ collapsing platform uses a ROM-cited
-checkpoint order that keeps F5904 and F6920 both correct, leaves CNZ F5679 no
-worse, and does not regress S1 GHZ/MZ or S2 EHZ trace baselines. The trace
-comparison must remain comparison-only: no per-frame state hydration from
-trace data.
+Resolved 2026-04-30 (round-15 dispatch): F5904 and F6920 both pass, S1
+GHZ/MZ/S2 EHZ trace baselines unchanged, CNZ first-error stays at F6304.
+Entry retained for context until a follow-up cleanup confirms no further
+regressions.
 
 ---
 
