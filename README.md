@@ -221,10 +221,13 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   resolved once the trace is regenerated.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
-  velocity, horizontal-spring airborne contact handling, and the SolidObject on-screen gate now
+  velocity, horizontal-spring airborne contact handling, the SolidObject on-screen gate now
   reading per-object width_pixels against the previous frame's camera (matching ROM render_flags
-  bit 7 timing) advance the CNZ v6.5/v6.7 replay frontier from F3905 to F7614 while preserving
-  S1/S2 trace baselines.
+  bit 7 timing), and the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
+  (matching ROM `loc_1E154`'s position lift before the upward-velocity check at
+  `sonic3k.asm:41606-41632`, gated S3K-only) with per-(player, object) standing-bit tracking
+  mirroring ROM `a0.d6` semantics now advance the CNZ v6.5/v6.7 replay frontier from F3905 to
+  F7872 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
   platform state-1→state-2 transition slope-sample skip, and the state-2→state-3 unconditional
