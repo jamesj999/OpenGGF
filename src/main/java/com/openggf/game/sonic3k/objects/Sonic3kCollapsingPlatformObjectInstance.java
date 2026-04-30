@@ -149,6 +149,40 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     private int solidStayTimer;
     private boolean releasePending;
 
+    /**
+     * One-frame flag controlling the post-update solid pass slope sample
+     * suppression. Engine flow:
+     * <ol>
+     *   <li>Engine calls {@code update()}; {@code performCollapse()} runs and
+     *       sets {@link #pendingTransitionSkip}.</li>
+     *   <li>Engine runs the post-update solid pass; this frame still samples
+     *       slope (matches ROM F3316, the last {@code loc_20594}/sub_205B6 frame).</li>
+     *   <li>Next frame's {@code update()} promotes
+     *       {@link #pendingTransitionSkip} to
+     *       {@link #transitionFrameSlopeSkip} (state==2 first ride frame).</li>
+     *   <li>That frame's post-update solid pass sees the flag and skips the
+     *       y_pos write while keeping the player attached, mirroring ROM
+     *       F3317 -- the transition frame where
+     *       {@code ObjPlatformCollapse_CreateFragments} (sonic3k.asm:45394)
+     *       jmps to {@code Play_SFX} without falling through to
+     *       {@code sub_205B6} (sonic3k.asm:44830).</li>
+     *   <li>Subsequent frame's {@code update()} clears the flag; ROM's
+     *       {@code loc_205DE} resumes calling {@code sub_205B6}
+     *       (sonic3k.asm:44851), so the slope sample is back on.</li>
+     * </ol>
+     *
+     * <p>The two-stage promotion accounts for the engine running
+     * {@code performCollapse()} one frame earlier than ROM's transition (the
+     * engine's {@code onSolidContact} sets {@code state=1} on the first
+     * standing frame, while ROM's {@code loc_20594} only sets {@code $3A=1}
+     * on the second standing frame at sonic3k.asm:44825). The pre-fix engine
+     * happened to write the same y_pos at F3316 (last sample frame in both)
+     * but wrote an extra slope sample at F3317 that ROM did not. The fix
+     * pushes the suppression to F3317, leaving F3316 untouched.
+     */
+    private boolean transitionFrameSlopeSkip;
+    private boolean pendingTransitionSkip;
+
     // Post-fragment parent fall state
     private int velY;
     private int yFrac;
@@ -236,6 +270,22 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     }
 
     /**
+     * One-frame suppression of the slope sample / y_pos write for the
+     * state-1 -> state-2 transition frame. ROM
+     * {@code ObjPlatformCollapse_CreateFragments} (sonic3k.asm:45394-45442)
+     * does not fall through to {@code sub_205B6}, so the slope sample is
+     * skipped while the player remains attached. Player y_pos therefore
+     * holds the previous frame's value -- which is the trace observation at
+     * AIZ F6920 ({@code y=0x0342} continuing F6919's value, while the
+     * post-physics x_pos {@code 0x0E8B} would have sampled
+     * {@code AIZ_SLOPE_DATA[0x2B]=0x14} and produced {@code 0x0341}).
+     */
+    @Override
+    public boolean suppressSlopeSampleThisFrame(PlayableEntity player) {
+        return transitionFrameSlopeSkip;
+    }
+
+    /**
      * Opt out of {@code ObjectManager.unloadCounterBasedOutOfRange()} so this
      * platform's lifecycle is governed exclusively by ROM's
      * {@code Sprite_OnScreen_Test} analog inside {@link #update}. The two
@@ -280,6 +330,14 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        // Clear last frame's transition-frame slope suppression and promote
+        // any pending suppression to active. See pendingTransitionSkip docs:
+        // the post-update solid pass runs after this update() returns, so
+        // active flag set here applies to that pass; on the next frame's
+        // update we'll clear it. Pending becomes active across exactly one
+        // frame, mirroring ROM's transition frame skipping sub_205B6.
+        transitionFrameSlopeSkip = pendingTransitionSkip;
+        pendingTransitionSkip = false;
         switch (state) {
             case 0 -> {
                 // Normal: just check if triggered via onSolidContact.
@@ -404,6 +462,16 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         // and loc_205DE counts it down while still calling SolidObjectTopSloped2.
         state = 2;
         releasePending = false;
+        // ROM ObjPlatformCollapse_CreateFragments (sonic3k.asm:45394) does NOT
+        // fall through to sub_205B6 -- it jmps to Play_SFX. So the slope
+        // sample / y_pos write is skipped on the ROM transition frame.
+        //
+        // The engine performs this state transition one frame earlier than ROM
+        // (onSolidContact sets state=1 on the first standing frame, while ROM
+        // sets $3A=1 on the second standing frame; sonic3k.asm:44820,44825).
+        // We therefore defer the suppression to the NEXT frame's solid pass,
+        // which corresponds to ROM's actual transition frame.
+        pendingTransitionSkip = true;
         // ROM loc_205DE resolves SolidObjectTopSloped2 before decrementing $38.
         // ObjectManager runs object updates before the separate solid pass, so keep
         // one extra stored tick to expose the same number of solid frames.

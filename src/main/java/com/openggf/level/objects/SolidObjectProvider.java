@@ -184,6 +184,37 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether the inline continued-riding slope sample should be suppressed for
+     * exactly this frame while the player remains attached to the object.
+     * <p>
+     * Default: {@code false} (slope sample writes y_pos every frame, matching
+     * ROM {@code SolidObjSloped2} sonic3k.asm:41727-41752 / {@code MvSonicOnSlope}
+     * s2disasm:35429 invoked by {@code sub_205B6} sonic3k.asm:44830).
+     * <p>
+     * ROM divergence covered by this hook: S3K {@code Obj_CollapsingPlatform}
+     * state-1 routine {@code loc_20594} (sonic3k.asm:44814-44824) decrements its
+     * collapse timer {@code $38} and, when the timer is already zero at frame
+     * start, branches to {@code ObjPlatformCollapse_CreateFragments}
+     * (sonic3k.asm:45394-45442). That branch rewrites {@code (a0)} to
+     * {@code loc_205DE} and {@code jmp}s to {@code Play_SFX} <em>without</em>
+     * falling through to {@code sub_205B6} (sonic3k.asm:44830) -- so the slope
+     * sample / y_pos write is skipped on the state-1 to state-2 transition
+     * frame. Sonic remains attached because {@code Status_OnObj} and
+     * {@code p1_standing_bit} are not cleared, but his y_pos is held at the
+     * value written by the previous frame's {@code SolidObjSloped2}.
+     * <p>
+     * Engine architecture has the platform's {@code update()} (state machine)
+     * and the {@code SolidContacts} continued-riding pass as separate steps,
+     * so the post-update solid pass would still run a slope sample on the
+     * transition frame. Returning {@code true} here for that exact frame keeps
+     * the player riding (no air transition, no x carry change) while skipping
+     * the y_pos write, mirroring ROM.
+     */
+    default boolean suppressSlopeSampleThisFrame(PlayableEntity player) {
+        return false;
+    }
+
+    /**
      * Whether the {@code SolidObject_cont} on-screen gate (engine flag
      * {@link com.openggf.game.PhysicsFeatureSet#solidObjectOffscreenGate()})
      * should be bypassed for this object's new-contact resolution path.

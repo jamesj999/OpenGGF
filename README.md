@@ -220,8 +220,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   velocity, and horizontal-spring airborne contact handling now advance the CNZ v6.5/v6.7 replay
   frontier from F3905 to F6304 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
-  object handoff, reload frame-counter cadence, and catch-up flight gating now advance the AIZ
-  v6.6/v6.9 replay frontier from F4679 to F6920.
+  object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
+  platform state-1→state-2 transition slope-sample skip now advance the AIZ v6.6/v6.9 replay
+  frontier from F4679 to F7127.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
