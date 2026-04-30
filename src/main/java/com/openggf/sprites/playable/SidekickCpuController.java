@@ -126,6 +126,7 @@ public class SidekickCpuController {
     private boolean aizIntroDormantMarkerPrimed;
     private boolean suppressNextAizIntroNormalMovement;
     private boolean skipPhysicsThisFrame;
+    private NormalStepDiagnostics latestNormalStepDiagnostics;
 
     // =====================================================================
     // Tails-carry-Sonic support (S3K-only; null trigger = feature disabled)
@@ -240,6 +241,215 @@ public class SidekickCpuController {
     public void setController2Input(int held, int logical) {
         controller2Held = held;
         controller2Logical = logical;
+    }
+
+    /**
+     * Comparison-only trace replay diagnostic for the latest normal CPU step.
+     * It is never used to drive gameplay state.
+     */
+    public NormalStepDiagnostics getLatestNormalStepDiagnostics() {
+        return latestNormalStepDiagnostics;
+    }
+
+    public String formatLatestNormalStepDiagnostics() {
+        if (latestNormalStepDiagnostics == null) {
+            return "eng-tails-cpu none";
+        }
+        NormalStepDiagnostics d = latestNormalStepDiagnostics;
+        return String.format(
+                "eng-tails-cpu f=%d state=%s branch=%s hist=%d/%02d in=%04X stat=%02X push=%02X "
+                        + "pre=obj%02X st%02X xv%04X gv%04X "
+                        + "gen=%04X postCpu=obj%02X st%02X xv%04X gv%04X "
+                        + "postPhys=%s obj%02X st%02X xv%04X gv%04X dx=%04X dy=%04X skip=%s",
+                d.frameCounter(),
+                d.state(),
+                d.followBranch(),
+                d.followDelayFrames(),
+                d.followHistorySlot(),
+                d.recordedInput() & 0xFFFF,
+                d.recordedStatus() & 0xFF,
+                d.pushBypassStatus() & 0xFF,
+                d.preObjectControl() & 0xFF,
+                d.preStatus() & 0xFF,
+                d.preXVel() & 0xFFFF,
+                d.preGroundVel() & 0xFFFF,
+                d.generatedInput() & 0xFFFF,
+                d.postCpuObjectControl() & 0xFF,
+                d.postCpuStatus() & 0xFF,
+                d.postCpuXVel() & 0xFFFF,
+                d.postCpuGroundVel() & 0xFFFF,
+                d.postPhysicsRecorded() ? "seen" : "missing",
+                d.postPhysicsObjectControl() & 0xFF,
+                d.postPhysicsStatus() & 0xFF,
+                d.postPhysicsXVel() & 0xFFFF,
+                d.postPhysicsGroundVel() & 0xFFFF,
+                d.dx() & 0xFFFF,
+                d.dy() & 0xFFFF,
+                d.skipFollowSteering());
+    }
+
+    public void recordDiagnosticPostPhysics() {
+        if (latestNormalStepDiagnostics == null
+                || latestNormalStepDiagnostics.frameCounter() != frameCounter) {
+            return;
+        }
+        latestNormalStepDiagnostics = latestNormalStepDiagnostics.withPostPhysics(
+                diagnosticStatusByte(),
+                diagnosticObjectControlByte(),
+                sidekick.getXSpeed(),
+                sidekick.getGSpeed());
+    }
+
+    private NormalStepDiagnostics beginNormalStepDiagnostics(String branch) {
+        latestNormalStepDiagnostics = new NormalStepDiagnostics(
+                frameCounter,
+                state,
+                branch,
+                diagnosticStatusByte(),
+                diagnosticObjectControlByte(),
+                sidekick.getXSpeed(),
+                sidekick.getGSpeed(),
+                -1,
+                -1,
+                0,
+                0,
+                0,
+                -1,
+                -1,
+                0,
+                diagnosticStatusByte(),
+                diagnosticObjectControlByte(),
+                sidekick.getXSpeed(),
+                sidekick.getGSpeed(),
+                0,
+                0,
+                (short) 0,
+                (short) 0,
+                false,
+                false);
+        return latestNormalStepDiagnostics;
+    }
+
+    private void finishNormalStepDiagnostics(NormalStepDiagnostics base,
+                                             String branch,
+                                             int followDelayFrames,
+                                             int followHistorySlot,
+                                             int recordedInput,
+                                             int recordedStatus,
+                                             int pushBypassStatus,
+                                             int dx,
+                                             int dy,
+                                             boolean skipFollowSteering) {
+        latestNormalStepDiagnostics = base.withCpuResult(
+                branch,
+                followDelayFrames,
+                followHistorySlot,
+                recordedInput,
+                recordedStatus,
+                pushBypassStatus,
+                dx,
+                dy,
+                diagnosticGeneratedInput(),
+                diagnosticStatusByte(),
+                diagnosticObjectControlByte(),
+                sidekick.getXSpeed(),
+                sidekick.getGSpeed(),
+                skipFollowSteering);
+    }
+
+    private int diagnosticGeneratedInput() {
+        int input = 0;
+        if (inputUp) input |= AbstractPlayableSprite.INPUT_UP;
+        if (inputDown) input |= AbstractPlayableSprite.INPUT_DOWN;
+        if (inputLeft) input |= AbstractPlayableSprite.INPUT_LEFT;
+        if (inputRight) input |= AbstractPlayableSprite.INPUT_RIGHT;
+        if (inputJump) input |= AbstractPlayableSprite.INPUT_JUMP;
+        return input;
+    }
+
+    private int diagnosticStatusByte() {
+        int status = 0;
+        if (sidekick.getDirection() == Direction.LEFT) status |= AbstractPlayableSprite.STATUS_FACING_LEFT;
+        if (sidekick.getAir()) status |= AbstractPlayableSprite.STATUS_IN_AIR;
+        if (sidekick.getRolling()) status |= AbstractPlayableSprite.STATUS_ROLLING;
+        if (sidekick.isOnObject()) status |= AbstractPlayableSprite.STATUS_ON_OBJECT;
+        if (sidekick.getPushing()) status |= AbstractPlayableSprite.STATUS_PUSHING;
+        if (sidekick.isInWater()) status |= AbstractPlayableSprite.STATUS_UNDERWATER;
+        return status;
+    }
+
+    private int diagnosticObjectControlByte() {
+        int objectControl = 0;
+        if (sidekick.isObjectControlled()) objectControl |= 0x80;
+        if (sidekick.isObjectControlAllowsCpu()) objectControl |= 0x40;
+        if (sidekick.isObjectControlSuppressesMovement()) objectControl |= 0x01;
+        return objectControl;
+    }
+
+    public record NormalStepDiagnostics(
+            int frameCounter,
+            State state,
+            String followBranch,
+            int preStatus,
+            int preObjectControl,
+            short preXVel,
+            short preGroundVel,
+            int followDelayFrames,
+            int followHistorySlot,
+            int recordedInput,
+            int recordedStatus,
+            int pushBypassStatus,
+            int dx,
+            int dy,
+            int generatedInput,
+            int postCpuStatus,
+            int postCpuObjectControl,
+            short postCpuXVel,
+            short postCpuGroundVel,
+            int postPhysicsStatus,
+            int postPhysicsObjectControl,
+            short postPhysicsXVel,
+            short postPhysicsGroundVel,
+            boolean skipFollowSteering,
+            boolean postPhysicsRecorded) {
+
+        NormalStepDiagnostics withCpuResult(String branch,
+                                            int followDelayFrames,
+                                            int followHistorySlot,
+                                            int recordedInput,
+                                            int recordedStatus,
+                                            int pushBypassStatus,
+                                            int dx,
+                                            int dy,
+                                            int generatedInput,
+                                            int postCpuStatus,
+                                            int postCpuObjectControl,
+                                            short postCpuXVel,
+                                            short postCpuGroundVel,
+                                            boolean skipFollowSteering) {
+            return new NormalStepDiagnostics(frameCounter, state, branch,
+                    preStatus, preObjectControl, preXVel, preGroundVel,
+                    followDelayFrames, followHistorySlot,
+                    recordedInput, recordedStatus, pushBypassStatus,
+                    dx, dy, generatedInput,
+                    postCpuStatus, postCpuObjectControl, postCpuXVel, postCpuGroundVel,
+                    postPhysicsStatus, postPhysicsObjectControl, postPhysicsXVel, postPhysicsGroundVel,
+                    skipFollowSteering, postPhysicsRecorded);
+        }
+
+        NormalStepDiagnostics withPostPhysics(int postPhysicsStatus,
+                                              int postPhysicsObjectControl,
+                                              short postPhysicsXVel,
+                                              short postPhysicsGroundVel) {
+            return new NormalStepDiagnostics(frameCounter, state, followBranch,
+                    preStatus, preObjectControl, preXVel, preGroundVel,
+                    followDelayFrames, followHistorySlot,
+                    recordedInput, recordedStatus, pushBypassStatus,
+                    dx, dy, generatedInput,
+                    postCpuStatus, postCpuObjectControl, postCpuXVel, postCpuGroundVel,
+                    postPhysicsStatus, postPhysicsObjectControl, postPhysicsXVel, postPhysicsGroundVel,
+                    skipFollowSteering, true);
+        }
     }
 
     private void updateInit() {
@@ -496,6 +706,7 @@ public class SidekickCpuController {
     private void updateNormal() {
         normalFrameCount++;
         boolean currentPushing = sidekick.getPushing();
+        NormalStepDiagnostics diagnostics = beginNormalStepDiagnostics("entry");
 
         if (leader.getDead()) {
             // ROM loc_13D4A (sonic3k.asm:26656-26665):
@@ -523,19 +734,27 @@ public class SidekickCpuController {
             sidekick.setDoubleJumpFlag(1);
             sidekick.setForcedAnimationId(flyAnimId);
             state = State.FLIGHT_AUTO_RECOVERY;
+            finishNormalStepDiagnostics(diagnostics, "leader_dead", -1, -1,
+                    0, 0, 0, 0, 0, false);
             return;
         }
         if (sidekick.getDead()) {
             normalPushingGraceFrames = 0;
             suppressNextAirbornePushFollowSteering = false;
+            finishNormalStepDiagnostics(diagnostics, "sidekick_dead", -1, -1,
+                    0, 0, 0, 0, 0, false);
             return;
         }
         if (checkDespawn()) {
+            finishNormalStepDiagnostics(diagnostics, "despawn", -1, -1,
+                    0, 0, 0, 0, 0, false);
             return;
         }
         if (controlCounter != 0) {
             applyManualControl();
             updateNormalPushingGrace(currentPushing);
+            finishNormalStepDiagnostics(diagnostics, "manual_control", -1, -1,
+                    controller2Held, 0, 0, 0, 0, false);
             return;
         }
         // ROM Tails_Normal Part 2 entry sonic3k.asm:26672:
@@ -555,6 +774,8 @@ public class SidekickCpuController {
         // it true. See AbstractPlayableSprite#setObjectControlAllowsCpu.
         if (sidekick.isObjectControlled() && !sidekick.isObjectControlAllowsCpu()) {
             updateNormalPushingGrace(currentPushing);
+            finishNormalStepDiagnostics(diagnostics, "object_control_bit7", -1, -1,
+                    0, 0, 0, 0, 0, false);
             return;
         }
 
@@ -566,6 +787,8 @@ public class SidekickCpuController {
         AbstractPlayableSprite effectiveLeader = getEffectiveLeader();
         if (effectiveLeader == null) {
             updateNormalPushingGrace(currentPushing);
+            finishNormalStepDiagnostics(diagnostics, "no_effective_leader", -1, -1,
+                    0, 0, 0, 0, 0, false);
             return;
         }
         int followStatDelayFrames = resolveFollowStatDelayFrames();
@@ -644,6 +867,12 @@ public class SidekickCpuController {
         boolean skipFollowSteering = currentPushBypass
                 || localGracePushBypass
                 || airbornePushHandoff;
+        String followBranch = currentPushBypass ? "current_push_bypass"
+                : localGracePushBypass ? "grace_push_bypass"
+                : airbornePushHandoff ? "airborne_push_handoff"
+                : leaderStatusOnObject ? "leader_on_object"
+                : effectiveLeader.getGSpeed() >= 0x400 ? "leader_fast"
+                : "follow_steering";
         // ROM loc_13DD0 only uses d4 (the delayed status byte) to decide
         // whether to bypass FollowLeft/FollowRight. The Ctrl_2 word in d1 was
         // already loaded from the same Stat_table entry and is preserved when
@@ -786,6 +1015,18 @@ public class SidekickCpuController {
             skipPhysicsThisFrame = true;
         }
         updateNormalPushingGrace(currentPushing);
+        int reportedDelayFrames = (localGracePushBypass || airbornePushHandoff)
+                ? ROM_PUSH_BYPASS_STAT_DELAY_FRAMES
+                : followStatDelayFrames;
+        finishNormalStepDiagnostics(diagnostics, followBranch,
+                reportedDelayFrames,
+                effectiveLeader.getHistorySlotIndex(reportedDelayFrames),
+                recordedInput & 0xFFFF,
+                recordedStatus & 0xFF,
+                pushBypassStatus & 0xFF,
+                dx,
+                dy,
+                skipFollowSteering);
     }
 
     private int resolveFollowStatDelayFrames() {
