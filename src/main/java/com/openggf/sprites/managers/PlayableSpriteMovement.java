@@ -200,10 +200,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		if (sprite.isDebugMode()) {
 			handleDebugMovement(up, down, left, right, speedUp, slowDown);
+			applyScreenYWrapValueAfterControl();
 			return;
 		}
 
 		if (sprite.isObjectControlSuppressesMovement()) {
+			applyScreenYWrapValueAfterControl();
 			return;
 		}
 
@@ -272,6 +274,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 			sprite.updateSensors(originalX, originalY);
+			applyScreenYWrapValueAfterControl();
 			return;
 		}
 
@@ -279,6 +282,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			applyDeathMovement();
 			sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
 			sprite.updateSensors(originalX, originalY);
+			applyScreenYWrapValueAfterControl();
 			return;
 		}
 
@@ -327,6 +331,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			updateKnucklesGlide();
 			// Direction is managed by glide code, not updateFacingDirection
 			sprite.updateSensors(originalX, originalY);
+			applyScreenYWrapValueAfterControl();
 			return;
 		}
 
@@ -343,7 +348,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// doChgJumpDir() for air, Sonic_Move/Tails_Move for normal ground,
 		// and Sonic_RollLeft/Right for rolling. A generic post-pass flips
 		// low-speed turn states too early and breaks Tails follow parity.
+		applyScreenYWrapValueAfterControl();
 		sprite.updateSensors(originalX, originalY);
+	}
+
+	private void applyScreenYWrapValueAfterControl() {
+		Camera camera = camera();
+		if (camera != null) {
+			camera.applyScreenYWrapValue(sprite);
+		}
 	}
 
 	/** Returns true when the glide state machine owns direction control. */
