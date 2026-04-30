@@ -1258,6 +1258,125 @@ must re-home the standing-trigger, solid-stay, release, and F6255 off-screen
 delete sequencing together; changing only the slope sample or only the
 release tick is a trace-shaped hack.
 
+### F6920 Slope-Sample Arithmetic (round-14 dispatch findings)
+
+A round-14 inspection added concrete arithmetic that further constrains the
+fix. At F6920 the trace columns settle to:
+
+```text
+F6919  player_x = 0x0E8E   y(expected) = 0x0342   y(engine) = 0x0342  match
+F6920  player_x = 0x0E8B   y(expected) = 0x0342   y(engine) = 0x0341  drop-by-one
+F6922  player_x = 0x0E85   y(expected) = 0x0341   y(engine) = 0x0341  match
+```
+
+(Frames F6917 and F6920 show the ROM repeating the previous frame's `y_pos`
+for one extra frame; the engine instead drops by one pixel.)
+
+`SolidObjSloped2` (sonic3k.asm:41727-41753) executes:
+
+```
+relX     = player.x_pos - platform.x_pos + width_pixels
+sampleX  = relX >> 1
+slopeY   = (signed) AIZ_SLOPE_DATA[sampleX]
+player.y = platform.y - slopeY - player.y_radius
+```
+
+With `platform.x = 0x0E70`, `width_pixels = 0x3C`, `y_radius = 0x13`,
+`platform.y = 0x0368`, `AIZ_SLOPE_DATA[0x2B] = 0x14`,
+`AIZ_SLOPE_DATA[0x2D] = 0x13`:
+
+```text
+post-physics player_x = 0x0E8B  -> relX 0x57 -> sampleX 0x2B
+                     y = 0x0368 - 0x14 - 0x13 = 0x0341  (engine result)
+
+pre-physics  player_x = 0x0E8E  -> relX 0x5A -> sampleX 0x2D
+                     y = 0x0368 - 0x13 - 0x13 = 0x0342  (ROM result)
+```
+
+So the ROM-correct slope sample at F6920 needs the **previous frame's**
+`x_pos`, but the prior round-13 experiment that always sampled the previous
+frame regressed F5904 (`y` 0x0317 -> 0x0316). The clean signal must therefore
+account for whether `Sonic_Move` would have changed `x_pos` enough to cross a
+2-pixel slope-data bucket boundary this frame, not be a blanket "previous
+frame" patch.
+
+Sweeping all of F6913-F6924 with the post-physics formula reproduces every
+frame except F6913 (engine 0x0346 vs trace 0x0347 -- one pixel **too high**)
+and F6920 (engine 0x0341 vs trace 0x0342 -- one pixel **too high**). Both
+discrepancies share the property that the ROM "delays" the slope drop by one
+frame relative to the engine. The engine matches every interior frame on
+which sampling at the post-physics x lands inside the same slope-data bucket
+as sampling at the pre-physics x.
+
+### Hypotheses Ruled Out vs Still Open (round 14)
+
+Ruled out, with cites:
+
+- **Pre/post-physics Sonic ordering.** Process_Sprites (sonic3k.asm:35965)
+  iterates Object_RAM in slot order; slot 0 (Player_1) runs first, slot 25
+  (collapsing platform) runs after, so the platform's `sub_205B6` reads
+  `x_pos(a1)` post-Sonic_Move + post-MoveSprite2 (sonic3k.asm:21620-21626).
+  Always sampling pre-physics x is therefore wrong as a steady-state model
+  even though it happens to fix F6920 and F6913.
+- **Auto vs manual checkpoint timing of release.** F6920 is mid-countdown
+  (state 2 / `loc_205DE`, $38 still > 0); the 0x30->0x00 release at the END
+  of state 2 is what differs between AUTO_AFTER_UPDATE and MANUAL_CHECKPOINT.
+  Reordering update vs solid checkpoint cannot move the slope sample
+  evaluated **inside** that solid checkpoint, so a pure mode swap on the
+  collapsing platform does not by itself address F6920.
+- **`SolidObjSloped2` X-carry double application.** `sub.w x_pos(a0),d2 ;
+  sub.w d2,x_pos(a1)` (sonic3k.asm:41748-41749) collapses to a no-op on this
+  platform because `sub_205B6` loads `d4 = x_pos(a0)` (44834) before
+  `SolidObjectTopSloped2_1P` saves `move.w d4,d2` (41863). So the carry does
+  not adjust the player's x_pos and therefore cannot retroactively change
+  the slope sample.
+
+Open, needing investigation:
+
+- **Standing-bit edge transitions.** `SolidObjectTopSloped2_1P`
+  (sonic3k.asm:41840) has two paths: standing branch (re-sample slope) vs
+  `SolidObjCheckSloped2` new-contact branch. Whether the platform's
+  `p1_standing_bit` was set vs cleared this frame -- and whether
+  `SolidObjCheckSloped2` writes y differently than `SolidObjSloped2` (e.g.
+  with a different effective y_radius via the `loc_1C100` rolling fixup) --
+  has not been ruled out. Specifically: `SolidObjCheckSloped2` is at
+  `sonic3k.asm:42095` and is the new-landing path; if the bit got cleared
+  for one frame (e.g. by a sibling fragment processing) the platform would
+  re-enter via the new-contact path which uses a different snap formula.
+  Confirm by inspecting platform-side `status` byte during F6919 and F6920
+  in a BizHawk trace.
+- **Pre-physics x_pos held by `MvSonicOnPtfm2` slope re-application.** S3K's
+  `loc_205DE` only calls `sub_205B6` (which calls `SolidObjectTopSloped2`).
+  But on Sonic's own slot path (Player_1 routine), `Sonic_Move` may
+  short-circuit MoveSprite2 when Status_OnObj is set in some sub-paths.
+  Verify by tracing whether `loc_10844` (sonic3k.asm:21620) or one of its
+  alternates dispatches when `Status_OnObj` is set this specific frame.
+- **CollidingObject_PtfmRiding interlock.** S3K may have a `Player_AnglePos`
+  / `Player_SlopeRepel` (sonic3k.asm:21629-21630) tail that special-cases
+  `Status_OnObj` and writes y_pos back to a snapshot, which would mean the
+  platform's later `SolidObjSloped2` y-write gets clobbered by Sonic's own
+  routine on the NEXT frame. If true, the trace's "expected" y for frame F
+  is actually the y written by Sonic's routine at frame F+1 rather than the
+  platform's y-write at frame F.
+
+### What a Real Fix Likely Needs
+
+Once the open hypotheses are settled, the fix has to:
+
+1. Identify the ROM divergence that produces a one-pixel "y-hold" on
+   F6917/F6920 with cite (likely a standing-bit transition or a ROM-side
+   y_pos snap inside Sonic's own routine that the engine isn't reproducing).
+2. Gate the divergence behind a `PhysicsFeatureSet` flag so S1/S2 are
+   unaffected.
+3. Preserve F5904 (`y = 0x0317`), pass F6920 (`y = 0x0342`), and not
+   regress CNZ F6304 / S1 GHZ / S1 MZ / S2 EHZ baselines.
+
+A blanket conversion of `Sonic3kCollapsingPlatformObjectInstance` from
+AUTO_AFTER_UPDATE to MANUAL_CHECKPOINT is the right architectural cleanup
+for the release-frame ordering (sub_205B6 before $38 decrement before
+sub_205FC, sonic3k.asm:44850-44857), but it should be done as a separate,
+independent commit since it does not by itself move the F6920 slope sample.
+
 ### Removal Condition
 
 Remove this entry once the AIZ collapsing platform uses a ROM-cited
