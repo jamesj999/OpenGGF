@@ -2234,27 +2234,63 @@ the same change. Once S3K AIZ/CNZ progress past their current
 blockers, S1/S2 should be re-recorded or re-validated and the
 flag can be flipped to `true` for all three games.
 
-### Implementation Plan (Pending)
+### Implementation Status (2026-04-30)
 
-1. Add `boolean levelBoundaryUsesCentreY` to `PhysicsFeatureSet`,
-   `true` for `SONIC_3K`, `false` for `SONIC_1`/`SONIC_2`.
-2. In `PlayableSpriteMovement.doLevelBoundary` (line 1891), branch
-   on the flag and substitute `sprite.getCentreY()` when set:
-   ```java
-   int boundaryY = (featureSet != null && featureSet.levelBoundaryUsesCentreY())
-           ? sprite.getCentreY() & 0xFFFF
-           : sprite.getY() & 0xFFFF;
-   if (boundaryY > effectiveMaxY + 224) { ... }
-   ```
-3. Add a regression test
-   `TestSidekickLevelBoundaryKillCentreY` covering Tails crossing
-   the bottom plane at centre-Y vs top-Y for both flag values
-   (S2 default off — kills 12 px later; S3K on — kills at ROM
-   parity).
-4. Re-run `TestS3kAizTraceReplay`, `TestS3kCnzTraceReplay`,
-   `TestS3kMgzTraceReplay`, `TestS2Ehz1TraceReplay`,
-   `TestS1Ghz1TraceReplay`, `TestS1Mz1TraceReplay` and confirm:
-   - AIZ first-error advances past F7171.
-   - CNZ first-error stays at or past F7614.
-   - S2 EHZ baseline unchanged.
-   - S1 traces unchanged.
+The centre-Y feature flag landed on this branch:
+
+- `PhysicsFeatureSet.levelBoundaryUsesCentreY` added,
+  `SONIC_3K = true`, `SONIC_1`/`SONIC_2 = false` (deferred until
+  S1 GHZ/MZ1 and S2 EHZ trace baselines are re-recorded — ROM
+  cites for those games at `s1disasm/_incObj/01 Sonic.asm:1014`
+  and `s2.asm:36950` are unambiguous, so the flip is mechanical
+  once trace baselines confirm parity).
+- `PlayableSpriteMovement.doLevelBoundary` (line ~1891) now
+  switches between `sprite.getCentreY()` and `sprite.getY()` based
+  on the flag.
+- Regression coverage in
+  `src/test/java/com/openggf/sprites/managers/TestPlayableSpriteMovement.java`:
+  `s3kBottomLevelBoundaryUsesCentreY` (kill fires when only
+  centreY exceeds threshold),
+  `s2BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation`,
+  `s1BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation`
+  (both confirm flag stays false and kill suppresses), and
+  `s3kBottomLevelBoundaryRespectsTopLeftWhenCentreYBelowThreshold`
+  (no false positives below threshold).
+
+### Residual blocker — `enteredAsAct2` / `Apparent_zone_and_act` divergence
+
+The AIZ trace still fails at the same F7171 frame even with
+centre-Y. Root-cause analysis on this branch:
+
+- `Sonic3kAIZEvents.updateAiz2SonicResize1` (line 1160-1175)
+  guards the miniboss-skip on `enteredAsAct2`, which is set to
+  `true` in `enterAct2Direct` when no `pendingFireSequence`
+  exists. The trace's `aiz2_reload_resume` checkpoint follows the
+  no-pending-fire path, so the engine sets `enteredAsAct2 = true`,
+  takes the miniboss-skip branch in `SonicResize1`, and advances
+  the resize routine past `SonicResize2`. The camera's
+  `max_Y_pos` therefore stays at `AIZ2_DEFAULT_MAX_Y = 0x0590`.
+- ROM `AIZ2_SonicResize1` (`sonic3k.asm:39046-39058`) instead
+  guards on `Apparent_zone_and_act == 1`. The reload-resume trace
+  has `apparent_act = 0` (it ran through the AIZ1 fire transition
+  internally), so ROM stays in the routine, runs
+  `AIZ2_SonicResize2` (`sonic3k.asm:39062-39085`), and once the
+  camera crosses `0x0ED0` it sets `Camera_max_Y_pos = 0x02B8`.
+- Kill threshold at F7171: ROM `0x02B8 + 0xE0 = 0x0398`, engine
+  `0x0590 + 0xE0 = 0x0670`. Tails `centreY = 0x047E` is past the
+  ROM threshold but well inside the engine threshold, so the
+  centre-Y compare cannot fire.
+
+The follow-up fix needs the engine's `enteredAsAct2` (or its
+equivalent) to track ROM `Apparent_zone_and_act` rather than the
+"no pending fire" heuristic, so the reload-resume path keeps
+SonicResize2 active. ROM cites:
+`sonic3k.asm:39046-39058` (`AIZ2_SonicResize1` apparent-act gate),
+`sonic3k.asm:39062-39085` (`AIZ2_SonicResize2` boss-area camera
+narrow), trace checkpoint `aiz2_reload_resume z=0 a=1 ap=0 gm=12`
+(actual_act=1=AIZ2 internal, apparent_act=0=AIZ1 visible).
+
+Until that lands, the centre-Y change is a no-op for the AIZ
+trace but a strict ROM-parity improvement that prevents Sonic
+from drifting 20 px past the ROM kill plane on any future trace
+where the camera narrows below the engine's old top-left margin.

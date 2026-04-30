@@ -500,7 +500,14 @@ ROM-citation requirements and per-game parity rules.
   you find yourself wanting to "preserve" or "set" engine fields each frame from the trace,
   the engine probably has a real bug — fix it instead.
 - **Branching on game id in shared physics/AI code.** Per-game divergences must be gated via
-  `PhysicsFeatureSet` flags, never `if (gameId == GameId.S3K)`.
+  `PhysicsFeatureSet` flags, never `if (gameId == GameId.S3K)`. When ROM uses a different
+  semantic on a value that exists across games (e.g. `cmp.w y_pos(a0),d0` in
+  `Player_LevelBound` reads centre-Y while the engine's `getY()` returns top-left), prefer
+  adding a feature flag (default-false on games whose trace baselines were calibrated against
+  the engine's prior behaviour) over flipping the global default in the same change. See
+  `PhysicsFeatureSet.levelBoundaryUsesCentreY` for the canonical example: ROM-cited as correct
+  for S1/S2/S3K but enabled only on S3K initially so S1 GHZ/MZ1 and S2 EHZ baselines stay
+  green until they are re-validated.
 - **Edit-tool BOM/CRLF silent failure.** Some files (e.g. `CnzCylinderInstance.java`,
   `AbstractTraceReplayTest.java`) have UTF-8 BOM + CRLF endings. The Claude Code Edit tool
   has been observed to silently fail on these — it returns "successfully" but doesn't write.

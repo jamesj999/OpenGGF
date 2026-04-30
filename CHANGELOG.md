@@ -6,6 +6,36 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7171 centre-Y level-boundary flag added (S3K-only):** New
+  `PhysicsFeatureSet.levelBoundaryUsesCentreY` flag (true for
+  `SONIC_3K`, false for `SONIC_1`/`SONIC_2`) makes
+  `PlayableSpriteMovement.doLevelBoundary` compare the player's
+  ROM-centre Y (`getCentreY()`) instead of the engine's top-left Y
+  (`getY()`) when testing the bottom kill plane. ROM cites: S1
+  `Sonic_LevelBound .bottom` (`s1disasm/_incObj/01 Sonic.asm:1014`
+  `cmp.w obY(a0),d0 / blt.s`), S2 `Sonic_LevelBound`
+  `Sonic_Boundary_CheckBottom` (`s2.asm:36950` `cmp.w y_pos(a0),d0
+  / blt.s`), S3K `Player_LevelBound`
+  `Player_Boundary_CheckBottom` (`sonic3k.asm:23195`), S3K
+  `Tails_Check_Screen_Boundaries loc_14F30`
+  (`sonic3k.asm:28430-28431`). The 12 px (Tails) / 20 px (Sonic) gap
+  between top-left and centre-Y is unambiguously a ROM-parity bug.
+  S1/S2 stay on top-left until the GHZ/MZ1/EHZ baselines are
+  re-validated. Regression coverage:
+  `TestPlayableSpriteMovement.s3kBottomLevelBoundaryUsesCentreY`,
+  `s2BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation`,
+  `s1BottomLevelBoundaryStaysOnTopLeftCompareUntilTraceRevalidation`,
+  `s3kBottomLevelBoundaryRespectsTopLeftWhenCentreYBelowThreshold`.
+  AIZ trace replay still blocks at F7171 — analysis on this branch
+  identified a deeper `enteredAsAct2`/`Apparent_zone_and_act`
+  tracking divergence (engine sets `enteredAsAct2 = true` on the
+  reload-resume path, skipping AIZ2_SonicResize2 and leaving
+  `Camera_max_Y_pos` at the wide 0x590 default; ROM keeps
+  `Apparent_zone_and_act = 0` on the same path so SonicResize2
+  narrows `Camera_max_Y_pos` to 0x2B8 once the camera crosses
+  0x0ED0). That fix is documented as a follow-up blocker in
+  `docs/S3K_KNOWN_BUGS.md`. CNZ stays at F7614, MGZ at F0; S1
+  GHZ/MZ1, S2 EHZ unchanged.
 - **S3K CNZ F7614 SolidObject top-lift attempt deferred (doc-only):**
   Round-2 investigation of the `loc_1E154` lift hypothesis from the
   v6.10-s3k recorder data updated `docs/S3K_KNOWN_BUGS.md` CNZ F7614

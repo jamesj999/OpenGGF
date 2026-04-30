@@ -225,7 +225,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
   platform state-1→state-2 transition slope-sample skip, and the state-2→state-3 unconditional
   promotion (releasing stuck rider state when the platform's stay timer expires with no player
-  standing) now advance the AIZ v6.6/v6.9 replay frontier from F4679 to F7171.
+  standing), and the new `levelBoundaryUsesCentreY` feature flag (matching ROM `Player_LevelBound`
+  / `Tails_Check_Screen_Boundaries` centre-Y compare for S3K) now advance the AIZ v6.6/v6.9 replay
+  frontier from F4679 to F7171; the centre-Y flag is ROM-correct and gated S3K-only pending S1/S2
+  trace re-validation, but a second blocker (the AIZ2 SonicResize1 apparent-act gating) holds
+  F7171 for now.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.

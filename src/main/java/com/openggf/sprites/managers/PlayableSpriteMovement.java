@@ -1888,7 +1888,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// (camera boundaries may not reflect actual level extents during intro).
 		if (camera.isLevelStarted()) {
 			short effectiveMaxY = (short) maxY;
-			if (sprite.getY() > effectiveMaxY + 224) {
+			// ROM compares the player's y_pos(a0) word, which is centre-Y, not top-left:
+			//   S1 Sonic_LevelBound .bottom: cmp.w obY(a0),d0 / blt.s .bottom
+			//     (s1disasm/_incObj/01 Sonic.asm:1014).
+			//   S2 Sonic_LevelBound Sonic_Boundary_CheckBottom: cmp.w y_pos(a0),d0
+			//     / blt.s Sonic_Boundary_Bottom (s2.asm:36950).
+			//   S3K Player_LevelBound Player_Boundary_CheckBottom: cmp.w y_pos(a0),d0
+			//     / blt.s Player_Boundary_Bottom (sonic3k.asm:23195).
+			//   S3K Tails_Check_Screen_Boundaries loc_14F30: cmp.w y_pos(a0),d0
+			//     / blt.s loc_14F56 (sonic3k.asm:28430-28431).
+			// PhysicsFeatureSet.levelBoundaryUsesCentreY gates centre-Y for the
+			// games whose trace baselines have been validated against ROM
+			// parity (currently only SONIC_3K). S1/S2 stay on top-left until
+			// their trace baselines are re-recorded.
+			boolean useCentreY = featureSet != null && featureSet.levelBoundaryUsesCentreY();
+			int playerY = useCentreY ? sprite.getCentreY() : sprite.getY();
+			if (playerY > effectiveMaxY + 224) {
 				GameModule module = sprite.currentGameModule();
 				LevelEventProvider levelEvents = module != null ? module.getLevelEventProvider() : null;
 				SidekickCpuController cpuController = sprite.getCpuController();
