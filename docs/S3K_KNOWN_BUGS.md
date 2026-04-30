@@ -2853,3 +2853,165 @@ MoveSprite:
 Sources: `Sonic3kAIZEvents.updateAiz2SonicResize2`,
 `SidekickCpuController.updateDeadFalling` (commit
 `bugfix/ai-aiz-f7171-leader-fast-redux`).
+
+## CNZ1 Trace F7872 — Tails 1-Pixel x Drift After Sonic Jumps Off Rising Platform (OPEN)
+
+**Status:** Investigated, cause identified, defer until OnObj clear timing is reworked.
+
+**Symptom**
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first strict error at frame 7872:
+```
+tails_x mismatch (expected=0x0CED, actual=0x0CEC) — 2774 errors total
+```
+
+The divergence is a single-pixel offset on Tails's x-position that propagates
+forward (every subsequent `tails_x` is 1 px below the expected value). All
+other Tails state (`tails_y`, `tails_x_speed`, `tails_y_speed`,
+`tails_g_speed`, `tails_air`, `tails_rolling`) tracks ROM exactly through the
+divergence window. The 1-pixel offset is small but downstream cascades make
+the rest of the trace fail.
+
+**Trigger frame context (F7872)**
+
+Sonic was standing on the CNZ rising platform (`onObj=04` =
+`CnzRisingPlatformInstance`) and jumped this frame:
+- ROM `state_snapshot` records `air 0->1`, `rolling 0->1`,
+  `on_object 1->0` for Sonic at vfc=7873.
+- ROM `tailsCpu ... branch=leader_on_object` (Tails CPU saw Sonic still
+  carrying `Status_OnObj` mid-frame).
+- Engine `eng-tails-cpu ... branch=follow_steering` (Tails CPU saw Sonic's
+  `isOnObject()` already false).
+
+**Root cause**
+
+ROM `Tails_CPU_Control` at `loc_13DA6` (sonic3k.asm:26688-26700) reads Sonic's
+**current** `Status_OnObj` mid-frame:
+
+```
+loc_13DA6:
+    lea     (Pos_table).w,a2
+    move.w  #$10,d1
+    lsl.b   #2,d1
+    addq.b  #4,d1
+    move.w  (Pos_table_index).w,d0
+    sub.b   d1,d0
+    move.w  (a2,d0.w),d2
+    btst    #Status_OnObj,status(a1)   ; <-- current Sonic.Status_OnObj
+    bne.s   loc_13DD0                  ; if set: skip subi.w #$20,d2
+    cmpi.w  #$400,ground_vel(a1)
+    bge.s   loc_13DD0
+    subi.w  #$20,d2                    ; bias target X by 0x20 left
+loc_13DD0:
+    ...
+```
+
+ROM `Sonic_Jump` (sonic3k.asm:23288-23354, mirrored in s2.asm:37027-37080
+and s1disasm/_incObj/01 Sonic.asm:1118-1167) sets `Status_InAir` and clears
+`Status_Push`, but **does not** clear `Status_OnObj`. The OnObj bit is
+cleared later in the frame, during object processing, by
+`sub_1FF1E` (sonic3k.asm:44306-44319) and `loc_1FFC4` (sonic3k.asm:
+44369-44381) when the platform that previously hosted Sonic detects he is
+no longer standing on it (`bclr p1_standing_bit,status(a0)` followed by
+`bclr Status_OnObj,(Player_1+status).w` when that bit was set). Because
+ROM runs Player_1 → Player_2 → ObjectsLoad in that order
+(sonic3k.asm:21626+ vs. 22300+ vs. 24450+), `Tails_CPU_Control` (called
+from Player_2's update) sees Status_OnObj still set on the jump frame.
+
+The engine clears OnObj at two earlier points:
+- `PlayableSpriteMovement.doJump` calls `sprite.setOnObject(false)` at
+  jump time (current line 642).
+- `ObjectManager.SolidContacts.processInlineObjectForPlayer` air-unseat
+  path calls `player.setOnObject(false)` whenever the player is airborne
+  with a riding-object association (current line 4536).
+
+Both run inside Sonic's player tick, so by the time `SidekickCpuController.
+normalStep` runs (called from Tails's player iteration via
+`SpriteManager.update` at line 349), `effectiveLeader.isOnObject()` already
+returns `false` and `leadOffset > 0` causes `targetX -= 0x20` to fire.
+That is the source of the 1-pixel offset: `subi.w #$20,d2` runs in the
+engine but is skipped in ROM, so `dx = targetX - sidekick.getCentreX()` is
+biased by 0x20 (0.125 px after the tracking gain), shifting Tails's
+follow-steering nudge by 1 pixel west across the next several frames.
+
+**Investigation history (this branch — `bugfix/ai-cnz-f7872-tails-x`)**
+
+Two surgical fix attempts were tried and reverted:
+
+1. **Remove `setOnObject(false)` from `doJump`.** Revealed that
+   `ObjectManager.processInlineObjectForPlayer`'s air-unseat path
+   (line 4520-4537) **also** clears OnObj as soon as Sonic.air becomes
+   true, so removing the doJump line alone does not preserve OnObj
+   through Tails CPU.
+2. **Read Sonic's previous-frame status snapshot via
+   `getStatusHistory(1)`.** Successfully shifts the F7872 branch from
+   `follow_steering` to `leader_on_object`, **but** regresses CNZ1 to a
+   new first error at F6409: ROM has Sonic airborne with OnObj=false at
+   end of F6408, but the engine had recorded OnObj=true in the same
+   slot, so `getStatusHistory(1)` returns true while ROM's CURRENT bit is
+   false (Sonic was on the giant wheel; engine's clear timing for the
+   wheel differs from ROM's). The off-by-one in OnObj timing exists
+   across many objects, not just Cnz Rising Platform.
+
+A third option — adding an OR fallback (`previousOnObject ||
+leader.isOnObject()`) — also regressed F6409 because the previous-frame
+read still mismatched ROM's state.
+
+**Why no clean fix lands here**
+
+Aligning the engine to ROM requires either:
+
+- **(A)** Defer `setOnObject(false)` for *every* path that currently
+  clears it during the player tick (doJump, SolidContacts air-unseat,
+  per-object overrides) until the object phase, OR
+- **(B)** Capture a frame-start `wasOnObjectAtPlayerTickStart` snapshot
+  that is invalidated only by the object phase, not by the player tick.
+
+(A) is invasive — touching every solid-object path and risking regressions
+in other tests where engine code reads `isOnObject()` mid-tick (e.g.
+`PlayableSpriteMovement.java:1984, 2510, 2807` and
+`SidekickCpuController.java:1918, 1953`).
+(B) is cleaner architecturally, but adding a new shadow flag and
+threading it through `AbstractPlayableSprite.endOfTick` plus
+`SpriteManager.beginPlayableFrame` is not a small surgical edit; it
+needs cross-game (S1/S2/S3K) test coverage to avoid silently breaking
+the existing leader-on-object branches in those games (S2 follow code
+also reads `Status_OnObj` from the leader at `s2.asm:38933`+).
+
+**Removal condition**
+
+Either:
+
+- A new `AbstractPlayableSprite.wasOnObjectAtFrameStart` snapshot is
+  added, set by `beginPlayableFrame` from the prior frame's recorded
+  state, and `SidekickCpuController` reads it for `loc_13DA6`'s
+  Status_OnObj test in place of `effectiveLeader.isOnObject()`. S1/S2
+  trace replay tests must also remain green, since the same
+  pattern exists in `s1disasm/_incObj/01 Sonic.asm:1118-1167` and
+  `s2.asm:37027-37080,38933+`.
+- Or: every engine-side path that clears OnObj during the player tick
+  is rerouted to defer the clear into the object phase, matching ROM
+  ordering.
+
+Either change must keep `TestS3kCnzTraceReplay` (and AIZ/S1/S2 trace
+replays) green throughout.
+
+**File pointers (engine state today, master branch)**
+
+- `src/main/java/com/openggf/sprites/managers/PlayableSpriteMovement.java`
+  line 631-660 — `doJump` clears OnObj at jump time.
+- `src/main/java/com/openggf/level/objects/ObjectManager.java`
+  line 4502-4537 — `processInlineObjectForPlayer` air-unseat path
+  clears OnObj as soon as the player becomes airborne while a
+  ridingState is held.
+- `src/main/java/com/openggf/sprites/playable/SidekickCpuController.java`
+  line 812 — leader_on_object check uses
+  `effectiveLeader.isOnObject() && !effectiveLeader.getAir()`. The
+  `&& !getAir()` half is also redundant compared to ROM
+  (sonic3k.asm:26690 reads Status_OnObj alone) and should be revisited
+  alongside option (A) or (B).
+
+**Sources:** `bugfix/ai-cnz-f7872-tails-x` investigation notes (this
+branch's commit body); `target/trace-reports/s3k_cnz1_context.txt`
+F7860-F7880; `src/test/resources/traces/s3k/cnz/aux_state.jsonl.gz`
+F6408-F7873.
