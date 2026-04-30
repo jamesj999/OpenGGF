@@ -30,6 +30,7 @@ Entries should include:
 12. [CNZ1 Trace F2222 — Wire Cage Sidekick JUMP_RELEASE Spurious Fire (OPEN — needs ROM-aligned `Ctrl_2_pressed_logical` model)](#cnz1-trace-f2222--wire-cage-sidekick-jump_release-spurious-fire-open--needs-rom-aligned-ctrl_2_pressed_logical-model)
 13. [AIZ Trace F6255 — Tails CPU Freed-Slot Despawn (RESOLVED)](#aiz-trace-f6255--tails-cpu-freed-slot-despawn-resolved)
 14. [CNZ1 Trace F3649 — Tails Air-to-Ground Spring Boost Missed (RESOLVED)](#cnz1-trace-f3649--tails-air-to-ground-spring-boost-missed-resolved)
+15. [CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader (OPEN — needs Tails-side door SolidObjectFull approach-from-above gating)](#cnz1-trace-f6304--tails-misses-cnz-door-re-land-while-following-fast-leader)
 
 ---
 
@@ -1384,3 +1385,122 @@ checkpoint order that keeps F5904 and F6920 both correct, leaves CNZ F5679 no
 worse, and does not regress S1 GHZ/MZ or S2 EHZ trace baselines. The trace
 comparison must remain comparison-only: no per-frame state hydration from
 trace data.
+
+---
+
+## CNZ1 Trace F6304 — Tails Misses CNZ Door Re-Land While Following Fast Leader
+
+**Location:** `DoorObjectInstance` (sub=$80 horizontal-door variant),
+`ObjectManager.SolidContacts` (Tails-side `SolidObjectFull` resolution),
+`SidekickCpuController.updateNormalFollow` (`leader_fast` branch).
+**ROM Reference:**
+- `Obj_HCZCNZDEZDoor` `loc_31034` horizontal-door routine,
+  `sub_310DA` proximity check (sonic3k.asm:66198-66280).
+- `SolidObjectFull` (sonic3k.asm:42102+) — ROM solid-object full handler
+  used at sonic3k.asm:66258 with `d1 = width_pixels + $B`,
+  `d2 = height_pixels = 8`, `d3 = height_pixels + 1 = 9`.
+- `Tails_CPU_Control` routine 6 = `loc_13D4A` follow-leader, fast-leader
+  branch `loc_13DD0` / `loc_13E9C` (sonic3k.asm:26656-26786).
+**Trace reference:** `src/test/resources/traces/s3k/cnz` (`cnz1_fullrun`),
+first strict error at frame 6304.
+
+### Symptom
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first fails at F6304:
+
+```text
+tails_y mismatch (expected=0x0530, actual=0x0533)
+```
+
+Surrounding state at the failure (per `s3k_cnz1_context.txt` line 25):
+
+- F6298–F6303: ROM and engine agree. Tails has `Status_InAir=1` after
+  running off a previous door/platform; `tails_y` slowly drifts from
+  0x0530 → 0x0532 in both due to a small `tails_y_speed` (≤ `0x0118`).
+- F6304: ROM snaps `tails_y` back to `0x0530`, clears `Status_InAir`,
+  zeroes `tails_y_speed`, and writes `Status_OnObj` with the CNZ door
+  (`obj=00031034`, `sub=$80`, `@1940,0548`). Engine continues falling
+  to `tails_y=0x0533` with `tails_y_speed=0x0150`, never crossing into
+  the door's solid-top.
+- The downstream `tails_g_speed` divergence (-0x0492 expected vs
+  -0x0402 actual) and the cascading 3 145-error tail are direct
+  consequences of Tails staying airborne for the rest of the run.
+
+The `tails_x` / `sonic_x` columns remain in lock-step throughout the
+window; the divergence is exclusively in the Tails-side vertical
+landing path on the horizontal CNZ door.
+
+### Diagnosed Constraints
+
+The ROM-side trace diagnostics confirm the door is the catching object.
+At F6304, `tailsInteract slot=13 ptr=B3C2 obj=00031034 rtn=00 st=12
+@1940,0548 sub=80 tails rf=85 obj=00 onObj=true objP2=true active=true
+destroyed=false`. ROM's `loc_31034` calls `SolidObjectFull` with d1=$2B
+(half-width 0x20 + 0xB), d2=8 (top), d3=9 (bottom)
+(sonic3k.asm:66250-66258). With Tails y_radius = 0x10 the ROM landing
+target is `door.y - d2 - tails_y_radius = 0x0548 - 8 - 0x10 = 0x0530`,
+matching the observed `tails_y=0x0530` after landing.
+
+The engine has the door spawned and active in `ObjectManager` (placement
+window `LOAD_AHEAD = 0x280` / camera_x = 0x17EE leaves the door at 0x1940
+well inside the active window). `DoorObjectInstance` advertises
+`SolidObjectParams(halfWidth + 0xB, halfHeight, halfHeight + 1)` =
+(0x2B, 8, 9), matching the ROM `d1`/`d2`/`d3` triplet exactly. The trace's
+`eng-near` filter is keyed off the **main player's** (Sonic's) centre
+position with a 160 px box, so the door at 0x1940 first appears in the
+nearby trace dump at F6308 (Sonic crosses dx ≤ 160) — that is a
+diagnostic-formatter artefact, not a spawn-window symptom; the door is
+solid-active for Tails the whole time.
+
+The bug is therefore in the Tails-side application of `SolidObjectFull`
+when Tails is in `Tails_CPU_routine = 6` (`loc_13D4A` follow-leader)
+**with the leader running fast**:
+
+- ROM order (sonic3k.asm:26656-26786): `loc_13D4A` → `loc_13D78` calls
+  `sub_13EFC` to update `Tails_CPU_flight_timer` /
+  `Tails_CPU_interact`, then performs steering Ctrl_2 writes, and the
+  player/object update loop runs `Obj_HCZCNZDEZDoor::loc_31034 →
+  SolidObjectFull` on Tails as part of the standard object pass. With
+  Tails arriving with `tails_y_speed > 0` and `tails_y < door_top`,
+  `SolidObjectFull` snaps `y_pos`, zeroes `y_vel`, sets `Status_OnObj`,
+  and clears `Status_InAir` in the same frame.
+- Engine: Tails stays in `state=NORMAL branch=leader_fast`
+  (`SidekickCpuController.updateNormalFollow`), and the CNZ door's
+  solid-resolution against Tails does not re-snap him in the
+  approach-from-above shape. The engine's `eng-tails-cyl` formatter is
+  cylinder-only, but the underlying SolidContacts pass should also
+  process `DoorObjectInstance` for Tails the same way it does for Sonic.
+  At F6304 the engine has `tails_y=0x0533`, `tails_y_speed=0x0150`,
+  status remains `0x03` (Facing|InAir) end-of-frame.
+
+The combination of the `leader_fast` follow branch (which can rewrite
+Tails' `x_pos`/`Ctrl_2` mid-step) and the door's `loc_31034` solid pass
+order is where the engine and ROM diverge. A prior CNZ1 split landed
+horizontal-spring airborne-contact preservation
+(commit 3d03f361a "Preserve S3K horizontal spring airborne contacts"),
+which is structurally similar but specific to springs. The door variant
+needs the same shape: keep Tails' airborne SolidObjectFull contact for
+horizontal CNZ doors so the ROM-equivalent landing latches.
+
+The trace recorder already emits sufficient diagnostic data
+(`cpu_state_per_frame`, `interact_state_per_frame`,
+`sidekick_interact_object_per_frame`) to drive this fix; no recorder
+extension is required. The investigation needs to (a) confirm via
+disassembly walk that ROM does call `SolidObjectFull` on Tails in
+`Tails_CPU_routine = 6 leader_fast` for the same frame the door's
+trigger advances, and (b) port the airborne-from-above latch shape
+proven for horizontal springs into the CNZ door's Tails-side path,
+gated by a `PhysicsFeatureSet` flag if it does not also apply to S2's
+ARZ doors / S1's MZ doors. Cross-game parity is required: S2 EHZ trace
+F1151 must stay green, S1 GHZ/MZ must stay green / F311 respectively,
+and S3K AIZ trace must not regress past its current F6920 sloped-ride
+blocker.
+
+### Removal Condition
+
+Remove this entry once `TestS3kCnzTraceReplay#replayMatchesTrace`
+advances past F6304 with a fix that is ROM-cited (`loc_31034` /
+`SolidObjectFull` references), preserves the comparison-only invariant
+(no trace-data write-back into engine state in the per-frame test
+loop), keeps S1 GHZ/MZ traces and S2 EHZ trace at their current
+baselines, and does not regress S3K AIZ past F6920.

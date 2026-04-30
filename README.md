@@ -225,6 +225,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
+  Carnival Night F6304 Tails-on-door re-land is documented with ROM cites covering the door's
+  `SolidObjectFull` solidity triplet and Tails CPU `leader_fast` follow-leader interaction so future
+  cross-game work can land an airborne-from-above latch without ad-hoc S3K-only branches.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
   event reinitialization, keeping ROM-style pre-frame intro state available to tests.
 - **Cross-game cleanup:** collision, solid-object ordering, sidekick handling, feature-flagged
