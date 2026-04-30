@@ -639,6 +639,51 @@ public class TestS3kCnzDirectedTraversalHeadless {
     }
 
     @Test
+    void cnzCylinderRecapturesOffscreenCpuSidekickMarkerFromStandingBit() {
+        HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)
+                .build();
+
+        AbstractPlayableSprite player = fixture.sprite();
+        AbstractPlayableSprite sidekick = ensureCnzSidekick();
+        sidekick.setCpuControlled(true);
+        sidekick.setCentreX((short) 0x38C0);
+        sidekick.setCentreY((short) (0x0800 - 0x20 - sidekick.getYRadius() + 3));
+
+        ObjectManager objectManager = GameServices.level().getObjectManager();
+        CnzCylinderInstance cylinder = new CnzCylinderInstance(new ObjectSpawn(
+                0x38C0, 0x0800, Sonic3kObjectIds.CNZ_CYLINDER, 0x01, 0, false, 0));
+        objectManager.addDynamicObject(cylinder);
+        fixture.camera().updatePosition(true);
+
+        cylinder.onSolidContact(sidekick, new SolidContact(true, false, false, true, false), 4787);
+
+        // ROM sub_13ECA writes the offscreen CPU marker with Status_InAir set
+        // (sonic3k.asm:26800-26809), then CNZ loc_32188 still calls the P2
+        // sub_324C0 pass (sonic3k.asm:67656-67672). Its inactive path only
+        // checks the preserved standing bit before object_control=$03 and
+        // Status_InAir clear (sonic3k.asm:67985-68005).
+        sidekick.setCentreX((short) 0x7F00);
+        sidekick.setCentreY((short) 0);
+        sidekick.setRenderFlagOnScreen(false);
+        sidekick.setObjectControlled(true);
+        sidekick.setControlLocked(true);
+        sidekick.setAir(true);
+        sidekick.setXSpeed((short) 0x123);
+        sidekick.setYSpeed((short) 0x234);
+        sidekick.setGSpeed((short) 0x345);
+
+        cylinder.update(4788, player);
+
+        assertTrue(sidekick.isObjectControlled());
+        assertTrue(sidekick.isControlLocked());
+        assertFalse(sidekick.getAir());
+        assertEquals(0, sidekick.getXSpeed());
+        assertEquals(0, sidekick.getYSpeed());
+        assertEquals(0, sidekick.getGSpeed());
+    }
+
+    @Test
     void cnzCylinderJumpReleaseClearsSlotOnTheJumpFrame() throws Exception {
         HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(Sonic3kZoneIds.ZONE_CNZ, 0)

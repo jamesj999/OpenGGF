@@ -213,7 +213,7 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   keeping trace data comparison-only; S3K v6.7 CNZ diagnostics now expose cylinder P2 slot and
   execution state around the F4508 frame.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering now advances the CNZ
-  v6.5/v6.7 replay frontier from F3905 to F4788 while preserving S1/S2 trace baselines.
+  v6.5/v6.7 replay frontier from F3905 to F4790 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary and AIZ1 resize parity now advances the
   AIZ v6.6 replay frontier from F4679 to F5416.
 - **S3K bring-up and parity:** AIZ intro setup now re-adopts the live intro object across headless
