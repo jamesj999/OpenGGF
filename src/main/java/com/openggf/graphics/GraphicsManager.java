@@ -612,7 +612,7 @@ public class GraphicsManager {
 		// Try batched rendering for better performance
 		// Only use batching if enabled, batch is active, and pattern was successfully added
 		boolean usedBatch = false;
-		if (!ghostRenderEffectActive && entry.atlasIndex() == 0) {
+		if (entry.atlasIndex() == 0) {
 			if (batchingEnabled && instancedBatchActive && instancedPatternRenderer != null) {
 				usedBatch = instancedPatternRenderer.addPattern(entry, desc.getPaletteIndex(), desc, x, y);
 			} else if (batchingEnabled && batchedRenderer != null && batchedRenderer.isBatchActive()) {

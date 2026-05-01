@@ -103,6 +103,7 @@ public final class GhostTraceRenderer {
         boolean previousHighPriority = graphics.getCurrentSpriteHighPriority();
         graphics.setCurrentSpriteHighPriority(realSprite.isHighPriority());
         graphics.beginGhostRenderEffect(alpha);
+        graphics.beginPatternBatch();
         try {
             slot.renderer().drawFrame(
                     slot.sprite().getMappingFrame(),
@@ -111,9 +112,9 @@ public final class GhostTraceRenderer {
                     slot.sprite().getRenderHFlip(),
                     slot.sprite().getRenderVFlip());
         } finally {
+            graphics.flushPatternBatch();
             graphics.endGhostRenderEffect();
             graphics.setCurrentSpriteHighPriority(previousHighPriority);
-            graphics.flushPatternBatch();
         }
     }
 
