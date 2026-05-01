@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
 import com.openggf.game.GroundMode;
+import com.openggf.sprites.playable.SecondaryAbility;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -67,6 +68,11 @@ public class TestPlayableSpriteMovement {
                         @Override
                         public void draw() {
                         }
+
+                        @Override
+                        public SecondaryAbility getSecondaryAbility() {
+                                return SecondaryAbility.INSTA_SHIELD;
+                        }
                 };
                 manager = new PlayableSpriteMovement(mockSprite);
         }
@@ -89,6 +95,42 @@ public class TestPlayableSpriteMovement {
                 Field field = AbstractPlayableSprite.class.getDeclaredField("physicsFeatureSet");
                 field.setAccessible(true);
                 field.set(sprite, featureSet);
+        }
+
+        private void setMovementField(String name, Object value) throws Exception {
+                Field field = PlayableSpriteMovement.class.getDeclaredField(name);
+                field.setAccessible(true);
+                field.set(manager, value);
+        }
+
+        @Test
+        public void s3kJumpRepressClearsRollingJumpBeforeAirControl() throws Exception {
+                GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(true);
+                mockSprite.setRolling(true);
+                mockSprite.setRollingJump(true);
+                mockSprite.setXSpeed((short) 0);
+                mockSprite.setYSpeed((short) 0x07D8);
+                mockSprite.setGSpeed((short) 0x03B0);
+
+                setMovementField("jumpPressed", true);
+                setMovementField("jumpReleasedSinceJump", true);
+                setMovementField("inputJumpPress", true);
+                setMovementField("inputJump", true);
+                setMovementField("inputLeft", true);
+
+                Method jumpHeight = PlayableSpriteMovement.class.getDeclaredMethod("doJumpHeight");
+                jumpHeight.setAccessible(true);
+                jumpHeight.invoke(manager);
+                Method changeJumpDirection = PlayableSpriteMovement.class.getDeclaredMethod("doChgJumpDir");
+                changeJumpDirection.setAccessible(true);
+                changeJumpDirection.invoke(manager);
+
+                assertFalse(mockSprite.getRollingJump(),
+                                "S3K Sonic_ShieldMoves clears Status_RollJump before shield-specific branches");
+                assertEquals((short) -0x18, mockSprite.getXSpeed(),
+                                "Once Status_RollJump is cleared, Sonic_ChgJumpDir applies left air acceleration");
         }
 
         @Test
