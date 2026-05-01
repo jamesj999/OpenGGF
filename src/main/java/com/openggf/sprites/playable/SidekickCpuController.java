@@ -121,6 +121,7 @@ public class SidekickCpuController {
     private int sidekickCount = 1;
     private int normalPushingGraceFrames;
     private boolean suppressNextAirbornePushFollowSteering;
+    private boolean aizObjectOrderGracePushBypassThisFrame;
     private int pendingGroundedFollowNudge;
     private int pendingGroundedFollowNudgeFrame = -1;
     private boolean aizIntroDormantMarkerPrimed;
@@ -298,6 +299,18 @@ public class SidekickCpuController {
                 diagnosticObjectControlByte(),
                 sidekick.getXSpeed(),
                 sidekick.getGSpeed());
+    }
+
+    /**
+     * Returns true only for the AIZ object-order bridge that extends S3K's
+     * Status_Push handoff after the live push bit has already cleared locally.
+     * ROM loc_13DD0 branches from the current Status_Push bit and preserves the
+     * already-loaded Ctrl_2 sample (sonic3k.asm:26702-26705,26775-26785); MGZ
+     * F1466-F1470 uses that same no-input deceleration path, so this flag is
+     * limited to the AIZ hollow-tree/collapsing-platform ordering bridge.
+     */
+    public boolean usedAizObjectOrderGracePushBypassThisFrame() {
+        return aizObjectOrderGracePushBypassThisFrame;
     }
 
     private NormalStepDiagnostics beginNormalStepDiagnostics(String branch) {
@@ -914,18 +927,23 @@ public class SidekickCpuController {
         //
         // The S3K-only AIZ grace/airborne handoff is not a direct ROM branch;
         // it is an engine object-order bridge for AIZ's transient push clear.
-        // Keep its older input sample while the delayed leader target is still
-        // on an object: SolidObjectTop can clear Status_OnObj/Status_InAir
-        // after the platform has already supplied the ROM handoff (sonic3k.asm:
-        // 26690-26705,41668-41679,41793-41818). Grounded grace with no
-        // leader-on-object status is the CNZ cylinder release shape instead;
-        // it preserves the already-loaded d1 Ctrl_2 word after
-        // Tails_CPU_Control, and the cylinder/P2 and path-acceleration paths
-        // consume that same sample (sonic3k.asm:26195-26208,67656-67672,
-        // 27798-27805,28103-28122).
+        // Keep its older input sample only in the AIZ hollow-tree/collapsing-
+        // platform context where object order can leave the engine one sample
+        // behind the ROM handoff (sonic3k.asm:26690-26705,41668-41679,
+        // 41793-41818,43649-43810). MGZ F1466 has the same delayed
+        // Status_OnObj bit but ROM keeps the already-loaded d1 sample
+        // (input=0000/stat=08) through loc_13DD0; re-reading the older sample
+        // manufactures a right input and over-accelerates Tails.
+        // Grounded grace with no AIZ object-order status is the CNZ cylinder
+        // release shape instead; it preserves the already-loaded d1 Ctrl_2 word
+        // after Tails_CPU_Control, and the cylinder/P2 and path-acceleration
+        // paths consume that same sample (sonic3k.asm:26195-26208,
+        // 67656-67672,27798-27805,28103-28122).
         boolean aizObjectOrderGrace = localGracePushBypass
+                && isAizHollowTreeFollowSteeringContext(effectiveLeader)
                 && (leaderStatusOnObject
                 || (recordedStatus & AbstractPlayableSprite.STATUS_ON_OBJECT) != 0);
+        aizObjectOrderGracePushBypassThisFrame = aizObjectOrderGrace;
         if (airbornePushHandoff || aizObjectOrderGrace) {
             recordedInput = effectiveLeader.getInputHistory(ROM_PUSH_BYPASS_STAT_DELAY_FRAMES);
             inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
@@ -1039,7 +1057,14 @@ public class SidekickCpuController {
                 inputJump = true;
                 inputJumpPress = true;
                 jumpingFlag = true;
-                if (pushingBypass && pushBypassGraceEnabled) {
+                if (aizObjectOrderGrace && pushBypassGraceEnabled) {
+                    // The first airborne tick after the engine-side AIZ bridge
+                    // may still be one object-order sample ahead of ROM. Do not
+                    // apply this suppression to MGZ's normal push-jump handoff:
+                    // Tails_Stand_Freespace/Tails_InputAcceleration_Freespace
+                    // consumes live follow steering immediately after the jump
+                    // (MGZ1 F1472, input=7808, x_vel $00A4->$00BC;
+                    // sonic3k.asm:26712-26741,28330-28401).
                     suppressNextAirbornePushFollowSteering = true;
                 }
             }
@@ -2268,6 +2293,7 @@ public class SidekickCpuController {
         inputRight = false;
         inputJump = false;
         inputJumpPress = false;
+        aizObjectOrderGracePushBypassThisFrame = false;
     }
 
     public void setRespawnStrategy(SidekickRespawnStrategy strategy) {
@@ -2346,6 +2372,7 @@ public class SidekickCpuController {
         normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
         normalPushingGraceFrames = 0;
         suppressNextAirbornePushFollowSteering = false;
+        aizObjectOrderGracePushBypassThisFrame = false;
         if (state != State.CARRYING && state != State.CARRY_INIT) {
             mgzCarryIntroAscend = false;
             mgzCarryFlapTimer = 0;
@@ -2373,6 +2400,7 @@ public class SidekickCpuController {
         this.normalFrameCount = state == State.NORMAL ? SETTLED_FRAME_THRESHOLD : 0;
         normalPushingGraceFrames = 0;
         suppressNextAirbornePushFollowSteering = false;
+        aizObjectOrderGracePushBypassThisFrame = false;
         clearInputs();
     }
 
@@ -2386,6 +2414,7 @@ public class SidekickCpuController {
         skipPhysicsThisFrame = false;
         this.normalFrameCount = normalFrames;
         suppressNextAirbornePushFollowSteering = false;
+        aizObjectOrderGracePushBypassThisFrame = false;
     }
 
     /**
