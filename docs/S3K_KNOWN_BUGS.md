@@ -5254,6 +5254,74 @@ fixed `+$A (=10)`, the engine's probe lands 3 px short of the ROM probe.
 That would explain a wall flush at `x_pos + 10` being seen by ROM but missed
 by the engine.
 
+### Investigation 2026-04-30 — Hypothesis 3 disproven; engine probe is already +10 fixed
+
+Direct in-engine probe of the airborne push-sensor offsets (logged from
+`CollisionSystem.doWallCheckBoth` over F8920-F8930) confirms the engine
+already uses **±10 fixed**, not `±xRadius`:
+
+```
+[probe-Q0] sensor=1 centre=(1209,0329) rotOff=(10,0) probe=(1213,0329) result=dist=28 xSpeed=0179
+```
+
+Sensor offsets are set by `AbstractPlayableSprite.updateSensorOffsetsFromRadii`
+(`src/main/java/com/openggf/sprites/playable/AbstractPlayableSprite.java:3489`)
+with a hard-coded `byte push = 10;` regardless of rolling state — explicitly
+matching `sonic3k.asm:20195` `addi.w #$A,d3`. So Hypothesis (3) is **not**
+the bug. The engine's right-wall probe at F8927 is already at `centreX + 10`,
+which equals ROM's `x_pos + 10` since `centreX == x_pos` for player sprites.
+
+What the probe does reveal is that at F8927 the engine's `centreX = 0x1209`
+(one pixel ahead of ROM's `0x1208`), so the engine's right push sensor probes
+`(0x1213, 0x0329)`. The wall scan returns `dist=28` — i.e., **the engine sees
+no wall for 28 px to the right** of the probe. ROM at the same logical frame
+probes `(0x1212, 0x0329)` and finds a wall (negative `d1`).
+
+This means:
+- The engine entered F8927 with **`centreX = 0x1209` instead of ROM's `0x1208`**.
+  Since both engine and ROM agreed on integer `x = 0x1207` at F8926 and on
+  `x_speed = 0x0179`, the divergence is in **sub-pixel state** (`x_sub`)
+  accumulating prior to F8927. Trace `x_sub` history (from `physics.csv.gz`):
+  - F8920 ROM: `x = 0x11FF.2000`
+  - F8922 ROM: `x = 0x1201.FA00`
+  - F8926 ROM: `x = 0x1207.DE00`
+  - F8927 ROM: `x = 0x1208.0000` (post wall-snap; **`x_sub` cleared**)
+- Even if the engine's per-frame `MoveSprite` math is bit-exact, an **earlier
+  per-frame `x_speed` divergence** (Sonic_ChgJumpDir / Sonic_RollSpeed apply
+  drag/cap that the ROM `x_speed` trace already reflects post-update; see the
+  ~0x18 sub-pixel residual between expected `move(x_speed)` deltas and the
+  trace's recorded `x_sub`) accumulates. By F8926 both report integer `x` =
+  `0x1207` but the engine's lower 16 sub-pixel bits are ~`0x1800` ahead, so
+  the F8926 → F8927 step crosses an extra integer-pixel boundary.
+- F8927 ROM `x_sub = 0x0000` is *not* explained by the trivial `add.w d1,
+  x_pos(a0)` snap (which preserves `x_sub`). Either the recorder samples
+  `x_sub` after a downstream routine that clears it, or the wall-correction
+  path here writes a full 32-bit `x_pos` (e.g., a `move.l` aligning to the
+  pixel boundary). Confirming requires either disassembly trace or extending
+  the recorder.
+
+### Refined hypotheses
+
+1. **Sub-pixel drift earlier in the rolling-jump arc**, originating in
+   `Sonic_RollSpeed` / `Sonic_ChgJumpDir` per-frame deceleration ordering.
+   The ROM trace shows `x_speed` cap held at `0x0179` for F8923-F8926 but the
+   apparent move delta over those frames implies a slightly different
+   `x_speed` was actually applied each frame than what's recorded — i.e.,
+   the recorder snapshots the **post-update** `x_speed` that's then used for
+   the *next* frame's move, not the value that produced the current frame's
+   delta. If the engine and ROM disagree on the order
+   (deceleration-then-move vs move-then-deceleration) for one frame, the
+   sub-pixel bias is the integral of that one-frame `x_speed` difference.
+2. **`x_sub`-clear semantics on wall-snap.** If the ROM has a player-path
+   variant that does `move.w #0, x_sub(a0)` after a wall hit, the engine
+   needs the same clear; otherwise the engine carries the residual sub
+   forward into the next move. Not yet found in `sonic3k.asm` near
+   `loc_11F44` / `loc_120B0` but the trace's `x_sub = 0x0000` at F8927 is
+   strong evidence such a clear exists somewhere on that path.
+3. (original) Missing terrain solid bit at the cited coordinate — still
+   possible but less likely now that the probe shows `dist = 28` (a clean
+   "no wall here" reading) rather than a partial / mis-flipped collision.
+
 ### Trace evidence summary
 
 ```
