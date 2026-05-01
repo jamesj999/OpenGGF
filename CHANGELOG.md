@@ -6,6 +6,40 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ trace F7919 triple `-0x0800` write localised to
+  `ClamerObjectInstance.applySpringLaunch` (doc-only):** Temporary
+  velocity-setter probe (`AbstractPlayableSprite.setXSpeed/setYSpeed/
+  setGSpeed`, gated on `-Ds3k.cnz.velocityprobe=true`, reverted before
+  commit) showed the F7918 triple `-0x0800` write to Tails comes from
+  `ClamerObjectInstance.applySpringLaunch:170-172`
+  (`xSpeed=gSpeed=-0x0800, ySpeed=-0x0800`), called from
+  `onTouchResponse` via `ObjectManager$TouchResponses.handleTouchResponseSidekick`.
+  The previous round's hypothesis (`Sonic3kSpringObjectInstance`
+  `landingHandoff` bypass) is **wrong** — no
+  `Sonic3kSpringObjectInstance` frame appears in the call graph at
+  F7918 and the closest horizontal spring is 0xBB px away, outside the
+  proactive zone. Audited the ROM Clamer dispatch flow (`Obj_Clamer` at
+  `sonic3k.asm:185856`, `loc_8908C` at `sonic3k.asm:185943-185951`,
+  `Touch_Special->loc_103FA` at `sonic3k.asm:21162-21194`,
+  `Check_PlayerCollision` at `sonic3k.asm:179904-179917`,
+  `sub_890D8` at `sonic3k.asm:185978-185998`); the engine's per-touch
+  immediate dispatch matches ROM's `loc_890AA -> sub_890D8` for the
+  inputs it sees, so `ClamerObjectInstance` itself is **not** the
+  fault. Root cause is upstream: at F7918 Tails's engine state has
+  drifted from ROM (engine: `roll=true, air=true` at centre
+  `(0x0C8E, 0x044F)`; trace ROM `cpu_state` event:
+  `cpu_routine=6 (FLY)`, `flight_timer=12->13`, target
+  `(0x0FC8, 0x047C)`), so engine-Tails overlaps the Clamer's 8x8
+  spring-child collision box while ROM-Tails is mid-flight elsewhere.
+  Documented findings, ROM cites, and revised follow-up plan
+  (audit Tails CPU/flight handoff in F7872 -> F7918 window; do **not**
+  change `ClamerObjectInstance` itself) in
+  `docs/S3K_KNOWN_BUGS.md` CNZ1 F7919 entry. No code change. CNZ
+  first-error stays at F7919 (2757 errors). AIZ first-error stable at
+  F7381 (no regression). S1 GHZ1, S1 MZ1, S2 EHZ1 baselines
+  unchanged. Comparison-only invariant preserved (probe only logged
+  velocity setter calls; no engine state was hydrated/synced from
+  trace data).
 - **Ctrl_1_locked logical-input latch (S3K-only foundation):** Added a new
   `PhysicsFeatureSet.controlLockLatchesLogicalInput` flag and gated the
   short-circuit in `AbstractPlayableSprite.setLogicalInputState` on it.
