@@ -114,6 +114,21 @@
 -- ROM zeroes via Ctrl_1_locked, causing the F7381 -0x18 x_vel drift.
 -- Once the trace is regenerated, every ROM frame where Ctrl_1_locked=1
 -- can be read off and mapped to the active object/event that wrote it.
+-- v6.13-s3k adds terrain_wall_sensor_per_frame and extends the existing
+-- velocity_write / position_write windows with an AIZ F7549-F7560
+-- sub-window. Targets the AIZ F7552 sidekick airborne wall-collision
+-- blocker (docs/S3K_KNOWN_BUGS.md "AIZ F7552"): Tails wedges at
+-- x=0x1208 with x_sub=0x0000 and x_speed=0x0000 across many airborne
+-- frames -- the canonical ROM right-wall-collision-while-airborne
+-- result of Tails_DoLevelCollision (sonic3k.asm:28871-29117). The new
+-- per-frame event captures both Sonic and Tails position/velocity/
+-- status/angle/radius/solid_bit state during F7549-F7560 to verify
+-- that ROM is in fact running the wall-clamp branch, and the position-
+-- and velocity-write windows expose the M68K PCs that produce the
+-- x_pos = 0x1208 and x_vel := 0 writes (CheckRightWallDist branch in
+-- Tails_DoLevelCollision vs SolidObject*-style ride/bridge writers).
+-- Diagnostic-only; the comparator must NEVER hydrate engine state
+-- from these events.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -746,7 +761,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.12-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.13-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -777,12 +792,16 @@ local function write_metadata()
     -- y_pos/y_radius/spring values, so we need to confirm whether (a1)
     -- was Tails or Sonic at the writes and whether the radii used by the
     -- conditional matched the post-Tails_Jump expectation (14/15).
+    -- v6.13 adds terrain_wall_sensor_per_frame (AIZ F7549-F7560 default
+    -- window) and extends the existing velocity_write / position_write
+    -- defaults with the same window, capturing the M68K PCs that drive
+    -- the F7552 Tails wall-clamp.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame"]'
     else
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame"]'
     end
@@ -1463,10 +1482,21 @@ WRITE_DIAG.TAILS_YVEL_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y
 -- ~100MB+ to the aux stream. Restrict to a window around the known
 -- divergence frame (CNZ1 F3649). Operators wanting full trace coverage
 -- can override via OGGF_S3K_VELOCITY_WRITE_RANGE env var (format
--- "<start>-<end>"; e.g. "0-99999" for full coverage). When unset, no
--- velocity_write events are recorded outside the default window.
+-- "<start>-<end>" or "<s1>-<e1>;<s2>-<e2>"; e.g. "0-99999" for full
+-- coverage). When unset, no velocity_write events are recorded outside
+-- the default windows.
+--
+-- v6.13-s3k extends the default range list to multi-window semantics
+-- (matching POSITION_WRITE_RANGES) and adds the AIZ F7549-F7560 window
+-- so the Tails wall-clamp x_vel := 0 write at F7552 is captured with
+-- its M68K PC. The CNZ window remains active so existing CNZ trace
+-- diagnostics are not lost.
 WRITE_DIAG.VELOCITY_WRITE_FRAME_START = 3640
-WRITE_DIAG.VELOCITY_WRITE_FRAME_END = 3660
+WRITE_DIAG.VELOCITY_WRITE_FRAME_END = 7560
+WRITE_DIAG.VELOCITY_WRITE_RANGES = {
+    {3640, 3660},
+    {7549, 7560},
+}
 
 function WRITE_DIAG.apply_frame_range(env_name, start_field, end_field)
     local range = os.getenv(env_name)
@@ -1522,10 +1552,20 @@ WRITE_DIAG.apply_frame_range(
     "OGGF_S3K_VELOCITY_WRITE_RANGE",
     "VELOCITY_WRITE_FRAME_START",
     "VELOCITY_WRITE_FRAME_END")
+-- v6.13-s3k: also accept the same env var as a multi-window override so
+-- callers can extend coverage without losing the CNZ window.
+WRITE_DIAG.apply_frame_ranges(
+    "OGGF_S3K_VELOCITY_WRITE_RANGE",
+    "VELOCITY_WRITE_FRAME_START",
+    "VELOCITY_WRITE_FRAME_END",
+    "VELOCITY_WRITE_RANGES")
 
 function WRITE_DIAG.vw_in_window()
-    return trace_frame >= WRITE_DIAG.VELOCITY_WRITE_FRAME_START
-        and trace_frame <= WRITE_DIAG.VELOCITY_WRITE_FRAME_END
+    return WRITE_DIAG.frame_in_ranges(
+        trace_frame,
+        WRITE_DIAG.VELOCITY_WRITE_RANGES,
+        WRITE_DIAG.VELOCITY_WRITE_FRAME_START,
+        WRITE_DIAG.VELOCITY_WRITE_FRAME_END)
 end
 
 function WRITE_DIAG.tails_xvel_record_hit()
@@ -1615,12 +1655,17 @@ WRITE_DIAG.POSITION_WRITE_FRAME_END = 7625
 -- Default-active windows for v6.10-s3k profile.
 --   [4788,4792] — CNZ1 F4790 Tails x_pos write-source diagnostic
 --                 (sub_13ECA / cylinder inactive path; original v6.8 use case).
+--   [7549,7560] — AIZ F7552 sidekick wall-clamp diagnostic (v6.13-s3k):
+--                 captures the PC that writes Tails x_pos = 0x1208 to
+--                 disambiguate Tails_DoLevelCollision (sonic3k.asm:28871-29117)
+--                 vs SolidObject*-style ride/bridge writers.
 --   [7600,7625] — CNZ2 F7614 Tails Jump-frame y_pos +2 px diagnostic
 --                 (sonic3k.asm:28534-28547 Tails_Jump output, +2 residual).
 -- Operators wanting full coverage can override OGGF_S3K_POSITION_WRITE_RANGE
--- (e.g. "0-99999"). Multi-window override syntax: "4788-4792;7600-7625".
+-- (e.g. "0-99999"). Multi-window override syntax: "4788-4792;7549-7560;7600-7625".
 WRITE_DIAG.POSITION_WRITE_RANGES = {
     {4788, 4792},
+    {7549, 7560},
     {7600, 7625},
 }
 
@@ -2693,6 +2738,132 @@ end
 -- F7600-7625). Override via OGGF_S3K_SOLID_CONT_RANGE
 -- (single window or semicolon-separated multi-window).
 
+-- =====================================================================
+-- AIZ terrain wall-sensor per-frame snapshot (v6.13-s3k)
+-- =====================================================================
+-- Targets the AIZ F7552 sidekick airborne wall-collision blocker
+-- (docs/S3K_KNOWN_BUGS.md "AIZ F7552"): Tails wedges at x=0x1208 with
+-- x_sub=0x0000 and x_speed=0x0000 across many consecutive airborne
+-- frames while still rising (y_speed negative, decreasing). The triple
+-- signature is the canonical ROM right-wall-collision-while-airborne
+-- result of Tails_DoLevelCollision (sonic3k.asm:28871-29117).
+-- ROM CheckRightWallDist (sonic3k.asm:20188-20214) probes at
+--     d3 = x_pos + $A,  d2 = y_pos,  height d6 = 0
+-- and writes back x_pos += d1 / x_vel := 0 if d1 < 0 (loc_15402,
+-- loc_154AC, loc_15538, loc_1559C branches of Tails_DoLevelCollision).
+--
+-- This event captures the per-frame state of both Sonic ($FFFFB000)
+-- and Tails ($FFFFB04A) needed to characterise the wall-clamp boundary
+-- precisely:
+--   x_pos / x_sub / y_pos / y_sub          - subpixel position
+--   x_vel / y_vel                          - velocity (16-bit signed)
+--   status / status2                       - airborne, rolling, on_obj
+--   angle / x_radius / y_radius            - sensor geometry
+--   top_solid_bit / lrb_solid_bit          - active collision plane
+--   object_control                         - object suppression byte
+--
+-- Diagnostic-only: NEVER hydrated into engine state. Default frame
+-- window covers AIZ F7549-F7560 (the wall-clamp event itself plus a
+-- short pre/post buffer to characterise the entry/exit transitions).
+-- Override via OGGF_S3K_AIZ_WALL_SENSOR_RANGE
+-- ("<start>-<end>" or semicolon-separated multi-window).
+local V613_AIZ_WALL = {
+    AIZ_WALL_FRAME_START = 7549,
+    AIZ_WALL_FRAME_END   = 7560,
+    AIZ_WALL_RANGES = {
+        {7549, 7560},
+    },
+    -- Per-S3K-OST offsets used here (kept local to avoid relying on
+    -- module-load order with the global OFF_* constants):
+    --   $10 x_pos, $12 x_sub, $14 y_pos, $16 y_sub
+    --   $18 x_vel, $1A y_vel
+    --   $1E y_radius, $1F x_radius
+    --   $26 angle, $2A status, $2B status_secondary, $2E object_control
+    --   $46 top_solid_bit, $47 lrb_solid_bit (sonic3k.constants.asm:77-78)
+    OFF_TOP_SOLID_BIT = 0x46,
+    OFF_LRB_SOLID_BIT = 0x47,
+}
+
+function V613_AIZ_WALL.in_window()
+    if V613_AIZ_WALL.AIZ_WALL_RANGES and #V613_AIZ_WALL.AIZ_WALL_RANGES > 0 then
+        for _, pair in ipairs(V613_AIZ_WALL.AIZ_WALL_RANGES) do
+            if trace_frame >= pair[1] and trace_frame <= pair[2] then
+                return true
+            end
+        end
+        return false
+    end
+    return trace_frame >= V613_AIZ_WALL.AIZ_WALL_FRAME_START
+        and trace_frame <= V613_AIZ_WALL.AIZ_WALL_FRAME_END
+end
+
+function V613_AIZ_WALL.snapshot_player(base, label)
+    local x_pos = mainmemory.read_u16_be(base + OFF_X_POS)
+    local x_sub = mainmemory.read_u16_be(base + OFF_X_SUB)
+    local y_pos = mainmemory.read_u16_be(base + OFF_Y_POS)
+    local y_sub = mainmemory.read_u16_be(base + OFF_Y_SUB)
+    local x_vel = mainmemory.read_s16_be(base + OFF_X_VEL)
+    if x_vel < 0 then x_vel = x_vel + 0x10000 end
+    local y_vel = mainmemory.read_s16_be(base + OFF_Y_VEL)
+    if y_vel < 0 then y_vel = y_vel + 0x10000 end
+    local angle = mainmemory.read_u8(base + OFF_ANGLE)
+    local status = mainmemory.read_u8(base + OFF_STATUS)
+    local status2 = mainmemory.read_u8(base + OFF_STATUS_SECONDARY)
+    local obj_ctrl = mainmemory.read_u8(base + OFF_OBJECT_CONTROL)
+    local x_radius = mainmemory.read_u8(base + OFF_RADIUS_X)
+    local y_radius = mainmemory.read_u8(base + OFF_RADIUS_Y)
+    local top_solid = mainmemory.read_u8(base + V613_AIZ_WALL.OFF_TOP_SOLID_BIT)
+    local lrb_solid = mainmemory.read_u8(base + V613_AIZ_WALL.OFF_LRB_SOLID_BIT)
+    local airborne = (status % 4) >= 2  -- bit 1 (0x02) = Status_InAir
+    return string.format(
+        '"%s":{"x_pos":"0x%04X","x_sub":"0x%04X","y_pos":"0x%04X","y_sub":"0x%04X",'
+        .. '"x_vel":"0x%04X","y_vel":"0x%04X","angle":"0x%02X",'
+        .. '"status":"0x%02X","status2":"0x%02X","object_control":"0x%02X",'
+        .. '"x_radius":%d,"y_radius":%d,"top_solid_bit":"0x%02X","lrb_solid_bit":"0x%02X",'
+        .. '"airborne":%s}',
+        label, x_pos, x_sub, y_pos, y_sub, x_vel, y_vel, angle,
+        status, status2, obj_ctrl, x_radius, y_radius, top_solid, lrb_solid,
+        airborne and "true" or "false")
+end
+
+function V613_AIZ_WALL.write_terrain_wall_sensor()
+    if not aux_file then return end
+    if not started then return end
+    if not V613_AIZ_WALL.in_window() then return end
+    -- AIZ-only event; skip outside zone 0 to avoid noise on zone-bridging
+    -- traces that happen to overlap the default frame window.
+    if mainmemory.read_u8(ADDR_ZONE) ~= 0 then return end
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"terrain_wall_sensor",%s,%s}',
+        trace_frame, vfc,
+        V613_AIZ_WALL.snapshot_player(PLAYER_BASE, "sonic"),
+        V613_AIZ_WALL.snapshot_player(SIDEKICK_BASE, "tails")))
+end
+
+local function v613_apply_aiz_wall_range(env_name)
+    local range = os.getenv(env_name)
+    if not range or range == "" then return end
+    local pairs_list = {}
+    for piece in string.gmatch(range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            pairs_list[#pairs_list + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #pairs_list == 0 then return end
+    V613_AIZ_WALL.AIZ_WALL_RANGES = pairs_list
+    local lo, hi = pairs_list[1][1], pairs_list[1][2]
+    for i = 2, #pairs_list do
+        if pairs_list[i][1] < lo then lo = pairs_list[i][1] end
+        if pairs_list[i][2] > hi then hi = pairs_list[i][2] end
+    end
+    V613_AIZ_WALL.AIZ_WALL_FRAME_START = lo
+    V613_AIZ_WALL.AIZ_WALL_FRAME_END = hi
+end
+
+v613_apply_aiz_wall_range("OGGF_S3K_AIZ_WALL_SENSOR_RANGE")
+
 local V611_SOLID = {
     SOLID_OBJECT_CONT = 0x1DF90,
     -- Default capture windows; matches WRITE_DIAG.POSITION_WRITE_RANGES.
@@ -3237,6 +3408,12 @@ function on_frame_end()
     -- through the entire stream.
     write_control_lock_state(trace_frame % SNAPSHOT_INTERVAL == 0)
 
+    -- v6.13-s3k: AIZ terrain wall-sensor per-frame snapshot. Frame-range
+    -- gated to AIZ F7549-F7560 by default to characterise the Tails
+    -- airborne wall-clamp at F7552 (sonic3k.asm:28871-29117 +
+    -- 20188-20214). Diagnostic-only.
+    V613_AIZ_WALL.write_terrain_wall_sensor()
+
     scan_objects(x, y)
 
     trace_frame = trace_frame + 1
@@ -3261,7 +3438,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.12-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.13-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
