@@ -3402,11 +3402,84 @@ The aux trace already exposes everything needed for verification:
   `eng-tails-cpu in=XXXX stat=XX` diagnostic — they must match
   bit-for-bit at every frame Tails CPU runs.
 - The `state_snapshot` event already records `control_locked` for
-  ROM. A diagnostic addition (engine-side dump of
-  `controlLocked`/`logicalInputState` per frame) would let a
-  `TestSonic3kCtrlLockParity` enumerate every ROM frame where
-  `Ctrl_1_locked=1` and assert the engine's `controlLocked`
-  matches.
+  ROM (the per-sprite `move_lock` counter at $FFFFB032), which is
+  NOT the same as the global `Ctrl_1_locked` byte at $FFFFF7CA.
+- Recorder v6.12-s3k adds a new `control_lock_state_per_frame`
+  aux event that captures the global $FFFFF7CA / $FFFFF7CB bytes
+  plus `Ctrl_1_logical` / `Ctrl_2_logical` ($FFFFF602 / $FFFFF66A)
+  per frame on every transition (and a baseline every 60 frames).
+  This was added specifically to enumerate the ROM frames where
+  `Ctrl_1_locked=1` so a `TestSonic3kCtrlLockParity` can assert
+  the engine's `controlLocked` matches.
+
+### Update 2026-04-30: Recorder v6.12 Refutes the Ctrl_1_locked Hypothesis
+
+After regenerating `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/`
+with the new `control_lock_state_per_frame` event,
+`Ctrl_1_locked` is **0 for the entire AIZ F7361-F7385 window**. The
+only frames in the 20798-frame fixture where `Ctrl_1_locked` is set
+are F20298+ (well past AIZ). Concretely, around the trigger window:
+
+```
+{"frame":7353,"ctrl1_locked":0,"ctrl1_logical":"0x4440"}  # LEFT+B held
+{"frame":7354,"ctrl1_locked":0,"ctrl1_logical":"0x4400"}  # LEFT+B held only
+{"frame":7362,"ctrl1_locked":0,"ctrl1_logical":"0x0400"}  # LEFT only
+{"frame":7366,"ctrl1_locked":0,"ctrl1_logical":"0x4440"}
+{"frame":7376,"ctrl1_locked":0,"ctrl1_logical":"0x0400"}
+{"frame":7379,"ctrl1_locked":0,"ctrl1_logical":"0x0000"}
+{"frame":7380,"ctrl1_locked":0,"ctrl1_logical":"0x0000"}
+```
+
+Yet `tails_cpu_normal_step` at F7381 records
+`delayed_stat=0x00, delayed_input=0x0000` (Tails reads a
+17-frame-delayed `Stat_table` slot of all zeros) while at F7382
+the next slot reads `delayed_stat=0x07, delayed_input=0x4440`
+(matching Sonic at F7365 correctly). The 0x0000 slot at F7381
+therefore **cannot** be explained by ROM's
+`tst.b (Ctrl_1_locked).w; bne loc_10780` short-circuit at
+sonic3k.asm:21542-21544 — that gate never fires here.
+
+**Implications for option (A) / option (B):**
+
+- Option (A) (wire `setControlLocked(true)` at S3K
+  springs/vines/etc.) is **not** the right fix for F7381. There
+  is no ROM site setting `Ctrl_1_locked=1` in the F7361-F7385
+  window for the recorder to point to.
+- Option (B) (preserve `logicalInputState` when `controlLocked` is
+  set) is similarly inert because `controlLocked` (per-sprite
+  move_lock OR global Ctrl_*_locked) is 0 in this window.
+- The actual divergence source is **upstream of the gate**: either
+  Sonic's `Sonic_RecordPos` skipped writing `Stat_table` for the
+  pre-F7382 slot (e.g. competition-mode branch, `object_control`
+  bit gating), or the slot has a stale value from a `Stat_table`
+  flush during AIZ act-1->act-2 transition / boss arena setup
+  earlier in the trace. The relevant Stat_table write site is
+  sonic3k.asm:22132 (`move.w (Ctrl_1_logical).w,(a1)+`); the
+  corresponding `cmpa.w #Player_1,a0; bne.s locret_10D9E` gate at
+  21541-21542 means non-Player_1 calls (e.g. follower routines or
+  competition-mode P2 path) skip Stat_table entirely.
+
+**Next investigative steps:**
+
+1. Add a recorder hook on `Sonic_RecordPos` (sonic3k.asm:22115+)
+   capturing `Pos_table_index`, `Ctrl_1_logical`, and the actual
+   Stat_table slot bytes BEFORE/AFTER the write at frames
+   F7360-F7385.
+2. Or: add a `stat_table_snapshot_per_frame` event dumping the
+   raw `Stat_table` ring buffer once per frame so the slot read
+   by `tails_cpu_normal_step` at F7381 can be reconstructed by
+   walking back 17 frames.
+3. Audit the fixture for any `clr.b (Pos_table)` /
+   `Reset_Player_Position_Array` calls (sonic3k.asm:22166+) in
+   the AIZ act-1->act-2 transition or boss arena that might
+   flush the Stat_table to zero, leaving a band of zero slots
+   that line up with F7381's read.
+
+The orchestrator's previously planned "option (A) per-zone
+audit" remains valid for **other** ROM divergences that DO
+involve `Ctrl_1_locked`, but should be parked for AIZ F7381
+specifically until a Stat_table-source diagnostic confirms which
+mechanism produces the F7365 slot's 0x0000 read.
 
 ---
 

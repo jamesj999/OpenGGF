@@ -218,7 +218,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   M68K registers per `position_write` hit and a new `solid_object_cont_entry` event capturing
   `y_radius`/`default_y_radius` at `SolidObject_cont` entry so the CNZ F7614 geometric contradiction
   (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
-  resolved once the trace is regenerated.
+  resolved once the trace is regenerated. S3K v6.12-s3k adds a `control_lock_state_per_frame`
+  event capturing `Ctrl_1_locked` / `Ctrl_2_locked` / `Ctrl_1_logical` / `Ctrl_2_logical` per
+  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
   velocity, horizontal-spring airborne contact handling, the SolidObject on-screen gate now
