@@ -15,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SlopedSolidProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.physics.TrigLookupTable;
@@ -42,7 +43,7 @@ import java.util.List;
  * pixels (player launched right), set = target {@code +16} (launched left).
  */
 public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
-        implements SolidObjectProvider, SolidObjectListener {
+        implements SolidObjectProvider, SolidObjectListener, SlopedSolidProvider {
 
     private static final String ART_KEY = Sonic3kObjectArtKeys.MGZ_DASH_TRIGGER;
 
@@ -66,6 +67,13 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
     // ROM: move.w #$1B,d1 / move.w #$10,d2 / sub_1DD0E (sloped solid 27 px wide, 16 tall)
     private static final int SOLID_HALF_WIDTH = 0x1B;
     private static final int SOLID_HALF_HEIGHT = 0x10;
+    // ROM: byte_25F0E, sampled by sub_1DD0E/SolidObjSloped2 for standing riders.
+    // Sonic 3K disassembly: sonic3k.asm:51489-51493,51611-51639,41727-41753.
+    private static final byte[] SLOPE_DATA = {
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10,
+            0x0F, 0x0F, 0x0E, 0x0E, 0x0D, 0x0C, 0x0A, 0x08, 0x06, 0x04,
+            0x00, -0x04, -0x08, -0x0A, -0x0A, -0x0A, -0x0A, -0x0A, -0x0A
+    };
 
     // ROM: mapping_frame ping-pongs between 0 (rest) and 4 (extended) each active frame.
     private static final int FRAME_REST = 0;
@@ -236,6 +244,24 @@ public class MGZDashTriggerObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT, SOLID_HALF_HEIGHT);
+    }
+
+    @Override
+    public byte[] getSlopeData() {
+        return SLOPE_DATA;
+    }
+
+    @Override
+    public boolean isSlopeFlipped() {
+        return facingLeft;
+    }
+
+    @Override
+    public boolean usesSlopeForNewLanding() {
+        // ROM: sub_1DD0E only dispatches to SolidObjSloped2 when the standing
+        // bit is already set; first contact continues through SolidObject_cont.
+        // Sonic 3K disassembly: sonic3k.asm:41112-41142,41727-41753.
+        return false;
     }
 
     @Override
