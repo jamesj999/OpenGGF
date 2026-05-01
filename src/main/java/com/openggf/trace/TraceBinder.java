@@ -122,6 +122,11 @@ public class TraceBinder {
         fields.put("ground_mode", compareEnum("ground_mode",
             expectedGroundMode, derivedActualGroundMode));
 
+        if (tolerances.compareRingCount()
+                && expected.rings() >= 0 && engineDiag != null && engineDiag.rings() >= 0) {
+            fields.put("rings", compareEnum("rings", expected.rings(), engineDiag.rings()));
+        }
+
         appendCharacterComparisons(fields,
             normalizeCharacterPrefix(secondaryCharacterLabel),
             expected.sidekick(), actualSidekick);

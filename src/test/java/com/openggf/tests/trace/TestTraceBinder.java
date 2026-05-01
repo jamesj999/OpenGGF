@@ -170,5 +170,25 @@ public class TestTraceBinder {
         assertTrue(result.fields().containsKey("tails_x"));
         assertEquals(Severity.ERROR, result.fields().get("tails_x").severity());
     }
-}
 
+    @Test
+    void testRingCountMismatchIsReportedWhenTraceHasRingDiagnostics() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, 0x02, 0, 0, 7, 0, 1, -1, -1, -1, null);
+
+        TraceBinder binder = new TraceBinder(new ToleranceConfig(
+            1, 1, 1, 1, true, 1, 1, true));
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, new EngineDiagnostics(0x02, -1, -1, 8, 0, 0,
+                -1, -1, -1, -1, "", 0, 0));
+
+        assertTrue(result.hasError());
+        assertEquals(Severity.ERROR, result.fields().get("rings").severity());
+    }
+}
