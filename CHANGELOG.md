@@ -6,6 +6,42 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ Trace F8123 — CNZ bumper misses sidekick Tails touch at
+  pixel-edge overlap (diagnosis only).** After the F7923 Clamer cprop
+  fix landed, the next CNZ first error is at F8123 (2683 errors). Tails
+  is following Sonic in `Tails_CPU_routine=6` (`loc_13D4A`,
+  sonic3k.asm:26656), airborne+rolling (`status=0x07`) at
+  `(x_pos=0x0F05, y_pos=0x0472)` with `(x_vel=0x00D7, y_vel=0x0268)`.
+  The CNZ stationary bumper at slot 14 (`object_code=0x00032EAA =
+  loc_32EAA`, sonic3k.asm:68850-68886) sits at `(0x0F00, 0x0488)` with
+  `width_pixels=$10, height_pixels=$10`, so its top edge is exactly at
+  Tails' bottom edge (`y=0x0480`). ROM treats this exact-edge contact
+  as a hit, runs `sub_32F56` (sonic3k.asm:68950-68992):
+  `x_vel = sin(arctan(bumper-player)+frame&3) × -$700 / 256` and
+  `y_vel = cos(...) × -$700 / 256`, plus `bset Status_InAir`,
+  `bclr Status_RollJump`, `bclr Status_Push`, `clr.b jumping`, then
+  spawns `Obj_EnemyScore` (`loc_2CD0C`, sonic3k.asm:61375). Three
+  evidence lines from `aux_state.jsonl` confirm this is the path:
+  (1) an `object_appeared` event at F8123 for slot 7 with
+  `object_type=0x0002CCE0` (`Obj_EnemyScore`) at the bumper's
+  `(0x0F00, 0x0488)`; (2) the next `Obj_EnemyScore` spawn at F8150 (27
+  frames later, the orbit-period gap) confirming the bumper as the
+  spawn source; (3) ROM `tails_x_speed` jumps `0x00D7 → 0x0230`,
+  `tails_y_speed` jumps `0x0268 → -0x06A5` -- discontinuous changes
+  incompatible with `Tails_InputAcceleration_Freespace` drag plus
+  `MoveSprite_TestGravity` air physics, but consistent with the bumper
+  full sin/cos/-$700 reseed. Engine `tails_x_speed` ends at `0x00BF`
+  (`= 0x00D7 - 0x18` air drag) and `tails_y_speed` at `0x02A0`
+  (`= 0x0268 + 0x38` gravity), i.e. the sidekick's frame-end state is
+  just the airborne-roll physics with no bumper bounce applied. The
+  divergence is upstream of `applyBounce` (which is sin/cos/-$700
+  correct) -- the engine's per-frame near-object scan window for the
+  sidekick appears to drop the stationary CNZ bumper before the touch
+  test runs (Sonic at `(0x0DE5, 0x0309)` is >600px from the bumper
+  while Tails' AABB edge overlaps it). Documented in
+  `docs/S3K_KNOWN_BUGS.md` with three engine-side fix candidates.
+  CNZ first-error stable at F8123 this round. AIZ first-error at
+  F8927 unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
 - **AIZ Trace F8927 — diagnosis-only entry for the next first
   trace error after the F7660 swing-bounce fix landed.** Trace
   shows Sonic rolling+airborne (`status=0x06`,
