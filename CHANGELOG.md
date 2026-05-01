@@ -6,6 +6,16 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ Clamer spring-child collision-box audit (doc-only):**
+  Verified the engine spring-child collision-box dimensions
+  (`Touch_Sizes[$17]=8x8` half-extents via flags `$D7 & $3F`)
+  match ROM `word_89136` exactly. The mission brief's claim
+  that ROM uses `width=8/height=4` for the spring-child
+  collision box conflated `width_pixels`/`height_pixels`
+  (rendering) with the touch-table indexed collision box.
+  No code change. Documented findings + revised follow-up
+  candidates in `docs/S3K_KNOWN_BUGS.md` for the F7919 entry.
+
 - **AIZ trace F7552 root cause documented — AIZ Mini-boss Napalm
   ride-bridge missing on `setDestroyed` (doc-only):** Investigated the
   next strict error after the F7381 Fire Shield Dash fix. Trace shows
