@@ -3971,6 +3971,159 @@ state machine against multiple traces, not just the F7872 →
 F7919 window. Documented here so the next round can resume
 from the correct ROM-cite starting point.
 
+**Status update — branch `bugfix/ai-cnz-clamer-spring-child-box`
+(spring-child collision-box dimensions audited; engine matches ROM)**
+
+Investigation only; no code change. The previous round's
+parent state-machine port (commit `47c5512c0`) landed the
+`Clamer_Index` routines + `Find_SonicTails` auto-close gate but
+did NOT advance F7919: `TestS3kCnzTraceReplay#replayMatchesTrace`
+still fails at frame 7919 with the same triple `-0x0800` write
+to Tails (2757 errors). This round audited the spring child's
+collision-box dimensions against ROM `word_89136` and confirmed
+they already match.
+
+**ROM cite (`word_89136`, sonic3k.asm:186008-186010):**
+
+```
+word_89136:
+    dc.w   $280               ; priority
+    dc.b    8,   4,  $B, $D7  ; width_pixels=8, height_pixels=4,
+                              ; mapping_frame=$B, collision_flags=$D7
+```
+
+`SetUp_ObjAttributes3` (sonic3k.asm:176902-176912) writes these
+four bytes into the spring-child sprite. **Critically, only the
+`collision_flags=$D7` byte feeds `Touch_Loop`'s overlap test —
+`width_pixels` and `height_pixels` are the rendering /
+`Sprite_OnScreen_Test` bounding-box, not the touch box.** The
+prior task brief's claim that ROM uses width=8 / height=4 for
+the spring-child *collision box* conflated these two distinct
+fields. ROM's actual spring-child collision box is decoded from
+`collision_flags & $3F = $17`, which indexes into the
+`Touch_Sizes` table (sonic3k.asm:20713-20770) at entry $17:
+
+```
+Touch_Sizes:
+    dc.b 4,4   ; index $00
+    ...
+    dc.b 8,8   ; index $17  <- Clamer spring child
+    ...
+```
+
+So ROM's spring-child collision box is **8×8 half-extents
+(16×16 total)**, NOT 8×4.
+
+**Engine equivalent:**
+
+`ClamerObjectInstance.SPRING_COLLISION_FLAGS = 0x40 | 0x17`
+(`src/main/java/com/openggf/game/sonic3k/objects/ClamerObjectInstance.java:47`)
+feeds `processMultiRegionTouch`
+(`src/main/java/com/openggf/level/objects/ObjectManager.java:3617-3633`),
+which reads `Touch_Sizes[$17]` from `TouchResponseTable` —
+loaded from the **same ROM table address** at startup. Engine
+spring child collision box: 8×8 half-extents (16×16 total).
+**Engine and ROM box dimensions match exactly.** No fix is
+warranted on collision-box-dimension grounds.
+
+**The auto-close gate runs after the spring-child touch dispatch
+in ROM, so it cannot prevent the F7918 spring fire on its own.**
+
+`Touch_Loop` (sonic3k.asm:20660-20710) walks
+`Collision_response_list` and dispatches collision per object
+each frame; `loc_890AA` (sonic3k.asm:185953) only consumes the
+deferred `collision_property` byte set by `Touch_Special`
+(sonic3k.asm:21183-21194). The Clamer parent's `loc_88FEC`
+auto-close gate (sonic3k.asm:185880-185902) and the spring
+child's `loc_890AA` run independently each frame and the parent
+does not free the spring child slot when transitioning to
+routine 0x06.
+
+**Why the engine still fires at F7918 while ROM fires at F7920+:**
+
+A geometric inspection of trace data (target/trace-reports/
+s3k_cnz1_context.txt, F7918-F7921) shows that **even ROM does
+not satisfy a strict 8×8 box overlap at F7918** for Tails at
+`(0x0C8D, 0x044C)` against the Clamer spring child at
+`(0x0C98, 0x0468)`:
+
+| Frame | Tails (ROM)        | dx | dy | y-rad probe | Y overlap? |
+|-------|--------------------|----|-----|------------|------------|
+| 7918  | `(0x0C8D, 0x044C)` | -0x0B | -0x1C | rolling 14 -> player Y [0x0441,0x0457] vs box [0x0460,0x0470] | NO |
+| 7919  | `(0x0C8E, 0x044F)` | -0x0A | -0x19 |  -> [0x0444,0x045A] vs [0x0460,0x0470] | NO |
+| 7920  | `(0x0C8F, 0x0453)` | -0x09 | -0x15 |  -> [0x0448,0x045E] vs [0x0460,0x0470] | NO (gap of 2 px) |
+| 7921  | `(0x0C91, 0x045E)` | -0x07 | -0x0A |  -> [0x0453,0x0469] vs [0x0460,0x0470] | YES |
+
+ROM slot 8 enters `loc_890C8` cooldown at F7921 — consistent
+with the spring child firing on F7920->F7921 (Tails crosses into
+the box). The engine fires **two frames early** at F7918, while
+Tails is still ~2 px above the box. Box dimensions agree; the
+divergence is in either Tails's effective collision rectangle or
+in *when* the engine evaluates the overlap.
+
+**Plausible directions for follow-up (re-revised again):**
+
+1. **Tails's `getYRadius()` / hitbox-in-air semantics audit.**
+   The trace reports ROM Tails is `air=1, rolling=1` through
+   F7918-F7920 with `y_radius=14` (rolling). If the engine
+   reports a different `y_radius` for airborne-rolling Tails
+   (e.g. retains standing 19 because rolling-on-air doesn't
+   shrink the radius in the engine, or vice-versa), the
+   resulting playerY rectangle could include the 0x0460 line
+   and produce a false overlap. ROM `Touch_NoInstaShield`
+   (sonic3k.asm:20642-20653) uses `y_radius - 3` unconditionally;
+   the engine path
+   (`ObjectManager.processCollisionLoop` sidekick branch,
+   `src/main/java/com/openggf/level/objects/ObjectManager.java:3474-3477`)
+   uses `Math.max(1, sidekick.getYRadius() - 3)`. Verify whether
+   `AbstractPlayableSprite.getYRadius()` returns 14 for
+   airborne-rolling Tails or another value at F7918.
+
+2. **Pre-touch-resolution sub-frame ordering.** ROM's
+   `Touch_Loop` runs at the END of each main loop iteration
+   AFTER all object updates, so it sees post-update positions.
+   The engine's `processCollisionLoop` calls (per
+   `LevelManager.applyTouchResponses` ->
+   `SpriteManager.tickPlayablePhysics` ->
+   `ObjectManager.runTouchResponsesForPlayer`) need to be
+   verified to fire at the same point in the frame relative to
+   Tails's CPU update + physics step + position write. If touch
+   runs against a Tails position from before the F7918 step
+   instead of after, the box check is off by one frame's worth
+   of motion. This is the most likely cause given the off-by-2
+   in the trace, but needs probe instrumentation to confirm.
+
+3. **Active-object filter consistency.** Verify the engine has
+   a single active `ClamerObjectInstance` at `(0x0C98,0x0470)`
+   (matching ROM slot 8's parent). The eng-near list in the
+   trace report only shows objects close to Sonic; the
+   `(0x0C98,0x0470)` Clamer is closer to Tails and not visible
+   in eng-near. A targeted probe in `ClamerObjectInstance`
+   constructor / placement should confirm spawn coordinate.
+
+**Verification rules (unchanged)**
+
+- `TestS3kCnzTraceReplay` advancing past F7919.
+- `TestS3kAiz1Replay` first-error stable at F7381 / F7552.
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- S3K-required tests
+  (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+  GREEN.
+- Cross-game spring/touch-response parity gated via
+  `PhysicsFeatureSet`, never `gameId ==`.
+
+**Out-of-scope rationale.** The mission brief asked
+specifically about the spring-child collision-box dimensions.
+This audit confirms the engine box already matches ROM
+(`Touch_Sizes[$17] = 8x8`); narrowing it further to (8,4) per
+`width_pixels`/`height_pixels` would diverge from ROM and is
+explicitly rejected as a hack. The actual root cause of the
+2-frame-early dispatch is a different upstream issue
+(candidate list above) and is left for a follow-up round with
+a focused scope on collision-frame ordering or Tails's airborne
+hitbox.
+
 ---
 
 ## AIZ F7552 — Tails 1-pixel x drift after AIZ Mini-boss napalm slot destruction (diagnosis only)

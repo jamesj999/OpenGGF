@@ -7,6 +7,21 @@ All notable changes to the OpenGGF project are documented in this file.
 ### v0.6.prerelease (Current development snapshot)
 
 - **AIZ trace F7552: napalm ride-bridge hypothesis disproven; root cause re-localised to a sidekick airborne wall-collision parity gap at world (0x1208, 0x0314) (doc-only).** The prior round hypothesised that `AizMinibossNapalmProjectile` on `setDestroyed(true)` should run a `Solid_Object_Detach`-style ride release that bumps Tails by +1 px and zeroes `tails_x_speed`. Direct inspection of the recorded trace JSONL (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) shows Tails interact slot 16 has been destroyed continuously since at least F7500, ~50 frames before F7552 — the napalm cannot be the source. ROM cite confirms `Obj_AIZMiniboss` (sonic3k.asm:137222) and the napalm/flame children (loc_68C96, loc_68C12) use only `Add_SpriteToCollisionResponseList` and `Draw_And_Touch_Sprite` (touch-response), never `SolidObject` / `MvSonicOnPtfm`. The actual F7552 signature — Tails wedged at `x=0x1208` with `x_sub=0x0000` and `x_speed=0x0000` for many frames while still rising airborne — is the canonical right-wall collision pattern. Engine code change deferred: porting a ride-bridge would be a hack at the wrong root cause. Documented in `S3K_KNOWN_BUGS.md` with the disproof, ROM cites, the corrected signature, and concrete revised next steps (extend recorder for terrain wall-sensor probes, audit sidekick airborne side-collision path, identify the AIZ chunk at world 0x1208/0x0314). Trace replay numbers unchanged (AIZ stable at F7552/977, CNZ at F7919, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable). Comparison-only invariant preserved.
+- **CNZ Clamer spring-child collision-box audit (doc-only):**
+  Verified the engine spring-child collision-box dimensions
+  (`Touch_Sizes[$17]=8x8` half-extents via flags `$D7 & $3F`)
+  match ROM `word_89136` exactly. The prior round's hypothesis
+  that ROM uses `width=8/height=4` for the spring-child
+  collision box conflated `width_pixels`/`height_pixels`
+  (rendering) with the touch-table indexed collision box.
+  Geometric inspection of the regenerated v6.12-s3k CNZ trace
+  shows ROM Tails-y at F7920 is still 2 px above the spring
+  child box; engine fires `applySpringLaunch` two frames early
+  at F7918. Real cause (revised candidates): Tails airborne-
+  rolling `y_radius` divergence, or sub-frame ordering of
+  touch dispatch vs Tails physics step. No code change.
+  Documented findings + revised follow-up candidates in
+  `docs/S3K_KNOWN_BUGS.md` for the F7919 entry.
 
 - **AIZ trace F7552 root cause documented — AIZ Mini-boss Napalm
   ride-bridge missing on `setDestroyed` (doc-only):** Investigated the
