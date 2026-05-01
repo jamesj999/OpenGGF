@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ Trace F8927 — diagnosis-only entry for the next first
+  trace error after the F7660 swing-bounce fix landed.** Trace
+  shows Sonic rolling+airborne (`status=0x06`,
+  `status_secondary=0x11` Fire Shield) descending into the AIZ2
+  boss-arena entrance with `x_speed` capped at `0x0179` from F8923
+  through F8926; at F8927 the ROM zeroes `x_speed` and freezes
+  `x_pos` at `0x1208`, while the engine retains `0x0179` and drifts
+  ahead, producing 896 cascading errors over the next ~340 frames
+  including a phantom land at F8942. ROM frames F8931 onward show
+  the canonical "rolling-air sliding into a flush right-side wall"
+  signature: `x_speed` cycles 0 → 0x18 → 0x30 → 0x48 → 0x60 → 0
+  every 5 frames with a sub-x snap pushback, matching
+  `SonicKnux_DoLevelCollision`'s `CheckRightWallDist` arm
+  (sonic3k.asm:24061-24065 -- "stop Sonic since he hit a wall"
+  `move.w #0,x_vel(a0)`). The engine never observes that wall
+  hit. Three candidate root causes (missing terrain solid bit at
+  the boss-arena right wall, quadrant-routing skip in our
+  `DoLevelCollision` equivalent, or an x_radius-vs-fixed-`+10`
+  probe-offset mismatch matching the player path's
+  `addi.w #$A,d3` at sonic3k.asm:20195) are documented; the most
+  testable is the probe-offset hypothesis since rolling drops
+  `x_radius` from 9 to 7. No engine change in this round; only a
+  documented diagnosis. AIZ first-error stays at F8927 (errors
+  896). CNZ first-error at F7923 unchanged. S1 GHZ / S1 MZ1 / S2
+  EHZ trace replays remain GREEN.
 - **AIZ Mini-boss F7660 — `Swing_UpAndDown` peak bounce-back ROM
   parity restored.** ROM `Swing_UpAndDown` (sonic3k.asm:177851-177879)
   applies a bounce-back at the swing apex: when the velocity reaches

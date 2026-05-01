@@ -39,6 +39,7 @@ Entries should include:
 21. [CNZ F=621 Clamer re-fire — ROM dispatch path narrowing (diagnosis only, round 2)](#cnz-f621-clamer-re-fire--rom-dispatch-path-narrowing-diagnosis-only-round-2)
 22. [CNZ F=621 Clamer re-fire — recorder gap closed; ROM mechanism localised (diagnosis only, round 3)](#cnz-f621-clamer-re-fire--recorder-gap-closed-rom-mechanism-localised-diagnosis-only-round-3)
 23. [CNZ F=621 Clamer re-fire — Touch_Special cprop latch landed (round 4, fixed)](#cnz-f621-clamer-re-fire--touch_special-cprop-latch-landed-round-4-fixed)
+24. [AIZ Trace F8927 — Sonic Air-Roll x_speed Not Cleared by Wall Collision (OPEN — diagnosis only)](#aiz-trace-f8927--sonic-air-roll-x_speed-not-cleared-by-wall-collision-open--diagnosis-only)
 
 ---
 
@@ -5167,4 +5168,138 @@ contained in `ClamerObjectInstance` and shares no cross-game code path.
   size index $17 inside the touch loop.
 - `Child_DrawTouch_Sprite` (178048-178053): `Add_SpriteToCollisionResponseList`
   + draw.
+
+---
+
+## AIZ Trace F8927 — Sonic Air-Roll x_speed Not Cleared by Wall Collision (OPEN — diagnosis only)
+
+**Location:** unidentified terrain wall in AIZ act-2 boss-arena approach (engine-side
+gap in `Sonic_MdJump`/`SonicKnux_DoLevelCollision` wall handling, or in the level
+chunk/collision-index data covering this region).
+**ROM Reference:** `sonic3k.asm:22407` `Sonic_MdJump:` -> `sonic3k.asm:24035`
+`SonicKnux_DoLevelCollision:` -> `sonic3k.asm:24061-24065` `bsr.w
+CheckRightWallDist; tst.w d1; bpl.s loc_11F56; add.w d1,x_pos(a0); move.w #0,
+x_vel(a0)` (wall hit clears x_vel). `CheckRightWallDist` itself is at
+`sonic3k.asm:20188-20214` (player path uses `addi.w #$A,d3` -- the right-wall
+probe is at `x_pos + 10`, not `x_pos + x_radius`).
+
+### Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first strict error at frame **8927**:
+- field: `x_speed` (Sonic), expected `0x0000`, actual `0x0179` (cap value).
+- field: `x` cascading from `0x1208` (ROM) vs `0x1209` (engine) at F8927, drifting
+  to `0x1216` (ROM `0x1208`) by F8935 -- ~14 px ahead in the engine.
+- 896 total errors; chain becomes a position cascade and a phantom land at F8942
+  (engine clears `air`/`rolling`/`y_speed` while ROM keeps falling).
+
+Latest checkpoint at the time of error: `aiz2_reload_resume z=0 a=1 ap=0 gm=12`
+(F5496). Latest zone/act state: `apparent_act=1` -- the AIZ2 boss-arena entry,
+post fire-transition.
+
+### Diagnosis
+
+At F8927 Sonic is rolling and airborne (`status=0x06` = Air|Roll), descending
+fast (`y_speed=+0x0220`), with `interact_slot=9` and
+`status_secondary=0x11` (Status_Shield + Status_FireShield) latched since
+F7149. `obj_control=0x00` -- no on-object lock -- and the slot-9 object held
+since F7252 is an `AnimatedStillSprite` (`object_code=0x0002BF5A`), so the
+`interact` linkage is just stale, not active.
+
+The ROM frames F8923-F8926 sit pinned at `x_speed = 0x0179` while the engine
+also clamps to the same value -- this is the rolling-jump x-speed cap (twice
+`Max_speed` reduced by `Sonic_RollSpeed`/`Sonic_ChgJumpDir` early-return on
+`Status_RollJump`). At **F8927 the ROM zeroes `x_speed`** and Sonic's `x_pos`
+freezes at `0x1208`. From F8931 onward the ROM cycles `x_speed` 0 -> 0x18 ->
+0x30 -> 0x48 -> 0x60 -> 0 every 5 frames, with `x_sub` accumulating 0x6000
+(0.4 px) before snapping back -- the canonical signature of **air-roll
+sliding into a flush right-side wall**: `Sonic_ChgJumpDir`'s
+`Sonic_JumpPeakDecelerate` re-applies x-drag, `MoveSprite_TestGravity` drifts
+Sonic into the wall, and `SonicKnux_DoLevelCollision`
+`CheckRightWallDist` hit returns negative `d1`, pushes back into the wall and
+clears `x_vel`. The 5-frame cycle period matches `(0x60/0x18 = 4
+acceleration steps) + 1 wall-snap frame`.
+
+The engine never observes that wall hit: `x_pos` keeps advancing at the cap
+(`0x1209`, `0x120A`, ... up to `0x1216` by F8935) and at F8942 it phantom-lands
+because cumulative drift puts Sonic's foot inside the floor before the ROM
+trajectory does. Engine/ROM `tails_*` columns are still in lockstep through
+F8935 -- the divergence is purely Sonic, purely on the right-wall channel.
+
+### Likely root causes (not yet confirmed)
+
+1. **Missing terrain solid bit at `(x>=0x1212, y in 0x0329..0x033D)`.** The
+   ROM right-wall probe is `x_pos + 10` per `CheckRightWallDist` (line 20195;
+   note the **fixed `+$A`**, not `x_radius`). If our chunk/block collision
+   index for AIZ2 in this band is missing the right-wall solidity at this
+   location, no wall is found and `x_vel` stays at the cap.
+2. **`SonicKnux_DoLevelCollision` engine equivalent skipping the
+   `CheckRightWallDist` arm** when Sonic's GetArcTan(d1=x_vel, d2=y_vel)
+   quadrant falls in the "down-right" cone (which it does here: `x_vel=0x179`,
+   `y_vel=+0x220`, arctan ~57 deg, post `subi.b #$20`/`andi.b #$C0` -> 0x00).
+   In ROM that path takes the fall-through branch that calls both
+   `CheckLeftWallDist` and `CheckRightWallDist`. If our quadrant routing
+   mishandles this case, the right-wall arm is skipped despite the wall being
+   present.
+3. **Right-wall probe X offset.** Engine `PlayableSpriteMovement.getWallDistance`
+   uses `centreX + xRadius`, while the player's `CheckRightWallDist` ROM path
+   uses `x_pos + 10` (fixed). For default Sonic `xRadius=9` these match
+   (`x_pos+10 == centreX + 9 + 1`?), but the off-by-one and the rolling-radii
+   difference (`x_radius=7` while rolling) could shift the probe one pixel
+   left, missing a wall whose left face is exactly at `x = x_pos + 10`.
+
+Hypothesis (3) is the most testable: when Sonic is rolling, his `x_radius`
+shrinks to 7. If the engine's airborne wall probe uses
+`centreX + xRadius (=7)` while the ROM player path uses the **non-rolling**
+fixed `+$A (=10)`, the engine's probe lands 3 px short of the ROM probe.
+That would explain a wall flush at `x_pos + 10` being seen by ROM but missed
+by the engine.
+
+### Trace evidence summary
+
+```
+Frame  Exp x   Act x   Exp x_speed Act x_speed Exp y_speed
+8922   0x1201  0x1201  0x0179      0x0179      0x0108
+8923   0x1203  0x1203  0x0179      0x0179      0x0140  (CAP held by both)
+8926   0x1207  0x1207  0x0179      0x0179      0x01E8
+8927   0x1208 *0x1209  0x0000     *0x0179      0x0220  (ROM zeroes; engine doesn't)
+8930   0x1208 *0x120D  0x0000     *0x0179      0x02C8  (ROM x frozen 4 frames)
+8931   0x1208 *0x120F  0x0018     *0x0191      0x0300  (ROM begins fresh ramp;
+                                                       sub_x snaps 0xF000->0x0000
+                                                       between F8934 and F8935 =
+                                                       wall-snap pushback)
+8942 *0x???? *0x????  cascading air=1->0, y_speed=0x0568->0x0000 (engine phantom lands)
+```
+
+`status=0x06` (Air|Roll), `status_secondary=0x11` (FireShield), `obj_control=0x00`,
+no `Status_RollJump` set -- this is post-roll-off-ledge / post-bounce, not a
+Sonic-initiated roll-jump.
+
+### Recorder gaps
+
+The recorder does not currently emit a per-frame "wall hit clears x_vel" event,
+nor a snapshot of Sonic's `x_radius` (which differs while rolling). Confirming
+hypothesis (3) without engine-side ROM-cite-able sensor probe traces will
+require either:
+- Extending the recorder to log Sonic's `x_radius` and the post-collision
+  diff between `x_pos_pre` and `x_pos_post` (with the source: wall vs floor),
+  or
+- Stable-retro side-by-side at F8923-F8930 confirming the right-wall probe X
+  in the ROM (verifying `CheckRightWallDist` does take the +10 arm and finds
+  a wall at `x = 0x1212`).
+
+Both options are recorder/diagnostic work, not engine-fix work.
+
+### Removal Condition
+
+This entry is removed when either:
+1. The engine detects the wall at the same frame and clears `x_speed` to 0 at
+   F8927 (and `x_pos` thereafter matches ROM); or
+2. The level data is corrected so the right-wall solidity exists at the
+   ROM-cited position; or
+3. The engine's airborne right-wall probe uses the player-path fixed
+   `+10` offset (matching `sonic3k.asm:20195`) when a parity-relevant
+   discrepancy is confirmed, and the trace passes F8927.
+
+In all three cases the trace must advance past F8927 with no new strict
+errors introduced before F9270 (the cascading-x end frame).
 

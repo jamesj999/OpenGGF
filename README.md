@@ -270,9 +270,13 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), and Fire Shield
   Dash now mirrors ROM `Reset_Player_Position_Array` at `sonic3k.asm:22166-22193` by zeroing
   the input/status replay buffers alongside the position refill — fixing the F7381 stale
-  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 itself is documented
-  as a likely missing `Solid_Object_Detach` engine path on the AIZ Miniboss Napalm projectile
-  (rider receives +1 px and `x_vel` zero on the projectile's self-destruct frame).
+  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 was resolved by the
+  hurt-airborne MoveSprite-then-boundary ordering fix (matching ROM `Sonic_Hurt`/`Tails_Hurt`
+  at `sonic3k.asm:24449-24467`/`29194-29209`, S2 `s2.asm:37820-37834`, S1
+  `_incObj/01 Sonic.asm:1791-1804`); the AIZ Miniboss `Swing_UpAndDown` peak bounce-back
+  (matching `sonic3k.asm:177851-177879`) further advanced AIZ to F8927; F8927 is documented as
+  a likely airborne wall-sensor x_radius probe-offset gap (engine probes `centreX + xRadius`
+  while ROM `CheckRightWallDist` uses a fixed `+10` offset at `sonic3k.asm:20195`).
   `ClamerObjectInstance` now hosts the ROM `Clamer_Index` parent state machine
   (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
   `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
