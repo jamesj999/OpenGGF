@@ -436,14 +436,37 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 		}
 
-		// ROM hurt routine (routine 4) skips both Sonic_JumpHeight and
-		// Sonic_ChgJumpDir — only applies gravity + collision.
-		if (!sprite.isHurt()) {
+		// ROM hurt routine (routine 4) has a DIFFERENT call order than
+		// the normal airborne (Obj01_MdAir / Tails_Stand_Freespace) path:
+		//   - Normal airborne: BOUNDARY check → MoveSprite → DoLevelCollision.
+		//   - Hurt airborne:   MoveSprite → DoLevelCollision (HurtStop) → BOUNDARY.
+		//
+		// ROM cites:
+		//   S3K Sonic loc_122D8 hurt routine (sonic3k.asm:24449-24467):
+		//     jsr (MoveSprite_TestGravity2).l → addi.w #$30,y_vel → underwater
+		//     subi.w #$20,y_vel → sub_12318 (HurtStop) → Player_LevelBound.
+		//   S3K Tails loc_156D6 hurt routine (sonic3k.asm:29194-29209):
+		//     jsr (MoveSprite_TestGravity2).l → addi.w #$30,y_vel → underwater
+		//     subi.w #$20,y_vel → sub_15716 → Tails_Check_Screen_Boundaries.
+		//   S2 Obj01_Hurt_Normal (s2.asm:37820-37834): jsr (ObjectMove).l →
+		//     addi.w #$30,y_vel → underwater subi.w #$20,y_vel →
+		//     Sonic_HurtStop → Sonic_LevelBound.
+		//   S1 Sonic_Hurt (s1disasm/_incObj/01 Sonic.asm:1791-1804): jsr
+		//     (SpeedToPos).l → addi.w #$30,obVelY → underwater subi.w #$20 →
+		//     Sonic_HurtStop → Sonic_LevelBound.
+		//
+		// All three games agree on MOVE-then-BOUNDARY for hurt; the engine's
+		// pre-existing BOUNDARY-then-MOVE order matched the normal airborne
+		// path but produced an off-by-one frame on the right-edge clamp when
+		// hurt knockback drives the sidekick into Camera_max_X_pos+$128
+		// (AIZ Mini-boss F7552: ROM x=0x1208 vs engine x=0x1207).
+		boolean hurt = sprite.isHurt();
+		if (!hurt) {
 			doJumpHeight();
 			doChgJumpDir();
+			doLevelBoundary();
 		}
-		doLevelBoundary();
-		if (isCpuLevelBoundaryKillActive()) {
+		if (!hurt && isCpuLevelBoundaryKillActive()) {
 			// ROM Tails_Check_Screen_Boundaries reaches Kill_Character via
 			// `jmp` (sonic3k.asm:28442-28443 loc_14F56). Kill_Character ends
 			// with `rts` (sonic3k.asm:21158-21159), which unwinds to the
@@ -501,6 +524,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		boolean wasAirBeforeCollision = sprite.getAir();
 		if (!sprite.isObjectControlSuppressesMovement() && !sprite.isSuppressAirCollision()) {
 			doLevelCollision(sprite.isForceFloorCheck());
+		}
+
+		// Hurt airborne path runs the boundary check AFTER MoveSprite +
+		// HurtStop (DoLevelCollision) — see ROM cites at the top of this
+		// branch (Obj01_Hurt / loc_122D8 / loc_156D6 / Sonic_Hurt).
+		// Predicted-x for the boundary clamp must include the post-move
+		// position; doing the clamp pre-move loses one frame of lateral
+		// motion against Camera_max_X_pos+$128, which manifested as a
+		// 1-pixel right-edge gap during AIZ Mini-boss hurt knockback
+		// (F7552: ROM x=0x1208 vs engine x=0x1207).
+		if (hurt) {
+			doLevelBoundary();
+			if (isCpuLevelBoundaryKillActive()) {
+				return;
+			}
 		}
 
 		// ROM: Knuckles_Fall_From_Glide landing (sonic3k.asm:30913-30940).

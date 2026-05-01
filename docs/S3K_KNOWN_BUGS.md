@@ -4128,10 +4128,30 @@ hitbox.
 
 ---
 
-## AIZ F7552 — Tails 1-pixel x drift after AIZ Mini-boss napalm slot destruction (diagnosis only)
+## AIZ F7552 — Tails 1-pixel x drift after AIZ Mini-boss napalm slot destruction (FIXED)
 
-**Status:** documented; no fix landed this round. Continues from the F7381
-fix (`Reset_Player_Position_Array` Stat_table mirror, commit `3d720df1a`).
+**Status:** FIXED on branch `bugfix/ai-aiz-f7552-boundary-right-extra`.
+Hurt-airborne path in `PlayableSpriteMovement.modeAirborne` now mirrors
+ROM `Obj01_Hurt` / `Sonic_Hurt` / S3K `loc_122D8`+`loc_156D6` ordering:
+`doObjectMoveAndFall` → underwater gravity reduction → `updateSensors`
+→ `doLevelCollision` (Sonic_HurtStop equivalent) → `doLevelBoundary`.
+The previous order (boundary-then-move) was correct for the normal
+airborne (`Obj01_MdAir` / `Tails_Stand_Freespace`) path but wrong for
+hurt routine 4, which produced an off-by-one frame on the right-edge
+clamp when knockback drove Tails into `Camera_max_X_pos+$128`. AIZ
+trace first-error advances 7552 → 7660; AIZ error count 977 → 975.
+ROM cites: `s2.asm:37820-37834` (`Obj01_Hurt_Normal`),
+`s1disasm/_incObj/01 Sonic.asm:1791-1804` (`Sonic_Hurt`),
+`sonic3k.asm:24449-24467` (`loc_122D8`, S3K Sonic hurt routine 4),
+`sonic3k.asm:29194-29209` (`loc_156D6`, S3K Tails hurt routine 4).
+The original diagnosis text below (Solid_Object ride-bridge
+hypothesis) was incorrect — the recorded `boundary_action`
+`x_clamp_1208` and matching `Camera_max_X_pos = 0x10E0` confirm the
+divergence was a boundary-clamp ordering issue, not a missing
+ride-bridge from the napalm projectile.
+
+Continues from the F7381 fix (`Reset_Player_Position_Array` Stat_table
+mirror, commit `3d720df1a`).
 
 **Symptom**
 
