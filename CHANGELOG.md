@@ -6,6 +6,30 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Ctrl_1_locked logical-input latch (S3K-only foundation):** Added a new
+  `PhysicsFeatureSet.controlLockLatchesLogicalInput` flag and gated the
+  short-circuit in `AbstractPlayableSprite.setLogicalInputState` on it.
+  When the flag is set and `isControlLocked()` is true, the
+  raw-pad-to-logical write is skipped so the previous frame's
+  `Ctrl_1_logical` persists, matching ROM `Sonic_Control`
+  (sonic3k.asm:21541-21545 `loc_10760`,
+  s2.asm:35933-35935 `Obj01_Control`). The flag is `true` for `SONIC_3K`
+  and `false` for `SONIC_1` / `SONIC_2`. Replaces the reverted
+  universal latch (commit f3347ea89, REVERTED in 9793e4617) which
+  regressed S2 EHZ trace replay from PASS to F5121 because S2's existing
+  `setControlLocked(true)` sites (FlipperObjectInstance,
+  CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance,
+  SignpostObjectInstance) were calibrated against the engine's
+  "lock = zero logical" semantic for animation gating. Per-game gating
+  preserves S2 EHZ + S1 GHZ/MZ1 baselines while landing the S3K
+  foundation needed for AIZ F7381 follow-up work (no engine site yet
+  calls `setControlLocked(true)` in the F7361-F7365 window — the
+  follow-up is option (A) per-object lock-site identification, not
+  changed here). Trace replay parity confirmed: S2 EHZ PASS, S1 GHZ
+  PASS, S1 MZ1 PASS, S3K AIZ F7381 unchanged, S3K CNZ F7919
+  unchanged, S3K MGZ F0 unchanged. New regression test
+  `TestLogicalInputControlLockLatch` covers the flag gating across all
+  three games.
 - **AIZ trace F7381 root-cause documented (Tails-west-bias OPEN):**
   Investigation traced the `tails_x_speed expected=0x0000 actual=-0x0018`
   divergence to a `Ctrl_1_logical` parity gap rather than a
