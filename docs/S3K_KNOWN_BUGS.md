@@ -5494,3 +5494,163 @@ cross-game code path was touched.
   `Check_PlayerCollision` and either fires (`bsr.w sub_890D8`) or
   falls through to `Child_DrawTouch_Sprite`.
 
+
+## CNZ1 Trace F8123 — CNZ Bumper Misses Sidekick Tails Touch At Pixel-Edge Overlap (OPEN — diagnosis only)
+
+**Status:** OPEN. After the F7923 Clamer cprop fix landed (CNZ first error
+advanced F7923 -> F8123 with 2683 errors), the next first strict error is
+a CNZ bumper bounce that fires for Tails in ROM but is missed by the
+engine. Doc-only diagnosis this round; an engine-side fix to the
+bumper-sidekick touch detection is required.
+
+**Symptom**
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first strict error at F8123:
+
+```
+tails_x_speed mismatch (expected=0x0230, actual=0x00BF)
+tails_y_speed mismatch (expected=-0x06A5, actual=0x02A0)
+```
+
+The trace CSV header reads `Exp ... | Act ...` (interleaved), so the
+ROM-expected `tails_y_speed` at F8123 is **`-0x06A5`** (Tails fired
+upward fast) and the engine produced `0x02A0` (gravity-only progression
+from the prior frame's `0x0268`). The starred field marks engine
+divergence.
+
+**Root cause — ROM CNZ bumper at slot 14 bounces Tails; engine misses
+the sidekick touch**
+
+Across F8108-F8122 both characters are stable: Sonic in his airborne
+roll (status `0x07` = Facing_left|InAir|Roll), Tails following with
+`Tails_CPU_routine = 6` (`loc_13D4A`, sonic3k.asm:26656) at
+`(x_pos=0x0F05, y_pos=0x0472)` and `(x_vel=0x00D7, y_vel=0x0268)` at
+the end of F8122. The CNZ stationary bumper in slot 14
+(`object_code=0x00032EAA = loc_32EAA` for `Map_Bumper`,
+sonic3k.asm:68850-68886) sits at `(x_pos=0x0F00, y_pos=0x0488)` with
+the standard `width_pixels=$10, height_pixels=$10` body
+(sonic3k.asm:68825-68826) and `collision_flags=$D7`
+(sonic3k.asm:68828).
+
+At F8123 the AABBs touch exactly at the bumper's top edge:
+
+| Field          | ROM Tails           | ROM Bumper           |
+|----------------|---------------------|----------------------|
+| Centre `(x,y)` | `(0x0F05, 0x0472)`  | `(0x0F00, 0x0488)`   |
+| Half-extents   | `7 x 14` (slot 1 trace) | `8 x 8` (Obj_Bumper) |
+| AABB X         | `[0x0EFE, 0x0F0C]`  | `[0x0EF8, 0x0F08]`   |
+| AABB Y         | `[0x0464, 0x0480]`  | `[0x0480, 0x0490]`   |
+
+X overlap is `[0x0EFE, 0x0F08]`. Y "overlap" is the single edge line at
+`y=0x0480` (Tails' bottom equals bumper's top). ROM treats this as a
+hit and fires `sub_32F56` (sonic3k.asm:68950-68992):
+
+```
+sub_32F56:
+    move.w x_pos(a0), d1        ; bumper x
+    move.w y_pos(a0), d2        ; bumper y
+    sub.w x_pos(a1), d1         ; d1 = bumper.x - player.x  = -5
+    sub.w y_pos(a1), d2         ; d2 = bumper.y - player.y  = +22
+    jsr (GetArcTan).l            ; d0 = ArcTan(d1, d2)
+    move.b (Level_frame_counter).w, d1
+    andi.w #3, d1                ; +0..3 frame perturbation
+    add.w d1, d0
+    jsr (GetSineCosine).l        ; -> d0=cos, d1=sin
+    muls.w #-$700, d1
+    asr.l #8, d1
+    move.w d1, x_vel(a1)         ; x_vel = sin × -$700 / 256
+    muls.w #-$700, d0
+    asr.l #8, d0
+    move.w d0, y_vel(a1)         ; y_vel = cos × -$700 / 256
+    bset #Status_InAir, status(a1)
+    bclr #Status_RollJump, status(a1)
+    bclr #Status_Push, status(a1)
+    clr.b jumping(a1)
+    move.b #1, anim(a0)
+    moveq #signextendB(sfx_Bumper), d0
+    jsr (Play_SFX).l
+    ...
+    jsr (AllocateObject).l       ; spawn Obj_EnemyScore at bumper x/y
+    move.l #Obj_EnemyScore, (a1)
+```
+
+Three lines of evidence confirm this is the path that fires in ROM at
+F8123:
+
+1. `aux_state.jsonl` has an `object_appeared` event at F8123 for
+   slot 7 with `object_type = 0x0002CCE0 = Obj_EnemyScore`
+   (`sonic3k.asm:61375` `Obj_EnemyScore`/`loc_2CD0C`) at the bumper's
+   `(0x0F00, 0x0488)` -- the score popup is only spawned by
+   `sub_32F56` after a successful bounce.
+2. The next bounce of the same bumper produces another
+   `object_appeared` at F8150 (27 frames later, the orbit period gap),
+   confirming the bumper is the spawn source.
+3. ROM `tails_x_speed` jumps from `0x00D7` (start of F8123, captured
+   by the `tails_cpu_normal_step` aux event hook at `loc_13DD0`,
+   sonic3k.asm:26696) to `0x0230` at end of F8123 and `tails_y_speed`
+   jumps from `0x0268` to `-0x06A5` -- discontinuous changes
+   incompatible with `Tails_InputAcceleration_Freespace`
+   (sonic3k.asm:28330-28401) and `MoveSprite_TestGravity` air physics
+   (which would only add `0x18` drag and `0x38` gravity), but
+   consistent with the bumper's full sin/cos/-$700 velocity reseed.
+
+**Engine side**
+
+`CnzBumperObjectInstance` (`src/main/java/com/openggf/game/sonic3k/objects/CnzBumperObjectInstance.java`) does implement the bounce
+correctly via `applyBounce(...)` and supports both primary and sidekick
+players via `pendingPrimaryTouch` / `pendingSidekickTouch`. However the
+trace context line at F8123 shows the engine's `eng-near` /
+`eng-tails-cyl` scans only register slot 9 (Monitor) and slot 11
+(cylinder) -- the bumper at slot 14 (or whatever slot the engine
+allocates for it) is **not** in the per-frame near-object list against
+which the engine's touch system tests Tails. The engine `tails_x_speed`
+ends at `0x00BF` (= `0x00D7 - 0x18` air drag) and `tails_y_speed` at
+`0x02A0` (= `0x0268 + 0x38` gravity), i.e. the sidekick's frame-end
+state is **just the airborne roll physics with no bumper bounce
+applied**.
+
+So the divergence is **not** in the bounce maths (which is
+sin/cos/-$700-correct in `applyBounce`); it is upstream in the
+sidekick-vs-CnzBumper touch test missing the exact-edge contact at
+F8123.
+
+**Likely areas for the engine fix**
+
+1. The CnzBumper's `getMultiTouchRegions()` returns a single region only
+   when `initialAngle != 0` (orbiting bumpers). For stationary bumpers
+   it returns `null`, falling back on the default AABB driven by
+   `getCollisionFlags()` and the engine's spawn box. Verify that the
+   default AABB used by the touch system matches `width_pixels=$10,
+   height_pixels=$10` exactly (no implicit `-1` half-side shrink) so
+   that an edge-touching sidekick like Tails at F8123 is detected.
+2. Confirm `requiresContinuousTouchCallbacks()=true` plus
+   `TouchResponseListener.onTouchResponse(...)` are invoked for **CPU
+   sidekicks**, not just the controlling player. The
+   `pendingSidekickTouch` branch is in place, but if the higher-level
+   touch loop only iterates the primary player, the bumper never sees
+   Tails.
+3. Recheck the engine's "near-object" scan window for sidekick: the
+   ROM `Add_SpriteToCollisionResponseList` (called by `loc_32EB4`,
+   sonic3k.asm:68886) feeds the bumper into a global response list that
+   `Touch_ChkValue`/`sub_32F34` then tests against **both** Player_1
+   and Player_2 (sonic3k.asm:68929-68943). The engine's
+   per-frame near-object scan filtering for the sidekick may exclude
+   stationary bumpers when the primary leader is far away (Sonic was
+   `(0x0DE5, 0x0309)` at F8123, > 600px from the bumper).
+
+The third item is the most likely culprit: the engine appears to
+filter the near-object list per-leader rather than per-player, so a
+stationary CNZ bumper that is too far from Sonic but within Tails' AABB
+edge gets dropped before the touch test runs.
+
+### Removal Condition
+
+This entry is removed when `TestS3kCnzTraceReplay#replayMatchesTrace`
+no longer reports F8123 as the first strict error and the trace
+advances past the bumper-bounce window without strict mismatches on
+`tails_x_speed`, `tails_y_speed`, or `tails_x`/`tails_y` between the
+F8123 contact and the next bumper-or-physics divergence. The fix must
+preserve cross-game parity (no regressions in S1/S2 traces or in the
+existing `TestCnzBumperObjectInstance` tests) and remain ROM-cited
+against `sub_32F56` (sonic3k.asm:68950-68992) and Obj_Bumper
+(sonic3k.asm:68823-68886).
