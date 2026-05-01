@@ -83,6 +83,7 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // sidekickPushBypassUsesGraceStatus - S1 has no CPU sidekick
                 false,  // sidekickClearsStalePushVelocityBeforeGroundMove - S1 has no CPU sidekick
                 false,  // sidekickCpuUsesLevelFrameCounter - S1 has no CPU sidekick
+                false,  // landingRollClearUsesCurrentYRadiusDelta - S1 uses fixed roll-clear lift
                 false,  // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
                 false,  // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)

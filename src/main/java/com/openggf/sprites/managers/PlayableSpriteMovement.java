@@ -2237,13 +2237,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
 		boolean preservePinballRoll = featureSet != null && featureSet.pinballLandingPreservesRoll();
 		if (sprite.getRolling() && (!sprite.getPinballMode() || !preservePinballRoll)) {
-			boolean rollJumpWithRestoredRadii = sprite.getRollingJump()
-					&& sprite.getYRadius() == sprite.getStandYRadius();
-			sprite.setRolling(false);
-			sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
-			if (rollJumpWithRestoredRadii) {
-				int radiusDelta = sprite.getStandYRadius() - sprite.getRollYRadius();
-				sprite.setCentreYPreserveSubpixel((short) (sprite.getCentreY() + radiusDelta));
+			if (featureSet != null && featureSet.landingRollClearUsesCurrentYRadiusDelta()) {
+				int oldCentreY = sprite.getCentreY();
+				int oldYRadius = sprite.getYRadius();
+				sprite.setRolling(false);
+				int radiusDelta = oldYRadius - sprite.getStandYRadius();
+				if (((sprite.getAngle() + ANGLE_WALL_OFFSET) & ANGLE_WALL_MASK) != 0) {
+					radiusDelta = -radiusDelta;
+				}
+				sprite.setCentreYPreserveSubpixel((short) (oldCentreY + radiusDelta));
+			} else {
+				sprite.setRolling(false);
+				sprite.setY((short) (sprite.getY() - sprite.getRollHeightAdjustment()));
 			}
 		} else if (sprite.getYRadius() != sprite.getStandYRadius()
 				|| sprite.getXRadius() != sprite.getStandXRadius()) {

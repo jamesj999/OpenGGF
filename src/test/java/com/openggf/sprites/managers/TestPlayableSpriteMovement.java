@@ -1828,6 +1828,73 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void testLandingClearingRollUsesCurrentStandingRadiusDelta() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.applyStandingRadii(false);
+                mockSprite.setRollingJump(false);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0xFC);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D40, mockSprite.getCentreY(),
+                                "Player_TouchFloor adjusts ROM centre y_pos by old y_radius - default_y_radius");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
+        }
+
+        @Test
+        public void testS2LandingClearingRollUsesFixedLiftEvenWithStandingRadius() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.applyStandingRadii(false);
+                mockSprite.setRollingJump(false);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0x00);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D3B, mockSprite.getCentreY(),
+                                "S2 Sonic_ResetOnFloor applies the fixed -5 centre-y lift when clearing rolling");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
+        }
+
+        @Test
+        public void testLandingClearingRollStillLiftsFromRollingRadius() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setGroundMode(GroundMode.GROUND);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setRolling(true);
+                mockSprite.setCentreY((short) 0x0D40);
+                mockSprite.setAir(true);
+                mockSprite.setAngle((byte) 0x00);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("resetOnFloor");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertEquals((short) 0x0D3B, mockSprite.getCentreY(),
+                                "Rolling y_radius 14 landing should apply the -5 centre-y radius delta");
+                assertEquals(mockSprite.getStandYRadius(), mockSprite.getYRadius(),
+                                "Landing should restore default y_radius");
+                assertTrue(!mockSprite.getRolling(), "Landing should clear Status_Roll");
+        }
+
+        @Test
         public void testS2LandingPreservesRollingInPinballMode() throws Exception {
                 setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_2);
                 mockSprite.setRolling(true);

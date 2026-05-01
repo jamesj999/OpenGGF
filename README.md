@@ -307,8 +307,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 		  the ROM `Obj_WaitOffscreen` gate before activation, and S3K Tails hurt-routine
 			  frames now skip the normal CPU off-screen timeout path, and S3K jump re-presses
 			  clear roll-jump before shield ability dispatch so MGZ air control resumes on
-			  ROM's frame, advancing the MGZ replay frontier from F0 to F1451 to F1466 to
-			  F1659 to F1910 to F2007 to F2015.
+				  ROM's frame, and S3K roll landing now uses the ROM current-radius
+				  roll-clear snap, advancing the MGZ replay frontier from F0 to F1451
+				  to F1466 to F1659 to F1910 to F2007 to F2015 to F2080.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
