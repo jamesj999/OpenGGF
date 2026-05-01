@@ -211,6 +211,72 @@ class TestSonic3kSpringObjectInstance {
                 "The handoff mirrors ROM's same-frame air->ground transition before the horizontal spring launch");
     }
 
+    @Test
+    void upSpringClearsStatusOnObjAfterSettingAir() throws Exception {
+        // ROM cite: sub_22F98 (sonic3k.asm:47723-47724)
+        //   bset #1,status(a1)   ; Status_InAir
+        //   bclr #3,status(a1)   ; Status_OnObj
+        // SolidObjectFull2_1P just landed the player on the spring (set OnObj=1);
+        // the trigger sub immediately clears it as the player launches off.
+        // Without this clear, OnObj remains true into subsequent frames where
+        // ROM has it cleared (causes mid-frame Tails CPU follow-steering bias
+        // at loc_13DA6 / sonic3k.asm:26690).
+        Sonic3kSpringObjectInstance spring = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x100, 0x100, Sonic3kObjectIds.SPRING, 0x00, 0, false, 0));
+        spring.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(spring, "ensureInitialized");
+
+        TestableSprite player = new TestableSprite("sonic");
+        player.setOnObject(true); // mirrors SolidObjectFull2_1P landing-bset
+        player.setAir(false);
+
+        invoke(spring, "applyUpSpring", new Class<?>[]{AbstractPlayableSprite.class}, player);
+
+        assertFalse(player.isOnObject(),
+                "ROM sub_22F98 (sonic3k.asm:47723-47724) bclr Status_OnObj after setting Status_InAir");
+    }
+
+    @Test
+    void downSpringClearsStatusOnObjAfterSettingAir() throws Exception {
+        // ROM cite: sub_233CA (sonic3k.asm:48139-48140)
+        //   bset #Status_InAir,status(a1)
+        //   bclr #Status_OnObj,status(a1)
+        Sonic3kSpringObjectInstance spring = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x100, 0x100, Sonic3kObjectIds.SPRING, 0x20, 0, false, 0));
+        spring.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(spring, "ensureInitialized");
+
+        TestableSprite player = new TestableSprite("sonic");
+        player.setOnObject(true);
+        player.setAir(false);
+
+        invoke(spring, "applyDownSpring", new Class<?>[]{AbstractPlayableSprite.class}, player);
+
+        assertFalse(player.isOnObject(),
+                "ROM sub_233CA bclr Status_OnObj after setting Status_InAir for the down-spring trigger");
+    }
+
+    @Test
+    void upDiagonalSpringClearsStatusOnObjAfterSettingAir() throws Exception {
+        // ROM cite: sub_234E6 (sonic3k.asm:48213-48214)
+        //   bset #Status_InAir,status(a1)
+        //   bclr #Status_OnObj,status(a1)
+        Sonic3kSpringObjectInstance spring = new Sonic3kSpringObjectInstance(
+                new ObjectSpawn(0x100, 0x100, Sonic3kObjectIds.SPRING, 0x30, 0, false, 0));
+        spring.setServices(new TestObjectServices().withGameState(new GameStateManager()));
+        invoke(spring, "ensureInitialized");
+
+        TestableSprite player = new TestableSprite("sonic");
+        player.setOnObject(true);
+        player.setAir(false);
+
+        invoke(spring, "applyDiagonalSpring",
+                new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, player, true);
+
+        assertFalse(player.isOnObject(),
+                "ROM sub_234E6 bclr Status_OnObj after setting Status_InAir for diagonal-up springs");
+    }
+
     private static Object invoke(Object target, String methodName) throws Exception {
         return invoke(target, methodName, new Class<?>[0]);
     }

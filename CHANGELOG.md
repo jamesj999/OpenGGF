@@ -6,6 +6,38 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Cross-frame OnObj timing aligned via spring-trigger
+  `bclr Status_OnObj` (CNZ F7872 -> F7919; AIZ unchanged):**
+  Identified the engine's cross-frame `Status_OnObj` clear-timing gap
+  as a missing `bclr Status_OnObj` on the spring trigger sub-routines.
+  The engine applied `setAir(true)` but never cleared `onObject`,
+  diverging from ROM where `sub_22F98` (sonic3k.asm:47723-47724),
+  `sub_233CA` (sonic3k.asm:48139-48140), and `sub_234E6`
+  (sonic3k.asm:48213-48214) explicitly clear `Status_OnObj` after
+  setting `Status_InAir`. SolidObjectFull2_1P just landed the player
+  on the spring (set OnObj=1); the trigger sub immediately clears it
+  as the player launches off. Without the clear, OnObj remained true
+  into subsequent frames where ROM had it cleared, biasing the
+  frame-start snapshot at airborne-spring-bounce windows (e.g. AIZ
+  trace F2000-F2020). Same pattern in S2 (s2.asm:33732-33733) and S1
+  (`_incObj/41 Springs.asm:88-89,183-184`). Fixes landed in
+  `Sonic3kSpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+  `SpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+  `Sonic1SpringObjectInstance.applyUpSpring/applyDownSpring`.
+  With the clear in place, the frame-start OnObj snapshot now reflects
+  ROM's mid-frame view, so wiring `SidekickCpuController.normalStep`,
+  `resolveFollowSteeringDx`, and `resolveObjectOrderNudgeDx` to read
+  `effectiveLeader.getOnObjectAtFrameStart()` (no air filter, since
+  ROM `btst #Status_OnObj` at sonic3k.asm:26690 has no air gate) no
+  longer regresses AIZ. Net effect: **CNZ F7872 -> F7919** (2774 ->
+  2768 errors); **AIZ unchanged at F7381** (1039 errors); S1 GHZ1, S1
+  MZ1, S2 EHZ1 trace replays remain green; required-green S3K
+  bootstrap tests still pass; suite-wide total failures unchanged
+  (30 -> 30). Regression tests added in
+  `TestSonic3kSpringObjectInstance`:
+  `upSpringClearsStatusOnObjAfterSettingAir`,
+  `downSpringClearsStatusOnObjAfterSettingAir`,
+  `upDiagonalSpringClearsStatusOnObjAfterSettingAir`.
 - **OnObj air-unseat early-return + frame-start snapshot wired into
   `loc_13DA6` mirror (CNZ F7872 advance):**
   `ObjectManager.processInlineObjectForPlayer` now mirrors ROM

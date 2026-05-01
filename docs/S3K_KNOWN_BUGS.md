@@ -3146,3 +3146,39 @@ narrow scope). With the early-return in place, the
   remain green; required-green S3K bootstrap tests still pass.
 - **Suite-wide failures: 34 -> 31** (3 fewer, no new regressions
   outside the AIZ first-error frame shift).
+
+**Update (branch `bugfix/ai-cross-frame-onobj-timing`):** Resolved.
+Identified the cross-frame OnObj clear-timing gap as a missing
+`bclr Status_OnObj` on the spring trigger sub-routines. The engine
+applied `setAir(true)` but never cleared `onObject`,
+diverging from ROM where `sub_22F98` (sonic3k.asm:47723-47724),
+`sub_233CA` (sonic3k.asm:48139-48140), and `sub_234E6`
+(sonic3k.asm:48213-48214) explicitly clear `Status_OnObj` after
+setting `Status_InAir`. Same pattern in S2 (s2.asm:33732-33733)
+and S1 (`_incObj/41 Springs.asm:88-89,183-184`). Fixes landed in
+`Sonic3kSpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+`SpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+`Sonic1SpringObjectInstance.applyUpSpring/applyDownSpring`. With the
+clear in place, the frame-start OnObj snapshot now reflects ROM's
+mid-frame view across the airborne window, so wiring
+`SidekickCpuController.normalStep` / `resolveFollowSteeringDx`
+/ `resolveObjectOrderNudgeDx` to read
+`effectiveLeader.getOnObjectAtFrameStart()` (no air filter, since
+ROM `btst #Status_OnObj` at sonic3k.asm:26690 has no air gate)
+no longer regresses AIZ.
+
+- **CNZ first-error advances F7872 -> F7919** (2774 -> 2768 errors).
+  F7919 is the documented downstream divergence
+  (`tails_g_speed=-0x800` spring impulse 47 frames later) -- out of
+  scope.
+- **AIZ first-error stays at F7381** (1039 errors) -- no regression.
+- **Cross-game parity preserved:** S1 GHZ1, S1 MZ1, S2 EHZ1 trace
+  replays remain green; required-green S3K bootstrap tests
+  (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+  still pass.
+- **Suite-wide failures: 30 -> 30** (no new regressions, same total).
+- Regression tests added in `TestSonic3kSpringObjectInstance`:
+  `upSpringClearsStatusOnObjAfterSettingAir`,
+  `downSpringClearsStatusOnObjAfterSettingAir`,
+  `upDiagonalSpringClearsStatusOnObjAfterSettingAir`.

@@ -158,13 +158,22 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: Obj_Spring_Up (sonic3k.asm)
      * - addq.w #8,y_pos(a1)
      * - move.w objoff_30(a0),y_vel(a1) [negative = up]
-     * - bset #status.player.in_air
+     * - bset #1,status(a1)             ; Status_InAir
+     * - bclr #3,status(a1)             ; Status_OnObj (sonic3k.asm:47723-47724,
+     *                                    s2.asm:33732-33733, s1disasm/_incObj/41 Springs.asm:88-89)
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
         // ROM updates y_pos (centre coordinate) with a word-sized add, so preserve y_sub.
         player.setCentreYPreserveSubpixel((short) (player.getCentreY() + 8));
         player.setYSpeed((short) getStrength());
         player.setAir(true);
+        // ROM sub_22F98 (sonic3k.asm:47723-47724) bclr #Status_OnObj after
+        // bset #Status_InAir. SolidObjectFull2_1P just landed the player on the
+        // spring (set OnObj=1); sub_22F98 immediately clears it as the player
+        // launches off. Without this clear, OnObj remains true into subsequent
+        // frames where ROM has it cleared, biasing Tails CPU follow-steering at
+        // loc_13DA6 (sonic3k.asm:26690) which reads the leader's Status_OnObj.
+        player.setOnObject(false);
 
         // ROM: sub_22F98 line 47729-47731 - if bit 7 set, clear x velocity
         if ((spawn.subtype() & 0x80) != 0) {
@@ -193,6 +202,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) yVel);
 
         player.setAir(true);
+        // ROM sub_233CA (sonic3k.asm:48139-48140) bclr #Status_OnObj after
+        // bset #Status_InAir; mirrors sub_22F98 for the down-spring trigger.
+        player.setOnObject(false);
 
         // ROM: sub_233CA line 48103-48105 - if bit 7 set, clear x velocity
         if ((spawn.subtype() & 0x80) != 0) {
@@ -280,6 +292,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) yStrength);
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
+        // ROM sub_234E6 (sonic3k.asm:48213-48214) bclr #Status_OnObj after
+        // bset #Status_InAir for diagonal-up/down springs.
+        player.setOnObject(false);
         player.setGSpeed((short) 0);
         player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);

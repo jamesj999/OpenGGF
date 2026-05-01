@@ -223,11 +223,15 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
   velocity, horizontal-spring airborne contact handling, the SolidObject on-screen gate now
   reading per-object width_pixels against the previous frame's camera (matching ROM render_flags
-  bit 7 timing), and the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
+  bit 7 timing), the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
   (matching ROM `loc_1E154`'s position lift before the upward-velocity check at
   `sonic3k.asm:41606-41632`, gated S3K-only) with per-(player, object) standing-bit tracking
-  mirroring ROM `a0.d6` semantics now advance the CNZ v6.5/v6.7 replay frontier from F3905 to
-  F7872 while preserving S1/S2 trace baselines.
+  mirroring ROM `a0.d6` semantics, and the cross-game spring-trigger `Status_OnObj` clear
+  (matching ROM `sub_22F98`/`sub_233CA`/`sub_234E6` `bclr #Status_OnObj` after
+  `bset #Status_InAir` for S3K, S2 `s2.asm:33732-33733`, and S1
+  `_incObj/41 Springs.asm:88-89/183-184`) plus the wired `onObjectAtFrameStart` snapshot in
+  the Tails CPU `loc_13DA6` follow-steering gate now advance the CNZ v6.5/v6.7 replay frontier
+  from F3905 to F7919 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
   platform state-1→state-2 transition slope-sample skip, and the state-2→state-3 unconditional
