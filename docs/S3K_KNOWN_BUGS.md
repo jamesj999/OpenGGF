@@ -3787,3 +3787,186 @@ must keep:
   `AbstractObjectInstance` / `TouchResponseProvider`) — any change
   in `ClamerObjectInstance` or shared touch dispatch must gate
   S3K-only differences via `PhysicsFeatureSet`, never `gameId ==`.
+
+**Status update — branch `bugfix/ai-cnz-tails-cpu-drift` (root
+cause re-localised: Clamer parent state machine, NOT Tails CPU)**
+
+Investigation only; no code change.
+
+The previous round's diagnosis ("Tails CPU/flight state drifted
+away from ROM through the F7872 → F7918 window") was based on a
+misreading of the trace `cpu_state` event. Closer inspection of
+the regenerated v6.12-s3k CNZ trace shows:
+
+1. **`cpu_routine=6` is NOT "FLY".** S3K `Tails_CPU_Control_Index`
+   (sonic3k.asm:26368-26386) maps `cpu_routine=6` to `loc_13D4A`,
+   which is the **NORMAL ground-following AI**. Engine
+   `SidekickCpuController.mapRomCpuRoutine` at line 2419 already
+   maps it to `State.NORMAL` correctly. ROM Tails has been in
+   NORMAL routine the entire F7860 → F7920 window — same as engine.
+   The "FLY" label in the previous summary was wrong.
+2. **`flight_timer` is the `sub_13EFC` watchdog**, not a flight
+   state. `sub_13EFC` (sonic3k.asm:26816-26847) increments
+   `Tails_CPU_flight_timer` whenever Tails is `Status_OnObj` on
+   the same `Tails_CPU_interact` slot, and resets it when those
+   conditions fail. It only triggers a respawn (via `sub_13ECA`)
+   when the watchdog hits `5*60 = 0x12C` (5 seconds stuck on the
+   same object). Through F7860–F7871 the watchdog ticked 16→27
+   while Tails was riding a Bumper / moving platform; at F7872 it
+   reset to 0 because Tails went airborne (`Status_OnObj` cleared).
+3. **Tails's position in ROM matches the engine through F7918.**
+   The `target_x=0x0FC8 / target_y=0x047C` cited as "ROM's
+   sidekick is aimed past the Clamer line" was from the CPU's
+   *target* (a leader-history position), not Tails's actual
+   `x_pos/y_pos`. The actual ROM Tails position from the
+   `object_state` events (slot 1) tracks the engine perfectly:
+   ```
+   Frame  ROM (x,y)        Engine (x,y) [from context.txt]
+   7915   (0x0C8B,0x0441)  (0x0C8B,0x0441)
+   7916   (0x0C8C,0x0445)  (0x0C8C,0x0445)
+   7917   (0x0C8C,0x0448)  (0x0C8C,0x0448)
+   7918   (0x0C8D,0x044C)  (0x0C8D,0x044C)
+   ```
+   The +6 px y delta visible at F7919 (`actual=0x0455` vs
+   `expected=0x044F`) is the `addq.w #6, y_pos` written by
+   `sub_890D8` itself when the Clamer launches Tails — it's a
+   consequence of the engine's launch firing, not a pre-existing
+   position drift.
+
+The actual upstream divergence is **state of the Clamer parent
+object (S3K Obj $A3, slot 6 in ROM at `(0x0C98,0x0470)`)**:
+
+- ROM trace shows parent slot 6 transitions
+  `routine 0x02 → 0x06` at frame F7872 (synchronous with Sonic
+  jumping off the rising platform). It then stays at routine
+  0x06 through F7920+. Routine 0x06 is `loc_89064`
+  (`sonic3k.asm:185905-185919`), the close animation; it does
+  NOT spawn an active spring child via `loc_8908C`/`loc_890AA`,
+  so the spring child cannot launch a player while the parent
+  is in this routine.
+- The engine's `ClamerObjectInstance.update()` (lines 80-89)
+  only handles the local `closeTimer` countdown and animation
+  step; it does NOT implement ROM's `Clamer_Index` parent state
+  machine. Specifically, the auto-close trigger at `loc_88FEC`
+  (sonic3k.asm:185878-185902) is missing:
+  ```
+  loc_88FEC:                     ; routine 0x02 (idle/looking)
+      btst    #0,$38(a0)
+      bne.s   loc_89014          ; spring child fired -> routine 4
+      jsr     Find_SonicTails(pc); a1 = closer player
+      cmpi.w  #$60,d2            ; abs(dx_closer)
+      bhs.s   loc_8900C          ; dx >= 0x60 -> just animate idle
+      btst    #0,render_flags(a0); facing-right gate
+      beq.s   loc_89008
+      subq.w  #2,d0              ; flip the side check
+  loc_89008:
+      tst.w   d0
+      beq.s   loc_89036          ; player on the wrong side -> routine 6 close
+  loc_8900C:
+      ; Animate_RawNoSSTMultiDelay (idle anim)
+  ```
+  At F7872 the closer player to slot 6 (Clamer at 0x0C98,0x0470)
+  is Tails (`Find_SonicTails` returns Tails: dx≈0x55, dy≈0x1A).
+  `abs(dy) < 0x60`, and once the `render_flags` directional
+  flip is applied, ROM's `tst.w d0; beq.s loc_89036` lands on
+  the close branch and writes `routine 0x06`.
+- The engine's Clamer therefore stays in its (engine-internal)
+  active state with the spring child armed. When Tails passes
+  through the spring child's collision box at F7918/F7919, the
+  engine fires `applySpringLaunch` (line 132 → 166-184) and
+  writes the triple `-0x0800` impulse. ROM never fires because
+  the parent has been in `loc_89064` (routine 0x06) since F7872
+  and `loc_89064` does not call `loc_890AA`.
+
+**Trace evidence (regenerated v6.12-s3k aux_state.jsonl.gz):**
+
+```
+slot 6 routine transitions (ROM, parent Clamer @0x0C98,0x0470):
+  F7557: 0x02
+  F7585: 0x06   ; close (Sonic passed earlier)
+  F7716: 0x02   ; reopen
+  F7717: 0x04
+  F7784: 0x06   ; close
+  F7871: 0x02   ; reopen
+  F7872: 0x06   ; close (Sonic-jumps-off-platform)
+  ... stays 0x06 through F7920+
+```
+
+**ROM cite (S3K Obj $A3 — `Obj_Clamer`):**
+
+- `sonic3k.asm:185856` — `Obj_Clamer:` entry, dispatches via
+  `Clamer_Index` table at `sonic3k.asm:185868-185874`.
+  Routines: `0x00` init / `0x02` idle (auto-close gate) /
+  `0x04` snap-shut animation / `0x06` close-and-reset
+  animation.
+- `sonic3k.asm:185878-185902` — `loc_88FEC` (routine 0x02)
+  reads `Find_SonicTails`, gates on `abs(dx) < $60`, applies
+  the `render_flags` directional flip, and jumps to `loc_89036`
+  (writes routine `0x06`) when the player is on the closing
+  side.
+- `sonic3k.asm:185905-185919` — `loc_89064` (routine 0x06)
+  runs the close animation only; it does NOT call `loc_8908C`
+  or `loc_890AA`, so the spring child stays inactive while in
+  this routine.
+- `sonic3k.asm:185878-185902, 185931, 185943-185951` —
+  `loc_89014` / `loc_89036` / `loc_8908C` flow controlling
+  parent routine transitions.
+- `sonic3k.asm:178243-178277` — `Find_SonicTails` returns
+  `a1 = closer player`, `d0 = 0/2 directional flag`, `d2 =
+  abs(dx_closer)`, `d3 = abs(dy_closer)`.
+
+**Plausible directions for follow-up (re-revised):**
+
+1. **Port the `Clamer_Index` parent state machine to
+   `ClamerObjectInstance.update()`.** Required pieces:
+   - A `Find_SonicTails`-equivalent helper for picking the
+     closer of `leaderPlayer` / `sidekickPlayer` (existing engine
+     plumbing under `services()` already exposes both via
+     `ObjectServices` / `services().sonic()` /
+     `services().sidekick()` — the helper can be private to the
+     Clamer class for now since `Find_SonicTails` only fires
+     from a small set of CNZ objects).
+   - The auto-close gate at `loc_88FEC`: `abs(dx) < 0x60` AND
+     `(player.x relative to clamer) XOR render_flags_bit0`.
+   - Routine 0x06 state that disables the spring child until
+     the close animation completes, then resets via `loc_89056`
+     (`move.b #2, routine; move.b #$A, collision_flags`).
+2. **Cross-game audit.** S1 has no Clamer; S2 has no Clamer.
+   This is purely an S3K-only object, so no `PhysicsFeatureSet`
+   gate is needed — the entire `Clamer_Index` port lives in
+   `ClamerObjectInstance` (S3K-only file).
+3. **Do NOT add an engine-only proximity gate that fires the
+   close without the `render_flags` directional check.** ROM
+   gates the close on the player's *side relative to the
+   Clamer's facing*, so a one-sided Clamer (e.g. spawned with
+   `render_flags bit 0 = 0`) only auto-closes for players on
+   one side and stays open for players passing on the other.
+   Skipping the directional gate would cause Clamers to close
+   in scenarios where ROM keeps them open.
+
+**Verification rules (revised)**
+
+Any candidate fix porting the Clamer parent state machine
+must keep:
+
+- `TestS3kCnzTraceReplay` advancing past F7919 (engine matches
+  expected `-0x0588 g_speed` post-frame).
+- `TestS3kAiz1Replay` first-error stable at F7381 (no regression).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- All `Sonic3kObjectRegistry` Clamer-aware callers continue to
+  fire on direct touch (the Tails-touches-armed-Clamer path
+  must still launch via `sub_890D8`-equivalent code).
+- The S3K-required tests
+  (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+  remain GREEN.
+
+The fix is non-trivial (new state machine + Find_SonicTails-
+equivalent helper + render_flags directional gate + animation
+script termination handlers) and was not landed on this branch
+because porting it correctly without regressing other Clamer
+encounters earlier in the level (slots 4/5 at `(0x0578,0x0690)`,
+slots 11 at `(0x28C0,0x0268)`, etc.) requires verifying the
+state machine against multiple traces, not just the F7872 →
+F7919 window. Documented here so the next round can resume
+from the correct ROM-cite starting point.
