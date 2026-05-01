@@ -6,6 +6,26 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ Mini-boss F7552 — sidekick hurt-airborne boundary clamp now
+  matches ROM order (MOVE before BOUNDARY).** ROM `Obj01_Hurt`
+  (s2.asm:37820-37834), `Sonic_Hurt` (s1disasm/_incObj/01
+  Sonic.asm:1791-1804), and S3K `loc_122D8`/`loc_156D6`
+  (sonic3k.asm:24449-24467, 29194-29209) all run
+  `MoveSprite_TestGravity2`/`ObjectMove`/`SpeedToPos` BEFORE
+  `Sonic_LevelBound`/`Tails_Check_Screen_Boundaries` for routine 4
+  (hurt). The engine's `PlayableSpriteMovement.modeAirborne` ran the
+  boundary check pre-move for both normal and hurt airborne paths,
+  which lost one frame of lateral motion against
+  `Camera_max_X_pos+$128` during hurt knockback. AIZ Mini-boss F7552
+  trace expected `tails_x=0x1208, tails_x_speed=0x0000` and engine
+  produced `tails_x=0x1207, tails_x_speed=0x0200` (off-by-one px,
+  one frame behind on the right-edge clamp). Engine now reorders
+  the hurt airborne path: `doObjectMoveAndFall` → underwater
+  gravity reduction → `updateSensors` → `doLevelCollision`
+  (Sonic_HurtStop equivalent) → `doLevelBoundary`. AIZ first-error
+  advances 7552 → 7660 (errors 977 → 975). CNZ first-error at F7919
+  unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
+
 - **Trace visualizer ghost characters.** Test-mode visual trace sessions now
   render grayscale, distance-faded ghost copies of the traced main character
   and first sidekick during desyncs. Ghosts hydrate only render state from the
