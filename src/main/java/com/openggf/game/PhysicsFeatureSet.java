@@ -450,7 +450,46 @@ public record PhysicsFeatureSet(
          * engine's existing {@code y_speed < 0 -> return null} matches S1/S2
          * exactly.
          */
-        boolean solidObjectTopBranchAlwaysLiftsOnUpwardVelocity
+        boolean solidObjectTopBranchAlwaysLiftsOnUpwardVelocity,
+        /**
+         * Whether {@code Ctrl_1_locked} latches the previous frame's logical
+         * pad state ({@code Ctrl_1_logical}) by short-circuiting the
+         * raw-pad-to-logical copy in {@code Sonic_Control}.
+         *
+         * <p>S3K: {@code true}. ROM {@code Sonic_Control}
+         * (sonic3k.asm:21541-21545 {@code loc_10760}) does
+         * <pre>
+         *   tst.b   (Ctrl_1_locked).w
+         *   bne.s   loc_10780              ; if locked, SKIP the copy
+         *   move.w  (Ctrl_1).w,(Ctrl_1_logical).w
+         * </pre>
+         * The previous frame's logical pad state therefore persists while
+         * controls are locked. {@code Sonic_RecordPos}
+         * (sonic3k.asm:22132) writes that latched value into
+         * {@code Stat_table}, which {@code Tails_CPU_Control}
+         * (sonic3k.asm:26683-26689) reads with a $40-frame delay. The
+         * engine's {@code SpriteManager.publishInputState} zeroes the
+         * effective inputs while {@code controlLocked=true}, so without
+         * the latch the engine writes the zeros into
+         * {@code logicalInputState} and corrupts the sidekick CPU's
+         * delayed-input read for the AIZ F7381 / CNZ F7919 windows.
+         *
+         * <p>S2: {@code false}. ROM {@code Obj01_Control}
+         * (s2.asm:35933-35935) has the same {@code Control_Locked} short-
+         * circuit, but the engine's S2 trace baselines (EHZ) and the
+         * existing {@code setControlLocked(true)} call sites
+         * ({@code FlipperObjectInstance}, {@code CPZSpinTubeObjectInstance},
+         * {@code Sonic2DeathEggRobotInstance}, {@code SignpostObjectInstance})
+         * were calibrated against the engine's "lock = zero logical" semantic
+         * for animation gating. Flipping the flag universally regressed S2
+         * EHZ from PASS to F5121 (commit f3347ea89, REVERTED in 9793e4617);
+         * the latch is therefore S3K-only on this branch and S2 must be
+         * re-validated before flipping.
+         *
+         * <p>S1: {@code false}. ROM uses a separate {@code Ctrl_Lock_byte}
+         * variable (s1disasm/_incObj/01 Sonic.asm); preserve baseline.
+         */
+        boolean controlLockLatchesLogicalInput
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -528,7 +567,8 @@ public record PhysicsFeatureSet(
             false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */,
             false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */,
-            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */);
+            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */,
+            false /* controlLockLatchesLogicalInput: S1 uses separate Ctrl_Lock_byte; preserve baseline */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -549,7 +589,8 @@ public record PhysicsFeatureSet(
             false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */,
             false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */,
-            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */);
+            false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */,
+            false /* controlLockLatchesLogicalInput: ROM Obj01_Control (s2.asm:35933-35935) has the short-circuit, but engine S2 setControlLocked sites (FlipperObjectInstance, CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance, SignpostObjectInstance) and EHZ trace baseline expect post-lock zero state for animation gating; universal latch regressed S2 EHZ to F5121 (commit f3347ea89, reverted in 9793e4617); flip after S2 traces are re-validated */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -574,7 +615,8 @@ public record PhysicsFeatureSet(
             true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 -- see PhysicsFeatureSet javadoc for AIZ F4768 cite */,
             true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */,
-            true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */);
+            true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */,
+            true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

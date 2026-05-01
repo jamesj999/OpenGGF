@@ -2490,8 +2490,41 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         /**
          * Publishes the logical pad state used by movement this frame.
          * ROM ref: Sonic_RecordPos stores Ctrl_1_Logical, not the raw held-button state.
+         *
+         * <p>ROM-faithful Ctrl_1_locked latch: when
+         * {@link PhysicsFeatureSet#controlLockLatchesLogicalInput()} is true and
+         * {@link #isControlLocked()} is set, the write is skipped so the
+         * previous frame's logical pad state persists.
+         * Mirrors {@code Sonic_Control} (S3K sonic3k.asm:21541-21545
+         * {@code loc_10760}):
+         * <pre>
+         *   tst.b   (Ctrl_1_locked).w
+         *   bne.s   loc_10780               ; if locked, SKIP the copy
+         *   move.w  (Ctrl_1).w,(Ctrl_1_logical).w
+         * </pre>
+         * Without the latch the engine zeroed {@code logicalInputState} the
+         * moment any in-level object set {@code controlLocked=true}, which
+         * propagated through {@link #endOfTick()} into {@code inputHistory}
+         * and corrupted the Sidekick CPU's $40-frame-delayed leader input
+         * read ({@code Tails_CPU_Control}, sonic3k.asm:26683-26689).
+         *
+         * <p>The latch is gated per-game because the previous universal
+         * implementation (commit f3347ea89, reverted in 9793e4617)
+         * regressed S2 EHZ trace replay from PASS to F5121: S2's existing
+         * {@code setControlLocked(true)} sites (FlipperObjectInstance,
+         * CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance,
+         * SignpostObjectInstance) expect the post-lock zero state for
+         * animation gating. The S2 ROM has the same short-circuit
+         * (s2.asm:35933-35935 {@code Obj01_Control}); flipping S2 to
+         * {@code true} requires re-validating those call sites and the
+         * EHZ trace baseline.
          */
         public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump) {
+                if (isControlLocked()
+                                && physicsFeatureSet != null
+                                && physicsFeatureSet.controlLockLatchesLogicalInput()) {
+                        return;
+                }
                 short input = 0;
                 if (up) input |= INPUT_UP;
                 if (down) input |= INPUT_DOWN;
