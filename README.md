@@ -304,8 +304,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
 	  standing riders, and the S3K sidekick push-release grace now keeps MGZ on ROM's
 	  already-loaded `Ctrl_2` sample while leaving the AIZ object-order bridge scoped to
 	  its hollow-tree/collapsing-platform context; MGZ Bubbles badniks now remain inert under
-	  the ROM `Obj_WaitOffscreen` gate before activation, advancing the MGZ replay frontier
-	  from F0 to F1451 to F1466 to F1659 to F1910.
+		  the ROM `Obj_WaitOffscreen` gate before activation, and S3K Tails hurt-routine
+		  frames now skip the normal CPU off-screen timeout path, advancing the MGZ replay
+		  frontier from F0 to F1451 to F1466 to F1659 to F1910 to F2007.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.

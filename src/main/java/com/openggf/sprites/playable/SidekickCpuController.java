@@ -758,6 +758,20 @@ public class SidekickCpuController {
                     0, 0, 0, 0, 0, false);
             return;
         }
+        PhysicsFeatureSet featureSet = sidekick.getPhysicsFeatureSet();
+        if (sidekick.isHurt()
+                && featureSet != null
+                && featureSet.sidekickNormalCpuSkipsHurtRoutine()) {
+            // S3K Tails_Index dispatches routine 4 to the hurt/object path
+            // instead of Tails_Control (docs/skdisasm/sonic3k.asm:26091-26096).
+            // The off-screen timeout lives under sub_13EFC, which is called only
+            // from Tails_Control's normal CPU route (sonic3k.asm:26159-26190,
+            // 26816-26833), so routine-4 frames must not tick despawnCounter.
+            updateNormalPushingGrace(currentPushing);
+            finishNormalStepDiagnostics(diagnostics, "sidekick_hurt_object_routine", -1, -1,
+                    0, 0, 0, 0, 0, false);
+            return;
+        }
         if (checkDespawn()) {
             finishNormalStepDiagnostics(diagnostics, "despawn", -1, -1,
                     0, 0, 0, 0, 0, false);
