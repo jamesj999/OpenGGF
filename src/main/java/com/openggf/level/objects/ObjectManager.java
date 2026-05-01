@@ -4623,6 +4623,9 @@ public class ObjectManager {
             if (instance.isSkipSolidContactThisFrame()) {
                 return null;
             }
+            if (shouldSkipOffscreenSidekickFullSolid(player, instance, provider)) {
+                return null;
+            }
 
             if (provider instanceof MultiPieceSolidProvider multiPiece) {
                 MultiPieceContactResult result = processMultiPieceCollision(
@@ -6417,6 +6420,42 @@ public class ObjectManager {
             }
             PhysicsFeatureSet featureSet = player.getPhysicsFeatureSet();
             return featureSet != null && featureSet.solidObjectOffscreenGate();
+        }
+
+        private boolean shouldSkipOffscreenSidekickFullSolid(PlayableEntity player,
+                                                             ObjectInstance instance,
+                                                             SolidObjectProvider provider) {
+            if (!(player instanceof AbstractPlayableSprite sidekick) || !sidekick.isCpuControlled()) {
+                return false;
+            }
+            PhysicsFeatureSet featureSet = sidekick.getPhysicsFeatureSet();
+            if (featureSet == null || !featureSet.solidObjectRequiresSidekickOnScreen()) {
+                return false;
+            }
+            if (provider.bypassesOffscreenSolidGate()
+                    || provider.isTopSolidOnly()
+                    || instance instanceof SlopedSolidProvider) {
+                return false;
+            }
+            boolean onScreen = sidekick.hasRenderFlagOnScreenState()
+                    ? sidekick.isRenderFlagOnScreen()
+                    : isVisibleForRenderFlag(sidekick);
+            if (onScreen) {
+                return false;
+            }
+            // ROM: S2 SolidObject tests Sidekick render_flags.on_screen and
+            // returns before the P2 solid pass when clear
+            // (docs/s2disasm/s2.asm:34800-34804). S3K SolidObjectFull does the
+            // same for Player_2 before adding the P2 standing-bit delta
+            // (docs/skdisasm/sonic3k.asm:41006-41010). This gate belongs only
+            // to the regular full-solid helper; SolidObjectFull2/SolidObject_Always,
+            // top-only, and sloped helpers enter their P2 routines directly.
+            return true;
+        }
+
+        private boolean isVisibleForRenderFlag(AbstractPlayableSprite sprite) {
+            Camera currentCamera = sprite.currentCamera();
+            return currentCamera != null && currentCamera.isVisibleForRenderFlag(sprite);
         }
 
         /**

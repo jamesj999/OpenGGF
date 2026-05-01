@@ -267,6 +267,19 @@ public record PhysicsFeatureSet(
          */
         boolean solidObjectOffscreenGate,
         /**
+         * Whether the regular full-solid helper skips Player 2 collision when
+         * the sidekick's own {@code render_flags.on_screen} bit is clear.
+         * <p>S2: {@code SolidObject} tests Sidekick render_flags and returns
+         * before adding the P2 standing bit when off-screen (docs/s2disasm/s2.asm:34800-34804).
+         * <p>S3K: {@code SolidObjectFull} performs the same Player_2 gate
+         * (docs/skdisasm/sonic3k.asm:41006-41010). This is separate from the
+         * object on-screen gate: in MGZ1 F1449 Tails is left of camera, so ROM
+         * skips the spike's P2 solid pass and preserves the velocity produced
+         * by {@code Tails_Control}.
+         * <p>S1: {@code false}; no CPU sidekick uses this path.
+         */
+        boolean solidObjectRequiresSidekickOnScreen,
+        /**
          * Whether the sidekick CPU's despawn check fires when the riding
          * object has been deleted while the sidekick is off-screen. ROM
          * {@code sub_13EFC} (sonic3k.asm:26816) reads the FIRST WORD of the
@@ -578,6 +591,7 @@ public record PhysicsFeatureSet(
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
             SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */,
+            false /* solidObjectRequiresSidekickOnScreen: S1 has no CPU sidekick */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S1 has no Tails CPU */,
             false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */,
             false /* sidekickPushBypassUsesGraceStatus: S1 has no Tails CPU */,
@@ -602,6 +616,7 @@ public record PhysicsFeatureSet(
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
             SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */,
+            true /* solidObjectRequiresSidekickOnScreen: S2 SolidObject skips off-screen Sidekick (s2.asm:34800-34804) */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S2 8-bit-id mismatch path already covers the freed-slot case (id of a freed slot is also 0) */,
             false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */,
             false /* sidekickPushBypassUsesGraceStatus: S2 TailsCPU_Normal uses live Status_Push only (s2.asm:38943-38946) */,
@@ -630,6 +645,7 @@ public record PhysicsFeatureSet(
             SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
             false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
             SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */,
+            true /* solidObjectRequiresSidekickOnScreen: S3K SolidObjectFull skips off-screen Player_2 before collision (sonic3k.asm:41006-41010) */,
             true /* sidekickDespawnUsesRidingInstanceLoss: S3K sub_13EFC reads (a3)=0 when slot freed by Delete_Referenced_Sprite (sonic3k.asm:36116-36124); engine tracks ObjectInstance reference because latchedSolidObjectId is sticky across destruction */,
             true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */,
             true /* sidekickPushBypassUsesGraceStatus: preserve ROM-visible transient push continuity for S3K object ordering (sonic3k.asm:26702-26705) */,
