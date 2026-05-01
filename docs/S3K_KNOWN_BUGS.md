@@ -4423,6 +4423,84 @@ Engine audit (this round) — sidekick airborne wall-collision path:
 4. If engine probe returns no wall and ROM does, the divergence is in the AIZ chunk solidity bitmap. Trace back through `Sonic3kLevel.loadChunksWithCollision` to verify that AIZ1 Primary/Secondary collision arrays at this chunk match the ROM's bytes.
 5. If engine probe returns a wall but the wall-clamp result differs from ROM, the divergence is in `doWallCheck` resolution — likely a subpixel rounding / `getCentreX()` vs `getX()` mismatch around the +10 sensor offset.
 
+**Round 4 update — regenerated AIZ trace inspected, F7552 isolated to a boundary-clamp + DoLevelCollision combination (branch `bugfix/ai-aiz-f7552-wall-fix`, 2026-04-30)**
+
+Doc-only round. The regenerated v6.13-s3k AIZ fixture (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) now ships the `terrain_wall_sensor_per_frame` events at F7549-F7560 the round-3 recorder added. Direct inspection of those events plus the existing `position_write_per_frame` / `velocity_write_per_frame` data gives a far clearer picture than round 3 had:
+
+`terrain_wall_sensor` Tails per-frame (post-frame state):
+
+| F | x_pos | x_sub | x_vel | y_pos | y_vel | status | airborne |
+|----|-------|-------|-------|-------|-------|--------|----------|
+| 7549 | 0x1201 | 0x5900 | 0x0200 | 0x031E | 0xFC30 | 0x02 | true |
+| 7550 | 0x1203 | 0x5900 | 0x0200 | 0x031B | 0xFC60 | 0x02 | true |
+| 7551 | 0x1205 | 0x5900 | 0x0200 | 0x0317 | 0xFC90 | 0x02 | true |
+| 7552 | **0x1208** | **0x0000** | **0x0000** | 0x0314 | 0xFCC0 | 0x02 | true |
+| 7553-7560 | 0x1208 | 0x0000 | 0x0000 | 0x0310-0x02FF | (rising) | 0x02 | true |
+
+`position_write_per_frame` for Tails (a0=$FFFFB04A) at F7552:
+
+```
+x_pos write 1: pc=0x1AB5E val=0x1205   ; MoveSprite (sonic3k.asm:36036) integration result
+x_pos write 2: pc=0x14F60 val=0x1207   ; loc_14F5C move.w d0,x_pos(a0) (Tails_Check_Screen_Boundaries clamp)
+```
+
+`loc_14F5C: move.w d0, x_pos(a0)` is the unique boundary-clamp instruction in `Tails_Check_Screen_Boundaries` (sonic3k.asm:28446-28451) — it writes whichever of `Camera_min_X_pos+$10` or `Camera_max_X_pos+$128` was just compared, then clears `2+x_pos` (=x_sub) and zeroes `x_vel` and `ground_vel`. The ROM trace therefore unambiguously records that ROM:
+
+1. **Hit the boundary clamp at F7552** with `d0 = 0x1207` (post-clamp x_pos).
+2. **Then advanced Tails by +1 px to 0x1208** (final F7552 x_pos), via a write that is NOT logged by the recorder. The ROM-only candidate paths that can produce a `+1` after the boundary clamp without producing a `position_write_per_frame` line are:
+   - `Tails_DoLevelCollision`'s `add.w d1, x_pos(a0)` / `sub.w d1, x_pos(a0)` wall pushes (sonic3k.asm:28893, 28900, 28963, 28991, 29053, 29091) — these use `add`/`sub`, not `move`, and the v6.13 recorder only hooks `move.w`/`move.l` to player x_pos addresses.
+
+The natural reading is therefore: ROM's `Tails_Check_Screen_Boundaries` clamps Tails to `x_pos = 0x1207`, then `Tails_DoLevelCollision` runs and `CheckLeftWallDist` returns `d1 = -1` (Tails embedded 1 px in the left wall after the boundary snap), so the `loc_153D6` fallthrough (quadrant 0x00) executes `sub.w d1, x_pos(a0)` (= add 1) and `move.w #0, x_vel(a0)`. Net: end-of-frame x_pos = 0x1208, x_sub = 0, x_vel = 0.
+
+Engine state at F7552 (from `target/trace-reports/s3k_aiz1_context.txt`):
+
+```
+ENG: rtn=02 rings=100 st=06 cam=10E0 sub=(C500,B000) ...
+   eng-tails-cyl none sidekick=@1207,0314
+                                      ^^^^^^ — NO clamp, NO wall push
+```
+
+Engine ends F7552 with `tails_x = 0x1207`, `tails_x_speed = 0x0200`, `tails_x_sub` non-zero. So the engine fired **NEITHER** the boundary clamp nor the wall push: Tails simply integrates `MoveSprite_TestGravity` (`x_pos += x_vel*256`) producing a clean 0x1205 + 0x0200 → 0x1207 with sub = 0x7100, and the airborne collision pass adds nothing further.
+
+**Engine boundary-check arithmetic (`PlayableSpriteMovement.doLevelBoundary`, src/main/java/com/openggf/sprites/managers/PlayableSpriteMovement.java:1859-1907):**
+
+```java
+int xTotal = (sprite.getCentreX() * 256) + ((sprite.getXSubpixel() >> 8) & 0xFF) + sprite.getXSpeed();
+int predictedX = xTotal >> 8;                       // = 0x1207 at F7552 entry
+int rightBoundary = camera.getMaxX() + 320 - 24;    // = camera.getMaxX() + 0x128
+boolean past = predictedX > rightBoundary;          // requires camera.getMaxX() <= 0x10DF
+```
+
+For ROM's clamp result `d0 = 0x1207`, the implied `Camera_max_X_pos` is `0x10DF` (right-side branch) — i.e. the AIZ2 boss-arena right edge is locked one pixel left of where the engine's `camera.getMaxX()` reads. The engine's value at this frame is `0x4640` (the LevelSizes.AIZ2 raw `xend`), because no AIZ2 Sonic3kAIZEvents path lowers `Camera_max_X_pos` (the engine's `updateAiz2SonicResize2` only locks `Camera_min_X_pos`, sonic3k.asm:39073). The engine therefore computes `rightBoundary = 0x4768`, which 0x1207 is far below, and the boundary check is a no-op for Tails at this instant.
+
+**Where ROM sets `Camera_max_X_pos` to ~0x10DF for the AIZ2 boss arena (round 4 finding):**
+
+Searching `docs/skdisasm/sonic3k.asm` for AIZ2 / boss-arena writes to `Camera_max_X_pos` (`Camera_min_X_pos+$2`) found ONE candidate write that's shared with `Camera_min_X_pos`:
+
+- `AIZ1_AIZ2_Transition` `loc_4FE2E` body (sonic3k.asm:104758-104759): `move.l #$100010,d0` / `move.l d0,(Camera_min_X_pos).w`. The 4-byte longword write hits both adjacent words: `Camera_min_X_pos = $0010` AND `Camera_max_X_pos = $0010`. After this, `AIZ2_Resize` raises `Camera_min_X_pos` to `$F50` (sonic3k.asm:39073) but never touches `Camera_max_X_pos`. The disassembly does NOT contain any subsequent S3K-side write that raises `Camera_max_X_pos` back up before the AIZ Mini-boss spawn.
+
+This means ROM's `Camera_max_X_pos` likely stays at a low value (close to the boss arena right edge) for the duration of the AIZ2 boss arena. The exact value `0x10DF` at F7552 would either come from:
+1. A residual write we have not located yet (e.g., a 32-bit `move.l` via an indirect path or a `sub.w` shift in an arena-lock object's continuous routine), OR
+2. A write performed during the `aiz2_reload_resume` checkpoint path (the trace's checkpoint immediately before F7552 is `cp aiz2_reload_resume z=0 a=1 ap=0 gm=12`, which loads via `Save_Level_Data` / a star-post resume — `loc_1C522` in sonic3k.asm:38925-38933 — and the resume sequence may set its own boundary state different from the seamless-transition path).
+
+The trace's `aiz_boundary_state_per_frame` events only cover F4660-F4679 (the AIZ1→AIZ2 fire transition diagnostic window from a previous round) and do NOT span F7549-F7560, so the recorder cannot currently confirm `Camera_max_X_pos` directly at F7552. Extending `aiz_boundary_state_per_frame` to also cover the F7549-F7560 window (using the same multi-window pattern v6.13 added for `velocity_write_per_frame` / `position_write_per_frame`) would make the F7552 boundary state directly visible in the next regen.
+
+**Concrete next steps (round 5)**
+
+1. Extend `tools/bizhawk/s3k_trace_recorder.lua`'s `aiz_boundary_state_per_frame` hook to ALSO emit at F7549-F7560 (currently F4660-F4679 only), so the regenerated trace records `Camera_min_X_pos / Camera_max_X_pos / Camera_target_min_X_pos / Camera_target_max_X_pos` at the F7552 incident frame. This conclusively answers what `Camera_max_X_pos` is in ROM at the boundary-clamp moment.
+2. With `Camera_max_X_pos` in hand at F7552, the fix is mechanical:
+   - If ROM has `Camera_max_X_pos = 0x10DF` (or any tight AIZ2 boss-arena right lock), update `Sonic3kAIZEvents.updateAiz2SonicResize2` to set `camera().setMaxX(<that value>)` on the same trigger that sets `setMinX(0xF50)`. Add the symbolic constant alongside `AIZ2_SONIC_RESIZE2_LOCK_X` and add a ROM-cite to the assignment.
+   - If ROM has `Camera_max_X_pos = 0x4640` (i.e. unchanged, opposite of the round-4 hypothesis), then the `+1` divergence must be coming purely from `Tails_DoLevelCollision`'s wall sensor returning a different value than the engine's `pushSensors[1].scan(0,0)` at world `(0x1207+10, 0x0314)` = `(0x1211, 0x0314)`. In that case the audit moves to the chunk-solidity bitmap (round-4 step 4 in the prior plan).
+3. Keep `cam=10E0` distinct from `Camera_max_X_pos` in the trace report context line — the existing `target/trace-reports/s3k_aiz1_context.txt` shows `cam=(10E0,02B8)` (Camera_X_pos / Camera_Y_pos), NOT the level-edge bounds. The boundary state event proposed in step 1 fixes that confusion at the recorder level.
+
+**Cross-game parity (round 4 verification):**
+
+- AIZ baseline (`TestS3kAizTraceReplay.replayMatchesTrace`): 977 errors, first error at F7552 (`tails_x mismatch expected=0x1208 actual=0x1207`) — unchanged from rounds 1-3.
+- CNZ first-error stays at F7919 (Clamer spring-relatch widening; different bug, separate branch).
+- S1 GHZ / S1 MZ1 / S2 EHZ trace replay tests not re-run this round (no engine change, no expected delta).
+
+This round documents only — no engine code changed — because the round-4 `terrain_wall_sensor_per_frame` data does narrow the F7552 cause to one of two well-defined paths (boundary clamp boundary-value gap vs wall-sensor solidity gap), but distinguishing them definitively still requires either (a) the round-5 recorder extension above or (b) a temporary engine probe gated to F7549-F7560 logging `camera.getMaxX() / pushSensors[0/1].scan(0,0)` at every frame. The recorder-extension path is preferred because it stays comparison-only on the engine side and gives ROM-side ground truth without engine instrumentation.
+
 ---
 
 ## CNZ F7919 — Clamer spring-child relatch widening localised; fix surfaces deeper F619 dispatch issue (diagnosis only)

@@ -6,6 +6,37 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K AIZ F7552 round-4 audit — regenerated trace inspected, divergence
+  isolated to boundary clamp + `Tails_DoLevelCollision` wall push pair
+  (doc-only).** With the regenerated v6.13-s3k AIZ fixture's new
+  `terrain_wall_sensor_per_frame` events at F7549-F7560 in hand, ROM's
+  F7552 Tails state advances `0x1207 -> 0x1208` via TWO sequential
+  writes: (1) `Tails_Check_Screen_Boundaries` `loc_14F5C` boundary clamp
+  to `0x1207` (recorded as `pc=0x14F60 val=0x1207` in
+  `position_write_per_frame`), then (2) a `Tails_DoLevelCollision` wall
+  push of `+1` to `0x1208` (uses `add.w/sub.w`, not `move.w`, so it
+  doesn't appear in `position_write` events the v6.13 recorder hooks).
+  Engine fires NEITHER write — `tails_x` simply integrates from
+  `0x1205` to `0x1207` via `MoveSprite`, and end-of-frame state has
+  `tails_x=0x1207, tails_x_speed=0x0200, tails_x_sub` non-zero. Engine
+  `doLevelBoundary()` reads `camera.getMaxX() = 0x4640` (raw
+  `LevelSizes.AIZ2 xend`); ROM's `Camera_max_X_pos` at F7552 is
+  effectively `~0x10DF` (right-edge of the AIZ Mini-boss arena). Round
+  4 located one ROM `move.l` write that hits `Camera_max_X_pos`
+  ($00100010 longword at sonic3k.asm:104758-104759 in
+  `AIZ1_AIZ2_Transition`), but the trace's `aiz2_reload_resume`
+  checkpoint may take a different path. Round 5 plan: extend the
+  recorder's `aiz_boundary_state_per_frame` (currently F4660-F4679
+  only) to ALSO cover F7549-F7560, using the same multi-window pattern
+  v6.13 added for `velocity_write_per_frame` /
+  `position_write_per_frame`, then the next regen makes ROM's
+  `Camera_min/max_X_pos` at F7552 directly visible and the engine fix
+  becomes a `Sonic3kAIZEvents.updateAiz2SonicResize2` line that calls
+  `camera().setMaxX(<that value>)` in lockstep with the existing
+  `setMinX(0xF50)` lock. No engine code changed this round, no trace
+  fixture change. Cross-game baselines: S3K AIZ first-error stable at
+  F7552/977 errors, S3K CNZ stable at F7919. Comparison-only invariant
+  preserved.
 - **S3K trace recorder v6.13-s3k — AIZ F7552 wall-clamp diagnostics
   (recorder-only).** Adds `terrain_wall_sensor_per_frame` aux event
   for AIZ profile and extends the existing `velocity_write_per_frame`
