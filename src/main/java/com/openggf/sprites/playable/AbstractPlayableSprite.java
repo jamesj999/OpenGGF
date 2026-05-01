@@ -235,6 +235,27 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean onObject = false;
 
         /**
+         * Snapshot of {@link #onObject} captured at the START of the current
+         * playable frame (before any player tick has run). Refreshed by
+         * {@link #captureOnObjectAtFrameStart()} from {@code SpriteManager.beginPlayableFrame}.
+         *
+         * <p>ROM analog: in {@code Tails_CPU_Control} (sonic3k.asm:26688-26700,
+         * S2 s2.asm:38933+), the follow-steering logic reads the leader's
+         * {@code Status_OnObj} bit MID-FRAME, before solid-object processing
+         * (sub_1FF1E sonic3k.asm:44306-44319, loc_1FFC4 sonic3k.asm:44369-44381)
+         * has cleared it for jumpers. {@code Sonic_Jump} (sonic3k.asm:23288-23354)
+         * sets {@code Status_InAir} but does NOT touch {@code Status_OnObj}; the
+         * bit only clears later when objects run. The engine's
+         * {@code PlayableSpriteMovement.doJump} and air-unseat paths clear
+         * {@code onObject} EARLIER in the player tick, so by the time the
+         * Tails CPU runs (next playable in {@code SpriteManager.update}), the
+         * live {@code isOnObject()} value already reflects the leader's
+         * post-tick state. Reading {@link #getOnObjectAtFrameStart()} preserves
+         * the pre-tick (mid-frame, ROM-equivalent) view.
+         */
+        private boolean onObjectAtFrameStart = false;
+
+        /**
          * ROM-style latched solid interaction object id.
          * Mirrors the object id resolved from the player's SST {@code interact} slot,
          * which persists even after {@code status.on_object} is cleared.
@@ -1262,6 +1283,30 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setOnObject(boolean onObject) {
                 this.onObject = onObject;
+        }
+
+        /**
+         * Captures the current {@link #onObject} value into the frame-start
+         * snapshot. Called by {@code SpriteManager.beginPlayableFrame} before
+         * any playable's per-frame tick runs, so consumers reading
+         * {@link #getOnObjectAtFrameStart()} see the value as it was at the
+         * top of the frame, matching the ROM's mid-frame view when one
+         * playable's logic reads another playable's status.
+         */
+        public void captureOnObjectAtFrameStart() {
+                this.onObjectAtFrameStart = this.onObject;
+        }
+
+        /**
+         * Returns the {@link #onObject} value as it was at the START of the
+         * current playable frame (before any player tick ran). Use this in
+         * cross-playable reads where the ROM accesses another sprite's
+         * {@code Status_OnObj} bit BEFORE solid-object processing has run for
+         * the frame (e.g. {@code Tails_CPU_Control} follow-steering at
+         * sonic3k.asm:26688-26700 / s2.asm:38933+).
+         */
+        public boolean getOnObjectAtFrameStart() {
+                return onObjectAtFrameStart;
         }
 
         public int getLatchedSolidObjectId() {
@@ -2445,8 +2490,41 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         /**
          * Publishes the logical pad state used by movement this frame.
          * ROM ref: Sonic_RecordPos stores Ctrl_1_Logical, not the raw held-button state.
+         *
+         * <p>ROM-faithful Ctrl_1_locked latch: when
+         * {@link PhysicsFeatureSet#controlLockLatchesLogicalInput()} is true and
+         * {@link #isControlLocked()} is set, the write is skipped so the
+         * previous frame's logical pad state persists.
+         * Mirrors {@code Sonic_Control} (S3K sonic3k.asm:21541-21545
+         * {@code loc_10760}):
+         * <pre>
+         *   tst.b   (Ctrl_1_locked).w
+         *   bne.s   loc_10780               ; if locked, SKIP the copy
+         *   move.w  (Ctrl_1).w,(Ctrl_1_logical).w
+         * </pre>
+         * Without the latch the engine zeroed {@code logicalInputState} the
+         * moment any in-level object set {@code controlLocked=true}, which
+         * propagated through {@link #endOfTick()} into {@code inputHistory}
+         * and corrupted the Sidekick CPU's $40-frame-delayed leader input
+         * read ({@code Tails_CPU_Control}, sonic3k.asm:26683-26689).
+         *
+         * <p>The latch is gated per-game because the previous universal
+         * implementation (commit f3347ea89, reverted in 9793e4617)
+         * regressed S2 EHZ trace replay from PASS to F5121: S2's existing
+         * {@code setControlLocked(true)} sites (FlipperObjectInstance,
+         * CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance,
+         * SignpostObjectInstance) expect the post-lock zero state for
+         * animation gating. The S2 ROM has the same short-circuit
+         * (s2.asm:35933-35935 {@code Obj01_Control}); flipping S2 to
+         * {@code true} requires re-validating those call sites and the
+         * EHZ trace baseline.
          */
         public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump) {
+                if (isControlLocked()
+                                && physicsFeatureSet != null
+                                && physicsFeatureSet.controlLockLatchesLogicalInput()) {
+                        return;
+                }
                 short input = 0;
                 if (up) input |= INPUT_UP;
                 if (down) input |= INPUT_DOWN;
@@ -3466,9 +3544,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
-         * Fills position history with current position.
-         * ROM: Reset_Player_Position_Array — called on spindash release & fire dash
-         * so the camera delay looks back to "right here" instead of stale positions.
+         * Fills position history with current position. Used by paths that
+         * want to flush the camera-delay buffer ONLY (no input/status clear),
+         * such as the engine-internal sidekick respawn seeding and the
+         * spindash-release scroll-delay reset where ROM only manipulates
+         * `H_scroll_frame_offset` without touching Stat_table.
+         *
+         * Use {@link #resetPositionAndStatTableHistory()} for the full
+         * ROM `Reset_Player_Position_Array` semantics (Pos_table refill +
+         * Stat_table clear).
          */
         public void resetPositionHistory() {
                 short currentX = getCentreX();
@@ -3476,6 +3560,35 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 for (int i = 0; i < xHistory.length; i++) {
                         xHistory[i] = currentX;
                         yHistory[i] = currentY;
+                }
+        }
+
+        /**
+         * Mirrors ROM `Reset_Player_Position_Array` (sonic3k.asm:22166-22193):
+         * writes Pos_table = (x_pos, y_pos) for all 64 entries AND clears all
+         * Stat_table 32-bit slots to 0 (`move.l #0, (a2)+`). Called by
+         * Sonic_FireShield (sonic3k.asm:23428), Sonic_HyperDash
+         * (sonic3k.asm:23521), and the player-init / death-respawn paths
+         * (sonic3k.asm:21525, 21938). Subsequent delayed Tails_CPU_Control
+         * reads of Stat_table return ZERO for any slot not yet refilled by
+         * Sonic_RecordPos.
+         *
+         * AIZ trace F7381 motivation: Sonic activates Fire Shield Dash at
+         * F7366 which runs Reset_Player_Position_Array. Without clearing
+         * inputHistory and statusHistory the engine retained Sonic's true
+         * F7350-F7365 LEFT input bits, while ROM Stat_table read zeros for
+         * any slot not yet refilled in the 16 frames after the reset. The
+         * stale LEFT input drove Tails CPU to a -0x18 x_speed where ROM
+         * holds 0x0000 (sonic3k.asm:26683-26705,26755-26785).
+         */
+        public void resetPositionAndStatTableHistory() {
+                short currentX = getCentreX();
+                short currentY = getCentreY();
+                for (int i = 0; i < xHistory.length; i++) {
+                        xHistory[i] = currentX;
+                        yHistory[i] = currentY;
+                        inputHistory[i] = 0;
+                        statusHistory[i] = 0;
                 }
         }
 

@@ -218,16 +218,25 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   M68K registers per `position_write` hit and a new `solid_object_cont_entry` event capturing
   `y_radius`/`default_y_radius` at `SolidObject_cont` entry so the CNZ F7614 geometric contradiction
   (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
-  resolved once the trace is regenerated.
+  resolved once the trace is regenerated. S3K v6.12-s3k adds a `control_lock_state_per_frame`
+  event capturing `Ctrl_1_locked` / `Ctrl_2_locked` / `Ctrl_1_logical` / `Ctrl_2_logical` per
+  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM. Velocity-
+  setter probe diagnostics localised the CNZ F7919 triple `-0x0800` write to
+  `ClamerObjectInstance.applySpringLaunch` (correct ROM dispatch given the inputs it sees);
+  the upstream divergence is Tails's CPU/flight state in the F7872→F7918 window.
 - **S3K trace replay fixes:** Carnival Night sidekick push/facing ordering, grounded release
   input timing, S3K air right-wall separation, wire-cage release parity, high-speed cage capture
   velocity, horizontal-spring airborne contact handling, the SolidObject on-screen gate now
   reading per-object width_pixels against the previous frame's camera (matching ROM render_flags
-  bit 7 timing), and the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
+  bit 7 timing), the new `solidObjectTopBranchAlwaysLiftsOnUpwardVelocity` feature flag
   (matching ROM `loc_1E154`'s position lift before the upward-velocity check at
   `sonic3k.asm:41606-41632`, gated S3K-only) with per-(player, object) standing-bit tracking
-  mirroring ROM `a0.d6` semantics now advance the CNZ v6.5/v6.7 replay frontier from F3905 to
-  F7872 while preserving S1/S2 trace baselines.
+  mirroring ROM `a0.d6` semantics, and the cross-game spring-trigger `Status_OnObj` clear
+  (matching ROM `sub_22F98`/`sub_233CA`/`sub_234E6` `bclr #Status_OnObj` after
+  `bset #Status_InAir` for S3K, S2 `s2.asm:33732-33733`, and S1
+  `_incObj/41 Springs.asm:88-89/183-184`) plus the wired `onObjectAtFrameStart` snapshot in
+  the Tails CPU `loc_13DA6` follow-steering gate now advance the CNZ v6.5/v6.7 replay frontier
+  from F3905 to F7919 while preserving S1/S2 trace baselines.
 - **S3K trace replay fixes:** Angel Island sidekick boundary, AIZ1 resize parity, stale reload
   object handoff, reload frame-counter cadence, catch-up flight gating, and the AIZ collapsing-
   platform state-1→state-2 transition slope-sample skip, and the state-2→state-3 unconditional
@@ -246,11 +255,20 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   of the engine's prior `getHeight() - getStandYRadius()` -- the latter was injecting a +13
   px error into rolling sidekick deaths and is fully resolved at F4679 (1050 -> 1049 errors).
   AIZ2 SonicResize2 now reads `camera().previewNextX()` (matching ROM's `Do_ResizeEvents`
-  ordering inside `DeformBgLayer` AFTER `MoveCameraX` at `sonic3k.asm:38303-38316`) and the
+  ordering inside `DeformBgLayer` AFTER `MoveCameraX` at `sonic3k.asm:38303-38316`), the
   sidekick dead-falling path now preserves `Kill_Character`'s `y_vel = -0x700` across the
   `sub_13ECA` despawn warp (matching ROM `MoveSprite_TestGravity` shifting y_pos by the
-  preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), advancing the
-  AIZ replay frontier to F7235 (Sonic-rolling top-speed cap divergence, separate blocker).
+  preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), and Fire Shield
+  Dash now mirrors ROM `Reset_Player_Position_Array` at `sonic3k.asm:22166-22193` by zeroing
+  the input/status replay buffers alongside the position refill — fixing the F7381 stale
+  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 itself is documented
+  as a likely missing `Solid_Object_Detach` engine path on the AIZ Miniboss Napalm projectile
+  (rider receives +1 px and `x_vel` zero on the projectile's self-destruct frame).
+  `ClamerObjectInstance` now hosts the ROM `Clamer_Index` parent state machine
+  (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
+  `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
+  0x02 (idle) / 0x04 (snap-shut) / 0x06 (auto-close) — foundation for further CNZ Clamer
+  parity work.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K trace replay fixes:** Marble Garden frame-zero replay timing now treats traces whose

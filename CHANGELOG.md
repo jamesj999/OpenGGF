@@ -6,6 +6,419 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ trace F7552: napalm ride-bridge hypothesis disproven; root cause re-localised to a sidekick airborne wall-collision parity gap at world (0x1208, 0x0314) (doc-only).** The prior round hypothesised that `AizMinibossNapalmProjectile` on `setDestroyed(true)` should run a `Solid_Object_Detach`-style ride release that bumps Tails by +1 px and zeroes `tails_x_speed`. Direct inspection of the recorded trace JSONL (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) shows Tails interact slot 16 has been destroyed continuously since at least F7500, ~50 frames before F7552 — the napalm cannot be the source. ROM cite confirms `Obj_AIZMiniboss` (sonic3k.asm:137222) and the napalm/flame children (loc_68C96, loc_68C12) use only `Add_SpriteToCollisionResponseList` and `Draw_And_Touch_Sprite` (touch-response), never `SolidObject` / `MvSonicOnPtfm`. The actual F7552 signature — Tails wedged at `x=0x1208` with `x_sub=0x0000` and `x_speed=0x0000` for many frames while still rising airborne — is the canonical right-wall collision pattern. Engine code change deferred: porting a ride-bridge would be a hack at the wrong root cause. Documented in `S3K_KNOWN_BUGS.md` with the disproof, ROM cites, the corrected signature, and concrete revised next steps (extend recorder for terrain wall-sensor probes, audit sidekick airborne side-collision path, identify the AIZ chunk at world 0x1208/0x0314). Trace replay numbers unchanged (AIZ stable at F7552/977, CNZ at F7919, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable). Comparison-only invariant preserved.
+- **CNZ Clamer spring-child collision-box audit (doc-only):**
+  Verified the engine spring-child collision-box dimensions
+  (`Touch_Sizes[$17]=8x8` half-extents via flags `$D7 & $3F`)
+  match ROM `word_89136` exactly. The prior round's hypothesis
+  that ROM uses `width=8/height=4` for the spring-child
+  collision box conflated `width_pixels`/`height_pixels`
+  (rendering) with the touch-table indexed collision box.
+  Geometric inspection of the regenerated v6.12-s3k CNZ trace
+  shows ROM Tails-y at F7920 is still 2 px above the spring
+  child box; engine fires `applySpringLaunch` two frames early
+  at F7918. Real cause (revised candidates): Tails airborne-
+  rolling `y_radius` divergence, or sub-frame ordering of
+  touch dispatch vs Tails physics step. No code change.
+  Documented findings + revised follow-up candidates in
+  `docs/S3K_KNOWN_BUGS.md` for the F7919 entry.
+
+- **AIZ trace F7552 root cause documented — AIZ Mini-boss Napalm
+  ride-bridge missing on `setDestroyed` (doc-only):** Investigated the
+  next strict error after the F7381 Fire Shield Dash fix. Trace shows
+  ROM applies a +1 px positional bump to `tails_x` AND zeroes
+  `tails_x_speed` at F7552, while the engine keeps `tails_x_speed=0x0200`
+  and applies only the x_speed-driven +2 px move. ROM trace context
+  records `sidekick=...rtn=04 status=02 onObj=10` (Tails interact slot
+  16 = AIZ Mini-boss Napalm projectile, `obj=00000000 destroyed=true`),
+  matching a `Solid_Object` ride-bridge release as the projectile
+  self-destructs. The engine's `AizMinibossNapalmProjectile` does not
+  expose any solid-on-top behaviour, so engine Tails never receives
+  the platform's last-tick `x_displacement` (+0x100 = +1 px) nor a
+  `Solid_Object_Detach`-style `x_vel` clear. Documented in
+  `S3K_KNOWN_BUGS.md` with verification rules, ROM cite hints
+  (`sonic3k.asm:137222 Obj_AIZMiniboss`, `26668-26708 loc_13D78`,
+  `26851-26896 loc_13F40`), and concrete next-round starting points
+  (extend trace recorder to log Tails interact-target's
+  `x_displacement` for F7549-F7553; locate `Obj91`/Napalm
+  `Solid_Object` invocation; port the ride-bridge into the engine
+  napalm projectile). No engine code changes this round; trace replay
+  numbers unchanged (AIZ stable at F7552 / 977 errors, CNZ stable at
+  F7919, MGZ stable at F0, S2 EHZ stable at F5121, S1 GHZ PASS,
+  S1 MZ1 PASS). Comparison-only invariant preserved.
+- **CNZ Clamer (S3K Obj $A3): port `Clamer_Index` parent state
+  machine and `Find_SonicTails`-driven auto-close gate to
+  `ClamerObjectInstance`.** The previous engine implementation only
+  handled the local close-timer + spring-launch path on touch; it
+  did not implement the ROM `Clamer_Index` state machine
+  (sonic3k.asm:185866-185874) or the `loc_88FEC` auto-close gate
+  (sonic3k.asm:185880-185902). This branch adds:
+  - The ROM routine dispatch (0x02 idle / 0x04 snap-shut after
+    spring fires / 0x06 auto-close on player approach), with the
+    `loc_89056` reset path returning the parent to routine 0x02 once
+    the close animation completes.
+  - A `findClosestPlayer` helper modelled on `Find_SonicTails`
+    (sonic3k.asm:178243-178277): picks the closer of Sonic/Tails by
+    `abs(dx)` against the Clamer parent, returning a signed dx so
+    the auto-close gate can apply the `render_flags` directional
+    flip (`subq.w #2,d0` when bit 0 of render_flags is set).
+  - The `cmpi.w #$60,d2; bhs loc_8900C` distance gate that keeps
+    the Clamer idle when the closer player is at `abs(dx) >= 0x60`,
+    matching ROM.
+  - `loc_89014`-equivalent collision_flags clearing during routine
+    0x04 (snap-shut) — `loc_89036` (auto-close) does NOT clear
+    `collision_flags`, so the parent's $0A touch box stays alive
+    while the close animation plays, matching ROM.
+  - The spring child's collision box stays active across all parent
+    routines because ROM `loc_890AA` (sonic3k.asm:185953-185962)
+    runs independently of the parent's routine; only the local
+    post-fire cooldown disables it.
+
+  Added 4 new regression tests in `TestClamerObjectInstance`
+  covering: auto-close fires when player on facing side within
+  threshold, holds when player on opposite side, holds when player
+  beyond `0x60` threshold, and the `loc_89056` reset path. The
+  existing 2 tests for the spring-launch path continue to pass.
+
+  S3K-only object — no S1/S2 PhysicsFeatureSet flag needed. ROM
+  cite: `Obj_Clamer` / `Clamer_Index` / `loc_88FEC` / `loc_89014`
+  / `loc_89036` / `loc_89056` / `loc_89064` / `Find_SonicTails`.
+
+  Trace replay parity: S3K AIZ stable at F7381 (no regression).
+  CNZ trace fixture has not been added to this repo yet, so this
+  port is verified by the new unit tests + manual reading against
+  the ROM. Pre-existing S1 trace failures unchanged.
+- **AIZ trace F7381 unblocked — Fire Shield Dash now clears the
+  Stat_table-equivalent (`inputHistory` / `statusHistory`) like ROM
+  `Reset_Player_Position_Array`:** Engine `resetPositionHistory()`
+  previously only refilled Pos_table-equivalent (`xHistory` /
+  `yHistory`) without clearing the Tails-CPU input/status replay
+  buffers. ROM `Reset_Player_Position_Array` (sonic3k.asm:22166-22193)
+  also clears the Stat_table 32-bit slots to 0
+  (`move.l #0, (a2)+`). At AIZ F7366 Sonic activates Fire Shield Dash
+  (`Sonic_FireShield`, sonic3k.asm:23411-23430), which calls
+  `Reset_Player_Position_Array` and zeroes Stat_table. Tails_CPU_Control
+  at F7381 reads `Stat_table[Pos_table_index - 0x44]`
+  (sonic3k.asm:26683-26705) — slot 63 in the post-reset cycle, never
+  refilled in the 16 frames since F7366. ROM gets
+  `delayed_input=0x0000`; the engine retained Sonic's true F7350-F7365
+  LEFT input bits and produced `tails_x_speed=-0x0018` where ROM holds
+  `0x0000`. Refactored `resetPositionHistory()` into the original
+  position-only flush (kept for spindash-release scroll-delay reset
+  and sidekick-respawn seeding, which ROM does NOT extend with a
+  Stat_table clear) plus a new `resetPositionAndStatTableHistory()`
+  that mirrors the full ROM semantics. Fire Shield Dash
+  (`PlayableSpriteMovement.fireShieldDash`) now calls the new method.
+  Trace replay: AIZ first strict error advances **F7381 → F7552**
+  (1039 → 977 errors); CNZ stable at F7919, MGZ stable at F0,
+  S2 EHZ stable at F5121, S1 GHZ PASS, S1 MZ1 PASS. Comparison-only
+  invariant preserved (no trace data hydrated into engine state).
+- **CNZ trace F7919 root cause re-localised: `ClamerObjectInstance`
+  is missing the ROM `Clamer_Index` parent state machine (doc-only):**
+  Re-investigated the F7919 first-error after the v6.12-s3k CNZ
+  trace regen (commit `b40b19db2`) made `cpu_state` and
+  `tails_cpu_normal_step` aux events available for the F7872–F7918
+  window. The previous round's diagnosis ("Tails CPU/flight state
+  drifted away from ROM") was based on a misread of the trace
+  `cpu_state` event:
+  - `cpu_routine=6` is `loc_13D4A` (NORMAL ground-following AI),
+    not "FLY". `Tails_CPU_Control_Index` (sonic3k.asm:26368-26386)
+    maps `0x06 -> loc_13D4A` and the engine's
+    `SidekickCpuController.mapRomCpuRoutine` (line 2419) already
+    matches.
+  - `flight_timer` is `sub_13EFC`'s `Status_OnObj`-watchdog
+    (sonic3k.asm:26816-26847), only triggering a respawn at
+    `5*60 = 0x12C` ticks.
+  - Tails's actual `(x_pos,y_pos)` from ROM `object_state`
+    events (slot 1) tracks the engine perfectly through F7918
+    (e.g. F7915 `(0x0C8B,0x0441)` → F7918 `(0x0C8D,0x044C)`).
+    The +6 px y delta at F7919 is the `addq.w #6,y_pos` baked
+    into `sub_890D8` itself (the launch impulse).
+
+  The actual upstream divergence is the **state of the Clamer
+  parent object (S3K Obj $A3, slot 6 in ROM at
+  `(0x0C98,0x0470)`)**. ROM trace shows parent slot 6 transitions
+  `routine 0x02 → 0x06` at F7872 via `loc_88FEC`'s auto-close
+  gate (`sonic3k.asm:185878-185902`):
+  - `Find_SonicTails` returns Tails as the closer player (dx≈0x55,
+    abs(dy)≈0x1A, both within the `cmpi.w #$60,d2; bhs loc_8900C`
+    threshold).
+  - `tst.w d0; beq.s loc_89036` lands on the close branch (after
+    the `render_flags` directional flip), writes routine `0x06`,
+    and the parent stays in `loc_89064` (close animation that
+    does NOT spawn an active spring child) through F7920+.
+
+  The engine's `ClamerObjectInstance.update()` only decrements
+  the local `closeTimer` and steps the close anim — it does not
+  implement the `Clamer_Index` state machine, the `loc_88FEC`
+  proximity/render_flags auto-close gate, or `Find_SonicTails`.
+  The engine's Clamer therefore stays armed, and when Tails
+  passes through the spring child's collision box at F7918 the
+  engine fires `applySpringLaunch` (line 132 → 166-184) and
+  writes the triple `-0x0800` impulse.
+
+  Updated `docs/S3K_KNOWN_BUGS.md` F7919 entry with the corrected
+  ROM cite (`Obj_Clamer` / `Clamer_Index` / `loc_88FEC` /
+  `Find_SonicTails`), the slot-6-routine evidence from the
+  regenerated v6.12-s3k aux trace, and the porting plan. S3K-only
+  (S1/S2 have no Clamer, no `PhysicsFeatureSet` gate needed).
+
+  Diagnostic-only; no engine code change. Trace replay parity
+  unchanged: S2 EHZ / S1 GHZ / S1 MZ1 PASS, S3K AIZ stable at
+  F7381, S3K CNZ stable at F7919 (2757 errors, no regression).
+- **BizHawk recorder v6.12-s3k — `control_lock_state_per_frame`
+  diagnostic + AIZ fixture regen + `Ctrl_1_locked` hypothesis
+  refuted:** Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit
+  a new `control_lock_state` aux event on every transition (plus a
+  baseline every 60 frames) capturing the global `Ctrl_1_locked`
+  ($FFFFF7CA), `Ctrl_2_locked` ($FFFFF7CB), `Ctrl_1_logical`
+  ($FFFFF602) and `Ctrl_2_logical` ($FFFFF66A) bytes. Bumped
+  `lua_script_version` to `6.12-s3k`, added the new schema to
+  `aux_schema_extras`, and regenerated
+  `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/` (20798 frames,
+  `physics.csv.gz` MD5-identical to prior fixture). The Java parser
+  required no changes — the new event is preserved as
+  `TraceEvent.StateSnapshot` via the existing default switch arm
+  (`TraceEvent.java:782-787`), keeping pre-v6.12 fixtures fully
+  compatible. Trace inspection refutes the prior-round
+  `S3K_KNOWN_BUGS.md` "AIZ2 Trace F7381" diagnosis: `Ctrl_1_locked`
+  is **0** for the entire AIZ F7361-F7385 window (and only ever
+  set at F20298+, far past AIZ act 2). The 0x0000 `delayed_input`
+  ROM reads at F7381 therefore is **not** produced by the
+  `tst.b (Ctrl_1_locked).w; bne loc_10780` short-circuit at
+  sonic3k.asm:21542-21544 — option (A) per-object
+  `setControlLocked(true)` wiring will not advance the F7381
+  blocker. Updated the `S3K_KNOWN_BUGS.md` entry with the new
+  evidence and proposed next investigative steps (Stat_table
+  snapshot diagnostic, `Sonic_RecordPos` hook, AIZ
+  act-1->act-2 / boss arena flush audit). Trace replay parity:
+  S2 EHZ PASS, S1 GHZ PASS, S1 MZ1 PASS, S3K AIZ first error
+  stable at F7381 (1039 errors, no regression), S3K CNZ first
+  error stable at F7919 (no regression). Diagnostic-only;
+  comparison-only invariant preserved (no engine state hydrated
+  from the new event).
+- **CNZ trace F7919 triple `-0x0800` write localised to
+  `ClamerObjectInstance.applySpringLaunch` (doc-only):** Temporary
+  velocity-setter probe (`AbstractPlayableSprite.setXSpeed/setYSpeed/
+  setGSpeed`, gated on `-Ds3k.cnz.velocityprobe=true`, reverted before
+  commit) showed the F7918 triple `-0x0800` write to Tails comes from
+  `ClamerObjectInstance.applySpringLaunch:170-172`
+  (`xSpeed=gSpeed=-0x0800, ySpeed=-0x0800`), called from
+  `onTouchResponse` via `ObjectManager$TouchResponses.handleTouchResponseSidekick`.
+  The previous round's hypothesis (`Sonic3kSpringObjectInstance`
+  `landingHandoff` bypass) is **wrong** — no
+  `Sonic3kSpringObjectInstance` frame appears in the call graph at
+  F7918 and the closest horizontal spring is 0xBB px away, outside the
+  proactive zone. Audited the ROM Clamer dispatch flow (`Obj_Clamer` at
+  `sonic3k.asm:185856`, `loc_8908C` at `sonic3k.asm:185943-185951`,
+  `Touch_Special->loc_103FA` at `sonic3k.asm:21162-21194`,
+  `Check_PlayerCollision` at `sonic3k.asm:179904-179917`,
+  `sub_890D8` at `sonic3k.asm:185978-185998`); the engine's per-touch
+  immediate dispatch matches ROM's `loc_890AA -> sub_890D8` for the
+  inputs it sees, so `ClamerObjectInstance` itself is **not** the
+  fault. Root cause is upstream: at F7918 Tails's engine state has
+  drifted from ROM (engine: `roll=true, air=true` at centre
+  `(0x0C8E, 0x044F)`; trace ROM `cpu_state` event:
+  `cpu_routine=6 (FLY)`, `flight_timer=12->13`, target
+  `(0x0FC8, 0x047C)`), so engine-Tails overlaps the Clamer's 8x8
+  spring-child collision box while ROM-Tails is mid-flight elsewhere.
+  Documented findings, ROM cites, and revised follow-up plan
+  (audit Tails CPU/flight handoff in F7872 -> F7918 window; do **not**
+  change `ClamerObjectInstance` itself) in
+  `docs/S3K_KNOWN_BUGS.md` CNZ1 F7919 entry. No code change. CNZ
+  first-error stays at F7919 (2757 errors). AIZ first-error stable at
+  F7381 (no regression). S1 GHZ1, S1 MZ1, S2 EHZ1 baselines
+  unchanged. Comparison-only invariant preserved (probe only logged
+  velocity setter calls; no engine state was hydrated/synced from
+  trace data).
+- **Ctrl_1_locked logical-input latch (S3K-only foundation):** Added a new
+  `PhysicsFeatureSet.controlLockLatchesLogicalInput` flag and gated the
+  short-circuit in `AbstractPlayableSprite.setLogicalInputState` on it.
+  When the flag is set and `isControlLocked()` is true, the
+  raw-pad-to-logical write is skipped so the previous frame's
+  `Ctrl_1_logical` persists, matching ROM `Sonic_Control`
+  (sonic3k.asm:21541-21545 `loc_10760`,
+  s2.asm:35933-35935 `Obj01_Control`). The flag is `true` for `SONIC_3K`
+  and `false` for `SONIC_1` / `SONIC_2`. Replaces the reverted
+  universal latch (commit f3347ea89, REVERTED in 9793e4617) which
+  regressed S2 EHZ trace replay from PASS to F5121 because S2's existing
+  `setControlLocked(true)` sites (FlipperObjectInstance,
+  CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance,
+  SignpostObjectInstance) were calibrated against the engine's
+  "lock = zero logical" semantic for animation gating. Per-game gating
+  preserves S2 EHZ + S1 GHZ/MZ1 baselines while landing the S3K
+  foundation needed for AIZ F7381 follow-up work (no engine site yet
+  calls `setControlLocked(true)` in the F7361-F7365 window — the
+  follow-up is option (A) per-object lock-site identification, not
+  changed here). Trace replay parity confirmed: S2 EHZ PASS, S1 GHZ
+  PASS, S1 MZ1 PASS, S3K AIZ F7381 unchanged, S3K CNZ F7919
+  unchanged, S3K MGZ F0 unchanged. New regression test
+  `TestLogicalInputControlLockLatch` covers the flag gating across all
+  three games.
+- **AIZ trace F7381 root-cause documented (Tails-west-bias OPEN):**
+  Investigation traced the `tails_x_speed expected=0x0000 actual=-0x0018`
+  divergence to a `Ctrl_1_logical` parity gap rather than a
+  `loc_13DA6` mirror flaw. ROM `Player_1` body at sonic3k.asm:
+  21539-21545 short-circuits the `move.w (Ctrl_1).w,(Ctrl_1_logical).w`
+  copy when `Ctrl_1_locked=1`; Sonic_RecordPos then writes the latched
+  (zero) `Ctrl_1_logical` into `Stat_table` (sonic3k.asm:22132). The
+  engine never sets `setControlLocked(true)` for any S3K in-level event
+  (zero hits across `src/main/java/com/openggf/game/sonic3k`), so
+  `SpriteManager.publishInputState` records the raw `LEFT` input from
+  the BizHawk movie at F7365 even though ROM has `Ctrl_1_locked=1` and
+  `Ctrl_1_logical=0`. The `INPUT_LEFT` then propagates 16 frames later
+  into Tails CPU's `loc_13DA6`/`loc_13DD0` mirror via
+  `effectiveLeader.getInputHistory(16)`, seeding `inputLeft=true`
+  (SidekickCpuController.java:851), which Tails's
+  `Tails_InputAcceleration_Freespace` mirror (sonic3k.asm:28330-28348)
+  consumes as `x_vel -= 2 * Acceleration_P2 = -0x18`. ROM has
+  `Ctrl_2_held_logical=0x00` for the same frame so its freespace path
+  does nothing. Documented in `docs/S3K_KNOWN_BUGS.md` with the full
+  ROM citation, the engine evidence (`recordedInput=0x0004`,
+  `recordedStatus=0x07`, `branch=follow_steering`,
+  `gen=0004 INPUT_LEFT`), and the two-part removal condition (audit
+  S3K spring/vine/zone-handoff sites for `setControlLocked(true)`,
+  or add a `logicalInputLatched` semantic that preserves
+  `logicalInputState` when `controlLocked` is set, mirroring ROM's
+  `tst.b Ctrl_1_locked; bne loc_10780` short-circuit). Cross-game
+  parity preserved: this branch ships docs only, no code changes,
+  AIZ first error stays at F7381 (1039 errors), CNZ first error
+  stays at F7919 (2768 errors), S1/S2 trace replays remain green.
+- **CNZ trace F7919 investigation documented (no fix landed):**
+  Documented the CNZ1 F7919 first-error divergence in
+  `docs/S3K_KNOWN_BUGS.md` (new section "CNZ1 Trace F7919 — Tails
+  Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising
+  Platform"). The engine writes `tails_x_speed = tails_y_speed =
+  tails_g_speed = -0x0800` in a single frame while ROM has
+  `(0x0004, 0x0400, -0x0588)` and Tails airborne under flight CPU
+  routine 6. ROM cite: `sub_2326C` Player_2 air-skip
+  (sonic3k.asm:47998-47999) bails unconditionally on `Status_InAir`
+  for the proactive horizontal-spring zone, so the proactive path
+  cannot legally fire. Symbol audit ruled out fire-shield dash,
+  bubble/lightning shield, all spring strengths, and CNZ vacuum-
+  tube release as single-call sources of the triple `-0x0800`
+  write. Root cause likely sits in compound per-tick object update
+  ordering or in
+  `Sonic3kSpringObjectInstance.checkHorizontalApproach`'s
+  `landingHandoff` bypass; localising it requires either velocity-
+  setter call-origin instrumentation at F7918 or a deeper audit of
+  CNZ rising-platform / spring / vacuum-tube cluster timing. No
+  code change; documentation only. CNZ first-error stays at F7919
+  (2768 errors). AIZ first-error stable at F7381 (1039 errors).
+  S1 GHZ1, S1 MZ1, S2 EHZ1 trace replays remain green; required-
+  green S3K bootstrap tests still pass.
+- **Cross-frame OnObj timing aligned via spring-trigger
+  `bclr Status_OnObj` (CNZ F7872 -> F7919; AIZ unchanged):**
+  Identified the engine's cross-frame `Status_OnObj` clear-timing gap
+  as a missing `bclr Status_OnObj` on the spring trigger sub-routines.
+  The engine applied `setAir(true)` but never cleared `onObject`,
+  diverging from ROM where `sub_22F98` (sonic3k.asm:47723-47724),
+  `sub_233CA` (sonic3k.asm:48139-48140), and `sub_234E6`
+  (sonic3k.asm:48213-48214) explicitly clear `Status_OnObj` after
+  setting `Status_InAir`. SolidObjectFull2_1P just landed the player
+  on the spring (set OnObj=1); the trigger sub immediately clears it
+  as the player launches off. Without the clear, OnObj remained true
+  into subsequent frames where ROM had it cleared, biasing the
+  frame-start snapshot at airborne-spring-bounce windows (e.g. AIZ
+  trace F2000-F2020). Same pattern in S2 (s2.asm:33732-33733) and S1
+  (`_incObj/41 Springs.asm:88-89,183-184`). Fixes landed in
+  `Sonic3kSpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+  `SpringObjectInstance.applyUpSpring/applyDownSpring/applyDiagonalSpring`,
+  `Sonic1SpringObjectInstance.applyUpSpring/applyDownSpring`.
+  With the clear in place, the frame-start OnObj snapshot now reflects
+  ROM's mid-frame view, so wiring `SidekickCpuController.normalStep`,
+  `resolveFollowSteeringDx`, and `resolveObjectOrderNudgeDx` to read
+  `effectiveLeader.getOnObjectAtFrameStart()` (no air filter, since
+  ROM `btst #Status_OnObj` at sonic3k.asm:26690 has no air gate) no
+  longer regresses AIZ. Net effect: **CNZ F7872 -> F7919** (2774 ->
+  2768 errors); **AIZ unchanged at F7381** (1039 errors); S1 GHZ1, S1
+  MZ1, S2 EHZ1 trace replays remain green; required-green S3K
+  bootstrap tests still pass; suite-wide total failures unchanged
+  (30 -> 30). Regression tests added in
+  `TestSonic3kSpringObjectInstance`:
+  `upSpringClearsStatusOnObjAfterSettingAir`,
+  `downSpringClearsStatusOnObjAfterSettingAir`,
+  `upDiagonalSpringClearsStatusOnObjAfterSettingAir`.
+- **OnObj air-unseat early-return + frame-start snapshot wired into
+  `loc_13DA6` mirror (CNZ F7872 advance):**
+  `ObjectManager.processInlineObjectForPlayer` now mirrors ROM
+  `SolidObjectFull*_1P` / `SolidObjectTop*_1P` air-unseat
+  (sonic3k.asm:41021-41031 `loc_1DC98`, 41066-41084 `loc_1DCF0`,
+  41117-41128 `loc_1DD48`, 41793-41812 `loc_1E2E0`) by returning early
+  (`d4=0`) when the player just got unseated from this same instance,
+  instead of falling into the new-contact resolution path that would
+  re-land an airborne player. Scoped strictly to
+  `instance == unseatedRidingObject` so unrelated objects on the same
+  frame still resolve normally. With that early-return in place,
+  `SidekickCpuController.normalStep` now reads the frame-start OnObj
+  snapshot via `effectiveLeader.getOnObjectAtFrameStart()` in the
+  three `loc_13DA6` mirror gates (line 832 main step, 1078
+  `resolveFollowSteeringDx`, 1139 `resolveObjectOrderNudgeDx`),
+  matching ROM `btst #Status_OnObj, status(a1) / bne loc_13DD0`
+  (sonic3k.asm:26690-26691) which tests `Status_OnObj` alone — no
+  `!Status_InAir` filter. Net effect: CNZ first-error advances
+  F7872 -> F7919 (Sonic-jumps-off-rising-platform now correctly takes
+  ROM's `leader_on_object` branch); AIZ regresses F7381 -> F2021
+  (1 px tails_x divergence on the airborne-roll-then-uncurl window;
+  ROM trace F2000-F2020 has Sonic OnObj=0 throughout, engine's
+  frame-start snapshot returns true — pre-existing engine OnObj
+  clear-timing gap documented in `docs/S3K_KNOWN_BUGS.md`). Total
+  failures across the suite drop 34 -> 31. Cross-game S1 GHZ1 and S2
+  EHZ1 trace replays remain green; required-green S3K bootstrap
+  tests still pass.
+- **OnObj clear timing alignment investigation, doc-only (CNZ F7872 /
+  AIZ F2021 deeper divergence):** revisited the snapshot-wiring path
+  that this branch was meant to land. Confirmed the previous round's
+  observation: wiring `effectiveLeader.getOnObjectAtFrameStart()` (no
+  `&& !getAir()` filter) into the three `loc_13DA6` mirror gates in
+  `SidekickCpuController` does flip CNZ F7872 to ROM-matching
+  `leader_on_object` and advances first-error F7872 -> F7919, but
+  regresses AIZ-full F7381 -> F2021 (`tails_x` 1 px EAST). Traced the
+  AIZ regression to ROM data
+  (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv.gz`)
+  showing Sonic `status_byte=0x06`/`0x03` (OnObj=0) throughout the
+  F2000-F2025 airborne-roll-then-uncurl window, with ROM
+  `tails_cpu_normal_step` events recording `delayed_stat=0x06` and
+  `loc_13dd0_branch=fallthrough_sub20` at F2020/F2021. The engine's
+  frame-start OnObj snapshot returns `true` at F2021, so the engine
+  is wrongly setting/keeping `onObject=true` on Sonic somewhere across
+  this airborne window while ROM had `Status_OnObj=0`. The candidate
+  divergence is one of `ObjectManager.java`'s `setOnObject(true)`
+  apply branches (lines 5701, 5821, 5910, 6009, 6193) running for an
+  airborne player; ROM `SolidObjectFull*_1P` / `SolidObjectTop*_1P`
+  gate these on `btst #Status_InAir,status(a1) / bne <air-unseat>`
+  (sonic3k.asm:41021-41031, 41070-41084, 41117-41128, 41798-41812).
+  Pinpointing the specific F2000-F2020 object/path is the prerequisite
+  for landing the snapshot wiring. No engine code changes on this
+  branch — `SidekickCpuController` keeps its existing
+  `isOnObject() && !getAir()` heuristic. Documentation update only;
+  see `docs/S3K_KNOWN_BUGS.md` "CNZ1 Trace F7872" entry, branch
+  update at end of section, for full trace.
+- **`AbstractPlayableSprite.onObjectAtFrameStart` snapshot scaffolding
+  (CNZ F7872 / AIZ F7381 follow-steering OnObj timing gap, partial):**
+  added a frame-start `Status_OnObj` snapshot
+  (`captureOnObjectAtFrameStart()` / `getOnObjectAtFrameStart()`) on
+  `AbstractPlayableSprite`, captured for every playable in
+  `SpriteManager.beginPlayableFrame` before any player tick runs. The
+  snapshot mirrors the ROM mid-frame view used by `Tails_CPU_Control`
+  at `loc_13DA6` (sonic3k.asm:26688-26700) and `TailsCPU_Normal`
+  (s2.asm:38933+), where `Status_OnObj` is read before `sub_1FF1E`
+  (sonic3k.asm:44306-44319) and `loc_1FFC4` (sonic3k.asm:44369-44381)
+  clear the bit; in the engine `PlayableSpriteMovement.doJump` and the
+  air-unseat path in `ObjectManager.processInlineObjectForPlayer` clear
+  it earlier in the same frame. Wiring the snapshot into
+  `SidekickCpuController.normalStep`'s `loc_13DA6` mirror in place of
+  the existing `isOnObject() && !getAir()` heuristic does flip CNZ
+  F7872 (engine `follow_steering` -> ROM-matching `leader_on_object`,
+  first error advances to F7919) but uncovered a deeper engine-side
+  OnObj clear/set divergence that regresses AIZ1 to F2021 (engine's
+  frame-start OnObj diverges from ROM's mid-frame OnObj at object-
+  release transitions); see `docs/S3K_KNOWN_BUGS.md` "CNZ1 Trace
+  F7872" for the full trace. Live behaviour is unchanged on this
+  branch (the snapshot is scaffolded but not yet read by the follow-
+  steering gate). Cross-game (S1 GHZ/MZ1, S2 EHZ) trace replays
+  remain green. Tests: `TestOnObjectAtFrameStartSnapshot` covers the
+  snapshot semantics.
 - **S3K Sonic Fire Shield Dash sets ground_vel alongside x_vel
   (AIZ F7235):** `PlayableSpriteMovement.fireShieldDash` previously
   only wrote `x_vel`, leaving `ground_vel` at the pre-dash value

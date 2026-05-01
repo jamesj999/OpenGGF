@@ -519,6 +519,17 @@ ROM-citation requirements and per-game parity rules.
   `AbstractTraceReplayTest.java`) have UTF-8 BOM + CRLF endings. The Claude Code Edit tool
   has been observed to silently fail on these — it returns "successfully" but doesn't write.
   Fall back to Python `open(path, 'rb').read().replace(...)`-style edits if you suspect this.
+- **Misreading aux trace `cpu_state` event field semantics.** S3K's `cpu_state` event
+  reports `cpu_routine` as the raw `Tails_CPU_routine` byte — `0x06` is the NORMAL
+  ground-following AI (`loc_13D4A`, sonic3k.asm:26656), NOT a "FLY" routine. Similarly,
+  `flight_timer` is `sub_13EFC`'s `Status_OnObj` watchdog used by NORMAL routine
+  (sonic3k.asm:26816-26847), not an active-flight indicator; it ticks any time Tails is
+  riding the same `Tails_CPU_interact` slot, regardless of whether Tails is flying. And
+  `target_x` / `target_y` are leader-history positions (the CPU's follow target), not
+  Tails's own position — for Tails's actual coordinates, use the
+  `object_state` event for slot 1 in the same frame. Always cross-reference
+  `Tails_CPU_Control_Index` (sonic3k.asm:26368-26386) when interpreting `cpu_routine`
+  values, and do not infer "Tails is flying" from a non-zero `flight_timer` alone.
 
 ## Related Files
 
@@ -564,3 +575,24 @@ Skills:
 - [Testing](testing.md)
 - [Tutorial: Implement an Object](tutorial-implement-object.md)
 - [Tooling](../cross-referencing/tooling.md)
+
+## Diagnostic note: validating hypotheses against the recorded JSONL
+
+When a trace replay test fails and the failure has been attributed to a
+specific in-game object (e.g. "napalm projectile ride-bridge release"
+in S3K AIZ F7552), always verify the hypothesis by inspecting the
+recorded JSONL aux state directly before writing engine code. The
+trace files live at
+`src/test/resources/traces/<game>/<run>/aux_state.jsonl.gz`. Search
+for the relevant per-frame events (`sidekick_interact_object`,
+`object_state` with the suspect object code, `aiz_transition_floor_solid`,
+etc.) across the suspect frame window and confirm the prerequisite
+state matches the hypothesis.
+
+For the AIZ F7552 case (round 2) this check disproved the prior-round
+ride-bridge hypothesis: the suspected `interact` slot was
+`destroyed=true` for ~50 frames before the divergent frame, ruling out
+any `Solid_Object_Detach`-style release as the cause. Skipping this
+check would have produced an engine fix targeted at the wrong root
+cause — a hack by the repo policy in `CLAUDE.md`. Documented in
+`docs/S3K_KNOWN_BUGS.md` under the AIZ F7552 entry.

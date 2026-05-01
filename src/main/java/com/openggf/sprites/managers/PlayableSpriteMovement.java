@@ -792,8 +792,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// (e.g. AIZ trace F7235 expected 0x0800, observed stale 0x0768).
 		sprite.setGSpeed(dashSpeed);
 		sprite.setYSpeed((short) 0);
-		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
-		sprite.resetPositionHistory();
+		// ROM: Reset_Player_Position_Array (sonic3k.asm:23428) clears Pos_table
+		// AND Stat_table — required for Tails_CPU_Control's delayed Stat_table
+		// read at sonic3k.asm:26698-26700, then set H_scroll_frame_offset = $2000.
+		sprite.resetPositionAndStatTableHistory();
 		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32);

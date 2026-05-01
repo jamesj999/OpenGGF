@@ -575,7 +575,17 @@ public class SpriteManager {
 		deferredPostTickMutations.clear();
 		activePlayableUpdate = null;
 		for (int i = 0; i < playables.size(); i++) {
-			playableUpdateOrder.put(playables.get(i), i);
+			AbstractPlayableSprite playable = playables.get(i);
+			playableUpdateOrder.put(playable, i);
+			// Snapshot Status_OnObj before any player tick runs so cross-playable
+			// reads (e.g. Tails_CPU_Control follow-steering, sonic3k.asm:26688-26700,
+			// s2.asm:38933+) see the leader's bit as it stood mid-frame, before
+			// Sonic_Jump-driven engine clears (PlayableSpriteMovement.doJump and
+			// the air-unseat path in ObjectManager.processInlineObjectForPlayer)
+			// have run. ROM only clears Status_OnObj later in solid-object
+			// processing (sub_1FF1E sonic3k.asm:44306-44319, loc_1FFC4
+			// sonic3k.asm:44369-44381).
+			playable.captureOnObjectAtFrameStart();
 		}
 	}
 
