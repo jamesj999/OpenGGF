@@ -3970,3 +3970,165 @@ slots 11 at `(0x28C0,0x0268)`, etc.) requires verifying the
 state machine against multiple traces, not just the F7872 →
 F7919 window. Documented here so the next round can resume
 from the correct ROM-cite starting point.
+
+---
+
+## AIZ F7552 — Tails 1-pixel x drift after AIZ Mini-boss napalm slot destruction (diagnosis only)
+
+**Status:** documented; no fix landed this round. Continues from the F7381
+fix (`Reset_Player_Position_Array` Stat_table mirror, commit `3d720df1a`).
+
+**Symptom**
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first strict error at frame 7552:
+
+```
+tails_x mismatch (expected=0x1208, actual=0x1207) — 977 errors total
+tails_x_speed mismatch (expected=0x0000, actual=0x0200) — same frame
+```
+
+The cascading 977 errors are dominated by independent (non-cascading)
+`tails_x` +/-1 mismatches across F7677-F8031 plus several `g_speed` /
+`x` / `y_speed` cascades — i.e. the F7552 1-px drift desynchronises
+Sonic vs Tails relative position enough that Sonic-side touch-floor
+angle reads, jump arcs, and follow-steering nudges all start to
+diverge by 1 px windows.
+
+**Trace context**
+
+Tails state across F7544-F7553:
+
+| Frame | tails_x | x_speed | y_speed | air | rolling | g_speed |
+|-------|---------|---------|---------|-----|---------|---------|
+| 7544  | 0x11F4  | 0x029C  | -04F8   | 1   | 1       | 0x020C  |
+| 7547  | 0x11FC  | 0x029C  | -0450   | 1   | 1       | 0x020C  |
+| 7548  | 0x11FF  | 0x0200  | -0400   | 1   | 0       | 0x0000  |
+| 7549  | 0x1201  | 0x0200  | -03D0   | 1   | 0       | 0x0000  |
+| 7550  | 0x1203  | 0x0200  | -03A0   | 1   | 0       | 0x0000  |
+| 7551  | 0x1205  | 0x0200  | -0370   | 1   | 0       | 0x0000  |
+| 7552 ROM  | 0x1208  | 0x0000  | -0340   | 1   | 0       | 0x0000  |
+| 7552 ENG  | 0x1207  | 0x0200  | -0340   | 1   | 0       | 0x0000  |
+
+Engine and ROM agree exactly through F7551; the divergence is purely
+at F7552: ROM applies +3 px to `tails_x` and zeroes `tails_x_speed`,
+while engine applies +2 px and keeps `tails_x_speed=0x0200`.
+
+Trace recorder context line for F7552:
+
+```
+ROM: rtn=02 ... sidekick=sub=(0000,1700) rtn=04 status=02 onObj=10
+Trace diagnostics @7552: tailsInteract slot=16 ptr=B4A0 obj=00000000
+  rtn=00 st=00 @0000,0000 sub=00 tails rf=84 obj=00 onObj=false
+  objP2=false active=false destroyed=true
+ENG: ... eng-tails-cpu f=7253 state=NORMAL branch=follow_steering
+  hist=16/05 in=0010 stat=06 push=06 pre=obj00 st02 xv0200 gv0000
+  gen=0010 postCpu=obj00 st02 xv0200 gv0000 postPhys=seen obj00
+  st02 xv0200 gv0000 dx=FFDB dy=FFFE skip=false
+  | eng-tails-cyl none sidekick=@1207,0314
+```
+
+Key facts:
+
+- ROM Tails `interact` field references slot `0x10` (decimal 16), which
+  is the AIZ Mini-boss Napalm projectile (object id `0x91`,
+  `Obj_AIZMinibossNapalm`). The slot is recorded as `destroyed=true`
+  and `obj=00000000` — the napalm projectile was destroyed during F7552
+  (or just before).
+- ROM `sidekick=...rtn=04 status=02 onObj=10`: Tails CPU routine = 4
+  (`loc_13F40`, post-control spindash-cooldown), Status_InAir set.
+- Engine `eng-tails-cpu branch=follow_steering`: engine took the
+  default follow-steering branch (no current_push_bypass /
+  grace_push_bypass / airborne_push_handoff / leader_on_object /
+  leader_fast).
+- Engine `postPhys` shows `xv0200 gv0000` — neither Tails CPU code nor
+  physics code modified `x_vel`. ROM's zero of `x_vel` and the +1 px
+  positional bump must therefore originate from a code path the engine
+  does **not** mirror.
+
+**Suspected mechanism (unverified)**
+
+ROM `loc_13D78` (sonic3k.asm:26668-26708) and `loc_13F40`
+(sonic3k.asm:26851-26896) handle Tails CPU routines 3 and 4 but only
+adjust `x_pos` by `+/-1` when `ground_vel != 0`
+(sonic3k.asm:26718-26741). At F7552 Tails has `ground_vel=0` and
+`Status_InAir=1`, so neither path explains the +1 px / zero-x_vel
+move. The most plausible source is a **ROM-only "ride" bridge**: Tails
+was riding the AIZ Mini-boss Napalm projectile (slot 16) right before
+the projectile destroyed itself. ROM `Obj_AIZMinibossNapalm`
+(`Obj91`) and the parent `Obj_AIZMiniboss` body apply a `MvSonicOnPtfm`
+/ `Solid_Object` style position bridge before the destruction frame
+clears the interact pointer; the engine's `AizMinibossNapalmProjectile`
+(`src/main/java/com/openggf/game/sonic3k/objects/AizMinibossNapalmProjectile.java`)
+does **not** expose any solid-on-top behaviour, so engine Tails never
+gets the ride-bridge +1 px bump and never gets its `x_vel` zeroed by a
+landing transition.
+
+The +3 px / zero-x_vel pattern matches a `Solid_Landed`-style ride
+release: ROM applies the platform's last-tick `x_displacement` to the
+rider, then on detach (`Solid_Object_Detach` /
+`Solid_NoCollide`) clears the rider's `x_vel`. The 1-pixel difference
+between engine (+2) and ROM (+3) is exactly one
+`platform.x_displacement` of `+0x100` = +1 px — consistent with the
+napalm body moving right by 1 px on its final frame before
+self-destruction.
+
+**Why no clean fix lands here**
+
+A surgical fix needs:
+
+1. Confirmation that ROM Tails actually rides the napalm projectile
+   (verify by extending the trace recorder to log `Sidekick.interact`
+   ROM target object's `x_displacement` and `x_pos` at F7551-F7552 —
+   the recorder currently logs the slot id and destroyed state but not
+   the platform delta).
+2. A ROM cite for the Mini-boss / napalm `Solid_Object` /
+   `Solid_NoCollide` invocation that supplies the ride-bridge.
+3. Porting that solid-on-top behaviour into
+   `AizMinibossNapalmProjectile` (or the parent `AizMinibossInstance`
+   if the body — not the projectile — is the actual ride target),
+   gated on the object being touchable from above.
+4. Cross-game audit: S1/S2 have no AIZ miniboss, so this is S3K-only
+   (no `PhysicsFeatureSet` flag needed; the fix lives entirely in the
+   AIZ miniboss object files).
+
+The investigation revealed that the on-screen object closest to
+ROM `interact=0x10` in the engine snapshot is `AIZMinibossNapalm`
+(`@11F0,02FA`, slot 16), but the engine record shows `no-touch` and
+`destroyed=true` for that slot — so the engine's destruction order
+already discarded the napalm before the ride bridge would fire. This
+strengthens the hypothesis that ROM applies the ride bridge as part of
+the napalm's *final* update (between the recorder's pre-frame and
+post-frame samples) and the engine destroys the object one frame too
+early.
+
+**Verification rules for any candidate fix**
+
+- `TestS3kAizTraceReplay` must advance past F7552 (engine matches
+  expected `tails_x=0x1208` and `tails_x_speed=0x0000` at end of
+  F7552).
+- Earlier strict errors must remain stable: F7381 fix
+  (`Reset_Player_Position_Array` Stat_table clear) must not regress.
+- S1 GHZ / S1 MZ1 / S2 EHZ trace replays must remain GREEN (no
+  cross-game regression).
+- The S3K-required tests (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`) must remain GREEN.
+- Documented intentional divergences in `KNOWN_DISCREPANCIES.md` /
+  `S3K_KNOWN_DISCREPANCIES.md` must remain unaffected.
+
+**Concrete next-round starting points**
+
+1. Extend the trace recorder (`tools/bizhawk/s3k_trace_recorder.lua`
+   and the engine-side comparator aux event) to log
+   `Player_2.interact->x_pos` and `x_displacement` for F7549-F7553 so
+   the ride-bridge hypothesis can be confirmed or rejected from the
+   trace alone.
+2. Locate `Obj_AIZMinibossNapalm` / `Obj91` in `sonic3k.asm` (search
+   for label `Obj91` or `AIZ_Miniboss_Napalm` in the boss object
+   tables around `Obj_AIZMiniboss` at sonic3k.asm:137222) and inspect
+   whether it calls `Solid_Object` /
+   `Solid_NoCollide` / `Solid_Object_Detach`.
+3. If the ride bridge is confirmed, port it into
+   `AizMinibossNapalmProjectile.update()` — register the projectile as
+   solid-on-top while alive, and on `setDestroyed(true)` issue a
+   `Solid_Object_Detach`-equivalent clear of `x_vel` on any rider.

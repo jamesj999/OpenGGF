@@ -6,6 +6,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ trace F7552 root cause documented — AIZ Mini-boss Napalm
+  ride-bridge missing on `setDestroyed` (doc-only):** Investigated the
+  next strict error after the F7381 Fire Shield Dash fix. Trace shows
+  ROM applies a +1 px positional bump to `tails_x` AND zeroes
+  `tails_x_speed` at F7552, while the engine keeps `tails_x_speed=0x0200`
+  and applies only the x_speed-driven +2 px move. ROM trace context
+  records `sidekick=...rtn=04 status=02 onObj=10` (Tails interact slot
+  16 = AIZ Mini-boss Napalm projectile, `obj=00000000 destroyed=true`),
+  matching a `Solid_Object` ride-bridge release as the projectile
+  self-destructs. The engine's `AizMinibossNapalmProjectile` does not
+  expose any solid-on-top behaviour, so engine Tails never receives
+  the platform's last-tick `x_displacement` (+0x100 = +1 px) nor a
+  `Solid_Object_Detach`-style `x_vel` clear. Documented in
+  `S3K_KNOWN_BUGS.md` with verification rules, ROM cite hints
+  (`sonic3k.asm:137222 Obj_AIZMiniboss`, `26668-26708 loc_13D78`,
+  `26851-26896 loc_13F40`), and concrete next-round starting points
+  (extend trace recorder to log Tails interact-target's
+  `x_displacement` for F7549-F7553; locate `Obj91`/Napalm
+  `Solid_Object` invocation; port the ride-bridge into the engine
+  napalm projectile). No engine code changes this round; trace replay
+  numbers unchanged (AIZ stable at F7552 / 977 errors, CNZ stable at
+  F7919, MGZ stable at F0, S2 EHZ stable at F5121, S1 GHZ PASS,
+  S1 MZ1 PASS). Comparison-only invariant preserved.
 - **AIZ trace F7381 unblocked — Fire Shield Dash now clears the
   Stat_table-equivalent (`inputHistory` / `statusHistory`) like ROM
   `Reset_Player_Position_Array`:** Engine `resetPositionHistory()`
