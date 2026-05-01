@@ -174,6 +174,14 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) getStrength()); // Negative = up
 
         player.setAir(true);
+        // ROM loc_189CA (s2.asm:33732-33733):
+        //   bset #status.player.in_air,status(a1)
+        //   bclr #status.player.on_object,status(a1)
+        // SolidObject_Always_SingleCharacter just landed the player on the spring
+        // (set OnObj=1); the trigger sub immediately clears it as the player launches
+        // off. Without this clear, OnObj remains true into subsequent frames where
+        // ROM has it cleared, biasing leader-OnObj reads in CPU follow steering.
+        player.setOnObject(false);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -192,6 +200,8 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) -getStrength()); // Negated = positive = down
 
         player.setAir(true);
+        // ROM Obj41_Down trigger mirrors Obj41_Up (s2.asm:33732-33733): bclr Status_OnObj.
+        player.setOnObject(false);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
@@ -279,6 +289,9 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setYSpeed((short) yStrength);
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
+        // ROM diagonal spring trigger mirrors Obj41_Up (s2.asm:33732-33733):
+        // bset Status_InAir then bclr Status_OnObj.
+        player.setOnObject(false);
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);

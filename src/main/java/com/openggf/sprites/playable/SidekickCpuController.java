@@ -829,7 +829,17 @@ public class SidekickCpuController {
         int leadOffset = sidekick.getPhysicsFeatureSet() != null
                 ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
                 : 0;
-        boolean leaderStatusOnObject = effectiveLeader.isOnObject() && !effectiveLeader.getAir();
+        // ROM loc_13DA6 (sonic3k.asm:26690-26691, s2.asm:38933+) reads
+        // Status_OnObj on the leader BEFORE solid-object processing has run for
+        // the frame, so the spec view is the leader's frame-start OnObj snapshot
+        // (captured by SpriteManager.beginPlayableFrame). The previous live
+        // isOnObject() && !getAir() heuristic compensated for engine paths that
+        // SET or KEPT OnObj for an airborne leader (e.g. Sonic3kSpringObjectInstance
+        // before the sub_22F98 bclr Status_OnObj fix landed at sonic3k.asm:47723-47724).
+        // With the spring trigger now clearing OnObj to match ROM, the snapshot
+        // matches ROM's mid-frame view and the air filter is no longer required;
+        // ROM btst #Status_OnObj at sonic3k.asm:26690 has no air gate.
+        boolean leaderStatusOnObject = effectiveLeader.getOnObjectAtFrameStart();
         if (leadOffset > 0
                 && !leaderStatusOnObject
                 && effectiveLeader.getGSpeed() < 0x400) {
@@ -1075,7 +1085,7 @@ public class SidekickCpuController {
                 || sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() <= 0
                 || !sidekick.getAir()
                 || !sidekick.getRolling()
-                || (effectiveLeader.isOnObject() && !effectiveLeader.getAir())
+                || effectiveLeader.getOnObjectAtFrameStart()
                 || !isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
             return dx;
         }
@@ -1136,7 +1146,17 @@ public class SidekickCpuController {
         int leadOffset = sidekick.getPhysicsFeatureSet() != null
                 ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
                 : 0;
-        boolean leaderStatusOnObject = effectiveLeader.isOnObject() && !effectiveLeader.getAir();
+        // ROM loc_13DA6 (sonic3k.asm:26690-26691, s2.asm:38933+) reads
+        // Status_OnObj on the leader BEFORE solid-object processing has run for
+        // the frame, so the spec view is the leader's frame-start OnObj snapshot
+        // (captured by SpriteManager.beginPlayableFrame). The previous live
+        // isOnObject() && !getAir() heuristic compensated for engine paths that
+        // SET or KEPT OnObj for an airborne leader (e.g. Sonic3kSpringObjectInstance
+        // before the sub_22F98 bclr Status_OnObj fix landed at sonic3k.asm:47723-47724).
+        // With the spring trigger now clearing OnObj to match ROM, the snapshot
+        // matches ROM's mid-frame view and the air filter is no longer required;
+        // ROM btst #Status_OnObj at sonic3k.asm:26690 has no air gate.
+        boolean leaderStatusOnObject = effectiveLeader.getOnObjectAtFrameStart();
         if (leadOffset > 0
                 && !leaderStatusOnObject
                 && effectiveLeader.getGSpeed() < 0x400) {
