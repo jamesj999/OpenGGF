@@ -61,6 +61,7 @@ public class TestHybridPhysicsFeatureSet {
                 true,   // topSolidLandingAllowsZeroDist - S1
                 false,  // airBottomSolidHitClearsGroundSpeed - S1
                 false,  // airRightWallHitContinuesIntoCeilingSeparation - S1
+                false,  // airLeftWallHitContinuesIntoCeilingSeparation - S1
                 true,   // fullSolidBottomOverlapUsesCurrentYRadiusOnly - S1
                 PhysicsFeatureSet.FAST_SCROLL_CAP_S2, // fastScrollCap - S1 (same as S2)
                 false,  // bossHitNegatesGroundSpeed - S1
@@ -103,6 +104,8 @@ public class TestHybridPhysicsFeatureSet {
                 "airBottomSolidHitClearsGroundSpeed should be false (S1)");
         assertFalse(expected.airRightWallHitContinuesIntoCeilingSeparation(),
                 "airRightWallHitContinuesIntoCeilingSeparation should be false (S1)");
+        assertFalse(expected.airLeftWallHitContinuesIntoCeilingSeparation(),
+                "airLeftWallHitContinuesIntoCeilingSeparation should be false (S1)");
         assertTrue(expected.fullSolidBottomOverlapUsesCurrentYRadiusOnly(),
                 "fullSolidBottomOverlapUsesCurrentYRadiusOnly should be true (S1)");
     }

@@ -488,10 +488,13 @@ public class CollisionSystem {
                 doTerrainCollisionAir(sprite, groundResult, landingHandler);
             }
             case 0x40 -> {
-                if (doWallCheck(sprite, 0)) {
+                boolean wallHit = doWallCheck(sprite, 0);
+                if (wallHit) {
                     traceS3kAizAirCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
                     traceS3kCnzCollisionProbe(sprite, "wall-40", quadrant, null, null, true);
-                    return;
+                    if (!airLeftWallHitContinuesIntoCeilingSeparation(sprite)) {
+                        return;
+                    }
                 }
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 boolean ceilingHit = doCeilingCollisionInternal(sprite, ceilingResult);
@@ -538,6 +541,11 @@ public class CollisionSystem {
     private boolean airRightWallHitContinuesIntoCeilingSeparation(AbstractPlayableSprite sprite) {
         PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
         return featureSet != null && featureSet.airRightWallHitContinuesIntoCeilingSeparation();
+    }
+
+    private boolean airLeftWallHitContinuesIntoCeilingSeparation(AbstractPlayableSprite sprite) {
+        PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+        return featureSet != null && featureSet.airLeftWallHitContinuesIntoCeilingSeparation();
     }
 
     private void traceS3kAizAirCollisionProbe(AbstractPlayableSprite sprite,
