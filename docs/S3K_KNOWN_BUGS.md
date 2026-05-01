@@ -3627,3 +3627,163 @@ per-tick object update ordering near a CNZ rising-platform / spring
 / vacuum-tube cluster. Both are larger than this investigation
 budget. Documenting findings here so the next round can resume from
 a known starting point.
+
+**Status update — branch `bugfix/ai-cnz-f7919-landing-handoff` (write
+localised; horizontal spring landing-handoff is NOT the source)**
+
+Investigation only; no code change. The previous round's hypothesis
+(Sonic3kSpringObjectInstance.checkHorizontalApproach landing-handoff
+bypass firing for airborne Tails) is **wrong**. With temporary
+`AbstractPlayableSprite.setXSpeed/setYSpeed/setGSpeed` instrumentation
+gated on the F7910..F7925 frame band (`-Ds3k.cnz.velocityprobe=true`,
+infrastructure shared with the existing AIZ probe and reverted before
+commit), the F7918 triple `-0x0800` write to Tails was localised to:
+
+```
+src/main/java/com/openggf/game/sonic3k/objects/ClamerObjectInstance.java
+applySpringLaunch (lines 166-184)
+  player.setXSpeed((short) xSpeed);            // -0x0800 with facingRight=true
+  player.setGSpeed((short) xSpeed);            // -0x0800
+  player.setYSpeed((short) -LAUNCH_SPEED);     // -0x0800
+```
+
+reached via:
+
+```
+ClamerObjectInstance.applySpringLaunch
+  ClamerObjectInstance.onTouchResponse (TouchCategory.SPECIAL)
+    ObjectManager$TouchResponses.handleTouchResponseSidekick
+      ObjectManager$TouchResponses.processMultiRegionTouch
+        ObjectManager$TouchResponses.processCollisionLoop
+          ObjectManager$TouchResponses.updateSidekick
+            ObjectManager.runTouchResponsesForPlayer
+              LevelManager.applyTouchResponses
+                SpriteManager.tickPlayablePhysics
+```
+
+The Clamer is S3K Obj $A3 (`Obj_Clamer` at `sonic3k.asm:185856+`). The
+visible parent owns a hidden spring child (`loc_8908C` at
+`sonic3k.asm:185943-185951`) seeded at `currentY - 8` with collision
+flags `$D7 = $C0|$17`. The `$17` collision-size index uses
+`Touch_Sizes[$17] = (8,8)` (8×8 half-extents) per the ROM
+`Touch_Sizes` table at `sonic3k.asm:20713-20770`.
+
+**ROM dispatch flow (sonic3k.asm:179904, 21162, 185953-185998):**
+
+1. Each character runs `TouchResponse` from its own main loop:
+   - Sonic at `sonic3k.asm:22022` (`jsr (TouchResponse).l`).
+   - Tails at `sonic3k.asm:26266` (same call, including when running
+     under the sidekick CPU — Tails_Normal branch).
+2. `Touch_Loop` walks `Collision_response_list`. For the Clamer
+   spring child the `andi.b #$C0,d1` produces `$C0` →
+   `Touch_Special` (`sonic3k.asm:21162-21183`).
+3. `Touch_Special` allows size `$17` and falls through to
+   `loc_103FA` (`sonic3k.asm:21186-21194`):
+   ```
+   move.w  a0,d1           ; a0 = touching character RAM
+   subi.w  #Object_RAM,d1  ; Object_RAM = Player_1 RAM
+   beq.s   .ismaincharacter
+   addq.b  #1,collision_property(a1)   ; +1 if not Player_1
+   .ismaincharacter:
+   addq.b  #1,collision_property(a1)   ; +1 unconditionally
+   ```
+   So a Sonic-only touch sets `collision_property=1`; a Tails-only
+   touch sets `collision_property=2`; both touch sets it to `3`.
+4. On the next Clamer-spring-child object update, `loc_890AA`
+   (`sonic3k.asm:185953-185962`) calls `Check_PlayerCollision`
+   (`sonic3k.asm:179904-179917`):
+   ```
+   move.b  collision_property(a0),d0
+   beq.s   locret_8588E      ; no touch this frame -> skip
+   clr.b   collision_property(a0)
+   andi.w  #3,d0
+   add.w   d0,d0
+   lea     word_85890(pc),a1
+   movea.w (a1,d0.w),a1      ; -> Player_1 (0,1) or Player_2 (2,3)
+   ```
+5. Back in `loc_890AA`, the Z flag from `moveq #1,d1` is clear, so
+   `beq.s loc_890C4` is not taken; the launch dispatches once to
+   the selected player via `sub_890D8` (`sonic3k.asm:185978-185998`),
+   which writes `x_vel = ±$800`, `ground_vel = ±$800`, `y_vel =
+   -$800`, sets `Status_InAir`, `addq.w #6,y_pos`, anim `$10`,
+   routine `2`, `clr.b jumping`, plays SFX, then transitions
+   `(a0) -> loc_890C8` (1-frame cooldown).
+
+**Why the engine writes -0x0800 at F7918 but ROM doesn't:**
+
+The engine's `applySpringLaunch` is invoked because Tails is
+overlapping the Clamer's 8×8 spring-child collision box at the
+moment of touch dispatch. Tails's engine position at F7918 (centre
+`(0x0C8E, 0x044F)`) lands inside that box. ROM's Tails at the same
+trace frame is reported by the trace's CPU-state JSONL as in
+`flight_timer=12`/`flight_timer=13` flight under `cpu_routine=6`,
+heading toward `target_x=0x0FC8 / target_y=0x047C` — i.e. ROM's
+sidekick is aimed past the Clamer line and is not co-located with
+the spring child for this frame. The engine has Tails at a
+position that overlaps the Clamer; ROM does not. **The Clamer
+dispatch in the engine is therefore a downstream symptom; the
+upstream divergence is Tails's engine position (and CPU/flight
+state) drifting away from ROM through the F7872 → F7919 window.**
+
+Per-frame Tails state divergence at F7918 (engine probe vs trace
+`cpu_state` event):
+
+| Field          | Engine (probe)            | Trace ROM (cpu_state)        |
+|----------------|---------------------------|------------------------------|
+| centre pos     | `(0x0C8E,0x044F)`         | flight, target `(0x0FC8,...)` |
+| `roll`/anim    | `roll=true, air=true`     | `cpu_routine=6 (FLY)`        |
+| `flight_timer` | not flying                | `12` -> `13`                 |
+
+Even with Tails at the engine's wrong position, ROM's
+`Check_PlayerCollision` would still fire `sub_890D8` on Tails (the
+dispatch picks Player_2 when `collision_property=2`). So the
+engine's per-touch immediate dispatch is consistent with what ROM
+would do **given the same overlap inputs**; the divergence is in
+the inputs, not in the Clamer object code.
+
+**Why `landingHandoff` is not the source:**
+
+`Sonic3kSpringObjectInstance.checkHorizontalApproach` (the line-413
+landing-handoff branch flagged in the previous round) is for
+horizontal **springs**, not Clamers. The probe's call-graph at
+F7918 contains no `Sonic3kSpringObjectInstance` frame. The closest
+horizontal spring is at `(0x0D48,0x04B0)`, 0xBB pixels right of
+Tails — outside the proactive zone — and never enters the trace
+for F7918.
+
+**Plausible directions for follow-up (revised):**
+
+1. **Audit Tails's CPU-state divergence in the F7872 → F7918
+   window.** ROM reports `cpu_routine=6` (NORMAL/FLY) with a live
+   `flight_timer`; engine reports `roll=true, air=true` (a roll-jump
+   under sidekick CPU). The transition from "rolling jump" to "fly"
+   is what's missing. Trace events `tails_cpu_normal_step` per
+   frame should isolate where the engine fails to enter / leaves
+   flight mode early.
+2. **Audit Tails's leader-on-object handoff at F7872.** F7872 is the
+   commit-message-cited "Sonic-jumps-off-platform OnObj clear" frame
+   that supposedly advanced from F7872 to F7919. Tails's CPU state
+   at F7872 may inherit a wrong `target_y` / `flight_timer` from the
+   handoff, putting Tails on the wrong trajectory through the next
+   46 frames.
+3. **Do not change `ClamerObjectInstance` itself.** Its per-touch
+   dispatch matches ROM's `loc_890AA -> sub_890D8` for the inputs
+   it sees; gating it on engine-side state to mask the upstream
+   bug would diverge from ROM for legitimate Tails-touches-Clamer
+   scenarios. The engine's `IdentityHashMap`-keyed re-enable timer
+   at `springReenableFrame` already mirrors ROM's `loc_890C8`
+   `subq.w #1,$2E(a0); bmi loc_890D0` 1-frame cooldown.
+
+**Verification rules (unchanged from the previous round)**
+
+Any candidate fix targeting the upstream Tails CPU/flight handoff
+must keep:
+
+- `TestS3kCnzTraceReplay` advancing past F7919 (engine matches
+  expected `-0x0588 g_speed` post-frame).
+- `TestS3kAiz1Replay` first-error stable at F7381 (no regression).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- Cross-game touch-response parity (S1/S2/S3K share
+  `AbstractObjectInstance` / `TouchResponseProvider`) — any change
+  in `ClamerObjectInstance` or shared touch dispatch must gate
+  S3K-only differences via `PhysicsFeatureSet`, never `gameId ==`.
