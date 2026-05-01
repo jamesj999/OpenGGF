@@ -220,7 +220,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
   resolved once the trace is regenerated. S3K v6.12-s3k adds a `control_lock_state_per_frame`
   event capturing `Ctrl_1_locked` / `Ctrl_2_locked` / `Ctrl_1_logical` / `Ctrl_2_logical` per
-  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM. Velocity-
+  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM. S3K v6.13-s3k
+  adds a `terrain_wall_sensor_per_frame` event capturing per-frame wall-sensor and player
+  geometry state for both Sonic and Tails so the AIZ F7552 sidekick airborne wall-collision
+  parity gap at world `(0x1208, 0x0314)` can be diagnosed against ROM-side wall probes;
+  `velocity_write` and `position_write` events now both support multi-window capture. Velocity-
   setter probe diagnostics localised the CNZ F7919 triple `-0x0800` write to
   `ClamerObjectInstance.applySpringLaunch` (correct ROM dispatch given the inputs it sees);
   the upstream divergence is Tails's CPU/flight state in the F7872→F7918 window.

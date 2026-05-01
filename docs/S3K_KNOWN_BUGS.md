@@ -4392,3 +4392,33 @@ Implementing a ride-bridge / `Solid_Object_Detach` on `AizMinibossNapalmProjecti
 1. Extend the trace recorder to log per-frame *terrain wall sensor* probe results around the player (the right-wall sensor return and the resulting `x_pos` clamp + `x_vel` zero) — in particular for the sidekick on F7549-F7553. The current recorder only logs object-side state, not terrain-side sensor trips.
 2. Identify the level chunk at world (0x1208, 0x0314) in AIZ1 and verify whether it has a vertical wall in its solidity bitmap that the engine should be honouring at this y range.
 3. Audit the engine's airborne side-collision path for the sidekick (`SidekickCpuController` + the player physics step) to confirm it runs the same wall-sensor pass as Player_1, in the same order ROM does.
+
+**Round 3 update — recorder v6.13-s3k extended for AIZ wall-clamp diagnostics (branch `bugfix/ai-aiz-f7552-sidekick-wall`, 2026-04-30)**
+
+Doc-and-recorder-only round. The mission's Phase 1 (extend recorder) and Phase 4 (engine fix or doc-only) landed; Phase 2 (regen the AIZ trace fixture) is deferred to the next round because regen requires BizHawk + the `aiz1_to_hcz_fullrun` BK2 movie running on a Windows desktop, which is outside this agent's reach.
+
+Recorder changes (`tools/bizhawk/s3k_trace_recorder.lua` v6.12-s3k → v6.13-s3k):
+
+- New `terrain_wall_sensor_per_frame` aux event captures both Sonic ($FFFFB000) and Tails ($FFFFB04A) per-frame state in the `[7549,7560]` window of AIZ profile traces (zone-gated to AIZ): `x_pos / x_sub / y_pos / y_sub`, `x_vel / y_vel` (16-bit signed), `angle`, `status / status_secondary / object_control`, `x_radius / y_radius`, `top_solid_bit / lrb_solid_bit` (sonic3k.constants.asm:77-78). Override frame range via `OGGF_S3K_AIZ_WALL_SENSOR_RANGE`.
+- `velocity_write_per_frame` upgraded to multi-window semantics (matching `position_write_per_frame`); default ranges = `[3640,3660]` (CNZ F3649) + `[7549,7560]` (AIZ F7552). Override via existing `OGGF_S3K_VELOCITY_WRITE_RANGE` (now also accepts semicolon-separated multi-window form).
+- `position_write_per_frame` default ranges extended with `[7549,7560]` and listed in the AIZ profile's `aux_schema_extras` (the hooks were already registered globally; this only widens default coverage).
+- Version string bumped to `6.13-s3k` in metadata + startup banner. Existing `aux_schema_extras` for AIZ profile gains `position_write_per_frame` and `terrain_wall_sensor_per_frame` entries.
+
+Java parser is unchanged: the default `StateSnapshot` arm in `TraceEvent.parse` (`src/main/java/com/openggf/trace/TraceEvent.java:781-788`) preserves all unknown event types as fielded snapshots, so the new event is forward-compatible without code changes.
+
+Engine audit (this round) — sidekick airborne wall-collision path:
+
+- `Tails_DoLevelCollision` (sonic3k.asm:28871-29117) computes `quadrant = (GetArcTan(x_vel,y_vel) - 0x20) & 0xC0` and dispatches to one of four wall-clamp branches: `loc_154AC` (0x40, left), default fallthrough (0x00, both walls), `loc_15538` (0x80, both walls + ceiling), `loc_1559C` (0xC0, right wall + ceiling). Every branch that hits `bsr.w CheckRightWallDist` and finds `d1 < 0` runs `add.w d1,x_pos(a0)` + `move.w #0,x_vel(a0)` — i.e. Tails wedges at `x_pos += d1` (negative; ROM penetration) and `x_vel := 0`.
+- `CheckRightWallDist` (sonic3k.asm:20188-20214) probes at `d3 = x_pos + $A`, `d2 = y_pos`, height `d6 = 0`, and writes `d2 = -$40` (right-wall mode). i.e. the sensor sits at x_pos+10, y_pos (no Y radius offset).
+- Engine analog: `PlayableSpriteMovement.doLevelCollision` (`src/main/java/com/openggf/sprites/managers/PlayableSpriteMovement.java:2030`) → `CollisionSystem.resolveAirCollision` (`src/main/java/com/openggf/physics/CollisionSystem.java:464-536`). Quadrant 0xC0 path calls `doWallCheck(sprite, 1)` (right push sensor index 1) + ceiling + ground. Push sensors are at `±10 X, 0 Y` when airborne (`AbstractPlayableSprite.updateSensorOffsetsFromRadii:3439-3454` + `updatePushSensorYOffset:3464-3477`). Geometry matches ROM exactly.
+- Sidekick path: `SidekickCpuController` does not bypass `doLevelCollision`; the sidekick's airborne movement runs through `PlayableSpriteMovement` like the leader. So the wall-sensor pass IS invoked for Tails.
+- Existing AIZ probe (`-Ds3k.aiz.aircollisionprobe=true`) is window-gated to centreX `[0x1930..0x1960]`, centreY `[0x0380..0x03E0]` (`CollisionSystem.java:559`) — that window does NOT cover the F7552 incident at `(0x1208, 0x0314)`, so prior probe runs would have missed any sensor result there. Re-enabling the probe with a widened window for `[0x1200..0x1220, 0x0300..0x0330]` is the obvious next-step audit.
+- The remaining unknown is whether the `solidity bitmap` of the AIZ chunk at world `(0x1208, 0x0314)` actually contains a right-wall edge that ROM's wall sensor trips on (the engine's chunk lookup uses the same Primary/Secondary collision indices that ROM uses, but a chunk-wise authoring or solidity-bit divergence at this specific tile would silently make the engine's right-push sensor return a positive distance where ROM gets a negative one).
+
+**Concrete next steps (round 4)**
+
+1. Run BizHawk with `s3k_trace_recorder.lua` v6.13-s3k against the existing `aiz1_to_hcz_fullrun` BK2 movie and replace `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/{aux_state.jsonl.gz,metadata.json}` with the regenerated outputs. Verify `physics.csv.gz` MD5 is unchanged (it should be — physics CSV format/content is identical to v6.12-s3k).
+2. Inspect the new aux events at F7549-F7560 to (a) confirm ROM's recorded `x_pos = 0x1208` write at F7552 does come from a `Tails_DoLevelCollision` branch PC (one of 0x015402, 0x0154BC, 0x0154EE, 0x015548, 0x015568, 0x015590, 0x0155A8 ranges) rather than from a `SolidObject_cont` branch, and (b) confirm `x_vel := 0` writes pair with the position write on the same frame.
+3. Add a focused engine test (or temporarily widen the existing AIZ collision probe window) to log the engine's `pushSensors[1].scan(0,0)` result at F7549-F7560. Compare distance + tile + angle to the ROM-equivalent `(x_pos+10, y_pos)` point.
+4. If engine probe returns no wall and ROM does, the divergence is in the AIZ chunk solidity bitmap. Trace back through `Sonic3kLevel.loadChunksWithCollision` to verify that AIZ1 Primary/Secondary collision arrays at this chunk match the ROM's bytes.
+5. If engine probe returns a wall but the wall-clamp result differs from ROM, the divergence is in `doWallCheck` resolution — likely a subpixel rounding / `getCentreX()` vs `getX()` mismatch around the +10 sensor offset.

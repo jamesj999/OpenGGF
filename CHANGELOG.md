@@ -6,6 +6,27 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K trace recorder v6.13-s3k — AIZ F7552 wall-clamp diagnostics
+  (recorder-only).** Adds `terrain_wall_sensor_per_frame` aux event
+  for AIZ profile and extends the existing `velocity_write_per_frame`
+  and `position_write_per_frame` default windows with `[7549,7560]`
+  so the next AIZ trace regeneration captures the M68K PCs that
+  drive the F7552 Tails wall-clamp (`x_pos = 0x1208`, `x_vel = 0`).
+  The new event captures both Sonic and Tails per-frame
+  position/velocity/status/angle/radius/solid-bit fields needed to
+  characterise ROM's `Tails_DoLevelCollision` branch
+  (sonic3k.asm:28871-29117) and `CheckRightWallDist`
+  (sonic3k.asm:20188-20214). `velocity_write` is upgraded to
+  multi-window semantics (matching `position_write`), so the AIZ
+  window is added without losing the CNZ `[3640,3660]` window.
+  Diagnostic-only: parser handles the new event via the existing
+  default `StateSnapshot` arm in `TraceEvent.parse` (no Java change
+  required). Trace fixture untouched in this commit; regen requires
+  BizHawk + the existing `aiz1_to_hcz_fullrun` BK2 movie. Cross-game
+  baselines preserved: S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable,
+  S3K AIZ stable at F7552/977 errors, S3K CNZ stable at F7919.
+  Comparison-only invariant preserved.
+
 - **AIZ trace F7552: napalm ride-bridge hypothesis disproven; root cause re-localised to a sidekick airborne wall-collision parity gap at world (0x1208, 0x0314) (doc-only).** The prior round hypothesised that `AizMinibossNapalmProjectile` on `setDestroyed(true)` should run a `Solid_Object_Detach`-style ride release that bumps Tails by +1 px and zeroes `tails_x_speed`. Direct inspection of the recorded trace JSONL (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) shows Tails interact slot 16 has been destroyed continuously since at least F7500, ~50 frames before F7552 — the napalm cannot be the source. ROM cite confirms `Obj_AIZMiniboss` (sonic3k.asm:137222) and the napalm/flame children (loc_68C96, loc_68C12) use only `Add_SpriteToCollisionResponseList` and `Draw_And_Touch_Sprite` (touch-response), never `SolidObject` / `MvSonicOnPtfm`. The actual F7552 signature — Tails wedged at `x=0x1208` with `x_sub=0x0000` and `x_speed=0x0000` for many frames while still rising airborne — is the canonical right-wall collision pattern. Engine code change deferred: porting a ride-bridge would be a hack at the wrong root cause. Documented in `S3K_KNOWN_BUGS.md` with the disproof, ROM cites, the corrected signature, and concrete revised next steps (extend recorder for terrain wall-sensor probes, audit sidekick airborne side-collision path, identify the AIZ chunk at world 0x1208/0x0314). Trace replay numbers unchanged (AIZ stable at F7552/977, CNZ at F7919, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable). Comparison-only invariant preserved.
 - **CNZ Clamer spring-child collision-box audit (doc-only):**
   Verified the engine spring-child collision-box dimensions
