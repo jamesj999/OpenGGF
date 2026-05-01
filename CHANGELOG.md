@@ -6,32 +6,6 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
-- **AIZ trace F7381 Ctrl_1_locked latch (foundation fix, partial):**
-  `AbstractPlayableSprite.setLogicalInputState` now short-circuits
-  when `controlLocked=true` so the previous frame's
-  `logicalInputState` persists, mirroring ROM `Sonic_Control`
-  (sonic3k.asm:21541-21545 `loc_10760`, S2 s2.asm:35933-35935
-  `Obj01_Control`):
-  ```
-  tst.b   (Ctrl_1_locked).w
-  bne.s   loc_10780             ; if locked, SKIP the copy
-  move.w  (Ctrl_1).w,(Ctrl_1_logical).w
-  ```
-  Without this latch the engine zeroed `logicalInputState` the
-  moment any in-level object set `controlLocked=true`, which
-  propagated through `endOfTick()` into `inputHistory` and
-  corrupted the Sidekick CPU's $40-frame-delayed leader input
-  read (`Tails_CPU_Control`, sonic3k.asm:26683-26689). Regression
-  test
-  `src/test/java/com/openggf/sprites/playable/TestLogicalInputControlLockLatch.java`
-  exercises both the latch and the unlock path. AIZ F7381 still
-  fails (no engine site sets `controlLocked=true` in the
-  F7361-F7365 window — option (A) per-object audit deferred until
-  a per-frame `control_locked` aux dump is wired into the
-  comparator), but the latch is a necessary foundation for that
-  follow-up fix and demonstrably safe across S1 GHZ/MZ1, S2 EHZ,
-  S3K MGZ1/CNZ trace replays plus the four required S3K bootstrap
-  tests.
 - **AIZ trace F7381 root-cause documented (Tails-west-bias OPEN):**
   Investigation traced the `tails_x_speed expected=0x0000 actual=-0x0018`
   divergence to a `Ctrl_1_logical` parity gap rather than a

@@ -2490,26 +2490,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         /**
          * Publishes the logical pad state used by movement this frame.
          * ROM ref: Sonic_RecordPos stores Ctrl_1_Logical, not the raw held-button state.
-         *
-         * <p>ROM-faithful latch: when {@link #isControlLocked()} is set the
-         * write is skipped so the previous frame's logical pad state persists.
-         * Mirrors {@code Sonic_Control} (S3K sonic3k.asm:21541-21545
-         * loc_10760, S2 s2.asm:35933-35935 Obj01_Control):
-         * <pre>
-         *   tst.b   (Ctrl_1_locked).w       ; S3K (Control_Locked for S2)
-         *   bne.s   loc_10780               ; if locked, SKIP the copy
-         *   move.w  (Ctrl_1).w,(Ctrl_1_logical).w
-         * </pre>
-         * Without this latch the engine zeroed {@code logicalInputState} the
-         * moment any in-level object set {@code controlLocked=true}, which
-         * propagated through {@link #endOfTick()} into {@code inputHistory}
-         * and corrupted the Sidekick CPU's $40-frame-delayed leader input
-         * read (S3K {@code Tails_CPU_Control}, sonic3k.asm:26683-26689).
          */
         public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump) {
-                if (isControlLocked()) {
-                        return;
-                }
                 short input = 0;
                 if (up) input |= INPUT_UP;
                 if (down) input |= INPUT_DOWN;
