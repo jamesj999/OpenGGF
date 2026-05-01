@@ -286,7 +286,8 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   impulse when the computed effect reaches `$0D` (unlike S1/S2's zero-inertia return), and S3K
   diagonal springs now preserve ground velocity on launch while using the ROM `$10` sloped catch
   range; sidekick offscreen marker recovery now preserves subpixels like the ROM word writes,
-  advancing the MGZ replay frontier from F0 to F1449.
+  and full-solid contacts now skip off-screen sidekicks like the ROM `render_flags` gate,
+  advancing the MGZ replay frontier from F0 to F1451.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
