@@ -3544,9 +3544,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
-         * Fills position history with current position.
-         * ROM: Reset_Player_Position_Array — called on spindash release & fire dash
-         * so the camera delay looks back to "right here" instead of stale positions.
+         * Fills position history with current position. Used by paths that
+         * want to flush the camera-delay buffer ONLY (no input/status clear),
+         * such as the engine-internal sidekick respawn seeding and the
+         * spindash-release scroll-delay reset where ROM only manipulates
+         * `H_scroll_frame_offset` without touching Stat_table.
+         *
+         * Use {@link #resetPositionAndStatTableHistory()} for the full
+         * ROM `Reset_Player_Position_Array` semantics (Pos_table refill +
+         * Stat_table clear).
          */
         public void resetPositionHistory() {
                 short currentX = getCentreX();
@@ -3554,6 +3560,35 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 for (int i = 0; i < xHistory.length; i++) {
                         xHistory[i] = currentX;
                         yHistory[i] = currentY;
+                }
+        }
+
+        /**
+         * Mirrors ROM `Reset_Player_Position_Array` (sonic3k.asm:22166-22193):
+         * writes Pos_table = (x_pos, y_pos) for all 64 entries AND clears all
+         * Stat_table 32-bit slots to 0 (`move.l #0, (a2)+`). Called by
+         * Sonic_FireShield (sonic3k.asm:23428), Sonic_HyperDash
+         * (sonic3k.asm:23521), and the player-init / death-respawn paths
+         * (sonic3k.asm:21525, 21938). Subsequent delayed Tails_CPU_Control
+         * reads of Stat_table return ZERO for any slot not yet refilled by
+         * Sonic_RecordPos.
+         *
+         * AIZ trace F7381 motivation: Sonic activates Fire Shield Dash at
+         * F7366 which runs Reset_Player_Position_Array. Without clearing
+         * inputHistory and statusHistory the engine retained Sonic's true
+         * F7350-F7365 LEFT input bits, while ROM Stat_table read zeros for
+         * any slot not yet refilled in the 16 frames after the reset. The
+         * stale LEFT input drove Tails CPU to a -0x18 x_speed where ROM
+         * holds 0x0000 (sonic3k.asm:26683-26705,26755-26785).
+         */
+        public void resetPositionAndStatTableHistory() {
+                short currentX = getCentreX();
+                short currentY = getCentreY();
+                for (int i = 0; i < xHistory.length; i++) {
+                        xHistory[i] = currentX;
+                        yHistory[i] = currentY;
+                        inputHistory[i] = 0;
+                        statusHistory[i] = 0;
                 }
         }
 

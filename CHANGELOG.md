@@ -6,6 +6,31 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ trace F7381 unblocked — Fire Shield Dash now clears the
+  Stat_table-equivalent (`inputHistory` / `statusHistory`) like ROM
+  `Reset_Player_Position_Array`:** Engine `resetPositionHistory()`
+  previously only refilled Pos_table-equivalent (`xHistory` /
+  `yHistory`) without clearing the Tails-CPU input/status replay
+  buffers. ROM `Reset_Player_Position_Array` (sonic3k.asm:22166-22193)
+  also clears the Stat_table 32-bit slots to 0
+  (`move.l #0, (a2)+`). At AIZ F7366 Sonic activates Fire Shield Dash
+  (`Sonic_FireShield`, sonic3k.asm:23411-23430), which calls
+  `Reset_Player_Position_Array` and zeroes Stat_table. Tails_CPU_Control
+  at F7381 reads `Stat_table[Pos_table_index - 0x44]`
+  (sonic3k.asm:26683-26705) — slot 63 in the post-reset cycle, never
+  refilled in the 16 frames since F7366. ROM gets
+  `delayed_input=0x0000`; the engine retained Sonic's true F7350-F7365
+  LEFT input bits and produced `tails_x_speed=-0x0018` where ROM holds
+  `0x0000`. Refactored `resetPositionHistory()` into the original
+  position-only flush (kept for spindash-release scroll-delay reset
+  and sidekick-respawn seeding, which ROM does NOT extend with a
+  Stat_table clear) plus a new `resetPositionAndStatTableHistory()`
+  that mirrors the full ROM semantics. Fire Shield Dash
+  (`PlayableSpriteMovement.fireShieldDash`) now calls the new method.
+  Trace replay: AIZ first strict error advances **F7381 → F7552**
+  (1039 → 977 errors); CNZ stable at F7919, MGZ stable at F0,
+  S2 EHZ stable at F5121, S1 GHZ PASS, S1 MZ1 PASS. Comparison-only
+  invariant preserved (no trace data hydrated into engine state).
 - **BizHawk recorder v6.12-s3k — `control_lock_state_per_frame`
   diagnostic + AIZ fixture regen + `Ctrl_1_locked` hypothesis
   refuted:** Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit
