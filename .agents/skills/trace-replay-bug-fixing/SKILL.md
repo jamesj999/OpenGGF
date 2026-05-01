@@ -130,6 +130,17 @@ Pre-trace setup events (frame `-1`) capture starting state for one-time bootstra
      - Engine code path with wrong constant/threshold:   fix the value.
      - Per-game divergence:                              add a PhysicsFeatureSet flag.
      - Test infrastructure asserting wrong behaviour:    fix the test (with disasm citation).
+     - Wall/floor probe X/Y offset mismatch: the player path uses
+       fixed-pixel offsets in places (e.g. S3K
+       `CheckRightWallDist` does `addi.w #$A,d3`, sonic3k.asm:20195,
+       NOT `x_radius`). Engine probes that use `centreX + xRadius`
+       silently miss walls when `x_radius` shrinks (rolling=7 vs
+       default=9). When a trace shows a "speed cap held for several
+       frames then a 5-frame `0/0x18/0x30/0x48/0x60/0` cycle on
+       `x_speed` with a sub-x snap pushback once per cycle", that's
+       the canonical "rolling-air sliding into a flush wall" pattern
+       from `SonicKnux_DoLevelCollision` and the probe-offset is
+       the prime suspect.
 
 6. If you can't pinpoint the bug because the trace lacks the right data:
      - Extend the recorder lua with a new aux event type.

@@ -596,3 +596,18 @@ any `Solid_Object_Detach`-style release as the cause. Skipping this
 check would have produced an engine fix targeted at the wrong root
 cause — a hack by the repo policy in `CLAUDE.md`. Documented in
 `docs/S3K_KNOWN_BUGS.md` under the AIZ F7552 entry.
+
+For the AIZ F8927 case (round 1, diagnosis-only) the same check
+disproved a "swing/vine peak handling" guess that fell out of the
+prior round's F7660 fix: at F8927 Sonic's `status=0x06` (Air|Roll)
+with `obj_control=0x00` and `interact_slot=9` pointing to a static
+sprite (`object_code=0x0002BF5A`) that has not moved since F7252, so
+no swing or carry object is active. The actual signature in the
+recorded data is a 5-frame `0/0x18/0x30/0x48/0x60/0` cycle on
+`x_speed` with a sub-x snap pushback once per cycle — the canonical
+ROM "rolling-air sliding into a flush right-side wall" pattern from
+`SonicKnux_DoLevelCollision`'s `CheckRightWallDist` arm
+(`sonic3k.asm:24061-24065`). This narrowed the next-round
+investigation to the engine's airborne right-wall probe vs the
+player path's fixed `addi.w #$A,d3` (sonic3k.asm:20195) before any
+engine code was changed.
