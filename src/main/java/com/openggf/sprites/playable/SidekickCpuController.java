@@ -812,24 +812,18 @@ public class SidekickCpuController {
         // (sub_1FF1E sonic3k.asm:44306-44319, loc_1FFC4 sonic3k.asm:44369-44381),
         // which runs AFTER Tails_CPU_Control. Sonic_Jump (sonic3k.asm:
         // 23288-23354) sets Status_InAir but never clears Status_OnObj.
-        // The engine's PlayableSpriteMovement.doJump (line 642) and the
-        // air-unseat path in ObjectManager.processInlineObjectForPlayer clear
-        // onObject EARLIER in the same frame, so the live isOnObject() value
-        // here can already reflect the leader's post-tick state. The
-        // frame-start snapshot {@link AbstractPlayableSprite#getOnObjectAtFrameStart()}
-        // (captured by SpriteManager.beginPlayableFrame before any player
-        // ticks run) is intended to recover the ROM mid-frame view, but is
-        // NOT plumbed in here yet — the engine's own frame-start OnObj
-        // diverges from ROM's mid-frame OnObj at some object-release
-        // transitions (see docs/S3K_KNOWN_BUGS.md, CNZ F7872 / AIZ F7381),
-        // so swapping in the snapshot alone regresses AIZ1 around F2021.
-        // Resolving that requires aligning the engine's OnObj clear timing
-        // with ROM's solid-object-processing-driven clear; until then this
-        // gate keeps the existing live read plus {@code !getAir()} heuristic.
+        // The engine's PlayableSpriteMovement.doJump and the air-unseat path
+        // in ObjectManager.processInlineObjectForPlayer clear onObject
+        // EARLIER in the same frame, so the live isOnObject() value here can
+        // already reflect the leader's post-tick state.  Use the frame-start
+        // snapshot captured by SpriteManager.beginPlayableFrame to recover
+        // ROM's mid-frame view; loc_13DA6 (sonic3k.asm:26690-26691) tests
+        // Status_OnObj alone via `btst #Status_OnObj, status(a1) / bne loc_13DD0`
+        // — no `!Status_InAir` filter, so we must not add one here.
         int leadOffset = sidekick.getPhysicsFeatureSet() != null
                 ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
                 : 0;
-        boolean leaderStatusOnObject = effectiveLeader.isOnObject() && !effectiveLeader.getAir();
+        boolean leaderStatusOnObject = effectiveLeader.getOnObjectAtFrameStart();
         if (leadOffset > 0
                 && !leaderStatusOnObject
                 && effectiveLeader.getGSpeed() < 0x400) {
@@ -1075,7 +1069,12 @@ public class SidekickCpuController {
                 || sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset() <= 0
                 || !sidekick.getAir()
                 || !sidekick.getRolling()
-                || (effectiveLeader.isOnObject() && !effectiveLeader.getAir())
+                // ROM loc_13DA6 (sonic3k.asm:26690-26691) tests
+                // Status_OnObj alone via `btst #Status_OnObj, status(a1) /
+                // bne loc_13DD0`.  Use the frame-start snapshot to mirror
+                // ROM's mid-frame view (the live isOnObject() can already
+                // reflect post-tick clears from doJump / air-unseat).
+                || effectiveLeader.getOnObjectAtFrameStart()
                 || !isAizHollowTreeFollowSteeringContext(effectiveLeader)) {
             return dx;
         }
@@ -1136,7 +1135,10 @@ public class SidekickCpuController {
         int leadOffset = sidekick.getPhysicsFeatureSet() != null
                 ? sidekick.getPhysicsFeatureSet().sidekickFollowLeadOffset()
                 : 0;
-        boolean leaderStatusOnObject = effectiveLeader.isOnObject() && !effectiveLeader.getAir();
+        // ROM loc_13DA6 (sonic3k.asm:26690-26691) tests Status_OnObj alone
+        // via `btst #Status_OnObj, status(a1) / bne loc_13DD0`.  Use the
+        // frame-start snapshot to mirror ROM's mid-frame view.
+        boolean leaderStatusOnObject = effectiveLeader.getOnObjectAtFrameStart();
         if (leadOffset > 0
                 && !leaderStatusOnObject
                 && effectiveLeader.getGSpeed() < 0x400) {

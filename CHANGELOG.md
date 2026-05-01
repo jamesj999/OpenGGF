@@ -6,6 +6,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **OnObj air-unseat early-return + frame-start snapshot wired into
+  `loc_13DA6` mirror (CNZ F7872 advance):**
+  `ObjectManager.processInlineObjectForPlayer` now mirrors ROM
+  `SolidObjectFull*_1P` / `SolidObjectTop*_1P` air-unseat
+  (sonic3k.asm:41021-41031 `loc_1DC98`, 41066-41084 `loc_1DCF0`,
+  41117-41128 `loc_1DD48`, 41793-41812 `loc_1E2E0`) by returning early
+  (`d4=0`) when the player just got unseated from this same instance,
+  instead of falling into the new-contact resolution path that would
+  re-land an airborne player. Scoped strictly to
+  `instance == unseatedRidingObject` so unrelated objects on the same
+  frame still resolve normally. With that early-return in place,
+  `SidekickCpuController.normalStep` now reads the frame-start OnObj
+  snapshot via `effectiveLeader.getOnObjectAtFrameStart()` in the
+  three `loc_13DA6` mirror gates (line 832 main step, 1078
+  `resolveFollowSteeringDx`, 1139 `resolveObjectOrderNudgeDx`),
+  matching ROM `btst #Status_OnObj, status(a1) / bne loc_13DD0`
+  (sonic3k.asm:26690-26691) which tests `Status_OnObj` alone — no
+  `!Status_InAir` filter. Net effect: CNZ first-error advances
+  F7872 -> F7919 (Sonic-jumps-off-rising-platform now correctly takes
+  ROM's `leader_on_object` branch); AIZ regresses F7381 -> F2021
+  (1 px tails_x divergence on the airborne-roll-then-uncurl window;
+  ROM trace F2000-F2020 has Sonic OnObj=0 throughout, engine's
+  frame-start snapshot returns true — pre-existing engine OnObj
+  clear-timing gap documented in `docs/S3K_KNOWN_BUGS.md`). Total
+  failures across the suite drop 34 -> 31. Cross-game S1 GHZ1 and S2
+  EHZ1 trace replays remain green; required-green S3K bootstrap
+  tests still pass.
 - **OnObj clear timing alignment investigation, doc-only (CNZ F7872 /
   AIZ F2021 deeper divergence):** revisited the snapshot-wiring path
   that this branch was meant to land. Confirmed the previous round's

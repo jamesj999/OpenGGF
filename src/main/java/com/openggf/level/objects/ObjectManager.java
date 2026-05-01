@@ -4517,6 +4517,7 @@ public class ObjectManager {
             int ridingY = state != null ? state.y : 0;
             int ridingPieceIndex = state != null ? state.pieceIndex : -1;
 
+            ObjectInstance unseatedRidingObject = null;
             if (ridingObject != null && player.getAir()
                     && !carriesAirborneRiderAfterExitPlatform(ridingObject)) {
                 // ROM SolidObjectFull2_1P air-unseat path (sonic3k.asm:41070-41084
@@ -4530,6 +4531,7 @@ public class ObjectManager {
                 // SolidObject calls leave this spring's d6 untouched, so we
                 // must NOT clear the bit when a non-riding-object instance
                 // happens to be processed first.
+                unseatedRidingObject = ridingObject;
                 ridingStates.remove(player);
                 ridingObject = null;
                 ridingPieceIndex = -1;
@@ -4547,6 +4549,27 @@ public class ObjectManager {
                     && hasObjectStandingBit(player, instance)) {
                 snapshotObjectStandingBit(player, instance);
                 clearObjectStandingBit(player, instance);
+            }
+
+            // ROM SolidObjectFull*_1P / SolidObjectTop*_1P air-unseat
+            // (sonic3k.asm:41021-41031 SolidObjectFull_1P loc_1DC98,
+            // 41066-41084 SolidObjectFull2_1P loc_1DCF0, 41117-41128
+            // sub_1DD24 loc_1DD48, 41793-41812 SolidObjectTop_1P loc_1E2E0):
+            // when the helper sees its own a0.d6 standing-bit set AND the
+            // player's Status_InAir set, it bclr's OnObj/d6 and returns d4=0
+            // WITHOUT falling into SolidObject_cont -> loc_1E154 -> RideObject_SetRide.
+            // Mirror the early `rts d4=0` so the new-contact resolution path
+            // does not run for the SAME instance whose ride was just
+            // air-unseated this frame.  Without this gate, the engine
+            // re-lands an airborne player on the same object the same
+            // frame, leaving Status_OnObj set when ROM has it cleared
+            // (CNZ trace F7872 / AIZ F7381).  Scoped strictly to
+            // `instance == unseatedRidingObject` to mirror ROM's per-object
+            // d6/Status_InAir gate at the SolidObjectFull*_1P entry; a
+            // broader gate on the bare standing-bit-snapshot would suppress
+            // legitimate first-frame contacts with neighbouring objects.
+            if (instance != null && instance == unseatedRidingObject) {
+                return null;
             }
 
             if (instance == ridingObject && ridingObject instanceof SolidObjectProvider provider) {
