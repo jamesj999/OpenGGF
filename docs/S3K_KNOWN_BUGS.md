@@ -4422,3 +4422,180 @@ Engine audit (this round) — sidekick airborne wall-collision path:
 3. Add a focused engine test (or temporarily widen the existing AIZ collision probe window) to log the engine's `pushSensors[1].scan(0,0)` result at F7549-F7560. Compare distance + tile + angle to the ROM-equivalent `(x_pos+10, y_pos)` point.
 4. If engine probe returns no wall and ROM does, the divergence is in the AIZ chunk solidity bitmap. Trace back through `Sonic3kLevel.loadChunksWithCollision` to verify that AIZ1 Primary/Secondary collision arrays at this chunk match the ROM's bytes.
 5. If engine probe returns a wall but the wall-clamp result differs from ROM, the divergence is in `doWallCheck` resolution — likely a subpixel rounding / `getCentreX()` vs `getX()` mismatch around the +10 sensor offset.
+
+---
+
+## CNZ F7919 — Clamer spring-child relatch widening localised; fix surfaces deeper F619 dispatch issue (diagnosis only)
+
+**Status:** documented; no code change landed this round. Branch
+`bugfix/ai-cnz-f7919-tails-touch-timing`. Continues from the prior
+spring-child collision-box audit (commit `e3da47c21`).
+
+**Round 1 finding — relatch widening is the F7918 dispatch source.**
+
+A targeted probe inside `ObjectManager.processMultiRegionTouch`
+gated on the F7910..F7925 frame band confirmed the engine's F7918
+spring fire on Tails comes from a pre-existing engine-only
+widening of the spring child collision box on relatch:
+
+```
+src/main/java/com/openggf/game/sonic3k/objects/ClamerObjectInstance.java
+SPRING_COLLISION_FLAGS         = 0x40 | 0x17   ; first-hit only
+SPRING_RELATCH_COLLISION_FLAGS = 0x40 | 0x12   ; <-- after first fire
+```
+
+`Touch_Sizes[$12]` = (8, 16) → 16x32 box. `Touch_Sizes[$17]` = (8,
+8) → 16x16 box. The probe captured at F7918 with Tails airborne
++ rolling at centre `(0x0C8E, 0x044F)`, yR=14 (rolling):
+
+```
+cnz-probe f=7918 region=(0C98,0470) sz=$0A w=16 h=8 cat=ENEMY  overlap=false   ; parent (size $0A)
+cnz-probe f=7918 region=(0C98,0468) sz=$12 w=8  h=16 cat=SPECIAL overlap=true  ; <-- spring (relatch widening)
+```
+
+The F7918 fire fires from the wider `$12` box, not the `$17`
+first-hit box. ROM `word_89136` (sonic3k.asm:186008-186010) and
+`SetUp_ObjAttributes3` (sonic3k.asm:185943-185951) write
+`collision_flags=$D7=$C0|$17` once at child spawn; ROM
+`loc_890AA` / `loc_890C8` / `loc_890D0` (sonic3k.asm:185953-185973)
+do not modify `collision_flags`, so the relatch box stays at
+`$17` for every fire. The engine widening is not ROM-cited.
+
+**Round 2 attempt — landing the obvious fix surfaces a deeper
+F619 dispatch issue.**
+
+Reverting to a single-flag spring (`SPRING_COLLISION_FLAGS = $40|$17`
+on every fire) advances the F7919 first error past F7919 but
+introduces a new first error at F621 with 3293 total errors (up
+from 2757). F621 trace expects Sonic to re-fire the slot 5
+Clamer at world `(0x0578, 0x0688)` after a 1-frame cooldown:
+
+```
+F619: y=0x067E, y_speed=-0x0800   <- first fire (post-fire state)
+F620: y=0x0676, y_speed=-0x07C8   <- gravity decay only
+F621: y=0x0674, y_speed=-0x0800   <- ROM re-fires here
+```
+
+With ROM `Touch_Sizes[$17]` = (8, 8) and Sonic post-physics at
+F621 at y=0x066E (yR=14, rolling), the player box bottom is
+`0x066E - 11 + 22 = 0x0679`; the spring box top is
+`0x0688 - 8 = 0x0680`. The geometric overlap test
+(`dy = 0x0680 - 0x0663 = 29 > 22 = playerHeight`) returns NO
+overlap — but the trace shows ROM does fire this frame. With the
+size-$17 box the engine cannot reach overlap at F621 either, so
+the engine matches the ROM-accurate box test geometrically but
+diverges from the trace's recorded behaviour.
+
+The pre-existing widening to `$12` was masking this divergence:
+the wider 8x16 spring box does overlap at engine-f=620 (centre
+`(0x0583, 0x066E)`, dy=0x15=21 < 22), so the engine refired the
+spring at the same trace frame ROM recorded as the second fire,
+and the F619 cascade stayed quiescent.
+
+**Why ROM fires at F621 with no geometric overlap is unresolved.**
+
+Possible upstream causes (none verified yet, all require
+additional probe work):
+
+1. **Sub-frame spring-child slot ordering.** ROM
+   `Add_SpriteToCollisionResponseList` (sonic3k.asm:21200) is
+   called from `Child_DrawTouch_Sprite` AFTER `loc_890AA`'s
+   collision check, populating the list for the *next* frame's
+   `Touch_Loop`. `Obj_ResetCollisionResponseList`
+   (sonic3k.asm:8467) at slot 3 (`Reserved_object_3`) clears the
+   list each frame *before* the spring child re-adds. If ROM's
+   spring child position used by `Touch_Loop` differs from the
+   engine's because of a 1-frame staleness in
+   `Collision_response_list` membership, the geometric test could
+   pass on a Sonic position that has not yet integrated F=621's
+   physics step. None of this is currently reproducible from the
+   probe data alone.
+2. **Sonic post-physics y at F=621 different in ROM than the
+   trace's recorded post-fire y suggests.** `MoveSprite` /
+   `MoveSprite_TestGravity` (sonic3k.asm:36032-36082) integrates
+   the *old* `y_vel` into `y_pos` and applies gravity to `y_vel`
+   *after*. From F=620 end (y=0x0676, y_sub=0x3200, y_vel=-0x07C8),
+   the post-physics y-pos is 0x066E with y_sub=0x6A00. Adding
+   the `addq.w #6, y_pos` from `sub_890D8` recovers the trace's
+   F=621 y=0x0674. The geometric reconstruction is internally
+   consistent — yet ROM still fires, meaning the engine's
+   per-frame Sonic position fed into `processMultiRegionTouch`
+   does not match the position ROM's `Touch_Loop` evaluates at
+   the same instant.
+3. **A separate solid-object / ride / surface effect not yet
+   audited near `(0x0578, 0x0690)`** could nudge Sonic upward
+   into the box at the dispatch instant. The engine's
+   `eng-near` log around F619-622 shows the slot 4 horizontal
+   spring at `(0x05C8, 0x06B0)` and slot 5 Clamer at
+   `(0x0578, 0x0690)`; no other Special / Solid neighbours are
+   visible.
+
+**ROM cite (revised, all sonic3k.asm)**
+
+- `word_89136` (186008-186010): spring child attributes, only
+  `collision_flags=$D7` feeds `Touch_Loop`. Render bbox
+  width=8 / height=4 is for `Sprite_OnScreen_Test`, not the
+  touch box.
+- `Touch_Sizes` (20713-20770): index `$17` = (8, 8); index `$12`
+  = (8, $10).
+- `loc_890AA` / `loc_890C8` / `loc_890D0` (185953-185973): fire,
+  1-frame cooldown, restore.
+- `Add_SpriteToCollisionResponseList` (21200): single-byte
+  append, no clear; relies on `Obj_ResetCollisionResponseList`
+  (8467) at `Reserved_object_3`.
+- `MoveSprite` (36032-36042) and `MoveSprite_TestGravity`
+  (36068-36082): integrate-then-gravity ordering for player
+  physics step.
+
+**Verification rules (unchanged)**
+
+- `TestS3kCnzTraceReplay#replayMatchesTrace` first error advances
+  past F7919 without regressing earlier in the trace.
+- `TestS3kAiz1Replay` first-error stable at F7381 / F7552.
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- S3K-required tests
+  (`TestS3kAiz1SkipHeadless`, `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`, `TestSonic3kDecodingUtils`)
+  GREEN.
+- Cross-game spring/touch-response parity gated via
+  `PhysicsFeatureSet`, never `gameId ==`.
+
+**Why no code change this round.**
+
+The localised widening (`$12` → 16x32 spring relatch) is
+clearly engine-only and not ROM-cited; reverting it to `$17` is
+the obvious fix. But landing it alone (with or without
+adjusting `CHILD_REENABLE_DELAY_FRAMES`) regresses the trace by
+536 errors (2757 → 3293) because the prior widening was
+papering over an upstream divergence at the F619 spring re-fire
+window that is much harder to localise: ROM fires at F=621 with
+Sonic at y=0x066E and a 16x16 spring box that does not
+geometrically overlap the player rectangle. Until the F=621
+ROM-fire mechanism is identified (sub-frame
+`Collision_response_list` staleness, alternate Touch_Loop
+input position, or a missing nudge), the engine cannot match
+the trace at both F619 and F7918 without picking which
+divergence to mask. Per repo policy ("ROM-cite every change",
+"NO HACKS"), the relatch widening fix is documented here for a
+follow-up round that addresses the F621 dispatch upstream first.
+
+**Concrete next steps**
+
+1. **Capture per-frame spring child position + collision flags +
+   collision_response_list membership** at engine-f=619-622
+   from a one-shot probe inside the spring child object code,
+   to localise whether the ROM-fire at F=621 corresponds to a
+   list state, position, or sensor that the engine renders
+   differently.
+2. **Compare ROM and engine Sonic physics step ordering** for
+   the rolling-air case at F=621. Specifically verify whether
+   the engine integrates `y_vel` into `y_pos` *before* or
+   *after* `Touch_Loop`-equivalent dispatch. ROM ordering is
+   `MoveSprite` (integrate+gravity) → `Player_JumpAngle` →
+   `SonicKnux_DoLevelCollision` → `TouchResponse` (Touch_Loop)
+   per `Sonic_MdAir` (sonic3k.asm:22350-22362).
+3. **Once the F=621 dispatch source is localised**, land the
+   relatch box correction (remove `SPRING_RELATCH_COLLISION_FLAGS`,
+   always use `SPRING_COLLISION_FLAGS = $40|$17`) together with
+   the upstream fix, in a single commit, and confirm
+   `replayMatchesTrace` advances past F7919.

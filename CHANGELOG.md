@@ -26,6 +26,37 @@ All notable changes to the OpenGGF project are documented in this file.
   baselines preserved: S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable,
   S3K AIZ stable at F7552/977 errors, S3K CNZ stable at F7919.
   Comparison-only invariant preserved.
+- **CNZ trace F7919 root cause localised — Clamer spring-child relatch
+  collision-box widening is engine-only and not ROM-cited (doc-only).**
+  Targeted probe inside `ObjectManager.processMultiRegionTouch` at the
+  F7910..F7925 frame band confirmed the engine's F7918 spring fire on
+  Tails is dispatched from a pre-existing engine-only widening of the
+  spring relatch box: `SPRING_COLLISION_FLAGS = $40|$17` (8x8 first
+  hit) vs `SPRING_RELATCH_COLLISION_FLAGS = $40|$12` (8x16 relatch) in
+  `ClamerObjectInstance`. ROM `word_89136`
+  (`docs/skdisasm/sonic3k.asm:186008-186010`) sets the spring child's
+  `collision_flags = $D7 = $C0|$17` once at spawn and `loc_890AA` /
+  `loc_890C8` / `loc_890D0` (185953-185973) never modify them, so the
+  box stays at `$17` (Touch_Sizes[$17] = 8x8 half-extents) on every
+  fire. Reverting to single-flag `$17` advances past F7919 but
+  surfaces a deeper F619 dispatch issue: ROM re-fires the slot 5
+  Clamer at F=621 with Sonic at post-physics y=0x066E and yR=14
+  (rolling), but the geometric overlap test against the 16x16 spring
+  box returns NO overlap (`dy=29 > playerHeight=22`). The pre-existing
+  $12 widening papered over this by accidentally aligning with the
+  trace's recorded second-fire frame. Until the F=621 ROM-fire
+  mechanism is identified (sub-frame `Collision_response_list`
+  staleness vs. alternate Touch_Loop input position vs. unmodelled
+  physics step ordering), the engine cannot match both F619 and F7918
+  without masking one divergence with another. Documented in
+  `docs/S3K_KNOWN_BUGS.md` with ROM cites, probe findings, geometric
+  reconstruction, and revised next steps (capture per-frame spring
+  child collision_response_list membership; compare ROM/engine Sonic
+  physics step ordering at F=621; land the relatch correction
+  together with the upstream fix in a single commit). Trace replay
+  numbers unchanged (CNZ stable at F7919/2757, AIZ stable at
+  F7552/977, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ PASS). Comparison-only
+  invariant preserved.
 
 - **AIZ trace F7552: napalm ride-bridge hypothesis disproven; root cause re-localised to a sidekick airborne wall-collision parity gap at world (0x1208, 0x0314) (doc-only).** The prior round hypothesised that `AizMinibossNapalmProjectile` on `setDestroyed(true)` should run a `Solid_Object_Detach`-style ride release that bumps Tails by +1 px and zeroes `tails_x_speed`. Direct inspection of the recorded trace JSONL (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) shows Tails interact slot 16 has been destroyed continuously since at least F7500, ~50 frames before F7552 — the napalm cannot be the source. ROM cite confirms `Obj_AIZMiniboss` (sonic3k.asm:137222) and the napalm/flame children (loc_68C96, loc_68C12) use only `Add_SpriteToCollisionResponseList` and `Draw_And_Touch_Sprite` (touch-response), never `SolidObject` / `MvSonicOnPtfm`. The actual F7552 signature — Tails wedged at `x=0x1208` with `x_sub=0x0000` and `x_speed=0x0000` for many frames while still rising airborne — is the canonical right-wall collision pattern. Engine code change deferred: porting a ride-bridge would be a hack at the wrong root cause. Documented in `S3K_KNOWN_BUGS.md` with the disproof, ROM cites, the corrected signature, and concrete revised next steps (extend recorder for terrain wall-sensor probes, audit sidekick airborne side-collision path, identify the AIZ chunk at world 0x1208/0x0314). Trace replay numbers unchanged (AIZ stable at F7552/977, CNZ at F7919, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ stable). Comparison-only invariant preserved.
 - **CNZ Clamer spring-child collision-box audit (doc-only):**
