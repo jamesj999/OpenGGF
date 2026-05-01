@@ -264,6 +264,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   Stat_table read and advancing the AIZ replay frontier to F7552. F7552 itself is documented
   as a likely missing `Solid_Object_Detach` engine path on the AIZ Miniboss Napalm projectile
   (rider receives +1 px and `x_vel` zero on the projectile's self-destruct frame).
+  `ClamerObjectInstance` now hosts the ROM `Clamer_Index` parent state machine
+  (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
+  `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
+  0x02 (idle) / 0x04 (snap-shut) / 0x06 (auto-close) — foundation for further CNZ Clamer
+  parity work.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with

@@ -4132,3 +4132,60 @@ early.
    `AizMinibossNapalmProjectile.update()` — register the projectile as
    solid-on-top while alive, and on `setDestroyed(true)` issue a
    `Solid_Object_Detach`-equivalent clear of `x_vel` on any rider.
+
+---
+
+**Status update — branch `bugfix/ai-cnz-f7919-clamer-state-machine`
+(Clamer state machine ported)**
+
+Engine fix landed. `ClamerObjectInstance` now hosts the ROM
+`Clamer_Index` parent state machine (sonic3k.asm:185856-185998) and a
+`Find_SonicTails`-equivalent helper. Routines implemented:
+
+- `0x02 - loc_88FEC` (idle / auto-close gate): `Find_SonicTails`-driven
+  closer-player lookup, `cmpi.w #$60,d2; bhs loc_8900C` distance gate,
+  `render_flags` bit-0 directional flip (`subq.w #2,d0`), and the
+  `tst.w d0; beq loc_89036` close transition.
+- `0x04 - loc_8904E` (snap-shut animation after spring fired): clears
+  collision_flags via `loc_89014`-equivalent path; resets to routine
+  0x02 once the local close-timer drains, mirroring `loc_89056`.
+- `0x06 - loc_89064` (auto-close): keeps `collision_flags` alive
+  (ROM `loc_89036` does not clear them) and resets via `loc_89056`
+  once the close animation completes.
+
+Spring child collision box stays active across all parent routines:
+ROM `loc_890AA` (sonic3k.asm:185953-185962) runs independently of
+the parent's routine, so the child's collision check fires on its own
+post-fire cooldown rather than being gated on the parent state. The
+earlier diagnosis text suggesting routine 0x06 deactivates the spring
+child was inaccurate; in ROM, only the spring child's local cooldown
+(`loc_890C8` -> `$2E(a0)` decrement) and the parent's `collision_flags`
+clear (which only fires in routine 0x04, not routine 0x06) gate the
+spring's behaviour.
+
+**Open questions:**
+
+- The CNZ trace fixture is not yet checked into this repo, so the port
+  has been verified against:
+  - 6 unit tests in `TestClamerObjectInstance` (2 pre-existing for the
+    spring-launch path + 4 new for the auto-close gate).
+  - Cross-game parity (S1/S2 do not have Clamer; no `PhysicsFeatureSet`
+    flag needed).
+  - Wide S3K test suite: 1127 passed, 28 failed, 9 errors — identical
+    failure set to baseline (no new failures).
+- The original diagnosis claim that ROM stays in routine 0x06 from
+  F7872 to F7920+ should still cause the engine to fire `applySpringLaunch`
+  at F7918 if Tails geometrically overlaps the engine's spring touch box,
+  because the spring child runs independently of the parent. If the CNZ
+  trace test (when added) still fails at F7919, the next investigation
+  should focus on the spring child's collision-box dimensions
+  (engine size index `0x17` vs ROM child `word_89136` width 8 / height 4)
+  rather than on the parent state machine.
+
+**Earlier Clamer encounters:** The auto-close gate is purely additive
+(does not affect the spring-launch path), so slot 4/5 at `(0x0578,0x0690)`
+and slot 11 at `(0x28C0,0x0268)` should not regress unless the player
+approach window now triggers an auto-close that pre-empts a planned
+spring-launch. The gate fires only when the closer player is within
+`abs(dx) < 0x60` AND on the side the Clamer is facing — the same
+predicate ROM evaluates, so engine and ROM should agree per-frame.
