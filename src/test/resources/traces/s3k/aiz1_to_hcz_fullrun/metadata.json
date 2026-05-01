@@ -13,7 +13,7 @@
   "sidekicks": ["tails"],
   "rng_seed": "0x00000000",
   "recording_date": "2026-05-01",
-  "lua_script_version": "6.13-s3k",
+  "lua_script_version": "6.15-s3k",
   "trace_schema": 5,
   "csv_version": 5,
   "aux_schema_extras": ["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame"],
