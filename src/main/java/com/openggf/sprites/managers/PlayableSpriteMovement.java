@@ -1449,11 +1449,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int hexAngle = sprite.getAngle() & 0xFF;
 		short gSpeed = sprite.getGSpeed();
 
-		if (isOnSteepSurface(hexAngle) || gSpeed == 0) {
+		if (isOnSteepSurface(hexAngle)) {
 			return;
 		}
 
 		int slopeEffect = (slopeRunning * TrigLookupTable.sinHex(hexAngle)) >> 8;
+		if (gSpeed == 0) {
+			PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+			if (fs == null || !fs.slopeResistStartsFromRest()
+					|| Math.abs(slopeEffect) < 0x0D) {
+				return;
+			}
+		}
 		sprite.setGSpeed((short) (gSpeed + slopeEffect));
 	}
 

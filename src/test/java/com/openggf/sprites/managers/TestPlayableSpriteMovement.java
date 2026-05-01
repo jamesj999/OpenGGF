@@ -578,6 +578,22 @@ public class TestPlayableSpriteMovement {
         }
 
         @Test
+        public void s3kSlopeResistCanStartGroundVelocityFromRest() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setAngle((byte) 0x30);
+                mockSprite.setGSpeed((short) 0);
+
+                Method slopeMethod = PlayableSpriteMovement.class.getDeclaredMethod("doSlopeResist");
+                slopeMethod.setAccessible(true);
+                slopeMethod.invoke(manager);
+
+                assertEquals((short) 0x001D, mockSprite.getGSpeed(),
+                                "S3K Player_SlopeResist starts from rest when abs(slope effect) >= $0D");
+        }
+
+        @Test
         public void testRightInputMaintainHighSpeed() throws Exception {
                 // Setup: Running super fast (3000), holding Right. Flat ground.
                 mockSprite.setGSpeed((short) 3000);

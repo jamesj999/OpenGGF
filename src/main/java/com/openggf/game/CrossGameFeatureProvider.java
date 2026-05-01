@@ -509,6 +509,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.groundWallCollisionEnabled(),    // groundWallCollisionEnabled (from base game)
                 baseFeatureSet.animationChangeClearsPush(),     // animationChangeClearsPush (from base game)
                 baseFeatureSet.airSuperspeedPreserved(),        // airSuperspeedPreserved (from base game)
+                baseFeatureSet.slopeResistStartsFromRest(),     // slopeResistStartsFromRest (from base game)
                 baseFeatureSet.slopeRepelChecksOnObject(),      // slopeRepelChecksOnObject (from base game)
                 baseFeatureSet.slopeRepelUsesS3kSlipKick(),     // slopeRepelUsesS3kSlipKick (from base game)
                 baseFeatureSet.pinballLandingPreservesRoll(),   // pinballLandingPreservesRoll (from base game)
