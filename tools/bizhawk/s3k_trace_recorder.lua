@@ -129,6 +129,56 @@
 -- Tails_DoLevelCollision vs SolidObject*-style ride/bridge writers).
 -- Diagnostic-only; the comparator must NEVER hydrate engine state
 -- from these events.
+-- v6.14-s3k extends aiz_boundary_state_per_frame from a single window
+-- (F4660-F4690) to multi-window (default [4660,4679] + [7549,7560])
+-- using the same multi-window pattern that v6.13 added for
+-- velocity_write_per_frame / position_write_per_frame. The new F7549-
+-- F7560 window covers the AIZ F7552 sidekick wall-clamp incident so
+-- ROM's Camera_min_X_pos / Camera_max_X_pos / Camera_target_min_X_pos /
+-- Camera_target_max_X_pos can be read directly at the
+-- Tails_Check_Screen_Boundaries `loc_14F5C` clamp moment
+-- (sonic3k.asm:28407-28451). The new env var
+-- OGGF_S3K_AIZ_BOUNDARY_RANGE accepts either the legacy single-window
+-- form ("<start>-<end>") or a semicolon-separated multi-window list.
+-- Diagnostic-only; the comparator must NEVER hydrate engine state from
+-- these events.
+-- v6.15-s3k adds collision_response_list_per_frame and
+-- collision_response_list_end_of_frame events. Targets the CNZ F=621
+-- Clamer re-fire blocker (docs/S3K_KNOWN_BUGS.md "CNZ F=621 Clamer
+-- re-fire — ROM dispatch path narrowing"): the prior round narrowed
+-- the dispatch path to Touch_Special writing collision_property(a1)
+-- ($29) inside Touch_Loop when a player rect overlaps a SPECIAL-
+-- flagged object on Collision_response_list ($FFFFE380), but the
+-- recorder did not expose list membership at the moment Sonic's
+-- TouchResponse walks it. v6.15 captures the list contents in two
+-- complementary forms:
+--   (a) collision_response_list_per_frame: hook-driven snapshot at
+--       Touch_Process entry (0x10440, sonic3k.asm:20655-20657 -- lea/
+--       move.w/beq.s sequence verified against ROM bytes
+--       49 F8 E3 80 3C 1C 67 14 32 5C at offset 0x010440). Captures
+--       the BEFORE state at Sonic / Tails TouchResponse entry. May
+--       be empty if the BizHawk M68K execute hook does not arm in
+--       time for the target frames.
+--   (b) collision_response_list_end_of_frame: end-of-frame polling
+--       fallback. Per ROM Process_Sprites slot order
+--       (sonic3k.asm:35965-35996; slot 3 = Reserved_object_3 clears
+--       list before slots 4+ re-populate it), the list at end of
+--       frame F is what Sonic and Tails WALK at frame F+1, since
+--       slot 0 = Sonic and slot 1 = Tails read the list before
+--       slot 3 clears it. The spring child's collision_property at
+--       end of frame is the value the next frame's
+--       Check_PlayerCollision (sonic3k.asm:179904) will consume
+--       (read + clear). Captures BOTH the list contents and any OST
+--       slot whose object_code matches loc_890AA / loc_890C8 /
+--       loc_890D0 (Clamer spring-child routines, sonic3k.asm:185953/
+--       185965/185971), with each slot's slot index, object_code,
+--       (x_pos, y_pos), collision_flags, collision_property, and the
+--       cooldown counter at $2E.
+-- Default window F=618-624, zone-gated to CNZ (zone=3) only.
+-- Override range via OGGF_S3K_CRL_RANGE
+-- ("<start>-<end>" or semicolon-separated multi-window).
+-- Diagnostic-only; the comparator must NEVER hydrate engine state
+-- from these events.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -345,6 +395,21 @@ V66 = {
     CAMERA_MAX_Y = 0xEE1A,
     BOUNDARY_FRAME_START = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_START") or "4660"),
     BOUNDARY_FRAME_END = tonumber(os.getenv("OGGF_S3K_AIZ_BOUNDARY_FRAME_END") or "4690"),
+    -- v6.14-s3k: multi-window default ranges. The first window keeps the
+    -- existing AIZ1->AIZ2 fire-transition diagnostic (F4660-F4679 sidekick
+    -- boundary investigation; original v6.6 use case). The second window
+    -- covers the AIZ2 boss-arena entry sidekick wall-clamp incident at
+    -- F7549-F7560 so Camera_min_X_pos/Camera_max_X_pos can be inspected
+    -- directly at the F7552 boundary clamp moment (sonic3k.asm:28407-28451
+    -- `Tails_Check_Screen_Boundaries` `loc_14F5C`). Operators wanting full
+    -- coverage or a different window can override via the
+    -- OGGF_S3K_AIZ_BOUNDARY_RANGE env var (single window
+    -- "<start>-<end>" or semicolon-separated multi-window
+    -- "<s1>-<e1>;<s2>-<e2>").
+    BOUNDARY_RANGES = {
+        {4660, 4679},
+        {7549, 7560},
+    },
     boundary_state = nil,
     hooks_registered = false,
 }
@@ -761,7 +826,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.13-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.15-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -796,6 +861,14 @@ local function write_metadata()
     -- window) and extends the existing velocity_write / position_write
     -- defaults with the same window, capturing the M68K PCs that drive
     -- the F7552 Tails wall-clamp.
+    -- v6.14 extends aiz_boundary_state_per_frame from a single window
+    -- (F4660-F4690) to multi-window default
+    -- {[4660,4679], [7549,7560]}. The new F7549-F7560 window covers
+    -- the F7552 sidekick wall-clamp incident and exposes ROM's
+    -- Camera_min_X_pos / Camera_max_X_pos directly at the boundary
+    -- clamp moment (sonic3k.asm:28407-28451). The new env var
+    -- OGGF_S3K_AIZ_BOUNDARY_RANGE accepts either single-window
+    -- ("<start>-<end>") or semicolon-separated multi-window form.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
@@ -803,7 +876,7 @@ local function write_metadata()
     if is_aiz_end_to_end_profile() then
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame", "collision_response_list_per_frame", "collision_response_list_end_of_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -2112,11 +2185,50 @@ function V66.u16(value)
     return value & 0xFFFF
 end
 
+-- v6.14-s3k: env var override accepts either the legacy single window form
+-- ("<start>-<end>") or a semicolon-separated multi-window list
+-- ("<s1>-<e1>;<s2>-<e2>"). When set, replaces the default
+-- V66.BOUNDARY_RANGES list. The legacy
+-- OGGF_S3K_AIZ_BOUNDARY_FRAME_START/END env vars continue to override
+-- BOUNDARY_FRAME_START/END (kept for backwards compatibility).
+function V66.apply_range_env()
+    local range = os.getenv("OGGF_S3K_AIZ_BOUNDARY_RANGE")
+    if not range or range == "" then return end
+    local pairs_list = {}
+    for piece in string.gmatch(range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            pairs_list[#pairs_list + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #pairs_list == 0 then return end
+    V66.BOUNDARY_RANGES = pairs_list
+    -- Refresh single-window bounds for log/print clarity.
+    local lo, hi = pairs_list[1][1], pairs_list[1][2]
+    for i = 2, #pairs_list do
+        if pairs_list[i][1] < lo then lo = pairs_list[i][1] end
+        if pairs_list[i][2] > hi then hi = pairs_list[i][2] end
+    end
+    V66.BOUNDARY_FRAME_START = lo
+    V66.BOUNDARY_FRAME_END = hi
+end
+
+V66.apply_range_env()
+
 function V66.in_window()
-    if trace_frame < V66.BOUNDARY_FRAME_START or trace_frame > V66.BOUNDARY_FRAME_END then
+    if mainmemory.read_u8(ADDR_ZONE) ~= 0 then
         return false
     end
-    return mainmemory.read_u8(ADDR_ZONE) == 0
+    if V66.BOUNDARY_RANGES and #V66.BOUNDARY_RANGES > 0 then
+        for _, pair in ipairs(V66.BOUNDARY_RANGES) do
+            if trace_frame >= pair[1] and trace_frame <= pair[2] then
+                return true
+            end
+        end
+        return false
+    end
+    return trace_frame >= V66.BOUNDARY_FRAME_START
+        and trace_frame <= V66.BOUNDARY_FRAME_END
 end
 
 function V66.a0_is_tails()
@@ -2279,12 +2391,23 @@ function V66.register_aiz_boundary_hooks()
     event.onmemoryexecute(V66.record_boundary_kill, V66.TAILS_BOUNDARY_KILL)
     event.onmemoryexecute(V66.record_boundary_clamp, V66.TAILS_BOUNDARY_CLAMP)
 
+    local windows_str = ""
+    if V66.BOUNDARY_RANGES and #V66.BOUNDARY_RANGES > 0 then
+        local parts = {}
+        for _, pair in ipairs(V66.BOUNDARY_RANGES) do
+            parts[#parts + 1] = string.format("[%d,%d]", pair[1], pair[2])
+        end
+        windows_str = table.concat(parts, ",")
+    else
+        windows_str = string.format("[%d,%d]",
+            V66.BOUNDARY_FRAME_START, V66.BOUNDARY_FRAME_END)
+    end
     print(string.format(
-        "AIZ boundary hooks registered: tree=0x%05X/0x%05X, boundary=0x%05X/0x%05X/0x%05X/0x%05X, frame_window=[%d,%d]",
+        "AIZ boundary hooks registered: tree=0x%05X/0x%05X, boundary=0x%05X/0x%05X/0x%05X/0x%05X, frame_windows=%s",
         V66.AIZ_TREE_SET_PLAYER_POS_ENTRY, V66.AIZ_TREE_SET_PLAYER_POS_POST_YVEL,
         V66.TAILS_BOUNDARY_ENTRY, V66.TAILS_BOUNDARY_RETURN,
         V66.TAILS_BOUNDARY_KILL, V66.TAILS_BOUNDARY_CLAMP,
-        V66.BOUNDARY_FRAME_START, V66.BOUNDARY_FRAME_END))
+        windows_str))
 end
 
 -- =====================================================================
@@ -3013,6 +3136,339 @@ function V611_SOLID.register_hooks()
         V611_SOLID.SOLID_CONT_FRAME_START, V611_SOLID.SOLID_CONT_FRAME_END))
 end
 
+-- =====================================================================
+-- Collision_response_list per-frame snapshot (v6.15-s3k)
+-- =====================================================================
+-- Targets the CNZ F=621 Clamer re-fire blocker (docs/S3K_KNOWN_BUGS.md
+-- "CNZ F=621 Clamer re-fire — ROM dispatch path narrowing"): the prior
+-- diagnosis rounds traced ROM dispatch through Check_PlayerCollision
+-- (sonic3k.asm:179904-179916) reading collision_property(a0) ($29)
+-- written by Touch_Special (sonic3k.asm:21162-21194) when the spring
+-- child is on Collision_response_list ($FFFFE380). The schedule
+-- analysis predicts the spring child is ABSENT from the F=620
+-- list that Sonic's TouchResponse walks at F=621, yet the trace
+-- records ROM firing the spring at F=621. This event localises which
+-- slot's Touch_Loop overlap actually wrote collision_property to the
+-- spring child during F=619-625.
+--
+-- ROM offsets / RAM layout (verified):
+--   Touch_Process            = 0x10440 (sonic3k.asm:20655-20657;
+--       lea (Collision_response_list).w,a4 ; move.w (a4)+,d6 ; beq.s)
+--       Hit on every Sonic / Tails TouchResponse entry that walks the
+--       list. (a0) at hit time is the player base ($FFFFB000 Sonic,
+--       $FFFFB04A Tails); we record both so consumers can identify
+--       which slot's TouchResponse populated `collision_property`.
+--   Collision_response_list  = $FFFFE380 (sonic3k.constants.asm:330,
+--       walked from RAM_start: Chunk_table($8000)+layout($1000)+
+--       Block_table($1800)+HScroll($200)+Nem($200)+Sprite_in($400)+
+--       Object_RAM($1FCC)+pad($14)+Conveyor($E)+pad($12)+Kos($1000)+
+--       HScroll_buf($380) = $E380). Layout: word count, then
+--       (count/2) word OST RAM-low addresses.
+--   Spring child routines    = loc_890AA / loc_890C8 / loc_890D0
+--       (sonic3k.asm:185953/185965/185971). Identifier stored in
+--       OST byte 0..3 (object_code). loc_890AA is the fire entry that
+--       calls Add_SpriteToCollisionResponseList every frame via
+--       Child_DrawTouch_Sprite; loc_890C8 is the cooldown frame
+--       (1 sub.w, no list re-add); loc_890D0 returns to loc_890AA.
+--
+-- Per-hit captured (BEFORE TouchResponse walks the list):
+--   hit_player    "sonic" or "tails" or "other"
+--   list_count    word at $E380
+--   list[]        per entry: slot, object_code, collision_flags,
+--                 x_pos, y_pos, collision_property
+--   spring_children[]  per OST slot whose object_code matches one of
+--                      loc_890AA/loc_890C8/loc_890D0:
+--                      slot, object_code, x_pos, y_pos,
+--                      collision_property (BEFORE).
+--
+-- Per-frame end-of-frame summary captured after the player handlers
+-- (collision_property AFTER any Touch_Loop writes):
+--   slot, object_code, collision_property_after.
+-- This is emitted as a separate `collision_property_after_per_frame`
+-- event so the BEFORE/AFTER pair can be compared without depending on
+-- hook ordering.
+--
+-- Default frame window: F=618-624 (CNZ profile only, gated on zone=3
+-- to avoid recording for AIZ traces). Override via
+-- OGGF_S3K_CRL_RANGE ("<start>-<end>" or semicolon-separated).
+-- Diagnostic-only: NEVER hydrate engine state from these events.
+local V615_CRL = {
+    TOUCH_PROCESS_PC = 0x10440,
+    ADDR_COLLISION_RESPONSE_LIST = 0xE380,  -- $FFFFE380
+    SPRING_CHILD_OBJECT_CODES = {
+        [0x000890AA] = "loc_890AA_fire",
+        [0x000890C8] = "loc_890C8_cooldown",
+        [0x000890D0] = "loc_890D0_reset",
+    },
+    OFF_COLLISION_FLAGS = 0x28,
+    OFF_COLLISION_PROPERTY = 0x29,
+    -- Default capture range: F=618-624 (covers F=619, F=620, F=621
+    -- and a buffer frame either side).
+    CRL_FRAME_START = 618,
+    CRL_FRAME_END = 624,
+    CRL_RANGES = {
+        {618, 624},
+    },
+    -- Per-frame accumulators populated by the onmemoryexecute hook;
+    -- flushed at end of frame.
+    walks = {},
+    hooks_registered = false,
+    -- Map of slot index -> object_code so the AFTER snapshot only
+    -- emits for slots that were spring children at hook time. Keyed
+    -- by integer slot index. Cleared after AFTER emission.
+    slots_to_track_after = {},
+}
+
+local function v615_apply_range(env_name)
+    local range = os.getenv(env_name)
+    if not range or range == "" then return end
+    local pairs_list = {}
+    for piece in string.gmatch(range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            pairs_list[#pairs_list + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #pairs_list == 0 then return end
+    V615_CRL.CRL_RANGES = pairs_list
+    local lo, hi = pairs_list[1][1], pairs_list[1][2]
+    for i = 2, #pairs_list do
+        if pairs_list[i][1] < lo then lo = pairs_list[i][1] end
+        if pairs_list[i][2] > hi then hi = pairs_list[i][2] end
+    end
+    V615_CRL.CRL_FRAME_START = lo
+    V615_CRL.CRL_FRAME_END = hi
+end
+v615_apply_range("OGGF_S3K_CRL_RANGE")
+
+function V615_CRL.in_window()
+    -- CNZ profile only (zone 3); avoid noise on AIZ/etc. traces.
+    if mainmemory.read_u8(ADDR_ZONE) ~= 0x03 then return false end
+    if V615_CRL.CRL_RANGES and #V615_CRL.CRL_RANGES > 0 then
+        for _, pair in ipairs(V615_CRL.CRL_RANGES) do
+            if trace_frame >= pair[1] and trace_frame <= pair[2] then
+                return true
+            end
+        end
+        return false
+    end
+    return trace_frame >= V615_CRL.CRL_FRAME_START
+        and trace_frame <= V615_CRL.CRL_FRAME_END
+end
+
+function V615_CRL.snapshot_collision_response_list()
+    -- Returns a list of {slot, object_code, collision_flags, x_pos,
+    -- y_pos, collision_property} for each entry in the current
+    -- Collision_response_list. The list stores word-sized OST RAM-low
+    -- addresses starting at $E382, with the count word at $E380.
+    local count_word = mainmemory.read_u16_be(V615_CRL.ADDR_COLLISION_RESPONSE_LIST)
+    -- Defensive: count is byte-count of payload (not entry count). Each
+    -- entry is 2 bytes (a word RAM address). Cap at $7E per
+    -- Add_SpriteToCollisionResponseList's overflow guard
+    -- (sonic3k.asm:21202-21203).
+    if count_word > 0x7E then count_word = 0x7E end
+    local entries = {}
+    for i = 0, (count_word // 2) - 1 do
+        local entry_addr = V615_CRL.ADDR_COLLISION_RESPONSE_LIST + 2 + (i * 2)
+        local ost_lo = mainmemory.read_u16_be(entry_addr)
+        -- Defensive: entry must point inside Object_RAM ($B000-$CFCC).
+        if ost_lo >= OBJ_TABLE_START and ost_lo < OBJ_TABLE_START + (OBJ_TOTAL_SLOTS * OBJ_SLOT_SIZE) then
+            local slot = (ost_lo - OBJ_TABLE_START) // OBJ_SLOT_SIZE
+            local object_code = mainmemory.read_u32_be(ost_lo)
+            local cflags = mainmemory.read_u8(ost_lo + V615_CRL.OFF_COLLISION_FLAGS)
+            local cprop = mainmemory.read_u8(ost_lo + V615_CRL.OFF_COLLISION_PROPERTY)
+            local x_pos = mainmemory.read_u16_be(ost_lo + OFF_X_POS)
+            local y_pos = mainmemory.read_u16_be(ost_lo + OFF_Y_POS)
+            entries[#entries + 1] = {
+                slot = slot,
+                ost_lo = ost_lo,
+                object_code = object_code,
+                collision_flags = cflags,
+                collision_property = cprop,
+                x_pos = x_pos,
+                y_pos = y_pos,
+            }
+        else
+            entries[#entries + 1] = {
+                slot = -1,
+                ost_lo = ost_lo,
+                object_code = 0,
+                collision_flags = 0,
+                collision_property = 0,
+                x_pos = 0,
+                y_pos = 0,
+            }
+        end
+    end
+    return count_word, entries
+end
+
+function V615_CRL.snapshot_spring_children()
+    -- Walk the OST and return a list of every slot whose object_code
+    -- matches one of the Clamer spring-child routines. Used to log
+    -- whether the spring child is present at all (regardless of list
+    -- membership) and what its collision_property byte is at the
+    -- moment Sonic's TouchResponse runs.
+    local children = {}
+    for slot = 0, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local code = mainmemory.read_u32_be(addr)
+        if V615_CRL.SPRING_CHILD_OBJECT_CODES[code] ~= nil then
+            children[#children + 1] = {
+                slot = slot,
+                ost_lo = addr,
+                object_code = code,
+                routine_label = V615_CRL.SPRING_CHILD_OBJECT_CODES[code],
+                x_pos = mainmemory.read_u16_be(addr + OFF_X_POS),
+                y_pos = mainmemory.read_u16_be(addr + OFF_Y_POS),
+                collision_property = mainmemory.read_u8(addr + V615_CRL.OFF_COLLISION_PROPERTY),
+                collision_flags = mainmemory.read_u8(addr + V615_CRL.OFF_COLLISION_FLAGS),
+                cooldown_byte = mainmemory.read_u8(addr + 0x2E),
+            }
+        end
+    end
+    return children
+end
+
+function V615_CRL.record_touch_process_entry()
+    if not aux_file then return end
+    if not started then return end
+    if not V615_CRL.in_window() then return end
+    local a0 = (emu.getregister("M68K A0") or 0) % 0x10000
+    local hit_player = "other"
+    if a0 == PLAYER_BASE then
+        hit_player = "sonic"
+    elseif a0 == SIDEKICK_BASE then
+        hit_player = "tails"
+    end
+    local count, entries = V615_CRL.snapshot_collision_response_list()
+    local children = V615_CRL.snapshot_spring_children()
+    -- Remember spring-child slots for the AFTER snapshot at end of
+    -- frame. Only Sonic's walk is what matters for the F=621 question
+    -- but we capture both calls' BEFORE state for cross-checking.
+    for _, child in ipairs(children) do
+        V615_CRL.slots_to_track_after[child.slot] = child.object_code
+    end
+    -- For each list entry that is a spring-child slot, also include
+    -- its routine label so the analyst can see at a glance whether
+    -- the list contained the spring at that moment.
+    for _, entry in ipairs(entries) do
+        local label = V615_CRL.SPRING_CHILD_OBJECT_CODES[entry.object_code]
+        if label then entry.routine_label = label end
+    end
+    table.insert(V615_CRL.walks, {
+        hit_player = hit_player,
+        a0 = a0,
+        list_count = count,
+        list_entries = entries,
+        spring_children = children,
+    })
+end
+
+local function v615_format_list_entry(entry)
+    local label_part = ""
+    if entry.routine_label then
+        label_part = string.format(',"routine_label":"%s"', entry.routine_label)
+    end
+    return string.format(
+        '{"slot":%d,"ost_lo":"0x%04X","object_code":"0x%08X",'
+            .. '"collision_flags":"0x%02X","collision_property":"0x%02X",'
+            .. '"x_pos":"0x%04X","y_pos":"0x%04X"%s}',
+        entry.slot, entry.ost_lo, entry.object_code,
+        entry.collision_flags, entry.collision_property,
+        entry.x_pos, entry.y_pos, label_part)
+end
+
+local function v615_format_spring_child(child)
+    return string.format(
+        '{"slot":%d,"ost_lo":"0x%04X","object_code":"0x%08X",'
+            .. '"routine_label":"%s","x_pos":"0x%04X","y_pos":"0x%04X",'
+            .. '"collision_property":"0x%02X","collision_flags":"0x%02X",'
+            .. '"cooldown_byte":"0x%02X"}',
+        child.slot, child.ost_lo, child.object_code, child.routine_label,
+        child.x_pos, child.y_pos, child.collision_property,
+        child.collision_flags, child.cooldown_byte)
+end
+
+function V615_CRL.flush_collision_response_list_per_frame()
+    if not aux_file then return end
+    if not started then return end
+    -- Emit hook-captured walks first if any (they capture the BEFORE
+    -- state at Sonic/Tails TouchResponse entry).
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    for _, walk in ipairs(V615_CRL.walks) do
+        local entry_parts = {}
+        for _, e in ipairs(walk.list_entries) do
+            entry_parts[#entry_parts + 1] = v615_format_list_entry(e)
+        end
+        local child_parts = {}
+        for _, c in ipairs(walk.spring_children) do
+            child_parts[#child_parts + 1] = v615_format_spring_child(c)
+        end
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"collision_response_list_per_frame",'
+                .. '"hit_player":"%s","a0":"0x%04X","list_count":%d,'
+                .. '"list_entries":[%s],"spring_children":[%s]}',
+            trace_frame, vfc, walk.hit_player, walk.a0, walk.list_count,
+            table.concat(entry_parts, ","), table.concat(child_parts, ",")))
+    end
+    V615_CRL.walks = {}
+
+    -- End-of-frame polling fallback: snapshot the Collision_response_list
+    -- AFTER all slots have run for this frame, and any spring children's
+    -- current collision_property. Per ROM Process_Sprites slot order
+    -- (sonic3k.asm:35965-35996), the end-of-frame list is what Sonic and
+    -- Tails will walk at frame+1, so consumers reading these events at
+    -- frame F-1 know the state Sonic sees at frame F. The spring child's
+    -- collision_property here is the post-frame value (BEFORE Sonic at
+    -- frame+1 reads it via Check_PlayerCollision at sonic3k.asm:179904).
+    -- Always emit when in_window so consumers get one event per frame
+    -- regardless of whether Touch_Process was hooked successfully.
+    if not V615_CRL.in_window() then
+        V615_CRL.slots_to_track_after = {}
+        return
+    end
+
+    local count, entries = V615_CRL.snapshot_collision_response_list()
+    local children = V615_CRL.snapshot_spring_children()
+    -- Annotate list entries with spring-child labels where applicable.
+    for _, entry in ipairs(entries) do
+        local label = V615_CRL.SPRING_CHILD_OBJECT_CODES[entry.object_code]
+        if label then entry.routine_label = label end
+    end
+    local entry_parts = {}
+    for _, e in ipairs(entries) do
+        entry_parts[#entry_parts + 1] = v615_format_list_entry(e)
+    end
+    local child_parts = {}
+    for _, c in ipairs(children) do
+        child_parts[#child_parts + 1] = v615_format_spring_child(c)
+    end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"collision_response_list_end_of_frame",'
+            .. '"list_count":%d,"list_entries":[%s],"spring_children":[%s]}',
+        trace_frame, vfc, count,
+        table.concat(entry_parts, ","), table.concat(child_parts, ",")))
+    V615_CRL.slots_to_track_after = {}
+end
+
+function V615_CRL.register_hooks()
+    if V615_CRL.hooks_registered then return end
+    V615_CRL.hooks_registered = true
+    -- Use an inline closure (matches CAGE_DIAG / V67_CNZ pattern) so the
+    -- callback captures the V615_CRL upvalue robustly across NLua's
+    -- C#/Lua boundary. event.onmemoryexecute is by default for the M68K
+    -- "System Bus" / 68K bus on Genplus-gx; we explicitly omit the
+    -- domain to inherit the default M68K bus, matching every other
+    -- existing onmemoryexecute hook in this script.
+    event.onmemoryexecute(function() V615_CRL.record_touch_process_entry() end,
+        V615_CRL.TOUCH_PROCESS_PC)
+    print(string.format(
+        "Collision_response_list hook registered: pc=0x%05X frame_window=[%d,%d] (CNZ only)",
+        V615_CRL.TOUCH_PROCESS_PC,
+        V615_CRL.CRL_FRAME_START, V615_CRL.CRL_FRAME_END))
+end
+
 function CAGE_DIAG.register_cage_hooks()
     if CAGE_DIAG.hooks_registered then return end
     CAGE_DIAG.hooks_registered = true
@@ -3414,6 +3870,15 @@ function on_frame_end()
     -- 20188-20214). Diagnostic-only.
     V613_AIZ_WALL.write_terrain_wall_sensor()
 
+    -- v6.15-s3k: Collision_response_list per-frame snapshot. Hooked at
+    -- Touch_Process entry (0x10440) to capture list membership and
+    -- spring-child collision_property bytes during CNZ F=619-625.
+    -- Default window / zone gating is set on V615_CRL; this flush emits
+    -- one collision_response_list_per_frame event per Touch_Process hit
+    -- plus a single collision_property_after_per_frame summary at
+    -- frame-end. Diagnostic-only.
+    V615_CRL.flush_collision_response_list_per_frame()
+
     scan_objects(x, y)
 
     trace_frame = trace_frame + 1
@@ -3438,7 +3903,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.13-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.15-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -3471,6 +3936,12 @@ V67_CNZ.register_cnz_cylinder_hooks()
 -- as cage hooks. Captures geometry inputs to the loc_1DFD6/loc_1E154
 -- conditional path used by Spring_Down/SolidObjectFull2_1P at CNZ F7614.
 V611_SOLID.register_hooks()
+
+-- Register Collision_response_list snapshot hook (v6.15-s3k). Hooks
+-- Touch_Process entry (0x10440) so each frame's Sonic/Tails TouchResponse
+-- snapshot exposes the full list contents and any active spring-child
+-- collision_property bytes during the CNZ F=619-625 window.
+V615_CRL.register_hooks()
 
 while true do
     on_frame_end()

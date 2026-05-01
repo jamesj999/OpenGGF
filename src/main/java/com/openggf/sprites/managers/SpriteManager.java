@@ -791,6 +791,17 @@ public class SpriteManager {
 	 * @param gfx    The graphics manager to use for priority state
 	 */
 	public void drawUnifiedBucketWithPriority(int bucket, GraphicsManager gfx) {
+		drawUnifiedBucketWithPriority(bucket, gfx, null, null);
+	}
+
+	/**
+	 * Draw all sprites in a single unified bucket with hooks immediately before each
+	 * tile-priority group. The hooks are used by render-only overlays that need the
+	 * same bucket/priority placement as playable sprites while staying behind them.
+	 */
+	public void drawUnifiedBucketWithPriority(int bucket, GraphicsManager gfx,
+											 Runnable beforeLowPriority,
+											 Runnable beforeHighPriority) {
 		boolean wrapEnabled = enableVerticalWrapIfNeeded();
 		try {
 			bucketSprites();
@@ -803,6 +814,11 @@ public class SpriteManager {
 				gfx.flushPatternBatch();
 				gfx.setCurrentSpriteHighPriority(false);
 				gfx.beginPatternBatch();
+				if (beforeLowPriority != null) {
+					beforeLowPriority.run();
+					gfx.setCurrentSpriteHighPriority(false);
+					gfx.beginPatternBatch();
+				}
 				for (Sprite sprite : lowPriorityBuckets[idx]) {
 					sprite.draw();
 				}
@@ -812,6 +828,11 @@ public class SpriteManager {
 				gfx.flushPatternBatch();
 				gfx.setCurrentSpriteHighPriority(true);
 				gfx.beginPatternBatch();
+				if (beforeHighPriority != null) {
+					beforeHighPriority.run();
+					gfx.setCurrentSpriteHighPriority(true);
+					gfx.beginPatternBatch();
+				}
 				for (Sprite sprite : highPriorityBuckets[idx]) {
 					sprite.draw();
 				}

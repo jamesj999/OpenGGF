@@ -37,6 +37,7 @@ Entries should include:
 19. [AIZ2 Trace F7381 — Engine `Ctrl_1_logical` Not Latched While ROM `Ctrl_1_locked=1` (OPEN — next AIZ blocker)](#aiz2-trace-f7381--engine-ctrl_1_logical-not-latched-while-rom-ctrl_1_locked1-open--next-aiz-blocker)
 20. [CNZ1 Trace F7919 — Tails Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising Platform (OPEN)](#cnz1-trace-f7919--tails-triplicate--0x0800-velocity-write-while-sonic-lands-from-rising-platform-open)
 21. [CNZ F=621 Clamer re-fire — ROM dispatch path narrowing (diagnosis only, round 2)](#cnz-f621-clamer-re-fire--rom-dispatch-path-narrowing-diagnosis-only-round-2)
+22. [CNZ F=621 Clamer re-fire — recorder gap closed; ROM mechanism localised (diagnosis only, round 3)](#cnz-f621-clamer-re-fire--recorder-gap-closed-rom-mechanism-localised-diagnosis-only-round-3)
 
 ---
 
@@ -4861,3 +4862,187 @@ that touches only `ClamerObjectInstance`.
   GREEN.
 - Cross-game spring/touch-response parity gated via
   `PhysicsFeatureSet`, never `gameId ==`.
+
+## CNZ F=621 Clamer re-fire — recorder gap closed; ROM mechanism localised (diagnosis only, round 3)
+
+**Status:** documented; no engine code changed this round. Branch
+`bugfix/ai-cnz-f621-recorder-fix`. Recorder extended (v6.15-s3k) and
+CNZ trace regenerated. Engine fix attempt landed and reverted because
+the engine's update/touch ordering shifts the deferred fire one frame
+relative to ROM. Continues from CNZ F=621 dispatch narrowing round 2.
+
+**Recorder extension (v6.15-s3k).** Added two aux events to
+`tools/bizhawk/s3k_trace_recorder.lua`:
+
+- `collision_response_list_per_frame` -- hooked at `Touch_Process`
+  entry (`0x10440`, sonic3k.asm:20655-20657, ROM bytes
+  `49 F8 E3 80 3C 1C 67 14 32 5C` verified at offset 0x010440).
+  Snapshots the full Collision_response_list ($FFFFE380,
+  sonic3k.constants.asm:330) contents (count word + per-entry
+  slot/object_code/collision_flags/x/y/collision_property) plus
+  any OST slot whose object_code matches `loc_890AA` /
+  `loc_890C8` / `loc_890D0` (sonic3k.asm:185953/185965/185971).
+  In practice the BizHawk Genplus-gx `event.onmemoryexecute` hook at
+  this ROM PC arms but only fires sporadically during a CNZ trace
+  (one hit observed at trace_frame=8188 in a verification run with a
+  diagnostic first-hit gate); the value is in being able to capture
+  the BEFORE state when the hook does land. The end-of-frame poll
+  below is the load-bearing diagnostic.
+- `collision_response_list_end_of_frame` -- end-of-frame polling
+  fallback. Per ROM Process_Sprites slot order (sonic3k.asm:35965-
+  35996; slot 3 `Reserved_object_3` clears the list before slots 4+
+  re-populate it), the list at end-of-frame F is what Sonic and Tails
+  walk at frame F+1, since slot 0 = Sonic and slot 1 = Tails read the
+  list before slot 3 clears it. Captures the same per-entry state
+  plus each spring child's collision_property and the cooldown counter
+  byte at `$2E`.
+
+Default frame window F=618-624, zone-gated to CNZ (zone=3) only.
+Override via `OGGF_S3K_CRL_RANGE`. Diagnostic-only; the comparator
+must NEVER hydrate engine state from these events. Trace regenerated
+2026-04-30; physics.csv bit-identical with the prior fixture, aux
+schema extras list updated to include the new events.
+
+**ROM mechanism localised from the new events.** Per-frame data
+captured at end-of-frame (CNZ F=618-624):
+
+| Frame | Spring slot 5 routine | List contains spring? | spring cprop ($29) | $2E cooldown |
+|-------|-----------------------|-----------------------|---------------------|--------------|
+| 618   | `loc_890AA`           | YES (cflags $D7)      | 0x00                | 0x00         |
+| 619   | `loc_890C8`           | YES (cflags $D7)      | 0x00                | 0x00         |
+| 620   | `loc_890AA`           | NO                    | **0x01**            | 0xFF         |
+| 621   | `loc_890C8`           | YES                   | 0x00                | 0xFF         |
+| 622   | `loc_890AA`           | NO                    | 0x00                | 0xFF         |
+| 623+  | `loc_890AA`           | YES (cflags $D7)      | 0x00                | 0xFF         |
+
+The F=620 row is the smoking gun. The spring child runs `loc_890C8`
+during F=620, drains `$2E` (subq.w underflow to 0xFFFF, bmi taken,
+loc_890D0 rewrites `(a0)=loc_890AA`), and **does NOT call
+`Add_SpriteToCollisionResponseList`** (loc_890C8/D0 paths skip
+`Child_DrawTouch_Sprite`). Yet at end of F=620, the spring child's
+`collision_property` byte is `0x01`. The only writer of that byte is
+`Touch_Special` (sonic3k.asm:21162-21194) inside `Touch_Loop`, which
+means slot 5 was on Sonic's F=620 walk -- the end-of-F=619 list. The
+list at end-of-F=619 contains slot 5 with `collision_flags=$D7`
+because at F=619 the spring fired (loc_890AA falls through to
+`loc_890C4: jmp Child_DrawTouch_Sprite` at sonic3k.asm:185961-185962)
+and `Child_DrawTouch_Sprite` (sonic3k.asm:178048-178053) calls
+`Add_SpriteToCollisionResponseList` **after the fire**.
+
+That `cprop=0x01` set during F=620 by `Touch_Special` is exactly the
+nonzero byte that `loc_890AA` consumes at F=621
+(`bsr Check_PlayerCollision; beq loc_890C4`,
+sonic3k.asm:185953-185955). loc_890AA at F=621 reads cprop=0x01 (>0),
+clears it via Check_PlayerCollision (sonic3k.asm:179904-179916), and
+falls into `move.l #loc_890C8, (a0); bsr sub_890D8` to apply the
+spring launch. **No geometric overlap is required at F=621** -- F=620's
+overlap latched the cprop, and the cooldown frame preserved it across
+the routine transition.
+
+**Why the prior round's "no overlap at F=621" check was a false trail.**
+The earlier paper analysis correctly observed that Sonic's
+post-physics rect at F=621 (y_pos=0x0674, y_radius=14, rect
+[0x0669, 0x067F]) does NOT overlap the spring's $17 box at
+[0x0680, 0x0690]. ROM does not need an F=621 overlap because cprop is
+already nonzero from F=620. F=620's overlap is by 1 px: Sonic at
+y=0x0676 -> rect [0x066B, 0x0681]; spring rect [0x0680, 0x0690];
+overlap [0x0680, 0x0681].
+
+**Engine fix landing constraints.** The fix has to:
+
+1. Always expose the spring's `collision_flags=$D7` ($40 | $17 / 8x8
+   box) -- never the engine-only `$12` widening.
+2. Treat the box as live across the cooldown frame (F=620 in the
+   reference) so `Touch_Special`-equivalent overlap can latch a
+   cprop flag.
+3. Consume the latch on the next fire-ready update (F=621) and fire
+   the spring with the recorded ROM physics.
+
+**Why no engine fix landed this round.** The engine processes object
+updates BEFORE player touch responses each frame
+(`ObjectManager.update` -> `runExecLoop` then `touchResponses.update`),
+whereas ROM's `Process_Sprites` runs Sonic (slot 0, including
+`TouchResponse`) BEFORE the spring child (slot 5). A naive deferred-
+fire latch (set during touch, fired on next update) shifts the engine
+fire frame one frame later than ROM (engine fires at F=620 and F=622
+when ROM fires at F=619 and F=621), because the engine's touch at F
+is consumed by the engine's update at F+1, while ROM's touch at F is
+consumed by the spring update later in the same frame F. A targeted
+attempt with `SPRING_COOLDOWN_FRAMES=2` and the deferred latch was
+implemented and reverted: it produced a new first error at F=621
+(`x_speed mismatch expected=0x0800 actual=0x07E8`, 3925 errors), one
+frame off from the ROM fire instant.
+
+To land the fix safely, one of:
+
+1. **Refactor the engine so spring child update runs after Sonic's
+   TouchResponse**, matching ROM's slot ordering. Invasive because it
+   requires either a per-object "deferred update" pass that runs after
+   touch, or moving the Clamer spring child into a slot that the
+   engine processes after the player. The shared engine flow currently
+   processes all objects in one pass before touch.
+2. **Simulate `Touch_Special` deterministically inside the spring
+   child update** (after fire/cooldown logic), reading the player's
+   post-physics rect and writing the latch synchronously. This is the
+   closest to ROM's slot 0 -> slot 5 ordering without engine-wide
+   reordering, but it duplicates the geometric-overlap computation in
+   the spring-child code path.
+3. **Per-Clamer post-touch hook** that runs AFTER `touchResponses.update`
+   and consumes any latched cprop. Less invasive than (1); preserves
+   the engine's existing object update pass.
+
+Each of those is more invasive than a single-flag tweak in
+`ClamerObjectInstance`, so this round commits the recorder + trace
+regeneration + ROM-mechanism localisation only. The relatch widening
+(`SPRING_RELATCH_COLLISION_FLAGS = $40 | $12`, 16x32 box) remains in
+place: it is engine-only and not ROM-cited, but it papers over the
+ordering divergence so the trace replay test stays at the F=7919
+baseline (2757 errors). The widening is documented as the known
+divergence to remove together with one of the three fixes above.
+
+**ROM cite (additional, all `sonic3k.asm`):**
+
+- `Touch_Process` entry hook at ROM offset `0x10440` (lea/move.w/beq.s
+  sequence at sonic3k.asm:20655-20657, bytes `49 F8 E3 80 3C 1C 67 14
+  32 5C` verified via `RomOffsetFinder search-rom 49F8E380` -- returns
+  three matches, only the 0x010440 site falls through into
+  `Touch_Loop`).
+- `Collision_response_list` RAM address `$FFFFE380`, $80 bytes
+  (sonic3k.constants.asm:330; walked from RAM_start: Chunk_table $8000
+  + Level_layout $1000 + Block_table $1800 + HScroll_table $200 +
+  Nem_code_table $200 + Sprite_table_input $400 + Object_RAM $1FCC +
+  pad $14 + Conveyor_belt_load_array $E + pad $12 + Kos_decomp_buffer
+  $1000 + H_scroll_buffer $380 = $E380).
+- `collision_property` field offset `$29` (sonic3k.constants.asm:36);
+  the prior round's `$34` was a transcription error.
+- `Touch_Special` writes `collision_property(a1) += 1` for size
+  indices `{$06, $07, $0A, $0C, $15, $16, $17, $18, $21}`
+  (sonic3k.asm:21165-21194). Spring child uses index $17, so it IS
+  in the write set, and `Touch_Special` writes its cprop on every
+  overlap regardless of routine state.
+- `Add_SpriteToCollisionResponseList` (sonic3k.asm:21200-21209):
+  appends `(a0)` low word to the list.
+- `Child_DrawTouch_Sprite` (sonic3k.asm:178048-178053): calls
+  `Add_SpriteToCollisionResponseList` then `Draw_Sprite`. Reached
+  from `loc_890C4` after `loc_890AA`'s fire-or-skip branch
+  (sonic3k.asm:185961).
+- `loc_890C8` cooldown (sonic3k.asm:185965-185968):
+  `subq.w #1, $2E(a0); bmi.s loc_890D0; rts`. Does **not** modify
+  `collision_flags` and does **not** call `Child_DrawTouch_Sprite`.
+- `Check_PlayerCollision` (sonic3k.asm:179904-179916): reads
+  `collision_property(a0)` byte, returns Z when zero, otherwise
+  clears it and chooses the launch direction.
+
+**Verification rules (unchanged):**
+
+- Recorder + trace regen are diagnostic-only. `physics.csv.gz`
+  identical between old and new fixtures (verified via `cmp` of the
+  decompressed CSVs).
+- `TestS3kCnzTraceReplay#replayMatchesTrace` first error stays at
+  F7919 (2757 errors); the engine's spring widening is unchanged
+  this round.
+- `TestS3kAizTraceReplay` first-error stable at F7552 (977 errors).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- Required headless tests (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`) GREEN.

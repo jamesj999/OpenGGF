@@ -12,6 +12,7 @@ import com.openggf.game.MasterTitleScreen;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.graphics.PixelFontTextRenderer;
+import com.openggf.sprites.ghost.GhostTraceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.testmode.TraceHudOverlay;
 import com.openggf.trace.ToleranceConfig;
@@ -63,6 +64,7 @@ public final class TraceSessionLauncher {
     private final TraceReplaySessionBootstrap.ConfigSnapshot configSnapshot;
     private LiveTraceComparator comparator;
     private TraceHudOverlay overlay;
+    private final GhostTraceRenderer ghostRenderer = new GhostTraceRenderer();
     private TraceReplayFixture fixture;
 
     private boolean completionArmed;
@@ -264,6 +266,40 @@ public final class TraceSessionLauncher {
     public void render(PixelFontTextRenderer textRenderer) {
         if (overlay != null) {
             overlay.render(textRenderer);
+        }
+    }
+
+    public void renderGhosts() {
+        renderGhostsForLayer(Integer.MIN_VALUE, false, false);
+    }
+
+    public void renderGhostsForLayer(int bucket, boolean highPriority) {
+        renderGhostsForLayer(bucket, highPriority, true);
+    }
+
+    private void renderGhostsForLayer(int bucket, boolean highPriority, boolean filterLayer) {
+        if (comparator == null) {
+            return;
+        }
+        GameLoop loop = Engine.currentGameLoop();
+        if (loop == null) {
+            return;
+        }
+        var sprites = GameServices.spritesOrNull();
+        if (filterLayer) {
+            ghostRenderer.renderForLayer(
+                    comparator.metadata(),
+                    comparator.currentVisualFrame(),
+                    loop.getMainPlayableSprite(),
+                    sprites != null ? sprites.getRegisteredSidekicks() : java.util.List.of(),
+                    bucket,
+                    highPriority);
+        } else {
+            ghostRenderer.render(
+                    comparator.metadata(),
+                    comparator.currentVisualFrame(),
+                    loop.getMainPlayableSprite(),
+                    sprites != null ? sprites.getRegisteredSidekicks() : java.util.List.of());
         }
     }
 

@@ -18,6 +18,7 @@ import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
+import com.openggf.trace.TraceMetadata;
 import com.openggf.trace.TraceReplayBootstrap;
 
 import java.util.List;
@@ -48,6 +49,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private boolean lastStartPressed;
     private boolean complete;
     private boolean gameplayStartSeen;
+    private TraceFrame currentVisualFrame;
 
     public LiveTraceComparator(TraceData trace,
                                ToleranceConfig tolerances,
@@ -92,6 +94,9 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         lastInputMask = frame.p1InputMask();
         lastStartPressed = frame.p1StartPressed();
         if (wasSkipped) {
+            if (cursor < trace.frameCount()) {
+                currentVisualFrame = trace.getFrame(cursor);
+            }
             laggedFrames++;
             cursor++;
             checkComplete();
@@ -102,6 +107,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             return;
         }
         TraceFrame expected = trace.getFrame(cursor);
+        currentVisualFrame = expected;
         if (shouldSuppressComparison(expected)) {
             cursor++;
             checkComplete();
@@ -266,4 +272,6 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     public int recentActionMask() { return lastActionMask; }
     public int recentInputMask() { return lastInputMask; }
     public boolean recentStartPressed() { return lastStartPressed; }
+    public TraceMetadata metadata() { return trace.metadata(); }
+    public TraceFrame currentVisualFrame() { return currentVisualFrame; }
 }
