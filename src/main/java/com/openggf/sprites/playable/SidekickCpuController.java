@@ -1627,9 +1627,12 @@ public class SidekickCpuController {
             flightTimer++;
             if (flightTimer >= AUTO_LAND_FRAMES) {
                 // ROM sonic3k.asm:26540-26547 — reset and bounce back to CATCH_UP.
+                // S2 uses the same word writes at s2.asm:38769-38775. These
+                // write x_pos/y_pos only, preserving x_sub/y_sub for the later
+                // MoveSprite position add.
                 flightTimer = 0;
-                sidekick.setCentreX((short) 0);
-                sidekick.setCentreY((short) 0);
+                sidekick.setCentreXPreserveSubpixel((short) 0);
+                sidekick.setCentreYPreserveSubpixel((short) 0);
                 sidekick.setObjectControlled(true);
                 sidekick.setAir(true);
                 sidekick.setDoubleJumpFlag(1);
