@@ -519,6 +519,17 @@ ROM-citation requirements and per-game parity rules.
   `AbstractTraceReplayTest.java`) have UTF-8 BOM + CRLF endings. The Claude Code Edit tool
   has been observed to silently fail on these — it returns "successfully" but doesn't write.
   Fall back to Python `open(path, 'rb').read().replace(...)`-style edits if you suspect this.
+- **Misreading aux trace `cpu_state` event field semantics.** S3K's `cpu_state` event
+  reports `cpu_routine` as the raw `Tails_CPU_routine` byte — `0x06` is the NORMAL
+  ground-following AI (`loc_13D4A`, sonic3k.asm:26656), NOT a "FLY" routine. Similarly,
+  `flight_timer` is `sub_13EFC`'s `Status_OnObj` watchdog used by NORMAL routine
+  (sonic3k.asm:26816-26847), not an active-flight indicator; it ticks any time Tails is
+  riding the same `Tails_CPU_interact` slot, regardless of whether Tails is flying. And
+  `target_x` / `target_y` are leader-history positions (the CPU's follow target), not
+  Tails's own position — for Tails's actual coordinates, use the
+  `object_state` event for slot 1 in the same frame. Always cross-reference
+  `Tails_CPU_Control_Index` (sonic3k.asm:26368-26386) when interpreting `cpu_routine`
+  values, and do not infer "Tails is flying" from a non-zero `flight_timer` alone.
 
 ## Related Files
 

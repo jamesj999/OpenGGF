@@ -6,6 +6,59 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ trace F7919 root cause re-localised: `ClamerObjectInstance`
+  is missing the ROM `Clamer_Index` parent state machine (doc-only):**
+  Re-investigated the F7919 first-error after the v6.12-s3k CNZ
+  trace regen (commit `b40b19db2`) made `cpu_state` and
+  `tails_cpu_normal_step` aux events available for the F7872–F7918
+  window. The previous round's diagnosis ("Tails CPU/flight state
+  drifted away from ROM") was based on a misread of the trace
+  `cpu_state` event:
+  - `cpu_routine=6` is `loc_13D4A` (NORMAL ground-following AI),
+    not "FLY". `Tails_CPU_Control_Index` (sonic3k.asm:26368-26386)
+    maps `0x06 -> loc_13D4A` and the engine's
+    `SidekickCpuController.mapRomCpuRoutine` (line 2419) already
+    matches.
+  - `flight_timer` is `sub_13EFC`'s `Status_OnObj`-watchdog
+    (sonic3k.asm:26816-26847), only triggering a respawn at
+    `5*60 = 0x12C` ticks.
+  - Tails's actual `(x_pos,y_pos)` from ROM `object_state`
+    events (slot 1) tracks the engine perfectly through F7918
+    (e.g. F7915 `(0x0C8B,0x0441)` → F7918 `(0x0C8D,0x044C)`).
+    The +6 px y delta at F7919 is the `addq.w #6,y_pos` baked
+    into `sub_890D8` itself (the launch impulse).
+
+  The actual upstream divergence is the **state of the Clamer
+  parent object (S3K Obj $A3, slot 6 in ROM at
+  `(0x0C98,0x0470)`)**. ROM trace shows parent slot 6 transitions
+  `routine 0x02 → 0x06` at F7872 via `loc_88FEC`'s auto-close
+  gate (`sonic3k.asm:185878-185902`):
+  - `Find_SonicTails` returns Tails as the closer player (dx≈0x55,
+    abs(dy)≈0x1A, both within the `cmpi.w #$60,d2; bhs loc_8900C`
+    threshold).
+  - `tst.w d0; beq.s loc_89036` lands on the close branch (after
+    the `render_flags` directional flip), writes routine `0x06`,
+    and the parent stays in `loc_89064` (close animation that
+    does NOT spawn an active spring child) through F7920+.
+
+  The engine's `ClamerObjectInstance.update()` only decrements
+  the local `closeTimer` and steps the close anim — it does not
+  implement the `Clamer_Index` state machine, the `loc_88FEC`
+  proximity/render_flags auto-close gate, or `Find_SonicTails`.
+  The engine's Clamer therefore stays armed, and when Tails
+  passes through the spring child's collision box at F7918 the
+  engine fires `applySpringLaunch` (line 132 → 166-184) and
+  writes the triple `-0x0800` impulse.
+
+  Updated `docs/S3K_KNOWN_BUGS.md` F7919 entry with the corrected
+  ROM cite (`Obj_Clamer` / `Clamer_Index` / `loc_88FEC` /
+  `Find_SonicTails`), the slot-6-routine evidence from the
+  regenerated v6.12-s3k aux trace, and the porting plan. S3K-only
+  (S1/S2 have no Clamer, no `PhysicsFeatureSet` gate needed).
+
+  Diagnostic-only; no engine code change. Trace replay parity
+  unchanged: S2 EHZ / S1 GHZ / S1 MZ1 PASS, S3K AIZ stable at
+  F7381, S3K CNZ stable at F7919 (2757 errors, no regression).
 - **BizHawk recorder v6.12-s3k — `control_lock_state_per_frame`
   diagnostic + AIZ fixture regen + `Ctrl_1_locked` hypothesis
   refuted:** Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit
