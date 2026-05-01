@@ -6,6 +6,41 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ F=621 Clamer re-fire — ROM dispatch path narrowed; F=621
+  fire mechanism requires recorder extension to localise
+  (doc-only, round 2).** Continues from the prior F619 dispatch
+  surfacing round (CNZ F7919 entry, `docs/S3K_KNOWN_BUGS.md`).
+  ROM-side trace established that `Check_PlayerCollision`
+  (sonic3k.asm:179904-179916) consumes `collision_property(a0)`
+  written by `Touch_Special` (sonic3k.asm:21162-21194) inside
+  `Touch_Loop` — it is **not** a geometric overlap test. The
+  spring child re-adds itself to `Collision_response_list`
+  only when running `loc_890AA` (via `jmp Child_DrawTouch_Sprite`
+  at sonic3k.asm:185962); the cooldown `loc_890C8`
+  (sonic3k.asm:185965-185968) does not call
+  `Add_SpriteToCollisionResponseList`. Under that schedule the
+  spring child is absent from the F=620-populated list that
+  Sonic's F=621 `TouchResponse` walks — yet the trace records
+  ROM firing the spring at F=621. Two candidate hypotheses
+  (`$2E` cooldown counter init non-zero, or
+  `collision_property` being written by an alternate
+  dispatcher such as `HyperTouch_Special` at
+  sonic3k.asm:21401-21402) are documented, but neither matches
+  the observed F=619/F=621 cadence without additional recorder
+  data. Engine probes inside `ObjectManager.processMultiRegionTouch`
+  and `ClamerObjectInstance.update` (gated on Clamer type and
+  early frame range) confirmed no engine Clamer instance is
+  active in the F=619-625 window of the engine run; the
+  existing `SPRING_RELATCH_COLLISION_FLAGS = $40|$12` widening
+  is papering over the F=621 dispatch divergence at a different
+  player position than ROM. No code change landed: the
+  recorder needs extension to capture per-frame
+  `Collision_response_list` membership and each object's
+  `collision_property` byte at the moment Sonic's
+  `TouchResponse` runs. Probes were reverted before commit.
+  Trace replay baselines preserved: CNZ stable at F7919/2757,
+  AIZ stable at F7552/977, S1 GHZ PASS, S1 MZ1 PASS, S2 EHZ
+  PASS. Comparison-only invariant preserved.
 - **S3K trace recorder v6.13-s3k — AIZ F7552 wall-clamp diagnostics
   (recorder-only).** Adds `terrain_wall_sensor_per_frame` aux event
   for AIZ profile and extends the existing `velocity_write_per_frame`
