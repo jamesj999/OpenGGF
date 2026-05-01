@@ -481,6 +481,25 @@ public record PhysicsFeatureSet(
          */
         boolean solidObjectTopBranchAlwaysLiftsOnUpwardVelocity,
         /**
+         * Whether CPU sidekick NORMAL skips the follow/despawn subroutine while
+         * the sidekick is in the hurt/object routine.
+         *
+         * <p>S3K: {@code true}. The Tails object dispatcher sends routine 4 to
+         * the hurt/object path, not {@code Tails_Control}
+         * (docs/skdisasm/sonic3k.asm:26091-26096,26159-26190). The off-screen
+         * timeout increment is inside {@code sub_13EFC}, reached from
+         * {@code Tails_Control} (docs/skdisasm/sonic3k.asm:26816-26833), so
+         * hurt-routine frames must not advance the normal CPU despawn timer.
+         * MGZ trace F1910 exercises this: ROM Tails is still in the local
+         * terrain context while the engine had already timed out to the
+         * despawn marker.
+         *
+         * <p>S1/S2: {@code false}. S1 has no CPU Tails sidekick. S2 keeps its
+         * current baseline until its separate {@code Tails_respawn_counter}
+         * semantics are revalidated against the S2 dispatcher.
+         */
+        boolean sidekickNormalCpuSkipsHurtRoutine,
+        /**
          * Whether {@code Ctrl_1_locked} latches the previous frame's logical
          * pad state ({@code Ctrl_1_logical}) by short-circuiting the
          * raw-pad-to-logical copy in {@code Sonic_Control}.
@@ -600,6 +619,7 @@ public record PhysicsFeatureSet(
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */,
             false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */,
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */,
+            false /* sidekickNormalCpuSkipsHurtRoutine: S1 has no Tails CPU */,
             false /* controlLockLatchesLogicalInput: S1 uses separate Ctrl_Lock_byte; preserve baseline */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
@@ -625,6 +645,7 @@ public record PhysicsFeatureSet(
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */,
             false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */,
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */,
+            false /* sidekickNormalCpuSkipsHurtRoutine: keep S2's separate Tails_respawn_counter baseline until dispatcher parity is revalidated */,
             false /* controlLockLatchesLogicalInput: ROM Obj01_Control (s2.asm:35933-35935) has the short-circuit, but engine S2 setControlLocked sites (FlipperObjectInstance, CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance, SignpostObjectInstance) and EHZ trace baseline expect post-lock zero state for animation gating; universal latch regressed S2 EHZ to F5121 (commit f3347ea89, reverted in 9793e4617); flip after S2 traces are re-validated */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
@@ -654,6 +675,7 @@ public record PhysicsFeatureSet(
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 -- see PhysicsFeatureSet javadoc for AIZ F4768 cite */,
             true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */,
             true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */,
+            true /* sidekickNormalCpuSkipsHurtRoutine: S3K Tails_Index routine 4 bypasses Tails_Control, so sub_13EFC does not tick during hurt/object frames (sonic3k.asm:26091-26096,26159-26190,26816-26833). MGZ F1910 keeps Tails local instead of despawning. */,
             true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */

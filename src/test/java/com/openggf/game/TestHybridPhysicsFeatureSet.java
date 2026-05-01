@@ -85,6 +85,7 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // levelBoundaryRightStrict - S1 uses bls.s (s1disasm/_incObj/01 Sonic.asm:998)
                 false,  // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)
+                false,  // sidekickNormalCpuSkipsHurtRoutine - S1 has no Tails CPU
                 false   // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
         );
 
