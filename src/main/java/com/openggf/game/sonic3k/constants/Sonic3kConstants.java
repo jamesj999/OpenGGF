@@ -1198,15 +1198,18 @@ public class Sonic3kConstants {
 
     // Verified final lock-on offsets for the dedicated CNZ cannon art block.
     // The Cannon.bin data lives in the S&K half of the combined ROM.
-    public static final int ART_UNC_CNZ_CANNON_ADDR = 0x08CE74;
+    public static final int ART_UNC_CNZ_CANNON_ADDR = 0x28CE74;
     public static final int ART_UNC_CNZ_CANNON_SIZE = 0x2AE6;
-    // DPLC_CNZCannon points at the 9-entry pointer table that feeds the object's
-    // animated chamber frames. The first data block starts at $31B84.
+    // DPLC_CNZCannon is the S&K-side inline table used by Obj_CNZCannon in
+    // sonic3k.asm. A byte-signature scan finds this same DPLC data at 0x031B72
+    // and at the S3-side duplicate 0x230BB0; keep the S&K runtime address here.
+    // Do not add a naive S3 half offset: 0x231B72 is code, not DPLC data.
     public static final int DPLC_CNZ_CANNON_ADDR = 0x031B72;
 
     // ArtTile_CNZMisc-derived VRAM tile bases used by the CNZ traversal objects.
     public static final int ARTTILE_CNZ_BALLOON = ARTTILE_CNZ_MISC;
     public static final int ARTTILE_CNZ_CANNON = ARTTILE_CNZ_MISC + 0x23;
+    public static final int ARTTILE_CNZ_CANNON_DPLC_DEST = 0x0448;
     public static final int ARTTILE_CNZ_RISING_PLATFORM = ARTTILE_CNZ_MISC + 0x6D;
     public static final int ARTTILE_CNZ_TRAP_DOOR = ARTTILE_CNZ_MISC + 0x9F;
     public static final int ARTTILE_CNZ_HOVER_FAN = ARTTILE_CNZ_MISC + 0x97;

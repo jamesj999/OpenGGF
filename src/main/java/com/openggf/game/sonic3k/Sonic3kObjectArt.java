@@ -30,6 +30,10 @@ import java.util.logging.Logger;
  */
 public class Sonic3kObjectArt {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArt.class.getName());
+    private static final int CNZ_CANNON_DPLC_DEST_TILE =
+            Sonic3kConstants.ARTTILE_CNZ_CANNON_DPLC_DEST - Sonic3kConstants.ARTTILE_CNZ_CANNON;
+    private static final int CNZ_CANNON_SOURCE_BANK = 0x200;
+    private static final int CNZ_CANNON_BASE_FRAME = 9;
 
     private final Level level;
     private final RomByteReader reader;
@@ -1133,6 +1137,18 @@ public class Sonic3kObjectArt {
         return PatternDecompressor.fromBytes(data);
     }
 
+    private Pattern[] buildCnzCannonMixedPatterns(Pattern[] cannonPatterns) {
+        int patternCount = CNZ_CANNON_SOURCE_BANK + cannonPatterns.length;
+        Pattern[] patterns = new Pattern[patternCount];
+        int levelPatternCount = level.getPatternCount();
+        for (int i = 0; i < CNZ_CANNON_SOURCE_BANK; i++) {
+            int levelIndex = Sonic3kConstants.ARTTILE_CNZ_CANNON + i;
+            patterns[i] = levelIndex < levelPatternCount ? level.getPattern(levelIndex) : new Pattern();
+        }
+        System.arraycopy(cannonPatterns, 0, patterns, CNZ_CANNON_SOURCE_BANK, cannonPatterns.length);
+        return patterns;
+    }
+
     /**
      * S3K object DPLC parser (Perform_DPLC format):
      * startTile in upper 12 bits, (count-1) in lower 4 bits.
@@ -1241,6 +1257,80 @@ public class Sonic3kObjectArt {
             remapped.add(new SpriteMappingFrame(remappedPieces));
         }
         return remapped;
+    }
+
+    private static List<SpriteMappingFrame> applyDplcRemapWithDestinationBase(
+            List<SpriteMappingFrame> mappings,
+            List<SpriteDplcFrame> dplcFrames,
+            int destinationBaseTile,
+            int sourceBankTile) {
+        if (dplcFrames == null || dplcFrames.isEmpty()) {
+            return mappings;
+        }
+
+        List<SpriteMappingFrame> remapped = new ArrayList<>(mappings.size());
+        for (int i = 0; i < mappings.size(); i++) {
+            SpriteMappingFrame frame = mappings.get(i);
+            if (i >= dplcFrames.size()) {
+                remapped.add(frame);
+                continue;
+            }
+
+            SpriteDplcFrame dplc = dplcFrames.get(i);
+            int totalSlots = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                totalSlots += req.count();
+            }
+
+            int[] vramToSource = new int[totalSlots];
+            int slot = 0;
+            for (TileLoadRequest req : dplc.requests()) {
+                for (int t = 0; t < req.count(); t++) {
+                    vramToSource[slot++] = sourceBankTile + req.startTile() + t;
+                }
+            }
+
+            List<SpriteMappingPiece> remappedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                int relativeDest = piece.tileIndex() - destinationBaseTile;
+                int remappedBase = relativeDest >= 0 && relativeDest < vramToSource.length
+                        ? vramToSource[relativeDest]
+                        : piece.tileIndex();
+                remappedPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(), piece.yOffset(),
+                        piece.widthTiles(), piece.heightTiles(),
+                        remappedBase, piece.hFlip(), piece.vFlip(),
+                        piece.paletteIndex(), piece.priority()));
+            }
+            remapped.add(new SpriteMappingFrame(remappedPieces));
+        }
+        return remapped;
+    }
+
+    private static List<SpriteMappingFrame> combineCnzCannonChildAndBaseFrames(
+            List<SpriteMappingFrame> frames) {
+        if (frames == null || frames.size() <= CNZ_CANNON_BASE_FRAME) {
+            return frames;
+        }
+
+        SpriteMappingFrame baseFrame = frames.get(CNZ_CANNON_BASE_FRAME);
+        List<SpriteMappingFrame> combined = new ArrayList<>(frames.size());
+        for (int i = 0; i < frames.size(); i++) {
+            SpriteMappingFrame frame = frames.get(i);
+            if (i >= CNZ_CANNON_BASE_FRAME) {
+                combined.add(frame);
+                continue;
+            }
+
+            List<SpriteMappingPiece> pieces = new ArrayList<>(
+                    frame.pieces().size() + baseFrame.pieces().size());
+            // ROM submits the parent/base sprite before the child chamber sprite;
+            // earlier sprite slots render in front.
+            pieces.addAll(baseFrame.pieces());
+            pieces.addAll(frame.pieces());
+            combined.add(new SpriteMappingFrame(pieces));
+        }
+        return combined;
     }
 
     private static SpriteMappingFrame singlePieceFrame(
@@ -1695,10 +1785,10 @@ public class Sonic3kObjectArt {
             return null;
         }
         try {
-            Pattern[] patterns = loadUncompressedPatterns(rom,
+            Pattern[] cannonPatterns = loadUncompressedPatterns(rom,
                     Sonic3kConstants.ART_UNC_CNZ_CANNON_ADDR,
                     Sonic3kConstants.ART_UNC_CNZ_CANNON_SIZE);
-            if (patterns.length == 0) {
+            if (cannonPatterns.length == 0 || level == null) {
                 return null;
             }
 
@@ -1706,7 +1796,13 @@ public class Sonic3kObjectArt {
                     S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_CNZ_CANNON_ADDR, 10);
             List<SpriteDplcFrame> dplcFrames =
                     S3kSpriteDataLoader.loadDplcFrames(reader, Sonic3kConstants.DPLC_CNZ_CANNON_ADDR, 9);
-            List<SpriteMappingFrame> remapped = applyDplcRemap(rawMappings, dplcFrames);
+            List<SpriteMappingFrame> remapped = applyDplcRemapWithDestinationBase(
+                    rawMappings,
+                    dplcFrames,
+                    CNZ_CANNON_DPLC_DEST_TILE,
+                    CNZ_CANNON_SOURCE_BANK);
+            remapped = combineCnzCannonChildAndBaseFrames(remapped);
+            Pattern[] patterns = buildCnzCannonMixedPatterns(cannonPatterns);
 
             lastBuildStartTile = Sonic3kConstants.ARTTILE_CNZ_CANNON;
             lastBuildTileCount = patterns.length;

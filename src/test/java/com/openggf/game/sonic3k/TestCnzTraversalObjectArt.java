@@ -34,6 +34,18 @@ public class TestCnzTraversalObjectArt {
         assertEquals(10, cannon.getFrameCount());
         assertTrue(cannon.getPatterns().length >= 100,
                 "CNZ cannon should expose the dedicated Cannon.bin art, not a placeholder sheet");
+        assertEquals(11, cannon.getFrame(0).pieces().size(),
+                "CNZ cannon frame 0 must compose the rotating child sprite plus the fixed base frame");
+        assertEquals(0x12, cannon.getFrame(0).pieces().get(0).tileIndex(),
+                "CNZ cannon frame 0 should put fixed base frame 9 first so it renders in front of the child chamber");
+        assertEquals(0x242, cannon.getFrame(0).pieces().get(6).tileIndex(),
+                "CNZ cannon frame 0 DPLC-loaded tile should come from Cannon.bin source $42 in the standalone source bank");
+        assertEquals(0, cannon.getFrame(0).pieces().get(7).tileIndex(),
+                "CNZ cannon frame 0 chamber/body tile 0 should remain CNZ misc level art, not DPLC source art");
+        assertEquals(0x12, cannon.getFrame(4).pieces().get(0).tileIndex(),
+                "CNZ cannon frame 4 should start with fixed base frame 9");
+        assertEquals(0x200, cannon.getFrame(4).pieces().get(6).tileIndex(),
+                "CNZ cannon frame 4 DPLC-loaded tile should come from Cannon.bin source $00 after the base pieces");
         assertNotNull(risingPlatform);
         assertEquals(3, risingPlatform.getFrameCount());
         ObjectSpriteSheet trapDoor = provider.getSheet("cnz_trap_door");
