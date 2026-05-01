@@ -471,7 +471,7 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
-    void groundedPushGraceKeepsOlderControlWordForAizObjectOrderBridge() {
+    void groundedPushGraceUsesCurrentControlWordOutsideAizObjectOrderBridge() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
         tails.setCpuControlled(true);
@@ -503,10 +503,12 @@ class TestSidekickCpuFollowParity {
         tails.setPushing(false);
         controller.update(0x0972);
 
-        assertFalse(controller.getInputRight(),
-                "AIZ object-order bridge keeps the older input sample while the delayed leader target still has "
-                        + "Status_OnObj; SolidObjectTop can clear the rider after the platform/object slot has "
-                        + "already supplied the ROM handoff (sonic3k.asm:26690-26705,41668-41679,41793-41818)");
+        assertTrue(controller.getInputRight(),
+                "Outside the AIZ object-order bridge, S3K loc_13DD0 keeps the already-loaded d1 "
+                        + "Ctrl_2 word even when the delayed status has Status_OnObj. This fixture's "
+                        + "current sample carries RIGHT; MGZ F1466 is the companion case where d1 is "
+                        + "zero and the older RIGHT sample must not be re-read (sonic3k.asm:"
+                        + "26696-26705,26775-26785).");
     }
 
     @Test
@@ -589,7 +591,7 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
-    void normalPushBypassAutoJumpSuppressesFirstAirborneFollowSteeringTick() {
+    void normalPushBypassAutoJumpAllowsFirstAirborneFollowSteeringOutsideAizBridge() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");
         tails.setCpuControlled(true);
@@ -625,18 +627,18 @@ class TestSidekickCpuFollowParity {
 
         Assertions.assertAll(
                 () -> assertFalse(controller.getInputLeft()),
-                () -> assertFalse(controller.getInputRight(),
-                        "F2722 runs Tails_Spin_Freespace (sonic3k.asm:27765-27784), but ROM's preceding "
-                                + "push-bypass object-control order leaves Ctrl_2 without RIGHT until the "
-                                + "next frame, avoiding an early +$18 from Tails_InputAcceleration_Freespace "
-                                + "(sonic3k.asm:28330-28401)"),
+                () -> assertTrue(controller.getInputRight(),
+                        "Outside the AIZ object-order bridge, the first airborne tick after a push-bypass "
+                                + "jump resumes follow steering immediately. MGZ1 F1472 carries RIGHT "
+                                + "(input=7808) and Tails_InputAcceleration_Freespace applies +$18 x_vel "
+                                + "(sonic3k.asm:26712-26741,28330-28401)."),
                 () -> assertTrue(controller.getInputJump(),
                         "The held jump from loc_13E9C remains live during the one-frame airborne handoff"));
 
         controller.update(0x0982);
 
         assertTrue(controller.getInputRight(),
-                "F2723 should resume normal follow steering so airborne acceleration starts one frame later");
+                "Follow steering should remain live on the next airborne tick as well");
     }
 
     @Test

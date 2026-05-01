@@ -2516,17 +2516,21 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (fs == null || !fs.sidekickClearsStalePushVelocityBeforeGroundMove()) {
 			return;
 		}
-		// S3K TailsCPU runs from the player slot, but the ROM push bit and
-		// blocked velocity reflect the previous SolidObjectFull/terrain pass.
-		// S2 TailsCPU_Normal has no matching pre-ground-move velocity clear:
-		// it only tests live Status_Push to choose the follow/action branch,
-		// then writes Ctrl_2_Logical (docs/s2disasm/s2.asm:38943-39027).
-		// If no new CPU input is applied while ground_vel is still nonzero, do
-		// not let stale inertia advance x_pos_sub before the blocking pass
-		// clears it again. When ground_vel is already zero, preserve x_vel:
-		// ROM Tails_InputAcceleration_Path projects ground_vel first, then its
-		// push collision path zeroes ground_vel while leaving the one-frame
-		// collision x_vel intact (sonic3k.asm:27947-27955, 27997-28017).
+		SidekickCpuController cpu = sprite.getCpuController();
+		if (cpu == null || !cpu.usedAizObjectOrderGracePushBypassThisFrame()) {
+			return;
+		}
+		// S3K loc_13DD0's live Status_Push bypass preserves the already-loaded
+		// Ctrl_2 sample, and Tails_InputAcceleration_Path then decelerates and
+		// projects ground_vel before any push-collision clear
+		// (sonic3k.asm:26702-26705,26775-26785,27947-28017). Do not pre-clear
+		// that ROM-visible current-push path or the same MGZ grace continuation:
+		// MGZ1 F1466-F1470 needs no-input deceleration from $00E4 through $00A4
+		// instead of an immediate zero. This clear is only for the AIZ hollow-
+		// tree/collapsing-platform object-order bridge after the live push bit
+		// has locally dropped, where there is no direct ROM branch and stale
+		// inertia would otherwise advance before the blocking pass catches up
+		// (sonic3k.asm:41668-41679,41793-41818,43649-43810).
 		sprite.setXSpeed((short) 0);
 		sprite.setGSpeed((short) 0);
 	}

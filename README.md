@@ -288,7 +288,10 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   range; sidekick offscreen marker recovery now preserves subpixels like the ROM word writes,
   and full-solid contacts now skip off-screen sidekicks like the ROM `render_flags` gate;
   MGZ dash trigger object 0x59 now uses the ROM `byte_25F0E` sloped-solid table for
-  standing riders, advancing the MGZ replay frontier from F0 to F1451 to F1466.
+  standing riders, and the S3K sidekick push-release grace now keeps MGZ on ROM's
+  already-loaded `Ctrl_2` sample while leaving the AIZ object-order bridge scoped to
+  its hollow-tree/collapsing-platform context, advancing the MGZ replay frontier from
+  F0 to F1451 to F1466 to F1659.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.
