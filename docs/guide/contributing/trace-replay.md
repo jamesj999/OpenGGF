@@ -575,3 +575,24 @@ Skills:
 - [Testing](testing.md)
 - [Tutorial: Implement an Object](tutorial-implement-object.md)
 - [Tooling](../cross-referencing/tooling.md)
+
+## Diagnostic note: validating hypotheses against the recorded JSONL
+
+When a trace replay test fails and the failure has been attributed to a
+specific in-game object (e.g. "napalm projectile ride-bridge release"
+in S3K AIZ F7552), always verify the hypothesis by inspecting the
+recorded JSONL aux state directly before writing engine code. The
+trace files live at
+`src/test/resources/traces/<game>/<run>/aux_state.jsonl.gz`. Search
+for the relevant per-frame events (`sidekick_interact_object`,
+`object_state` with the suspect object code, `aiz_transition_floor_solid`,
+etc.) across the suspect frame window and confirm the prerequisite
+state matches the hypothesis.
+
+For the AIZ F7552 case (round 2) this check disproved the prior-round
+ride-bridge hypothesis: the suspected `interact` slot was
+`destroyed=true` for ~50 frames before the divergent frame, ruling out
+any `Solid_Object_Detach`-style release as the cause. Skipping this
+check would have produced an engine fix targeted at the wrong root
+cause — a hack by the repo policy in `CLAUDE.md`. Documented in
+`docs/S3K_KNOWN_BUGS.md` under the AIZ F7552 entry.

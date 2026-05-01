@@ -4189,3 +4189,53 @@ approach window now triggers an auto-close that pre-empts a planned
 spring-launch. The gate fires only when the closer player is within
 `abs(dx) < 0x60` AND on the side the Clamer is facing — the same
 predicate ROM evaluates, so engine and ROM should agree per-frame.
+
+**Round 2 update — napalm Solid_Object_Detach hypothesis disproven (branch `bugfix/ai-aiz-napalm-solid-detach`, 2026-04-30)**
+
+Direct inspection of the recorded trace JSONL (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/aux_state.jsonl.gz`) shows the napalm slot is destroyed *long before* F7552:
+
+```
+F7500: tailsInteract slot=16 ptr=B4A0 obj=00000000 destroyed=true
+F7501-F7551: same — slot 16 has been empty continuously
+F7552:        same — still destroyed
+```
+
+Slot 16 was last live around F6253 (object_code 0x00020594, a different zone object Tails was actually riding earlier in the act). The `interact=0xB4A0` field on Tails is a *stale* RAM pointer to a long-destroyed slot, not an active ride bridge candidate. The `Solid_Object_Detach`-on-destruction hypothesis cannot produce the F7552 +1 px / x_speed=0 transition because the napalm has been destroyed for ~50 frames by then.
+
+Direct inspection of `Obj_AIZMiniboss` (sonic3k.asm:137222) and the napalm-projectile branch `loc_68C96` (sonic3k.asm:137446) confirms the napalm uses `Add_SpriteToCollisionResponseList` + `Draw_Sprite` (touch-response only) and the Miniboss body uses `Draw_And_Touch_Sprite` — neither calls `SolidObject` / `SolidObject_cont` / `MvSonicOnPtfm`. There is no ROM ride bridge to port for these objects.
+
+**Actual mechanism — terrain wall collision at x=0x1208, y~0x0314**
+
+The recorded sidekick state from F7552 onward shows Tails wedged against an immovable horizontal barrier:
+
+| Frame | s_x   | s_x_sub | s_x_speed | s_y   | s_y_speed | air |
+|-------|-------|---------|-----------|-------|-----------|-----|
+| 7551  | 0x1205| 0x5900  | 0x0200    | 0x0317| 0xFC90    | 1   |
+| 7552  | 0x1208| 0x0000  | 0x0000    | 0x0314| 0xFCC0    | 1   |
+| 7553  | 0x1208| 0x0000  | 0x0000    | 0x0310| 0xFCF0    | 1   |
+| 7554  | 0x1208| 0x0000  | 0x0000    | 0x030D| 0xFD20    | 1   |
+| 7555+ | 0x1208 (pinned) | 0x0000 | 0x0000 | (rising) | (rising) | 1 |
+
+The triple signature — `x_sub` snapped to 0, `x_speed` zeroed, position pinned at 0x1208 across many frames — is the canonical ROM right-wall-collision-while-airborne signature (`Sonic_DoLevelCollision` / `Touch_Floor_Wall` style: wall sensor trips, position is clamped, `x_vel` is zeroed; `y_vel` is *not* zeroed because Tails is still rising). Sonic is well to the left (x=0x11EE-0x11ED, y=0x0339+) and *not* blocked because his y is below the wall top (Tails y=0x0314).
+
+This points to a **sidekick airborne wall-collision parity gap**: ROM resolves a vertical wall at world x=0x1208 in the y range around 0x0314 for Tails on F7552, but the engine's airborne wall sensor for the sidekick does not. The +1 px difference (engine +2, ROM +3) is the wall-clamp delta from the sub-pixel position back to the wall contact line.
+
+Possible engine root causes (none verified yet):
+
+- Missing or wrong wall sensor for the airborne sidekick when `xSpeed > 0` and the player is in the upper portion of the AIZ miniboss arena geometry.
+- Slot-order divergence: ROM updates Sonic before Tails, the chunk collision lookup for Tails sees state that the engine has already mutated (e.g. boss arena floor rebuild from an earlier event).
+- A solid sub-object of `Obj_AIZMiniboss` acting as a side wall — but the recorded slots 12/13/14 are the flame children at x=0x11F9-0x1202, which is to the *left* of Tails' x=0x1208, not blocking rightward motion.
+
+Implementing a ride-bridge / `Solid_Object_Detach` on `AizMinibossNapalmProjectile` would NOT fix this — the napalm is not the source. Per repo policy ("ROM-cite every change", "NO HACKS") this branch intentionally lands no code change beyond updating this section to correct the prior-round hypothesis.
+
+**Verified ROM facts (this round)**
+
+- `Obj_AIZMiniboss` (sonic3k.asm:137222) and child branches `loc_68C96` (137446) / `loc_68C12` (137396): no `SolidObject*` calls; only `Add_SpriteToCollisionResponseList` and `Draw_And_Touch_Sprite` (touch response, not solid).
+- `SolidObject_cont` (sonic3k.asm:41394) reaches `RideObject_SetRide` (41627) only via `loc_1E154`, gated on the calling object having invoked `SolidObject` / `SolidObjectFull` / `SolidObjectTop` first.
+- `MvSonicOnPtfm` (sonic3k.asm:41642) is not invoked by any AIZ miniboss branch.
+
+**Concrete next steps (revised)**
+
+1. Extend the trace recorder to log per-frame *terrain wall sensor* probe results around the player (the right-wall sensor return and the resulting `x_pos` clamp + `x_vel` zero) — in particular for the sidekick on F7549-F7553. The current recorder only logs object-side state, not terrain-side sensor trips.
+2. Identify the level chunk at world (0x1208, 0x0314) in AIZ1 and verify whether it has a vertical wall in its solidity bitmap that the engine should be honouring at this y range.
+3. Audit the engine's airborne side-collision path for the sidekick (`SidekickCpuController` + the player physics step) to confirm it runs the same wall-sensor pass as Player_1, in the same order ROM does.
