@@ -6,6 +6,36 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ trace F7381 root-cause documented (Tails-west-bias OPEN):**
+  Investigation traced the `tails_x_speed expected=0x0000 actual=-0x0018`
+  divergence to a `Ctrl_1_logical` parity gap rather than a
+  `loc_13DA6` mirror flaw. ROM `Player_1` body at sonic3k.asm:
+  21539-21545 short-circuits the `move.w (Ctrl_1).w,(Ctrl_1_logical).w`
+  copy when `Ctrl_1_locked=1`; Sonic_RecordPos then writes the latched
+  (zero) `Ctrl_1_logical` into `Stat_table` (sonic3k.asm:22132). The
+  engine never sets `setControlLocked(true)` for any S3K in-level event
+  (zero hits across `src/main/java/com/openggf/game/sonic3k`), so
+  `SpriteManager.publishInputState` records the raw `LEFT` input from
+  the BizHawk movie at F7365 even though ROM has `Ctrl_1_locked=1` and
+  `Ctrl_1_logical=0`. The `INPUT_LEFT` then propagates 16 frames later
+  into Tails CPU's `loc_13DA6`/`loc_13DD0` mirror via
+  `effectiveLeader.getInputHistory(16)`, seeding `inputLeft=true`
+  (SidekickCpuController.java:851), which Tails's
+  `Tails_InputAcceleration_Freespace` mirror (sonic3k.asm:28330-28348)
+  consumes as `x_vel -= 2 * Acceleration_P2 = -0x18`. ROM has
+  `Ctrl_2_held_logical=0x00` for the same frame so its freespace path
+  does nothing. Documented in `docs/S3K_KNOWN_BUGS.md` with the full
+  ROM citation, the engine evidence (`recordedInput=0x0004`,
+  `recordedStatus=0x07`, `branch=follow_steering`,
+  `gen=0004 INPUT_LEFT`), and the two-part removal condition (audit
+  S3K spring/vine/zone-handoff sites for `setControlLocked(true)`,
+  or add a `logicalInputLatched` semantic that preserves
+  `logicalInputState` when `controlLocked` is set, mirroring ROM's
+  `tst.b Ctrl_1_locked; bne loc_10780` short-circuit). Cross-game
+  parity preserved: this branch ships docs only, no code changes,
+  AIZ first error stays at F7381 (1039 errors), CNZ first error
+  stays at F7919 (2768 errors), S1/S2 trace replays remain green.
+
 - **Cross-frame OnObj timing aligned via spring-trigger
   `bclr Status_OnObj` (CNZ F7872 -> F7919; AIZ unchanged):**
   Identified the engine's cross-frame `Status_OnObj` clear-timing gap

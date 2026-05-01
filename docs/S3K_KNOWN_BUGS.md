@@ -34,6 +34,7 @@ Entries should include:
 16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
 17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (RESOLVED)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
 18. [AIZ2 Trace F7171 — Tails Killed Mid-Run vs. Engine Continuing Follow-Steering (OPEN — next AIZ blocker)](#aiz2-trace-f7171--tails-killed-mid-run-vs-engine-continuing-follow-steering)
+19. [AIZ2 Trace F7381 — Engine `Ctrl_1_logical` Not Latched While ROM `Ctrl_1_locked=1` (OPEN — next AIZ blocker)](#aiz2-trace-f7381--engine-ctrl_1_logical-not-latched-while-rom-ctrl_1_locked1-open--next-aiz-blocker)
 
 ---
 
@@ -3182,3 +3183,227 @@ no longer regresses AIZ.
   `upSpringClearsStatusOnObjAfterSettingAir`,
   `downSpringClearsStatusOnObjAfterSettingAir`,
   `upDiagonalSpringClearsStatusOnObjAfterSettingAir`.
+
+---
+
+## AIZ2 Trace F7381 — Engine `Ctrl_1_logical` Not Latched While ROM `Ctrl_1_locked=1` (OPEN — next AIZ blocker)
+
+**Status:** Investigated, root cause identified, structural fix deferred.
+
+**Branch:** `bugfix/ai-aiz-f7381-tails-west-bias`
+
+**Location:**
+- `src/main/java/com/openggf/sprites/managers/SpriteManager.java:404-416`
+  (player-controlled effective-input gating)
+- `src/main/java/com/openggf/sprites/playable/AbstractPlayableSprite.java:3706`
+  (`endOfTick()` writes `inputHistory[hpos] = logicalInputState`)
+- `src/main/java/com/openggf/sprites/playable/AbstractPlayableSprite.java:2494-2506`
+  (`setLogicalInputState`/`clearLogicalInputState`)
+- `src/main/java/com/openggf/sprites/playable/SidekickCpuController.java:795-855`
+  (Tails CPU consumer of the leader's `inputHistory`/`statusHistory`)
+
+### Symptom
+
+`TestS3kAizTraceReplay#replayMatchesTrace` first strict error at frame 7381:
+```
+tails_x_speed mismatch (expected=0x0000, actual=-0018) — 1039 errors total
+```
+
+ROM has Tails stationary in air with `x_vel=0`; the engine has Tails drifting
+west by `-0x18` per frame (one `Tails_InputAcceleration_Freespace` left-input
+acceleration step, `2 * Acceleration_P2` = `2 * $0C = $18`,
+sonic3k.asm:28330-28348).
+
+### Trigger Frame Context (F7381)
+
+ROM `tails_cpu_normal_step` aux event:
+```
+status=0x02 ground_vel=0x0000 x_vel=0x0000
+delayed_stat=0x00 delayed_input=0x0000
+loc_13dd0_branch=fallthrough_sub20
+ctrl2_logical=0x0000 ctrl2_held_logical=0x00
+path_pre_x_vel=0x0000 path_post_x_vel=0x0000
+```
+
+Engine `eng-tails-cpu` diagnostic at the same frame:
+```
+state=NORMAL branch=follow_steering hist=16/26
+in=0004 stat=07 push=07
+pre=obj00 st02 xv0000 gv0000
+gen=0004 (= INPUT_LEFT)
+postCpu=obj00 st02 xv0000 gv0000
+postPhys=seen obj00 st03 xvFFE8 gv0000  dx=FFE0 dy=0000
+```
+
+Both branches reach the same ROM control-flow (`fallthrough_sub20` =
+"`loc_13DA6` applied `subi.w #$20,d2`"; engine `follow_steering` = none of
+`current_push_bypass`/`grace_push_bypass`/`airborne_push_handoff`/
+`leader_on_object`/`leader_fast` fired). The divergence is upstream of
+`loc_13DA6`/`loc_13DD0`: ROM reads `delayed_input=0x0000` from `Stat_table`
+slot `Pos_table_index-$44` (16 frames back, F7365), engine reads
+`recordedInput=0x0004` (`INPUT_LEFT`) from `inputHistory[hpos-16]` for the
+same frame.
+
+### Root Cause
+
+ROM `Player_1` body at `loc_10760` (sonic3k.asm:21539-21545):
+```
+loc_10760:
+    cmpa.w  #Player_1,a0
+    bne.s   loc_10774
+    tst.b   (Ctrl_1_locked).w
+    bne.s   loc_10780                ; if locked, SKIP the Ctrl_1_logical write
+    move.w  (Ctrl_1).w,(Ctrl_1_logical).w
+```
+
+When `Ctrl_1_locked=1`, ROM does **not** copy `Ctrl_1` (raw held buttons)
+into `Ctrl_1_logical`; the previous frame's value persists. Sonic_RecordPos
+later writes `Ctrl_1_logical` into `Stat_table` (sonic3k.asm:22132), so the
+recorded delayed input slot reflects the **latched** logical input, not the
+raw physical button state.
+
+At F7365 the BizHawk movie has `LEFT` held (BK2 input log, line `7365 + 511
++ 2 = 7878`: `..L.....`), but ROM has `Ctrl_1_locked=1` and
+`Ctrl_1_logical=0x0000`, so the `Stat_table` slot holds `0x0000`.
+
+The engine **never** sets `controlLocked=true` for any S3K in-level event.
+A search across `src/main/java/com/openggf/game/sonic3k` for
+`setControlLocked(true)` returns zero hits (S1/S2 zone code uses it
+for flippers, spin tubes, signposts, bosses, and ending sequences, but
+S3K equivalents are not yet plumbed). Consequently
+`SpriteManager.publishInputState` line 405 evaluates
+`effectiveLeft = (!controlLocked && left) || forcedLeft` with
+`controlLocked=false` and `left=true`, sets
+`logicalInputState = INPUT_LEFT`, and `endOfTick()` writes that into
+`inputHistory[hpos]`.
+
+`SidekickCpuController.normalStep` reads
+`effectiveLeader.getInputHistory(followStatDelayFrames=16)` at
+SidekickCpuController.java:795 and gets `INPUT_LEFT`. Lines 851-855 seed
+`inputLeft = true` directly from `recordedInput`, bypassing the
+follow-steering snap threshold (which would otherwise gate a left-input
+on `|dx| >= 0x30`; engine's `dx = FFE0` has `|dx| = 0x20 < 0x30`).
+
+The `inputLeft=true` flows into Tails's
+`Tails_InputAcceleration_Freespace` mirror (the path runs because
+`status=0x02` = airborne, `roll-jump` not set), which executes
+`x_vel -= d5 = 2 * Acceleration_P2 = 2 * $0C = $18`
+(sonic3k.asm:28336-28348). ROM has `Ctrl_2_held_logical=0x00` for the
+same frame (the recorded `tails_cpu_normal_step` confirms), so ROM's
+freespace path does nothing. Net divergence: `tails_x_speed = -0x18`.
+
+### Why this is broader than F7381
+
+The same mechanism produces the residual `tails_x_speed` drift documented
+in subsequent table rows (F7382 `expected=-0x18 actual=-0x30`, F7383
+`expected=-0x30 actual=-0x48`, ...). Each frame Tails compounds the
+`-0x18` increment because the engine keeps reading non-zero
+`recordedInput`/`recordedStatus` slots that ROM zeroes via
+`Ctrl_1_locked`. Once Sonic regains control (movie input changes,
+`Ctrl_1_locked` clears in ROM), the histories realign, but by then
+Tails has accumulated multi-pixel positional drift.
+
+The same mismatch is the proximate cause of **AIZ F4679** (sidekick
+despawn velocity divergence — see entry above), CNZ1 spring-launch
+control-lock windows, and any sequence where a horizontal spring,
+slope-repel, ride object, or zone transition latches Sonic's input in
+ROM but not in the engine.
+
+### Why no clean fix lands here
+
+A surgical fix at this trace frame requires identifying the specific
+ROM site that sets `Ctrl_1_locked=1` for the F7361-F7365 window. ROM
+sets `Ctrl_1_locked` from at least the following S3K code paths:
+- `move.b #1,(Ctrl_1_locked).w` at sonic3k.asm:7774 (level start
+  initialisation in `loc_637E`).
+- The various `Player_SlopeRepel`/`move_lock` interactions
+  (sonic3k.asm:23911-23948) and `Sonic_Hurt` paths, plus several
+  spring objects and the AIZ swing-vine handoff (slot 7
+  `Obj=0x00068A24` near (`0x11F0,0x0289`) is active in the F7350-F7365
+  window per `aux_state.jsonl.gz`).
+- Object-driven captures (rope grab, vine swing, mid-air seizure) call
+  `clr.b (Ctrl_1_locked).w` on release; the engine's S3K object code
+  does not have matching `setControlLocked(true)` calls.
+
+The proper fix has two parts:
+
+1. **Audit S3K objects/events that should latch `Ctrl_1_locked`.** Each
+   needs `player.setControlLocked(true)` mirroring the ROM site, plus
+   a release path mirroring the corresponding `clr.b (Ctrl_1_locked).w`.
+   The candidate object set includes (but is not limited to)
+   `Sonic3kSpringObjectInstance`, `AizVineHandleLogic`, swing-vine,
+   bumpers, monkey-tail handoff, and the AIZ act-2 transition flush.
+
+2. **Cross-game audit.** S2 has the same model
+   (`s2.asm:21670+` reads `Ctrl_1_locked`), but its trace coverage
+   does not currently expose this gap because EHZ1 has no spring/vine
+   capture window. Adding a `controlLocked` audit also benefits S2,
+   though S1 has a separate `Ctrl_Lock_byte` model
+   (`s1.asm:player.asm`) and its UNIFIED collision model means most
+   captures clear input differently.
+
+A blanket "always preserve `logicalInputState` when `controlLocked` is
+set" change in `SpriteManager.publishInputState` is **not** a valid
+short-circuit: it would invert the current S2 `FlipperObjectInstance`
+behaviour (which sets `controlLocked=true` and *expects* the input
+field to reflect the post-lock zero state for animation gating), and
+S1 spin-tube paths that also set `setControlLocked(true)`. The
+"persistence on lock" semantic only matches ROM when the engine
+actually enters `controlLocked` at the same ROM-cited site.
+
+### Diagnosed Constraints
+
+- `inputHistory[]` writes happen unconditionally in `endOfTick()`
+  (AbstractPlayableSprite.java:3706); to track ROM, the **value
+  written** must be the ROM-equivalent `Ctrl_1_logical`, not the
+  fresh effective input.
+- `Sidekick CPU` consumes the history at delays `$44/4 = 17` and
+  `$40/4 = 16` frames back (sonic3k.asm:26683-26689 and
+  s2.asm:38927-38932). Both reads must observe the same
+  `Ctrl_1_logical`-equivalent value.
+- `PhysicsFeatureSet` already gates the `loc_13DA6` lead offset
+  via `sidekickFollowLeadOffset()`; a second flag for "preserve
+  logical input across `controlLocked`" would be redundant once
+  controlLocked is wired correctly.
+- Cross-game parity: any change to
+  `setLogicalInputState`/`endOfTick`/`publishInputState` MUST keep
+  S1 GHZ1, S1 MZ1, S2 EHZ1 trace replays green and the four
+  required S3K bootstrap tests
+  (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`,
+  `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`) passing.
+
+### Removal Condition
+
+Either:
+
+- **(A)** S3K horizontal-spring/AIZ-vine/etc. instances are wired
+  to `setControlLocked(true)` at the ROM-equivalent points, with
+  the corresponding release sites clearing it; the engine's
+  `inputHistory` then naturally records `0x0000` at F7365 because
+  `effectiveLeft = (!true && true) || false = false`. Or
+
+- **(B)** A new "`logicalInputLatched`" semantic is added that
+  preserves the prior `logicalInputState` when `controlLocked` is
+  set (mirroring ROM's `tst.b Ctrl_1_locked; bne loc_10780`
+  short-circuit at sonic3k.asm:21542-21544), and option (A) is
+  applied incrementally per zone. Either way, AIZ F7381's first
+  error must advance past F7381, CNZ first error must not regress
+  past F7919, and S1/S2 trace replays must stay green.
+
+### Diagnostic Confirmation Plan
+
+The aux trace already exposes everything needed for verification:
+
+- `aux_state.jsonl.gz` `tails_cpu_normal_step` event includes
+  `delayed_input` and `delayed_stat`. Compare against the engine's
+  `eng-tails-cpu in=XXXX stat=XX` diagnostic — they must match
+  bit-for-bit at every frame Tails CPU runs.
+- The `state_snapshot` event already records `control_locked` for
+  ROM. A diagnostic addition (engine-side dump of
+  `controlLocked`/`logicalInputState` per frame) would let a
+  `TestSonic3kCtrlLockParity` enumerate every ROM frame where
+  `Ctrl_1_locked=1` and assert the engine's `controlLocked`
+  matches.
+
