@@ -38,6 +38,7 @@ Entries should include:
 20. [CNZ1 Trace F7919 — Tails Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising Platform (OPEN)](#cnz1-trace-f7919--tails-triplicate--0x0800-velocity-write-while-sonic-lands-from-rising-platform-open)
 21. [CNZ F=621 Clamer re-fire — ROM dispatch path narrowing (diagnosis only, round 2)](#cnz-f621-clamer-re-fire--rom-dispatch-path-narrowing-diagnosis-only-round-2)
 22. [CNZ F=621 Clamer re-fire — recorder gap closed; ROM mechanism localised (diagnosis only, round 3)](#cnz-f621-clamer-re-fire--recorder-gap-closed-rom-mechanism-localised-diagnosis-only-round-3)
+23. [CNZ F=621 Clamer re-fire — Touch_Special cprop latch landed (round 4, fixed)](#cnz-f621-clamer-re-fire--touch_special-cprop-latch-landed-round-4-fixed)
 
 ---
 
@@ -5046,3 +5047,104 @@ divergence to remove together with one of the three fixes above.
 - Required headless tests (`TestS3kAiz1SkipHeadless`,
   `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
   `TestSonic3kDecodingUtils`) GREEN.
+
+## CNZ F=621 Clamer re-fire — Touch_Special cprop latch landed (round 4, fixed)
+
+**Status:** Engine fix landed on branch `bugfix/ai-cnz-f621-collision-list-fix`.
+Continues from round 3. CNZ first error advances F7919 -> F7923; F=619-625
+is now clean (zero errors).
+
+**ROM mechanism (re-confirmed from regenerated v6.15-s3k aux events).**
+Direct inspection of `collision_response_list_end_of_frame` for CNZ F=618-624
+in `src/test/resources/traces/s3k/cnz/aux_state.jsonl.gz`:
+
+- F=618: spring slot 5 in list, code=`loc_890AA`, cprop=0, $2E=0.
+- F=619: spring slot 5 in list, code=`loc_890C8`, cprop=0, $2E=0 (post-fire).
+- F=620: spring slot 5 NOT in list, **cprop=0x01** (Touch_Special wrote it
+  during F=620 while the spring was still in the F=619 list), $2E=0xFF.
+- F=621: spring slot 5 in list, code=`loc_890C8`, cprop=0 (Check_PlayerCollision
+  consumed the F=620 latch), $2E=0xFF (post second-fire).
+- F=622+: pattern repeats, cprop=0 throughout once Sonic stops overlapping.
+
+The F=620 row is the smoking gun: spring is in cooldown (`loc_890C8` ran the
+prior frame), `Add_SpriteToCollisionResponseList` skipped the slot, but
+Touch_Special on the previous-frame list latched cprop=0x01 anyway. ROM
+F=621's `loc_890AA` consumes the latch via `Check_PlayerCollision`
+(sonic3k.asm:179904-179916; `tst.b collision_property(a0); beq.s` returns
+Z=0, then `clr.b collision_property(a0)`), fires, sets `(a0)=loc_890C8`,
+and tail-calls `Child_DrawTouch_Sprite` so the slot rejoins the list at
+end-of-F=621. **No geometric overlap is required at F=621; the cprop latch
+from F=620 is what fires the spring.**
+
+**Engine fix shape (`ClamerObjectInstance`).** A three-state spring-child
+state machine mirrors the ROM `(a0)` cycle, plus a `springCprop` boolean
+that mirrors the ROM `collision_property` byte:
+
+| Engine state    | ROM equivalent                         | In Collision_response_list? |
+|-----------------|----------------------------------------|-----------------------------|
+| `LIVE`          | `(a0) = loc_890AA`                     | yes (Child_DrawTouch_Sprite via loc_890C4)  |
+| `COOLDOWN_DRAIN`| `(a0) = loc_890C8` post-fire frame     | no  (subq+bmi+rts skips the draw)           |
+| `COOLDOWN_DONE` | `(a0) = loc_890AA` after `loc_890D0`,  | no  (the cooldown frame's draw was skipped) |
+|                 | one frame before re-listing            |                                             |
+
+`getMultiTouchRegions()` exposes the spring rect only when
+`springInListLastFrame == true`, which mirrors Sonic's touch walk reading the
+end-of-previous-frame list. `onTouchResponse` fires immediately when state is
+LIVE (matching engine's pre-update touch ordering) and otherwise just sets
+`springCprop = true`. `advanceSpringRoutine` consumes the latch on the next
+non-cooldown update, matching ROM's slot-5-after-slot-0 ordering without an
+engine-wide reorder. The relatch widening (`SPRING_RELATCH_COLLISION_FLAGS =
+$40 | $12`, 16x32 box) and the `springReenableFrame` mechanism are removed --
+the spring rect now uses ROM-correct cflags `$D7` (`$40 | $17`, 8x8) at all
+times.
+
+The Clamer also overrides `usesS3kTouchSpecialPropertyResponse() = true` so
+the engine's `decodeCategory` recognises `cflags=$D7` as SPECIAL via the
+S3K Touch_Special property index list (sonic3k.asm:21165-21194). Without
+this hook the `$C0` high bits would decode to BOSS and the spring fire
+would be filtered out by the `category != SPECIAL` guard in
+`onTouchResponse`.
+
+**Test fixture update.** `TestClamerObjectInstance.springChildUsesRomOffsetAndLaunchesPlayer`
+gained an explicit `clamer.update(0x026E, player)` between the second
+`onTouchResponse(0x026E)` call and the launch-value asserts. The ROM-accurate
+sequence (touch latches cprop while in cooldown, the next non-cooldown
+update consumes the latch and fires) requires the update phase to run
+between the second touch and the asserts.
+
+**Verification (this round, branch HEAD):**
+
+- `TestS3kCnzTraceReplay#replayMatchesTrace`: first error advances F7919 ->
+  F7923 (2767 errors). F=619-625 zero errors. The new first error is
+  `tails_x_speed` etc. at F=7923, a fresh downstream divergence in the
+  Tails-on-platform window (different shape than the F7919
+  triplicate-velocity entry, distinct cluster).
+- `TestS3kAizTraceReplay#replayMatchesTrace`: first-error stable at F7552
+  (977 errors).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- `TestClamerObjectInstance` 6/6 GREEN.
+- Required headless tests (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`) GREEN.
+
+**Cross-game parity rules.** `usesS3kTouchSpecialPropertyResponse()` is an
+opt-in `TouchResponseProvider` hook (default `false`); only S3K objects
+that use the `cflags = $C0 | <Touch_Special index>` pattern override it.
+S1 and S2 objects are not affected. The latch state machine is wholly
+contained in `ClamerObjectInstance` and shares no cross-game code path.
+
+**ROM cite (additional, all `sonic3k.asm`):**
+
+- `loc_890AA` (185953-185962): `bsr.w Check_PlayerCollision; beq.s
+  loc_890C4; move.l #loc_890C8, (a0); bsr.w sub_890D8; movea.w
+  parent3(a0), a1; bset #0, $38(a1); loc_890C4: jmp Child_DrawTouch_Sprite`.
+- `loc_890C8` (185965-185968): `subq.w #1, $2E(a0); bmi.s loc_890D0; rts`.
+- `loc_890D0` (185971-185973): `move.l #loc_890AA, (a0); rts`.
+- `Check_PlayerCollision` (179904-179916): reads
+  `collision_property(a0)`; if zero returns Z=1 (no fire), otherwise
+  clears the byte and returns Z=0 (fire branch).
+- `Touch_Special` (21162-21194): `addq.b #1, collision_property(a1)` for
+  size index $17 inside the touch loop.
+- `Child_DrawTouch_Sprite` (178048-178053): `Add_SpriteToCollisionResponseList`
+  + draw.
+
