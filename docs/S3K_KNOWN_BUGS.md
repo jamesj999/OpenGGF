@@ -3408,6 +3408,60 @@ The aux trace already exposes everything needed for verification:
   `Ctrl_1_locked=1` and assert the engine's `controlLocked`
   matches.
 
+### Status update — branch `bugfix/ai-aiz-f7381-ctrl-lock-impl`
+
+Investigated and partially fixed. Option (B) — the
+`logicalInputLatched` semantic — is now in place:
+{@code AbstractPlayableSprite.setLogicalInputState}
+(`src/main/java/com/openggf/sprites/playable/AbstractPlayableSprite.java`)
+short-circuits when `controlLocked=true` so the previous frame's
+`logicalInputState` persists, mirroring ROM
+`Sonic_Control` (sonic3k.asm:21541-21545 `loc_10760`,
+s2.asm:35933-35935 `Obj01_Control`):
+```
+tst.b   (Ctrl_1_locked).w
+bne.s   loc_10780                ; if locked, SKIP
+move.w  (Ctrl_1).w,(Ctrl_1_logical).w
+```
+Regression test
+`src/test/java/com/openggf/sprites/playable/TestLogicalInputControlLockLatch.java`
+exercises both the latch (locked → previous logical input persists)
+and the unlock path.
+
+**Option (A) per-object audit deferred.** The trace context
+(`target/trace-reports/s3k_aiz1_context.txt`) shows F7361-F7365 has
+Sonic at `(0x1206, 0x0332)` rolling left with `x_speed=-0078..-00C0`
+inside AIZ act 2 (latest checkpoint `aiz2_reload_resume` at F5496).
+At F7366 Sonic suddenly has `x_speed = ground_vel = -0x0800` — the
+ROM-spec horizontal-spring impulse from `sub_23190`
+(sonic3k.asm:47892 `move.w $30(a0),x_vel(a1)` plus
+sonic3k.asm:47903 `move.w x_vel(a1),ground_vel(a1)`). The slot 7
+object pointer in the diagnosis (`Obj=0x00068A24`) sits inside the
+AIZ Miniboss flame band (`loc_68A12` … `loc_68A46`,
+sonic3k.asm:137207-137240) but the ROM spring/miniboss/flame paths
+do not write `(Ctrl_1_locked).w` — only `move_lock(a1)`
+(per-sprite, sonic3k.asm:47902) which is already mirrored in the
+engine. Identifying the exact ROM site that latches
+`Ctrl_1_locked=1` for this AIZ2 window therefore requires either
+trace-aux instrumentation (the `state_snapshot` event already
+records `control_locked` per frame, but the comparator is not yet
+wired to enumerate locked frames) or a per-frame diff that the
+current report file does not expose. Option (A) is left for a
+subsequent round once the aux-state lock dump is available.
+
+**Verification:** `TestS3kAizTraceReplay` first error stays at
+F7381 (1039 errors, identical to the baseline) — the option (B)
+latch alone cannot move it because no engine site sets
+`controlLocked=true` in the F7361-F7365 window. `TestS3kCnzTraceReplay`
+first error stays at F7919 (no regression). `TestS1GhzTraceReplay`,
+`TestS1MzTraceReplay`, `TestS2EhzTraceReplay`, `TestS3kMgz1TraceReplay`,
+and the four required S3K bootstrap tests all GREEN. The latch is
+therefore a foundation fix: it is necessary for option (A) to
+succeed (without it, even a correctly-placed
+`setControlLocked(true)` would still let the engine zero
+`logicalInputState` and corrupt `inputHistory`), and it is
+demonstrably safe across the rest of the trace coverage.
+
 ---
 
 ## CNZ1 Trace F7919 — Tails Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising Platform (OPEN)
