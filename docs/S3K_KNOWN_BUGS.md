@@ -3059,3 +3059,52 @@ replays) green throughout.
 branch's commit body); `target/trace-reports/s3k_cnz1_context.txt`
 F7860-F7880; `src/test/resources/traces/s3k/cnz/aux_state.jsonl.gz`
 F6408-F7873.
+
+**Update (branch `bugfix/ai-onobj-clear-timing-alignment`):** Wired the
+existing frame-start snapshot into the three `loc_13DA6` mirror gates
+(`SidekickCpuController.normalStep`, `resolveFollowSteeringDx`,
+`resolveObjectOrderNudgeDx`) using
+`effectiveLeader.getOnObjectAtFrameStart()` (no `&& !getAir()` filter,
+to match ROM `btst #Status_OnObj,status(a1) / bne loc_13DD0` which tests
+OnObj alone — `sonic3k.asm:26690-26691`). Result confirms the deeper
+clear/set-timing divergence:
+
+- **CNZ first-error advances F7872 -> F7919.** F7872 (Sonic-jumps-off-
+  rising-platform) now correctly takes ROM's `leader_on_object` branch.
+  F7919 is a NEW, distinct downstream divergence: `tails_g_speed
+  expected=-0x588 actual=-0x800`, `tails_y_speed expected=0x400
+  actual=-0x800`, `tails_x_speed expected=0x004 actual=-0x800`. All
+  three velocities pinned to `-0x800` is the spring impulse magnitude
+  used by `Obj81_Spring`/`Obj_VertSpring` family (sonic3k.asm:46850+).
+  Tails is hitting a spring 47 frames later that ROM does not. Out of
+  scope for OnObj timing — separate bug to investigate.
+- **AIZ regresses F7381 -> F2021** (`tails_x expected=0x1967
+  actual=0x1968`, Tails 1 px EAST of ROM). Reproduces the prior round's
+  observation. ROM trace data at F2000-F2025
+  (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv.gz`):
+  Sonic `status_byte=0x06` (InAir|Roll, OnObj=0) for F2000-F2019, then
+  `0x03` (Facing_left|InAir, OnObj=0) F2020+. Sonic is **never** on an
+  object across this airborne-roll-then-uncurl window — `Status_OnObj=0`
+  throughout. ROM `tails_cpu_normal_step` events at F2020/F2021 record
+  `delayed_stat=0x06`, `loc_13dd0_branch=fallthrough_sub20` — i.e.
+  Tails CPU takes the `subi.w #$20,d2` bias path. The engine's
+  `getOnObjectAtFrameStart()` returns `true` at F2021, meaning the
+  engine **set or kept** Sonic's `onObject` true somewhere during the
+  airborne F2000-F2020 window when ROM had it cleared. Engine's
+  `setOnObject(true)` call sites in `ObjectManager.java` (lines 5701,
+  5821, 5910, 6009, 6193) all fire from
+  `MvSonicOnPtfm`-equivalent landing branches; ROM gates these with
+  `btst #Status_InAir,status(a1) / bne <air-unseat>` (sonic3k.asm:
+  41021-41031, 41070-41084, 41117-41128, 41798-41812). The candidate
+  divergence is one of those `apply` blocks running for an airborne
+  Sonic, but pinpointing which object/path requires diagnostic
+  capture across the window — too large for this branch.
+
+**Status this branch:** the clean fix does not land. The wiring change
+is **not committed** because it regresses AIZ-full. The deeper engine
+OnObj set/clear alignment with ROM's `SolidObjectFull*_1P` /
+`SolidObjectTop*_1P` air-unseat gating remains the prerequisite. Next
+round needs to identify the AIZ1 F2000-F2020 object whose engine-side
+`apply` path sets `onObject=true` for an airborne Sonic, gate it on
+`!player.getAir()` (matching ROM's `btst #Status_InAir`), and then
+re-attempt the snapshot wiring.

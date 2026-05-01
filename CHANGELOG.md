@@ -6,6 +6,34 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **OnObj clear timing alignment investigation, doc-only (CNZ F7872 /
+  AIZ F2021 deeper divergence):** revisited the snapshot-wiring path
+  that this branch was meant to land. Confirmed the previous round's
+  observation: wiring `effectiveLeader.getOnObjectAtFrameStart()` (no
+  `&& !getAir()` filter) into the three `loc_13DA6` mirror gates in
+  `SidekickCpuController` does flip CNZ F7872 to ROM-matching
+  `leader_on_object` and advances first-error F7872 -> F7919, but
+  regresses AIZ-full F7381 -> F2021 (`tails_x` 1 px EAST). Traced the
+  AIZ regression to ROM data
+  (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv.gz`)
+  showing Sonic `status_byte=0x06`/`0x03` (OnObj=0) throughout the
+  F2000-F2025 airborne-roll-then-uncurl window, with ROM
+  `tails_cpu_normal_step` events recording `delayed_stat=0x06` and
+  `loc_13dd0_branch=fallthrough_sub20` at F2020/F2021. The engine's
+  frame-start OnObj snapshot returns `true` at F2021, so the engine
+  is wrongly setting/keeping `onObject=true` on Sonic somewhere across
+  this airborne window while ROM had `Status_OnObj=0`. The candidate
+  divergence is one of `ObjectManager.java`'s `setOnObject(true)`
+  apply branches (lines 5701, 5821, 5910, 6009, 6193) running for an
+  airborne player; ROM `SolidObjectFull*_1P` / `SolidObjectTop*_1P`
+  gate these on `btst #Status_InAir,status(a1) / bne <air-unseat>`
+  (sonic3k.asm:41021-41031, 41070-41084, 41117-41128, 41798-41812).
+  Pinpointing the specific F2000-F2020 object/path is the prerequisite
+  for landing the snapshot wiring. No engine code changes on this
+  branch — `SidekickCpuController` keeps its existing
+  `isOnObject() && !getAir()` heuristic. Documentation update only;
+  see `docs/S3K_KNOWN_BUGS.md` "CNZ1 Trace F7872" entry, branch
+  update at end of section, for full trace.
 - **`AbstractPlayableSprite.onObjectAtFrameStart` snapshot scaffolding
   (CNZ F7872 / AIZ F7381 follow-steering OnObj timing gap, partial):**
   added a frame-start `Status_OnObj` snapshot
