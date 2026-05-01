@@ -255,11 +255,13 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   of the engine's prior `getHeight() - getStandYRadius()` -- the latter was injecting a +13
   px error into rolling sidekick deaths and is fully resolved at F4679 (1050 -> 1049 errors).
   AIZ2 SonicResize2 now reads `camera().previewNextX()` (matching ROM's `Do_ResizeEvents`
-  ordering inside `DeformBgLayer` AFTER `MoveCameraX` at `sonic3k.asm:38303-38316`) and the
+  ordering inside `DeformBgLayer` AFTER `MoveCameraX` at `sonic3k.asm:38303-38316`), the
   sidekick dead-falling path now preserves `Kill_Character`'s `y_vel = -0x700` across the
   `sub_13ECA` despawn warp (matching ROM `MoveSprite_TestGravity` shifting y_pos by the
-  preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), advancing the
-  AIZ replay frontier to F7235 (Sonic-rolling top-speed cap divergence, separate blocker).
+  preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), and Fire Shield
+  Dash now mirrors ROM `Reset_Player_Position_Array` at `sonic3k.asm:22166-22193` by zeroing
+  the input/status replay buffers alongside the position refill — fixing the F7381 stale
+  Stat_table read and advancing the AIZ replay frontier to F7552.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
