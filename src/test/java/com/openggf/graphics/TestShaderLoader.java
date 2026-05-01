@@ -16,6 +16,15 @@ public class TestShaderLoader {
         assertFalse(source.isBlank());
         assertTrue(source.contains("gl_Position"));
     }
+
+    @Test
+    public void instancedPriorityShaderSupportsGhostEffect() throws IOException {
+        String source = ShaderLoader.loadShaderSource("shaders/shader_instanced_priority.glsl");
+
+        assertTrue(source.contains("uniform int GhostMode;"));
+        assertTrue(source.contains("uniform float GhostAlpha;"));
+        assertTrue(source.contains("clamp(GhostAlpha"));
+    }
 }
 
 

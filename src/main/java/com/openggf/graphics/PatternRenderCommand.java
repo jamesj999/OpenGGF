@@ -45,6 +45,8 @@ public class PatternRenderCommand implements GLCommandable {
     private boolean vFlip;
     private boolean piecePriority; // VDP per-tile priority from PatternDesc bit 15
     private boolean capturedGlobalHighPriority;
+    private boolean ghostEffectActive;
+    private float ghostAlpha;
     private float x;
     private float y;
     private float width;
@@ -63,6 +65,8 @@ public class PatternRenderCommand implements GLCommandable {
     private static int lastPriorityViewportWidth = Integer.MIN_VALUE;
     private static int lastPriorityViewportHeight = Integer.MIN_VALUE;
     private static boolean lastPriorityWaterEnabled;
+    private static boolean lastGhostEffectActive;
+    private static float lastGhostAlpha = Float.NaN;
     private static float lastPriorityWaterlineScreenY = Float.NaN;
     private static float lastPriorityWindowHeight = Float.NaN;
     private static float lastPriorityScreenHeight = Float.NaN;
@@ -139,6 +143,8 @@ public class PatternRenderCommand implements GLCommandable {
         this.vFlip = desc.getVFlip();
         this.piecePriority = desc.getPriority();
         this.capturedGlobalHighPriority = graphicsManager.getCurrentSpriteHighPriority();
+        this.ghostEffectActive = graphicsManager.isGhostRenderEffectActive();
+        this.ghostAlpha = graphicsManager.getGhostRenderAlpha();
         this.x = x;
         this.width = width;
         this.height = height;
@@ -173,6 +179,8 @@ public class PatternRenderCommand implements GLCommandable {
         lastPriorityViewportWidth = Integer.MIN_VALUE;
         lastPriorityViewportHeight = Integer.MIN_VALUE;
         lastPriorityWaterEnabled = false;
+        lastGhostEffectActive = false;
+        lastGhostAlpha = Float.NaN;
         lastPriorityWaterlineScreenY = Float.NaN;
         lastPriorityWindowHeight = Float.NaN;
         lastPriorityScreenHeight = Float.NaN;
@@ -330,6 +338,12 @@ public class PatternRenderCommand implements GLCommandable {
         if (paletteIndex != lastPaletteIndex) {
             shaderProgram.setPaletteLine(paletteIndex);
             lastPaletteIndex = paletteIndex;
+        }
+
+        if (ghostEffectActive != lastGhostEffectActive || ghostAlpha != lastGhostAlpha) {
+            shaderProgram.setGhostEffect(ghostEffectActive, ghostAlpha);
+            lastGhostEffectActive = ghostEffectActive;
+            lastGhostAlpha = ghostAlpha;
         }
 
         // Compute transformed vertices directly (avoids push/pop/translate/scale)

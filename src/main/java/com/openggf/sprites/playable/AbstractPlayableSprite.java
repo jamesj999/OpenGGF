@@ -3424,9 +3424,58 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         protected void setCollisionRadii(short newXRadius, short newYRadius, boolean adjustY) {
+                traceS3kAizRadiusProbe(newXRadius, newYRadius);
                 this.xRadius = newXRadius;
                 this.yRadius = newYRadius;
                 updateSensorOffsetsFromRadii();
+        }
+
+        private void traceS3kAizRadiusProbe(short newXRadius, short newYRadius) {
+                if (!Boolean.getBoolean("s3k.aiz.yprobe")) {
+                        return;
+                }
+                LevelManager levelManager = GameServices.level();
+                if (levelManager == null || levelManager.getObjectManager() == null) {
+                        return;
+                }
+                int centreX = getCentreX() & 0xFFFF;
+                int centreY = getCentreY() & 0xFFFF;
+                int minY = Integer.getInteger("s3k.aiz.yprobe.minY", 0x0380);
+                int minX = Integer.getInteger("s3k.aiz.yprobe.minX", 0x1900);
+                int maxX = Integer.getInteger("s3k.aiz.yprobe.maxX", 0x1990);
+                if (centreX < minX || centreX > maxX || centreY < minY || centreY > 0x03E0) {
+                        return;
+                }
+                if (xRadius == newXRadius && yRadius == newYRadius) {
+                        return;
+                }
+                StackTraceElement caller = null;
+                for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+                        String className = element.getClassName();
+                        if (!className.equals(AbstractPlayableSprite.class.getName())
+                                        && !className.equals(Thread.class.getName())) {
+                                caller = element;
+                                break;
+                        }
+                }
+                String callerSummary = caller == null
+                                ? "<unknown>"
+                                : caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
+                System.out.printf(
+                                "s3k-aiz-radiusprobe frame=%d caller=%s centre=(%04X,%04X) y=%04X h=%d rad=(%d,%d)->(%d,%d) air=%s roll=%s angle=%02X%n",
+                                levelManager.getObjectManager().getFrameCounter(),
+                                callerSummary,
+                                centreX,
+                                centreY,
+                                getY() & 0xFFFF,
+                                getHeight(),
+                                xRadius,
+                                yRadius,
+                                newXRadius,
+                                newYRadius,
+                                getAir(),
+                                getRolling(),
+                                getAngle() & 0xFF);
         }
 
         private void updateSensorOffsetsFromRadii() {

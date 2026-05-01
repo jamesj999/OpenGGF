@@ -157,7 +157,7 @@ public class RingManager {
      * same helper so existing callers and tests retain the previous API.
      */
     public void collectStageRings(AbstractPlayableSprite player, int frameCounter) {
-        if (player == null || player.getDead()) {
+        if (cannotCollectRings(player)) {
             return;
         }
         Collection<RingSpawn> active = placement.getActiveSpawns();
@@ -201,7 +201,7 @@ public class RingManager {
     }
 
     public boolean collectPlacedRing(RingSpawn ring, AbstractPlayableSprite player, int frameCounter) {
-        if (ring == null || player == null || player.getDead()) {
+        if (ring == null || cannotCollectRings(player)) {
             return false;
         }
         int index = placement.getSpawnIndex(ring);
@@ -219,6 +219,13 @@ public class RingManager {
         }
         audioManager.playSfx(GameSound.RING);
         player.addRings(1);
+    }
+
+    private static boolean cannotCollectRings(AbstractPlayableSprite player) {
+        if (player == null || player.getDead()) {
+            return true;
+        }
+        return player.isCpuControlled() && player.isObjectControlled();
     }
 
     private static boolean ringOverlapsPlayer(int playerX, int playerY, int playerHeight,
@@ -1007,7 +1014,7 @@ public class RingManager {
         }
 
         private void checkCollection(AbstractPlayableSprite player) {
-            if (activeRingCount == 0 || player == null || player.getDead()) {
+            if (activeRingCount == 0 || cannotCollectRings(player)) {
                 return;
             }
 

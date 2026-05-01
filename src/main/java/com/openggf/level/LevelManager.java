@@ -2,6 +2,7 @@ package com.openggf.level;
 
 import com.openggf.game.*;
 import com.openggf.Engine;
+import com.openggf.TraceSessionLauncher;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -88,8 +89,8 @@ public class LevelManager {
     private static final Logger LOGGER = Logger.getLogger(LevelManager.class.getName());
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
-    /** Base for extra sidekick DPLC banks — above water (0x30000) and below title cards (0x40000). */
-    private static final int SIDEKICK_PATTERN_BASE = 0x38000;
+    /** Base for extra sidekick-style DPLC banks — above water (0x30000) and below title cards (0x40000). */
+    public static final int SIDEKICK_PATTERN_BASE = 0x38000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
     private Level level;
     private int blockPixelSize = 128;  // cached from level
@@ -103,6 +104,7 @@ public class LevelManager {
     private int cachedBgHeightPx;
     private Game game;
     private GameModule gameModule;
+    private int sidekickPatternBankCursor = 0;
 
     public Game getGame() {
         return game;
@@ -1360,6 +1362,7 @@ public class LevelManager {
         RenderContext.clearSidekickContexts();
         dustBankCount = 0;
         tailsTailBankCount = 0;
+        sidekickPatternBankCursor = 0;
         CrossGameFeatureProvider crossGame = crossGameFeatures;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
@@ -1441,8 +1444,6 @@ public class LevelManager {
                 bankSizes.add(sourceArt.bankSize());
             }
         }
-        // Delegate offset computation to the tested utility
-        List<Integer> bankOffsets = computeSidekickBankOffsets(bankSizes);
         // Second pass: initialise each sidekick using the pre-computed offsets
         int validIndex = 0;
         for (int i = 0; i < sidekicks.size(); i++) {
@@ -1458,10 +1459,8 @@ public class LevelManager {
                 // Every sidekick gets its own isolated bank in SIDEKICK_PATTERN_BASE range.
                 // This avoids VRAM collisions even when characters share the same ART_TILE
                 // base (e.g., Knuckles and Sonic both use 0x0680 in S3K).
-                assert validIndex < bankOffsets.size()
-                        : "validIndex " + validIndex + " out of bounds for bankOffsets (size "
-                        + bankOffsets.size() + ")";
-                int shiftedBase = SIDEKICK_PATTERN_BASE + bankOffsets.get(validIndex++);
+                validIndex++;
+                int shiftedBase = reserveSidekickPatternBank(sourceArt.bankSize());
                 SpriteArtSet sidekickArt = new SpriteArtSet(
                         sourceArt.artTiles(),
                         sourceArt.mappingFrames(),
@@ -1531,6 +1530,18 @@ public class LevelManager {
             running += size;
         }
         return offsets;
+    }
+
+    /**
+     * Reserves an isolated virtual pattern bank from the sidekick DPLC range
+     * without registering a gameplay sidekick. Render-only systems such as
+     * trace ghosts use this to avoid corrupting real player/sidekick DPLC state.
+     */
+    public int reserveSidekickPatternBank(int bankSize) {
+        int safeSize = Math.max(0, bankSize);
+        int base = SIDEKICK_PATTERN_BASE + sidekickPatternBankCursor;
+        sidekickPatternBankCursor += safeSize;
+        return base;
     }
 
     private RenderContext createSidekickPaletteContext(
@@ -1608,8 +1619,7 @@ public class LevelManager {
             // similar to how sidekick body sprites and Tails tail appendages are
             // shifted (see initTailsTails).
             if (dustBankCount > 0) {
-                int shiftedBase = SIDEKICK_PATTERN_BASE + 0x2000
-                        + dustArt.bankSize() * (dustBankCount - 1);
+                int shiftedBase = reserveSidekickPatternBank(dustArt.bankSize());
                 dustArt = new SpriteArtSet(
                         dustArt.artTiles(),
                         dustArt.mappingFrames(),
@@ -1686,7 +1696,7 @@ public class LevelManager {
         // just like the main sprite body. The first Tails uses the original base;
         // subsequent ones get shifted into SIDEKICK_PATTERN_BASE range.
         if (tailsTailBankCount > 0) {
-            int shiftedBase = SIDEKICK_PATTERN_BASE + 0x1000 + tailsArt.bankSize() * (tailsTailBankCount - 1);
+            int shiftedBase = reserveSidekickPatternBank(tailsArt.bankSize());
             tailsArt = new SpriteArtSet(
                     tailsArt.artTiles(),
                     tailsArt.mappingFrames(),
@@ -2324,7 +2334,12 @@ public class LevelManager {
                     }
                 } else {
                     if (spriteManager != null) {
-                        spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                        int layerBucket = bucket;
+                        spriteManager.drawUnifiedBucketWithPriority(
+                                bucket,
+                                graphicsManager,
+                                () -> renderTraceGhostsForLayer(layerBucket, false),
+                                () -> renderTraceGhostsForLayer(layerBucket, true));
                     }
                     if (objectManager != null) {
                         objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
@@ -2346,6 +2361,13 @@ public class LevelManager {
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.
         graphicsManager.registerCommand(disableWaterShaderCommand);
+    }
+
+    private void renderTraceGhostsForLayer(int bucket, boolean highPriority) {
+        TraceSessionLauncher traceSession = TraceSessionLauncher.active();
+        if (traceSession != null) {
+            traceSession.renderGhostsForLayer(bucket, highPriority);
+        }
     }
 
     private void renderSpriteObjectPassFiltered(SpriteManager spriteManager, LevelRenderOptions options) {

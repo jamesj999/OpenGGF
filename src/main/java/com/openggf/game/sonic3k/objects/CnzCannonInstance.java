@@ -48,7 +48,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     private static final int PRIORITY = 0x280;
-    private static final int FRAME_IDLE = 9;
+    private static final int FRAME_CHAMBER_IDLE = 4;
     private static final int FRAME_SPIN_MIN = 0;
     private static final int FRAME_SPIN_MAX = 8;
     private static final int STATE_IDLE = 0;
@@ -70,7 +70,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     private int state = STATE_IDLE;
     private int stateTimer;
     private int spinAngle;
-    private int renderFrame = FRAME_IDLE;
+    private int chamberFrame = FRAME_CHAMBER_IDLE;
     private AbstractPlayableSprite capturedPlayer;
 
     public CnzCannonInstance(ObjectSpawn spawn) {
@@ -90,14 +90,14 @@ public final class CnzCannonInstance extends AbstractObjectInstance
             case STATE_COOLDOWN -> updateCooldown();
             default -> {
                 state = STATE_IDLE;
-                renderFrame = FRAME_IDLE;
+                chamberFrame = FRAME_CHAMBER_IDLE;
                 capturedPlayer = null;
             }
         }
     }
 
     private void updateIdle(int frameCounter, AbstractPlayableSprite player) {
-        renderFrame = FRAME_IDLE;
+        chamberFrame = FRAME_CHAMBER_IDLE;
         if (player == null || player.isObjectControlled()) {
             return;
         }
@@ -110,7 +110,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         AbstractPlayableSprite activePlayer = capturedPlayer != null ? capturedPlayer : player;
         if (activePlayer == null || !activePlayer.isObjectControlled()) {
             state = STATE_IDLE;
-            renderFrame = FRAME_IDLE;
+            chamberFrame = FRAME_CHAMBER_IDLE;
             capturedPlayer = null;
             return;
         }
@@ -133,7 +133,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         AbstractPlayableSprite activePlayer = capturedPlayer != null ? capturedPlayer : player;
         if (activePlayer == null || !activePlayer.isObjectControlled()) {
             state = STATE_IDLE;
-            renderFrame = FRAME_IDLE;
+            chamberFrame = FRAME_CHAMBER_IDLE;
             capturedPlayer = null;
             return;
         }
@@ -156,14 +156,14 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         if (stateTimer <= 0) {
             state = STATE_IDLE;
             capturedPlayer = null;
-            renderFrame = FRAME_IDLE;
+            chamberFrame = FRAME_CHAMBER_IDLE;
         }
     }
 
     private void advanceSpin(int frameCounter) {
         spinAngle = (spinAngle + 2) & 0xFF;
         int frame = (TrigLookupTable.sinHex(spinAngle) + 0x120) >> 6;
-        renderFrame = Math.max(FRAME_SPIN_MIN, Math.min(FRAME_SPIN_MAX, frame));
+        chamberFrame = Math.max(FRAME_SPIN_MIN, Math.min(FRAME_SPIN_MAX, frame));
 
         if (frameCounter >= 0 && (frameCounter & 0x1F) == 0) {
             try {
@@ -203,7 +203,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     }
 
     private void launchPlayer(AbstractPlayableSprite player, int frameCounter) {
-        int launchAngle = ((renderFrame & 0x0F) << 4) + 0x80;
+        int launchAngle = ((chamberFrame & 0x0F) << 4) + 0x80;
         short xSpeed = (short) (TrigLookupTable.cosHex(launchAngle) << 4);
         short ySpeed = (short) (TrigLookupTable.sinHex(launchAngle) << 4);
 
@@ -225,7 +225,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
         capturedPlayer = null;
         state = STATE_COOLDOWN;
         stateTimer = LAUNCH_COOLDOWN_FRAMES;
-        renderFrame = FRAME_IDLE;
+        chamberFrame = FRAME_CHAMBER_IDLE;
     }
 
     @Override
@@ -264,7 +264,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
 
         boolean hFlip = (spawn.renderFlags() & 0x01) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x02) != 0;
-        renderer.drawFrameIndex(renderFrame, spawn.x(), spawn.y(), hFlip, vFlip);
+        renderer.drawFrameIndex(chamberFrame, spawn.x(), spawn.y(), hFlip, vFlip);
     }
 
     @Override
@@ -273,7 +273,7 @@ public final class CnzCannonInstance extends AbstractObjectInstance
     }
 
     int getRenderFrameForTest() {
-        return renderFrame;
+        return chamberFrame;
     }
 
     /**

@@ -12,17 +12,38 @@ public record ToleranceConfig(
     int speedError,
     boolean speedSignChangeIsError,
     int angleWarn,
-    int angleError
+    int angleError,
+    RingCountMode ringCountMode
 ) {
+    public enum RingCountMode {
+        DISABLED,
+        WARN_ONLY,
+        FORCE_ERROR
+    }
+
+    public ToleranceConfig(int positionWarn,
+                           int positionError,
+                           int speedWarn,
+                           int speedError,
+                           boolean speedSignChangeIsError,
+                           int angleWarn,
+                           int angleError) {
+        this(positionWarn, positionError, speedWarn, speedError,
+                speedSignChangeIsError, angleWarn, angleError, RingCountMode.DISABLED);
+    }
+
     /**
      * Default replay policy is exact: any numeric mismatch is an error.
      * Non-zero tolerance configs must be opt-in and justified by the caller.
      * - Flags: any mismatch = error (hardcoded, not configurable)
+     * - Ring counts: warning-only by default while existing trace parity gaps are
+     *   being surfaced and triaged. Callers can opt into forced errors.
      */
     public static final ToleranceConfig DEFAULT = new ToleranceConfig(
         1, 1,         // position
         1, 1, true,   // speed
-        1, 1          // angle
+        1, 1,         // angle
+        RingCountMode.WARN_ONLY
     );
 
     /** Classify a numeric difference against warn/error thresholds. */

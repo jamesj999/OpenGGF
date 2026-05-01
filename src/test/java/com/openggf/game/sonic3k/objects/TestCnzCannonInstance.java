@@ -41,7 +41,7 @@ class TestCnzCannonInstance {
         assertFalse(player.isControlLocked());
         assertEquals((short) -0x014A, player.getXSpeed());
         assertEquals((short) -0x014A, player.getGSpeed());
-        assertEquals(9, cannon.getRenderFrameForTest());
+        assertEquals(4, cannon.getRenderFrameForTest());
     }
 
     @Test

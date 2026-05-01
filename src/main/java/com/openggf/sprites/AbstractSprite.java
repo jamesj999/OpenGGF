@@ -225,7 +225,10 @@ public abstract class AbstractSprite implements Sprite {
 	 * subpixel fraction. Used by platform riding code.
 	 */
 	public final void shiftY(int delta) {
+		short beforeY = this.yPixel;
+		short beforeCentreY = getCentreY();
 		this.yPixel += delta;
+		traceS3kAizYProbe("shiftY(" + delta + ")", beforeY, beforeCentreY);
 	}
 
 	public final void move(short xSpeed, short ySpeed) {
@@ -243,8 +246,12 @@ public abstract class AbstractSprite implements Sprite {
 		xPixel = (short) (xPos >> 16);
 		xSubpixel = (short) (xPos & 0xFFFF);
 
+		short beforeY = yPixel;
+		short beforeCentreY = getCentreY();
 		yPixel = (short) (yPos >> 16);
 		ySubpixel = (short) (yPos & 0xFFFF);
+		traceS3kAizYProbe(String.format("move(%04X,%04X)", xSpeed & 0xFFFF, ySpeed & 0xFFFF),
+				beforeY, beforeCentreY);
 	}
 
 	public int getWidth() {
@@ -260,7 +267,11 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public void setHeight(int height) {
+		int beforeHeight = this.height;
+		short beforeY = this.yPixel;
+		short beforeCentreY = getCentreY();
 		this.height = height;
+		traceS3kAizYProbe("setHeight(" + beforeHeight + "->" + height + ")", beforeY, beforeCentreY);
 	}
 
 	public float getGravity() {

@@ -208,6 +208,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   save handling, and sidekick/object interactions continue to gain ROM-cited behavior and tests.
 - **Trace replay and diagnostics:** S1, S2, and S3K trace replay tooling now has stronger recorder
   schemas, comparison-only aux streams, compressed fixtures, and focused workflows for parity fixes.
+  Test-mode visual trace sessions can also render grayscale ghost copies of traced characters during
+  desyncs, using isolated sidekick-style DPLC banks and the same sprite layering priorities as the
+  live characters while drawing behind them.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;
@@ -220,7 +223,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   (captured `loc_1E154` lift PCs vs. trace numerics that should fail the precondition) can be
   resolved once the trace is regenerated. S3K v6.12-s3k adds a `control_lock_state_per_frame`
   event capturing `Ctrl_1_locked` / `Ctrl_2_locked` / `Ctrl_1_logical` / `Ctrl_2_logical` per
-  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM. Velocity-
+  frame so AIZ F7381 lock-site hypotheses can be tested directly against ROM RAM. S3K v6.13-s3k
+  adds a `terrain_wall_sensor_per_frame` event capturing per-frame wall-sensor and player
+  geometry state for both Sonic and Tails so the AIZ F7552 sidekick airborne wall-collision
+  parity gap at world `(0x1208, 0x0314)` can be diagnosed against ROM-side wall probes;
+  `velocity_write` and `position_write` events now both support multi-window capture. Velocity-
   setter probe diagnostics localised the CNZ F7919 triple `-0x0800` write to
   `ClamerObjectInstance.applySpringLaunch` (correct ROM dispatch given the inputs it sees);
   the upstream divergence is Tails's CPU/flight state in the F7872→F7918 window.
@@ -268,7 +275,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
   `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
   0x02 (idle) / 0x04 (snap-shut) / 0x06 (auto-close) — foundation for further CNZ Clamer
-  parity work.
+  parity work. Diagnostic localisation has further identified that the F7918 fire originates
+  from an engine-only `SPRING_RELATCH_COLLISION_FLAGS = $40|$12` widening with no ROM cite
+  (ROM `loc_890AA`/`loc_890C8`/`loc_890D0` at `sonic3k.asm:185953-185973` never modify
+  `collision_flags` after spawn) — the relatch correction is staged behind a deeper F=621
+  ROM-fire dispatch divergence still under investigation.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K trace replay fixes:** Marble Garden frame-zero replay timing now treats traces whose

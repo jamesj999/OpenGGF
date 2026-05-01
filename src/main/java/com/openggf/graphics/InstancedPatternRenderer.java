@@ -290,9 +290,11 @@ public class InstancedPatternRenderer {
         }
         GraphicsManager gm = graphicsManager;
         boolean usePriority = gm.isUseSpritePriorityShader() && instancedPriorityShader != null;
+        boolean ghostEffectActive = gm.isGhostRenderEffectActive();
+        float ghostAlpha = gm.getGhostRenderAlpha();
 
         InstancedBatchCommand command = obtainCommand();
-        command.load(instanceData, instanceCount, usePriority);
+        command.load(instanceData, instanceCount, usePriority, ghostEffectActive, ghostAlpha);
         instanceCount = 0;
         batchActive = false;
         return command;
@@ -499,10 +501,16 @@ public class InstancedPatternRenderer {
         private int instanceCount;
         private int floatCount;
         private boolean usePriorityShader;
-        private void load(float[] data, int instanceCount, boolean usePriorityShader) {
+        private boolean capturedGhostEffectActive;
+        private float capturedGhostAlpha;
+
+        private void load(float[] data, int instanceCount, boolean usePriorityShader,
+                          boolean ghostEffectActive, float ghostAlpha) {
             this.instanceCount = instanceCount;
             this.floatCount = instanceCount * FLOATS_PER_INSTANCE;
             this.usePriorityShader = usePriorityShader;
+            this.capturedGhostEffectActive = ghostEffectActive;
+            this.capturedGhostAlpha = ghostAlpha;
             instanceBuffer = ensureBuffer(instanceBuffer, floatCount);
             instanceBuffer.clear();
             instanceBuffer.put(data, 0, floatCount);
@@ -543,6 +551,7 @@ public class InstancedPatternRenderer {
             glUniform1i(shader.getIndexedColorTextureLocation(), 1);
             shader.setPaletteLine(-1.0f);
             shader.setTotalPaletteLines((float) RenderContext.getTotalPaletteLines());
+            shader.setGhostEffect(capturedGhostEffectActive, capturedGhostAlpha);
 
             // Set priority uniforms if using the priority shader
             // Priority is now per-instance via InstanceHighPriority attribute,

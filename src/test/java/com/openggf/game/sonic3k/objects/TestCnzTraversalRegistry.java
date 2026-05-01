@@ -81,9 +81,9 @@ public class TestCnzTraversalRegistry {
         assertVisibleObjectRendersExpectedInitialFrame(new CnzBalloonInstance(new ObjectSpawn(0x1200, 0x0580,
                         0x41, 3, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_BALLOON, 15, 0x1200, 0x0580);
-        assertVisibleObjectRendersExpectedInitialFrame(new CnzCannonInstance(new ObjectSpawn(0x1600, 0x0680,
+        assertCannonRendersComposedInitialFrame(new CnzCannonInstance(new ObjectSpawn(0x1600, 0x0680,
                         0x42, 0, 0, false, 0)),
-                Sonic3kObjectArtKeys.CNZ_CANNON, 9, 0x1600, 0x0680);
+                0x1600, 0x0680);
         assertVisibleObjectRendersExpectedInitialFrame(new CnzRisingPlatformInstance(new ObjectSpawn(0x1800, 0x05A0,
                         0x43, 0, 0, false, 0)),
                 Sonic3kObjectArtKeys.CNZ_RISING_PLATFORM, 0, 0x1800, 0x05A0);
@@ -143,6 +143,21 @@ public class TestCnzTraversalRegistry {
 
         verify(renderManager).getRenderer(artKey);
         verify(renderer).drawFrameIndex(frame, x, y, false, false);
+    }
+
+    private static void assertCannonRendersComposedInitialFrame(CnzCannonInstance instance, int x, int y) {
+        LevelManager levelManager = mock(LevelManager.class);
+        ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
+        PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
+        when(levelManager.getObjectRenderManager()).thenReturn(renderManager);
+        when(renderManager.getRenderer(Sonic3kObjectArtKeys.CNZ_CANNON)).thenReturn(renderer);
+        when(renderer.isReady()).thenReturn(true);
+
+        instance.setServices(new TestObjectServices().withLevelManager(levelManager));
+        instance.appendRenderCommands(new ArrayList<>());
+
+        verify(renderManager).getRenderer(Sonic3kObjectArtKeys.CNZ_CANNON);
+        verify(renderer).drawFrameIndex(4, x, y, false, false);
     }
 
     private static void assertCylinderRenderedFrame(CnzCylinderInstance cylinder,

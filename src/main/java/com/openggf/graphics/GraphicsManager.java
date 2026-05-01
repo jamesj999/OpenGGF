@@ -81,6 +81,8 @@ public class GraphicsManager {
 	// Sprite priority shader mode flags
 	private boolean useSpritePriorityShader = false;
 	private boolean currentSpriteHighPriority = false;
+	private boolean ghostRenderEffectActive = false;
+	private float ghostRenderAlpha = 1.0f;
 	private boolean spriteSatCollectionActive = false;
 	private boolean spriteMaskRequested = false;
 	private final List<SpriteSatEntry> spriteSatEntries = new ArrayList<>();
@@ -623,6 +625,24 @@ public class GraphicsManager {
 			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, this);
 			registerCommand(command);
 		}
+	}
+
+	public void beginGhostRenderEffect(float alpha) {
+		this.ghostRenderEffectActive = true;
+		this.ghostRenderAlpha = Math.max(0.0f, Math.min(1.0f, alpha));
+	}
+
+	public void endGhostRenderEffect() {
+		this.ghostRenderEffectActive = false;
+		this.ghostRenderAlpha = 1.0f;
+	}
+
+	public boolean isGhostRenderEffectActive() {
+		return ghostRenderEffectActive;
+	}
+
+	public float getGhostRenderAlpha() {
+		return ghostRenderAlpha;
 	}
 
 	/**

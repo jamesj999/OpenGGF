@@ -22,6 +22,8 @@ uniform float WaterlineScreenY;         // Screen Y where water starts (negative
 uniform float WindowHeight;             // Physical window height in pixels
 uniform float ScreenHeight;             // Logical screen height (e.g., 224)
 uniform int WaterEnabled;               // 1 = zone has water, 0 = no water
+uniform int GhostMode;
+uniform float GhostAlpha;
 
 in vec2 v_texCoord;
 in float v_paletteLine;
@@ -89,5 +91,10 @@ void main()
         indexedColor = texture(Palette, vec2(paletteX, paletteY));
     }
 
-    FragColor = indexedColor; // Output the final color
+    if (GhostMode == 1) {
+        float gray = dot(indexedColor.rgb, vec3(0.299, 0.587, 0.114));
+        FragColor = vec4(vec3(gray), indexedColor.a * clamp(GhostAlpha, 0.0, 1.0));
+    } else {
+        FragColor = indexedColor; // Output the final color
+    }
 }

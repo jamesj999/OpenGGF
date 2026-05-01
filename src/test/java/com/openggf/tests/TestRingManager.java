@@ -131,6 +131,40 @@ public class TestRingManager {
     }
 
     @Test
+    public void testCpuSidekickObjectControlledRecoveryCannotCollectStageRings() {
+        RingSpawn spawn = new RingSpawn(100, 100);
+        RingManager ringManager = buildRingManager(List.of(spawn));
+        ringManager.reset(0);
+
+        TestPlayableSprite tails = new TestPlayableSprite((short) 100, (short) 100);
+        tails.setCpuControlled(true);
+        tails.setObjectControlled(true);
+        tails.setControlLocked(true);
+
+        ringManager.collectStageRings(tails, 0);
+
+        assertFalse(ringManager.isCollected(spawn),
+                "CPU Tails recovery flight keeps object_control set and must not collect stage rings");
+        assertEquals(0, tails.getRingCount());
+    }
+
+    @Test
+    public void testCpuSidekickObjectControlledRecoveryCannotCollectLostRings() throws Exception {
+        RingManager ringManager = buildRingManager(List.of());
+        TestPlayableSprite tails = new TestPlayableSprite((short) 0x03B7, (short) 0x025A);
+        tails.setCpuControlled(true);
+        tails.setObjectControlled(true);
+        tails.setControlLocked(true);
+        tails.setInvulnerableFrames(0);
+
+        configureSingleLostRing(ringManager, 0x03AE, 0x0261);
+        ringManager.checkLostRingCollection(tails);
+
+        assertEquals(0, tails.getRingCount(),
+                "CPU Tails recovery flight keeps object_control set and must not collect lost rings");
+    }
+
+    @Test
     public void testLostRingCollectionUsesTouchPhaseInvulnerabilityThreshold() throws Exception {
         RingManager ringManager = buildRingManager(List.of());
         TestPlayableSprite player = new TestPlayableSprite((short) 0x03B7, (short) 0x025A);
