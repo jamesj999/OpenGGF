@@ -208,6 +208,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   save handling, and sidekick/object interactions continue to gain ROM-cited behavior and tests.
 - **Trace replay and diagnostics:** S1, S2, and S3K trace replay tooling now has stronger recorder
   schemas, comparison-only aux streams, compressed fixtures, and focused workflows for parity fixes.
+  Test-mode visual trace sessions can also render grayscale ghost copies of traced characters during
+  desyncs, using isolated sidekick-style DPLC banks and the same sprite layering priorities as the
+  live characters while drawing behind them.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;

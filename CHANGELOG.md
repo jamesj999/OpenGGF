@@ -6,6 +6,13 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Trace visualizer ghost characters.** Test-mode visual trace sessions now
+  render grayscale, distance-faded ghost copies of the traced main character
+  and first sidekick during desyncs. Ghosts hydrate only render state from the
+  trace, keep isolated sidekick-style DPLC banks so their animation/art state
+  cannot corrupt real players or sidekicks, share the mirrored character's
+  render bucket and tile-priority layer, and draw behind the live characters.
+
 - **CNZ F=621 Clamer re-fire — ROM dispatch path narrowed; F=621
   fire mechanism requires recorder extension to localise
   (doc-only, round 2).** Continues from the prior F619 dispatch
