@@ -6,6 +6,49 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ Clamer (S3K Obj $A3): port `Clamer_Index` parent state
+  machine and `Find_SonicTails`-driven auto-close gate to
+  `ClamerObjectInstance`.** The previous engine implementation only
+  handled the local close-timer + spring-launch path on touch; it
+  did not implement the ROM `Clamer_Index` state machine
+  (sonic3k.asm:185866-185874) or the `loc_88FEC` auto-close gate
+  (sonic3k.asm:185880-185902). This branch adds:
+  - The ROM routine dispatch (0x02 idle / 0x04 snap-shut after
+    spring fires / 0x06 auto-close on player approach), with the
+    `loc_89056` reset path returning the parent to routine 0x02 once
+    the close animation completes.
+  - A `findClosestPlayer` helper modelled on `Find_SonicTails`
+    (sonic3k.asm:178243-178277): picks the closer of Sonic/Tails by
+    `abs(dx)` against the Clamer parent, returning a signed dx so
+    the auto-close gate can apply the `render_flags` directional
+    flip (`subq.w #2,d0` when bit 0 of render_flags is set).
+  - The `cmpi.w #$60,d2; bhs loc_8900C` distance gate that keeps
+    the Clamer idle when the closer player is at `abs(dx) >= 0x60`,
+    matching ROM.
+  - `loc_89014`-equivalent collision_flags clearing during routine
+    0x04 (snap-shut) — `loc_89036` (auto-close) does NOT clear
+    `collision_flags`, so the parent's $0A touch box stays alive
+    while the close animation plays, matching ROM.
+  - The spring child's collision box stays active across all parent
+    routines because ROM `loc_890AA` (sonic3k.asm:185953-185962)
+    runs independently of the parent's routine; only the local
+    post-fire cooldown disables it.
+
+  Added 4 new regression tests in `TestClamerObjectInstance`
+  covering: auto-close fires when player on facing side within
+  threshold, holds when player on opposite side, holds when player
+  beyond `0x60` threshold, and the `loc_89056` reset path. The
+  existing 2 tests for the spring-launch path continue to pass.
+
+  S3K-only object — no S1/S2 PhysicsFeatureSet flag needed. ROM
+  cite: `Obj_Clamer` / `Clamer_Index` / `loc_88FEC` / `loc_89014`
+  / `loc_89036` / `loc_89056` / `loc_89064` / `Find_SonicTails`.
+
+  Trace replay parity: S3K AIZ stable at F7381 (no regression).
+  CNZ trace fixture has not been added to this repo yet, so this
+  port is verified by the new unit tests + manual reading against
+  the ROM. Pre-existing S1 trace failures unchanged.
+
 - **AIZ trace F7381 unblocked — Fire Shield Dash now clears the
   Stat_table-equivalent (`inputHistory` / `statusHistory`) like ROM
   `Reset_Player_Position_Array`:** Engine `resetPositionHistory()`
