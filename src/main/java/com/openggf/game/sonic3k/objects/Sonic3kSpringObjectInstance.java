@@ -280,7 +280,9 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) yStrength);
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
-        player.setGSpeed((short) 0);
+        // ROM sub_234E6 writes x_vel/y_vel and Status_InAir, but leaves
+        // ground_vel untouched unless subtype bit 0 takes the flip path
+        // (sonic3k.asm:48200-48217, 48225-48241).
         player.recordMgzTopPlatformSpringHandoff(player.getXSpeed(), player.getYSpeed());
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
@@ -590,6 +592,16 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isSlopeFlipped() {
         return isFlippedHorizontal();
+    }
+
+    @Override
+    public boolean addsSlopeCatchRangeToVerticalOverlap() {
+        // ROM: Obj_Spring_UpDiag/DownDiag pass d2=$10 into sub_1DD24
+        // (sonic3k.asm:48150-48158, 48264-48270). Its new-contact path
+        // loc_1DECE keeps that catch range in d2, adds y_radius, then adds
+        // d2 into the vertical overlap before classification
+        // (sonic3k.asm:41337-41343).
+        return springType == TYPE_DIAGONAL_UP || springType == TYPE_DIAGONAL_DOWN;
     }
 
     @Override
