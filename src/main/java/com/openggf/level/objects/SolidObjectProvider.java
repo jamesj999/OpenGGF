@@ -18,6 +18,20 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Number of position-history frames to use for this object's new
+     * {@code SolidObjectTop} geometry check.
+     * <p>
+     * Most objects use the player's current engine position. Object-specific
+     * providers may opt into a different sampled phase when porting an inline
+     * ROM top-solid helper. The call site must cite the concrete disassembly
+     * routine; for S3K {@code SolidObjectTop}'s new-landing geometry reads
+     * {@code x_pos/y_pos/y_radius} at sonic3k.asm:41982-42015.
+     */
+    default int getTopSolidPlayerPositionHistoryFrames(PlayableEntity player) {
+        return 0;
+    }
+
+    /**
      * Whether this top-solid object rejects the exact surface boundary before landing.
      * <p>
      * Most shared top-solid callers keep the established engine/profile behavior.

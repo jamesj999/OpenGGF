@@ -76,6 +76,41 @@ public class TestSolidObjectManager {
     }
 
     @Test
+    public void topSolidHistoryProviderUsesPreviousPlayerPositionForNewLanding() {
+        SolidObjectParams params = new SolidObjectParams(16, 8, 8);
+        HistoryTopSolidObject object = new HistoryTopSolidObject(100, 100, params);
+        ObjectManager manager = buildManager(object);
+
+        TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
+        player.setWidth(20);
+        player.setHeight(38);
+        player.setCentreX((short) 100);
+        int rejectCentreY = 100 - 4 - params.airHalfHeight() - player.getYRadius() - 1;
+        int contactCentreY = rejectCentreY + 2;
+        player.setCentreY((short) rejectCentreY);
+        player.endOfTick();
+
+        player.setCentreY((short) contactCentreY);
+        player.setYSpeed((short) 0x100);
+        player.setAir(true);
+        player.endOfTick();
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertTrue(player.getAir());
+        assertFalse(player.isOnObject());
+
+        player.setCentreY((short) (contactCentreY + 1));
+        player.endOfTick();
+
+        manager.update(0, player, List.of(), 0, false, true, false);
+
+        assertFalse(player.getAir());
+        assertTrue(player.isOnObject());
+        assertEquals(0, player.getYSpeed());
+    }
+
+    @Test
     public void compatibilityAutoObjectPreservesPerPlayerCallbackTimingWithSidekickMutation() {
         TestPlayableSprite player = createStandingProbePlayer();
         TestPlayableSprite sidekick = createStandingProbePlayer();
@@ -871,6 +906,17 @@ public class TestSolidObjectManager {
         @Override
         public boolean usesInclusiveRightEdge() {
             return true;
+        }
+    }
+
+    private static final class HistoryTopSolidObject extends TestSolidObject {
+        private HistoryTopSolidObject(int x, int y, SolidObjectParams params) {
+            super(x, y, params, true);
+        }
+
+        @Override
+        public int getTopSolidPlayerPositionHistoryFrames(PlayableEntity player) {
+            return 1;
         }
     }
 
