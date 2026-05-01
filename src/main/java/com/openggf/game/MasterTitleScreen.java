@@ -257,8 +257,9 @@ public class MasterTitleScreen {
                 case LAUNCH -> {
                     TraceEntry entry = tracePicker.selectedEntry();
                     if (entry != null) {
-                        tracePicker = null;
-                        TraceSessionLauncher.launch(entry);
+                        if (TraceSessionLauncher.launch(entry)) {
+                            tracePicker = null;
+                        }
                     }
                 }
                 case BACK -> {

@@ -36,6 +36,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private final TraceBinder binder;
     private final MismatchRingBuffer mismatches = new MismatchRingBuffer(RING_CAPACITY);
     private final Supplier<AbstractPlayableSprite> spriteProvider;
+    private final Runnable firstErrorCallback;
 
     private int cursor;
     private int errorCount;
@@ -53,10 +54,19 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
                                ToleranceConfig tolerances,
                                int initialCursor,
                                Supplier<AbstractPlayableSprite> spriteProvider) {
+        this(trace, tolerances, initialCursor, spriteProvider, null);
+    }
+
+    public LiveTraceComparator(TraceData trace,
+                               ToleranceConfig tolerances,
+                               int initialCursor,
+                               Supplier<AbstractPlayableSprite> spriteProvider,
+                               Runnable firstErrorCallback) {
         this.trace = trace;
         this.binder = new TraceBinder(tolerances);
         this.cursor = initialCursor;
         this.spriteProvider = spriteProvider;
+        this.firstErrorCallback = firstErrorCallback;
     }
 
     @Override
@@ -135,6 +145,9 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
             }
             if (sev == Severity.ERROR && !firstErrorLogged) {
                 firstErrorLogged = true;
+                if (firstErrorCallback != null) {
+                    firstErrorCallback.run();
+                }
                 System.err.printf(
                         "[LiveTraceComparator] FIRST ERROR at trace frame %d:%n"
                                 + "  field=%s expected=%s actual=%s delta=%d%n"
@@ -237,6 +250,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     public int errorCount() { return errorCount; }
     public int warningCount() { return warningCount; }
     public int laggedFrames() { return laggedFrames; }
+    public boolean hasRecordingDesync() { return firstErrorLogged; }
     public boolean isComplete() { return complete; }
     public List<MismatchEntry> recentMismatches() { return mismatches.recent(); }
     public int recentActionMask() { return lastActionMask; }
