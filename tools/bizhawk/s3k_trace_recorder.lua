@@ -103,6 +103,17 @@
 -- captured at 0x1E172/0x1E182 despite the d3/d4 precondition appearing
 -- to fail per the recorded y_pos/y_radius values). Diagnostic-only; no
 -- CSV schema change.
+-- v6.12-s3k adds control_lock_state_per_frame: per-frame snapshot of the
+-- global Ctrl_1_locked ($FFFFF7CA) and Ctrl_2_locked ($FFFFF7CB) bytes,
+-- plus the Ctrl_1_logical / Ctrl_2_logical 16-bit latches. Emitted on
+-- every frame where any of those four bytes change, plus a baseline
+-- snapshot every SNAPSHOT_INTERVAL frames. Diagnostic-only.
+-- Targets the AIZ F7361-F7365 blocker (docs/S3K_KNOWN_BUGS.md "AIZ2
+-- Trace F7381"): the engine never enters controlLocked, so its
+-- inputHistory mirror never zeroes the Tails leader-input slot that
+-- ROM zeroes via Ctrl_1_locked, causing the F7381 -0x18 x_vel drift.
+-- Once the trace is regenerated, every ROM frame where Ctrl_1_locked=1
+-- can be read off and mapped to the active object/event that wrote it.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -123,6 +134,15 @@ local ADDR_GAME_MODE        = 0xF600
 local ADDR_CTRL1            = 0xF604
 local ADDR_CTRL1_DUP        = 0xF602
 local ADDR_CTRL1_LOCKED     = 0xF7CA
+local ADDR_CTRL2_LOCKED     = 0xF7CB
+-- Global Ctrl_1_logical / Ctrl_2_logical (16-bit gamepad latches updated by
+-- ROM at sonic3k.asm:21539-21545; suppressed when Ctrl_*_locked is set).
+-- Layout from sonic3k.constants.asm:527-535: Game_mode($F600) + pad(1) +
+-- Ctrl_1_logical($F602: held+pressed) + Ctrl_1($F604) + Ctrl_2($F606).
+-- Ctrl_2_logical lives in a different window (sonic3k.constants.asm:589) at
+-- $F66A (Super_Tails_flag$F668 chain). Verified by ds.b walk from RAM_start.
+local ADDR_CTRL1_LOGICAL    = 0xF602
+local ADDR_CTRL2_LOGICAL    = 0xF66A
 local ADDR_RING_COUNT       = 0xFE20
 local ADDR_CAMERA_X         = 0xEE78
 local ADDR_CAMERA_Y         = 0xEE7C
@@ -367,6 +387,15 @@ local prev_status = 0
 local prev_routine = 0
 local prev_ctrl_lock = 0
 local prev_player_mode = nil
+-- v6.12-s3k: previous values of the global Ctrl_*_locked bytes and the
+-- Ctrl_*_logical latches (sonic3k.constants.asm:527,589,688). Used to
+-- detect transitions and emit a control_lock_state event only when the
+-- snapshot changes; nil means "not yet sampled" so the first frame after
+-- start emits a baseline.
+local prev_ctrl1_locked_global = nil
+local prev_ctrl2_locked_global = nil
+local prev_ctrl1_logical = nil
+local prev_ctrl2_logical = nil
 
 local known_objects = {}
 local emitted_checkpoints = {}
@@ -657,6 +686,10 @@ local function reset_recording_state()
     prev_routine = 0
     prev_ctrl_lock = 0
     prev_player_mode = nil
+    prev_ctrl1_locked_global = nil
+    prev_ctrl2_locked_global = nil
+    prev_ctrl1_logical = nil
+    prev_ctrl2_logical = nil
     known_objects = {}
     emitted_checkpoints = {}
     last_zone_act_state_key = nil
@@ -713,7 +746,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.11-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.12-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -749,9 +782,9 @@ local function write_metadata()
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame"]'
     else
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame"]'
     end
     meta_file:write('  "aux_schema_extras": ' .. aux_schema_extras .. ',\n')
     meta_file:write('  "trace_profile": "' .. TRACE_PROFILE .. '",\n')
@@ -1050,6 +1083,47 @@ local function write_state_snapshot()
         ((status & STATUS_UNDERWATER) ~= 0) and "true" or "false",
         ((status & STATUS_ROLL_JUMP) ~= 0) and "true" or "false"
     ))
+end
+
+-- v6.12-s3k: per-frame snapshot of the global Ctrl_1_locked / Ctrl_2_locked
+-- bytes plus Ctrl_1_logical / Ctrl_2_logical latches. The ROM short-circuit
+-- at sonic3k.asm:21539-21545 (`tst.b (Ctrl_1_locked).w; bne loc_10780`)
+-- skips the `move.w (Ctrl_1).w,(Ctrl_1_logical).w` write while the lock is
+-- set, so logical input persists at its prior value. Recording these
+-- bytes diagnostically lets the parity test enumerate every ROM frame
+-- where Ctrl_*_locked=1 and identify the object/event that latched it.
+-- Emitted on every transition plus a baseline every SNAPSHOT_INTERVAL.
+-- Diagnostic-only; the trace replay must not write any of these bytes
+-- back into engine state.
+local function write_control_lock_state(force)
+    if not aux_file then return end
+    local locked_1 = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
+    local locked_2 = mainmemory.read_u8(ADDR_CTRL2_LOCKED)
+    local logical_1 = mainmemory.read_u16_be(ADDR_CTRL1_LOGICAL)
+    local logical_2 = mainmemory.read_u16_be(ADDR_CTRL2_LOGICAL)
+
+    local changed = force
+        or prev_ctrl1_locked_global == nil
+        or locked_1 ~= prev_ctrl1_locked_global
+        or locked_2 ~= prev_ctrl2_locked_global
+        or logical_1 ~= prev_ctrl1_logical
+        or logical_2 ~= prev_ctrl2_logical
+
+    if not changed then return end
+
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"control_lock_state",'
+        .. '"ctrl1_locked":%d,"ctrl2_locked":%d,'
+        .. '"ctrl1_logical":"0x%04X","ctrl2_logical":"0x%04X"}',
+        trace_frame, vfc,
+        locked_1, locked_2,
+        logical_1, logical_2))
+
+    prev_ctrl1_locked_global = locked_1
+    prev_ctrl2_locked_global = locked_2
+    prev_ctrl1_logical = logical_1
+    prev_ctrl2_logical = logical_2
 end
 
 local function emit_player_mode_event()
@@ -3157,6 +3231,12 @@ function on_frame_end()
         write_state_snapshot()
     end
 
+    -- v6.12-s3k: per-frame Ctrl_*_locked snapshot. Always polled so any
+    -- transition is captured; a baseline is also forced every
+    -- SNAPSHOT_INTERVAL so consumers can resync without scanning back
+    -- through the entire stream.
+    write_control_lock_state(trace_frame % SNAPSHOT_INTERVAL == 0)
+
     scan_objects(x, y)
 
     trace_frame = trace_frame + 1
@@ -3181,7 +3261,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.11-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.12-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for

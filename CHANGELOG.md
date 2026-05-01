@@ -6,6 +6,37 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **BizHawk recorder v6.12-s3k — `control_lock_state_per_frame`
+  diagnostic + AIZ fixture regen + `Ctrl_1_locked` hypothesis
+  refuted:** Extended `tools/bizhawk/s3k_trace_recorder.lua` to emit
+  a new `control_lock_state` aux event on every transition (plus a
+  baseline every 60 frames) capturing the global `Ctrl_1_locked`
+  ($FFFFF7CA), `Ctrl_2_locked` ($FFFFF7CB), `Ctrl_1_logical`
+  ($FFFFF602) and `Ctrl_2_logical` ($FFFFF66A) bytes. Bumped
+  `lua_script_version` to `6.12-s3k`, added the new schema to
+  `aux_schema_extras`, and regenerated
+  `src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/` (20798 frames,
+  `physics.csv.gz` MD5-identical to prior fixture). The Java parser
+  required no changes — the new event is preserved as
+  `TraceEvent.StateSnapshot` via the existing default switch arm
+  (`TraceEvent.java:782-787`), keeping pre-v6.12 fixtures fully
+  compatible. Trace inspection refutes the prior-round
+  `S3K_KNOWN_BUGS.md` "AIZ2 Trace F7381" diagnosis: `Ctrl_1_locked`
+  is **0** for the entire AIZ F7361-F7385 window (and only ever
+  set at F20298+, far past AIZ act 2). The 0x0000 `delayed_input`
+  ROM reads at F7381 therefore is **not** produced by the
+  `tst.b (Ctrl_1_locked).w; bne loc_10780` short-circuit at
+  sonic3k.asm:21542-21544 — option (A) per-object
+  `setControlLocked(true)` wiring will not advance the F7381
+  blocker. Updated the `S3K_KNOWN_BUGS.md` entry with the new
+  evidence and proposed next investigative steps (Stat_table
+  snapshot diagnostic, `Sonic_RecordPos` hook, AIZ
+  act-1->act-2 / boss arena flush audit). Trace replay parity:
+  S2 EHZ PASS, S1 GHZ PASS, S1 MZ1 PASS, S3K AIZ first error
+  stable at F7381 (1039 errors, no regression), S3K CNZ first
+  error stable at F7919 (no regression). Diagnostic-only;
+  comparison-only invariant preserved (no engine state hydrated
+  from the new event).
 - **Ctrl_1_locked logical-input latch (S3K-only foundation):** Added a new
   `PhysicsFeatureSet.controlLockLatchesLogicalInput` flag and gated the
   short-circuit in `AbstractPlayableSprite.setLogicalInputState` on it.
