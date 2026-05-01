@@ -172,7 +172,7 @@ public class TestTraceBinder {
     }
 
     @Test
-    void testRingCountMismatchIsReportedWhenTraceHasRingDiagnostics() {
+    void testRingCountMismatchIsWarningWhenConfiguredWarnOnly() {
         TraceFrame frame = new TraceFrame(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
@@ -180,7 +180,50 @@ public class TestTraceBinder {
             0, 0, 0x02, 0, 0, 7, 0, 1, -1, -1, -1, null);
 
         TraceBinder binder = new TraceBinder(new ToleranceConfig(
-            1, 1, 1, 1, true, 1, 1, true));
+            1, 1, 1, 1, true, 1, 1, ToleranceConfig.RingCountMode.WARN_ONLY));
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, new EngineDiagnostics(0x02, -1, -1, 8, 0, 0,
+                -1, -1, -1, -1, "", 0, 0));
+
+        assertTrue(result.hasDivergence());
+        assertFalse(result.hasError());
+        assertEquals(Severity.WARNING, result.fields().get("rings").severity());
+    }
+
+    @Test
+    void testDefaultRingCountMismatchIsWarningOnly() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, 0x02, 0, 0, 7, 0, 1, -1, -1, -1, null);
+
+        TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, new EngineDiagnostics(0x02, -1, -1, 8, 0, 0,
+                -1, -1, -1, -1, "", 0, 0));
+
+        assertTrue(result.hasDivergence());
+        assertFalse(result.hasError());
+        assertEquals(Severity.WARNING, result.fields().get("rings").severity());
+    }
+
+    @Test
+    void testRingCountMismatchIsErrorWhenConfiguredForceError() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, 0x02, 0, 0, 7, 0, 1, -1, -1, -1, null);
+
+        TraceBinder binder = new TraceBinder(new ToleranceConfig(
+            1, 1, 1, 1, true, 1, 1, ToleranceConfig.RingCountMode.FORCE_ERROR));
         FrameComparison result = binder.compareFrame(frame,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,

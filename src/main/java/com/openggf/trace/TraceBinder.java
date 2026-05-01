@@ -122,9 +122,9 @@ public class TraceBinder {
         fields.put("ground_mode", compareEnum("ground_mode",
             expectedGroundMode, derivedActualGroundMode));
 
-        if (tolerances.compareRingCount()
+        if (tolerances.ringCountMode() != ToleranceConfig.RingCountMode.DISABLED
                 && expected.rings() >= 0 && engineDiag != null && engineDiag.rings() >= 0) {
-            fields.put("rings", compareEnum("rings", expected.rings(), engineDiag.rings()));
+            fields.put("rings", compareRingCount(expected.rings(), engineDiag.rings()));
         }
 
         appendCharacterComparisons(fields,
@@ -204,6 +204,19 @@ public class TraceBinder {
         return new FieldComparison(name,
             String.valueOf(expected), String.valueOf(actual),
             Severity.ERROR, Math.abs(expected - actual));
+    }
+
+    private FieldComparison compareRingCount(int expected, int actual) {
+        if (expected == actual) {
+            return new FieldComparison("rings",
+                String.valueOf(expected), String.valueOf(actual), Severity.MATCH, 0);
+        }
+        Severity severity = tolerances.ringCountMode() == ToleranceConfig.RingCountMode.WARN_ONLY
+            ? Severity.WARNING
+            : Severity.ERROR;
+        return new FieldComparison("rings",
+            String.valueOf(expected), String.valueOf(actual),
+            severity, Math.abs(expected - actual));
     }
 
     private FieldComparison compareAngle(String name, int expected, int actual,
