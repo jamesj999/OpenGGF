@@ -3108,3 +3108,41 @@ round needs to identify the AIZ1 F2000-F2020 object whose engine-side
 `apply` path sets `onObject=true` for an airborne Sonic, gate it on
 `!player.getAir()` (matching ROM's `btst #Status_InAir`), and then
 re-attempt the snapshot wiring.
+
+**Update (branch `bugfix/ai-onobj-air-gate`):** Landed both pieces.
+`ObjectManager.processInlineObjectForPlayer` now early-returns
+(`return null`) after the air-unseat clear when
+`instance == unseatedRidingObject`, mirroring ROM
+`SolidObjectFull*_1P` / `SolidObjectTop*_1P` `rts d4=0` exit
+(sonic3k.asm:41030-41035 `loc_1DC98`, 41079-41084 `loc_1DCF0`,
+41126-41131 `loc_1DD48`, 41807-41812 `loc_1E2E0`). The early-return is
+scoped strictly to the just-unseated instance so unrelated objects on
+the same frame still resolve normally — the broader
+`hasObjectStandingBit && air` gate over-fires for S2 EHZ1 platforms
+(regressed F1698 with the wider scope, restored to PASS with the
+narrow scope). With the early-return in place, the
+`SidekickCpuController.normalStep` `loc_13DA6` mirror gates (lines
+832, 1078, 1139) now read
+`effectiveLeader.getOnObjectAtFrameStart()`, dropping the
+`&& !getAir()` filter that was masking the snapshot-vs-live divergence
+(ROM `btst #Status_OnObj` at sonic3k.asm:26690 has no air filter).
+
+- **CNZ first-error advances F7872 -> F7919** as predicted. F7919 is
+  the documented downstream divergence (`tails_g_speed=-0x800` spring
+  impulse 47 frames later) and is out of scope here.
+- **AIZ first-error regresses F7381 -> F2021** (`tails_x` 1 px EAST,
+  1040 errors vs prior 1039). This is the same pre-existing engine
+  OnObj clear-timing gap documented above: ROM trace
+  (`src/test/resources/traces/s3k/aiz1_to_hcz_fullrun/physics.csv.gz`)
+  still shows Sonic `Status_OnObj=0` across F2000-F2020 while the
+  engine's frame-start OnObj snapshot returns `true` at F2021. The
+  early-return only mirrors per-frame air-unseat behaviour for the
+  CURRENTLY ridden instance; it cannot recover OnObj state that was
+  set in a prior frame and never cleared. Resolving AIZ F2021 still
+  needs the cross-frame engine OnObj clear-timing audit (find the
+  F2000-F2020 path that leaves OnObj set when ROM has it cleared)
+  — out of scope for this branch.
+- **Cross-game parity preserved:** S1 GHZ1, S2 EHZ1 trace replays
+  remain green; required-green S3K bootstrap tests still pass.
+- **Suite-wide failures: 34 -> 31** (3 fewer, no new regressions
+  outside the AIZ first-error frame shift).
