@@ -15,7 +15,6 @@ import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceBinder;
 import com.openggf.trace.TraceCharacterState;
 import com.openggf.trace.TraceData;
-import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceExecutionPhase;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceMetadata;
@@ -48,7 +47,6 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     private int lastInputMask;
     private boolean lastStartPressed;
     private boolean complete;
-    private boolean gameplayStartSeen;
     private TraceFrame currentVisualFrame;
 
     public LiveTraceComparator(TraceData trace,
@@ -59,21 +57,6 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         this.binder = new TraceBinder(tolerances);
         this.cursor = initialCursor;
         this.spriteProvider = spriteProvider;
-        // Seeded S3K replays resume at cursor > 0, but the
-        // gameplay_start checkpoint is typically emitted on trace
-        // frame 0. Without this sweep, shouldSuppressComparison never
-        // observes the checkpoint and silently discards every frame
-        // comparison. Scan the skipped prefix up front so replays that
-        // splice past frame 0 still unlock the comparator.
-        for (int f = 0; f < initialCursor && f < trace.frameCount(); f++) {
-            boolean seen = trace.getEventsForFrame(f).stream()
-                    .anyMatch(e -> e instanceof TraceEvent.Checkpoint cp
-                            && "gameplay_start".equals(cp.name()));
-            if (seen) {
-                gameplayStartSeen = true;
-                break;
-            }
-        }
     }
 
     @Override
@@ -108,7 +91,10 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         }
         TraceFrame expected = trace.getFrame(cursor);
         currentVisualFrame = expected;
-        if (shouldSuppressComparison(expected)) {
+        TraceFrame previous = cursor > 0 ? trace.getFrame(cursor - 1) : null;
+        TraceExecutionPhase phase =
+                TraceReplayBootstrap.phaseForReplay(trace, previous, expected);
+        if (!TraceReplayBootstrap.shouldCompareGameplayStateForReplay(phase)) {
             cursor++;
             checkComplete();
             return;
@@ -134,22 +120,6 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
         absorbDivergentFields(result, expected.frame());
         cursor++;
         checkComplete();
-    }
-
-    private boolean shouldSuppressComparison(TraceFrame expected) {
-        if (!"s3k".equals(trace.metadata().game())) {
-            return false;
-        }
-        if (gameplayStartSeen) {
-            return false;
-        }
-        boolean isGameplayStart = trace.getEventsForFrame(expected.frame()).stream()
-                .anyMatch(e -> e instanceof TraceEvent.Checkpoint cp
-                        && "gameplay_start".equals(cp.name()));
-        if (isGameplayStart) {
-            gameplayStartSeen = true;
-        }
-        return !gameplayStartSeen;
     }
 
     private void absorbDivergentFields(FrameComparison result, int frameNumber) {
@@ -251,7 +221,7 @@ public final class LiveTraceComparator implements PlaybackFrameObserver {
     }
 
     private static TraceCharacterState captureFirstSidekickState() {
-        SpriteManager sprites = GameServices.sprites();
+        SpriteManager sprites = GameServices.spritesOrNull();
         if (sprites == null || sprites.getRegisteredSidekicks().isEmpty()) {
             return null;
         }

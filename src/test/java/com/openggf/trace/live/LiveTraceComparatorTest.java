@@ -1,6 +1,8 @@
 package com.openggf.trace.live;
 
 import com.openggf.debug.playback.Bk2FrameInput;
+import com.openggf.game.GroundMode;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceFixtures;
@@ -11,6 +13,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class LiveTraceComparatorTest {
 
@@ -43,6 +47,35 @@ class LiveTraceComparatorTest {
         // Advance our internal cursor past index 0 first:
         c.afterFrameAdvanced(new Bk2FrameInput(0, 0, 0, false, "0"), false);
         assertTrue(c.shouldSkipGameplayTick(empty));
+    }
+
+    @Test
+    void s3kTraceWithoutGameplayStartCheckpointStillComparesFullLevelFrames() {
+        AbstractPlayableSprite sprite = mock(AbstractPlayableSprite.class);
+        when(sprite.getCentreX()).thenReturn((short) 11);
+        when(sprite.getCentreY()).thenReturn((short) 0);
+        when(sprite.getXSpeed()).thenReturn((short) 0);
+        when(sprite.getYSpeed()).thenReturn((short) 0);
+        when(sprite.getGSpeed()).thenReturn((short) 0);
+        when(sprite.getAngle()).thenReturn((byte) 0);
+        when(sprite.getAir()).thenReturn(false);
+        when(sprite.getRolling()).thenReturn(false);
+        when(sprite.getGroundMode()).thenReturn(GroundMode.GROUND);
+
+        LiveTraceComparator c = new LiveTraceComparator(
+                TraceFixtures.trace(
+                        TraceFixtures.metadata("s3k", 2, 1),
+                        List.of(TraceFrame.of(0, 0,
+                                (short) 10, (short) 0,
+                                (short) 0, (short) 0, (short) 0,
+                                (byte) 0, false, false, 0))),
+                ToleranceConfig.DEFAULT,
+                0,
+                () -> sprite);
+
+        c.afterFrameAdvanced(new Bk2FrameInput(0, 0, 0, false, "0"), false);
+
+        assertEquals(1, c.errorCount());
     }
 
     private static TraceData stubTrace(List<TraceFrame> frames) {
