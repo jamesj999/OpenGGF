@@ -83,12 +83,12 @@ public final class TraceSessionLauncher {
         return activeSession;
     }
 
-    public static void launch(TraceEntry entry) {
+    public static boolean launch(TraceEntry entry) {
         GameLoop loop = Engine.currentGameLoop();
         if (loop == null) {
             LOGGER.severe("Cannot launch trace " + entry.dir()
                     + ": Engine is not initialised");
-            return;
+            return false;
         }
         // prepareConfiguration must run BEFORE launchGameByEntry
         // because the master-title exit handler calls
@@ -105,7 +105,7 @@ public final class TraceSessionLauncher {
         if (!loop.canLaunchGameNow()) {
             LOGGER.severe("Cannot launch trace " + entry.dir()
                     + ": a master-title fade is already in flight");
-            return;
+            return false;
         }
         // Snapshot the user's gameplay config BEFORE prepareConfiguration
         // mutates it, so teardown can restore the team / cross-game /
@@ -123,6 +123,7 @@ public final class TraceSessionLauncher {
             loop.launchGameByEntry(
                     resolveGameEntry(entry.gameId()),
                     session::finishLaunchAfterGameBootstrap);
+            return true;
         } catch (Exception e) {
             LOGGER.log(java.util.logging.Level.SEVERE,
                     "Failed to launch trace " + entry.dir(), e);
@@ -132,6 +133,7 @@ public final class TraceSessionLauncher {
             if (configMutated) {
                 TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
             }
+            return false;
         }
     }
 
@@ -217,7 +219,8 @@ public final class TraceSessionLauncher {
                     trace,
                     ToleranceConfig.DEFAULT,
                     initialCursor,
-                    loop::getMainPlayableSprite);
+                    loop::getMainPlayableSprite,
+                    loop::toggleUserPause);
             this.overlay = new TraceHudOverlay(comparator);
             playback.setFrameObserver(comparator);
             activeSession = this;

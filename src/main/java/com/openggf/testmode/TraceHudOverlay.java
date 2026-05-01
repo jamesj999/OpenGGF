@@ -1,6 +1,11 @@
 package com.openggf.testmode;
 
+import com.openggf.Engine;
+import com.openggf.GameLoop;
 import com.openggf.debug.DebugColor;
+import com.openggf.configuration.GlfwKeyNameResolver;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.trace.Severity;
@@ -8,6 +13,8 @@ import com.openggf.trace.live.LiveTraceComparator;
 import com.openggf.trace.live.MismatchEntry;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * Bottom-right HUD painted each frame while a trace session is active.
@@ -18,9 +25,20 @@ import java.util.List;
 public final class TraceHudOverlay {
 
     private final LiveTraceComparator comparator;
+    private final Supplier<String> pauseKeyLabelSupplier;
+    private final BooleanSupplier pausedSupplier;
+    private boolean desyncPauseMessageShown;
+    private boolean desyncPauseMessageDismissed;
 
     public TraceHudOverlay(LiveTraceComparator comparator) {
+        this(comparator, TraceHudOverlay::configuredPauseKeyLabel, TraceHudOverlay::isGameLoopPaused);
+    }
+
+    TraceHudOverlay(LiveTraceComparator comparator, Supplier<String> pauseKeyLabelSupplier,
+                    BooleanSupplier pausedSupplier) {
         this.comparator = comparator;
+        this.pauseKeyLabelSupplier = pauseKeyLabelSupplier;
+        this.pausedSupplier = pausedSupplier;
     }
 
     private static final float SCALE = 0.5f;
@@ -37,6 +55,17 @@ public final class TraceHudOverlay {
         text.beginBatch();
         try {
             int y = TOP_Y;
+            boolean paused = pausedSupplier.getAsBoolean();
+            if (desyncPauseMessageShown && !paused) {
+                desyncPauseMessageDismissed = true;
+            }
+            if (comparator.hasRecordingDesync() && paused && !desyncPauseMessageDismissed) {
+                desyncPauseMessageShown = true;
+                text.drawShadowedText("Game Paused due to recording desync. Press "
+                                + pauseKeyLabelSupplier.get() + " to resume",
+                        X, TOP_Y - LINE_HEIGHT, DebugColor.RED, SCALE);
+            }
+
             text.drawShadowedText(String.format("ERRORS %4d", comparator.errorCount()),
                     X, y, DebugColor.RED, SCALE);
             y += LINE_HEIGHT;
@@ -87,5 +116,15 @@ public final class TraceHudOverlay {
 
     private static char bit(int mask, int flag, char letter) {
         return (mask & flag) != 0 ? letter : '.';
+    }
+
+    private static String configuredPauseKeyLabel() {
+        int pauseKey = GameServices.configuration().getInt(SonicConfiguration.PAUSE_KEY);
+        return GlfwKeyNameResolver.nameOf(pauseKey);
+    }
+
+    private static boolean isGameLoopPaused() {
+        GameLoop loop = Engine.currentGameLoop();
+        return loop != null && loop.isPaused();
     }
 }

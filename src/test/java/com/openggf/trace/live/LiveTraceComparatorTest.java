@@ -14,6 +14,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class LiveTraceComparatorTest {
@@ -76,6 +78,36 @@ class LiveTraceComparatorTest {
         c.afterFrameAdvanced(new Bk2FrameInput(0, 0, 0, false, "0"), false);
 
         assertEquals(1, c.errorCount());
+    }
+
+    @Test
+    void invokesFirstErrorCallbackOnceOnFirstDesync() {
+        AbstractPlayableSprite sprite = mock(AbstractPlayableSprite.class);
+        when(sprite.getCentreX()).thenReturn((short) 11);
+        when(sprite.getCentreY()).thenReturn((short) 0);
+        when(sprite.getXSpeed()).thenReturn((short) 0);
+        when(sprite.getYSpeed()).thenReturn((short) 0);
+        when(sprite.getGSpeed()).thenReturn((short) 0);
+        when(sprite.getAngle()).thenReturn((byte) 0);
+        when(sprite.getAir()).thenReturn(false);
+        when(sprite.getRolling()).thenReturn(false);
+        when(sprite.getGroundMode()).thenReturn(GroundMode.GROUND);
+        Runnable onFirstError = mock(Runnable.class);
+
+        LiveTraceComparator c = new LiveTraceComparator(
+                stubTrace(List.of(
+                        TraceFrame.executionTestFrame(0, 10, 0x100, 0),
+                        TraceFrame.executionTestFrame(1, 11, 0x100, 1))),
+                ToleranceConfig.DEFAULT,
+                0,
+                () -> sprite,
+                onFirstError);
+
+        c.afterFrameAdvanced(new Bk2FrameInput(0, 0, 0, false, "0"), false);
+        c.afterFrameAdvanced(new Bk2FrameInput(1, 0, 0, false, "0"), false);
+
+        assertTrue(c.hasRecordingDesync());
+        verify(onFirstError, times(1)).run();
     }
 
     private static TraceData stubTrace(List<TraceFrame> frames) {
