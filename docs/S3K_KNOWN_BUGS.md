@@ -5168,3 +5168,129 @@ contained in `ClamerObjectInstance` and shares no cross-game code path.
 - `Child_DrawTouch_Sprite` (178048-178053): `Add_SpriteToCollisionResponseList`
   + draw.
 
+---
+
+## CNZ1 Trace F7923 — Clamer Latched-Cprop Fired On Wrong Player (FIXED)
+
+**Status:** FIXED. CNZ first-error advances F7923 -> F8123 (2767 -> 2683
+errors). The new F8123 divergence is a distinct downstream
+`tails_x_speed` mismatch (`expected=0x0230, actual=0x00BF`) consistent
+with a different Tails CPU code path; not related to the Clamer.
+
+**Symptom**
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first strict error at F7923
+after the F7919 Clamer state-machine port landed (see prior entry):
+
+```
+tails_x_speed mismatch (expected=-0x0800, actual=-0x07D0)
+```
+
+The 48-subpixel delta on Tails was the visible field, but the engine
+was actually **launching Sonic into the air at F7923** with the
+ROM-spring triplicate write
+(`x_speed=y_speed=g_speed=-0x0800, air=1`) while ROM had Sonic still
+on the ground. Tails was simultaneously mid-cooldown decay
+(`-0x07D0` from `-0x0800` minus 0x18 air friction × 2) while ROM had
+just re-fired the same Clamer spring on Tails (back to `-0x0800`
+triplicate).
+
+**Root cause — engine collapsed cprop byte to a single boolean**
+
+ROM `Touch_Special` (`sonic3k.asm:21162-21194`) accumulates per-touch
+into `collision_property(a1)` with a player-identity-dependent
+increment:
+
+```
+loc_103FA:
+    move.w  a0,d1                ; a0 = toucher (player) RAM addr
+    subi.w  #Object_RAM,d1
+    beq.s   .ismaincharacter     ; if Player_1 (Sonic), branch
+    addq.b  #1,collision_property(a1)
+.ismaincharacter:
+    addq.b  #1,collision_property(a1)
+```
+
+So Sonic touch adds `+1`; Tails touch adds `+2`. Then ROM
+`Check_PlayerCollision` (`sonic3k.asm:179904-179924`) consumes the
+byte:
+
+```
+move.b  collision_property(a0),d0
+beq.s   locret_8588E
+clr.b   collision_property(a0)
+andi.w  #3,d0
+add.w   d0,d0
+lea     word_85890(pc),a1   ; [P1, P1, P2, P2]
+movea.w (a1,d0.w),a1
+```
+
+`word_85890[d0&3]` = `[P1, P1, P2, P2]`, so the byte encodes the
+launch target:
+
+| cprop & 3 | Target |
+|-----------|--------|
+| 0         | no fire (gate already returned) |
+| 1         | P1 (Sonic touched alone) |
+| 2         | P2 (Tails touched alone) |
+| 3         | P2 (both touched same frame; sidekick wins) |
+
+The engine's `ClamerObjectInstance` previously kept `springCprop` as a
+`boolean`, losing the player-identity bits. When the spring's
+post-cooldown frame fired the latched launch, the engine called
+`fireSpring(playerEntity)` where `playerEntity` is the **primary
+player** passed into `update()` (always Sonic). That caused the
+F7923 wrong-target launch on Sonic, even though Tails had been the
+sole toucher.
+
+**Fix** (`ClamerObjectInstance.java`, this branch)
+
+- `springCprop` becomes an `int` byte mirroring ROM
+  `collision_property(a0)`.
+- `onTouchResponse` increments by `+1` when the toucher is the primary
+  player and `+2` when `playerEntity.isCpuControlled()` (Tails),
+  matching `loc_103FA`.
+- `advanceSpringRoutine`'s two latch-fire branches (post-cooldown
+  `LIVE` and `COOLDOWN_DONE`) now resolve the launch target by reading
+  `springCprop & 3` and indexing the engine analogue of `word_85890`:
+  `1 → primary`, `2 or 3 → first sidekick from
+  services().sidekicks()`. Cprop is cleared on consumption to mirror
+  the `clr.b collision_property(a0)` in `Check_PlayerCollision`.
+- The same-frame immediate-fire path (when the spring is `LIVE` and a
+  touch hits during the player's own touch walk) continues to fire on
+  the toucher directly and clears the cprop byte, matching ROM where
+  `Check_PlayerCollision` consumes the byte and applies the launch on
+  the same `(a0)` frame the cprop was written.
+
+**Verification**
+
+- `TestS3kCnzTraceReplay#replayMatchesTrace`: first-error advances
+  F7923 -> F8123 (2767 -> 2683 errors). The new F8123 first-error is a
+  Tails CPU `x_speed/y_speed` divergence at a freely-flying segment,
+  not a spring/cprop issue.
+- `TestS3kAizTraceReplay#replayMatchesTrace`: first-error stable at
+  F8927 (896 errors), unchanged.
+- `TestClamerObjectInstance` 6/6 GREEN (immediate-fire and latched-fire
+  unit tests both pass; the single-player tests resolve `cprop=1` to
+  the primary unchanged).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+
+**Cross-game parity rules.** The fix is wholly contained in
+`ClamerObjectInstance` (S3K Obj $A3) and uses the existing
+`PlayableEntity.isCpuControlled()` and
+`ObjectServices.sidekicks()` APIs. S1/S2 objects are unaffected; no
+cross-game code path was touched.
+
+**ROM cite (all `sonic3k.asm`):**
+
+- `Touch_Special.loc_103FA` (21186-21194): `addq.b #1` for non-main
+  toucher, plus shared `addq.b #1` from `.ismaincharacter` fall-through
+  (so P1 += 1, P2 += 2).
+- `Check_PlayerCollision` (179904-179924): masks `& 3`, doubles, and
+  indexes `word_85890`; clears the byte unconditionally on non-zero.
+- `word_85890` (179920-179924): `dc.w Player_1, Player_1, Player_2,
+  Player_2`.
+- `loc_890AA` (185953-185962): the cycle entry that calls
+  `Check_PlayerCollision` and either fires (`bsr.w sub_890D8`) or
+  falls through to `Child_DrawTouch_Sprite`.
+
