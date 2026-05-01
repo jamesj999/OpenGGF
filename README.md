@@ -264,7 +264,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   steering still blocks roll entry from raw held left/right, S3K negative-min-Y object loading
   now applies the ROM vertical band instead of spawning every non-counter object, and S3K airborne
   left-wall collisions now continue into the floor probe (matching `Tails_DoLevelCollision` while
-  preserving S2's early-return path), advancing the MGZ replay frontier from F0 to F755.
+  preserving S2's early-return path); S3K slope resistance now keeps the ROM's from-rest slope
+  impulse when the computed effect reaches `$0D` (unlike S1/S2's zero-inertia return), advancing
+  the MGZ replay frontier from F0 to F1137.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
   ROM constraints — including precise slope-sample arithmetic, ruled-out hypotheses, and remaining
   open hypotheses — so future work avoids previous-X sampling hacks that regress earlier AIZ frames.

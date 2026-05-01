@@ -57,6 +57,12 @@ public record PhysicsFeatureSet(
          *  S3K: true (sonic3k.asm:23110-23120 — undo acceleration, keep original if already past max).
          *  S1/S2: false (s1:01 Sonic.asm:740-750, s2.asm:36837-36840 — unconditional cap). */
         boolean airSuperspeedPreserved,
+        /** Whether Player_SlopeResist can create ground velocity from rest.
+         *  S3K: true when abs(slope effect) >= $0D (sonic3k.asm:23848-23856).
+         *  S1/S2: false; their Sonic/Tails slope-resist routines return immediately
+         *  when inertia/ground_vel is zero (s1disasm/_incObj/01 Sonic.asm:1043-1044,
+         *  s2.asm:37369-37370,40224-40225). */
+        boolean slopeResistStartsFromRest,
         /** Whether Sonic_SlopeRepel checks isOnObject before applying slope slip.
          *  S2/S3K: true — btst #sta_onObj,status(a0) / bne.s return (s2.asm:37432).
          *  S1: false — no isOnObject check (s1disasm/_incObj/01 Sonic.asm:1107-1135).
@@ -527,7 +533,9 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false /* animationChangeClearsPush: S1 clear is FixBugs-only (s1disasm/_incObj/01 Sonic.asm:2055-2065) */, false, false, false, false, true, false, false, false, true, FAST_SCROLL_CAP_S2, false, true,
+            null, (short) 0, true, false /* animationChangeClearsPush: S1 clear is FixBugs-only (s1disasm/_incObj/01 Sonic.asm:2055-2065) */, false,
+            false /* slopeResistStartsFromRest: S1 Sonic_SlopeResist returns on zero inertia (s1disasm/_incObj/01 Sonic.asm:1043-1044) */,
+            false, false, false, true, false, false, false, true, FAST_SCROLL_CAP_S2, false, true,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
             SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */,
@@ -548,7 +556,9 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, true /* animationChangeClearsPush: S2 Sonic/Tails animation clears pushing on anim change (s2.asm:38033-38038,40879-40884) */, false, true, false, true, false, false, false, false, false, FAST_SCROLL_CAP_S2, false, false,
+            null, (short) 0, true, true /* animationChangeClearsPush: S2 Sonic/Tails animation clears pushing on anim change (s2.asm:38033-38038,40879-40884) */, false,
+            false /* slopeResistStartsFromRest: S2 Sonic/Tails_SlopeResist returns on zero inertia (s2.asm:37369-37370,40224-40225) */,
+            true, false, true, false, false, false, false, false, FAST_SCROLL_CAP_S2, false, false,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
             SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */,
@@ -573,7 +583,9 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true /* animationChangeClearsPush: S3K Tails/Tails2P animation clears Status_Push on anim change (sonic3k.asm:29359-29364,29681-29686) */, true, false, true, false, true, true, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
+    }, (short) 0x100, true, true /* animationChangeClearsPush: S3K Tails/Tails2P animation clears Status_Push on anim change (sonic3k.asm:29359-29364,29681-29686) */, true,
+            true /* slopeResistStartsFromRest: S3K Player_SlopeResist applies abs(slope effect) >= $0D even when ground_vel is zero (sonic3k.asm:23848-23856) */,
+            false, true, false, true, true, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
             SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
             false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
             SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */,
