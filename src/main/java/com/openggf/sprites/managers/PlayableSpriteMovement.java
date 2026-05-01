@@ -696,8 +696,18 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (!inputJump) {
 				jumpReleasedSinceJump = true;
 			}
-			// Shield ability: re-press jump after release while airborne (s3.asm:21059)
+			// Shield ability: re-press jump after release while airborne (docs/skdisasm/sonic3k.asm:23397).
 			if (jumpReleasedSinceJump && inputJumpPress && sprite.getDoubleJumpFlag() == 0) {
+				PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+				if (fs != null && fs.jumpRepressClearsRollJumpBeforeAbility()
+						&& sprite.getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
+					// ROM: S3K Sonic_ShieldMoves clears Status_RollJump before
+					// testing Super, invincibility, elemental shields, or insta-shield
+					// (docs/skdisasm/sonic3k.asm:23401-23413). S1/S2 Sonic_JumpHeight
+					// has no equivalent branch (docs/s1disasm/_incObj/01 Sonic.asm:
+					// 999-1025; docs/s2disasm/s2.asm:37067-37097).
+					sprite.setRollingJump(false);
+				}
 				if (tryShieldAbility()) {
 					jumpReleasedSinceJump = false;
 					return;

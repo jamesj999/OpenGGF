@@ -19,6 +19,11 @@ public record PhysicsFeatureSet(
         boolean inputAlwaysCapsGroundSpeed,
         boolean elementalShieldsEnabled,
         boolean instaShieldEnabled,
+        /** Whether Sonic's S3K shield-move entry clears Status_RollJump before ability dispatch.
+         *  S3K: true (sonic3k.asm:23401-23403). S1/S2: false; their
+         *  Sonic_JumpHeight routines have no shield-move roll-jump clear
+         *  (s1disasm/_incObj/01 Sonic.asm:999-1025, s2.asm:37067-37097). */
+        boolean jumpRepressClearsRollJumpBeforeAbility,
         boolean angleDiffCardinalSnap,
         boolean extendedEdgeBalance,
         /** Bitmask for scattered ring floor-check frequency.
@@ -602,7 +607,7 @@ public record PhysicsFeatureSet(
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
      *  simple edge balance: single animation, always faces edge (s1disasm/_incObj/01 Sonic.asm:354-375). */
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
-            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
+            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
             null, (short) 0, true, false /* animationChangeClearsPush: S1 clear is FixBugs-only (s1disasm/_incObj/01 Sonic.asm:2055-2065) */, false,
             false /* slopeResistStartsFromRest: S1 Sonic_SlopeResist returns on zero inertia (s1disasm/_incObj/01 Sonic.asm:1043-1044) */,
@@ -628,7 +633,7 @@ public record PhysicsFeatureSet(
      *  extended edge balance: 4 states with precarious/facing-away checks (s2.asm:36246-36373). */
     public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
             null, (short) 0, true, true /* animationChangeClearsPush: S2 Sonic/Tails animation clears pushing on anim change (s2.asm:38033-38038,40879-40884) */, false,
             false /* slopeResistStartsFromRest: S2 Sonic/Tails_SlopeResist returns on zero inertia (s2.asm:37369-37370,40224-40225) */,
@@ -656,7 +661,7 @@ public record PhysicsFeatureSet(
      *  duck while moving below 0x100 (sonic3k.asm:23236). */
     public static final PhysicsFeatureSet SONIC_3K = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true, true,
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
