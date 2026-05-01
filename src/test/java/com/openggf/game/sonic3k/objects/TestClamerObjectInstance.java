@@ -57,9 +57,17 @@ class TestClamerObjectInstance {
         assertEquals((short) 0x07E8, player.getXSpeed());
         assertEquals((short) -0x07C8, player.getYSpeed());
 
+        // ROM Clamer spring $2E cooldown (loc_890C8 -> loc_890D0,
+        // sonic3k.asm:185965-185973) drains over a single update frame; the
+        // engine state machine drains through COOLDOWN_DRAIN -> COOLDOWN_DONE.
+        // Touch_Special during cooldown latches collision_property
+        // (sonic3k.asm:21162-21194); the next loc_890AA update consumes it.
         clamer.update(0x026D, player);
         fixture.stepFrame(false, false, false, false, false);
+        // F=0x026E touch sets the cprop latch (state=COOLDOWN_DONE).
         clamer.onTouchResponse(player, new TouchResponseResult(0x17, 8, 8, TouchCategory.SPECIAL), 0x026E);
+        // F=0x026E spring update consumes the latch and applies the launch.
+        clamer.update(0x026E, player);
 
         assertEquals(0x0674, player.getCentreY());
         assertEquals((short) 0x0800, player.getXSpeed());

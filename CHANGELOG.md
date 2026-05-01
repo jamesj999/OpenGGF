@@ -25,6 +25,26 @@ All notable changes to the OpenGGF project are documented in this file.
   (Sonic_HurtStop equivalent) → `doLevelBoundary`. AIZ first-error
   advances 7552 → 7660 (errors 977 → 975). CNZ first-error at F7919
   unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
+- **CNZ F=621 Clamer re-fire — Touch_Special cprop latch landed (round 4).**
+  `ClamerObjectInstance` now models the ROM spring child's `(a0) =
+  loc_890AA -> loc_890C8 -> loc_890D0 -> loc_890AA` cycle (sonic3k.asm:185953-185973)
+  with a three-state machine (LIVE / COOLDOWN_DRAIN / COOLDOWN_DONE)
+  plus a `springCprop` boolean mirroring `collision_property(a0)`
+  (sonic3k.asm:21162-21194). Touch on a cooldown frame latches the
+  cprop byte; the next non-cooldown spring update consumes it and
+  fires (matches the ROM F=619/F=621 fire schedule recorded in the
+  v6.15-s3k CNZ aux events). Spring rect uses ROM-correct cflags
+  `$D7` (`$40 | $17`, 8x8) at all times -- the engine-only
+  `SPRING_RELATCH_COLLISION_FLAGS = $40 | $12` widening and the
+  `springReenableFrame` mechanism are removed. Adds
+  `usesS3kTouchSpecialPropertyResponse()` override so the engine
+  decoder routes `cflags=$D7` through SPECIAL via the
+  Touch_Special property index list (sonic3k.asm:21165-21194),
+  consistent with `CnzBalloonInstance`. `TestS3kCnzTraceReplay`
+  first error advances F7919 -> F7923; F=619-625 zero errors.
+  `TestS3kAizTraceReplay` first error stable at F7552. S1 GHZ /
+  S1 MZ1 / S2 EHZ trace replays GREEN. `TestClamerObjectInstance`
+  6/6 GREEN.
 
 - **Trace visualizer ghost characters.** Test-mode visual trace sessions now
   render grayscale, distance-faded ghost copies of the traced main character
