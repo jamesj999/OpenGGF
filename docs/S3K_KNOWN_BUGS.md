@@ -34,6 +34,7 @@ Entries should include:
 16. [CNZ1 Trace F7614 — Tails Spring Bounce Top-Landing 2-Pixel Drift (OPEN — next trace blocker)](#cnz1-trace-f7614--tails-spring-bounce-top-landing-2-pixel-drift)
 17. [AIZ2 Trace F7127 — Tails Phantom Landing While Falling (RESOLVED)](#aiz2-trace-f7127--tails-phantom-landing-while-falling)
 18. [AIZ2 Trace F7171 — Tails Killed Mid-Run vs. Engine Continuing Follow-Steering (OPEN — next AIZ blocker)](#aiz2-trace-f7171--tails-killed-mid-run-vs-engine-continuing-follow-steering)
+19. [CNZ1 Trace F7919 — Tails Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising Platform (OPEN)](#cnz1-trace-f7919--tails-triplicate--0x0800-velocity-write-while-sonic-lands-from-rising-platform-open)
 
 ---
 
@@ -3182,3 +3183,150 @@ no longer regresses AIZ.
   `upSpringClearsStatusOnObjAfterSettingAir`,
   `downSpringClearsStatusOnObjAfterSettingAir`,
   `upDiagonalSpringClearsStatusOnObjAfterSettingAir`.
+
+---
+
+## CNZ1 Trace F7919 — Tails Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising Platform (OPEN)
+
+**Status:** Investigated, root-cause source not yet localised.
+
+**Symptom**
+
+`TestS3kCnzTraceReplay#replayMatchesTrace` first strict error at frame 7919
+(2768 errors), 47 frames downstream of the F7872 spring-trigger OnObj clear
+fix:
+
+```
+tails_g_speed mismatch (expected=-0x0588, actual=-0x0800)
+```
+
+The same frame, the engine writes Tails:
+
+| Field             | ROM (expected) | Engine (actual) |
+|-------------------|----------------|-----------------|
+| `tails_x_speed`   | `0x0004`       | `-0x0800`       |
+| `tails_y_speed`   | `0x0400`       | `-0x0800`       |
+| `tails_g_speed`   | `-0x0588`      | `-0x0800`       |
+| `tails_y`         | `0x044F`       | `0x0455`        |
+
+All three velocity components transition to the identical value
+`-0x0800` in a single frame, while Tails's `air=1`, `rolling=1`, and
+`cpu_routine=6 (NORMAL)` match ROM exactly.
+
+**Frame context (F7918 → F7919)**
+
+- Tails: flying as sidekick CPU (`flight_timer=12`, `cpu_routine=6`).
+  ROM `ground_vel=-0x0588` has been stable for many frames; flight
+  preserves `ground_vel` while the +0x38 flight gravity advances
+  `y_vel` (0x03C8 → 0x0400).
+- Sonic: lands on the ground at F7919 with normal `g_speed=0x03B5`;
+  no spring contact (`x_speed = g_speed = 0x03B5` is just the
+  post-landing inertia carry-over, not a spring impulse).
+- Tails interact slot 19 (`object_code=0x23050`,
+  `Obj_Spring_Horizontal`) at `(0x0D48, 0x04B0)`: 0xBB px right of
+  Tails and 0x64 below. Out of `±0x28 X / ±0x18 Y` proactive zone.
+- Sonic interact slot 4 (`object_code=0x00031BD0`,
+  `Obj_CNZRisingPlatform`) at `(0x0CF0, 0x03E4)`. Sonic's status
+  transitions `06 → 00` (left the platform).
+
+**ROM cite — sub_2326C horizontal-spring proactive Player_2 path
+(sonic3k.asm:47998-48022)**
+
+```
+loc_232E2:
+    lea     (Player_2).w,a1
+    btst    #Status_InAir,status(a1)
+    bne.s   locret_23324           ; if Tails in air, SKIP entirely
+    move.w  ground_vel(a1),d4
+    ...
+```
+
+ROM unconditionally bails when Tails is airborne. There is no
+landing-handoff branch on the Player_2 side (the Player_1 path at
+sonic3k.asm:47973 has the same `bne` skip). At F7919 the engine has
+`tails_air=1`, so the spring proactive path should not fire.
+
+**What `-0x0800` matches in the engine**
+
+A symbol search across `setXSpeed/setYSpeed/setGSpeed` in the engine
+finds these candidates that emit `-0x0800` or `0x0800`:
+
+1. `PlayableSpriteMovement.fireShieldDash`
+   (`src/main/java/com/openggf/sprites/managers/PlayableSpriteMovement.java:771-790`)
+   sets `xSpeed = gSpeed = (0x800 * dir)` and `ySpeed = 0` — would
+   match Tails's x and g but not y. Also gated on Sonic-only
+   secondary ability (`SecondaryAbility.INSTA_SHIELD`). Tails returns
+   `SecondaryAbility.FLY` (`Tails.java:54-55`).
+2. `PlayableSpriteMovement.bubbleShieldBounce` and
+   `lightningShieldJump` — wrong sign / wrong combination.
+3. `Sonic3kSpringObjectInstance.applyHorizontalSpring` /
+   `applyDiagonalSpring` — strength is `-0x1000` (red) or `-0x0A00`
+   (yellow); never `-0x0800`.
+4. `SpringBounceHelper.STRENGTH_RED/YELLOW` — same as above.
+5. `CnzVacuumTubeInstance.RELEASE_Y_SPEED = -0x0800`
+   (`processLiftMode`, line 142) — but only writes y_vel, not all
+   three.
+
+No single existing code path was identified that writes `-0x0800` to
+all three velocity components simultaneously. The candidates that
+are closest (fire-shield dash, vacuum-tube release) match two of
+three but not the full triple. This points to either a not-yet-
+visible compound path or a partial overlap of two writes within the
+same tick.
+
+**Plausible directions for follow-up**
+
+1. **Tails proactive horizontal-spring with landing-handoff bypass.**
+   `Sonic3kSpringObjectInstance.checkHorizontalApproach`
+   (`src/main/java/com/openggf/game/sonic3k/objects/Sonic3kSpringObjectInstance.java:413-455`)
+   adds a `landingHandoff` branch that fires the spring on a
+   sidekick whose `air=1` provided `y_speed > 0` and
+   `centreY >= spawn.y`. ROM sub_2326C Player_2 path
+   (sonic3k.asm:47998-47999) has no such bypass — the airborne
+   `bne.s` skip is unconditional. The handoff was added for an
+   earlier CNZ regression (F3649) and is gated only by the engine-
+   side `landingHandoff` predicate. Geometry checks at F7919 say
+   Tails is 0xBB px past the spring's left edge (out of the ±0x28
+   zone), which should preclude this path even with the bypass —
+   but the path warrants an audit for whether some other in-engine
+   spring triggers it incorrectly.
+2. **Vacuum-tube state interaction.** `CnzVacuumTubeInstance` has a
+   `-0x0800` y_velocity release and an `IdentityHashMap` of per-
+   sidekick lift state; check whether a stale entry could co-fire
+   with a different write of `x_vel = g_vel = -0x0800`.
+3. **Compound write across two object updates within the same
+   tick.** Per-tick ordering in `ObjectManager` could let one
+   object set `y_vel = -0x800` and a subsequent object set
+   `x_vel = g_vel = -0x800`. Add a one-shot logger inside
+   `AbstractPlayableSprite.setXSpeed/setYSpeed/setGSpeed` keyed on
+   `frameCounter == 7918` to capture the call sequence.
+
+**Verification rules**
+
+Any candidate fix must keep:
+
+- `TestS3kCnzTraceReplay` advancing past F7919 (engine matches
+  expected `-0x0588 g_speed` post-frame).
+- `TestS3kAiz1Replay` first-error stable at F7381 (no regression).
+- S1 GHZ, S1 MZ1, S2 EHZ trace replays GREEN.
+- S3K-required tests (`TestS3kAiz1SkipHeadless`,
+  `TestSonic3kLevelLoading`, `TestSonic3kBootstrapResolver`,
+  `TestSonic3kDecodingUtils`) GREEN.
+- Cross-game spring parity (S1/S2/S3K share spring objects) — any
+  change in `SpringBounceHelper` / `Sonic3kSpringObjectInstance` /
+  `SpringObjectInstance` / `Sonic1SpringObjectInstance` must gate
+  S3K-only differences via `PhysicsFeatureSet`, never `gameId ==`.
+
+**Status update — branch `bugfix/ai-cnz-f7919-tails-spring-impulse`**
+
+Investigation only; no code change. Investigation confirmed the
+F7919 trace context and ROM cite for sub_2326C Player_2 air-skip,
+and ruled out the obvious single-call-site sources of the triple
+`-0x0800` write. Root cause for the actual code path emitting it
+is still unidentified after a manual symbol audit; localising the
+write requires either (a) instrumenting `setXSpeed/setYSpeed/setGSpeed`
+to log the call origin at F7918, or (b) a deeper audit of compound
+per-tick object update ordering near a CNZ rising-platform / spring
+/ vacuum-tube cluster. Both are larger than this investigation
+budget. Documenting findings here so the next round can resume from
+a known starting point.

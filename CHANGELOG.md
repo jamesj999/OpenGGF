@@ -6,6 +6,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **CNZ trace F7919 investigation documented (no fix landed):**
+  Documented the CNZ1 F7919 first-error divergence in
+  `docs/S3K_KNOWN_BUGS.md` (new section "CNZ1 Trace F7919 — Tails
+  Triplicate `-0x0800` Velocity Write While Sonic Lands From Rising
+  Platform"). The engine writes `tails_x_speed = tails_y_speed =
+  tails_g_speed = -0x0800` in a single frame while ROM has
+  `(0x0004, 0x0400, -0x0588)` and Tails airborne under flight CPU
+  routine 6. ROM cite: `sub_2326C` Player_2 air-skip
+  (sonic3k.asm:47998-47999) bails unconditionally on `Status_InAir`
+  for the proactive horizontal-spring zone, so the proactive path
+  cannot legally fire. Symbol audit ruled out fire-shield dash,
+  bubble/lightning shield, all spring strengths, and CNZ vacuum-
+  tube release as single-call sources of the triple `-0x0800`
+  write. Root cause likely sits in compound per-tick object update
+  ordering or in
+  `Sonic3kSpringObjectInstance.checkHorizontalApproach`'s
+  `landingHandoff` bypass; localising it requires either velocity-
+  setter call-origin instrumentation at F7918 or a deeper audit of
+  CNZ rising-platform / spring / vacuum-tube cluster timing. No
+  code change; documentation only. CNZ first-error stays at F7919
+  (2768 errors). AIZ first-error stable at F7381 (1039 errors).
+  S1 GHZ1, S1 MZ1, S2 EHZ1 trace replays remain green; required-
+  green S3K bootstrap tests still pass.
 - **Cross-frame OnObj timing aligned via spring-trigger
   `bclr Status_OnObj` (CNZ F7872 -> F7919; AIZ unchanged):**
   Identified the engine's cross-frame `Status_OnObj` clear-timing gap
