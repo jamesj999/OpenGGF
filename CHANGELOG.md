@@ -31,6 +31,30 @@ All notable changes to the OpenGGF project are documented in this file.
   documented diagnosis. AIZ first-error stays at F8927 (errors
   896). CNZ first-error at F7923 unchanged. S1 GHZ / S1 MZ1 / S2
   EHZ trace replays remain GREEN.
+- **CNZ1 Trace F7923 — Clamer latched-cprop fired on wrong player
+  (FIXED).** ROM `Touch_Special.loc_103FA` (sonic3k.asm:21186-21194)
+  accumulates per-touch into the spring-child's
+  `collision_property(a1)` byte with a player-identity-dependent
+  increment: `+1` for Player_1 (Sonic), `+2` for Player_2 (sidekick
+  Tails). `Check_PlayerCollision` (sonic3k.asm:179904-179924) then
+  masks `& 3` and indexes `word_85890 = [P1, P1, P2, P2]` to pick the
+  launch target before clearing the byte. The engine's
+  `ClamerObjectInstance` was collapsing this to a single boolean
+  `springCprop`, so when the post-cooldown latch fired the engine
+  always launched the primary `playerEntity` passed into `update()`
+  (Sonic) instead of resolving the byte to the actual toucher. At
+  F7923 the engine launched Sonic into the air with the spring's
+  triplicate `-0x0800` write while ROM had Sonic still on the ground
+  and was re-firing the same spring on Tails. Replaced the boolean
+  with the ROM cprop byte; `onTouchResponse` increments by `+1` for
+  primary, `+2` for `playerEntity.isCpuControlled()` (Tails), and the
+  two latch-fire branches in `advanceSpringRoutine` resolve the
+  target via `cprop & 3` (`1 → primary`, `2 or 3 → first sidekick
+  from services().sidekicks()`). Cprop is cleared on consumption to
+  mirror `clr.b collision_property(a0)`. CNZ first-error advances
+  F7923 -> F8123 (2767 -> 2683 errors); AIZ first-error stable at
+  F8927; S1/S2 trace replays unaffected; `TestClamerObjectInstance`
+  GREEN.
 - **AIZ Mini-boss F7660 — `Swing_UpAndDown` peak bounce-back ROM
   parity restored.** ROM `Swing_UpAndDown` (sonic3k.asm:177851-177879)
   applies a bounce-back at the swing apex: when the velocity reaches

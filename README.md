@@ -281,11 +281,12 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   (`sonic3k.asm:185866-185998`), including the `loc_88FEC` auto-close gate driven by a
   `Find_SonicTails`-equivalent closer-player lookup, mirroring ROM behaviour across routines
   0x02 (idle) / 0x04 (snap-shut) / 0x06 (auto-close) — foundation for further CNZ Clamer
-  parity work. Diagnostic localisation has further identified that the F7918 fire originates
-  from an engine-only `SPRING_RELATCH_COLLISION_FLAGS = $40|$12` widening with no ROM cite
-  (ROM `loc_890AA`/`loc_890C8`/`loc_890D0` at `sonic3k.asm:185953-185973` never modify
-  `collision_flags` after spawn) — the relatch correction is staged behind a deeper F=621
-  ROM-fire dispatch divergence still under investigation.
+  parity work. The F7918 spring fire's relatch widening was reverted in favour of a ROM-correct
+  three-state spring routine (LIVE / COOLDOWN_DRAIN / COOLDOWN_DONE) mirroring
+  `sonic3k.asm:185953-185973` and a player-identity-aware `collision_property` byte mirroring
+  ROM `Touch_Special.loc_103FA`'s +1/+2 cprop accumulation (`sonic3k.asm:21186-21194`) so the
+  Clamer launches the correct player (Sonic vs Tails) per ROM's `Check_PlayerCollision`
+  `cprop & 3` indexing — advancing the CNZ replay frontier from F7919 to F8123.
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
