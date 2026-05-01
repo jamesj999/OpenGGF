@@ -261,7 +261,9 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   preserved velocity at `sonic3k.asm:36032-36042` before the +0x38 gravity), and Fire Shield
   Dash now mirrors ROM `Reset_Player_Position_Array` at `sonic3k.asm:22166-22193` by zeroing
   the input/status replay buffers alongside the position refill — fixing the F7381 stale
-  Stat_table read and advancing the AIZ replay frontier to F7552.
+  Stat_table read and advancing the AIZ replay frontier to F7552. F7552 itself is documented
+  as a likely missing `Solid_Object_Detach` engine path on the AIZ Miniboss Napalm projectile
+  (rider receives +1 px and `x_vel` zero on the projectile's self-destruct frame).
   Visual trace bootstrap now uses the shared replay bootstrap so AIZ/CNZ visualiser sessions
   match headless replay's seed/cursor policy.
 - **S3K known blockers:** Angel Island F6920 sloped collapsing-platform ordering is documented with
