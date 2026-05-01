@@ -6,6 +6,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **AIZ Mini-boss F7660 — `Swing_UpAndDown` peak bounce-back ROM
+  parity restored.** ROM `Swing_UpAndDown` (sonic3k.asm:177851-177879)
+  applies a bounce-back at the swing apex: when the velocity reaches
+  `±maxSpeed`, the routine flips direction (`bset/bclr #0,$38(a0)`),
+  negates `d0`, and falls into `loc_84812` which adds the now-opposite
+  `d0` back to `d1` in the same frame, so the stored peak velocity is
+  `±maxSpeed ∓ accel`, not the clamped extreme. The engine's
+  `AizMinibossSwingMotion.update()` was clamping the peak to
+  `±maxSpeed` (skipping the `loc_84812` step), so the swing apex held
+  the extreme velocity for one extra frame each half-cycle and the
+  swing drifted ~6 frames out of phase with ROM by trace F7660.
+  With the drifted swing the engine's miniboss y was 3 units low
+  vs ROM at F7660, which let the engine see the boss/Sonic AABB
+  overlap one frame ahead of ROM. ROM boss `Touch_ChkHurt`
+  (sonic3k.asm:20911-20915) negates `x_vel`, `y_vel`, and
+  `ground_vel` on a boss hit, so the ahead-by-one-frame detection
+  flipped Sonic's `g_speed`/`x_speed`/`y_speed` signs at F7660 in
+  the engine while ROM still showed them positive (ROM bounced at
+  F7661). Engine now applies the ROM bounce-back step
+  (`vel += accel` at the up peak, `vel -= accel` at the down peak)
+  so the swing apex matches ROM cycle-for-cycle. AIZ first-error
+  advances 7660 → 8927 (errors 975 → 896). CNZ first-error at F7923
+  unchanged. S1 GHZ / S1 MZ1 / S2 EHZ trace replays remain GREEN.
 - **AIZ Mini-boss F7552 — sidekick hurt-airborne boundary clamp now
   matches ROM order (MOVE before BOUNDARY).** ROM `Obj01_Hurt`
   (s2.asm:37820-37834), `Sonic_Hurt` (s1disasm/_incObj/01

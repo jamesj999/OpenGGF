@@ -43,36 +43,56 @@ public class AizMinibossSwingMotion {
      * ROM: Swing_UpAndDown — oscillate y_vel between -maxSpeed and +maxSpeed.
      * Returns true if a half-cycle peak was reached (d3=1 in ROM).
      *
-     * <p>At each peak the ROM applies a bounce-back correction: the velocity
-     * overshoots the limit, the direction flips, and one accel step is subtracted
-     * (d0 negated then added). This matches the exact waveform.
+     * <p>ROM (sonic3k.asm:177851 Swing_UpAndDown) flow at peak:
+     * <pre>
+     *   ; going up branch (bit 0 of $38 clear):
+     *   neg.w  d0           ; d0 = -accel
+     *   add.w  d0,d1        ; d1 -= accel
+     *   neg.w  d2           ; d2 = -maxSpeed
+     *   cmp.w  d2,d1
+     *   bgt.s  loc_84824    ; if d1 > -maxSpeed, store d1 and return (not at peak)
+     *   bset   #0,$38(a0)   ; flip direction
+     *   neg.w  d0           ; d0 = +accel
+     *   neg.w  d2           ; d2 = +maxSpeed
+     *   moveq  #1,d3        ; signal peak
+     * loc_84812:
+     *   add.w  d0,d1        ; bounce-back: d1 += accel (so peak vel = -maxSpeed + accel)
+     *   cmp.w  d2,d1
+     *   blt.s  loc_84824    ; if d1 < +maxSpeed, store d1 (peak handled)
+     * </pre>
+     * The peak frame's stored y_vel is therefore {@code -maxSpeed + accel}
+     * (or {@code +maxSpeed - accel} on the down peak), NOT a clamped extreme.
+     * Skipping this bounce-back kept y_vel at the extreme for one extra frame
+     * and pushed the AIZ miniboss swing apex 6+ frames out of sync with ROM,
+     * causing the engine to detect the boss/Sonic overlap one frame ahead of
+     * ROM at trace F7660 (sonic3k.asm:20913 neg.w x_vel/y_vel/ground_vel).
      */
     public boolean update(BossStateContext state) {
         boolean peakReached = false;
 
         if (!goingDown) {
-            // Going up: decelerate from positive, through zero, to negative peak
+            // ROM going-up branch: d0 = -accel; d1 += d0; cmp d1 with -maxSpeed.
             int vel = state.yVel - accel;
             if (vel <= -maxSpeed) {
-                // Top peak reached
+                // Peak reached. ROM toggles direction (bset #0), negates d0/d2,
+                // then loc_84812 adds the now-positive d0 back to d1 in the SAME
+                // frame. So the stored peak velocity is (vel + accel), which lies
+                // strictly inside the (-maxSpeed, +maxSpeed) window.
                 goingDown = true;
-                vel = -maxSpeed;
-                // ROM applies bounce-back: neg.w d0; add.w d0,d1
-                // but since we clamp to -maxSpeed the net effect is the same
-                // as starting the next half from exactly -maxSpeed.
                 peakReached = true;
+                vel += accel; // bounce-back step (loc_84812: add.w d0,d1)
             }
             state.yVel = vel;
         } else {
-            // Going down: accelerate from negative peak toward positive peak
+            // ROM going-down branch (bit 0 set): d0 already +accel, d1 += d0.
             int vel = state.yVel + accel;
             if (vel >= maxSpeed) {
-                // Bottom peak reached — ROM: bclr #0, neg d0, add d0 to d1
+                // Peak reached. ROM clears bit 0, negates d0 (-> -accel), adds d0
+                // back to d1 in the SAME frame so the stored peak velocity is
+                // (vel - accel).
                 goingDown = false;
-                // ROM bounce-back: vel = maxSpeed + accel (overshoot), then subtract accel
-                // net = maxSpeed. But the next frame starts the UP pass from maxSpeed.
-                vel = maxSpeed;
                 peakReached = true;
+                vel -= accel; // bounce-back step (loc_84818: add.w d0,d1 with d0 negated)
             }
             state.yVel = vel;
         }
