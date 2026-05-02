@@ -631,10 +631,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, table.length - 1);
 		short spindashGSpeed = table[speedIndex];
 
-		// ROM: Reset_Player_Position_Array before setting scroll delay
-		sprite.resetPositionHistory();
 		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
+			// ROM spindash release writes H_scroll_frame_offset only; it does
+			// not call Reset_Player_Position_Array. S2's own ScrollHoriz
+			// comments describe the resulting old-position camera jerk
+			// (docs/s2disasm/s2.asm:18044-18052), and S3K mirrors the same
+			// release path (docs/skdisasm/sonic3k.asm:23715-23730).
 			camera.setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
 		}
 
