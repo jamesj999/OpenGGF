@@ -322,6 +322,15 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // AIZ left wall fixed, but stop clamping the right side once that
         // control object begins advancing the max boundary.
         camera.setMinX((short) triggerX);
+        if ((camera.getMaxX() & 0xFFFF) > storedMax) {
+            // ROM loc_84A6A stores Camera_stored_max_X_pos, then deletes the
+            // gradual level-end object (docs/skdisasm/sonic3k.asm:178165-178169).
+            // If a later AIZ event has already widened the camera farther
+            // (Obj_AIZ2BossSmall writes $6000 at sonic3k.asm:105602), this
+            // stale controller must not clamp it back to the old stored max.
+            setDestroyed(true);
+            return;
+        }
         camera.setMaxX((short) storedMax);
     }
 
