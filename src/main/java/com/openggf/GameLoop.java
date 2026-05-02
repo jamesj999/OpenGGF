@@ -677,6 +677,11 @@ public class GameLoop {
                 if (levelManager.consumeInLevelTitleCardRequest()) {
                     enterInLevelTitleCard(levelManager.getInLevelTitleCardZone(), levelManager.getInLevelTitleCardAct());
                 }
+                // Trace playback still consumes one BK2/VBlank row on a
+                // transition-only frame. Headless replay advances its movie
+                // cursor after applySeamlessTransition(); keep the live
+                // comparator cursor aligned with the same ordering.
+                playbackDebugManager.onLevelFrameAdvanced();
                 return;
             }
 
@@ -736,6 +741,13 @@ public class GameLoop {
                                 step.run();
                                 profiler.endSection(name);
                             });
+                } else if (levelManager.getObjectManager() != null) {
+                    // ROM v_vbla_byte increments in VBlank even on rows where
+                    // LevelLoop did not run. Headless trace replay mirrors
+                    // this in HeadlessTestRunner.skipFrameFromRecording();
+                    // live visual trace mode must do the same or object timing
+                    // gates enter gameplay hundreds of VBlanks behind.
+                    levelManager.getObjectManager().advanceVblaCounter();
                 }
                 // Fire the BK2-advance callback either way — on both real
                 // gameplay ticks and lag-gated skips — so the observer's

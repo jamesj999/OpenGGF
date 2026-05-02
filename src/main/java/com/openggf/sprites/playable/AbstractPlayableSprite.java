@@ -106,9 +106,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         // Records input buttons and status flags each frame for Tails CPU input replay.
         // Entry format matches ROM: word 0 = Ctrl_1_Logical (input), word 1 = status
         private short[] inputHistory = new short[64];
+        private byte[] jumpPressHistory = new byte[64];
         private byte[] statusHistory = new byte[64];
+        private boolean followerHistoryRecordedThisTick;
         /** Current frame logical controller state (ROM: Ctrl_1_Logical). */
         private short logicalInputState = 0;
+        /** Current frame logical jump press bit (ROM: low byte of Ctrl_1_Logical). */
+        private boolean logicalJumpPressState = false;
 
         // Input bitmask constants (matching Mega Drive controller layout)
         public static final int INPUT_UP    = 0x01;
@@ -609,6 +613,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Affects physics constants and triggers entry/exit speed changes.
          */
         protected boolean inWater = false;
+        /**
+         * Tracks the ROM speed-constant block independently from Status_Underwater.
+         * Direct status-byte writes can clear the underwater bit without running
+         * the water-exit routine that restores max speed, acceleration, and
+         * deceleration.
+         */
+        protected boolean waterPhysicsActive = false;
         protected boolean preventTailsRespawn = false;
         /**
          * Previous frame's water state, used for detecting transitions.
@@ -763,6 +774,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.flipTurned = false;
                 this.inWater = false;
                 this.wasInWater = false;
+                this.waterPhysicsActive = false;
                 this.waterSkimActive = false;
                 this.preventTailsRespawn = false;
                 this.superSonic = false;
@@ -2520,6 +2532,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * EHZ trace baseline.
          */
         public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump) {
+                setLogicalInputState(up, down, left, right, jump, isJumpJustPressed());
+        }
+
+        /**
+         * Publishes the logical pad state plus the low-byte jump press bit.
+         * ROM stores the whole Ctrl_1_Logical word in Sonic_Stat_Record_Buf;
+         * Tails_CPU_Control later copies that delayed word to Ctrl_2_logical
+         * (S3K sonic3k.asm:26683-26803). The existing compact history stores
+         * held buttons only, so the low-byte press bit is tracked separately
+         * without changing getInputHistory() consumers.
+         */
+        public void setLogicalInputState(boolean up, boolean down, boolean left, boolean right, boolean jump,
+                        boolean jumpPress) {
                 if (isControlLocked()
                                 && physicsFeatureSet != null
                                 && physicsFeatureSet.controlLockLatchesLogicalInput()) {
@@ -2532,10 +2557,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (right) input |= INPUT_RIGHT;
                 if (jump) input |= INPUT_JUMP;
                 this.logicalInputState = input;
+                this.logicalJumpPressState = jumpPress;
         }
 
         public void clearLogicalInputState() {
                 this.logicalInputState = 0;
+                this.logicalJumpPressState = false;
         }
 
         /**
@@ -2607,7 +2634,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setXSpeed(short xSpeed) {
-                traceS3kAizVelocityProbe("xSpeed", this.xSpeed, xSpeed);
                 this.xSpeed = xSpeed;
         }
 
@@ -2616,7 +2642,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setYSpeed(short ySpeed) {
-                traceS3kAizVelocityProbe("ySpeed", this.ySpeed, ySpeed);
                 this.ySpeed = ySpeed;
         }
 
@@ -2722,6 +2747,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         xHistory[i] = getCentreX();
                         yHistory[i] = getCentreY();
                         inputHistory[i] = 0;
+                        jumpPressHistory[i] = 0;
                         statusHistory[i] = 0;
                 }
                 // Always use PlayableSpriteController - it checks debugMode internally
@@ -2837,10 +2863,18 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         private void clearInitOverride() {
                 if (!initPhysicsActive) return;
                 initPhysicsActive = false;
+                resetSpeedConstantsToCanonical();
+        }
+
+        private void resetSpeedConstantsToCanonical() {
                 if (canonicalProfile != null) {
                         this.runAccel = canonicalProfile.runAccel();
                         this.runDecel = canonicalProfile.runDecel();
                         this.max = canonicalProfile.max();
+                } else if (physicsProfile != null) {
+                        this.runAccel = physicsProfile.runAccel();
+                        this.runDecel = physicsProfile.runDecel();
+                        this.max = physicsProfile.max();
                 }
         }
 
@@ -2945,65 +2979,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setGSpeed(short gSpeed) {
-                traceS3kAizVelocityProbe("gSpeed", this.gSpeed, gSpeed);
                 this.gSpeed = gSpeed;
-        }
-
-	private void traceS3kAizVelocityProbe(String field, short oldValue, short newValue) {
-		if (oldValue == newValue || !Boolean.getBoolean("s3k.aiz.velocityprobe")) {
-			return;
-		}
-
-		int centreX = getCentreX() & 0xFFFF;
-		int centreY = getCentreY() & 0xFFFF;
-		if (centreX < 0x1930 || centreX > 0x1960 || centreY < 0x0380 || centreY > 0x03E0) {
-			return;
-		}
-
-                int frameCounter = -1;
-                var levelManager = GameServices.levelOrNull();
-                if (levelManager != null && levelManager.getObjectManager() != null) {
-                        frameCounter = levelManager.getObjectManager().getFrameCounter();
-                }
-
-                System.out.printf(
-                        "s3k-aiz-velocityprobe frame=%d field=%s from=%04X to=%04X pos=(%04X,%04X) "
-                                + "spd=(%04X,%04X,%04X) air=%s roll=%s angle=%02X caller=%s%n",
-                        frameCounter,
-                        field,
-                        oldValue & 0xFFFF,
-                        newValue & 0xFFFF,
-                        centreX,
-                        centreY,
-                        getXSpeed() & 0xFFFF,
-                        getYSpeed() & 0xFFFF,
-                        getGSpeed() & 0xFFFF,
-                        getAir(),
-                        getRolling(),
-                        getAngle() & 0xFF,
-                        describeVelocityProbeCaller());
-        }
-
-        private String describeVelocityProbeCaller() {
-                StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-                StringBuilder builder = new StringBuilder();
-                for (int i = 4; i < Math.min(stack.length, 8); i++) {
-                        if (builder.length() > 0) {
-                                builder.append(" <- ");
-                        }
-                        StackTraceElement frame = stack[i];
-                        String className = frame.getClassName();
-                        int lastDot = className.lastIndexOf('.');
-                        if (lastDot >= 0) {
-                                className = className.substring(lastDot + 1);
-                        }
-                        builder.append(className)
-                                .append('.')
-                                .append(frame.getMethodName())
-                                .append(':')
-                                .append(frame.getLineNumber());
-                }
-                return builder.toString();
         }
 
         public short getRunAccel() {
@@ -3012,10 +2988,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // (s2.asm:36014 — expiry code restores Super values, confirming this design)
                 boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveAccel(runAccel, inWater, effectiveShoes);
+                        return physicsModifiers.effectiveAccel(runAccel, waterPhysicsActive, effectiveShoes);
                 }
                 // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (runAccel / 2);
                 }
                 if (effectiveShoes) {
@@ -3027,10 +3003,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public short getRunDecel() {
                 boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveDecel(runDecel, inWater, effectiveShoes);
+                        return physicsModifiers.effectiveDecel(runDecel, waterPhysicsActive, effectiveShoes);
                 }
                 // Fallback: Water overrides shoes
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (runDecel / 2);
                 }
                 return runDecel;
@@ -3051,10 +3027,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public short getFriction() {
                 boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveFriction(friction, inWater, effectiveShoes);
+                        return physicsModifiers.effectiveFriction(friction, waterPhysicsActive, effectiveShoes);
                 }
                 // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (friction / 2);
                 }
                 if (effectiveShoes) {
@@ -3066,10 +3042,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public short getMax() {
                 boolean effectiveShoes = hasSpeedShoes() && !isSuperSonic();
                 if (physicsModifiers != null) {
-                        return physicsModifiers.effectiveMax(max, inWater, effectiveShoes);
+                        return physicsModifiers.effectiveMax(max, waterPhysicsActive, effectiveShoes);
                 }
                 // Fallback: Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (max / 2);
                 }
                 if (effectiveShoes) {
@@ -3124,13 +3100,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
-         * Restores the ROM-style follower history buffers directly.
-         * Used by trace replay bootstrap so CPU sidekicks can read the same
-         * delayed player history window the original game had at frame 0.
+         * Test helper for setting ROM-style follower history buffers directly.
+         * Trace replay must not call this; recorded history snapshots are
+         * comparison-only diagnostics, not engine input.
          */
-        public void hydrateRecordedHistory(short[] xHistory, short[] yHistory,
-                                          short[] inputHistory, byte[] statusHistory,
-                                          int historyPos) {
+        void hydrateRecordedHistory(short[] xHistory, short[] yHistory,
+                                    short[] inputHistory, byte[] statusHistory,
+                                    int historyPos) {
                 if (xHistory == null || yHistory == null || inputHistory == null || statusHistory == null) {
                         throw new IllegalArgumentException("History buffers must be non-null");
                 }
@@ -3144,6 +3120,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 System.arraycopy(xHistory, 0, this.xHistory, 0, this.xHistory.length);
                 System.arraycopy(yHistory, 0, this.yHistory, 0, this.yHistory.length);
                 System.arraycopy(inputHistory, 0, this.inputHistory, 0, this.inputHistory.length);
+                for (int i = 0; i < this.jumpPressHistory.length; i++) {
+                        this.jumpPressHistory[i] = 0;
+                }
                 System.arraycopy(statusHistory, 0, this.statusHistory, 0, this.statusHistory.length);
                 this.historyPos = (byte) historyPos;
         }
@@ -3212,14 +3191,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         return;
                 }
 
-                boolean oldRolling = this.rolling;
-                int beforeCentreX = getCentreX() & 0xFFFF;
-                int beforeCentreY = getCentreY() & 0xFFFF;
-                int beforeY = getY() & 0xFFFF;
-                int beforeHeight = getHeight();
-                int beforeXRadius = getXRadius();
-                int beforeYRadius = getYRadius();
-
                 // Update visual dimensions (no position adjustment)
                 if (GroundMode.CEILING.equals(runningMode) || GroundMode.GROUND.equals(runningMode)) {
                         int newHeight = rolling ? rollHeight : runHeight;
@@ -3237,70 +3208,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
 
                 this.rolling = rolling;
-                traceS3kAizRollProbe(
-                        oldRolling,
-                        rolling,
-                        beforeCentreX,
-                        beforeCentreY,
-                        beforeY,
-                        beforeHeight,
-                        beforeXRadius,
-                        beforeYRadius);
         }
 
-        private void traceS3kAizRollProbe(boolean oldRolling,
-                                          boolean newRolling,
-                                          int beforeCentreX,
-                                          int beforeCentreY,
-                                          int beforeY,
-                                          int beforeHeight,
-                                          int beforeXRadius,
-                                          int beforeYRadius) {
-                if (!Boolean.getBoolean("s3k.aiz.rollprobe")) {
-                        return;
-                }
-                LevelManager levelManager = GameServices.level();
-                if (levelManager == null || levelManager.getObjectManager() == null) {
-                        return;
-                }
-                int frameCounter = levelManager.getObjectManager().getFrameCounter();
-                int centreX = getCentreX() & 0xFFFF;
-                int centreY = getCentreY() & 0xFFFF;
-                if (centreX < 0x1900 || centreX > 0x1990 || centreY < 0x0380 || centreY > 0x03E0) {
-                        return;
-                }
-                StackTraceElement caller = null;
-                StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-                for (StackTraceElement element : stack) {
-                        if (!element.getClassName().equals(AbstractPlayableSprite.class.getName())
-                                        && !element.getClassName().equals(Thread.class.getName())) {
-                                caller = element;
-                                break;
-                        }
-                }
-                String callerSummary = caller == null
-                                ? "<unknown>"
-                                : caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
-                System.out.printf(
-                                "s3k-aiz-rollprobe frame=%d caller=%s roll=%s->%s centre=(%04X,%04X)->(%04X,%04X) y=%04X->%04X h=%d->%d rad=(%d,%d)->(%d,%d) air=%s angle=%02X%n",
-                                frameCounter,
-                                callerSummary,
-                                oldRolling ? "1" : "0",
-                                newRolling ? "1" : "0",
-                                beforeCentreX,
-                                beforeCentreY,
-                                getCentreX() & 0xFFFF,
-                                centreY,
-                                beforeY,
-                                getY() & 0xFFFF,
-                                beforeHeight,
-                                getHeight(),
-                                beforeXRadius,
-                                beforeYRadius,
-                                getXRadius(),
-                                getYRadius(),
-                                getAir(),
-                                getAngle() & 0xFF);
+        /**
+         * Clears only the status rolling bit for ROM paths that write the
+         * status byte directly without touching collision radii or dimensions.
+         */
+        public void clearRollingFlagPreserveRadii() {
+                this.rolling = false;
         }
 
         public boolean getRollingJump() {
@@ -3424,58 +3339,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         protected void setCollisionRadii(short newXRadius, short newYRadius, boolean adjustY) {
-                traceS3kAizRadiusProbe(newXRadius, newYRadius);
                 this.xRadius = newXRadius;
                 this.yRadius = newYRadius;
                 updateSensorOffsetsFromRadii();
-        }
-
-        private void traceS3kAizRadiusProbe(short newXRadius, short newYRadius) {
-                if (!Boolean.getBoolean("s3k.aiz.yprobe")) {
-                        return;
-                }
-                LevelManager levelManager = GameServices.level();
-                if (levelManager == null || levelManager.getObjectManager() == null) {
-                        return;
-                }
-                int centreX = getCentreX() & 0xFFFF;
-                int centreY = getCentreY() & 0xFFFF;
-                int minY = Integer.getInteger("s3k.aiz.yprobe.minY", 0x0380);
-                int minX = Integer.getInteger("s3k.aiz.yprobe.minX", 0x1900);
-                int maxX = Integer.getInteger("s3k.aiz.yprobe.maxX", 0x1990);
-                if (centreX < minX || centreX > maxX || centreY < minY || centreY > 0x03E0) {
-                        return;
-                }
-                if (xRadius == newXRadius && yRadius == newYRadius) {
-                        return;
-                }
-                StackTraceElement caller = null;
-                for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
-                        String className = element.getClassName();
-                        if (!className.equals(AbstractPlayableSprite.class.getName())
-                                        && !className.equals(Thread.class.getName())) {
-                                caller = element;
-                                break;
-                        }
-                }
-                String callerSummary = caller == null
-                                ? "<unknown>"
-                                : caller.getClassName() + "#" + caller.getMethodName() + ":" + caller.getLineNumber();
-                System.out.printf(
-                                "s3k-aiz-radiusprobe frame=%d caller=%s centre=(%04X,%04X) y=%04X h=%d rad=(%d,%d)->(%d,%d) air=%s roll=%s angle=%02X%n",
-                                levelManager.getObjectManager().getFrameCounter(),
-                                callerSummary,
-                                centreX,
-                                centreY,
-                                getY() & 0xFFFF,
-                                getHeight(),
-                                xRadius,
-                                yRadius,
-                                newXRadius,
-                                newYRadius,
-                                getAir(),
-                                getRolling(),
-                                getAngle() & 0xFF);
         }
 
         private void updateSensorOffsetsFromRadii() {
@@ -3527,6 +3393,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public SpriteMovementManager getMovementManager() {
                 return controller.getMovement();
+        }
+
+        @Override
+        public void applyPostObjectLandingAbilities(int savedDoubleJumpFlag) {
+                controller.getMovement().applyPostObjectLandingAbilities(this, savedDoubleJumpFlag);
         }
 
         public PlayableSpriteAnimation getAnimationManager() {
@@ -3610,6 +3481,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         xHistory[i] = currentX;
                         yHistory[i] = currentY;
                 }
+                followerHistoryRecordedThisTick = false;
         }
 
         /**
@@ -3637,8 +3509,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         xHistory[i] = currentX;
                         yHistory[i] = currentY;
                         inputHistory[i] = 0;
+                        jumpPressHistory[i] = 0;
                         statusHistory[i] = 0;
                 }
+                followerHistoryRecordedThisTick = false;
         }
 
         /**
@@ -3652,6 +3526,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         desired += inputHistory.length;
                 }
                 return inputHistory[desired];
+        }
+
+        /**
+         * Returns whether the delayed logical controller word carried a jump
+         * press bit. ROM Tails CPU consumes the low byte of Ctrl_1_Logical
+         * together with the delayed held buttons when copying to Ctrl_2_logical.
+         */
+        public final boolean getJumpPressHistory(int framesBehind) {
+                int desired = historyPos - framesBehind;
+                if (desired < 0) {
+                        desired += jumpPressHistory.length;
+                }
+                return jumpPressHistory[desired] != 0;
         }
 
         /**
@@ -3799,16 +3686,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
-         * Causes the sprite to update its position history as we are now at the end
-         * of the tick so all movement calculations have been performed.
+         * Mirrors the ROM follower-history write point (`Sonic_RecordPos` in S3K
+         * sonic3k.asm:22119-22136): movement/collision has run, but animation,
+         * touch response, and later object-side rewrites have not. Sidekick CPU
+         * reads this table later in the same Process_Sprites pass.
          */
-        public void endOfTick() {
-                if (deferredObjectControlRelease) {
-                        objectControlled = false;
-                        objectControlAllowsCpu = false;
-                        objectControlSuppressesMovement = false;
-                        mgzTopPlatformCarrySolidContactObject = null;
-                        deferredObjectControlRelease = false;
+        public void recordFollowerHistoryForTick() {
+                if (followerHistoryRecordedThisTick) {
+                        return;
                 }
                 // ROM: Sonic_Pos_Record_Index wraps at 256 bytes (64 entries * 4 bytes per entry)
                 if (historyPos == 63) {
@@ -3821,6 +3706,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
                 // ROM: Sonic_Stat_Record_Buf records Ctrl_1_Logical each frame.
                 inputHistory[historyPos] = logicalInputState;
+                jumpPressHistory[historyPos] = (byte) (logicalJumpPressState ? 1 : 0);
 
                 byte status = 0;
                 if (getDirection() == Direction.LEFT) status |= STATUS_FACING_LEFT;
@@ -3832,6 +3718,23 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (inWater) status |= STATUS_UNDERWATER;
                 if (preventTailsRespawn) status |= STATUS_PREVENT_TAILS_RESPAWN;
                 statusHistory[historyPos] = status;
+                followerHistoryRecordedThisTick = true;
+        }
+
+        /**
+         * Completes per-frame cleanup. If a path did not reach the normal
+         * Sonic_RecordPos-equivalent point, record history here as a fallback.
+         */
+        public void endOfTick() {
+                if (deferredObjectControlRelease) {
+                        objectControlled = false;
+                        objectControlAllowsCpu = false;
+                        objectControlSuppressesMovement = false;
+                        mgzTopPlatformCarrySolidContactObject = null;
+                        deferredObjectControlRelease = false;
+                }
+                recordFollowerHistoryForTick();
+                followerHistoryRecordedThisTick = false;
         }
 
         public short getRenderCentreX() {
@@ -3899,6 +3802,38 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
+         * Updates the ROM Status_Underwater mirror while object_control bit 0 is
+         * suppressing movement. S3K Tails' dispatcher skips Tails_Modes under
+         * object_control (sonic3k.asm:26220-26248), but still falls through to
+         * Tails_Water. Tails_Water sets/clears Status_Underwater and speed
+         * constants before checking object_control; when object_control is set
+         * and CPU routine is not 4, it returns before the velocity quarter/double
+         * paths (sonic3k.asm:27416-27470).
+         */
+        public void updateWaterStateObjectControlled(int waterLevelY) {
+                wasInWater = inWater;
+
+                if (waterSkimActive) {
+                        inWater = false;
+                        return;
+                }
+
+                boolean nowInWater = getCentreY() > waterLevelY;
+                if (!wasInWater && nowInWater) {
+                        currentWaterSystem().incrementWaterEnteredCounter();
+                        clearInitOverride();
+                        resetSpeedConstantsToCanonical();
+                        waterPhysicsActive = true;
+                } else if (wasInWater && !nowInWater) {
+                        currentWaterSystem().incrementWaterEnteredCounter();
+                        clearInitOverride();
+                        resetSpeedConstantsToCanonical();
+                        waterPhysicsActive = false;
+                }
+                inWater = nowInWater;
+        }
+
+        /**
          * Called when player enters water.
          * Applies instantaneous velocity changes per original game logic.
          */
@@ -3909,6 +3844,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // S3K: water entry resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22225-22227 sets absolute values, not relative to init)
                 clearInitOverride();
+                resetSpeedConstantsToCanonical();
+                waterPhysicsActive = true;
 
                 // Fire and Lightning shields dissipate on water entry (s3.asm:34693, 34780)
                 PhysicsFeatureSet fs = getPhysicsFeatureSet();
@@ -3923,13 +3860,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         }
                 }
 
-                // ROM: asr.w x_vel(a0) - halve horizontal velocity once
-                xSpeed = (short) (xSpeed / 2);
-                gSpeed = (short) (gSpeed / 2);
+                // ROM: asr.w x_vel(a0) - halve horizontal velocity once.
+                // Sonic_Water does not modify ground_vel/inertia on water entry.
+                xSpeed = (short) (xSpeed >> 1);
 
                 // ROM: asr.w y_vel(a0) twice - divide by 4 unconditionally
                 // (both upward and downward velocity)
-                ySpeed = (short) (ySpeed / 4);
+                ySpeed = (short) (ySpeed >> 2);
 
                 // ROM (s2.asm:36050-36110): Skip splash if y_vel is 0 after quartering
                 //   tst.w   y_vel(a0)
@@ -3959,14 +3896,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // S3K: water exit resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22253-22255 sets absolute $600/$C/$80, not relative to init)
                 clearInitOverride();
+                resetSpeedConstantsToCanonical();
+                waterPhysicsActive = false;
 
                 // ROM does NOT modify x_vel on water exit - only top_speed/accel/decel
                 // change, which affects future acceleration but not current velocity
 
-                // ROM: cmpi.b #4,routine(a0) - skip y_vel doubling if hurt
-                //      beq.s +
-                //      asl y_vel(a0)
-                if (!isHurt()) {
+                // ROM: cmpi.b #4,routine(a0) - skip y_vel doubling if hurt.
+                // S2/S3K additionally skip asl y_vel when already moving upward
+                // faster than -$400 (s2.asm:36120-36124, sonic3k.asm:22267-22270).
+                PhysicsFeatureSet fs = getPhysicsFeatureSet();
+                boolean shouldDoubleYSpeed = !isHurt();
+                if (shouldDoubleYSpeed && fs != null && fs.waterExitBoostSkipsFastUpwardVelocity()
+                                && ySpeed < -0x400) {
+                        shouldDoubleYSpeed = false;
+                }
+                if (shouldDoubleYSpeed) {
                         // Double y velocity (both up and down)
                         ySpeed = (short) (ySpeed * 2);
                 }
@@ -4097,6 +4042,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public void setInWater(boolean inWater) {
                 this.inWater = inWater;
                 this.wasInWater = inWater;
+                this.waterPhysicsActive = inWater;
+        }
+
+        /**
+         * Clears only the underwater status bit for ROM routines that write
+         * {@code status(a0)} directly. S3K {@code sub_13ECA} writes
+         * {@code Status_InAir} (sonic3k.asm:26804-26808), so the next
+         * {@code Tails_Water} call sees Status_Underwater already clear and
+         * does not restore the speed constants.
+         */
+        public void clearUnderwaterStatusPreserveWaterPhysics() {
+                this.inWater = false;
+                this.wasInWater = false;
         }
 
         // ==================== Physics Constant Getters with Modifiers
@@ -4111,7 +4069,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public short getEffectiveRunAccel() {
                 // Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (runAccel / 2);
                 }
                 if (speedShoes) {
@@ -4124,7 +4082,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Returns effective run deceleration, accounting for modifiers.
          */
         public short getEffectiveRunDecel() {
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (runDecel / 2);
                 }
                 // Speed shoes don't affect decel in original
@@ -4136,7 +4094,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public short getEffectiveFriction() {
                 // Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (friction / 2);
                 }
                 if (speedShoes) {
@@ -4150,7 +4108,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public short getEffectiveMax() {
                 // Water overrides shoes (ROM sets absolute values on water entry)
-                if (inWater) {
+                if (waterPhysicsActive) {
                         return (short) (max / 2);
                 }
                 if (speedShoes) {
@@ -4194,3 +4152,5 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return -0x400;
         }
 }
+
+

@@ -371,7 +371,8 @@ public class SpriteManager {
 
 						publishInputState(playable,
 								aiUp, aiDown, aiLeft, aiRight, aiJump,
-								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump,
+								true, aiJumpPress);
 
 						// If approaching (respawn in progress) and the strategy handles movement
 						// directly (Tails fly-in, Knuckles glide), skip normal physics.
@@ -413,7 +414,8 @@ public class SpriteManager {
 						// where obj_control locks movement but objects can still read button state.
 						publishInputState(playable,
 								up, down, left, right, space,
-								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+								effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump,
+								false, false);
 					}
 
 					tickPlayablePhysics(playable, effectiveUp, effectiveDown, effectiveLeft,
@@ -446,7 +448,8 @@ public class SpriteManager {
 					playable.applyQueuedControlStateForFrameStart();
 					publishInputState(playable,
 							false, false, false, false, false,
-							false, false, false, false, false);
+							false, false, false, false, false,
+							false, false);
 					tickPlayablePhysics(playable, false, false, false, false, false, false, false, false,
 							levelManager, frameCounter);
 				} finally {
@@ -493,6 +496,7 @@ public class SpriteManager {
 							boolean aiLeft = cpuController.getInputLeft();
 							boolean aiRight = cpuController.getInputRight();
 							boolean aiJump = cpuController.getInputJump();
+							boolean aiJumpPress = cpuController.getInputJumpPress();
 							boolean forcedRight = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
 									|| playable.isForceInputRight();
 							boolean forcedLeft = playable.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
@@ -507,7 +511,8 @@ public class SpriteManager {
 
 							publishInputState(playable,
 									aiUp, aiDown, aiLeft, aiRight, aiJump,
-									effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump);
+									effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump,
+									true, aiJumpPress);
 							if (skipCpuPhysicsThisFrame) {
 								playable.getAnimationManager().update(frameCounter);
 								playable.tickStatus();
@@ -606,10 +611,16 @@ public class SpriteManager {
 
 	private static void publishInputState(AbstractPlayableSprite playable,
 			boolean rawUp, boolean rawDown, boolean rawLeft, boolean rawRight, boolean rawJump,
-			boolean logicalUp, boolean logicalDown, boolean logicalLeft, boolean logicalRight, boolean logicalJump) {
+			boolean logicalUp, boolean logicalDown, boolean logicalLeft, boolean logicalRight, boolean logicalJump,
+			boolean explicitLogicalJumpPress, boolean logicalJumpPress) {
 		playable.setJumpInputPressed(rawJump);
 		playable.setDirectionalInputPressed(rawUp, rawDown, rawLeft, rawRight);
-		playable.setLogicalInputState(logicalUp, logicalDown, logicalLeft, logicalRight, logicalJump);
+		if (explicitLogicalJumpPress) {
+			playable.setLogicalInputState(logicalUp, logicalDown, logicalLeft, logicalRight, logicalJump,
+					logicalJumpPress);
+		} else {
+			playable.setLogicalInputState(logicalUp, logicalDown, logicalLeft, logicalRight, logicalJump);
+		}
 	}
 
 	/**
@@ -1041,6 +1052,7 @@ public class SpriteManager {
 		if (cpuController != null) {
 			cpuController.finishCarryAfterCarrierMovement();
 		}
+		playable.recordFollowerHistoryForTick();
 		// ROM Obj01_Control: movement runs first, then Sonic_Animate, then
 		// TouchResponse. Special objects like monitors gate on anim(a0), so
 		// ReactToItem must observe the post-movement animation state from the
@@ -1059,6 +1071,9 @@ public class SpriteManager {
 		levelManager.applyPlaneSwitchers(playable);
 		playable.tickStatus();
 		playable.endOfTick();
+		if (usesInlineSolidResolution) {
+			levelManager.updatePlayableWaterStateForCurrentLevel(playable);
+		}
 	}
 
 	private static void applySolidContacts(LevelManager levelManager, AbstractPlayableSprite playable,

@@ -151,6 +151,61 @@ class TestSidekickCpuControllerFlightAutoRecovery {
     }
 
     @Test
+    void flightTransitionPreservesWaterSpeedConstantsAfterDirectStatusMask() {
+        TestableSprite sonic = sonicAt(0x1000, 0x0400);
+        sonic.setInWater(false);
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.applyExternalPhysicsProfile(com.openggf.game.PhysicsProfile.SONIC_2_TAILS);
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0400);
+        tails.setInWater(true);
+        tails.clearUnderwaterStatusPreserveWaterPhysics();
+        tails.setAir(true);
+        tails.setControlLocked(true);
+        tails.setRenderFlagOnScreen(true);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
+
+        controller.update(10);
+
+        assertSame(SidekickCpuController.State.NORMAL, controller.getState(),
+                "Aligned routine 4 returns to NORMAL");
+        assertFalse(tails.isInWater(),
+                "loc_13CD2 leaves Status_Underwater clear when it was already clear");
+        assertEquals(6, tails.getRunAccel(),
+                "loc_13CD2 does not run Tails_Water exit, so Acceleration_P2 remains underwater");
+    }
+
+    @Test
+    void flightTransitionPreservesExistingUnderwaterStatus() {
+        TestableSprite sonic = sonicAt(0x1000, 0x0400);
+        sonic.setInWater(false);
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.applyExternalPhysicsProfile(com.openggf.game.PhysicsProfile.SONIC_2_TAILS);
+        tails.setCpuControlled(true);
+        tails.setCentreX((short) 0x1000);
+        tails.setCentreY((short) 0x0400);
+        tails.setInWater(true);
+        tails.setAir(true);
+        tails.setControlLocked(true);
+        tails.setRenderFlagOnScreen(true);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.FLIGHT_AUTO_RECOVERY, 0);
+
+        controller.update(10);
+
+        assertSame(SidekickCpuController.State.NORMAL, controller.getState(),
+                "Aligned routine 4 returns to NORMAL");
+        assertTrue(tails.isInWater(),
+                "loc_13CD2 preserves Status_Underwater when it was already set on Tails");
+        assertEquals(6, tails.getRunAccel(),
+                "loc_13CD2 preserves underwater speed constants");
+    }
+
+    @Test
     void flightDoesNotTransitionToNormalOnSameFrameYReachesTarget() {
         TestableSprite sonic = sonicAt(0x1000, 0x0400);
         TestableSprite tails = new TestableSprite("tails_p2");

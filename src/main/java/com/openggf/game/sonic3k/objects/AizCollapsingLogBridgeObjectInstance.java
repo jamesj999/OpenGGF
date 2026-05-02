@@ -64,6 +64,7 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
     private int state = STATE_IDLE;
     private int collapseTimer;
     private boolean segmentsSpawned;
+    private boolean collapseArmedByStanding;
     private final List<PlayableEntity> standingPlayers = new ArrayList<>(2);
     private final Set<PlayableEntity> ejectedPlayers = new HashSet<>(2);
 
@@ -110,7 +111,9 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        return new SolidObjectParams(halfWidth, HEIGHT_PIXELS, HEIGHT_PIXELS + 1);
+        // loc_2AE98/loc_2AF06 pass height_pixels(a0) directly as d3 to
+        // SolidObjectTop; no bridge-local landing offset is applied afterward.
+        return new SolidObjectParams(halfWidth, HEIGHT_PIXELS, HEIGHT_PIXELS);
     }
 
     @Override
@@ -119,8 +122,21 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean gatesNewTopSolidLandingWithPreviousPosition() {
+        return true;
+    }
+
+    @Override
     public boolean isSolidFor(PlayableEntity player) {
         if (state == STATE_FINAL) {
+            return false;
+        }
+        if ((state == STATE_COLLAPSING || collapseArmedByStanding || segmentsSpawned)
+                && (services().objectManager() == null
+                || !services().objectManager().isRidingObject(player, this))) {
+            // ROM loc_2AF70 no longer calls SolidObjectTop. It only tests
+            // the standing bits that were already set and ejects those
+            // players as their segment drops, so new landings cannot attach.
             return false;
         }
         return !ejectedPlayers.contains(player);
@@ -138,7 +154,13 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (state != STATE_FINAL) {
+        boolean collapseStartedThisFrame = false;
+        if (state == STATE_IDLE && !isFireBridge && collapseArmedByStanding) {
+            startCollapse();
+            collapseStartedThisFrame = true;
+        }
+
+        if (state == STATE_IDLE || collapseStartedThisFrame) {
             SolidCheckpointBatch batch = checkpointAll();
             recordStandingPlayer(playerEntity, batch.perPlayer().get(playerEntity));
             for (PlayableEntity sidekick : services().sidekicks()) {
@@ -153,6 +175,9 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
                 }
             }
             case STATE_COLLAPSING -> {
+                if (collapseStartedThisFrame) {
+                    break;
+                }
                 collapseTimer--;
                 boolean timerExpired = collapseTimer <= 0;
                 if (timerExpired) {
@@ -169,6 +194,7 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
                 setDestroyed(true);
             }
         }
+        deleteSpriteIfNotInRange();
     }
 
     private void recordStandingPlayer(PlayableEntity player, PlayerSolidContactResult result) {
@@ -179,7 +205,9 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
             standingPlayers.add(player);
         }
         if (state == STATE_IDLE && !isFireBridge) {
-            startCollapse();
+            // loc_2AE70 tests the parent's standing bits before the current
+            // SolidObjectTop call, so a new rider collapses the bridge next frame.
+            collapseArmedByStanding = true;
         }
     }
 
@@ -188,6 +216,7 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
             return;
         }
         segmentsSpawned = true;
+        collapseArmedByStanding = false;
         state = STATE_COLLAPSING;
         collapseTimer = totalTimer;
         if (isFireBridge) {
@@ -208,6 +237,22 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
         }
 
         services().playSfx(Sonic3kSfx.COLLAPSE.id);
+    }
+
+    private void deleteSpriteIfNotInRange() {
+        if (isDestroyed()) {
+            return;
+        }
+        int currentCameraX = services().camera().getX() & 0xFFFF;
+        int cameraXPosCoarseBack = (currentCameraX - 0x80) & 0xFF80;
+        int objectXCoarse = x & 0xFF80;
+        int diff = (objectXCoarse - cameraXPosCoarseBack) & 0xFFFF;
+        if (diff > 0x280) {
+            // loc_2AE98/loc_2AF06/loc_2AF70 all tail-call
+            // Delete_Sprite_If_Not_In_Range, which clears the respawn bit
+            // before deleting so the layout entry can reload on camera return.
+            setDestroyedByOffscreen();
+        }
     }
 
     private void checkPlayerKnockoff(PlayableEntity player) {
@@ -283,6 +328,13 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isHighPriority() {
         return isFireBridge;
+    }
+
+    @Override
+    public String traceDebugDetails() {
+        return String.format("state=%d armed=%s spawned=%s timer=%02X riders=%d",
+                state, collapseArmedByStanding, segmentsSpawned,
+                collapseTimer & 0xFF, standingPlayers.size());
     }
 
     @Override

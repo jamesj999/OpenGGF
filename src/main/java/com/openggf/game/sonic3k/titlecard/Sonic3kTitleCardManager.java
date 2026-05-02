@@ -240,6 +240,17 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         return state == Sonic3kTitleCardState.COMPLETE;
     }
 
+    public boolean isInLevelExitPhaseFor(int zoneIndex, int actIndex) {
+        return inLevelMode
+                && currentZone == zoneIndex
+                && currentAct == actIndex
+                && state == Sonic3kTitleCardState.EXIT;
+    }
+
+    public int getExitPhaseCounter() {
+        return phaseCounter;
+    }
+
     /**
      * S3K ROM: the pre-level title card completes its blocking setup work before
      * normal gameplay begins, so the player does not keep advancing physics during

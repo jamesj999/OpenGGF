@@ -3541,7 +3541,9 @@ public class ObjectManager {
                 if (instance.isSkipSolidContactThisFrame()) {
                     continue;
                 }
-                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
+                if (provider.requiresRenderFlagForTouch()
+                        && instance instanceof AbstractObjectInstance aoi
+                        && !aoi.isOnScreenForTouch()) {
                     continue;
                 }
                 int flags;
@@ -4083,6 +4085,13 @@ public class ObjectManager {
         // when an object slot is unloaded and reloaded.
         private final Map<PlayableEntity, Set<Object>> objectStandingBitSet =
                 new IdentityHashMap<>(2);
+        // Per-player set of solid object spawn keys whose ROM-equivalent
+        // "object pushing-bit" is currently SET on this player.
+        // ROM loc_1E0A2/sub_1E0C2 only clears Status_Push when the current
+        // object owned the push bit; a different off-screen solid must not
+        // clear a push produced by another object in the same frame.
+        private final Map<PlayableEntity, Set<Object>> objectPushingBitSet =
+                new IdentityHashMap<>(2);
         // Per-frame snapshot of bits cleared during this frame's
         // processInlineObjectForPlayer. resolveContactInternal's lift gate
         // consults this AFTER the bit was cleared so it reads the value ROM
@@ -4124,6 +4133,37 @@ public class ObjectManager {
             }
             Object key = airUnseatLatchKeyFor(instance);
             return key != null && set.contains(key);
+        }
+
+        private void setObjectPushingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            if (key == null) {
+                return;
+            }
+            objectPushingBitSet
+                    .computeIfAbsent(player, p -> new HashSet<>())
+                    .add(key);
+        }
+
+        private boolean clearObjectPushingBit(PlayableEntity player, ObjectInstance instance) {
+            if (player == null) {
+                return false;
+            }
+            Set<Object> set = objectPushingBitSet.get(player);
+            if (set == null) {
+                return false;
+            }
+            Object key = airUnseatLatchKeyFor(instance);
+            if (key == null || !set.remove(key)) {
+                return false;
+            }
+            if (set.isEmpty()) {
+                objectPushingBitSet.remove(player);
+            }
+            return true;
         }
 
         private void clearObjectStandingBit(PlayableEntity player, ObjectInstance instance) {
@@ -4202,6 +4242,7 @@ public class ObjectManager {
             latestStandingSnapshots.clear();
             latestHeadroomSnapshots.clear();
             objectStandingBitSet.clear();
+            objectPushingBitSet.clear();
             objectStandingBitSnapshot.clear();
         }
 
@@ -4587,6 +4628,13 @@ public class ObjectManager {
             if (!(instance instanceof SolidObjectProvider provider)) {
                 return null;
             }
+            if (provider.skipsCpuSidekickWhenRenderFlagOffScreen()
+                    && player instanceof AbstractPlayableSprite sprite
+                    && sprite.isCpuControlled()
+                    && sprite.hasRenderFlagOnScreenState()
+                    && !sprite.isRenderFlagOnScreen()) {
+                return null;
+            }
             if (!provider.isSolidFor(player)) {
                 return null;
             }
@@ -4602,6 +4650,7 @@ public class ObjectManager {
                         player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
                 if (result.pushing()) {
                     player.setPushing(true);
+                    setObjectPushingBit(player, instance);
                     provider.setPlayerPushing(player, true);
                 }
                 if (result.standing()) {
@@ -4686,7 +4735,10 @@ public class ObjectManager {
                 // path clears the player's push status and the object's pushing-bit
                 // bookkeeping but does not touch ground_vel/x_vel. Matches both
                 // S2 SolidObject_TestClearPush and S1 Solid_NotPushing.
-                provider.setPlayerPushing(player, false);
+                if (clearObjectPushingBit(player, instance)) {
+                    player.setPushing(false);
+                    provider.setPlayerPushing(player, false);
+                }
                 return null;
             }
 
@@ -4710,6 +4762,10 @@ public class ObjectManager {
             }
 
             if (contact == null) {
+                if (clearObjectPushingBit(player, instance)) {
+                    player.setPushing(false);
+                    provider.setPlayerPushing(player, false);
+                }
                 return null;
             }
             applyNonUnifiedTopSolidLandingHeightOverride(
@@ -4721,6 +4777,7 @@ public class ObjectManager {
             }
             if (contact.pushing()) {
                 player.setPushing(true);
+                setObjectPushingBit(player, instance);
                 provider.setPlayerPushing(player, true);
             }
             if (contact.standing()) {
@@ -4824,6 +4881,15 @@ public class ObjectManager {
             }
 
             ridingStates.remove(player);
+            if (provider.sampleSlopeOnRideExit(player) && instance instanceof SlopedSolidProvider sloped) {
+                int slopeAnchorX = currentX + params.offsetX();
+                int slopeY = sampleSlopeY(player, slopeAnchorX, params.halfWidth(), sloped);
+                if (slopeY != Integer.MIN_VALUE) {
+                    int newCentreY = currentY + params.offsetY() - slopeY - player.getYRadius();
+                    int newY = newCentreY - (player.getHeight() / 2);
+                    player.setY((short) newY);
+                }
+            }
             player.setOnObject(false);
             if (provider.forceAirOnRideExit() && !usesUnifiedCollisionModel(player)) {
                 // ROM PlatformObject_SingleCharacter exit path (s2.asm:35506-35511):
@@ -5212,7 +5278,6 @@ public class ObjectManager {
                 int minRelX = -stickyX;
                 int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
                 boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
-
                 // ROM: s2.asm:35387 — skip repositioning if obj_control bit 7 set
                 if (inBounds && provider.isSolidFor(player) && !blocksSolidContacts(player, ridingObject)) {
                     // ROM: s2.asm:35377-35401 — X uses delta tracking, Y uses absolute positioning
@@ -5262,6 +5327,16 @@ public class ObjectManager {
                     }
                 } else {
                     if (!inBounds) {
+                        if (provider.sampleSlopeOnRideExit(player)
+                                && ridingObject instanceof SlopedSolidProvider sloped) {
+                            int slopeAnchorX = currentX + params.offsetX();
+                            int slopeY = sampleSlopeY(player, slopeAnchorX, params.halfWidth(), sloped);
+                            if (slopeY != Integer.MIN_VALUE) {
+                                int newCentreY = currentY + params.offsetY() - slopeY - player.getYRadius();
+                                int newY = newCentreY - (player.getHeight() / 2);
+                                player.setY((short) newY);
+                            }
+                        }
                         // ROM standing-object paths clear Status_OnObj and set
                         // Status_InAir as soon as the rider leaves the object's
                         // ride bounds: SolidObjectFull_1P loc_1DC98
@@ -5344,6 +5419,7 @@ public class ObjectManager {
                     if (result.pushing()) {
                         player.setPushing(true);
                         // ROM: s2.asm:35220-35226 — also set pushing bit on the object
+                        setObjectPushingBit(player, instance);
                         provider.setPlayerPushing(player, true);
                     }
                     if (result.standing()) {
@@ -5404,6 +5480,10 @@ public class ObjectManager {
                 }
 
                 if (contact == null) {
+                    if (clearObjectPushingBit(player, instance)) {
+                        player.setPushing(false);
+                        provider.setPlayerPushing(player, false);
+                    }
                     continue;
                 }
                 applyNonUnifiedTopSolidLandingHeightOverride(
@@ -5416,6 +5496,7 @@ public class ObjectManager {
                 if (contact.pushing()) {
                     player.setPushing(true);
                     // ROM: s2.asm:35220-35226 — also set pushing bit on the object
+                    setObjectPushingBit(player, instance);
                     provider.setPlayerPushing(player, true);
                 }
                 if (contact.standing()) {
@@ -5716,9 +5797,11 @@ public class ObjectManager {
                     if (player.getAir()) {
                         LOGGER.fine(() -> "Monitor landing at (" + player.getX() + "," + player.getY() +
                             ") distY=" + distY);
+                        int savedDoubleJumpFlag = player.getDoubleJumpFlag();
                         player.setAir(false);
                         clearRollingOnLanding(player);
                         player.setGroundMode(GroundMode.GROUND);
+                        player.applyPostObjectLandingAbilities(savedDoubleJumpFlag);
                     }
                     // ROM: bset #status.player.on_object (s2.asm:35739)
                     player.setOnObject(true);
@@ -5895,6 +5978,20 @@ public class ObjectManager {
                 if (player.getYSpeed() < 0) {
                     return null;
                 }
+                if (!sticky
+                        && instance instanceof SolidObjectProvider provider
+                        && provider.gatesNewTopSolidLandingWithPreviousPosition()) {
+                    int prevCenterX = player.getCentreX(1);
+                    int prevCenterY = player.getCentreY(1);
+                    int anchorX = playerCenterX - (relX - halfWidth);
+                    int anchorY = playerCenterY - (relY - 4 - maxTop);
+                    int prevRelX = prevCenterX - anchorX + halfWidth;
+                    int prevRelY = prevCenterY - anchorY + 4 + maxTop;
+                    int width2 = halfWidth * 2;
+                    if (prevRelX < 0 || prevRelX >= width2 || prevRelY < 0 || prevRelY >= 0x10) {
+                        return null;
+                    }
+                }
                 boolean rejectsZeroDistanceTopLanding = distY == 0
                         && rejectsZeroDistanceTopSolidLanding(instance);
                 if (distY < 0 || distY >= 0x10 || rejectsZeroDistanceTopLanding) {
@@ -5926,9 +6023,11 @@ public class ObjectManager {
                     // (btst #1,obStatus(a1) / beq.s .notinair). This clears the air
                     // flag, resets rolling, and sets ground mode.
                     if (player.getAir()) {
+                        int savedDoubleJumpFlag = player.getDoubleJumpFlag();
                         player.setAir(false);
                         clearRollingOnLanding(player);
                         player.setGroundMode(GroundMode.GROUND);
+                        player.applyPostObjectLandingAbilities(savedDoubleJumpFlag);
                     }
                     player.setOnObject(true);
                 }
@@ -6025,9 +6124,11 @@ public class ObjectManager {
                             player.setYSpeed((short) 0);
                             player.setGSpeed(player.getXSpeed());
                             if (player.getAir()) {
+                                int savedDoubleJumpFlag = player.getDoubleJumpFlag();
                                 player.setAir(false);
                                 clearRollingOnLanding(player);
                                 player.setGroundMode(GroundMode.GROUND);
+                                player.applyPostObjectLandingAbilities(savedDoubleJumpFlag);
                             }
                             player.setOnObject(true);
                         }
@@ -6039,9 +6140,11 @@ public class ObjectManager {
                 // When distX=0 (at exact edge), distX>0 would be false for both sides,
                 // causing incorrect movingInto detection for left side pushes.
                 boolean leftSide = relX < halfWidth;
-                // Only set pushing if player is on ground AND actively pressing into the object
+                // ROM loc_1E06E sets Status_Push for any grounded side contact
+                // after applying the side separation. Only speed zeroing is
+                // gated by moving into the object (sonic3k.asm:41473-41495).
                 boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
-                boolean pushing = !player.getAir() && movingInto;
+                boolean pushing = !player.getAir();
                 // ROM: sub SolidObject.asm lines 173-196
                 // When d0==0 (distX==0), ROM branches to Solid_Centre which does
                 // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position change.
@@ -6144,6 +6247,20 @@ public class ObjectManager {
                 if (topSolidOnly && player.getYSpeed() < 0) {
                     return null;
                 }
+                if (topSolidOnly && !sticky
+                        && instance instanceof SolidObjectProvider provider
+                        && provider.gatesNewTopSolidLandingWithPreviousPosition()) {
+                    int prevCenterX = player.getCentreX(1);
+                    int prevCenterY = player.getCentreY(1);
+                    int anchorX = playerCenterX - (relX - halfWidth);
+                    int anchorY = playerCenterY - (relY - 4 - maxTop);
+                    int prevRelX = prevCenterX - anchorX + halfWidth;
+                    int prevRelY = prevCenterY - anchorY + 4 + maxTop;
+                    int width2 = halfWidth * 2;
+                    if (prevRelX < 0 || prevRelX >= width2 || prevRelY < 0 || prevRelY >= 0x10) {
+                        return null;
+                    }
+                }
 
                 // ROM: SolidObjectFull (s2.asm:35298) uses "cmpi.w #$10,d3; blo
                 // Solid_Landed" — signed branch semantics, landing range d3 in
@@ -6208,9 +6325,11 @@ public class ObjectManager {
                     if (player.getAir()) {
                         LOGGER.fine(() -> "Solid object landing at (" + player.getX() + "," + player.getY() +
                             ") distY=" + distY);
+                        int savedDoubleJumpFlag = player.getDoubleJumpFlag();
                         player.setAir(false);
                         clearRollingOnLanding(player);
                         player.setGroundMode(GroundMode.GROUND);
+                        player.applyPostObjectLandingAbilities(savedDoubleJumpFlag);
                     }
                     // ROM: bset #status.player.on_object (s2.asm:35739)
                     player.setOnObject(true);
@@ -6452,11 +6571,20 @@ public class ObjectManager {
         }
 
         private void clearRollingOnLanding(PlayableEntity player) {
-            if (player == null || player.getPinballMode() || !player.getRolling()) {
+            if (player == null || player.getPinballMode()) {
                 return;
             }
-            player.setRolling(false);
-            player.setY((short) (player.getY() - player.getRollHeightAdjustment()));
+            if (player.getRolling()) {
+                player.setRolling(false);
+                player.setY((short) (player.getY() - player.getRollHeightAdjustment()));
+            } else if (player instanceof AbstractPlayableSprite sprite
+                    && (sprite.getYRadius() != sprite.getStandYRadius()
+                    || sprite.getXRadius() != sprite.getStandXRadius())) {
+                // ROM Player_TouchFloor restores default radii before testing
+                // Status_Roll. S3K despawn marker writes Status_InAir directly
+                // and can leave Tails with rolling radii but no roll bit.
+                sprite.applyStandingRadii(false);
+            }
         }
     }
 }

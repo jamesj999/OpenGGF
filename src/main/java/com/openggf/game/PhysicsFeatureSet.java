@@ -46,6 +46,12 @@ public record PhysicsFeatureSet(
          *  S2/S3K: true (s2.asm:36476 CalcRoomInFront called at end of Sonic_Move and Obj01_RollSpeed).
          *  S1: false (s1disasm/_incObj/01 Sonic.asm: Sonic_MdNormal has no CalcRoomInFront). */
         boolean groundWallCollisionEnabled,
+        /** Whether ground-wall collision only sets Status_Push when the player is
+         *  facing into the contacted wall.
+         *  S3K: true for Sonic/Tails (sonic3k.asm:22752-22756,22768-22772,
+         *  27997-28001,28013-28017). S1/S2: false; their corresponding wall
+         *  response paths set Status_Push unconditionally. */
+        boolean groundWallPushRequiresFacingIntoWall,
         /** Whether the character animation routine clears push status when anim
          *  differs from prev_anim.
          *  S2/S3K: true (s2.asm:38033-38038,40879-40884;
@@ -67,8 +73,9 @@ public record PhysicsFeatureSet(
          *  S3K: true (sonic3k.asm:23907-23948). S1/S2: false. */
         boolean slopeRepelUsesS3kSlipKick,
         /** Whether landing in pinball mode preserves the rolling state.
-         *  S2: true (s2.asm:37754 skips the roll-clear block when pinball_mode is set).
-         *  S3K: false (sonic3k.asm:24348 clears Status_Roll before the floor-tail flags). */
+         *  S2: true (s2.asm:37770-37771 skips the roll-clear block when pinball_mode is set).
+         *  S3K: true (sonic3k.asm:24325-24327 Player_TouchFloor_Check_Spindash branches
+         *  directly to loc_121D8 when spin_dash_flag is set, skipping Status_Roll clear). */
         boolean pinballLandingPreservesRoll,
         /** Whether top-solid landing accepts the exact edge-contact boundary.
          *  Engine terms: allow a new landing when {@code distY == 0}.
@@ -304,21 +311,6 @@ public record PhysicsFeatureSet(
          */
         boolean sidekickRespawnEntersCatchUpFlight,
         /**
-         * Whether the sidekick follow-AI push bypass may keep using the engine's
-         * transient push status for a short grace window after object ordering
-         * clears the current-frame flag.
-         * <p>S3K: {@code true}. The ROM gate at sonic3k.asm:26702-26705 tests
-         * Tails' current Status_Push bit before comparing the delayed leader
-         * status; the engine's S3K object ordering can clear that transient bit
-         * before the CPU controller runs, so this preserves the ROM-visible push
-         * continuity for AIZ/CNZ parity.
-         * <p>S2: {@code false}. S2's equivalent gate at s2.asm:38943-38946 uses
-         * the live Tails status only; carrying the S3K grace into S2 suppresses
-         * normal FollowLeft/FollowRight nudges and regresses EHZ traces.
-         * <p>S1: {@code false}. No CPU sidekick.
-         */
-        boolean sidekickPushBypassUsesGraceStatus,
-        /**
          * Whether a CPU sidekick with stale push status and no fresh left/right
          * input clears ground velocity before the ground movement step.
          * <p>S3K: {@code true}. The engine uses this to mirror the S3K
@@ -489,7 +481,18 @@ public record PhysicsFeatureSet(
          * <p>S1: {@code false}. ROM uses a separate {@code Ctrl_Lock_byte}
          * variable (s1disasm/_incObj/01 Sonic.asm); preserve baseline.
          */
-        boolean controlLockLatchesLogicalInput
+        boolean controlLockLatchesLogicalInput,
+        /** Whether Sonic_Water skips the water-exit y_vel doubling when upward
+         *  velocity is already faster than -$400.
+         *
+         *  <p>S2/S3K: true. {@code cmpi.w #-$400,d0 / blt.s} skips
+         *  {@code asl y_vel(a0)} on fast upward exits
+         *  (s2.asm:36120-36124, sonic3k.asm:22267-22270).
+         *
+         *  <p>S1: false. S1's {@code Sonic_Water} applies
+         *  {@code asl.w obVelY(a0)} on exit without this velocity gate
+         *  (s1disasm/_incObj/01 Sonic.asm:246-248). */
+        boolean waterExitBoostSkipsFastUpwardVelocity
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -556,19 +559,19 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
-            null, (short) 0, true, false /* animationChangeClearsPush: S1 clear is FixBugs-only (s1disasm/_incObj/01 Sonic.asm:2055-2065) */, false, false, false, false, true, false, false, true, FAST_SCROLL_CAP_S2, false, true,
+            null, (short) 0, true, false /* groundWallPushRequiresFacingIntoWall: S1 wall response sets push unconditionally (s1disasm/_incObj/01 Sonic.asm:551-568) */, false /* animationChangeClearsPush: S1 clear is FixBugs-only (s1disasm/_incObj/01 Sonic.asm:2055-2065) */, false, false, false, false, true, false, false, true, FAST_SCROLL_CAP_S2, false, true,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true /* sidekickSpawningRequiresGroundedLeader: S1 has no Tails CPU */, false /* useScreenYWrapValueForVisibility: S1 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S1 has no Tails CPU; symmetric with S2 */,
             SIDEKICK_FLY_LAND_BLOCKERS_NONE, false /* sidekickFlyLandRequiresLeaderAlive: S1 has no CPU sidekick */, false /* solidObjectOffscreenGate: keep current S1 trace baseline */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S1 has no Tails CPU */,
             false /* sidekickRespawnEntersCatchUpFlight: S1 has no Tails CPU */,
-            false /* sidekickPushBypassUsesGraceStatus: S1 has no Tails CPU */,
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S1 has no Tails CPU */,
             false /* sidekickCpuUsesLevelFrameCounter: S1 has no Tails CPU */,
             false /* levelBoundaryRightStrict: S1 uses bls.s (non-strict, predicted >= right) at s1disasm/_incObj/01 Sonic.asm:998 */,
             false /* levelBoundaryUsesCentreY: S1 ROM uses centre-Y at s1disasm/_incObj/01 Sonic.asm:1014, but S1 trace baselines (GHZ/MZ1) were calibrated against engine top-left compare; defer flip until S1 traces are re-validated */,
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S1 Solid_Landed (s1disasm/_incObj/sub SolidObject.asm:278-289) tests y_vel before any lift and returns Solid_Miss when upward */,
-            false /* controlLockLatchesLogicalInput: S1 uses separate Ctrl_Lock_byte; preserve baseline */);
+            false /* controlLockLatchesLogicalInput: S1 uses separate Ctrl_Lock_byte; preserve baseline */,
+            false /* waterExitBoostSkipsFastUpwardVelocity: S1 exits water with unconditional asl.w obVelY(a0) */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -578,19 +581,19 @@ public record PhysicsFeatureSet(
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
-            null, (short) 0, true, true /* animationChangeClearsPush: S2 Sonic/Tails animation clears pushing on anim change (s2.asm:38033-38038,40879-40884) */, false, true, false, true, false, false, false, false, FAST_SCROLL_CAP_S2, false, false,
+            null, (short) 0, true, false /* groundWallPushRequiresFacingIntoWall: S2 Sonic/Tails set push unconditionally in wall response (s2.asm:36536-36547,39506-39519) */, true /* animationChangeClearsPush: S2 Sonic/Tails animation clears pushing on anim change (s2.asm:38033-38038,40879-40884) */, false, true, false, true, false, false, false, false, FAST_SCROLL_CAP_S2, false, false,
             SIDEKICK_FOLLOW_SNAP_S2, SIDEKICK_DESPAWN_X_S2, SIDEKICK_FOLLOW_LEAD_OFFSET_NONE, true, false /* useScreenYWrapValueForVisibility: S2 keeps 32-margin */,
             true /* sidekickDespawnUsesObjectIdMismatch: S2 cmp.b id(a3),d0 in TailsCPU_CheckDespawn (s2.asm:39067) */,
             SIDEKICK_FLY_LAND_BLOCKERS_S2, false /* sidekickFlyLandRequiresLeaderAlive: S2 TailsCPU_Flying_Part2 has no Sonic-routine check */, false /* solidObjectOffscreenGate: keep current S2 trace baseline */,
             false /* sidekickDespawnUsesRidingInstanceLoss: S2 8-bit-id mismatch path already covers the freed-slot case (id of a freed slot is also 0) */,
             false /* sidekickRespawnEntersCatchUpFlight: S2 TailsCPU_Spawning inlines the 64-frame trigger and warp; engine keeps SPAWNING flow */,
-            false /* sidekickPushBypassUsesGraceStatus: S2 TailsCPU_Normal uses live Status_Push only (s2.asm:38943-38946) */,
             false /* sidekickClearsStalePushVelocityBeforeGroundMove: S2 TailsCPU_Normal writes Ctrl_2_Logical without clearing velocity (s2.asm:38943-39027) */,
             false /* sidekickCpuUsesLevelFrameCounter: preserve existing S2 trace cadence */,
             false /* levelBoundaryRightStrict: S2 uses bls.s (non-strict, predicted >= right) at s2.asm:36933 */,
             false /* levelBoundaryUsesCentreY: S2 ROM uses centre-Y at s2.asm:36950, but S2 EHZ trace baseline was calibrated against engine top-left compare; defer flip until S2 traces are re-validated */,
             false /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S2 SolidObject_Landed (s2.asm:35379-35380) tests y_vel before lift and branches to SolidObject_Miss when upward */,
-            false /* controlLockLatchesLogicalInput: ROM Obj01_Control (s2.asm:35933-35935) has the short-circuit, but engine S2 setControlLocked sites (FlipperObjectInstance, CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance, SignpostObjectInstance) and EHZ trace baseline expect post-lock zero state for animation gating; universal latch regressed S2 EHZ to F5121 (commit f3347ea89, reverted in 9793e4617); flip after S2 traces are re-validated */);
+            false /* controlLockLatchesLogicalInput: ROM Obj01_Control (s2.asm:35933-35935) has the short-circuit, but engine S2 setControlLocked sites (FlipperObjectInstance, CPZSpinTubeObjectInstance, Sonic2DeathEggRobotInstance, SignpostObjectInstance) and EHZ trace baseline expect post-lock zero state for animation gating; universal latch regressed S2 EHZ to F5121 (commit f3347ea89, reverted in 9793e4617); flip after S2 traces are re-validated */,
+            true /* waterExitBoostSkipsFastUpwardVelocity: S2 Sonic_Water skips asl y_vel when y_vel < -$400 (s2.asm:36120-36124) */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -604,19 +607,19 @@ public record PhysicsFeatureSet(
             RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
             new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-    }, (short) 0x100, true, true /* animationChangeClearsPush: S3K Tails/Tails2P animation clears Status_Push on anim change (sonic3k.asm:29359-29364,29681-29686) */, true, false, true, false, true, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
+    }, (short) 0x100, true, true /* groundWallPushRequiresFacingIntoWall: S3K wall response gates Status_Push on Status_Facing (sonic3k.asm:22752-22756,22768-22772,27997-28001,28013-28017) */, true /* animationChangeClearsPush: S3K Tails/Tails2P animation clears Status_Push on anim change (sonic3k.asm:29359-29364,29681-29686) */, true, false, true, true, true, true, true, false, FAST_SCROLL_CAP_S3K, true, false,
             SIDEKICK_FOLLOW_SNAP_S3K, SIDEKICK_DESPAWN_X_S3K, SIDEKICK_FOLLOW_LEAD_OFFSET_S3K, false, true /* useScreenYWrapValueForVisibility: S3K Render_Sprites height_pixels=0x18 */,
             false /* sidekickDespawnUsesObjectIdMismatch: S3K cmp.w (a3),d0 in sub_13EFC (sonic3k.asm:26823) compares routine-pointer high word; all gameplay objects share the same high word so the check almost never fires */,
             SIDEKICK_FLY_LAND_BLOCKERS_S3K, true /* sidekickFlyLandRequiresLeaderAlive: sonic3k.asm:26629 cmpi.b #6,(Player_1+routine).w / bhs.s loc_13D42 */, true /* solidObjectOffscreenGate: ROM SolidObject_cont uses render_flags bit 7 to skip side-push for off-screen objects (sonic3k.asm:41390 loc_1DF88) */,
             true /* sidekickDespawnUsesRidingInstanceLoss: S3K sub_13EFC reads (a3)=0 when slot freed by Delete_Referenced_Sprite (sonic3k.asm:36116-36124); engine tracks ObjectInstance reference because latchedSolidObjectId is sticky across destruction */,
             true /* sidekickRespawnEntersCatchUpFlight: ROM sub_13ECA writes Tails_CPU_routine = 2 (sonic3k.asm:26803), which dispatches to Tails_Catch_Up_Flying (sonic3k.asm:26474) on the next frame */,
-            true /* sidekickPushBypassUsesGraceStatus: preserve ROM-visible transient push continuity for S3K object ordering (sonic3k.asm:26702-26705) */,
-            true /* sidekickClearsStalePushVelocityBeforeGroundMove: S3K ground projection/push path clears ground_vel while preserving collision x_vel (sonic3k.asm:27947-28017) */,
+            false /* sidekickClearsStalePushVelocityBeforeGroundMove: S3K TailsCPU preserves ground_vel through loc_13E9C; movement/collision resolves it later (sonic3k.asm:26780-26816) */,
             true /* sidekickCpuUsesLevelFrameCounter: S3K Tails CPU gates read Level_frame_counter directly (sonic3k.asm:26474-26531; LevelLoop increments it before Process_Sprites at sonic3k.asm:7884-7894) */,
             true /* levelBoundaryRightStrict: S3K uses blo.s (strict, predicted > right) at sonic3k.asm:23186 -- see PhysicsFeatureSet javadoc for AIZ F4768 cite */,
             true /* levelBoundaryUsesCentreY: S3K Player_LevelBound (sonic3k.asm:23195) and Tails_Check_Screen_Boundaries (sonic3k.asm:28430-28431) both compare y_pos(a0) (centre-Y); engine getY() is top-left, off by 12 px for Tails / 20 px for Sonic. Required for AIZ trace F7171 sidekick boundary kill. */,
             true /* solidObjectTopBranchAlwaysLiftsOnUpwardVelocity: S3K loc_1E154 (sonic3k.asm:41606-41632) writes subq.w #1, y_pos(a1) and sub.w d3, y_pos(a1) BEFORE tst.w y_vel(a1) / bmi.s loc_1E198 — the lift is unconditional, only the standing/RideObject_SetRide is gated on y_vel >= 0. CNZ F7614 Tails_Jump (y_vel=-0x680) on Obj_Spring_Horizontal at 0x0E38,0x04D0 produces a +2 px lift the engine was missing. */,
-            true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */);
+            true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */,
+            true /* waterExitBoostSkipsFastUpwardVelocity: S3K Sonic_Water skips asl y_vel when y_vel < -$400 (sonic3k.asm:22267-22270) */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

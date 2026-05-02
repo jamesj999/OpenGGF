@@ -47,6 +47,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     private final int[] progress = new int[2];
     private final boolean[] riding = new boolean[2];
     private final boolean[] releaseObjectControlPending = new boolean[2];
+    private final String[] lastDecision = {"init", "init"};
 
     private int cameraLockTimer;
 
@@ -88,12 +89,14 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             int slot,
             boolean mainPlayer) {
         if (player == null) {
+            lastDecision[slot] = "missing";
             return;
         }
 
         if (releaseObjectControlPending[slot]) {
             releaseObjectControlPending[slot] = false;
             player.setObjectControlled(false);
+            lastDecision[slot] = "release-control";
         }
 
         if (!riding[slot]) {
@@ -106,10 +109,12 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         int absGroundSpeed = Math.abs(player.getGSpeed());
         if (absGroundSpeed < MIN_CAPTURE_X_SPEED) {
             if (progressWord(progress[slot]) >= 0x400) {
+                lastDecision[slot] = "fall-low-speed-done";
                 fallOffTree(player, slot);
                 return;
             }
             setPlayerOnTree(player, slot);
+            lastDecision[slot] = "fall-low-speed-early";
             fallOffTree(player, slot);
             return;
         }
@@ -118,10 +123,12 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             int dy = player.getCentreY() - treeY;
             int check = dy + 0x90;
             if (check < 0 || check > 0x130) {
+                lastDecision[slot] = "fall-y-range";
                 fallOffTree(player, slot);
                 return;
             }
             setPlayerOnTree(player, slot);
+            lastDecision[slot] = "ride-ground";
             return;
         }
 
@@ -133,25 +140,31 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             player.setCentreX((short) TREE_CAPTURE_MAX_X);
             player.setXSpeed((short) -0x400);
         }
+        lastDecision[slot] = "fall-air";
         fallOffTree(player, slot);
     }
 
     private void tryCapturePlayer(AbstractPlayableSprite player, int slot, boolean mainPlayer) {
         if (player.getAir()) {
+            lastDecision[slot] = "no-capture-air";
             return;
         }
         int dx = (player.getCentreX() + 0x10) - treeX;
         if (dx < 0 || dx >= 0x40) {
+            lastDecision[slot] = "no-capture-x";
             return;
         }
         int dy = player.getCentreY() - treeY;
         if (dy < -0x5A || dy > 0xA0) {
+            lastDecision[slot] = "no-capture-y";
             return;
         }
         if (player.getXSpeed() < MIN_CAPTURE_X_SPEED) {
+            lastDecision[slot] = "no-capture-speed";
             return;
         }
         if (isObjectControlActive(player)) {
+            lastDecision[slot] = "no-capture-control";
             return;
         }
 
@@ -168,18 +181,19 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         // setPlayerOnTree applies the preserved horizontal inertia before the
         // ROM path formula so the path delta still uses the moved x_pos.
         player.setObjectControlled(true);
+        player.setObjectControlSuppressesMovement(false);
+        player.setObjectControlAllowsCpu(true);
+        player.setSuppressGroundWallCollision(true);
         player.setControlLocked(false);
         player.setAir(false);
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
         player.setGSpeed(player.getXSpeed());
         player.setAnimationId(Sonic3kAnimationIds.WALK);
+        lastDecision[slot] = "capture";
         // Obj_AIZHollowTree sets object_control bits 6 and 1 only
-        // (sonic3k.asm:43688-43693). Tails_Normal suppresses CPU input only
-        // when object_control bit 7 is set (sonic3k.asm:26672-26673), so keep
-        // the sidekick CPU active while the tree owns path/mapping control.
-        if (player.isCpuControlled()) {
-            player.setObjectControlAllowsCpu(true);
-        }
+        // (sonic3k.asm:43688-43693). Bit 6 skips Sonic_WalkSpeed's
+        // CalcRoomInFront wall probe (sonic3k.asm:22713-22714), while the
+        // lack of bit 7 means CPU/touch dispatch is not suppressed.
 
         if (mainPlayer) {
             Camera camera = services().camera();
@@ -201,6 +215,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         progressValue += player.getGSpeed() << 8;
         progress[slot] = progressValue;
         if (progressValue < 0) {
+            lastDecision[slot] = "fall-progress-negative";
             fallOffTree(player, slot);
             return;
         }
@@ -231,8 +246,19 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setMappingFrame(PLAYER_FRAMES[frameIndex]);
     }
 
+    @Override
+    public String traceDebugDetails() {
+        return String.format("tree m=%s/%04X s=%s/%04X fg4=%04X cam=%02X",
+                lastDecision[PLAYER_SLOT_MAIN],
+                progressWord(progress[PLAYER_SLOT_MAIN]),
+                lastDecision[PLAYER_SLOT_SIDEKICK],
+                progressWord(progress[PLAYER_SLOT_SIDEKICK]),
+                eventsFg4 & 0xFFFF,
+                cameraLockTimer & 0xFF);
+    }
+
     private void advanceRideInertia(AbstractPlayableSprite player) {
-        if (!player.isObjectControlled()) {
+        if (!player.isObjectControlSuppressesMovement()) {
             return;
         }
         player.setXSpeed(player.getGSpeed());
@@ -261,6 +287,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setObjectMappingFrameControl(false);
         player.setControlLocked(false);
         player.setObjectControlled(false);
+        player.setSuppressGroundWallCollision(false);
         releaseObjectControlPending[slot] = false;
         player.setXSpeed((short) (player.getXSpeed() >> 1));
         player.setYSpeed((short) (player.getYSpeed() >> 1));

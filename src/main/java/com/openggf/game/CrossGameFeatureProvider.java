@@ -507,6 +507,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.superSpindashSpeedTable(),       // superSpindashSpeedTable (from base game)
                 baseFeatureSet.movingCrouchThreshold(),         // movingCrouchThreshold (from base game)
                 baseFeatureSet.groundWallCollisionEnabled(),    // groundWallCollisionEnabled (from base game)
+                baseFeatureSet.groundWallPushRequiresFacingIntoWall(), // groundWallPushRequiresFacingIntoWall (from base game)
                 baseFeatureSet.animationChangeClearsPush(),     // animationChangeClearsPush (from base game)
                 baseFeatureSet.airSuperspeedPreserved(),        // airSuperspeedPreserved (from base game)
                 baseFeatureSet.slopeRepelChecksOnObject(),      // slopeRepelChecksOnObject (from base game)
@@ -530,13 +531,13 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.solidObjectOffscreenGate(),       // solidObjectOffscreenGate (from base game)
                 baseFeatureSet.sidekickDespawnUsesRidingInstanceLoss(), // sidekickDespawnUsesRidingInstanceLoss (from base game)
                 baseFeatureSet.sidekickRespawnEntersCatchUpFlight(), // sidekickRespawnEntersCatchUpFlight (from base game)
-                baseFeatureSet.sidekickPushBypassUsesGraceStatus(), // sidekickPushBypassUsesGraceStatus (from base game)
                 baseFeatureSet.sidekickClearsStalePushVelocityBeforeGroundMove(), // sidekickClearsStalePushVelocityBeforeGroundMove (from base game)
                 baseFeatureSet.sidekickCpuUsesLevelFrameCounter(), // sidekickCpuUsesLevelFrameCounter (from base game)
                 baseFeatureSet.levelBoundaryRightStrict(), // levelBoundaryRightStrict (from base game)
                 baseFeatureSet.levelBoundaryUsesCentreY(), // levelBoundaryUsesCentreY (from base game)
                 baseFeatureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity(), // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity (from base game)
-                baseFeatureSet.controlLockLatchesLogicalInput()  // controlLockLatchesLogicalInput (from base game)
+                baseFeatureSet.controlLockLatchesLogicalInput(), // controlLockLatchesLogicalInput (from base game)
+                baseFeatureSet.waterExitBoostSkipsFastUpwardVelocity() // waterExitBoostSkipsFastUpwardVelocity (from base game)
         );
     }
 

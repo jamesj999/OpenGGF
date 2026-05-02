@@ -115,6 +115,8 @@ public interface PlayableEntity {
     ShieldType getShieldType();
     int getInvincibleFrames();
     int getDoubleJumpFlag();
+    default void applyPostObjectLandingAbilities(int savedDoubleJumpFlag) {
+    }
     boolean isSuperSonic();
 
     // ── Damage ──────────────────────────────────────────────────────

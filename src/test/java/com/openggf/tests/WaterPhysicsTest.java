@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.PhysicsProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +34,7 @@ public class WaterPhysicsTest {
 
         assertTrue(sprite.isInWater(), "Player should be in water");
         assertEquals(500, sprite.getXSpeed(), "XSpeed should be halved");
-        assertEquals(500, sprite.getGSpeed(), "GSpeed should be halved");
+        assertEquals(1000, sprite.getGSpeed(), "GSpeed should be unchanged on water entry");
     }
 
     @Test
@@ -142,6 +143,88 @@ public class WaterPhysicsTest {
         assertEquals(normalMax / 2, waterMax, "Underwater max should be half");
         assertTrue(waterJump < normalJump, "Underwater jump should be reduced");
         assertTrue(waterGravity < normalGravity, "Underwater gravity should be reduced");
+    }
+
+    @Test
+    public void directStatusClearPreservesWaterSpeedConstantsUntilRealExit() {
+        sprite.setInWater(true);
+        short waterAccel = sprite.getRunAccel();
+        short waterMax = sprite.getMax();
+
+        sprite.clearUnderwaterStatusPreserveWaterPhysics();
+
+        assertFalse(sprite.isInWater(), "Direct status write should clear Status_Underwater");
+        assertEquals(waterAccel, sprite.getRunAccel(),
+                "S3K sub_13ECA clears status without restoring Acceleration_P2");
+        assertEquals(waterMax, sprite.getMax(),
+                "S3K sub_13ECA clears status without restoring Max_speed_P2");
+    }
+
+    @Test
+    public void directStatusClearDoesNotTriggerSyntheticWaterExit() {
+        sprite.setInWater(true);
+        sprite.setYSpeed((short) -300);
+
+        sprite.clearUnderwaterStatusPreserveWaterPhysics();
+        sprite.setTestY((short) 300);
+        sprite.updateWaterState(400);
+
+        assertFalse(sprite.isInWater(), "Player remains above water");
+        assertEquals(-300, sprite.getYSpeed(),
+                "Status-only clear must not run the water-exit y_vel doubling path");
+        assertEquals(6, sprite.getRunAccel(),
+                "Underwater Acceleration_P2 stays active until a later real water transition");
+    }
+
+    @Test
+    public void waterEntryUsesCanonicalConstantsNotCurrentBoostedValues() {
+        sprite.applyExternalPhysicsProfile(PhysicsProfile.SONIC_2_SONIC);
+        sprite.setSpeedConstantsForTest((short) 24, (short) 128, (short) 0x0C00);
+        sprite.setTestY((short) 500);
+
+        sprite.updateWaterState(400);
+
+        assertTrue(sprite.isInWater(), "Player should enter water");
+        assertEquals(6, sprite.getRunAccel(),
+                "S3K Sonic_Water/Tails_Water writes Acceleration=$6, not half of boosted $18");
+        assertEquals(0x0300, sprite.getMax(),
+                "S3K Sonic_Water/Tails_Water writes Max_speed=$300, not half of boosted $C00");
+    }
+
+    @Test
+    public void objectControlledWaterEntrySetsStatusWithoutQuarteringVelocity() {
+        sprite.setObjectControlled(true);
+        sprite.setYSpeed((short) 0x38);
+        sprite.setXSpeed((short) 0x200);
+        sprite.setTestY((short) 500);
+
+        sprite.updateWaterStateObjectControlled(400);
+
+        assertTrue(sprite.isInWater(),
+                "S3K Tails_Water still sets Status_Underwater while object_control bit 0 is set");
+        assertEquals(0x38, sprite.getYSpeed(),
+                "object_control path returns before Tails_Water quarters y_vel");
+        assertEquals(0x200, sprite.getXSpeed(),
+                "object_control path returns before Tails_Water halves x_vel");
+        assertEquals(6, sprite.getRunAccel(),
+                "Tails_Water writes underwater speed constants before the object_control return");
+    }
+
+    @Test
+    public void objectControlledWaterExitClearsStatusWithoutDoublingVelocity() {
+        sprite.setInWater(true);
+        sprite.setObjectControlled(true);
+        sprite.setYSpeed((short) -0x200);
+        sprite.setTestY((short) 300);
+
+        sprite.updateWaterStateObjectControlled(400);
+
+        assertFalse(sprite.isInWater(),
+                "S3K Tails_Water still clears Status_Underwater while object_control bit 0 is set");
+        assertEquals(-0x200, sprite.getYSpeed(),
+                "object_control path returns before Tails_Water doubles y_vel on exit");
+        assertEquals(12, sprite.getRunAccel(),
+                "Tails_Water restores normal speed constants before the object_control return");
     }
 
     @Test

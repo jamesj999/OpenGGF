@@ -239,6 +239,14 @@ final class CaterkillerJrBodyInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean requiresRenderFlagForTouch() {
+        // S3K TouchResponse consumes Collision_response_list directly
+        // (sonic3k.asm:20655), so active Caterkiller Jr segments can hurt CPU
+        // Tails even while their centers are beyond the viewport edge.
+        return false;
+    }
+
+    @Override
     public ObjectSpawn getSpawn() {
         return buildSpawnAt(currentX, currentY);
     }

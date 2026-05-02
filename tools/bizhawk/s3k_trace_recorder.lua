@@ -179,6 +179,12 @@
 -- ("<start>-<end>" or semicolon-separated multi-window).
 -- Diagnostic-only; the comparator must NEVER hydrate engine state
 -- from these events.
+-- v6.16-s3k extends tails_cpu_normal_step with Pos_table_index,
+-- delayed target x/y, and target-minus-Tails dx/dy at loc_13DD0
+-- (sonic3k.asm:26683-26705). Targets AIZ F4580 where ROM appears to
+-- apply FollowRight's whole-pixel x_pos nudge but the existing trace
+-- lacks the d2/d3 target registers needed to prove the branch input.
+-- Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -826,7 +832,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.15-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.16-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -930,10 +936,11 @@ local function write_oscillation_per_frame()
         table.concat(parts)))
 end
 
--- Per-frame CPU state event. Emitted once per recorded trace frame so engine
--- replay can hydrate SidekickCpuController state at known ROM-checkpoint
+-- Per-frame CPU state event. Emitted once per recorded trace frame so replay
+-- reports can compare SidekickCpuController state at known ROM-checkpoint
 -- instants. Captures the full Tails CPU global block plus Ctrl_2_logical
 -- (held + pressed) which together determine the AI's per-frame decisions.
+-- Diagnostic-only: replay must never hydrate engine state from this event.
 local function write_tails_cpu_per_frame()
     if not aux_file then return end
 
@@ -942,7 +949,8 @@ local function write_tails_cpu_per_frame()
             .. '"interact":"0x%04X","idle_timer":%d,"flight_timer":%d,'
             .. '"cpu_routine":%d,"target_x":"0x%04X","target_y":"0x%04X",'
             .. '"auto_fly_timer":%d,"auto_jump_flag":%d,'
-            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X"}',
+            .. '"ctrl2_held":"0x%02X","ctrl2_pressed":"0x%02X",'
+            .. '"pos_table_index":"0x%04X"}',
         trace_frame,
         mainmemory.read_u16_be(ADDR_FRAMECOUNT),
         mainmemory.read_u16_be(ADDR_TAILS_CPU_INTERACT),
@@ -954,7 +962,8 @@ local function write_tails_cpu_per_frame()
         mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_FLY_TIMER),
         mainmemory.read_u8(ADDR_TAILS_CPU_AUTO_JUMP_FLAG),
         mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
-        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL)))
+        mainmemory.read_u8(ADDR_CTRL2_PRESSED_LOGICAL),
+        mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX)))
 end
 
 local function snapshot_object_id_for_code(obj_code)
@@ -2051,6 +2060,11 @@ function V65.tails_cpu_step()
             x_vel = V65.u16(mainmemory.read_s16_be(SIDEKICK_BASE + OFF_X_VEL)),
             delayed_stat = 0,
             delayed_input = 0,
+            pos_table_index = 0,
+            delayed_target_x = 0,
+            delayed_target_y = 0,
+            follow_dx = 0,
+            follow_dy = 0,
             loc_13dd0_branch = "not_seen",
             ctrl2_logical = mainmemory.read_u16_be(ADDR_CTRL2_HELD_LOGICAL),
             ctrl2_held_logical = mainmemory.read_u8(ADDR_CTRL2_HELD_LOGICAL),
@@ -2070,9 +2084,19 @@ function V65.tails_cpu_record_loc_13dd0()
     if not started then return end
     if not V65.hook_a0_is_tails() then return end
     local step = V65.tails_cpu_step()
-    local delayed_index = (mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) - 0x44) & 0xFF
+    local pos_table_index = mainmemory.read_u16_be(ADDR_POS_TABLE_INDEX) & 0xFF
+    local delayed_index = (pos_table_index - 0x44) & 0xFF
+    local delayed_target_x = emu.getregister("M68K D2") or mainmemory.read_u16_be(ADDR_POS_TABLE + delayed_index)
+    local delayed_target_y = mainmemory.read_u16_be(ADDR_POS_TABLE + delayed_index + 2)
+    local sidekick_x = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
+    local sidekick_y = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
     step.delayed_input = mainmemory.read_u16_be(ADDR_STAT_TABLE + delayed_index)
     step.delayed_stat = mainmemory.read_u8(ADDR_STAT_TABLE + delayed_index + 2)
+    step.pos_table_index = pos_table_index
+    step.delayed_target_x = delayed_target_x & 0xFFFF
+    step.delayed_target_y = delayed_target_y & 0xFFFF
+    step.follow_dx = (delayed_target_x - sidekick_x) & 0xFFFF
+    step.follow_dy = (delayed_target_y - sidekick_y) & 0xFFFF
     local leader_status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
     local leader_ground_vel = mainmemory.read_s16_be(PLAYER_BASE + OFF_INERTIA)
     if (leader_status & STATUS_ON_OBJECT) ~= 0 then
@@ -2146,6 +2170,9 @@ function V65.flush_tails_cpu_normal_step()
             .. '"status":"0x%02X","object_control":"0x%02X",'
             .. '"ground_vel":"0x%04X","x_vel":"0x%04X",'
             .. '"delayed_stat":"0x%02X","delayed_input":"0x%04X",'
+            .. '"pos_table_index":"0x%02X","delayed_target_x":"0x%04X",'
+            .. '"delayed_target_y":"0x%04X","follow_dx":"0x%04X",'
+            .. '"follow_dy":"0x%04X",'
             .. '"loc_13dd0_branch":"%s","ctrl2_logical":"0x%04X",'
             .. '"ctrl2_held_logical":"0x%02X",'
             .. '"path_pre_ground_vel":"0x%04X","path_pre_x_vel":"0x%04X",'
@@ -2156,6 +2183,9 @@ function V65.flush_tails_cpu_normal_step()
         step.status, step.object_control,
         step.ground_vel, step.x_vel,
         step.delayed_stat, step.delayed_input,
+        step.pos_table_index, step.delayed_target_x,
+        step.delayed_target_y, step.follow_dx,
+        step.follow_dy,
         step.loc_13dd0_branch, step.ctrl2_logical,
         step.ctrl2_held_logical,
         step.path_pre_ground_vel, step.path_pre_x_vel,

@@ -418,7 +418,6 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
         }
         if (playerOnScreen) {
             beginPlayerTwoDiagnostic(slot, "capture", player);
-            applyP2CpuNudgeBeforeFirstCapture(slot, player);
         } else {
             beginPlayerTwoDiagnostic(slot, "capture_offscreen", player);
         }
@@ -429,34 +428,6 @@ public final class CnzCylinderInstance extends AbstractObjectInstance
     private boolean hasStandingBit(AbstractPlayableSprite player) {
         int bit = standingMaskBitFor(player);
         return bit != 0 && (standingMask & bit) != 0;
-    }
-
-    private void applyP2CpuNudgeBeforeFirstCapture(RiderSlot slot, AbstractPlayableSprite player) {
-        if (slot != playerTwoSlot || player == null || !player.isCpuControlled()
-                || player.getAir() || player.getGSpeed() == 0) {
-            return;
-        }
-        var cpu = player.getCpuController();
-        if (cpu == null) {
-            return;
-        }
-        int nudge = cpu.consumePendingGroundedFollowNudge(1);
-        if (nudge == 0) {
-            return;
-        }
-
-        // ROM Tails CPU runs before Obj_CNZCylinder's P2 sub_324C0 pass
-        // (sonic3k.asm:26195-26208, 67656-67672). Its FollowLeft/FollowRight
-        // branches nudge x_pos by one pixel when the delayed target is on the
-        // facing side and ground_vel is nonzero (sonic3k.asm:26717-26724,
-        // 26734-26741). The engine discovers this cylinder standing contact
-        // after the CPU pass, so apply only the CPU-recorded pending nudge
-        // immediately before the first P2 capture consumes the standing bit.
-        if (nudge < 0 && player.getDirection() == Direction.LEFT) {
-            player.shiftX(-1);
-        } else if (nudge > 0 && player.getDirection() == Direction.RIGHT) {
-            player.shiftX(1);
-        }
     }
 
     private void primeDefaultRiderSlots(PlayableEntity playerEntity) {

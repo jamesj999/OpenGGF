@@ -22,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
 import com.openggf.game.GroundMode;
+import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -1178,6 +1179,42 @@ public class TestPlayableSpriteMovement {
                 assertTrue(mockSprite.getRolling(), "Rolling should work when not transitioning from crouch");
         }
 
+        @Test
+        public void cpuSidekickMoveLockSuppressesGeneratedDownRoll() throws Exception {
+                mockSprite.setCpuControlled(true);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setGSpeed((short) 0x0180);
+                mockSprite.setMoveLockTimer(14);
+
+                setInputState(false, false, true, false, false);
+
+                Method rollMethod = PlayableSpriteMovement.class.getDeclaredMethod("doCheckStartRoll");
+                rollMethod.setAccessible(true);
+                rollMethod.invoke(manager);
+
+                assertFalse(mockSprite.getRolling(),
+                                "CPU follow DOWN must not start an engine-only sidekick roll while move_lock is active");
+        }
+
+        @Test
+        public void playerMoveLockDoesNotSuppressManualDownRoll() throws Exception {
+                mockSprite.setCpuControlled(false);
+                mockSprite.setAir(false);
+                mockSprite.setRolling(false);
+                mockSprite.setGSpeed((short) 0x0180);
+                mockSprite.setMoveLockTimer(14);
+
+                setInputState(false, false, true, false, false);
+
+                Method rollMethod = PlayableSpriteMovement.class.getDeclaredMethod("doCheckStartRoll");
+                rollMethod.setAccessible(true);
+                rollMethod.invoke(manager);
+
+                assertTrue(mockSprite.getRolling(),
+                                "Manual/player DOWN keeps the existing roll behavior during move_lock");
+        }
+
         /**
          * Test that jumpPressed is reset when springing starts.
          */
@@ -1671,6 +1708,30 @@ public class TestPlayableSpriteMovement {
                 assertTrue(mockSprite.getRolling(),
                                 "S2 Sonic_ResetOnFloor skips the roll-clear block when pinball_mode is set");
                 assertTrue(!mockSprite.getPinballMode(), "Landing should still clear engine pinball mode");
+        }
+
+        @Test
+        public void testS3kRollStopAnimationChangeClearsPushing() throws Exception {
+                setPhysicsFeatureSetForTest(PhysicsFeatureSet.SONIC_3K);
+                mockSprite.setAnimationProfile(new ScriptedVelocityAnimationProfile()
+                                .setIdleAnimId(5)
+                                .setRollAnimId(2));
+                mockSprite.setAnimationId(2);
+                mockSprite.setRolling(true);
+                mockSprite.setPushing(true);
+                mockSprite.setGSpeed((short) 0);
+                mockSprite.setAir(false);
+                mockSprite.setPinballMode(false);
+
+                Method method = PlayableSpriteMovement.class.getDeclaredMethod("doRollSpeed");
+                method.setAccessible(true);
+                method.invoke(manager);
+
+                assertFalse(mockSprite.getRolling(), "Tails_RollSpeed clears Status_Roll below the stop threshold");
+                assertEquals(5, mockSprite.getAnimationId(),
+                                "Tails_RollSpeed writes idle animation when rolling stops");
+                assertFalse(mockSprite.getPushing(),
+                                "S3K Animate_Tails clears Status_Push after the roll-stop anim change");
         }
 
         /**

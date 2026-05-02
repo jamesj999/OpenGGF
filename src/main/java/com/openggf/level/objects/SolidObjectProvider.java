@@ -34,6 +34,19 @@ public interface SolidObjectProvider {
     }
 
     /**
+     * Whether a new airborne {@code SolidObjectTop} landing should be gated by
+     * the player's previous-frame position before applying the current contact.
+     * <p>
+     * Most solids run in the engine's shared contact phase and use the current
+     * player position. A few object-local ROM helpers execute before the player's
+     * movement for the frame; these can otherwise accept the top surface one
+     * frame too early after the engine has already applied movement.
+     */
+    default boolean gatesNewTopSolidLandingWithPreviousPosition() {
+        return false;
+    }
+
+    /**
      * Called when a top-solid first-landing check reaches the exact surface
      * boundary and this provider rejected that boundary.
      */
@@ -62,6 +75,15 @@ public interface SolidObjectProvider {
      * reject specific signed object_control values.
      */
     default boolean allowsObjectControlledSolidContacts() {
+        return false;
+    }
+
+    /**
+     * Whether this solid uses S3K's {@code SolidObjectFull} Player 2 visibility
+     * gate. That helper processes Player 1, then skips Player 2 when Player 2's
+     * {@code render_flags} bit 7 is clear (sonic3k.asm:41003-41008).
+     */
+    default boolean skipsCpuSidekickWhenRenderFlagOffScreen() {
         return false;
     }
 
@@ -211,6 +233,20 @@ public interface SolidObjectProvider {
      * the y_pos write, mirroring ROM.
      */
     default boolean suppressSlopeSampleThisFrame(PlayableEntity player) {
+        return false;
+    }
+
+    /**
+     * Whether continued-riding exit should still apply one final sloped
+     * surface sample before clearing {@code Status_OnObj}.
+     * <p>
+     * ROM divergence: S3K {@code Obj_CollapsingPlatform} release frame
+     * {@code loc_205DE} calls {@code sub_205B6} before {@code sub_205FC}
+     * clears the standing bit and sets {@code Status_InAir}
+     * (sonic3k.asm:44850-44864). If the engine's ride exit path clears the
+     * rider first, the player misses that final slope-position write.
+     */
+    default boolean sampleSlopeOnRideExit(PlayableEntity player) {
         return false;
     }
 
