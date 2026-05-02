@@ -34,7 +34,6 @@ import java.util.List;
  * and {@code Translate_Camera2ObjX} calls.
  */
 public class AizShipBombInstance extends AbstractObjectInstance implements TouchResponseProvider {
-    private static final int COLLISION_FLAGS = 0x8B;
     private static final int GRAVITY = 0x20;       // 8:8 fixed-point
     private static final int Y_RADIUS = 0x10;
     private static final int IMPACT_DISTANCE_THRESHOLD = -8;
@@ -211,8 +210,10 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
 
     @Override
     public int getCollisionFlags() {
-        // Only damaging during drop phase
-        return (state == STATE_DROP) ? COLLISION_FLAGS : 0;
+        // ROM AIZShipBomb_Drop draws and checks floor distance only. The falling
+        // bomb never sets collision_flags or calls Add_SpriteToCollisionResponseList;
+        // collision starts on Obj_AIZBombExplosionAnim after the impact.
+        return 0;
     }
 
     @Override

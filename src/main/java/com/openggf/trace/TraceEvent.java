@@ -251,6 +251,23 @@ public sealed interface TraceEvent {
     }
 
     /**
+     * Focused S3K AIZ2 battleship autoscroll diagnostic emitted by the
+     * recorder around {@code AIZ2_DoShipLoop/sub_50318}
+     * (docs/skdisasm/sonic3k.asm:105200-105253). Captures ROM-side
+     * execution/register context only; replay code must never hydrate engine
+     * state from this event.
+     */
+    record AizShipLoop(int frame, java.util.List<Hit> hits)
+        implements TraceEvent {
+
+        public record Hit(String label, int pc, String character, int a1,
+                          int d0, int d1, int cameraX, int cameraMinX,
+                          int cameraMaxX, int eventsBg2, int playerX,
+                          int playerY, int playerGvel, int playerXvel,
+                          int playerAnim, int playerStatus) {}
+    }
+
+    /**
      * Per-frame focused diagnostic for Tails CPU's normal follow step in S3K.
      * Captures the ROM state around {@code loc_13DD0}, the generated delayed
      * input word, and the state before/after {@code Tails_InputAcceleration_Path}
@@ -604,6 +621,33 @@ public sealed interface TraceEvent {
                         }
                     }
                     yield new PositionWrite(frame, parseCharacter(node), xWrites, yWrites);
+                }
+                case "aiz_ship_loop" -> {
+                    java.util.List<AizShipLoop.Hit> hits = new java.util.ArrayList<>();
+                    JsonNode hitsNode = node.get("hits");
+                    if (hitsNode != null && hitsNode.isArray()) {
+                        for (JsonNode h : hitsNode) {
+                            hits.add(new AizShipLoop.Hit(
+                                h.has("label") ? h.get("label").asText() : "",
+                                parseHexInt(h, "pc"),
+                                h.has("character") ? h.get("character").asText() : "",
+                                parseHexInt(h, "a1"),
+                                parseHexInt(h, "d0"),
+                                parseHexInt(h, "d1"),
+                                parseHexInt(h, "camera_x"),
+                                parseHexInt(h, "camera_min_x"),
+                                parseHexInt(h, "camera_max_x"),
+                                parseHexInt(h, "events_bg_2"),
+                                parseHexInt(h, "player_x"),
+                                parseHexInt(h, "player_y"),
+                                parseHexInt(h, "player_gvel"),
+                                parseHexInt(h, "player_xvel"),
+                                parseHexInt(h, "player_anim"),
+                                parseHexInt(h, "player_status")
+                            ));
+                        }
+                    }
+                    yield new AizShipLoop(frame, hits);
                 }
                 case "tails_cpu_normal_step" -> new TailsCpuNormalStep(
                     frame,

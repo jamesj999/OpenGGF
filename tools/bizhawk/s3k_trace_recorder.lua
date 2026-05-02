@@ -185,6 +185,11 @@
 -- apply FollowRight's whole-pixel x_pos nudge but the existing trace
 -- lacks the d2/d3 target registers needed to prove the branch input.
 -- Diagnostic-only; no CSV schema change.
+-- v6.17-s3k extends position_write_per_frame to emit Sonic as well as
+-- Tails in a narrow AIZ F16320-F16335 battleship handoff window.
+-- v6.18-s3k adds aiz_ship_loop_per_frame execution diagnostics for
+-- AIZ2_DoShipLoop/sub_50318 in the same window.
+-- Diagnostic-only; no CSV schema change.
 ------------------------------------------------------------------------------
 
 -----------------
@@ -836,7 +841,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.17-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.18-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -883,12 +888,15 @@ local function write_metadata()
     -- Tails and adds a narrow AIZ F16320-F16335 default window for the
     -- battleship autoscroll handoff at AIZ2_DoShipLoop/sub_50318
     -- (sonic3k.asm:105200-105253). Diagnostic-only.
+    -- v6.18 adds aiz_ship_loop_per_frame execution diagnostics for the
+    -- same AIZ battleship handoff, capturing AIZ2_DoShipLoop/sub_50318
+    -- register/camera/player context. Diagnostic-only.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
     local aux_schema_extras
     if is_aiz_end_to_end_profile() then
-        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame"]'
+        aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "aiz_boundary_state_per_frame", "aiz_transition_floor_solid_per_frame", "aiz_handoff_terrain_state_per_frame", "control_lock_state_per_frame", "terrain_wall_sensor_per_frame", "aiz_ship_loop_per_frame"]'
     else
         aux_schema_extras = '["cpu_state_per_frame", "oscillation_state_per_frame", "object_state_per_frame", "interact_state_per_frame", "cage_state_per_frame", "cage_execution_per_frame", "velocity_write_per_frame", "position_write_per_frame", "tails_cpu_normal_step_per_frame", "sidekick_interact_object_per_frame", "cnz_cylinder_state_per_frame", "cnz_cylinder_execution_per_frame", "solid_object_cont_entry_per_frame", "control_lock_state_per_frame", "collision_response_list_per_frame", "collision_response_list_end_of_frame"]'
     end
@@ -1881,6 +1889,152 @@ function WRITE_DIAG.flush_tails_position_writes()
     WRITE_DIAG.sonic_ypos_writes = {}
     WRITE_DIAG.tails_xpos_writes = {}
     WRITE_DIAG.tails_ypos_writes = {}
+end
+
+-- =====================================================================
+-- AIZ battleship ship-loop execution diagnostics (v6.18-s3k)
+-- =====================================================================
+-- Diagnostic-only capture for the AIZ2_DoShipLoop / sub_50318 handoff
+-- window (sonic3k.asm:105200-105253). ROM SpecialEvents selects this
+-- routine before Process_Sprites; the hook records the camera/player
+-- register context at key labels so engine-side ordering can be compared
+-- without hydrating trace data back into replay state.
+local V618_AIZ_SHIP = {
+    FRAME_START = 16320,
+    FRAME_END = 16335,
+    RANGES = {
+        {16320, 16335},
+    },
+    AIZ2_DO_SHIP_LOOP = 0x502CA,
+    AIZ2_CAMERA_STORE = 0x502FA,
+    AIZ2_SUB_50318 = 0x50318,
+    AIZ2_LOC_50324 = 0x50324,
+    AIZ2_LOC_5033A = 0x5033A,
+    AIZ2_RET_50348 = 0x50348,
+    hits = {},
+}
+
+local aiz_ship_range = os.getenv("OGGF_S3K_AIZ_SHIP_LOOP_RANGE")
+if aiz_ship_range and aiz_ship_range ~= "" then
+    local ranges = {}
+    for piece in string.gmatch(aiz_ship_range, "[^;]+") do
+        local s, e = piece:match("^%s*(%d+)%-(%d+)%s*$")
+        if s and e then
+            ranges[#ranges + 1] = {tonumber(s), tonumber(e)}
+        end
+    end
+    if #ranges > 0 then
+        V618_AIZ_SHIP.RANGES = ranges
+        V618_AIZ_SHIP.FRAME_START = ranges[1][1]
+        V618_AIZ_SHIP.FRAME_END = ranges[1][2]
+    else
+        print("WARN: invalid OGGF_S3K_AIZ_SHIP_LOOP_RANGE, expected <start>-<end>[;<start>-<end>]: "
+            .. aiz_ship_range)
+    end
+end
+
+function V618_AIZ_SHIP.in_window()
+    for _, pair in ipairs(V618_AIZ_SHIP.RANGES) do
+        if trace_frame >= pair[1] and trace_frame <= pair[2] then
+            return true
+        end
+    end
+    return false
+end
+
+function V618_AIZ_SHIP.character_for_a1(a1)
+    local addr = a1 % 0x10000
+    if addr == PLAYER_BASE then return "sonic" end
+    if addr == SIDEKICK_BASE then return "tails" end
+    return string.format("0x%04X", addr)
+end
+
+function V618_AIZ_SHIP.record_hit(label)
+    if not aux_file then return end
+    if not started then return end
+    if not V618_AIZ_SHIP.in_window() then return end
+
+    local pc = emu.getregister("M68K PC") or 0
+    local a1 = emu.getregister("M68K A1") or 0
+    local d0 = emu.getregister("M68K D0") or 0
+    local d1 = emu.getregister("M68K D1") or 0
+    local player_base = a1 % 0x10000
+    if player_base ~= PLAYER_BASE and player_base ~= SIDEKICK_BASE then
+        player_base = PLAYER_BASE
+    end
+
+    V618_AIZ_SHIP.hits[#V618_AIZ_SHIP.hits + 1] = {
+        label = label,
+        pc = pc,
+        a1 = a1,
+        character = V618_AIZ_SHIP.character_for_a1(a1),
+        d0 = d0 & 0xFFFF,
+        d1 = d1 & 0xFFFF,
+        camera_x = mainmemory.read_u16_be(ADDR_CAMERA_X),
+        camera_min_x = mainmemory.read_u16_be(0xEE14),
+        camera_max_x = mainmemory.read_u16_be(0xEE16),
+        events_bg_2 = mainmemory.read_u16_be(0xEED4),
+        player_x = mainmemory.read_u16_be(player_base + OFF_X_POS),
+        player_y = mainmemory.read_u16_be(player_base + OFF_Y_POS),
+        player_gvel = mainmemory.read_u16_be(player_base + OFF_INERTIA),
+        player_xvel = mainmemory.read_u16_be(player_base + OFF_X_VEL),
+        player_anim = mainmemory.read_u8(player_base + OFF_ANIM_ID),
+        player_status = mainmemory.read_u8(player_base + OFF_STATUS),
+    }
+end
+
+function V618_AIZ_SHIP.format_hits()
+    local parts = {}
+    for _, hit in ipairs(V618_AIZ_SHIP.hits) do
+        parts[#parts + 1] = string.format(
+            '{"label":"%s","pc":"0x%05X","character":"%s","a1":"0x%08X",'
+                .. '"d0":"0x%04X","d1":"0x%04X","camera_x":"0x%04X",'
+                .. '"camera_min_x":"0x%04X","camera_max_x":"0x%04X",'
+                .. '"events_bg_2":"0x%04X","player_x":"0x%04X",'
+                .. '"player_y":"0x%04X","player_gvel":"0x%04X",'
+                .. '"player_xvel":"0x%04X","player_anim":"0x%02X",'
+                .. '"player_status":"0x%02X"}',
+            hit.label, hit.pc, hit.character, hit.a1,
+            hit.d0, hit.d1, hit.camera_x, hit.camera_min_x,
+            hit.camera_max_x, hit.events_bg_2, hit.player_x,
+            hit.player_y, hit.player_gvel, hit.player_xvel,
+            hit.player_anim, hit.player_status)
+    end
+    return table.concat(parts, ",")
+end
+
+function V618_AIZ_SHIP.flush()
+    if not aux_file then return end
+    if #V618_AIZ_SHIP.hits == 0 then return end
+    write_aux(string.format(
+        '{"frame":%d,"vfc":%d,"event":"aiz_ship_loop","hits":[%s]}',
+        trace_frame,
+        mainmemory.read_u16_be(ADDR_FRAMECOUNT),
+        V618_AIZ_SHIP.format_hits()))
+    V618_AIZ_SHIP.hits = {}
+end
+
+function V618_AIZ_SHIP.register_hooks()
+    if V618_AIZ_SHIP.hooks_registered then return end
+    V618_AIZ_SHIP.hooks_registered = true
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("entry") end,
+        V618_AIZ_SHIP.AIZ2_DO_SHIP_LOOP)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("camera_store") end,
+        V618_AIZ_SHIP.AIZ2_CAMERA_STORE)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("sub_50318") end,
+        V618_AIZ_SHIP.AIZ2_SUB_50318)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("loc_50324") end,
+        V618_AIZ_SHIP.AIZ2_LOC_50324)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("loc_5033A") end,
+        V618_AIZ_SHIP.AIZ2_LOC_5033A)
+    event.onmemoryexecute(function() V618_AIZ_SHIP.record_hit("ret_50348") end,
+        V618_AIZ_SHIP.AIZ2_RET_50348)
+    print(string.format(
+        "AIZ ship-loop hooks registered: entry=0x%05X sub=0x%05X frame_window=[%d,%d]",
+        V618_AIZ_SHIP.AIZ2_DO_SHIP_LOOP,
+        V618_AIZ_SHIP.AIZ2_SUB_50318,
+        V618_AIZ_SHIP.FRAME_START,
+        V618_AIZ_SHIP.FRAME_END))
 end
 
 -- =====================================================================
@@ -3916,6 +4070,12 @@ function on_frame_end()
     -- Sonic player base register.
     WRITE_DIAG.flush_tails_position_writes()
 
+    -- Focused AIZ battleship ship-loop execution hits (v6.18-s3k).
+    -- Hooks AIZ2_DoShipLoop/sub_50318 branch labels and emits only
+    -- diagnostic register/camera/player context for the narrow frontier
+    -- window. Never feeds replay state.
+    V618_AIZ_SHIP.flush()
+
     -- SolidObject_cont entry hits (v6.11-s3k). Hooks 0x1DF90 and captures
     -- (a0)/(a1)/d1/d2 plus the player's y_radius and default_y_radius so
     -- the d3/d4 conditional in loc_1DFD6+/loc_1E154 can be reconstructed
@@ -3971,7 +4131,7 @@ elseif is_level_gated_reset_aware_profile() then
 else
     WAIT_DESC = "level gameplay (Game_Mode=0x0C, controls unlocked)"
 end
-print(string.format("S3K Trace Recorder v6.15-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
+print(string.format("S3K Trace Recorder v6.18-s3k loaded. Profile=%s. Waiting for %s...", TRACE_PROFILE, WAIT_DESC))
 
 -- Register the CNZ wire cage execution hooks. Done once at script load
 -- before the main loop runs so the memoryexecute callbacks are armed for
@@ -3984,6 +4144,9 @@ WRITE_DIAG.register_velocity_hooks()
 
 -- Register Tails position-write hooks. Same lifetime model as cage hooks.
 WRITE_DIAG.register_position_hooks()
+
+-- Register focused AIZ ship-loop hooks. Same lifetime model as cage hooks.
+V618_AIZ_SHIP.register_hooks()
 
 -- Register focused Tails CPU normal-step hooks. Same lifetime model as cage hooks.
 V65.register_tails_cpu_normal_step_hooks()

@@ -88,7 +88,9 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
         if (!active) {
             return 0;
         }
-        return currentMappingFrame() <= (4 + animIndex) ? COLLISION_FLAGS : 0;
+        // ROM loc_505FC: cmp.b mapping_frame,d0 / bls.s skip collision, so
+        // equality with (4 + anim) is already non-collidable.
+        return currentMappingFrame() < (4 + animIndex) ? COLLISION_FLAGS : 0;
     }
 
     @Override
