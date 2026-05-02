@@ -172,7 +172,10 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
             int fragY = currentY + data[1];
             AizBombExplosionInstance fragment = new AizBombExplosionInstance(
                     fragX, fragY, data[2], data[3]);
-            om.addDynamicObject(fragment);
+            // ROM Obj_AIZShipBomb uses AllocateObjectAfterCurrent for each
+            // fragment (sonic3k.asm:105424), so children consume slots after
+            // the bomb and may still execute later in the same object pass.
+            om.addDynamicObjectAfterCurrent(fragment);
         }
     }
 
@@ -236,6 +239,17 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
 
     @Override
     public int getY() { return currentY; }
+
+    @Override
+    public String traceDebugDetails() {
+        return String.format("state=%d port=%04X delay=%d ySub=%02X yVel=%04X fc=%d",
+                state,
+                portYOffset & 0xFFFF,
+                delayCounter,
+                ySub & 0xFF,
+                yVel & 0xFFFF,
+                frameCounter);
+    }
 
     /** The live secondary-camera translation already tracks wrap-back correctly. */
     public void applyWrapOffset(int offset) { }

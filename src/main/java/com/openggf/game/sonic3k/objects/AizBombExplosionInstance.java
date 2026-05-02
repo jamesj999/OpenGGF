@@ -102,6 +102,17 @@ public class AizBombExplosionInstance extends AbstractObjectInstance implements 
     @Override
     public int getY() { return posY; }
 
+    @Override
+    public String traceDebugDetails() {
+        return String.format("anim=%d delay=%d step=%d stepDelay=%d active=%s map=%02X",
+                animIndex,
+                delayTimer,
+                scriptStep,
+                scriptDelay,
+                active,
+                currentMappingFrame());
+    }
+
     /** ROM: subtract Level_repeat_offset on wrap frames. */
     public void applyWrapOffset(int offset) {
         posX -= offset;

@@ -672,7 +672,7 @@ public abstract class AbstractTraceReplayTest {
                     continue;
                 }
                 ObjectSpawn spawn = aoi.getSpawn();
-                if (spawn == null || spawn.objectId() == 0) {
+                if (spawn == null) {
                     continue;
                 }
                 int currentX = aoi.getX();
@@ -752,7 +752,7 @@ public abstract class AbstractTraceReplayTest {
                 continue;
             }
             ObjectSpawn spawn = aoi.getSpawn();
-            if (spawn == null || spawn.objectId() == 0) {
+            if (spawn == null) {
                 continue;
             }
             int currentX = aoi.getX();
