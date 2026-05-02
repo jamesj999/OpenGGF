@@ -1031,6 +1031,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void updateAct2Continuation(int frameCounter) {
+        // ROM order inside LevelLoop is DeformBgLayer -> Do_ResizeEvents,
+        // then ScreenEvents. The AIZ2 resize stage at camera X >= $4160 sets
+        // Events_fg_4, and AIZ2_ScreenEvent consumes it in the same frame to
+        // begin the battleship scroll. Run the resize state machine before the
+        // screen-event handoff so the trigger is not delayed by one engine tick.
+        updateAiz2Resize();
+
         // ROM: AIZ2_ScreenEvent consumes Events_fg_4 and starts the battleship
         // refresh/draw chain. Keep this separate from AIZ2_Resize so the trigger
         // remains observable and follows the same event handoff as the ROM.
@@ -1098,8 +1105,6 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         tickScreenShake(frameCounter);
 
         // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
-        updateAiz2Resize();
-
         updateAiz2EndBossSpawn();
     }
 
