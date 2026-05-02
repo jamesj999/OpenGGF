@@ -193,7 +193,7 @@ public sealed interface TraceEvent {
      * {@code event.onmemorywrite} hooks. Each write records the M68K PC of
      * the writing instruction plus the resulting word value.
      *
-     * <p>Currently emitted only for Tails ({@code character = "tails"}).
+     * <p>Emitted for Tails and, in newer S3K traces, Sonic.
      * Used to root-cause the CNZ1 trace F3649 divergence where ROM Tails
      * {@code x_speed} jumps from -$48 to -$0A00 in a single frame; the
      * engine arrives at -$0A00 only at F3650 (a 1-frame phase shift).

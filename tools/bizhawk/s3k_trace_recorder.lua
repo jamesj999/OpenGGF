@@ -510,6 +510,8 @@ local prev_cage_status = -1
 local WRITE_DIAG = {
     tails_xvel_writes = {},
     tails_yvel_writes = {},
+    sonic_xpos_writes = {},
+    sonic_ypos_writes = {},
     tails_xpos_writes = {},
     tails_ypos_writes = {},
     velocity_hooks_registered = false,
@@ -785,6 +787,8 @@ local function reset_recording_state()
     CAGE_DIAG.hits = {}
     WRITE_DIAG.tails_xvel_writes = {}
     WRITE_DIAG.tails_yvel_writes = {}
+    WRITE_DIAG.sonic_xpos_writes = {}
+    WRITE_DIAG.sonic_ypos_writes = {}
     WRITE_DIAG.tails_xpos_writes = {}
     WRITE_DIAG.tails_ypos_writes = {}
     V65.normal_step = nil
@@ -832,7 +836,7 @@ local function write_metadata()
     meta_file:write('  "sidekicks": ["tails"],\n')
     meta_file:write('  "rng_seed": "0x' .. hex(start_rng_seed, 8) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "6.16-s3k",\n')
+    meta_file:write('  "lua_script_version": "6.17-s3k",\n')
     -- trace_schema: csv schema is unchanged from 5. v5 CSV + new per-frame
     -- cpu_state, oscillation_state, object_state, and interact_state aux
     -- events are detected by parsers via aux_schema_extras rather than a
@@ -875,6 +879,10 @@ local function write_metadata()
     -- clamp moment (sonic3k.asm:28407-28451). The new env var
     -- OGGF_S3K_AIZ_BOUNDARY_RANGE accepts either single-window
     -- ("<start>-<end>") or semicolon-separated multi-window form.
+    -- v6.17 extends position_write_per_frame to emit Sonic as well as
+    -- Tails and adds a narrow AIZ F16320-F16335 default window for the
+    -- battleship autoscroll handoff at AIZ2_DoShipLoop/sub_50318
+    -- (sonic3k.asm:105200-105253). Diagnostic-only.
     -- All diagnostic-only.
     meta_file:write('  "trace_schema": 5,\n')
     meta_file:write('  "csv_version": 5,\n')
@@ -1717,7 +1725,7 @@ function WRITE_DIAG.flush_tails_velocity_writes()
 end
 
 -- =====================================================================
--- Tails position-write hooks (v6.8-s3k)
+-- Player position-write hooks (v6.8-s3k, Sonic added in v6.17-s3k)
 -- =====================================================================
 -- Hooks every byte/word write to Tails's x_pos ($FFB05A-$FFB05B) and
 -- y_pos ($FFB05E-$FFB05F) RAM words. Each hit captures the writing M68K
@@ -1727,6 +1735,10 @@ end
 -- captured CNZ cylinder sub_324C0 inactive path does not itself write
 -- x_pos (sonic3k.asm:26800-26809, 67985-68012).
 
+WRITE_DIAG.SONIC_XPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_X_POS        -- 0xFFB010
+WRITE_DIAG.SONIC_XPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_X_POS + 1    -- 0xFFB011
+WRITE_DIAG.SONIC_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_Y_POS        -- 0xFFB014
+WRITE_DIAG.SONIC_YPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + PLAYER_BASE + OFF_Y_POS + 1    -- 0xFFB015
 WRITE_DIAG.TAILS_XPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS       -- 0xFFB05A
 WRITE_DIAG.TAILS_XPOS_HI_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_X_POS + 1   -- 0xFFB05B
 WRITE_DIAG.TAILS_YPOS_LO_ADDR = WRITE_DIAG.M68K_RAM_BASE + SIDEKICK_BASE + OFF_Y_POS       -- 0xFFB05E
@@ -1749,6 +1761,7 @@ WRITE_DIAG.POSITION_WRITE_RANGES = {
     {4788, 4792},
     {7549, 7560},
     {7600, 7625},
+    {16320, 16335},
 }
 
 WRITE_DIAG.apply_frame_range(
@@ -1769,12 +1782,30 @@ function WRITE_DIAG.pw_in_window()
         WRITE_DIAG.POSITION_WRITE_FRAME_END)
 end
 
-function WRITE_DIAG.tails_xpos_record_hit()
+function WRITE_DIAG.record_position_hit(base, x_writes, y_writes, axis)
     if not aux_file then return end
     if not started then return end
     if not WRITE_DIAG.pw_in_window() then return end
     local pc = emu.getregister("M68K PC") or 0
-    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_X_POS)
+    local offset = axis == "x" and OFF_X_POS or OFF_Y_POS
+    local val = mainmemory.read_u16_be(base + offset)
+    local a1 = emu.getregister("M68K A1") or 0
+    local a0 = emu.getregister("M68K A0") or 0
+    table.insert(axis == "x" and x_writes or y_writes,
+        {pc = pc, val = val, a1 = a1, a0 = a0})
+end
+
+function WRITE_DIAG.sonic_xpos_record_hit()
+    WRITE_DIAG.record_position_hit(PLAYER_BASE,
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes, "x")
+end
+
+function WRITE_DIAG.sonic_ypos_record_hit()
+    WRITE_DIAG.record_position_hit(PLAYER_BASE,
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes, "y")
+end
+
+function WRITE_DIAG.tails_xpos_record_hit()
     -- v6.11-s3k: capture (a1) and (a0) at the moment of the write so we can
     -- disambiguate Tails (Player_2 base $FFB04A) vs Sonic (Player_1 base
     -- $FFB000) targeting in routines like SolidObjectFull2_1P that loop
@@ -1782,65 +1813,72 @@ function WRITE_DIAG.tails_xpos_record_hit()
     -- be Tails when this fires for an `<op> y_pos(a1)` instruction; capturing
     -- it explicitly resolves whether the captured PC belongs to a path that
     -- writes via (a1), via (a0), or via a different addressing mode entirely.
-    local a1 = emu.getregister("M68K A1") or 0
-    local a0 = emu.getregister("M68K A0") or 0
-    table.insert(WRITE_DIAG.tails_xpos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
+    WRITE_DIAG.record_position_hit(SIDEKICK_BASE,
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes, "x")
 end
 
 function WRITE_DIAG.tails_ypos_record_hit()
-    if not aux_file then return end
-    if not started then return end
-    if not WRITE_DIAG.pw_in_window() then return end
-    local pc = emu.getregister("M68K PC") or 0
-    local val = mainmemory.read_u16_be(SIDEKICK_BASE + OFF_Y_POS)
     -- v6.11-s3k: capture (a1) and (a0) at the moment of the write. See
     -- tails_xpos_record_hit for rationale; specifically used to confirm
     -- whether 0x1E172/0x1E182 captured for CNZ F7614 fired with (a1)=Tails
     -- (Player_2 = $FFB04A) or (a1)=Sonic (Player_1 = $FFB000).
-    local a1 = emu.getregister("M68K A1") or 0
-    local a0 = emu.getregister("M68K A0") or 0
-    table.insert(WRITE_DIAG.tails_ypos_writes, {pc = pc, val = val, a1 = a1, a0 = a0})
+    WRITE_DIAG.record_position_hit(SIDEKICK_BASE,
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes, "y")
 end
 
 function WRITE_DIAG.register_position_hooks()
     if WRITE_DIAG.position_hooks_registered then return end
     WRITE_DIAG.position_hooks_registered = true
 
+    event.onmemorywrite(WRITE_DIAG.sonic_xpos_record_hit, WRITE_DIAG.SONIC_XPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_xpos_record_hit, WRITE_DIAG.SONIC_XPOS_HI_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_ypos_record_hit, WRITE_DIAG.SONIC_YPOS_LO_ADDR)
+    event.onmemorywrite(WRITE_DIAG.sonic_ypos_record_hit, WRITE_DIAG.SONIC_YPOS_HI_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_LO_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_xpos_record_hit, WRITE_DIAG.TAILS_XPOS_HI_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_LO_ADDR)
     event.onmemorywrite(WRITE_DIAG.tails_ypos_record_hit, WRITE_DIAG.TAILS_YPOS_HI_ADDR)
 
     print(string.format(
-        "Tails position-write hooks registered: x_pos=0x%04X-0x%04X, y_pos=0x%04X-0x%04X, frame_window=[%d,%d]",
+        "Player position-write hooks registered: Sonic x_pos=0x%04X-0x%04X y_pos=0x%04X-0x%04X; Tails x_pos=0x%04X-0x%04X y_pos=0x%04X-0x%04X; frame_window=[%d,%d]",
+        WRITE_DIAG.SONIC_XPOS_LO_ADDR, WRITE_DIAG.SONIC_XPOS_HI_ADDR,
+        WRITE_DIAG.SONIC_YPOS_LO_ADDR, WRITE_DIAG.SONIC_YPOS_HI_ADDR,
         WRITE_DIAG.TAILS_XPOS_LO_ADDR, WRITE_DIAG.TAILS_XPOS_HI_ADDR,
         WRITE_DIAG.TAILS_YPOS_LO_ADDR, WRITE_DIAG.TAILS_YPOS_HI_ADDR,
         WRITE_DIAG.POSITION_WRITE_FRAME_START, WRITE_DIAG.POSITION_WRITE_FRAME_END))
 end
 
-function WRITE_DIAG.flush_tails_position_writes()
+function WRITE_DIAG.format_position_parts(writes)
+    local parts = {}
+    for _, hit in ipairs(writes) do
+        parts[#parts + 1] = string.format(
+            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
+            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
+    end
+    return table.concat(parts, ",")
+end
+
+function WRITE_DIAG.flush_position_writes_for(character, x_writes, y_writes)
     if not aux_file then return end
-    if #WRITE_DIAG.tails_xpos_writes == 0 and #WRITE_DIAG.tails_ypos_writes == 0 then return end
+    if #x_writes == 0 and #y_writes == 0 then return end
     local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
     -- v6.11-s3k: include captured (a1)/(a0) per hit so consumers can
     -- distinguish Player_1 vs Player_2 targeting (e.g. for CNZ F7614).
-    local x_parts = {}
-    for _, hit in ipairs(WRITE_DIAG.tails_xpos_writes) do
-        x_parts[#x_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
-            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
-    end
-    local y_parts = {}
-    for _, hit in ipairs(WRITE_DIAG.tails_ypos_writes) do
-        y_parts[#y_parts + 1] = string.format(
-            '{"pc":"0x%05X","val":"0x%04X","a1":"0x%08X","a0":"0x%08X"}',
-            hit.pc, hit.val, hit.a1 or 0, hit.a0 or 0)
-    end
     write_aux(string.format(
-        '{"frame":%d,"vfc":%d,"event":"position_write","character":"tails",'
+        '{"frame":%d,"vfc":%d,"event":"position_write","character":"%s",'
             .. '"x_pos_writes":[%s],"y_pos_writes":[%s]}',
-        trace_frame, vfc,
-        table.concat(x_parts, ","), table.concat(y_parts, ",")))
+        trace_frame, vfc, character,
+        WRITE_DIAG.format_position_parts(x_writes),
+        WRITE_DIAG.format_position_parts(y_writes)))
+end
+
+function WRITE_DIAG.flush_tails_position_writes()
+    WRITE_DIAG.flush_position_writes_for("sonic",
+        WRITE_DIAG.sonic_xpos_writes, WRITE_DIAG.sonic_ypos_writes)
+    WRITE_DIAG.flush_position_writes_for("tails",
+        WRITE_DIAG.tails_xpos_writes, WRITE_DIAG.tails_ypos_writes)
+    WRITE_DIAG.sonic_xpos_writes = {}
+    WRITE_DIAG.sonic_ypos_writes = {}
     WRITE_DIAG.tails_xpos_writes = {}
     WRITE_DIAG.tails_ypos_writes = {}
 end

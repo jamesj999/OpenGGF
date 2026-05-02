@@ -283,6 +283,10 @@ public class DivergenceReport {
         if (positionWrite != null) {
             diagnostics.add(positionWrite);
         }
+        TraceEvent.PositionWrite sonicPositionWrite = traceData.positionWriteForFrame(frame, "sonic");
+        if (sonicPositionWrite != null) {
+            diagnostics.add(sonicPositionWrite);
+        }
         TraceEvent.TailsCpuNormalStep cpuNormalStep =
                 traceData.tailsCpuNormalStepForFrame(frame, "tails");
         if (cpuNormalStep != null) {

@@ -293,7 +293,7 @@ public final class TraceEventFormatter {
     }
 
     private static String summarisePositionWrite(TraceEvent.PositionWrite write) {
-        return summariseWriteHits("tailsPosWrite", write.xPosWrites(), write.yPosWrites());
+        return summariseWriteHits(write.character() + "PosWrite", write.xPosWrites(), write.yPosWrites());
     }
 
     private static String summariseWriteHits(String label,
