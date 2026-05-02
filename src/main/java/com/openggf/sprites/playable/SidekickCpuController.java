@@ -936,12 +936,17 @@ public class SidekickCpuController {
             } else {
                 sidekick.setDirection(Direction.RIGHT);
             }
+            boolean canApplyFollowNudge = !sidekick.isHurt();
             if (dx < 0
                     && sidekick.getDirection() == Direction.LEFT
                     // ROM loc_13E0A gates the positional nudge on
                     // object_control bit 0, not on the broader control
                     // lock state (sonic3k.asm:26722-26724).
-                    && !sidekick.isObjectControlSuppressesMovement()) {
+                    && !sidekick.isObjectControlSuppressesMovement()
+                    // Tails hurt object routines bypass Tails_CPU_Control
+                    // before loc_13E0A/loc_13E34 can mutate x_pos
+                    // (S3K sonic3k.asm:29194-29205; S2 s2.asm:40668-40681).
+                    && canApplyFollowNudge) {
                 if (sidekick.getGSpeed() != 0) {
                     sidekick.shiftX(-1);
                 }
@@ -950,7 +955,11 @@ public class SidekickCpuController {
                     // ROM loc_13E34 gates the positional nudge on
                     // object_control bit 0, not on the broader control
                     // lock state (sonic3k.asm:26739-26741).
-                    && !sidekick.isObjectControlSuppressesMovement()) {
+                    && !sidekick.isObjectControlSuppressesMovement()
+                    // Tails hurt object routines bypass Tails_CPU_Control
+                    // before loc_13E0A/loc_13E34 can mutate x_pos
+                    // (S3K sonic3k.asm:29194-29205; S2 s2.asm:40668-40681).
+                    && canApplyFollowNudge) {
                 if (sidekick.getGSpeed() != 0) {
                     sidekick.shiftX(1);
                 }

@@ -144,6 +144,37 @@ class TestSidekickCpuFollowParity {
     }
 
     @Test
+    void hurtSidekickNormalCpuDoesNotApplyFollowNudge() {
+        TestableSprite sonic = new TestableSprite("sonic");
+        TestableSprite tails = new TestableSprite("tails_p2");
+        tails.setCpuControlled(true);
+
+        short[] xHistory = new short[64];
+        short[] yHistory = new short[64];
+        short[] inputHistory = new short[64];
+        byte[] statusHistory = new byte[64];
+        Arrays.fill(xHistory, (short) 0x4490);
+        Arrays.fill(inputHistory, (short) AbstractPlayableSprite.INPUT_RIGHT);
+        sonic.hydrateRecordedHistory(xHistory, yHistory, inputHistory, statusHistory, 16);
+
+        tails.setCentreXPreserveSubpixel((short) 0x4450);
+        tails.setDirection(Direction.RIGHT);
+        tails.setGSpeed((short) 0x0400);
+        tails.setHurt(true);
+        tails.setAir(true);
+
+        SidekickCpuController controller = new SidekickCpuController(tails, sonic);
+        controller.forceStateForTest(SidekickCpuController.State.NORMAL, 20);
+
+        controller.update(0x42C8);
+
+        assertEquals(0x4450, tails.getCentreX() & 0xFFFF,
+                "S3K Tails hurt routine bypasses Tails_CPU_Control, so loc_13E34 must not addq.w #1,x_pos");
+        assertTrue(controller.getInputRight(),
+                "The engine keeps the stale Ctrl_2 right input visible to the hurt movement path");
+    }
+
+    @Test
     void panicSpindashBranchUsesLevelFrameCounterPlusOneCadence() {
         TestableSprite sonic = new TestableSprite("sonic");
         TestableSprite tails = new TestableSprite("tails_p2");

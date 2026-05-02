@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.io.IOException;
@@ -767,6 +768,32 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void aiz2PostBombingShipLoopWrapsCameraAndPlayersByRomDistance() throws Exception {
+        Camera camera = GameServices.camera();
+        Sonic3kAIZEvents.resetGlobalState();
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1);
+        setPrivateBoolean(events, "battleshipAutoScrollActive", true);
+        events.onBattleshipComplete();
+
+        AbstractPlayableSprite sonic = fixture.sprite();
+        camera.setFocusedSprite(sonic);
+        camera.setX((short) 0x46BC);
+        camera.setMinX((short) 0x46BC);
+        camera.setMaxX((short) 0x46BC);
+        sonic.setCentreXPreserveSubpixel((short) 0x4762);
+
+        events.updatePrePhysics(1);
+
+        assertEquals(0x44C0, camera.getX() & 0xFFFF,
+                "AIZ2_DoShipLoop subtracts $200 from Camera_X_pos when Events_bg+$02=$46C0");
+        assertEquals(0x4560, sonic.getCentreX() & 0xFFFF,
+                "sub_50318 clamps the $200-wrapped player to Camera_X_pos+$A0 before movement");
+        assertEquals(0x200, events.getLevelRepeatOffset(),
+                "ROM Level_repeat_offset remains $200 on post-bombing AIZ2 ship-loop wraps");
+    }
+
+    @Test
     public void aiz2EndBossSpawnsFromEventsAtSonicWaterfallLock() {
         HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
                 .withZoneAndAct(0, 1)
@@ -915,5 +942,11 @@ public class TestSonic3kAIZEvents {
                 throw new AssertionError(message + " at index " + i);
             }
         }
+    }
+
+    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
     }
 }
