@@ -68,6 +68,9 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     private int ySub;
     private int yVel;
     private int frameCounter;
+    private boolean lastFloorFound;
+    private int lastFloorDistance;
+    private int lastFloorTile;
 
     /**
      * @param spawn            object spawn (engine bookkeeping)
@@ -128,6 +131,9 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
                 int worldX = getX();
                 TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(
                         worldX, currentY, Y_RADIUS);
+                lastFloorFound = floorResult != null && floorResult.foundSurface();
+                lastFloorDistance = lastFloorFound ? floorResult.distance() : 0x7FFF;
+                lastFloorTile = floorResult != null ? floorResult.tileIndex() : 0;
                 if (floorResult != null && floorResult.distance() <= IMPACT_DISTANCE_THRESHOLD) {
                     onGroundImpact();
                     return;
@@ -242,13 +248,16 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
 
     @Override
     public String traceDebugDetails() {
-        return String.format("state=%d port=%04X delay=%d ySub=%02X yVel=%04X fc=%d",
+        return String.format("state=%d port=%04X delay=%d ySub=%02X yVel=%04X fc=%d floor=%s/%d tile=%04X",
                 state,
                 portYOffset & 0xFFFF,
                 delayCounter,
                 ySub & 0xFF,
                 yVel & 0xFFFF,
-                frameCounter);
+                frameCounter,
+                lastFloorFound,
+                lastFloorDistance,
+                lastFloorTile & 0xFFFF);
     }
 
     /** The live secondary-camera translation already tracks wrap-back correctly. */

@@ -144,7 +144,9 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
         AizShipBombInstance bomb = new AizShipBombInstance(
                 new ObjectSpawn(cameraX + screenX, worldY, 0, 0, 0, false, 0),
                 this, bombScriptX, worldY);
-        om.addDynamicObject(bomb);
+        // ROM Obj_AIZBattleshipMain creates bombs with AllocateObjectAfterCurrent
+        // (sonic3k.asm:105315), so bomb slots must follow the ship's slot.
+        om.addDynamicObjectAfterCurrent(bomb);
     }
 
     private void updateSecondaryCameraY(int shipX) {
