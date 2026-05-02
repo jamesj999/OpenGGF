@@ -95,6 +95,11 @@ class TestS3kAizEventWriteSupport {
         }
 
         @Override
+        public int getScreenShakeDeltaY() {
+            return 0;
+        }
+
+        @Override
         public void onBattleshipComplete() {
             battleshipCompleted = true;
         }

@@ -417,6 +417,11 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager
     }
 
     @Override
+    public int getScreenShakeDeltaY() {
+        return aizEvents != null ? aizEvents.getScreenShakeDeltaY() : 0;
+    }
+
+    @Override
     public void onBattleshipComplete() {
         if (aizEvents != null) {
             aizEvents.onBattleshipComplete();

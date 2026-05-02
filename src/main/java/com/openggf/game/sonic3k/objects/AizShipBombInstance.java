@@ -71,6 +71,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     private boolean lastFloorFound;
     private int lastFloorDistance;
     private int lastFloorTile;
+    private int lastShakeDeltaY;
 
     /**
      * @param spawn            object spawn (engine bookkeeping)
@@ -125,6 +126,8 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
                 currentY = yPos16 >> 8;
                 ySub = yPos16 & 0xFF;
                 yVel += GRAVITY;
+                lastShakeDeltaY = S3kAizEventWriteSupport.getScreenShakeDeltaY(services());
+                currentY += lastShakeDeltaY;
 
                 // ROM: ObjCheckFloorDist only explodes once the bomb is at least
                 // 8 pixels into the floor; the bomb position is left untouched.
@@ -188,7 +191,10 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     private int translatePortYToWorld(int secondaryY) {
         try {
             if (sourceShip != null && services().camera() != null) {
-                return services().camera().getY() + (secondaryY - sourceShip.getSecondaryCameraY());
+                lastShakeDeltaY = S3kAizEventWriteSupport.getScreenShakeDeltaY(services());
+                return services().camera().getY()
+                        + (secondaryY - sourceShip.getSecondaryCameraY())
+                        + lastShakeDeltaY;
             }
         } catch (Exception e) {
             // Fall back to the initial translated position when services are unavailable.
@@ -248,7 +254,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
 
     @Override
     public String traceDebugDetails() {
-        return String.format("state=%d port=%04X delay=%d ySub=%02X yVel=%04X fc=%d floor=%s/%d tile=%04X",
+        return String.format("state=%d port=%04X delay=%d ySub=%02X yVel=%04X fc=%d floor=%s/%d tile=%04X shakeDy=%d",
                 state,
                 portYOffset & 0xFFFF,
                 delayCounter,
@@ -257,7 +263,8 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
                 frameCounter,
                 lastFloorFound,
                 lastFloorDistance,
-                lastFloorTile & 0xFFFF);
+                lastFloorTile & 0xFFFF,
+                lastShakeDeltaY);
     }
 
     /** The live secondary-camera translation already tracks wrap-back correctly. */

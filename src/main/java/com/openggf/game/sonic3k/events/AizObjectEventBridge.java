@@ -7,6 +7,7 @@ public interface AizObjectEventBridge {
     void setBossFlag(boolean value);
     void setEventsFg5(boolean value);
     void triggerScreenShake(int frames);
+    int getScreenShakeDeltaY();
     void onBattleshipComplete();
     void onBossSmallComplete();
     boolean isFireTransitionActive();

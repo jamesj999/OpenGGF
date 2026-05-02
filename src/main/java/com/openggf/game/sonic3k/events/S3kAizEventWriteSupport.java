@@ -27,6 +27,11 @@ public final class S3kAizEventWriteSupport {
         }
     }
 
+    public static int getScreenShakeDeltaY(ObjectServices services) {
+        AizObjectEventBridge bridge = bridgeOrNull(services);
+        return bridge != null ? bridge.getScreenShakeDeltaY() : 0;
+    }
+
     public static void onBattleshipComplete(ObjectServices services) {
         AizObjectEventBridge bridge = bridgeOrNull(services);
         if (bridge != null) {
