@@ -178,6 +178,28 @@ public class TestSonic3kAIZEvents {
     }
 
     @Test
+    public void bossSmallCompletionReleasesBattleshipScrollLockFreeze() throws Exception {
+        Camera camera = GameServices.camera();
+        camera.setX((short) 0x4640);
+        camera.setMinX((short) 0x4640);
+        camera.setMaxX((short) 0x4640);
+        camera.setFrozen(false);
+
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        setPrivateBoolean(events, "battleshipAutoScrollActive", true);
+
+        events.updatePrePhysics(1);
+        assertTrue(camera.getFrozen(), "AIZ2_DoShipLoop Scroll_lock should suppress the normal camera follow step");
+
+        events.onBossSmallComplete();
+
+        assertFalse(camera.getFrozen(),
+                "Obj_AIZ2BossSmall clears Scroll_lock before writing Camera_max_X_pos=$6000");
+        assertEquals(0x6000, camera.getMaxX() & 0xFFFF,
+                "Obj_AIZ2BossSmall loc_50720 writes Camera_max_X_pos=$6000 on exit");
+    }
+
+    @Test
     public void introObjectIsReadyBeforeFirstAizGameplayFrame() {
         AizPlaneIntroInstance intro = AizPlaneIntroInstance.getActiveIntroInstance();
         assertNotNull(intro, "ROM SpawnLevelMainSprites installs Obj_AIZPlaneIntro before first Process_Sprites");

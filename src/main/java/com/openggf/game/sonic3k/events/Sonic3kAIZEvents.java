@@ -176,11 +176,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     /** Wrap boundary during bombing: camera X wraps back at $4440. ROM: Events_bg+$02 initial. */
     private static final int BATTLESHIP_WRAP_X_BOMBING = 0x4440;
     /**
-     * Wrap boundary after bombing. ROM uses $46C0 with $200 distance, landing at $44C0
-     * (before the forest). The ROM hides this seam via HInt screen-split. Without HInt,
-     * we use a tight $80 wrap within the uniform forest blocks (cols 140-143 are all
-     * E9/E8). Boundary $46C0 keeps the screen right edge at col 144.0 (last forest col
-     * is 143); wraps to $4640 (col 140.5, still forest). Small boss trigger $4670 fits.
+     * Wrap boundary after bombing. ROM AIZ2_DoShipLoop compares against Events_bg+$02
+     * and always subtracts $200 from camera and both players on wrap.
      */
     private static final int BATTLESHIP_WRAP_X_POST_BOMBING = 0x46C0;
     /** Forest mask becomes visible once the bombship redraw reaches this camera X. */
@@ -192,8 +189,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int AIZ_END_BOSS_KNUX_LOCK_X = 0x4100;
     private static final int AIZ_END_BOSS_KNUX_LAYOUT_X = 0x4120;
     private static final int AIZ_END_BOSS_KNUX_LAYOUT_Y = 0x0640;
-    private static final int BATTLESHIP_WRAP_DIST_POST_BOMBING = 0x80;
-    /** Wrap distance during bombing: subtract $200 from all positions on wrap. */
+    /** Wrap distance: ROM subtracts $200 from all positions on ship-loop wrap. */
     private static final int BATTLESHIP_WRAP_DIST = 0x200;
     /** Left clamp: player X must be >= camera X + $18 during auto-scroll. */
     private static final int PLAYER_LEFT_MARGIN = 0x18;
@@ -1535,9 +1531,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // Wrap-back: when camera reaches the wrap boundary, subtract $200 from
         // ALL positions (camera, player, active objects) for seamless looping.
         if (newCameraX >= battleshipWrapX) {
-            // Use shorter wrap distance in the post-bombing forest phase
-            int wrapDelta = (battleshipWrapX == BATTLESHIP_WRAP_X_BOMBING)
-                    ? BATTLESHIP_WRAP_DIST : BATTLESHIP_WRAP_DIST_POST_BOMBING;
+            int wrapDelta = BATTLESHIP_WRAP_DIST;
             levelRepeatOffset = wrapDelta;
 
             cam.setX((short) (newCameraX - wrapDelta));
@@ -1769,6 +1763,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      */
     public void onBossSmallComplete() {
         battleshipAutoScrollActive = false;
+        levelRepeatOffset = 0;
+
+        // ROM Obj_AIZ2BossSmall loc_5071A clears Scroll_lock before
+        // loc_50720 writes Camera_max_X_pos=$6000 (docs/skdisasm/sonic3k.asm:105607-105619).
+        releaseBattleshipScrollLockCamera();
 
         // ROM: Adjust_BGDuringLoop continues to track camera deltas into Events_fg_1
         // after the auto-scroll loop ends, so parallax trees scroll off naturally.
