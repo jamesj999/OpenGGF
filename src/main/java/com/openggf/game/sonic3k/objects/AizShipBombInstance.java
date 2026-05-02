@@ -68,6 +68,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     private int ySub;
     private int yVel;
     private int frameCounter;
+    private boolean initRoutinePending;
     private boolean lastFloorFound;
     private int lastFloorDistance;
     private int lastFloorTile;
@@ -90,6 +91,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
         this.ySub = 0;
         this.yVel = 0;
         this.frameCounter = 0;
+        this.initRoutinePending = true;
         this.state = STATE_READY_DROP;
         this.portYOffset = READY_DROP_START;  // ROM: $30(a0) = $A60
         this.delayCounter = DROP_DELAY_FRAMES;
@@ -99,6 +101,13 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     public void update(int frameCounter, PlayableEntity player) {
         if (isDestroyed()) return;
         this.frameCounter++;
+        if (initRoutinePending) {
+            // ROM: same-frame execution after AllocateObjectAfterCurrent runs
+            // Obj_AIZShipBomb init only (sonic3k.asm:105362); ReadyDrop begins
+            // when Obj_AIZShipBombMain is called on the next object pass.
+            initRoutinePending = false;
+            return;
+        }
 
         switch (state) {
             case STATE_READY_DROP -> {

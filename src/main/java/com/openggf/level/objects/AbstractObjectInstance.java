@@ -211,6 +211,10 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         if (this instanceof TouchResponseProvider trp) {
             preUpdateCollisionFlags = trp.getCollisionFlags();
         }
+        // Frame-start ReactToItem snapshots happen before object execution.
+        // A child created after the player slot in the previous object pass is
+        // no longer same-frame-spawned here and must be touch-eligible.
+        skipTouchThisFrame = false;
     }
 
     @Override
