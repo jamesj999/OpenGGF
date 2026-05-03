@@ -1586,6 +1586,23 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
             clampPlayerDuringAutoScroll(sidekick, camX, useCentreCoordinates);
         }
+        syncSidekickBoundsToLiveCamera(cam);
+    }
+
+    private void syncSidekickBoundsToLiveCamera(Camera cam) {
+        int minX = cam.getMinX();
+        int maxX = cam.getMaxX();
+        int maxY = Math.max(cam.getMaxY(), cam.getMaxYTarget());
+        for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
+            if (sidekick.getCpuController() != null) {
+                // ROM Tails_Check_Screen_Boundaries reads Camera_min/max directly
+                // during Process_Sprites (sonic3k.asm:28407-28452). The engine's
+                // sidekick CPU carries a mirrored bound override, so refresh it
+                // when AIZ2_DoShipLoop rewrites camera bounds before physics
+                // (sonic3k.asm:105200-105253).
+                sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
+            }
+        }
     }
 
     /**
