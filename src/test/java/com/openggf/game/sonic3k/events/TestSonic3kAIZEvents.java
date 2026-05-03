@@ -16,6 +16,7 @@ import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
+import com.openggf.game.sonic3k.objects.AizCollapsingLogBridgeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizEndBossInstance;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -836,6 +837,73 @@ public class TestSonic3kAIZEvents {
         assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
                         .anyMatch(AizEndBossInstance.class::isInstance),
                 "AIZ2 end-boss handoff should create the live Robotnik boss object at the waterfall");
+    }
+
+    @Test
+    public void aiz2EndBossLockKeepsFireLogBridgeLiveForArenaEntry() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4860, (short) 0x015A)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1, false);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(object -> object instanceof AizCollapsingLogBridgeObjectInstance
+                                && object.getX() == 0x48E0
+                                && object.getY() == 0x0218),
+                "ROM Obj_AIZCollapsingLogBridge loc_2AEE2 stays live at $48E0,$0218 and calls SolidObjectTop");
+    }
+
+    @Test
+    public void aiz2FireLogBridgeSupportsSonicAtTraceArenaEntryPoint() {
+        HeadlessTestFixture aiz2 = HeadlessTestFixture.builder()
+                .withZoneAndAct(0, 1)
+                .startPosition((short) 0x4880, (short) 0x01FC)
+                .startPositionIsCentre()
+                .build();
+        Camera camera = aiz2.camera();
+        camera.setX((short) 0x4880);
+        camera.setY((short) 0x015A);
+        aiz2.sprite().setXSpeed((short) 0x0600);
+        aiz2.sprite().setGSpeed((short) 0x0600);
+        aiz2.sprite().setAir(false);
+        aiz2.sprite().setOnObject(false);
+
+        Sonic3kLevelEventManager manager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        Sonic3kAIZEvents events = manager.getAizEvents();
+        assertNotNull(events, "AIZ event handler should be active for AIZ2");
+
+        events.update(1, 0);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1,
+                false, true, true);
+        aiz2.sprite().setCentreXPreserveSubpixel((short) 0x4880);
+        aiz2.sprite().setCentreYPreserveSubpixel((short) 0x01FC);
+        aiz2.sprite().setXSpeed((short) 0x0600);
+        aiz2.sprite().setGSpeed((short) 0x0600);
+        aiz2.sprite().setAir(false);
+        aiz2.sprite().setOnObject(false);
+        GameServices.level().getObjectManager().update(camera.getX(), aiz2.sprite(), List.of(), 1,
+                false, true, true);
+
+        assertTrue(GameServices.level().getObjectManager().getActiveObjects().stream()
+                        .anyMatch(object -> object instanceof AizCollapsingLogBridgeObjectInstance
+                                && object.getX() == 0x48E0
+                                && object.getY() == 0x0218),
+                "The fire log bridge must be active before checking its SolidObjectTop contact");
+        assertTrue(aiz2.sprite().isOnObject(),
+                "ROM loc_2AEE2 calls SolidObjectTop and sets Status_OnObj for Sonic at $4880,$01FC");
     }
 
     @Test

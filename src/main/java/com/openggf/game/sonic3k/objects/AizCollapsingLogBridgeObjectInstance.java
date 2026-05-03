@@ -123,7 +123,13 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public boolean gatesNewTopSolidLandingWithPreviousPosition() {
-        return true;
+        // The normal log bridge arms its collapse from standing bits before the
+        // current SolidObjectTop call (loc_2AE70 -> loc_2AE98), so the engine's
+        // batched checkpoint must keep the existing one-frame entry gate. The
+        // fire drawbridge path (loc_2AEE2 -> loc_2AF06) is used during the AIZ2
+        // end-boss arena entry and must accept the post-player current x_pos/y_pos
+        // just like SolidObjectTop_1P (sonic3k.asm:41793-42044).
+        return !isFireBridge;
     }
 
     @Override
