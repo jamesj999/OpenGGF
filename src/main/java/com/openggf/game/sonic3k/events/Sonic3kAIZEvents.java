@@ -1565,12 +1565,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         explosion.applyWrapOffset(wrapDelta);
                     }
                 }
-                // ROM: ObjPosLoad adjusts cursor boundaries when Level_repeat_offset
-                // is non-zero. Without this, the placement system sees a negative
-                // camera delta on the next frame and calls refreshWindow(), which
-                // can re-spawn layout objects (e.g., the AIZ2 end boss) that are
-                // already alive.
-                objManager.adjustPlacementTrackingForWrap(wrapDelta);
+                // ObjPosLoad has no Level_repeat_offset special case; after
+                // AIZ2_DoShipLoop lowers Camera_X_pos, the normal backward
+                // cursor path retreats Object_load_addr_front (sonic3k.asm:
+                // loc_1B8D2 -> loc_1B8F2). Do not hide the wrap from placement,
+                // or offscreen-cleared entries cannot be reprocessed on the
+                // next loop through the same screen section.
             }
 
             LOG.fine("AIZ2 battleship: wrap-back at cameraX=0x"
