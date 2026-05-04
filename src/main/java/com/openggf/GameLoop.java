@@ -411,9 +411,6 @@ public class GameLoop {
         if (paletteRegistry != null) {
             paletteRegistry.beginFrame();
         }
-        if (traceCameraFocusController != null) {
-            traceCameraFocusController.tick(inputHandler);
-        }
         playbackDebugManager.handleInput(inputHandler);
         syncPlaybackInputBridge();
         playbackDebugManager.setObservedMode(currentGameMode);
@@ -480,6 +477,16 @@ public class GameLoop {
         // so the key must be released and pressed again to step another frame
         int frameStepKey = configService.getInt(SonicConfiguration.FRAME_STEP_KEY);
         boolean doFrameStep = isPaused() && inputHandler.isKeyPressed(frameStepKey);
+
+        // Tick the trace test-mode camera focus controller AFTER toggleUserPause so
+        // it observes the post-toggle pause state. This guarantees that on the
+        // unpause-press frame the controller restores the original camera BEFORE
+        // any sprite/object/manager update path samples camera position later in
+        // this method. Must run before the paused early-return so the same call
+        // also handles the pause-enter snapshot and the frame-step camera restore.
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.tick(inputHandler);
+        }
 
         // When paused (and not frame stepping), still update input handler so we can detect keys
         if (isPaused() && !doFrameStep) {
