@@ -1209,6 +1209,11 @@ public class Engine {
 		if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
 			EndingProvider provider = gameLoop.getEndingProvider();
 			if (provider != null && provider.shouldRenderDemoSpritesOverFade()) {
+				// Reset shader/texture state before the post-fade sprite pass: the fade
+				// shader binds a program and modifies blend/depth state, and even though
+				// FadeManager restores blend on its own, we must not rely on the next pass
+				// inheriting whatever shader/texture bindings the fade pass left active.
+				graphicsManager.resetForFixedFunction();
 				levelManager.renderSpriteObjectPass(spriteManager, true);
 				graphicsManager.flush();
 			}

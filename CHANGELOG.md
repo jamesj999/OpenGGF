@@ -6,6 +6,14 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Engine: reset GL state before post-fade `CREDITS_DEMO` sprite pass.**
+  In `Engine.display()`, the credits-demo branch that re-renders sprites
+  on top of the fade overlay (`shouldRenderDemoSpritesOverFade()`) now
+  invokes `GraphicsManager.resetForFixedFunction()` before the sprite
+  pass. The fade shader binds a program and toggles blend/depth state,
+  and although `FadeManager` restores blend on its own, the subsequent
+  sprite pass should not inherit the fade pass's leftover shader/texture
+  bindings. Architectural fix Task A3.
 - **S1 credits-demo bootstrap: removed trace-derived starting-pose override.**
   `Sonic1CreditsDemoBootstrap.applyStartingPose` previously forced a
   per-demo `setAnimationId` (WALK for demo 0, WAIT for demos 1-7) and
