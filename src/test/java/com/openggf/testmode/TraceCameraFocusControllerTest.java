@@ -177,4 +177,62 @@ class TraceCameraFocusControllerTest {
         controller.tick(input);
         assertNull(controller.currentLabel());
     }
+
+    @Test
+    void rightArrowAdvancesFocusAndAppliesCameraCentredOnTarget() {
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+        // Available: DEFAULT, MAIN_ENGINE.
+
+        when(input.isKeyPressed(262)).thenReturn(true);  // RIGHT
+        controller.tick(input);
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
+        // Centred: camX = 1000 - 320/2 = 840; camY = 500 - 224/2 = 388.
+        org.mockito.Mockito.verify(camera).setX((short) 840);
+        org.mockito.Mockito.verify(camera).setY((short) 388);
+    }
+
+    @Test
+    void leftArrowFromDefaultWrapsToLastAvailable() {
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(2000, 600, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+        // Available: DEFAULT, MAIN_ENGINE, MAIN_TRACE (3 items).
+
+        when(input.isKeyPressed(263)).thenReturn(true);  // LEFT
+        controller.tick(input);
+        when(input.isKeyPressed(263)).thenReturn(false);
+
+        assertEquals(FocusMode.MAIN_TRACE, controller.activeMode());
+        // MAIN_TRACE centres on (2000, 600): camX = 2000-160 = 1840, camY = 600-112 = 488.
+        org.mockito.Mockito.verify(camera).setX((short) 1840);
+        org.mockito.Mockito.verify(camera).setY((short) 488);
+    }
+
+    @Test
+    void cycleClampsToCameraBounds() {
+        mainSprite.set(spriteAt(50, 50));  // near top-left of level
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(50, 50, null));
+        when(camera.getMinX()).thenReturn((short) 0);
+        when(camera.getMaxX()).thenReturn((short) 10000);
+        when(camera.getMinY()).thenReturn((short) 0);
+        when(camera.getMaxY()).thenReturn((short) 10000);
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);  // RIGHT to MAIN_ENGINE
+        controller.tick(input);
+
+        // 50 - 160 = -110, clamped to 0.
+        org.mockito.Mockito.verify(camera).setX((short) 0);
+        org.mockito.Mockito.verify(camera).setY((short) 0);
+    }
 }

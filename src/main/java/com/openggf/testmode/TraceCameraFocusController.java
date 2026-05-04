@@ -91,8 +91,82 @@ public final class TraceCameraFocusController {
             enterPause();
         } else if (wasPaused && !paused) {
             exitPause();
+        } else if (paused) {
+            handleCycleInput(inputHandler);
         }
         wasPaused = paused;
+    }
+
+    private void handleCycleInput(InputHandler inputHandler) {
+        if (available.size() <= 1) return;
+        int leftKey = configService.getInt(SonicConfiguration.LEFT);
+        int rightKey = configService.getInt(SonicConfiguration.RIGHT);
+        int n = available.size();
+        boolean changed = false;
+        if (inputHandler.isKeyPressed(leftKey)) {
+            activeIndex = (activeIndex - 1 + n) % n;
+            changed = true;
+        } else if (inputHandler.isKeyPressed(rightKey)) {
+            activeIndex = (activeIndex + 1) % n;
+            changed = true;
+        }
+        if (changed) {
+            applyFocus(available.get(activeIndex));
+        }
+    }
+
+    private void applyFocus(FocusMode mode) {
+        Camera cam = cameraSupplier.get();
+        if (mode == FocusMode.DEFAULT) {
+            cam.setX(savedCamX);
+            cam.setY(savedCamY);
+            return;
+        }
+        int targetX;
+        int targetY;
+        switch (mode) {
+            case SIDEKICK_ENGINE -> {
+                AbstractPlayableSprite s = firstSidekickSupplier.get();
+                if (s == null) return;
+                targetX = s.getCentreX();
+                targetY = s.getCentreY();
+            }
+            case SIDEKICK_TRACE -> {
+                TraceFrame f = comparator.currentVisualFrame();
+                if (f == null || f.sidekick() == null || !f.sidekick().present()) return;
+                targetX = f.sidekick().x();
+                targetY = f.sidekick().y();
+            }
+            case MAIN_ENGINE -> {
+                AbstractPlayableSprite s = mainSpriteSupplier.get();
+                if (s == null) return;
+                targetX = s.getCentreX();
+                targetY = s.getCentreY();
+            }
+            case MAIN_TRACE -> {
+                TraceFrame f = comparator.currentVisualFrame();
+                if (f == null) return;
+                targetX = f.x();
+                targetY = f.y();
+            }
+            default -> { return; }
+        }
+        int halfW = cam.getWidth() / 2;
+        int halfH = cam.getHeight() / 2;
+        short camX = clampShort(targetX - halfW, cam.getMinX(), cam.getMaxX());
+        short camY = clampShort(targetY - halfH, cam.getMinY(), cam.getMaxY());
+        cam.setX(camX);
+        cam.setY(camY);
+    }
+
+    private static short clampShort(int value, short min, short max) {
+        if (max < min) {
+            // Transient camera-bound state; fall through with no clamp.
+            return (short) value;
+        }
+        if (value < min) return min;
+        if (value > max) return max;
+        return (short) value;
     }
 
     private void enterPause() {
