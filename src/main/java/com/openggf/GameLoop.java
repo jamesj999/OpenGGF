@@ -59,6 +59,7 @@ import com.openggf.game.save.SaveReason;
 import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.SessionManager;
+import com.openggf.testmode.TraceCameraFocusController;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -173,6 +174,9 @@ public class GameLoop {
 
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
+
+    // Optional trace camera focus controller — ticked at the top of every stepInternal()
+    private TraceCameraFocusController traceCameraFocusController;
 
     /**
      * Callback interface for game mode changes.
@@ -310,6 +314,10 @@ public class GameLoop {
         this.gameModeChangeListener = listener;
     }
 
+    public void setTraceCameraFocusController(TraceCameraFocusController controller) {
+        this.traceCameraFocusController = controller;
+    }
+
     public GameMode getCurrentGameMode() {
         return currentGameMode;
     }
@@ -402,6 +410,9 @@ public class GameLoop {
         PaletteOwnershipRegistry paletteRegistry = GameServices.paletteOwnershipRegistryOrNull();
         if (paletteRegistry != null) {
             paletteRegistry.beginFrame();
+        }
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.tick(inputHandler);
         }
         playbackDebugManager.handleInput(inputHandler);
         syncPlaybackInputBridge();
