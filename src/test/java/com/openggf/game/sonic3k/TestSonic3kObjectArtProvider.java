@@ -123,6 +123,54 @@ public class TestSonic3kObjectArtProvider {
     }
 
     @Test
+    public void hczMinibossSheetIsRegisteredDuringHczLoad() {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_HCZ, 0)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        ObjectSpriteSheet sheet = currentProvider.getSheet(Sonic3kObjectArtKeys.HCZ_MINIBOSS);
+        assertNotNull(sheet, "HCZ miniboss sheet should be registered after HCZ load");
+        assertNotNull(sheet.getPatterns());
+        assertTrue(sheet.getPatterns().length > 0, "HCZ miniboss sheet should have non-empty patterns");
+        assertTrue(sheet.getFrameCount() > 0, "HCZ miniboss sheet should have non-empty frames");
+    }
+
+    @Test
+    public void hczEndBossSheetIsRegisteredDuringHczLoad() {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_HCZ, 0)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        ObjectSpriteSheet sheet = currentProvider.getSheet(Sonic3kObjectArtKeys.HCZ_END_BOSS);
+        assertNotNull(sheet, "HCZ end boss sheet should be registered after HCZ load");
+        assertNotNull(sheet.getPatterns());
+        assertTrue(sheet.getPatterns().length > 0, "HCZ end boss sheet should have non-empty patterns");
+        assertTrue(sheet.getFrameCount() > 0, "HCZ end boss sheet should have non-empty frames");
+    }
+
+    @Test
+    public void hczGeyserCutsceneSheetIsRegisteredDuringHczLoad() {
+        HeadlessTestFixture.builder()
+                .withZoneAndAct(Sonic3kZoneIds.ZONE_HCZ, 0)
+                .build();
+
+        Sonic3kObjectArtProvider currentProvider =
+                (Sonic3kObjectArtProvider) GameModuleRegistry.getCurrent().getObjectArtProvider();
+
+        ObjectSpriteSheet sheet = currentProvider.getSheet(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE);
+        assertNotNull(sheet, "HCZ geyser cutscene (waterwall) sheet should be registered after HCZ load");
+        assertNotNull(sheet.getPatterns());
+        assertTrue(sheet.getPatterns().length > 0, "HCZ geyser cutscene sheet should have non-empty patterns");
+        assertTrue(sheet.getFrameCount() > 0, "HCZ geyser cutscene sheet should have non-empty frames");
+    }
+
+    @Test
     public void aiz2SmallRobotnikCraftUsesSourceTile86FromBombershipArt() throws Exception {
         Pattern[] patterns = new Pattern[176];
         for (int i = 0; i < patterns.length; i++) {

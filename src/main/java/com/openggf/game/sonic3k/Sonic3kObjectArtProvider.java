@@ -1163,7 +1163,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     /**
      * Loads HCZ end boss art via PLC 0x6C, matching the ROM's Load_PLC call.
      * PLC entries: 0=boss body, 1=Robotnik ship, 2=boss explosion, 3=egg capsule.
-     * Only loads entry 0 (boss body) here; explosion and egg capsule art loaded separately.
+     * Loads entry 0 (boss body) and, when not yet registered, entry 1 (Robotnik
+     * ship); explosion and egg capsule art are loaded separately.
      */
     private void loadHczEndBossArt() {
         try {
