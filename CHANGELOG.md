@@ -6,6 +6,21 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Force-snap camera centres on `sprite_x - 160`, matching ROM.**
+  `Camera.updatePosition(force=true)` previously placed the camera at
+  `sprite.getCentreX() - 152` (the midpoint of the 144-160 horizontal
+  scroll deadzone). The ROM's level-load routine (s1disasm
+  `_inc/LevelSizeLoad & BgScrollSpeed.asm:111`, s2.asm:14787,
+  sonic3k.asm:38241) snaps to `MainCharacter.x_pos - $A0` (160) — the
+  right edge of the deadzone — before clamping to level bounds. The
+  off-by-8 error showed up as a +8 px engine `camera_x` at frame 0 in
+  six S1 credits demo trace replays (Mz2, Syz3, Slz3, Sbz1, Sbz2,
+  Ghz1b) plus S3K MGZ, but was hidden whenever the snap was clamped to
+  the left boundary (S1 GHZ1, S1 MZ1, S2 EHZ1, S3K AIZ all start
+  near `x=0` so the clamp masked the bug). With the formula corrected,
+  S1 Credits06 Sbz2 and S1 Credits07 Ghz1b pass cleanly; the remaining
+  S1 credits demos and S3K MGZ no longer report `camera_x` as the first
+  error and instead surface downstream parity issues for follow-up.
 - **Trace replay now validates camera position pixel-for-pixel.** The
   BizHawk trace recorders (`tools/bizhawk/s{1,2,3k}_trace_recorder.lua`)
   already capture ROM `Camera_X_pos` / `Camera_Y_pos` each frame, but

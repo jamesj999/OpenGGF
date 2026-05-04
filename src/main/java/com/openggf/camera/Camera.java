@@ -107,10 +107,15 @@ public class Camera {
 
 	public void updatePosition(boolean force) {
 		if (force) {
-			// Position camera so sprite is at the standard target position:
-			// X: 152 pixels from left edge (midpoint between 144-160 window)
-			// Y: 96 pixels from top edge (standard ground camera position)
-			x = (short) (focusedSprite.getCentreX() - 152);
+			// Position camera using ROM's level-load formula:
+			//   v_screenposx = MainCharacter.x_pos - $A0  (subi.w #160,d1)
+			//   v_screenposy = MainCharacter.y_pos - $60  (subi.w  #96,d0)
+			// then clamp to the level bounds. References: s1disasm
+			// _inc/LevelSizeLoad & BgScrollSpeed.asm:111,124; s2.asm:14787,14798;
+			// sonic3k.asm:38241. ROM places the sprite at screen-x=160 (right edge
+			// of the 144-160 horizontal scroll deadzone), not the deadzone
+			// midpoint at 152.
+			x = (short) (focusedSprite.getCentreX() - 160);
 			y = (short) (focusedSprite.getCentreY() - 96);
 
 			// Apply bounds clamping.
