@@ -30,4 +30,19 @@ public interface WaterDataProvider {
     Palette[] getUnderwaterPalette(Rom rom, int zoneId, int actId, PlayerCharacter character);
     DynamicWaterHandler getDynamicHandler(int zoneId, int actId, PlayerCharacter character);
     default int getWaterSpeed(int zoneId, int actId) { return 1; }
+
+    /**
+     * Returns the per-frame visual water-surface oscillation offset (in pixels)
+     * for the given zone/act. Added on top of the base water level when rendering
+     * the water surface and palette/shader split. Does NOT affect gameplay (which
+     * uses the fixed water level).
+     * <p>
+     * Default is 0 (no oscillation). Games that bob their water surface (S2 CPZ,
+     * S1 LZ/SBZ3) override this to return the appropriate oscillator-driven offset.
+     *
+     * @return signed pixel offset to add to the base water level
+     */
+    default int getVisualWaterLevelOffset(int zoneId, int actId) {
+        return 0;
+    }
 }

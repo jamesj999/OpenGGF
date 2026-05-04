@@ -6,6 +6,20 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **WaterSystem: moved per-game visual oscillation behind `WaterDataProvider`.**
+  `WaterSystem.getVisualWaterLevelY()` previously hard-coded
+  `gameId == GameId.S2 && zoneId == ZONE_ID_CPZ` and `gameId == GameId.S1 &&
+  (zoneId == LZ || (zoneId == SBZ && actId == 2))` branches in shared
+  infrastructure -- a direct violation of the feature-flag/provider rule.
+  Added a new `int getVisualWaterLevelOffset(int zoneId, int actId)` default
+  method to `WaterDataProvider` (default returns 0). `Sonic2WaterDataProvider`
+  overrides for CPZ to apply oscillator-0 bobbing centered at -8 (~ring
+  height); `Sonic1WaterDataProvider` overrides for LZ and SBZ3 with the ROM's
+  `oscillation >> 1` LZWaterFeatures.asm formula; S3K provider keeps the
+  default 0 (no oscillation). `WaterSystem` now resolves the provider via
+  `GameServices.module().getWaterDataProvider()` and adds the offset to the
+  base level. `getGameId()` count in `WaterSystem` dropped from 1 to 0; the
+  unused `GameId` and `OscillationManager` imports were removed.
 - **PhysicsFeatureSet: replaced game-id branches in `LevelManager` with feature flags.**
   `LevelManager` had three branches that dispatched on game identity: two
   copies of `gameModule.getGameId() == GameId.S3K` to opt the S3K respawn-

@@ -2,9 +2,7 @@ package com.openggf.level;
 
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
-import com.openggf.game.GameId;
 import com.openggf.game.GameServices;
-import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -625,28 +623,12 @@ public class WaterSystem {
         if (baseLevel == 0) {
             return 0; // No water
         }
-        GameId gameId = GameServices.module().getGameId();
-        // S2 CPZ: water oscillation using oscillator 0
-        if (gameId == GameId.S2 && zoneId == ZONE_ID_CPZ) {
-            // Apply oscillation offset from oscillator index 0 (limit=0x10, 0-16 range)
-            // Center around 0 by subtracting half the limit (8)
-            // Result is +/-8 pixels (~16 pixels total bobbing, ring height)
-            int oscillation = OscillationManager.getByte(0);
-            return baseLevel + (oscillation - 8);
-        }
-        // S1 LZ and SBZ3: water surface bobs using oscillator data (v_oscillate+2).
-        // The ROM reads byte at v_oscillate+2, shifts right by 1 (divides by 2),
-        // and adds to v_waterpos2. This produces a gentle vertical bob.
-        // SBZ3 reuses the LZ water system entirely (LZWaterFeatures.asm .setheight).
-        // Guard with gameId check: S3K HCZ shares zone ID 0x01 with S1 LZ but
-        // does NOT oscillate its water surface.
-        if (gameId == GameId.S1
-                && (zoneId == S1_ZONE_ID_LZ || (zoneId == S1_ZONE_ID_SBZ && actId == 2))) {
-            int oscillation = OscillationManager.getByte(0);
-            return baseLevel + (oscillation >> 1);
-        }
-        // S3K and S2 ARZ: no oscillation
-        return baseLevel;
+        // Per-game oscillation logic lives on the WaterDataProvider so this
+        // shared infrastructure stays game-agnostic. S2 CPZ and S1 LZ/SBZ3
+        // override; S3K and S2 ARZ return 0 (no oscillation).
+        WaterDataProvider provider = GameServices.module().getWaterDataProvider();
+        int offset = provider != null ? provider.getVisualWaterLevelOffset(zoneId, actId) : 0;
+        return baseLevel + offset;
     }
 
     /**

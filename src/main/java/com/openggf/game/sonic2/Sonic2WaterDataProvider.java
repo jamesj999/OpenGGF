@@ -3,6 +3,7 @@ package com.openggf.game.sonic2;
 import com.openggf.data.PaletteLoader;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
+import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -85,5 +86,18 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
         // S2 dynamic water (CPZ2 rising Mega Mack) is handled by existing
         // LevelEventManager / WaterSystem interaction
         return null;
+    }
+
+    @Override
+    public int getVisualWaterLevelOffset(int zoneId, int actId) {
+        // CPZ: water oscillation using oscillator index 0 (limit=0x10, range 0..16).
+        // Center the bob around 0 by subtracting half the limit (8) so it
+        // produces +/-8 pixels of vertical motion (~ring height).
+        if (zoneId == ZONE_CPZ) {
+            int oscillation = OscillationManager.getByte(0);
+            return oscillation - 8;
+        }
+        // ARZ and HPZ: no oscillation (fixed water surface)
+        return 0;
     }
 }
