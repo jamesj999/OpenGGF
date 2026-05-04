@@ -92,7 +92,26 @@ public final class TraceCameraFocusController {
         } else if (wasPaused && !paused) {
             exitPause();
         } else if (paused) {
-            handleCycleInput(inputHandler);
+            int frameStepKey = configService.getInt(SonicConfiguration.FRAME_STEP_KEY);
+            boolean frameStep = inputHandler.isKeyPressed(frameStepKey);
+            if (reapplyAfterStep != null) {
+                // The previous tick was a frame-step; gameplay has now advanced one step.
+                // Rebuild available list (spawn state may have changed) and re-apply the
+                // focus the user had selected, falling back to DEFAULT if it's gone.
+                FocusMode prev = reapplyAfterStep;
+                reapplyAfterStep = null;
+                buildAvailable();
+                int idx = available.indexOf(prev);
+                activeIndex = idx >= 0 ? idx : 0;
+                applyFocus(available.get(activeIndex));
+            } else if (frameStep) {
+                reapplyAfterStep = available.get(activeIndex);
+                Camera cam = cameraSupplier.get();
+                cam.setX(savedCamX);
+                cam.setY(savedCamY);
+            } else {
+                handleCycleInput(inputHandler);
+            }
         }
         wasPaused = paused;
     }

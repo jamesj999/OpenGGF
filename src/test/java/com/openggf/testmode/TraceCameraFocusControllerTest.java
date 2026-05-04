@@ -235,4 +235,64 @@ class TraceCameraFocusControllerTest {
         org.mockito.Mockito.verify(camera).setX((short) 0);
         org.mockito.Mockito.verify(camera).setY((short) 0);
     }
+
+    @Test
+    void frameStepRestoresCameraBeforeStepAndReappliesFocusAfter() {
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+
+        when(camera.getX()).thenReturn((short) 100);
+        when(camera.getY()).thenReturn((short) 200);
+        paused.set(true);
+        controller.tick(input);  // pause-edge enter
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // RIGHT -> MAIN_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+        org.mockito.Mockito.clearInvocations(camera);
+
+        // Frame-step pressed: paused stays true, controller should restore savedCam,
+        // remember the focus, and let the step happen.
+        when(input.isKeyPressed(70)).thenReturn(true);  // FRAME_STEP_KEY
+        controller.tick(input);
+        when(input.isKeyPressed(70)).thenReturn(false);
+
+        org.mockito.Mockito.verify(camera).setX((short) 100);
+        org.mockito.Mockito.verify(camera).setY((short) 200);
+        org.mockito.Mockito.clearInvocations(camera);
+
+        // Next tick after step: re-apply MAIN_ENGINE focus.
+        controller.tick(input);
+        org.mockito.Mockito.verify(camera).setX((short) 840);
+        org.mockito.Mockito.verify(camera).setY((short) 388);
+        assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
+    }
+
+    @Test
+    void frameStepFallsBackToDefaultWhenPreviousFocusGone() {
+        mainSprite.set(spriteAt(1000, 500));
+        sidekick.set(spriteAt(950, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+        // Available: DEFAULT, SIDEKICK_ENGINE, MAIN_ENGINE.
+
+        // Move to SIDEKICK_ENGINE.
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);
+        when(input.isKeyPressed(262)).thenReturn(false);
+        assertEquals(FocusMode.SIDEKICK_ENGINE, controller.activeMode());
+
+        // Frame-step: sidekick despawns mid-step.
+        when(input.isKeyPressed(70)).thenReturn(true);
+        controller.tick(input);
+        when(input.isKeyPressed(70)).thenReturn(false);
+        sidekick.set(null);
+
+        // Next tick rebuilds available list; SIDEKICK_ENGINE is gone -> fall back to DEFAULT.
+        controller.tick(input);
+        assertEquals(FocusMode.DEFAULT, controller.activeMode());
+    }
 }
