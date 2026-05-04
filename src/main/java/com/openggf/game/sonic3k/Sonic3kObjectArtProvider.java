@@ -33,8 +33,6 @@ import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,12 +49,6 @@ import java.util.logging.Logger;
  */
 public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
-    private static final Path HCZ_MINIBOSS_MAPPING_ASM = Path.of(
-            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Miniboss.asm");
-    private static final Path HCZ_END_BOSS_MAPPING_ASM = Path.of(
-            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - End Boss.asm");
-    private static final Path HCZ_WATERWALL_MAPPING_ASM = Path.of(
-            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Waterfall.asm");
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
@@ -1147,27 +1139,20 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         try {
             Rom rom = GameServices.rom().getRom();
             if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
             PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_HCZ_MINIBOSS);
             List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
             if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
                 LOG.warning("HCZ miniboss PLC produced no art");
                 return;
             }
-            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_MINIBOSS_MAPPING_ASM);
-            if (mappings.isEmpty()) {
-                LOG.warning("HCZ miniboss asm mapping include produced no frames");
-                return;
-            }
-            // The ASM mapping has 36 header entries but only 35 unique Frame_ labels —
-            // frames 25 and 26 both point to Frame_362BB0 (blank). The sequential parser
-            // produces only one frame for the shared label, shifting all subsequent frames.
-            // Insert a duplicate blank frame at index 26 to restore correct alignment.
-            if (mappings.size() == 35) {
-                mappings.add(26, new SpriteMappingFrame(List.of()));
-            }
-
+            // ROM-parsed mappings use the offset-table size word to derive the
+            // frame count, so duplicate offsets (e.g. frames 25/26 both pointing
+            // at the blank Frame_362BB0) yield duplicate frame entries naturally
+            // and no count-correction workaround is needed.
             registerSheet(Sonic3kObjectArtKeys.HCZ_MINIBOSS,
-                    buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+                    buildSheetFromPatterns(decompressed.get(0), reader,
+                            Sonic3kConstants.MAP_HCZ_MINIBOSS_ADDR, 1));
             LOG.info("Loaded HCZ miniboss art via PLC 0x5B: "
                     + decompressed.get(0).length + " tiles");
         } catch (IOException e) {
@@ -1192,14 +1177,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 return;
             }
 
-            // Entry 0: Boss body art (Map_HCZEndBoss)
-            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_END_BOSS_MAPPING_ASM);
-            if (mappings.isEmpty()) {
-                LOG.warning("HCZ end boss asm mapping include produced no frames");
-                return;
-            }
+            // Entry 0: Boss body art (Map_HCZEndBoss) — ROM-parsed.
             registerSheet(Sonic3kObjectArtKeys.HCZ_END_BOSS,
-                    buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+                    buildSheetFromPatterns(decompressed.get(0), reader,
+                            Sonic3kConstants.MAP_HCZ_END_BOSS_ADDR, 1));
 
             // Entry 1: Robotnik ship art (ArtNem_RobotnikShip + Map_RobotnikShip)
             if (decompressed.size() >= 2 && decompressed.get(1).length > 0
@@ -1351,21 +1332,17 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         try {
             Rom rom = GameServices.rom().getRom();
             if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
             Pattern[] patterns = decompressKosinskiModuled(rom,
                     Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR);
             if (patterns == null || patterns.length == 0) {
                 LOG.warning("HCZ geyser cutscene art decompression produced no tiles");
                 return;
             }
-            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_WATERWALL_MAPPING_ASM);
-            if (mappings.isEmpty()) {
-                LOG.warning("HCZ geyser cutscene mapping (Map_HCZWaterWall) produced no frames");
-                return;
-            }
             registerSheet(Sonic3kObjectArtKeys.HCZ_GEYSER_CUTSCENE,
-                    buildSheetFromPatterns(patterns, mappings, 2));
-            LOG.info("Loaded HCZ geyser cutscene art: " + patterns.length + " tiles, "
-                    + mappings.size() + " mapping frames");
+                    buildSheetFromPatterns(patterns, reader,
+                            Sonic3kConstants.MAP_HCZ_WATERWALL_ADDR, 2));
+            LOG.info("Loaded HCZ geyser cutscene art: " + patterns.length + " tiles");
         } catch (IOException e) {
             LOG.warning("Failed to load HCZ geyser cutscene art: " + e.getMessage());
         }
@@ -1563,89 +1540,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     + " patterns=" + sheetPatterns.length);
         }
         return new ObjectSpriteSheet(sheetPatterns, adjustedMappings, paletteIndex, 1);
-    }
-
-    private static List<SpriteMappingFrame> loadMappingsFromAsmInclude(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return List.of();
-        }
-
-        List<String> lines = Files.readAllLines(path);
-        List<SpriteMappingFrame> frames = new ArrayList<>();
-        List<SpriteMappingPiece> currentPieces = null;
-        int remainingPieces = 0;
-
-        for (String rawLine : lines) {
-            String line = rawLine.trim();
-            if (line.isEmpty()) {
-                continue;
-            }
-
-            if (line.startsWith("Frame_")) {
-                int dcw = line.indexOf("dc.w");
-                if (dcw < 0) {
-                    continue;
-                }
-                int pieceCount = parseAsmNumber(line.substring(dcw + 4).trim());
-                currentPieces = new ArrayList<>(Math.max(pieceCount, 0));
-                remainingPieces = pieceCount;
-                if (pieceCount == 0) {
-                    frames.add(new SpriteMappingFrame(currentPieces));
-                    currentPieces = null;
-                }
-                continue;
-            }
-
-            if (remainingPieces <= 0 || currentPieces == null || !line.startsWith("dc.b")) {
-                continue;
-            }
-
-            String[] parts = line.substring(4).split(",");
-            if (parts.length < 6) {
-                continue;
-            }
-
-            int yOffset = (byte) parseAsmNumber(parts[0].trim());
-            int size = parseAsmNumber(parts[1].trim()) & 0xFF;
-            int tileWord = ((parseAsmNumber(parts[2].trim()) & 0xFF) << 8)
-                    | (parseAsmNumber(parts[3].trim()) & 0xFF);
-            int xOffset = (short) (((parseAsmNumber(parts[4].trim()) & 0xFF) << 8)
-                    | (parseAsmNumber(parts[5].trim()) & 0xFF));
-
-            int widthTiles = ((size >> 2) & 0x3) + 1;
-            int heightTiles = (size & 0x3) + 1;
-            int tileIndex = tileWord & 0x7FF;
-            boolean hFlip = (tileWord & 0x800) != 0;
-            boolean vFlip = (tileWord & 0x1000) != 0;
-            int paletteIndex = (tileWord >> 13) & 0x3;
-            boolean priority = (tileWord & 0x8000) != 0;
-
-            currentPieces.add(new SpriteMappingPiece(
-                    xOffset, yOffset, widthTiles, heightTiles,
-                    tileIndex, hFlip, vFlip, paletteIndex, priority));
-            remainingPieces--;
-            if (remainingPieces == 0) {
-                frames.add(new SpriteMappingFrame(currentPieces));
-                currentPieces = null;
-            }
-        }
-
-        return frames;
-    }
-
-    private static int parseAsmNumber(String token) {
-        String value = token.trim();
-        boolean negative = value.startsWith("-");
-        if (negative) {
-            value = value.substring(1).trim();
-        }
-        int parsed;
-        if (value.startsWith("$")) {
-            parsed = Integer.parseInt(value.substring(1), 16);
-        } else {
-            parsed = Integer.parseInt(value);
-        }
-        return negative ? -parsed : parsed;
     }
 
     /**

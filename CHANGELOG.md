@@ -6,6 +6,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S3K: HCZ object art now ROM-only — eliminated `docs/skdisasm/` runtime
+  reads.** `Sonic3kObjectArtProvider` previously parsed three HCZ object
+  mapping tables (`Map_HCZMiniboss`, `Map_HCZEndBoss`, `Map_HCZWaterWall`) by
+  reading `.asm` source files from `docs/skdisasm/Levels/HCZ/Misc Object
+  Data/` at runtime via `Files.readAllLines`, violating the project's "ROM
+  only for runtime assets" hard rule and silently degrading to invisible
+  sprites whenever the disassembly tree was absent (CI / fresh clones). All
+  three call sites now use `S3kSpriteDataLoader.loadMappingFrames` with
+  ROM-verified table-base addresses
+  (`MAP_HCZ_MINIBOSS_ADDR=0x3629E0`,
+  `MAP_HCZ_END_BOSS_ADDR=0x3634D4`,
+  `MAP_HCZ_WATERWALL_ADDR=0x22EE10`); the existing
+  `MAP_HCZ_MINIBOSS_ADDR=0x362A28` constant was incorrect (pointed at the
+  first frame body rather than the offset table) and is now corrected. The
+  old asm-include parser, the duplicate-frame workaround for shared
+  `Frame_362BB0` labels (no longer needed because ROM-based reading of
+  duplicate offsets yields duplicate frames naturally), and the three `Path`
+  constants under `docs/` are removed.
 - **Runtime ownership migration: GameServices decoupled from GameRuntime
   façade.** `GameServices` now resolves all gameplay-scoped manager accessors
   through `SessionManager.getCurrentGameplayMode()` directly rather than via
