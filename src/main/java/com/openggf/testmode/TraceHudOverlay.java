@@ -27,18 +27,28 @@ public final class TraceHudOverlay {
     private final LiveTraceComparator comparator;
     private final Supplier<String> pauseKeyLabelSupplier;
     private final BooleanSupplier pausedSupplier;
+    private final Supplier<String> focusLabelSupplier;
     private boolean desyncPauseMessageShown;
     private boolean desyncPauseMessageDismissed;
 
     public TraceHudOverlay(LiveTraceComparator comparator) {
-        this(comparator, TraceHudOverlay::configuredPauseKeyLabel, TraceHudOverlay::isGameLoopPaused);
+        this(comparator, TraceHudOverlay::configuredPauseKeyLabel,
+                TraceHudOverlay::isGameLoopPaused, () -> null);
     }
 
-    TraceHudOverlay(LiveTraceComparator comparator, Supplier<String> pauseKeyLabelSupplier,
-                    BooleanSupplier pausedSupplier) {
+    public TraceHudOverlay(LiveTraceComparator comparator, Supplier<String> focusLabelSupplier) {
+        this(comparator, TraceHudOverlay::configuredPauseKeyLabel,
+                TraceHudOverlay::isGameLoopPaused, focusLabelSupplier);
+    }
+
+    TraceHudOverlay(LiveTraceComparator comparator,
+                    Supplier<String> pauseKeyLabelSupplier,
+                    BooleanSupplier pausedSupplier,
+                    Supplier<String> focusLabelSupplier) {
         this.comparator = comparator;
         this.pauseKeyLabelSupplier = pauseKeyLabelSupplier;
         this.pausedSupplier = pausedSupplier;
+        this.focusLabelSupplier = focusLabelSupplier;
     }
 
     private static final float SCALE = 0.5f;
@@ -50,6 +60,8 @@ public final class TraceHudOverlay {
     private static final int X = 4;
     private static final int COMPLETE_BANNER_Y = 110;
     private static final int TOP_Y = 120;
+    private static final int RIGHT_MARGIN = 4;
+    private static final int SCREEN_WIDTH = 320;
 
     public void render(PixelFontTextRenderer text) {
         text.beginBatch();
@@ -108,6 +120,20 @@ public final class TraceHudOverlay {
             if (comparator.isComplete()) {
                 text.drawShadowedText("TRACE COMPLETE", X, COMPLETE_BANNER_Y,
                         DebugColor.YELLOW, SCALE);
+            }
+
+            if (paused) {
+                String focusLabel = focusLabelSupplier.get();
+                if (focusLabel != null) {
+                    String main = "Camera: " + focusLabel;
+                    String hint = "<- -> Cycle Cameras";
+                    int mainW = text.measureWidth(main, SCALE);
+                    int hintW = text.measureWidth(hint, SCALE);
+                    int mainX = SCREEN_WIDTH - RIGHT_MARGIN - mainW;
+                    int hintX = SCREEN_WIDTH - RIGHT_MARGIN - hintW;
+                    text.drawShadowedText(main, mainX, TOP_Y, DebugColor.LIGHT_GRAY, SCALE);
+                    text.drawShadowedText(hint, hintX, TOP_Y + LINE_HEIGHT, DebugColor.GRAY, SCALE);
+                }
             }
         } finally {
             text.endBatch();

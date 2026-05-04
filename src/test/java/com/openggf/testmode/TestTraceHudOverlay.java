@@ -22,7 +22,7 @@ class TestTraceHudOverlay {
         when(comparator.recentMismatches()).thenReturn(List.of());
 
         PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
-        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "ENTER", () -> false);
+        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "ENTER", () -> false, () -> null);
 
         overlay.render(textRenderer);
 
@@ -44,7 +44,7 @@ class TestTraceHudOverlay {
         when(comparator.recentMismatches()).thenReturn(List.of());
 
         PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
-        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", () -> true);
+        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", () -> true, () -> null);
 
         overlay.render(textRenderer);
 
@@ -78,7 +78,7 @@ class TestTraceHudOverlay {
         when(comparator.recentMismatches()).thenReturn(List.of());
 
         PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
-        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", () -> false);
+        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", () -> false, () -> null);
 
         overlay.render(textRenderer);
 
@@ -99,7 +99,7 @@ class TestTraceHudOverlay {
         AtomicBoolean paused = new AtomicBoolean(true);
 
         PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
-        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", paused::get);
+        TraceHudOverlay overlay = new TraceHudOverlay(comparator, () -> "SPACE", paused::get, () -> null);
 
         overlay.render(textRenderer);
         verify(textRenderer).drawShadowedText(
@@ -120,6 +120,81 @@ class TestTraceHudOverlay {
         verify(textRenderer, never()).drawShadowedText(
                 org.mockito.ArgumentMatchers.eq(
                         "Game Paused due to recording desync. Press SPACE to resume"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyFloat());
+    }
+
+    @Test
+    void renderShowsCameraFocusBlockWhenPausedAndLabelSupplied() {
+        LiveTraceComparator comparator = mock(LiveTraceComparator.class);
+        when(comparator.recentMismatches()).thenReturn(List.of());
+        PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
+        when(textRenderer.measureWidth(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyFloat())).thenReturn(40);
+
+        TraceHudOverlay overlay = new TraceHudOverlay(
+                comparator, () -> "ENTER", () -> true, () -> "Sidekick (Eng)");
+
+        overlay.render(textRenderer);
+
+        verify(textRenderer).drawShadowedText(
+                org.mockito.ArgumentMatchers.eq("Camera: Sidekick (Eng)"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyFloat());
+        verify(textRenderer).drawShadowedText(
+                org.mockito.ArgumentMatchers.eq("<- -> Cycle Cameras"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyFloat());
+    }
+
+    @Test
+    void renderHidesCameraFocusBlockWhenNotPaused() {
+        LiveTraceComparator comparator = mock(LiveTraceComparator.class);
+        when(comparator.recentMismatches()).thenReturn(List.of());
+        PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
+        when(textRenderer.measureWidth(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyFloat())).thenReturn(40);
+
+        TraceHudOverlay overlay = new TraceHudOverlay(
+                comparator, () -> "ENTER", () -> false, () -> "Default");
+
+        overlay.render(textRenderer);
+
+        verify(textRenderer, never()).drawShadowedText(
+                org.mockito.ArgumentMatchers.startsWith("Camera:"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyFloat());
+        verify(textRenderer, never()).drawShadowedText(
+                org.mockito.ArgumentMatchers.eq("<- -> Cycle Cameras"),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyFloat());
+    }
+
+    @Test
+    void renderHidesCameraFocusBlockWhenLabelSupplierReturnsNull() {
+        LiveTraceComparator comparator = mock(LiveTraceComparator.class);
+        when(comparator.recentMismatches()).thenReturn(List.of());
+        PixelFontTextRenderer textRenderer = mock(PixelFontTextRenderer.class);
+
+        TraceHudOverlay overlay = new TraceHudOverlay(
+                comparator, () -> "ENTER", () -> true, () -> null);
+
+        overlay.render(textRenderer);
+
+        verify(textRenderer, never()).drawShadowedText(
+                org.mockito.ArgumentMatchers.startsWith("Camera:"),
                 org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.any(),
