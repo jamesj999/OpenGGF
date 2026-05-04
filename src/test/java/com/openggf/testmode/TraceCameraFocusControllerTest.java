@@ -369,4 +369,86 @@ class TraceCameraFocusControllerTest {
         inOrder.verify(camera).setX((short) 100);  // savedCam restore (transient)
         inOrder.verify(camera).setX((short) 840);  // focus re-applied (final)
     }
+
+    @Test
+    void savedCamAdvancesEachFrameStepSoUnpauseStaysSynced() {
+        // Verifies the desync fix: when frame-stepping with a non-DEFAULT focus,
+        // the controller captures the camera's natural-tracking position after
+        // each gameplay update, so DEFAULT and the unpause-restore both reflect
+        // current ground-truth (not the stale pause-entry position).
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+
+        // Enter pause with savedCam = (100, 200).
+        when(camera.getX()).thenReturn((short) 100);
+        when(camera.getY()).thenReturn((short) 200);
+        paused.set(true);
+        controller.tick(input);
+
+        // Cycle to MAIN_ENGINE so subsequent frame-steps must restore savedCam
+        // (not stay on the focus camera).
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        // Frame-step #1. Simulate the gameplay update advancing the camera by
+        // 16px to the right (a typical fast-scroll catch-up step).
+        when(input.isKeyPressed(70)).thenReturn(true);
+        controller.tick(input);  // pre-update: restore savedCam=(100,200)
+        when(input.isKeyPressed(70)).thenReturn(false);
+        when(camera.getX()).thenReturn((short) 116);  // post-update natural position
+        when(camera.getY()).thenReturn((short) 200);
+        controller.postUpdate();
+        // savedCam should now be (116, 200) — captured before re-apply.
+
+        // Frame-step #2. Pre-update should restore to the NEW savedCam (116, 200),
+        // not the stale (100, 200).
+        org.mockito.Mockito.clearInvocations(camera);
+        when(input.isKeyPressed(70)).thenReturn(true);
+        controller.tick(input);
+        when(input.isKeyPressed(70)).thenReturn(false);
+
+        org.mockito.Mockito.verify(camera).setX((short) 116);
+        org.mockito.Mockito.verify(camera).setY((short) 200);
+    }
+
+    @Test
+    void unpauseAfterFrameStepsRestoresLatestNaturalCameraNotStaleSavedCam() {
+        // End-to-end check: pause, cycle, frame-step several times, then unpause.
+        // The unpause must restore the latest natural-tracking camera position,
+        // NOT the pause-entry position. This is the desync fix the user reported.
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+
+        when(camera.getX()).thenReturn((short) 100);
+        when(camera.getY()).thenReturn((short) 200);
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to MAIN_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        // Frame-step thrice. Each step's gameplay update advances camera by 16px.
+        for (int i = 0; i < 3; i++) {
+            when(input.isKeyPressed(70)).thenReturn(true);
+            controller.tick(input);
+            when(input.isKeyPressed(70)).thenReturn(false);
+            short newX = (short) (100 + 16 * (i + 1));  // 116, 132, 148
+            when(camera.getX()).thenReturn(newX);
+            when(camera.getY()).thenReturn((short) 200);
+            controller.postUpdate();
+        }
+
+        // Unpause. exitPause must restore camera to (148, 200) — the latest
+        // tracked position — not the original pause-entry (100, 200).
+        org.mockito.Mockito.clearInvocations(camera);
+        paused.set(false);
+        controller.tick(input);
+
+        org.mockito.Mockito.verify(camera).setX((short) 148);
+        org.mockito.Mockito.verify(camera).setY((short) 200);
+    }
 }

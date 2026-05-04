@@ -112,15 +112,30 @@ public final class TraceCameraFocusController {
 
     /**
      * Called by {@link com.openggf.GameLoop} at the end of each {@code stepInternal}
-     * pass that ran a gameplay update. On the frame-step path, this rebuilds the
-     * available focus list (spawn state may have changed during the step) and
-     * re-applies the focus the user had selected, falling back to DEFAULT if it
-     * is no longer available. Doing this before render means the rendered frame
-     * already shows the focus camera, eliminating the flicker that a deferred
-     * (next-frame) re-apply would cause.
+     * pass that ran a gameplay update. On the frame-step path, this:
+     * <ol>
+     *   <li>Captures the camera's post-update natural-tracking position as the new
+     *       savedCam. The camera just ran one frame from the previous savedCam
+     *       through {@link Camera#updatePosition} during the gameplay update, so
+     *       its current x/y is exactly where the camera would be at this point in
+     *       continuous play. Updating savedCam keeps DEFAULT and the unpause
+     *       restore in sync with current ground-truth, so unpausing after several
+     *       frame-steps doesn't jolt the camera back to the original pause-entry
+     *       position (which would mismatch the player's now-advanced position and
+     *       cause object-placement / scroll desync).</li>
+     *   <li>Rebuilds the available focus list, since spawn state may have changed
+     *       during the step (e.g., sidekick despawn).</li>
+     *   <li>Re-applies the focus the user had selected, falling back to DEFAULT if
+     *       it is no longer available. Doing this before render means the rendered
+     *       frame already shows the focus camera, eliminating the flicker that a
+     *       deferred (next-frame) re-apply would cause.</li>
+     * </ol>
      */
     public void postUpdate() {
         if (reapplyAfterStep == null) return;
+        Camera cam = cameraSupplier.get();
+        savedCamX = cam.getX();
+        savedCamY = cam.getY();
         FocusMode prev = reapplyAfterStep;
         reapplyAfterStep = null;
         buildAvailable();
