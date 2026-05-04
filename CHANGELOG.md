@@ -6,6 +6,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Trace Test Mode — pause-time camera focus visualiser.** While
+  paused during a live trace session, the user can now cycle the
+  camera between up to five focus targets using the configured P1
+  LEFT/RIGHT keys: `Default` (the camera position at pause entry),
+  `Sidekick (Eng)` / `Sidekick (Trace)` (centred on the engine's
+  first sidekick or the recorded ROM-trace sidekick position), and
+  `Main (Eng)` / `Main (Trace)` (centred on the engine's main
+  playable sprite or the trace's recorded position). Trace variants
+  are skipped when their position equals the engine's; sidekick
+  options are skipped when no engine sidekick is spawned; main
+  options are skipped when the main player is despawned. The active
+  focus is shown in the top-right HUD as `Camera: <Mode>` with a
+  `<- -> Cycle Cameras` hint. On unpause, the camera snaps back to
+  its pre-pause position; gameplay determinism is preserved across
+  frame-step (camera is restored before the step runs and re-applied
+  after). The controller mutates only `Camera.setX/setY` — it never
+  calls `updatePosition` or any other manager update path, so no
+  object placement, parallax, or trace-recording state is disturbed.
 - **CNZ Trace F8123 — CNZ bumper misses sidekick Tails touch at
   pixel-edge overlap (diagnosis only).** After the F7923 Clamer cprop
   fix landed, the next CNZ first error is at F8123 (2683 errors). Tails
