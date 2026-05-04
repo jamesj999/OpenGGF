@@ -6,6 +6,33 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Runtime ownership migration: gameplay state split by lifetime.**
+  Per `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`,
+  the design's load-bearing split is now in place: `WorldSession` owns the
+  durable world data (active `GameModule`, the loaded `Level` including its
+  `MutableLevel` layout, and zone/act metadata); `GameplayModeContext` owns
+  the disposable gameplay-scoped managers (Camera, Timer, GameState, Fade,
+  Rng, SolidExecution, Water, Parallax, TerrainCollision, Collision, Sprite,
+  LevelManager) and the runtime-shared registries (`ZoneRuntimeRegistry`,
+  `PaletteOwnershipRegistry`, `AnimatedTileChannelGraph`,
+  `SpecialRenderEffectRegistry`, `AdvancedRenderModeController`,
+  `ZoneLayoutMutationPipeline`). `GameRuntime` is now a thin coordinator
+  façade whose getters delegate to the gameplay mode context — its 18
+  manager fields are gone. `LevelManager` keeps a write-through cache for
+  zone/act/level reads but `WorldSession` is the source of truth, so a
+  freshly-constructed `LevelManager` after editor exit re-inherits the
+  loaded level automatically. `GameplayModeContext.initializeFreshGameplayState()`
+  resets the design's "non-preserved" counters (score, timer, checkpoint)
+  on editor exit. New tests
+  `editorRoundTrip_preservesWorldSessionAndResetsGameplayCounters` and
+  `editorRoundTrip_preservesMutableLevelMutations` verify the editor enter/exit
+  round trip preserves world data + a `MutableLevel` mutation while resetting
+  session counters. `LevelManager.restoreInheritedLevel()` is added as a
+  building block for the future "drop `RuntimeManager.parkCurrent`" cleanup.
+  The empty `EngineContext` stub is removed (its role is already played by
+  `EngineServices`). Eliminating the `GameRuntime` façade entirely (51 file
+  refs) and replacing the parking flow with direct teardown remain mechanical
+  follow-ups, not blocking.
 - **Force-snap camera centres on `sprite_x - 160`, matching ROM.**
   `Camera.updatePosition(force=true)` previously placed the camera at
   `sprite.getCentreX() - 152` (the midpoint of the 144-160 horizontal

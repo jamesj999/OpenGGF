@@ -299,7 +299,10 @@ class TestZoneLayoutMutationPipeline {
         assertEquals("", log.toString(), "destroy should clear queued mutations on the old pipeline instance");
 
         GameRuntime recreated = RuntimeManager.createGameplay();
-        assertNotSame(runtime.getZoneLayoutMutationPipeline(), recreated.getZoneLayoutMutationPipeline());
+        // After the runtime ownership migration, both GameRuntime references
+        // resolve to the live shared registry on the gameplay mode context,
+        // so compare against the originally captured pipeline instance.
+        assertNotSame(pipeline, recreated.getZoneLayoutMutationPipeline());
     }
 
     private static LayoutMutationIntent intent(StringBuilder log, String marker) {

@@ -165,32 +165,35 @@ public final class RuntimeManager {
                     sessionModule.getChaosEmeraldCount());
         }
         FadeManager fadeManager = new FadeManager();
+        GameModule currentModule = GameModuleRegistry.getCurrent();
+        GameRng rng = new GameRng(currentModule != null
+                ? currentModule.rngFlavour()
+                : GameRng.Flavour.S1_S2);
+        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
+        gameplayMode.attachGameplayManagers(camera, timers, gameState, fadeManager, rng, solidExecutionRegistry);
+
         WaterSystem waterSystem = new WaterSystem();
         ParallaxManager parallaxManager = new ParallaxManager();
         TerrainCollisionManager terrainCollisionManager = new TerrainCollisionManager();
         CollisionSystem collisionSystem = new CollisionSystem(terrainCollisionManager);
         SpriteManager spriteManager = new SpriteManager();
         LevelManager levelManager = new LevelManager(
-                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState, services);
-        GameModule currentModule = GameModuleRegistry.getCurrent();
-        GameRng rng = new GameRng(currentModule != null
-                ? currentModule.rngFlavour()
-                : GameRng.Flavour.S1_S2);
+                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState, services,
+                gameplayMode.getWorldSession());
+        gameplayMode.attachLevelManagers(waterSystem, parallaxManager, terrainCollisionManager,
+                collisionSystem, spriteManager, levelManager);
+
         ZoneRuntimeRegistry zoneRuntimeRegistry = new ZoneRuntimeRegistry();
         PaletteOwnershipRegistry paletteOwnershipRegistry = new PaletteOwnershipRegistry();
         AnimatedTileChannelGraph animatedTileChannelGraph = new AnimatedTileChannelGraph();
         SpecialRenderEffectRegistry specialRenderEffectRegistry = new SpecialRenderEffectRegistry();
         AdvancedRenderModeController advancedRenderModeController = new AdvancedRenderModeController();
         ZoneLayoutMutationPipeline zoneLayoutMutationPipeline = new ZoneLayoutMutationPipeline();
-        SolidExecutionRegistry solidExecutionRegistry = new DefaultSolidExecutionRegistry();
+        gameplayMode.attachSharedRegistries(zoneRuntimeRegistry, paletteOwnershipRegistry,
+                animatedTileChannelGraph, specialRenderEffectRegistry,
+                advancedRenderModeController, zoneLayoutMutationPipeline);
 
-        GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
-                camera, timers, gameState, fadeManager,
-                waterSystem, parallaxManager, terrainCollisionManager,
-                collisionSystem, spriteManager, levelManager, rng, zoneRuntimeRegistry,
-                paletteOwnershipRegistry, animatedTileChannelGraph, specialRenderEffectRegistry,
-                advancedRenderModeController,
-                zoneLayoutMutationPipeline, solidExecutionRegistry);
+        GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode);
         current = runtime;
         return runtime;
     }
@@ -220,6 +223,32 @@ public final class RuntimeManager {
             destroyParkedRuntimeIfSupersededBy(null);
             return createGameplay(gameplayMode);
         }
+        // Transfer the disposable gameplay-scoped managers from the parked
+        // mode context to the resumed one. The parked runtime's managers
+        // remain alive across the editor detour; the new mode context just
+        // becomes their new owner.
+        GameplayModeContext parkedMode = parked.getGameplayModeContext();
+        gameplayMode.attachGameplayManagers(
+                parkedMode.getCamera(),
+                parkedMode.getTimerManager(),
+                parkedMode.getGameStateManager(),
+                parkedMode.getFadeManager(),
+                parkedMode.getRng(),
+                parkedMode.getSolidExecutionRegistry());
+        gameplayMode.attachLevelManagers(
+                parkedMode.getWaterSystem(),
+                parkedMode.getParallaxManager(),
+                parkedMode.getTerrainCollisionManager(),
+                parkedMode.getCollisionSystem(),
+                parkedMode.getSpriteManager(),
+                parkedMode.getLevelManager());
+        gameplayMode.attachSharedRegistries(
+                parkedMode.getZoneRuntimeRegistry(),
+                parkedMode.getPaletteOwnershipRegistry(),
+                parkedMode.getAnimatedTileChannelGraph(),
+                parkedMode.getSpecialRenderEffectRegistry(),
+                parkedMode.getAdvancedRenderModeController(),
+                parkedMode.getZoneLayoutMutationPipeline());
         parked.clearTransientFrameState();
         parked.updateGameplayModeContext(gameplayMode);
         current = parked;

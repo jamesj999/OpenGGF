@@ -520,6 +520,10 @@ public class Engine {
 		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
 		runtime = RuntimeManager.resumeParked(gameplay);
 		bindRuntime(runtime);
+		// Per the runtime ownership migration design, editor exit reinitializes
+		// gameplay session state as fresh — score/rings/lives/timer/checkpoint
+		// must not carry over from before the editor detour.
+		gameplay.initializeFreshGameplayState();
 		applyResumedPlaytestState(gameplay);
 		gameLoop.setGameMode(GameMode.LEVEL);
 	}

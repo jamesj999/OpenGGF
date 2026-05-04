@@ -22,6 +22,7 @@ import com.openggf.level.AbstractLevel;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
 import com.openggf.level.ChunkDesc;
+import com.openggf.level.Level;
 import com.openggf.level.Map;
 import com.openggf.level.MutableLevel;
 import com.openggf.level.Palette;
@@ -250,6 +251,79 @@ class TestEditorToggleIntegration {
         assertEquals(100, SessionManager.getCurrentGameplayMode().getSpawnX());
         assertEquals(200, SessionManager.getCurrentGameplayMode().getSpawnY());
         assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
+    }
+
+    @Test
+    void editorRoundTrip_preservesMutableLevelMutations() throws Exception {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+
+        // Install a synthetic MutableLevel via setLevel(), which writes
+        // through to WorldSession (per the runtime ownership migration).
+        MutableLevel mutable = MutableLevel.snapshot(new SyntheticLevel());
+        runtime.getLevelManager().setLevel(mutable);
+
+        com.openggf.game.session.WorldSession worldSession = runtime.getWorldSession();
+        assertSame(mutable, worldSession.getCurrentLevel(),
+                "precondition: setLevel must write through to WorldSession");
+
+        // Mutate a map cell to an unambiguous value.
+        int newBlockIndex = (mutable.getMap().getValue(0, 0, 0) & 0xFF) ^ 0xAA;
+        mutable.setBlockInMap(0, 0, 0, newBlockIndex);
+
+        engine.enterEditorFromCurrentPlayer(
+                new EditorPlaytestStash(50, 50, 0, 0, true, 0, 1),
+                100, 200);
+        engine.resumePlaytestFromEditor();
+
+        // After the editor round trip, WorldSession's Level reference should
+        // still be the same MutableLevel and the mutation should still be
+        // present — proving editor enter/exit does not throw away world data.
+        assertSame(mutable, worldSession.getCurrentLevel(),
+                "MutableLevel must survive editor round trip on WorldSession");
+        assertEquals(newBlockIndex,
+                ((MutableLevel) worldSession.getCurrentLevel()).getMap().getValue(0, 0, 0) & 0xFF,
+                "mutation made before editor entry must persist through the round trip");
+    }
+
+    @Test
+    void editorRoundTrip_preservesWorldSessionAndResetsGameplayCounters() throws Exception {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+
+        // Capture the durable world state on WorldSession before editor entry.
+        com.openggf.game.session.WorldSession worldSession = runtime.getWorldSession();
+        com.openggf.level.Level loadedLevelBefore = worldSession.getCurrentLevel();
+        int zoneBefore = worldSession.getCurrentZone();
+        int actBefore = worldSession.getCurrentAct();
+
+        // Set a session counter to a non-default value; the design requires
+        // it to reset on editor exit.
+        runtime.getGameState().addScore(7777);
+        int scoreBefore = runtime.getGameState().getScore();
+        assertTrue(scoreBefore > 0, "score precondition: must be non-zero before editor entry");
+
+        engine.enterEditorFromCurrentPlayer(
+                new EditorPlaytestStash(50, 50, 0, 0, true, 0, 1),
+                100, 200);
+        engine.resumePlaytestFromEditor();
+
+        // World survived the round trip: same WorldSession instance, same
+        // loaded Level, same zone/act metadata.
+        assertSame(worldSession, RuntimeManager.getCurrent().getWorldSession(),
+                "WorldSession must survive editor round trip");
+        assertSame(loadedLevelBefore, worldSession.getCurrentLevel(),
+                "Loaded Level must survive editor round trip on WorldSession");
+        assertEquals(zoneBefore, worldSession.getCurrentZone(),
+                "currentZone must be preserved on WorldSession");
+        assertEquals(actBefore, worldSession.getCurrentAct(),
+                "currentAct must be preserved on WorldSession");
+
+        // Gameplay counters were reset per the design (editor exit reinit).
+        assertEquals(0, RuntimeManager.getCurrent().getGameState().getScore(),
+                "score must reset on editor exit (was " + scoreBefore + ")");
     }
 
     @Test

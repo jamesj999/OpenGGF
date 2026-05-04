@@ -9,12 +9,20 @@ import com.openggf.graphics.TilemapGpuRenderer;
 import java.util.logging.Logger;
 
 /**
- * Manages the build, cache, upload, and invalidation lifecycle of GPU tilemap data
- * (foreground and background layers) extracted from LevelManager.
+ * Manages the build, cache, upload, and invalidation lifecycle of GPU tilemap
+ * data (foreground and background layers) derived from the loaded {@link Level}.
  * <p>
- * This class owns all tilemap byte arrays, dirty flags, pattern lookup data,
- * and prebuilt transition tilemaps.  LevelManager delegates tilemap operations
- * here and reads back data via getters for its GL command lambdas.
+ * Owns tilemap byte arrays, dirty flags, pattern lookup data, and prebuilt
+ * transition tilemaps. LevelManager delegates tilemap operations here and
+ * reads back data via getters for its GL command lambdas.
+ * <p>
+ * <b>Lifecycle:</b> entirely gameplay-disposable. All state is derived from
+ * the {@link Level} (which is owned by {@code WorldSession}) and is rebuilt
+ * each time a new {@code LevelTilemapManager} is constructed — typically
+ * during {@code LevelManager.loadLevelData(...)}. After an editor mode swap
+ * that destroys the gameplay-mode managers, a fresh tilemap manager is
+ * rebuilt over the same surviving {@code Level}, so no tilemap state needs
+ * to persist outside the gameplay mode context.
  */
 public class LevelTilemapManager {
     private static final Logger LOGGER = Logger.getLogger(LevelTilemapManager.class.getName());
@@ -82,7 +90,9 @@ public class LevelTilemapManager {
      *
      * @param geometry        level geometry snapshot (dimensions, level reference)
      * @param graphicsManager graphics manager for pattern atlas access
-     * @param gameState       runtime game state retained across parked editor mode
+     * @param gameState       gameplay-mode game state (consulted for HTZ
+     *                        screen-shake state in background tilemap upload
+     *                        decisions); may be null
      */
     public LevelTilemapManager(LevelGeometry geometry, GraphicsManager graphicsManager, GameStateManager gameState) {
         this.geometry = geometry;

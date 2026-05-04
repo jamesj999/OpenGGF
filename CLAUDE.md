@@ -130,13 +130,19 @@ services().zoneFeatureProvider()  // ZoneFeatureProvider
 
 Objects receive `ObjectServices` via injection at construction time (ThreadLocal context set by `ObjectManager`). **Never call `getInstance()` from object code** — use `services()` instead. `GameServices` is for non-object code (managers, event handlers, controllers).
 
-### GameRuntime
+### Session Ownership (post runtime-ownership migration)
 
-`GameRuntime` (`com.openggf.game`) is the explicit runtime object that owns mutable gameplay state. `RuntimeManager` manages its lifecycle. This is the foundation for safe editor mode enter/exit, level rebuilds, undo/redo, and the runtime-owned shared framework stack used by zone logic.
+Per `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`, gameplay state is split by lifetime across three layers:
 
-### Runtime-Owned Framework Stack
+- **`WorldSession`** (`com.openggf.game.session`) — durable, survives editor mode swaps. Owns the active `GameModule`, the loaded `Level` (full record incl. `MutableLevel`), and zone/act metadata (`currentZone`/`currentAct`/`apparentAct`).
+- **`GameplayModeContext`** (`com.openggf.game.session`) — disposable, rebuilt on each gameplay session entry. Owns all gameplay-scoped managers: `Camera`, `TimerManager`, `GameStateManager`, `FadeManager`, `GameRng`, `SolidExecutionRegistry`, `WaterSystem`, `ParallaxManager`, `TerrainCollisionManager`, `CollisionSystem`, `SpriteManager`, `LevelManager`, plus the runtime-shared registries listed below. Provides `initializeFreshGameplayState()` for editor-exit counter reset.
+- **`SessionManager`** (`com.openggf.game.session`) — manages `WorldSession` and `ModeContext` lifecycle (`openGameplaySession`, `enterEditorMode`, `resumeGameplayFromEditor`).
 
-`GameRuntime` now hosts the shared registries/controllers used to normalize zone-specific behavior across games:
+`GameRuntime` (`com.openggf.game`) is now a thin coordinator façade — it holds engine services + a reference to the active `WorldSession` and `GameplayModeContext`, and exposes manager getters that delegate to the gameplay mode context. New code should prefer resolving managers from `GameplayModeContext` directly. `RuntimeManager` still manages the `GameRuntime` lifecycle. The future direction is to fold `RuntimeManager`'s remaining responsibilities into `SessionManager` and eliminate the façade.
+
+### Runtime-Shared Framework Stack
+
+`GameplayModeContext` hosts the shared registries/controllers used to normalize zone-specific behavior across games (accessed via `GameRuntime.getX()` delegation or directly via `gameplayMode.getX()`):
 
 - `ZoneRuntimeRegistry` - Typed per-zone runtime state adapters over raw event/state bytes
 - `PaletteOwnershipRegistry` - Multi-writer palette arbitration, precedence, and underwater mirroring

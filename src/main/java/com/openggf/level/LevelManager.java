@@ -31,6 +31,7 @@ import com.openggf.game.render.SpecialRenderEffectContext;
 import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
+import com.openggf.game.session.WorldSession;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.HudStaticArt;
@@ -92,6 +93,9 @@ public class LevelManager {
     /** Base for extra sidekick-style DPLC banks — above water (0x30000) and below title cards (0x40000). */
     public static final int SIDEKICK_PATTERN_BASE = 0x38000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
+    // Local mirror of the loaded Level owned by WorldSession. Reads use this
+    // field directly for speed; writes go through writeCurrentLevel() to keep
+    // the world session in sync.
     private Level level;
     private int blockPixelSize = 128;  // cached from level
     private int chunksPerBlockSide = 8;
@@ -151,9 +155,33 @@ public class LevelManager {
     private PerformanceProfiler profiler;
     private CrossGameFeatureProvider crossGameFeatures;
     private final List<List<LevelData>> levels = new ArrayList<>();
+    private final WorldSession worldSession;
+    // Local mirror of zone/act state owned by WorldSession. Reads use these
+    // fields directly for speed; writes go through writeCurrentZone /
+    // writeCurrentAct / writeApparentAct so both copies stay in sync.
     private int currentAct = 0;
     private int apparentAct = 0;
     private int currentZone = 0;
+
+    private void writeCurrentZone(int zone) {
+        this.currentZone = zone;
+        worldSession.setCurrentZone(zone);
+    }
+
+    private void writeCurrentAct(int act) {
+        this.currentAct = act;
+        worldSession.setCurrentAct(act);
+    }
+
+    private void writeApparentAct(int act) {
+        this.apparentAct = act;
+        worldSession.setApparentAct(act);
+    }
+
+    private void writeCurrentLevel(Level level) {
+        this.level = level;
+        worldSession.setCurrentLevel(level);
+    }
     private int frameCounter = 0;
     private int currentShimmerStyle = 0;
     private ObjectManager objectManager;
@@ -586,13 +614,14 @@ public class LevelManager {
     public LevelManager(Camera camera, SpriteManager spriteManager,
                         ParallaxManager parallaxManager, CollisionSystem collisionSystem,
                         WaterSystem waterSystem, GameStateManager gameState,
-                        EngineServices engineServices) {
+                        EngineServices engineServices, WorldSession worldSession) {
         this.camera = camera;
         this.spriteManager = spriteManager;
         this.parallaxManager = parallaxManager;
         this.collisionSystem = collisionSystem;
         this.waterSystem = waterSystem;
         this.gameState = gameState;
+        this.worldSession = worldSession;
         this.graphicsManager = engineServices.graphics();
         this.audioManager = engineServices.audio();
         this.configService = engineServices.configuration();
@@ -601,6 +630,13 @@ public class LevelManager {
         this.crossGameFeatures = engineServices.crossGameFeatures();
         this.cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
         this.cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        // Inherit any zone/act metadata and loaded Level already on the
+        // world session (e.g. after editor exit when WorldSession survives
+        // but LevelManager is freshly constructed).
+        this.currentZone = worldSession.getCurrentZone();
+        this.currentAct = worldSession.getCurrentAct();
+        this.apparentAct = worldSession.getApparentAct();
+        this.level = worldSession.getCurrentLevel();
     }
 
     /**
@@ -669,7 +705,7 @@ public class LevelManager {
             }
             // The LoadLevelData step stores the result in ctx
             if (ctx.getLevel() != null) {
-                level = ctx.getLevel();
+                writeCurrentLevel(ctx.getLevel());
             }
         } catch (Exception e) {
             // Profile steps wrap checked exceptions in RuntimeException; unwrap if cause is IOException
@@ -723,7 +759,23 @@ public class LevelManager {
      */
     public Level loadLevelData(int levelIndex) throws IOException {
         Level loaded = game.loadLevel(levelIndex);
-        level = loaded;
+        writeCurrentLevel(loaded);
+        rebuildLevelDerivedState();
+        return loaded;
+    }
+
+    /**
+     * Re-runs the post-load setup steps over the currently-loaded {@link Level}
+     * (block dimensions, debug renderer, dimension cache, tilemap manager).
+     * Used both by {@link #loadLevelData(int)} after a fresh ROM read and by
+     * the editor mode exit path when LevelManager is freshly constructed but
+     * inherits its Level from {@code WorldSession}. Safe to call multiple
+     * times; each call rebuilds dependent state from {@code level}.
+     */
+    public void rebuildLevelDerivedState() {
+        if (level == null) {
+            return;
+        }
         blockPixelSize = level.getBlockPixelSize();
         chunksPerBlockSide = level.getChunksPerBlockSide();
         debugRenderer = new LevelDebugRenderer(new LevelDebugContext(
@@ -731,7 +783,35 @@ public class LevelManager {
                 cachedScreenWidth, cachedScreenHeight));
         cacheLevelDimensions();
         tilemapManager = new LevelTilemapManager(buildGeometry(), graphicsManager, gameState);
-        return loaded;
+    }
+
+    /**
+     * Restores a loaded level inherited from {@code WorldSession} into a
+     * freshly-constructed LevelManager — the path used after editor mode exit
+     * when the gameplay-mode runtime is rebuilt around the surviving world
+     * data. Re-runs the standard {@link #loadZoneAndAct(int, int)} flow to
+     * orchestrate every gameplay subsystem (game module, audio, animated
+     * content, objects, rings, zone features, art, water, etc.), then if the
+     * inherited Level was a {@link MutableLevel}, swaps it back in via
+     * {@link #setLevel(Level)} so any mutations made before editor entry
+     * survive the round trip.
+     * <p>
+     * Building block for the future "drop {@code RuntimeManager.parkCurrent}"
+     * cleanup; not yet wired into the editor exit flow because the existing
+     * parking mechanism already preserves the runtime end-to-end. When that
+     * cleanup proceeds, this method becomes the replacement.
+     */
+    public void restoreInheritedLevel() throws IOException {
+        Level inherited = level;
+        if (inherited == null) {
+            return;
+        }
+        int zone = currentZone;
+        int act = currentAct;
+        loadZoneAndAct(zone, act);
+        if (inherited instanceof MutableLevel) {
+            setLevel(inherited);
+        }
     }
 
     /**
@@ -751,7 +831,7 @@ public class LevelManager {
      * @param newLevel the level to swap in
      */
     public void setLevel(Level newLevel) {
-        this.level = newLevel;
+        writeCurrentLevel(newLevel);
         blockPixelSize = newLevel.getBlockPixelSize();
         chunksPerBlockSide = newLevel.getChunksPerBlockSide();
         cacheLevelDimensions();
@@ -3273,6 +3353,7 @@ public class LevelManager {
      */
     public void setApparentAct(int act) {
         this.apparentAct = act;
+        worldSession.setApparentAct(act);
     }
 
     /**
@@ -4007,11 +4088,11 @@ public class LevelManager {
     }
 
     public void nextAct() throws IOException {
-        currentAct++;
+        writeCurrentAct(currentAct + 1);
         if (currentAct >= levels.get(currentZone).size()) {
-            currentAct = 0;
+            writeCurrentAct(0);
         }
-        apparentAct = currentAct;
+        writeApparentAct(currentAct);
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -4026,17 +4107,17 @@ public class LevelManager {
      * Called by results screen after tally completes.
      */
     public void advanceToNextLevel() throws IOException {
-        currentAct++;
+        writeCurrentAct(currentAct + 1);
         if (currentAct >= levels.get(currentZone).size()) {
             // Move to next zone
-            currentZone++;
-            currentAct = 0;
+            writeCurrentZone(currentZone + 1);
+            writeCurrentAct(0);
             if (currentZone >= levels.size()) {
                 LOGGER.info("All zones complete!");
-                currentZone = 0; // Loop back for now - TODO: end game sequence
+                writeCurrentZone(0); // Loop back for now - TODO: end game sequence
             }
         }
-        apparentAct = currentAct;
+        writeApparentAct(currentAct);
         // Clear checkpoint when advancing
         if (checkpointState != null) {
             checkpointState.clear();
@@ -4050,15 +4131,15 @@ public class LevelManager {
      * the level counters before entering the special stage (Got_NextLevel).
      */
     public void advanceZoneActOnly() {
-        currentAct++;
+        writeCurrentAct(currentAct + 1);
         if (currentAct >= levels.get(currentZone).size()) {
-            currentZone++;
-            currentAct = 0;
+            writeCurrentZone(currentZone + 1);
+            writeCurrentAct(0);
             if (currentZone >= levels.size()) {
-                currentZone = 0;
+                writeCurrentZone(0);
             }
         }
-        apparentAct = currentAct;
+        writeApparentAct(currentAct);
         if (checkpointState != null) {
             checkpointState.clear();
         }
@@ -4070,9 +4151,9 @@ public class LevelManager {
     }
 
     public void loadZoneAndAct(int zone, int act, LevelLoadMode loadMode) throws IOException {
-        currentAct = act;
-        apparentAct = act;
-        currentZone = zone;
+        writeCurrentAct(act);
+        writeApparentAct(act);
+        writeCurrentZone(zone);
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -4119,8 +4200,8 @@ public class LevelManager {
         }
 
         // 1. Set zone/act (ROM: move.b d0, Current_zone_and_act)
-        currentZone = request.targetZone();
-        currentAct = request.targetAct();
+        writeCurrentZone(request.targetZone());
+        writeCurrentAct(request.targetAct());
 
         // 2. Reload layout + collision only (ROM: Load_Level + LoadSolids)
         if (levels.isEmpty()) {
@@ -4410,12 +4491,12 @@ public class LevelManager {
     }
 
     public void nextZone() throws IOException {
-        currentZone++;
+        writeCurrentZone(currentZone + 1);
         if (currentZone >= levels.size()) {
-            currentZone = 0;
+            writeCurrentZone(0);
         }
-        currentAct = 0;
-        apparentAct = 0;
+        writeCurrentAct(0);
+        writeApparentAct(0);
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -4424,9 +4505,9 @@ public class LevelManager {
     }
 
     public void loadZone(int zone) throws IOException {
-        currentZone = zone;
-        currentAct = 0;
-        apparentAct = 0;
+        writeCurrentZone(zone);
+        writeCurrentAct(0);
+        writeApparentAct(0);
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -4524,7 +4605,7 @@ public class LevelManager {
      * Replaces the reflection-based tearDown hacks in test classes.
      */
     public void resetState() {
-        level = null;
+        writeCurrentLevel(null);
         game = null;
         gameModule = null;
         objectManager = null;
@@ -4541,9 +4622,9 @@ public class LevelManager {
             tilemapManager.resetState();
         }
         tilemapManager = null;
-        currentZone = 0;
-        currentAct = 0;
-        apparentAct = 0;
+        writeCurrentZone(0);
+        writeCurrentAct(0);
+        writeApparentAct(0);
         frameCounter = 0;
         transitions.resetState();
         verticalWrapEnabled = false;
