@@ -26,6 +26,7 @@ public class TestSonic3kZoneFeatureProvider {
     @BeforeEach
     public void setUp() {
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.createGameplay();
     }
 
     @AfterEach
@@ -73,7 +74,6 @@ public class TestSonic3kZoneFeatureProvider {
 
     @Test
     public void forestFrontPhaseAlsoForcesCpuSidekickInFrontOfForestMask() {
-        RuntimeManager.createGameplay();
         TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0, (short) 0);
         TestablePlayableSprite sidekick = new TestablePlayableSprite("tails", (short) 0, (short) 0);
@@ -110,7 +110,6 @@ public class TestSonic3kZoneFeatureProvider {
 
     @Test
     public void slotDisplayOriginUsesForegroundPlaneSpaceForSlotsPanel() throws Exception {
-        RuntimeManager.createGameplay();
         TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
 
         GameServices.camera().setX((short) 0x3C0);

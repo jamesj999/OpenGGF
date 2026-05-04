@@ -18,6 +18,7 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.level.LevelManager;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 
@@ -51,6 +52,7 @@ class TestDrowningControllerMusicSelection {
         CapturingBackend backend = new CapturingBackend();
         audioManager.setBackend(backend);
         audioManager.setAudioProfile(profile);
+        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
         GameRuntime runtime = RuntimeManager.createGameplay();
         LevelManager levelManager = runtime.getLevelManager();
         levelManager.resetState();

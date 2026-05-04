@@ -989,6 +989,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return GameServices.audio();
         }
 
+        public final com.openggf.game.GameRng currentRng() {
+                return GameServices.rng();
+        }
+
+        public final com.openggf.game.GameRng currentRngOrNull() {
+                return GameServices.rngOrNull();
+        }
+
         public final WaterSystem currentWaterSystem() {
                 return GameServices.water();
         }

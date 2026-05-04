@@ -109,7 +109,7 @@ class TestAizEndBossInstance {
 
         AizCollapsingLogBridgeObjectInstance bridge = new AizCollapsingLogBridgeObjectInstance(
                 new ObjectSpawn(0, 0, 0x2C, 0x80, 0, false, 0));
-        bridge.setServices(new TestObjectServices());
+        bridge.setServices(new TestObjectServices().withCamera(camera));
 
         invokeNoArg(boss, "onFireTimerExpired");
         bridge.update(0, null);
@@ -128,7 +128,7 @@ class TestAizEndBossInstance {
 
         AizCollapsingLogBridgeObjectInstance bridge = new AizCollapsingLogBridgeObjectInstance(
                 new ObjectSpawn(0, 0, 0x2C, 0x80, 0, false, 0));
-        bridge.setServices(new TestObjectServices());
+        bridge.setServices(new TestObjectServices().withCamera(camera));
 
         invokeNoArg(boss, "onFireTimerExpired");
         invokeNoArg(boss, "beginRetreat");

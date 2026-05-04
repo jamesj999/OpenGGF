@@ -24,7 +24,6 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * S3K Obj $9E — Tunnelbot (MGZ Act 1).
@@ -191,8 +190,6 @@ public final class TunnelbotBadnikInstance extends AbstractObjectInstance
     private TunnelbotArm leftArm;
     private TunnelbotArm rightArm;
 
-    // Shared RNG for debris positions
-    private final Random rng = new Random();
 
     // Frame counter from update (for vibration)
     private int globalFrameCounter;
@@ -610,8 +607,9 @@ public final class TunnelbotBadnikInstance extends AbstractObjectInstance
         var camera = services().camera();
         if (camera == null) return;
 
+        var rng = services().rng();
         // ROM: random X within $1FF range from Camera_X - $40
-        int debrisX = camera.getX() - 0x40 + (rng.nextInt(0x200));
+        int debrisX = camera.getX() - 0x40 + rng.nextInt(0x200);
         // ROM: Camera_Y_pos - $20
         int debrisY = camera.getY() - 0x20;
         int frame = rng.nextInt(DEBRIS_FRAME_COUNT);
