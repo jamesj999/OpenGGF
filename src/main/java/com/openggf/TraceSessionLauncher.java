@@ -14,6 +14,7 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.graphics.PixelFontTextRenderer;
 import com.openggf.sprites.ghost.GhostTraceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.testmode.TraceCameraFocusController;
 import com.openggf.testmode.TraceHudOverlay;
 import com.openggf.trace.ToleranceConfig;
 import com.openggf.trace.TraceData;
@@ -63,6 +64,7 @@ public final class TraceSessionLauncher {
      */
     private final TraceReplaySessionBootstrap.ConfigSnapshot configSnapshot;
     private LiveTraceComparator comparator;
+    private TraceCameraFocusController cameraFocusController;
     private TraceHudOverlay overlay;
     private final GhostTraceRenderer ghostRenderer = new GhostTraceRenderer();
     private TraceReplayFixture fixture;
@@ -221,7 +223,21 @@ public final class TraceSessionLauncher {
                     initialCursor,
                     loop::getMainPlayableSprite,
                     loop::toggleUserPause);
-            this.overlay = new TraceHudOverlay(comparator);
+            this.cameraFocusController = new TraceCameraFocusController(
+                    comparator,
+                    loop::getMainPlayableSprite,
+                    () -> {
+                        var sprites = GameServices.spritesOrNull();
+                        if (sprites == null) return null;
+                        var sks = sprites.getSidekicks();
+                        return sks.isEmpty() ? null : sks.get(0);
+                    },
+                    GameServices::camera,
+                    GameServices.configuration(),
+                    loop::isPaused);
+            loop.setTraceCameraFocusController(cameraFocusController);
+            this.overlay = new TraceHudOverlay(comparator,
+                    () -> cameraFocusController.currentLabel());
             playback.setFrameObserver(comparator);
             activeSession = this;
         } catch (Exception e) {
@@ -230,6 +246,8 @@ public final class TraceSessionLauncher {
             // route back to the picker so the engine doesn't end up
             // orphaned in LEVEL mode with no session.
             playback.endSession();
+            loop.setTraceCameraFocusController(null);
+            this.cameraFocusController = null;
             activeSession = null;
             TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
             LOGGER.log(java.util.logging.Level.SEVERE,
@@ -326,8 +344,10 @@ public final class TraceSessionLauncher {
         TraceReplaySessionBootstrap.restoreGameplayConfig(configSnapshot);
         GameLoop loop = Engine.currentGameLoop();
         if (loop != null) {
+            loop.setTraceCameraFocusController(null);
             loop.returnToMasterTitle();
         }
+        this.cameraFocusController = null;
     }
 
     private static MasterTitleScreen.GameEntry resolveGameEntry(String gameId) {
