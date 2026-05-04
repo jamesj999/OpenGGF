@@ -171,6 +171,12 @@ public final class TraceCameraFocusController {
         }
         int targetX;
         int targetY;
+        // Each branch's null/absent guard is defensive: in normal flow the
+        // available list (rebuilt at pause-entry and after every frame-step)
+        // already excludes any mode whose target isn't reachable. We bail
+        // silently here only to stay correct if a target despawns mid-pause
+        // without a frame-step (which can't happen with the current pause
+        // early-return, but is cheap to guard against).
         switch (mode) {
             case SIDEKICK_ENGINE -> {
                 AbstractPlayableSprite s = firstSidekickSupplier.get();
@@ -206,6 +212,10 @@ public final class TraceCameraFocusController {
         cam.setY(camY);
     }
 
+    // Mirrors Camera.clampAxisWithWrap (private in Camera). The camera's normal
+    // path uses the same semantics — including the max<min "wrapped/unbounded"
+    // fallback for transient SCZ-style writes — so keep this in sync if Camera
+    // changes its clamping behaviour.
     private static short clampShort(int value, short min, short max) {
         if (max < min) {
             // Transient camera-bound state; fall through with no clamp.
