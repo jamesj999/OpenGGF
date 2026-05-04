@@ -538,7 +538,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.solidObjectTopBranchAlwaysLiftsOnUpwardVelocity(), // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity (from base game)
                 baseFeatureSet.controlLockLatchesLogicalInput(), // controlLockLatchesLogicalInput (from base game)
                 baseFeatureSet.waterExitBoostSkipsFastUpwardVelocity(), // waterExitBoostSkipsFastUpwardVelocity (from base game)
-                baseFeatureSet.slopeResistAppliesAtZeroInertia() // slopeResistAppliesAtZeroInertia (from base game)
+                baseFeatureSet.slopeResistAppliesAtZeroInertia(), // slopeResistAppliesAtZeroInertia (from base game)
+                baseFeatureSet.permanentRespawnTableLatch(), // permanentRespawnTableLatch (from base game)
+                baseFeatureSet.usesInlineObjectExecution() // usesInlineObjectExecution (from base game)
         );
     }
 

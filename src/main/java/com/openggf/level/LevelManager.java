@@ -32,7 +32,6 @@ import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.WorldSession;
-import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.HudStaticArt;
 import com.openggf.graphics.GLCommand;
@@ -914,7 +913,9 @@ public class LevelManager {
         // S3K parity: ROM's Object_respawn_table bit 7 stays set permanently
         // after a player kill (sonic3k.asm loc_1BA40 / Touch_EnemyNormal). Match
         // by latching destroyedInWindow for the rest of the level.
-        if (gameModule.getGameId() == com.openggf.game.GameId.S3K) {
+        if (gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().permanentRespawnTableLatch()) {
             objectManager.enablePermanentDestroyLatch();
         }
 
@@ -1173,7 +1174,10 @@ public class LevelManager {
 
     /**
      * Returns true when the active module executes objects after player physics and
-     * solid checkpoints are resolved during object execution.
+     * solid checkpoints are resolved during object execution. Driven by the
+     * {@link PhysicsFeatureSet#usesInlineObjectExecution()} flag — independent of
+     * collision model so S1 (UNIFIED) and S2/S3K (DUAL_PATH) can share the
+     * post-physics ordering per the 2026-04-18-solid-ordering-rom-accuracy plan.
      */
     public boolean usesInlineObjectSolidResolution() {
         GameModule activeModule = activeGameModule();
@@ -1182,9 +1186,7 @@ public class LevelManager {
                 || activeModule.getPhysicsProvider().getFeatureSet() == null) {
             return false;
         }
-        return activeModule.getPhysicsProvider().getFeatureSet().collisionModel()
-                   == com.openggf.game.CollisionModel.DUAL_PATH
-                || activeModule instanceof Sonic1GameModule;
+        return activeModule.getPhysicsProvider().getFeatureSet().usesInlineObjectExecution();
     }
 
     /**
@@ -4438,7 +4440,9 @@ public class LevelManager {
             objectManager.enableExecThenLoadPlacement();
             objectManager.enforceSlotLimit();
         }
-        if (gameModule.getGameId() == com.openggf.game.GameId.S3K) {
+        if (gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().permanentRespawnTableLatch()) {
             objectManager.enablePermanentDestroyLatch();
         }
         collisionSystem.setObjectManager(objectManager);

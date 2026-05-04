@@ -84,7 +84,9 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)
                 false,  // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
                 false,  // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
-                false   // slopeResistAppliesAtZeroInertia - S1 SlopeResist returns when inertia=0 (s1disasm/_incObj/01 Sonic.asm:1243-1244)
+                false,  // slopeResistAppliesAtZeroInertia - S1 SlopeResist returns when inertia=0 (s1disasm/_incObj/01 Sonic.asm:1243-1244)
+                false,  // permanentRespawnTableLatch - S1 only latches remembered spawns
+                true    // usesInlineObjectExecution - S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan
         );
 
         // Verify spindash is enabled (donor contribution)
