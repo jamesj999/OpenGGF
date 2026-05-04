@@ -6,6 +6,21 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S2 EHZ trace replay — Tails frame 3644 slope-resist parity fix.**
+  Engine `doSlopeResist` previously applied slope force to all games
+  whenever `g_speed == 0` and `|slope_force| >= 0x0D`, mirroring S3K
+  `Player_SlopeResist` (sonic3k.asm:23830-23856) which branches to
+  `loc_11DDC` when stationary and applies the force conditionally.
+  S1/S2 ROM (s1disasm/_incObj/01 Sonic.asm:1243-1244;
+  s2.asm:37394-37395, 40249-40250) instead returns unconditionally on
+  `tst.w inertia(a0) / beq.s` — a stationary S1/S2 player on a steep
+  slope stays put. Gated the at-rest kick behind a new
+  `PhysicsFeatureSet.slopeResistAppliesAtZeroInertia` flag (true for
+  S3K, false for S1/S2). `TestS2Ehz1TraceReplay.replayMatchesTrace`
+  goes from 26 errors at frame 3644 (Tails decelerated to `g_speed=0`
+  on angle 0xD0, ROM kept her stationary while engine slid her back
+  down the loop) to a full pass; S3K trace replays unaffected (S3K
+  flag is `true`, behaviour unchanged).
 - **Trace Test Mode — pause-time camera focus visualiser.** While
   paused during a live trace session, the user can now cycle the
   camera between up to five focus targets using the configured P1

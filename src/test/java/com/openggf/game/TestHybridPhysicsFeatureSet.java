@@ -83,7 +83,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // levelBoundaryUsesCentreY - S1 ROM uses centre-Y but trace baselines defer flip
                 false,  // solidObjectTopBranchAlwaysLiftsOnUpwardVelocity - S1 Solid_Landed bails on y_vel<0 (s1disasm/_incObj/sub SolidObject.asm:278)
                 false,  // controlLockLatchesLogicalInput - S1 baseline (uses separate Ctrl_Lock_byte)
-                false   // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
+                false,  // waterExitBoostSkipsFastUpwardVelocity - S1 exits water with unconditional asl.w obVelY(a0)
+                false   // slopeResistAppliesAtZeroInertia - S1 SlopeResist returns when inertia=0 (s1disasm/_incObj/01 Sonic.asm:1243-1244)
         );
 
         // Verify spindash is enabled (donor contribution)
