@@ -6,6 +6,23 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Runtime ownership migration: GameServices decoupled from GameRuntime
+  façade.** `GameServices` now resolves all gameplay-scoped manager accessors
+  through `SessionManager.getCurrentGameplayMode()` directly rather than via
+  `RuntimeManager.getCurrent()`/`GameRuntime.getX()`. Migrated ~58 mechanical
+  call sites across 27 files (engine top-level, level/sprite/graphics, S2/S3K
+  game-specific, plus tests) from `RuntimeManager.getCurrent().getX()` and
+  `runtime.getX()` patterns to the appropriate `GameServices.X()` accessors.
+  After the change, the `GameRuntime` façade still exists as a lifecycle
+  handle but is no longer load-bearing for production gameplay code; the only
+  remaining `GameRuntime` references are foundational (constructor parameters
+  for `DefaultObjectServices`/`RuntimeSaveContext`, the
+  `TraceReplayFixture.runtime()` interface contract, lifecycle methods on
+  `RuntimeManager`, and tests that legitimately exercise runtime instance
+  identity). Tests that asserted "post-`destroyCurrent` GameServices throws"
+  were updated to also call `SessionManager.clear()` since the new lifecycle
+  is "destroy runtime → managers reset, but gameplay-mode context still
+  alive; clear session → gameplay-mode context gone, GameServices throws".
 - **Runtime ownership migration: gameplay state split by lifetime.**
   Per `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`,
   the design's load-bearing split is now in place: `WorldSession` owns the

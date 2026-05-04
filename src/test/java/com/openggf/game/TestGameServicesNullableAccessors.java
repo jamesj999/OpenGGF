@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.SessionManager;
 import com.openggf.tests.TestEnvironment;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,11 +10,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TestGameServicesNullableAccessors {
     @BeforeEach void setUp() { TestEnvironment.resetAll(); }
-    @AfterEach void tearDown() { RuntimeManager.destroyCurrent(); }
+    @AfterEach void tearDown() { RuntimeManager.destroyCurrent(); SessionManager.clear(); }
 
     @Test
     void nullableAccessorsReturnNullWithoutRuntime() {
+        // Post-migration: GameServices accessors resolve through the gameplay
+        // mode context, so clearing the session is required (not just the runtime).
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         assertFalse(GameServices.hasRuntime());
         assertNull(GameServices.runtimeOrNull());
         assertNull(GameServices.cameraOrNull());
@@ -58,6 +62,7 @@ class TestGameServicesNullableAccessors {
     @Test
     void strictAccessorsStillThrowWithoutRuntime() {
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         assertThrows(IllegalStateException.class, GameServices::camera);
         assertThrows(IllegalStateException.class, GameServices::level);
         assertThrows(IllegalStateException.class, GameServices::gameState);

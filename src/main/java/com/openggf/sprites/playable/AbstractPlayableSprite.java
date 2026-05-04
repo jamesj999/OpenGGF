@@ -942,8 +942,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final LevelManager currentLevelManagerIfAvailable() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getLevelManager() : null;
+                return GameServices.levelOrNull();
         }
 
         public final GameModule currentGameModule() {

@@ -3,8 +3,8 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
 import com.openggf.game.palette.PaletteSurface;
@@ -36,14 +36,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestAizEndBossInstance {
-    private GameRuntime runtime;
     private Camera camera;
 
     @BeforeEach
     void setUp() {
         TestEnvironment.resetAll();
-        runtime = RuntimeManager.getCurrent();
-        camera = runtime.getCamera();
+        camera = GameServices.camera();
         camera.resetState();
         AizCollapsingLogBridgeObjectInstance.setDrawBridgeBurnActive(false);
     }

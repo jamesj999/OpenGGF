@@ -1,7 +1,6 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.render.SpecialRenderEffect;
@@ -73,9 +72,8 @@ public class TestLevelManager {
 
     @Test
     public void dispatchSpecialRenderEffectsInvokesRegisteredStageEffects() throws Exception {
-        GameRuntime runtime = com.openggf.game.RuntimeManager.getCurrent();
-        LevelManager levelManager = runtime.getLevelManager();
-        SpecialRenderEffectRegistry registry = runtime.getSpecialRenderEffectRegistry();
+        LevelManager levelManager = GameServices.level();
+        SpecialRenderEffectRegistry registry = GameServices.specialRenderEffectRegistry();
         registry.clear();
         AtomicInteger calls = new AtomicInteger();
         AtomicInteger frameCounter = new AtomicInteger(-1);

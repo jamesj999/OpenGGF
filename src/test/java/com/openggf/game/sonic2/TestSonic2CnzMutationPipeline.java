@@ -57,7 +57,7 @@ class TestSonic2CnzMutationPipeline {
 
     @Test
     void cnzArenaWallPlacementAndRemovalWaitForQueuedFlush() {
-        LevelManager levelManager = RuntimeManager.getCurrent().getLevelManager();
+        LevelManager levelManager = GameServices.level();
         SyntheticCnzLevel level = new SyntheticCnzLevel();
         levelManager.setLevel(level);
 
@@ -69,7 +69,7 @@ class TestSonic2CnzMutationPipeline {
         assertFalse(state.rightArenaWallPlaced());
         assertFalse(state.bossSpawned());
 
-        RuntimeManager.getCurrent().getCamera().setX((short) 0x2890);
+        GameServices.camera().setX((short) 0x2890);
 
         events.update(ACT_2, 1);
         events.update(ACT_2, 2);

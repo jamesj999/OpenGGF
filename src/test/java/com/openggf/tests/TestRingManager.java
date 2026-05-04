@@ -265,7 +265,7 @@ public class TestRingManager {
                 spriteSheet,
                 levelManager,
                 null,
-                RuntimeManager.getCurrent().getEngineServices().audio());
+                GameServices.audio());
         ringManager.ensurePatternsCached(GraphicsManager.getInstance(), 0);
         return ringManager;
     }

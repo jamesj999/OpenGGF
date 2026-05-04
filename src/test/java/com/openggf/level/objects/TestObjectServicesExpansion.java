@@ -70,7 +70,7 @@ class TestObjectServicesExpansion {
     @Test
     void defaultObjectServices_processServices_returnRuntimeEngineServicesMembers() {
         DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
-        EngineServices engineServices = RuntimeManager.getCurrent().getEngineServices();
+        EngineServices engineServices = RuntimeManager.currentEngineServices();
 
         assertSame(engineServices, services.engineServices());
         assertSame(engineServices.configuration(), services.configuration());
@@ -235,13 +235,13 @@ class TestObjectServicesExpansion {
     }
 
     private DefaultObjectServices bootstrapConstructorServicesWithoutRuntime() {
-        LevelManager levelManager = RuntimeManager.getCurrent().getLevelManager();
-        Camera camera = RuntimeManager.getCurrent().getCamera();
-        GameStateManager gameState = RuntimeManager.getCurrent().getGameState();
-        SpriteManager spriteManager = RuntimeManager.getCurrent().getSpriteManager();
-        FadeManager fadeManager = RuntimeManager.getCurrent().getFadeManager();
-        WaterSystem waterSystem = RuntimeManager.getCurrent().getWaterSystem();
-        ParallaxManager parallaxManager = RuntimeManager.getCurrent().getParallaxManager();
+        LevelManager levelManager = GameServices.level();
+        Camera camera = GameServices.camera();
+        GameStateManager gameState = GameServices.gameState();
+        SpriteManager spriteManager = GameServices.sprites();
+        FadeManager fadeManager = GameServices.fade();
+        WaterSystem waterSystem = GameServices.water();
+        ParallaxManager parallaxManager = GameServices.parallax();
 
         RuntimeManager.setCurrent(null);
 

@@ -541,7 +541,7 @@ public class Engine {
 		GameModuleRegistry.setCurrent(module);
 		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
 		bindRuntime(runtime);
-		GameServices.gameState().configureSpecialStageProgress(
+		runtime.getGameState().configureSpecialStageProgress(
 				module.getSpecialStageCycleCount(),
 				module.getChaosEmeraldCount());
 

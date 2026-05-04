@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +40,8 @@ public class TestSonic1GargoyleObjectInstanceRender {
     public void setUp() throws Exception {
         originalRuntime = RuntimeManager.getCurrent();
         RuntimeManager.destroyCurrent();
-        runtimeLevelManager = RuntimeManager.createGameplay().getLevelManager();
+        RuntimeManager.createGameplay();
+        runtimeLevelManager = GameServices.level();
         objectRenderManagerField = LevelManager.class.getDeclaredField("objectRenderManager");
         objectRenderManagerField.setAccessible(true);
         originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);

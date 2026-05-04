@@ -4,6 +4,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.Sonic1FlamethrowerObjectInstance;
@@ -34,7 +35,8 @@ public class TestS1FlamethrowerObjectRendering {
     public void setUp() throws Exception {
         originalRuntime = RuntimeManager.getCurrent();
         RuntimeManager.destroyCurrent();
-        runtimeLevelManager = RuntimeManager.createGameplay().getLevelManager();
+        RuntimeManager.createGameplay();
+        runtimeLevelManager = GameServices.level();
         objectRenderManagerField = LevelManager.class.getDeclaredField("objectRenderManager");
         objectRenderManagerField.setAccessible(true);
         originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);

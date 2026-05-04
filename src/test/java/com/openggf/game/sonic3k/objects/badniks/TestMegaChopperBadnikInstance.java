@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -31,9 +32,9 @@ public class TestMegaChopperBadnikInstance {
         RuntimeManager.destroyCurrent();
         RuntimeManager.createGameplay(SessionManager.openGameplaySession(new Sonic3kGameModule()));
 
-        Field levelStateField = RuntimeManager.getCurrent().getLevelManager().getClass().getDeclaredField("levelGamestate");
+        Field levelStateField = GameServices.level().getClass().getDeclaredField("levelGamestate");
         levelStateField.setAccessible(true);
-        levelStateField.set(RuntimeManager.getCurrent().getLevelManager(), new LevelGamestate());
+        levelStateField.set(GameServices.level(), new LevelGamestate());
     }
 
     @AfterEach
@@ -51,7 +52,7 @@ public class TestMegaChopperBadnikInstance {
 
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0x200, (short) 0x180);
         player.setRingCount(3);
-        RuntimeManager.getCurrent().getCamera().setFocusedSprite(player);
+        GameServices.camera().setFocusedSprite(player);
 
         megaChopper.onTouchResponse(player, new TouchResponseResult(0x17, 0x20, 0x20, TouchCategory.SPECIAL), 0);
         megaChopper.update(0, player);
@@ -85,7 +86,7 @@ public class TestMegaChopperBadnikInstance {
 
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0x200, (short) 0x180);
         player.setRingCount(10);
-        RuntimeManager.getCurrent().getCamera().setFocusedSprite(player);
+        GameServices.camera().setFocusedSprite(player);
 
         megaChopper.onTouchResponse(player, new TouchResponseResult(0x17, 0x20, 0x20, TouchCategory.SPECIAL), 0);
         megaChopper.update(0, player);

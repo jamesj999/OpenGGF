@@ -150,7 +150,12 @@ class TestZoneLayoutMutationPipeline {
 
         RuntimeManager.parkCurrent();
 
-        assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
+        // Post-migration: GameServices accessors resolve through the gameplay
+        // mode context, which parking preserves — so the pipeline remains
+        // visible across parking. The interesting invariant is that queued
+        // mutations are discarded (asserted at the end of the test).
+        assertNull(RuntimeManager.getCurrent(),
+                "park should remove the runtime from the current slot");
 
         GameRuntime resumed = RuntimeManager.resumeParked(gameplayMode);
         assertSame(runtime, resumed);
@@ -291,6 +296,9 @@ class TestZoneLayoutMutationPipeline {
         pipeline.queue(intent(log, "A"));
 
         RuntimeManager.destroyCurrent();
+        // Post-migration: GameServices accessors throw only when the gameplay
+        // mode is gone — destroyCurrent leaves cleared managers attached.
+        SessionManager.clear();
 
         assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
         assertThrows(IllegalStateException.class, GameServices::zoneLayoutMutationPipeline);

@@ -4,6 +4,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
 import com.openggf.game.save.SelectedTeam;
@@ -159,7 +160,7 @@ class TestSonic1LivesHudDonation {
         when(level.getPalette(0)).thenReturn(base);
         Field levelField = com.openggf.level.LevelManager.class.getDeclaredField("level");
         levelField.setAccessible(true);
-        levelField.set(RuntimeManager.getCurrent().getLevelManager(), level);
+        levelField.set(GameServices.level(), level);
 
         try (MockedStatic<CrossGameFeatureProvider> donor = mockStatic(CrossGameFeatureProvider.class)) {
             donor.when(CrossGameFeatureProvider::isS3kDonorActive).thenReturn(true);

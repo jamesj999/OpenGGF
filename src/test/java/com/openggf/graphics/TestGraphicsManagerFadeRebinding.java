@@ -2,6 +2,7 @@ package com.openggf.graphics;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.EngineServices;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +44,8 @@ public class TestGraphicsManagerFadeRebinding {
         setPrivateField(graphicsManager, "uiRenderPipeline", pipeline);
 
         RuntimeManager.createGameplay();
-        FadeManager runtimeFade = RuntimeManager.getCurrent().getFadeManager();
-        Camera runtimeCamera = RuntimeManager.getCurrent().getCamera();
+        FadeManager runtimeFade = GameServices.fade();
+        Camera runtimeCamera = GameServices.camera();
 
         FadeManager resolvedFade = graphicsManager.getFadeManager();
 

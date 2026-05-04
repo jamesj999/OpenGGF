@@ -2,6 +2,7 @@ package com.openggf.level;
 
 import com.openggf.game.EngineServices;
 import com.openggf.game.GameRuntime;
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
@@ -64,9 +65,9 @@ public class TestLevelManagerSlotBackgroundCopy {
 
     private static final class TestLevelManager extends LevelManager {
         private TestLevelManager(GameRuntime runtime) {
-            super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
-                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState(),
-                    runtime.getEngineServices(), runtime.getWorldSession());
+            super(GameServices.camera(), GameServices.sprites(), GameServices.parallax(),
+                    GameServices.collision(), GameServices.water(), GameServices.gameState(),
+                    runtime.getEngineServices(), GameServices.worldSession());
         }
 
         @Override

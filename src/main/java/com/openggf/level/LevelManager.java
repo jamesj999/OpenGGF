@@ -122,7 +122,7 @@ public class LevelManager {
         if (gameModule != null) {
             return gameModule;
         }
-        GameRuntime runtime = RuntimeManager.getActiveRuntime();
+        GameRuntime runtime = GameServices.runtimeOrNull();
         if (runtime != null && runtime.getWorldSession() != null) {
             return runtime.getWorldSession().getGameModule();
         }

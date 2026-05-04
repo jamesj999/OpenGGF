@@ -131,17 +131,21 @@ public class TestGameRuntime {
     }
 
     @Test
-    public void gameServices_runtimeOwnedAccessors_throwWhenRuntimeMissing() {
-        RuntimeManager.setCurrent(null);
+    public void gameServices_gameplayScopedAccessors_throwWhenGameplayModeMissing() {
+        // After the runtime ownership migration, GameServices accessors resolve
+        // through SessionManager.getCurrentGameplayMode(), not through the
+        // GameRuntime façade — so fully clearing the session is required to
+        // exercise the "no active gameplay" error path.
+        com.openggf.game.session.SessionManager.clear();
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, GameServices::camera);
-        assertTrue(ex.getMessage().contains("GameServices.camera() requires an active GameRuntime"));
+        assertTrue(ex.getMessage().contains("GameServices.camera() requires an active gameplay mode"));
 
         IllegalStateException worldSessionEx = assertThrows(IllegalStateException.class, GameServices::worldSession);
-        assertTrue(worldSessionEx.getMessage().contains("GameServices.worldSession() requires an active GameRuntime"));
+        assertTrue(worldSessionEx.getMessage().contains("requires an active WorldSession"));
 
         IllegalStateException moduleEx = assertThrows(IllegalStateException.class, GameServices::module);
-        assertTrue(moduleEx.getMessage().contains("requires an active GameRuntime"));
+        assertTrue(moduleEx.getMessage().contains("requires an active WorldSession"));
     }
 
     @Test
@@ -195,7 +199,11 @@ public class TestGameRuntime {
         RuntimeManager.destroyCurrent();
         assertNull(RuntimeManager.getCurrent(), "Runtime should be null after destroy");
 
-        // GameServices should throw after destroy
+        // After the runtime ownership migration, GameServices throws only when
+        // the active gameplay mode is gone — destroyCurrent leaves the
+        // gameplay-mode managers attached (cleared but present). Clearing the
+        // session simulates a full editor-mode-style teardown.
+        com.openggf.game.session.SessionManager.clear();
         assertThrows(IllegalStateException.class, GameServices::camera);
         assertThrows(IllegalStateException.class, GameServices::gameState);
 
@@ -279,6 +287,9 @@ public class TestGameRuntime {
         assertEquals(1, runtime.getAnimatedTileChannelGraph().channels().size());
 
         RuntimeManager.destroyCurrent();
+        // Post-migration: GameServices accessors throw only when the gameplay
+        // mode is gone — destroyCurrent leaves cleared managers attached.
+        com.openggf.game.session.SessionManager.clear();
 
         assertNull(GameServices.animatedTileChannelGraphOrNull());
         assertThrows(IllegalStateException.class, GameServices::animatedTileChannelGraph);
@@ -307,6 +318,7 @@ public class TestGameRuntime {
         assertFalse(runtime.getSpecialRenderEffectRegistry().isEmpty());
 
         RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
 
         assertNull(GameServices.specialRenderEffectRegistryOrNull());
         assertThrows(IllegalStateException.class, GameServices::specialRenderEffectRegistry);
@@ -324,6 +336,7 @@ public class TestGameRuntime {
         assertFalse(runtime.getZoneLayoutMutationPipeline().isEmpty());
 
         RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
 
         assertNull(GameServices.zoneLayoutMutationPipelineOrNull());
         assertThrows(IllegalStateException.class, GameServices::zoneLayoutMutationPipeline);
