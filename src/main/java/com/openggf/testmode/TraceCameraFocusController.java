@@ -86,6 +86,51 @@ public final class TraceCameraFocusController {
     FocusMode activeMode() { return available.isEmpty() ? null : available.get(activeIndex); }
 
     public void tick(InputHandler inputHandler) {
-        // Implemented in later tasks.
+        boolean paused = pausedSupplier.get();
+        if (!wasPaused && paused) {
+            enterPause();
+        }
+        wasPaused = paused;
+    }
+
+    private void enterPause() {
+        Camera cam = cameraSupplier.get();
+        savedCamX = cam.getX();
+        savedCamY = cam.getY();
+        buildAvailable();
+        activeIndex = 0;
+        reapplyAfterStep = null;
+    }
+
+    private void buildAvailable() {
+        available.clear();
+        available.add(FocusMode.DEFAULT);
+
+        AbstractPlayableSprite engineSidekick = firstSidekickSupplier.get();
+        AbstractPlayableSprite engineMain = mainSpriteSupplier.get();
+        TraceFrame traceFrame = comparator.currentVisualFrame();
+        TraceCharacterState traceSidekick = traceFrame != null ? traceFrame.sidekick() : null;
+
+        if (engineSidekick != null) {
+            available.add(FocusMode.SIDEKICK_ENGINE);
+            if (traceSidekick != null && traceSidekick.present()) {
+                int engX = engineSidekick.getCentreX();
+                int engY = engineSidekick.getCentreY();
+                if (traceSidekick.x() != engX || traceSidekick.y() != engY) {
+                    available.add(FocusMode.SIDEKICK_TRACE);
+                }
+            }
+        }
+
+        if (engineMain != null) {
+            available.add(FocusMode.MAIN_ENGINE);
+            if (traceFrame != null) {
+                int engX = engineMain.getCentreX();
+                int engY = engineMain.getCentreY();
+                if (traceFrame.x() != engX || traceFrame.y() != engY) {
+                    available.add(FocusMode.MAIN_TRACE);
+                }
+            }
+        }
     }
 }
