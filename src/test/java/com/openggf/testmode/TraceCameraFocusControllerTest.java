@@ -451,4 +451,108 @@ class TraceCameraFocusControllerTest {
         org.mockito.Mockito.verify(camera).setX((short) 148);
         org.mockito.Mockito.verify(camera).setY((short) 200);
     }
+
+    @Test
+    void mainEngineLabelDropsEngSuffixWhenTraceMatches() {
+        // Engine and trace main player at the same position -> MAIN_TRACE filtered
+        // out of available -> MAIN_ENGINE has no sibling to disambiguate from,
+        // so the label is just "Main" (no "(Eng)" suffix).
+        mainSprite.set(spriteAt(500, 300));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(500, 300, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to MAIN_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
+        assertEquals("Main", controller.currentLabel());
+    }
+
+    @Test
+    void mainEngineLabelKeepsEngSuffixWhenTraceVariantPresent() {
+        mainSprite.set(spriteAt(500, 300));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(600, 300, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to MAIN_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
+        assertEquals("Main (Eng)", controller.currentLabel());
+    }
+
+    @Test
+    void sidekickEngineLabelDropsEngSuffixWhenTraceMatches() {
+        sidekick.set(spriteAt(450, 320));
+        TraceCharacterState sk = new TraceCharacterState(true,
+                (short) 450, (short) 320, (short) 0, (short) 0, (short) 0,
+                (byte) 0, false, false, 0, 0, 0, -1, -1, -1);
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(500, 300, sk));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to SIDEKICK_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        assertEquals(FocusMode.SIDEKICK_ENGINE, controller.activeMode());
+        assertEquals("Sidekick", controller.currentLabel());
+    }
+
+    @Test
+    void sidekickEngineLabelKeepsEngSuffixWhenTraceVariantPresent() {
+        sidekick.set(spriteAt(450, 320));
+        TraceCharacterState sk = new TraceCharacterState(true,
+                (short) 470, (short) 320, (short) 0, (short) 0, (short) 0,
+                (byte) 0, false, false, 0, 0, 0, -1, -1, -1);
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(500, 300, sk));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to SIDEKICK_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        assertEquals(FocusMode.SIDEKICK_ENGINE, controller.activeMode());
+        assertEquals("Sidekick (Eng)", controller.currentLabel());
+    }
+
+    @Test
+    void traceLabelsAlwaysKeepTraceSuffix() {
+        // Trace variants only appear when positions differ, so they always
+        // have an engine sibling and always need the "(Trace)" suffix to
+        // disambiguate. No suffix-dropping path applies to them.
+        mainSprite.set(spriteAt(500, 300));
+        sidekick.set(spriteAt(450, 320));
+        TraceCharacterState sk = new TraceCharacterState(true,
+                (short) 470, (short) 320, (short) 0, (short) 0, (short) 0,
+                (byte) 0, false, false, 0, 0, 0, -1, -1, -1);
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(600, 300, sk));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+
+        // Cycle until SIDEKICK_TRACE is active.
+        while (controller.activeMode() != FocusMode.SIDEKICK_TRACE) {
+            when(input.isKeyPressed(262)).thenReturn(true);
+            controller.tick(input);
+            when(input.isKeyPressed(262)).thenReturn(false);
+        }
+        assertEquals("Sidekick (Trace)", controller.currentLabel());
+
+        while (controller.activeMode() != FocusMode.MAIN_TRACE) {
+            when(input.isKeyPressed(262)).thenReturn(true);
+            controller.tick(input);
+            when(input.isKeyPressed(262)).thenReturn(false);
+        }
+        assertEquals("Main (Trace)", controller.currentLabel());
+    }
 }

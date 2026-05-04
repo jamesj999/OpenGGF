@@ -73,10 +73,22 @@ public final class TraceCameraFocusController {
         this.pausedSupplier = Objects.requireNonNull(pausedSupplier, "pausedSupplier");
     }
 
-    /** @return current focus label for the HUD, or {@code null} if not paused. */
+    /**
+     * @return current focus label for the HUD, or {@code null} if not paused.
+     *
+     * <p>When the engine and ROM-trace positions for a character match (so the
+     * TRACE variant was filtered out of the available list), the (Eng) suffix
+     * is dropped — there's no second variant to disambiguate from, so the bare
+     * "Sidekick" / "Main" label is unambiguous and less noisy.
+     */
     public String currentLabel() {
         if (!wasPaused || available.isEmpty()) return null;
-        return available.get(activeIndex).label();
+        FocusMode mode = available.get(activeIndex);
+        return switch (mode) {
+            case SIDEKICK_ENGINE -> available.contains(FocusMode.SIDEKICK_TRACE) ? mode.label() : "Sidekick";
+            case MAIN_ENGINE -> available.contains(FocusMode.MAIN_TRACE) ? mode.label() : "Main";
+            default -> mode.label();
+        };
     }
 
     /** Test hook: number of focuses currently available (including DEFAULT). */
