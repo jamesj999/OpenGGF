@@ -6,6 +6,26 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Trace replay now validates camera position pixel-for-pixel.** The
+  BizHawk trace recorders (`tools/bizhawk/s{1,2,3k}_trace_recorder.lua`)
+  already capture ROM `Camera_X_pos` / `Camera_Y_pos` each frame, but
+  `TraceBinder` only displayed them as diagnostic context — divergent
+  engine camera scrolling was silently ignored. `TraceBinder.compareFrame`
+  now produces `camera_x` / `camera_y` field comparisons whenever both
+  ROM trace and engine diagnostics recorded coordinates, with both sides
+  masked `& 0xFFFF` to align ROM's u16 representation with the engine
+  `Camera.getX()/getY()` short return value across the sign boundary.
+  `ToleranceConfig` gains `cameraWarn` / `cameraError` (default 1/1, so
+  any mismatch is an ERROR) and a `withCameraTolerances(warn, error)`
+  opt-out for explicit per-test relaxation; the default is unchanged
+  pixel-perfect. `EngineDiagnostics` now stores `cameraY` alongside
+  `cameraX` and exposes a `formattedWithCamera(x, y, text)` factory so
+  `AbstractTraceReplayTest`'s precollapsed-context wrapper retains
+  numerics for comparison. The new comparator path enabled `S2 EHZ1`
+  trace replay end-to-end and surfaced previously-hidden S3K camera
+  divergences (AIZ/CNZ/MGZ/HCZ replay tests now show `camera_x` or
+  `camera_y` deltas at specific frames, e.g. AIZ1 frame 289 reports
+  `camera_y` expected `0x0396`, actual `0x0390`) for follow-up triage.
 - **S2 EHZ trace replay — Tails frame 3644 slope-resist parity fix.**
   Engine `doSlopeResist` previously applied slope force to all games
   whenever `g_speed == 0` and `|slope_force| >= 0x0D`, mirroring S3K

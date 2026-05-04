@@ -453,8 +453,10 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         if (sprite.isOnObject()) statusByte |= 0x08;
         if (sprite.isInWater()) statusByte |= 0x40;
 
-        // Camera X for cross-reference with ROM trace
-        int camX = GameServices.camera() != null ? GameServices.camera().getX() : -1;
+        // Camera X/Y for ROM-trace cross-reference and camera_x/camera_y
+        // comparison in TraceBinder.
+        int camX = GameServices.camera() != null ? GameServices.camera().getX() & 0xFFFF : -1;
+        int camY = GameServices.camera() != null ? GameServices.camera().getY() & 0xFFFF : -1;
 
         // Placement cursor state for ROM<->engine comparison
         int cursorIdx = -1, leftCursorIdx = -1, fwdCtr = -1, bwdCtr = -1;
@@ -535,8 +537,8 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                     EngineNearbyObjectFormatter.summarise(nearbyObjects));
         }
 
-        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
-                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
+        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte,
+                camX, camY, cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, solidEvent, xSub, ySub);
     }
 
     private void writeReport(DivergenceReport report, int demoIndex) {

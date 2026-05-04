@@ -839,26 +839,33 @@ Specialises the base test for S1 credits demos:
 
 ### 6.5 Comparison — `TraceBinder` / `ToleranceConfig`
 
-`TraceBinder.compareFrame()` compares nine physics fields per character:
+`TraceBinder.compareFrame()` compares nine physics fields per character, plus
+shared trace-frame fields when both ROM and engine recorded them:
 
 | Field | Rule | Default tolerance |
 |---|---|---|
-| `x`, `y` | absolute diff | warn ≥1, error ≥256 |
-| `x_speed`, `y_speed`, `g_speed` | absolute diff; **sign change is ERROR** | warn ≥1, error ≥128 |
-| `angle` | circular-distance diff | warn ≥1, error ≥4 |
+| `x`, `y` | absolute diff | warn ≥1, error ≥1 |
+| `x_speed`, `y_speed`, `g_speed` | absolute diff; **sign change is ERROR** | warn ≥1, error ≥1 |
+| `angle` | circular-distance diff | warn ≥1, error ≥1 |
 | `air`, `rolling` | exact match; any mismatch = ERROR | — |
 | `ground_mode` | exact match of `deriveGroundMode(angle) & 0xFF` | — |
+| `rings` | exact match when both sides recorded; mode-gated | `RingCountMode.FORCE_ERROR` |
+| `camera_x`, `camera_y` | absolute diff (both sides masked `& 0xFFFF`); only fires when ROM trace and `EngineDiagnostics` both recorded camera coords | warn ≥1, error ≥1 |
 
-`ToleranceConfig.DEFAULT`:
+`ToleranceConfig.DEFAULT` is fully strict — any one-pixel/one-unit divergence is an ERROR:
 
 ```java
-ToleranceConfig(positionWarn=1, positionError=256,
-                speedWarn=1, speedError=128, speedSignChangeIsError=true,
-                angleWarn=1, angleError=4)
+ToleranceConfig(positionWarn=1, positionError=1,
+                speedWarn=1, speedError=1, speedSignChangeIsError=true,
+                angleWarn=1, angleError=1,
+                cameraWarn=1, cameraError=1,
+                RingCountMode.FORCE_ERROR)
 ```
 
-Tests can override `tolerances()` — e.g. the S2 buzzer-spawn regression tightens position
-tolerance so that a 1 px spawn drift becomes an ERROR.
+Tests can override `tolerances()` for known parity gaps — e.g. some S3K trace tests opt
+into `withRingCountMode(WARN_ONLY)` while ring loss/donation parity is being chased, and
+`withCameraTolerances(warn, error)` exists for the same reason on the camera fields.
+The default is to fail loudly on any divergence.
 
 `Severity`: `MATCH` / `WARNING` / `ERROR`. `FieldComparison` stores the pair of formatted
 strings plus the severity and delta. `FrameComparison` aggregates all nine (or

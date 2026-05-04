@@ -127,6 +127,20 @@ public class TraceBinder {
             fields.put("rings", compareRingCount(expected.rings(), engineDiag.rings()));
         }
 
+        // Camera coords: only compared when BOTH ROM trace and engine diagnostics
+        // recorded them. Engine values are masked to 16 bits to align with ROM's
+        // u16 Camera_X_pos / Camera_Y_pos representation across the sign boundary.
+        if (engineDiag != null
+                && expected.cameraX() >= 0 && expected.cameraY() >= 0
+                && engineDiag.cameraX() >= 0 && engineDiag.cameraY() >= 0) {
+            fields.put("camera_x", compareNumeric("camera_x",
+                    expected.cameraX() & 0xFFFF, engineDiag.cameraX() & 0xFFFF,
+                    tolerances.cameraWarn(), tolerances.cameraError(), false));
+            fields.put("camera_y", compareNumeric("camera_y",
+                    expected.cameraY() & 0xFFFF, engineDiag.cameraY() & 0xFFFF,
+                    tolerances.cameraWarn(), tolerances.cameraError(), false));
+        }
+
         appendCharacterComparisons(fields,
             normalizeCharacterPrefix(secondaryCharacterLabel),
             expected.sidekick(), actualSidekick);
