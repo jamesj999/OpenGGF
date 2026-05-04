@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EditorCursorState;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.tests.TestEnvironment;
@@ -112,7 +113,20 @@ class TestGameServicesNullableAccessors {
         assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
                 "parked: hasRuntime() must match gameplay mode availability");
 
-        // 4. Fully torn down.
+        // 4. Resumed from editor — the most architecturally sensitive transition,
+        //    since RuntimeManager.resumeParked re-attaches gameplay managers
+        //    (including the migrated activeBonusStageProvider) and sets
+        //    current = parked. A bug specific to the resumed state (e.g., a
+        //    suppressed mode not cleared) would not be caught by the parked
+        //    case alone.
+        SessionManager.enterEditorMode(new EditorCursorState(0, 0));
+        GameplayModeContext resumedMode = SessionManager.resumeGameplayFromEditor();
+        RuntimeManager.resumeParked(resumedMode);
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "post-resume: hasRuntime() must agree with gameplay mode availability");
+        assertTrue(GameServices.hasRuntime(), "post-resume: gameplay should be active");
+
+        // 5. Fully torn down.
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
