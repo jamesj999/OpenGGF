@@ -212,7 +212,11 @@ live in `CHANGELOG.md`; this README keeps only the high-level shape of the relea
   desyncs, using isolated sidekick-style DPLC banks and the same sprite layering priorities as the
   live characters while drawing behind them. The live trace visualizer now pauses on first desync,
   shows the configured resume key in the HUD, and keeps the trace picker open when a relaunch is
-  attempted during the return-to-menu fade.
+  attempted during the return-to-menu fade. Pause during a trace session also exposes a camera
+  focus cycler: P1 LEFT/RIGHT cycle the viewpoint between Default, the engine and ROM-trace
+  sidekick, and the engine and ROM-trace main player, with the active selection shown in the
+  top-right HUD; the original camera is restored on unpause and gameplay determinism is preserved
+  across frame-step.
 - **Trace recorder:** S3K v6.6 AIZ diagnostics expose tree/boundary pre/post state at the F4679
   sidekick boundary frame, transition-floor SolidObjectTop decisions at the F5415 frame, and
   fire-handoff terrain/SolidObjectTop state around F5435 while keeping trace data comparison-only;

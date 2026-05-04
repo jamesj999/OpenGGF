@@ -59,6 +59,7 @@ import com.openggf.game.save.SaveReason;
 import com.openggf.game.save.SessionSaveRequests;
 import com.openggf.game.session.ActiveGameplayTeamResolver;
 import com.openggf.game.session.SessionManager;
+import com.openggf.testmode.TraceCameraFocusController;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -173,6 +174,9 @@ public class GameLoop {
 
     // Listener for game mode changes (used by Engine to update projection)
     private GameModeChangeListener gameModeChangeListener;
+
+    // Optional trace camera focus controller — ticked at the top of every stepInternal()
+    private TraceCameraFocusController traceCameraFocusController;
 
     /**
      * Callback interface for game mode changes.
@@ -308,6 +312,10 @@ public class GameLoop {
 
     public void setGameModeChangeListener(GameModeChangeListener listener) {
         this.gameModeChangeListener = listener;
+    }
+
+    public void setTraceCameraFocusController(TraceCameraFocusController controller) {
+        this.traceCameraFocusController = controller;
     }
 
     public GameMode getCurrentGameMode() {
@@ -469,6 +477,16 @@ public class GameLoop {
         // so the key must be released and pressed again to step another frame
         int frameStepKey = configService.getInt(SonicConfiguration.FRAME_STEP_KEY);
         boolean doFrameStep = isPaused() && inputHandler.isKeyPressed(frameStepKey);
+
+        // Tick the trace test-mode camera focus controller AFTER toggleUserPause so
+        // it observes the post-toggle pause state. This guarantees that on the
+        // unpause-press frame the controller restores the original camera BEFORE
+        // any sprite/object/manager update path samples camera position later in
+        // this method. Must run before the paused early-return so the same call
+        // also handles the pause-enter snapshot and the frame-step camera restore.
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.tick(inputHandler);
+        }
 
         // When paused (and not frame stepping), still update input handler so we can detect keys
         if (isPaused() && !doFrameStep) {
