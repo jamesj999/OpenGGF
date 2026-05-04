@@ -19,12 +19,18 @@ class TestCrossGameFeatureProviderRefactor {
 
     @BeforeEach
     void setUp() {
+        // Clear lingering session/runtime state from prior tests in the same fork
+        // so resolveHostGameId() falls back to the GameModuleRegistry bootstrap
+        // default that this fixture configures via setCurrent().
+        RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     @AfterEach
     void cleanup() {
         RuntimeManager.destroyCurrent();
+        com.openggf.game.session.SessionManager.clear();
         CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
         RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());

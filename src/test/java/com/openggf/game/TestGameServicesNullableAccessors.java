@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.tests.TestEnvironment;
 import org.junit.jupiter.api.AfterEach;
@@ -78,6 +79,76 @@ class TestGameServicesNullableAccessors {
         assertThrows(IllegalStateException.class, GameServices::animatedTileChannelGraph);
         assertThrows(IllegalStateException.class, GameServices::specialRenderEffectRegistry);
         assertThrows(IllegalStateException.class, GameServices::advancedRenderModeController);
+    }
+
+    /**
+     * Predicate-equivalence invariant: {@link GameServices#hasRuntime()} must
+     * agree with the underlying {@code gameplayModeOrNull() != null} check
+     * across state transitions. Before the fix, {@code hasRuntime()} could
+     * return {@code false} (RuntimeManager.current cleared by parkCurrent)
+     * while gameplay-scoped accessors still returned non-null state from a
+     * still-live, suppressed gameplay mode context.
+     */
+    @Test
+    void hasRuntimeAgreesWithGameplayModeAcrossLifecycle() {
+        // 1. No runtime, no session.
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "no-runtime: hasRuntime() must match gameplay mode availability");
+        assertFalse(GameServices.hasRuntime());
+
+        // 2. Active gameplay runtime.
+        GameRuntime runtime = RuntimeManager.createGameplay();
+        assertNotNull(runtime);
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "active: hasRuntime() must match gameplay mode availability");
+        assertTrue(GameServices.hasRuntime());
+
+        // 3. Parked runtime — the gameplay mode context can remain live in the
+        //    SessionManager while RuntimeManager.current is null. Without the
+        //    fix, hasRuntime() returns false but cameraOrNull() can return non-null.
+        RuntimeManager.parkCurrent();
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "parked: hasRuntime() must match gameplay mode availability");
+
+        // 4. Fully torn down.
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "post-destroy: hasRuntime() must match gameplay mode availability");
+        assertFalse(GameServices.hasRuntime());
+    }
+
+    /**
+     * {@link GameServices#bonusStage()} must NOT call {@code RuntimeManager.getCurrent()}.
+     * That method has a side effect: if the current runtime's gameplay mode
+     * doesn't match the SessionManager's current mode, it destroys the runtime.
+     * Repeated bonusStage() calls should be safe and stable.
+     */
+    @Test
+    void bonusStageDoesNotDestroyLiveRuntimeOnRepeatedCalls() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
+        GameplayModeContext mode = SessionManager.getCurrentGameplayMode();
+        assertNotNull(mode);
+        assertSame(runtime, RuntimeManager.getActiveRuntime());
+
+        // First call returns NoOp default.
+        BonusStageProvider firstCall = GameServices.bonusStage();
+        assertNotNull(firstCall);
+
+        // Runtime must still be live and unchanged.
+        assertSame(runtime, RuntimeManager.getActiveRuntime(),
+                "bonusStage() must not swap or destroy the active runtime");
+        assertSame(mode, SessionManager.getCurrentGameplayMode());
+
+        // Many repeated calls remain stable.
+        for (int i = 0; i < 5; i++) {
+            BonusStageProvider repeated = GameServices.bonusStage();
+            assertSame(firstCall, repeated, "bonusStage() must return the same provider when unchanged");
+            assertSame(runtime, RuntimeManager.getActiveRuntime(),
+                    "bonusStage() must not destroy the active runtime on repeated calls");
+        }
     }
 }
 

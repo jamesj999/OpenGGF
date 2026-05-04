@@ -249,6 +249,11 @@ public final class RuntimeManager {
                 parkedMode.getSpecialRenderEffectRegistry(),
                 parkedMode.getAdvancedRenderModeController(),
                 parkedMode.getZoneLayoutMutationPipeline());
+        // Carry the bonus-stage provider across the editor detour. The
+        // provider lives on the gameplay mode context (per-mode lifetime)
+        // but should survive a parked->resumed handoff like other transferred
+        // managers.
+        gameplayMode.setActiveBonusStageProvider(parkedMode.getActiveBonusStageProvider());
         parked.clearTransientFrameState();
         parked.updateGameplayModeContext(gameplayMode);
         current = parked;

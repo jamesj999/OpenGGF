@@ -1,9 +1,11 @@
 package com.openggf.game.session;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.BonusStageProvider;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.NoOpBonusStageProvider;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
 import com.openggf.game.palette.PaletteOwnershipRegistry;
@@ -49,6 +51,8 @@ public final class GameplayModeContext implements ModeContext {
     private SpecialRenderEffectRegistry specialRenderEffectRegistry;
     private AdvancedRenderModeController advancedRenderModeController;
     private ZoneLayoutMutationPipeline zoneLayoutMutationPipeline;
+
+    private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
     public GameplayModeContext(WorldSession worldSession) {
         this(worldSession, 0, 0, null);
@@ -223,6 +227,22 @@ public final class GameplayModeContext implements ModeContext {
 
     public ZoneLayoutMutationPipeline getZoneLayoutMutationPipeline() {
         return zoneLayoutMutationPipeline;
+    }
+
+    /**
+     * Returns the active bonus stage provider, or
+     * {@link NoOpBonusStageProvider#INSTANCE} when no bonus stage is active.
+     * Owned here (gameplay-scoped) so callers can resolve it via
+     * {@link com.openggf.game.session.SessionManager#getCurrentGameplayMode()}
+     * without consulting {@code RuntimeManager.getCurrent()}, which has
+     * mode-transition side effects.
+     */
+    public BonusStageProvider getActiveBonusStageProvider() {
+        return activeBonusStageProvider;
+    }
+
+    public void setActiveBonusStageProvider(BonusStageProvider provider) {
+        this.activeBonusStageProvider = provider != null ? provider : NoOpBonusStageProvider.INSTANCE;
     }
 
     @Override

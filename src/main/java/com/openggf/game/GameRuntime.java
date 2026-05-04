@@ -25,8 +25,9 @@ import java.util.Objects;
 
 /**
  * Thin coordinator for the active gameplay session. Holds engine services,
- * the world session, the gameplay mode context, and the active bonus stage
- * provider; everything else is delegated. Constructed and managed by
+ * the world session, and the gameplay mode context; everything else
+ * (including the active bonus stage provider, now owned by
+ * {@link GameplayModeContext}) is delegated. Constructed and managed by
  * {@link RuntimeManager}.
  * <p>
  * Following the runtime ownership migration
@@ -49,9 +50,9 @@ import java.util.Objects;
  * DebugRenderer, GameModuleRegistry.
  * <p>
  * <b>Future direction:</b> with field ownership now off this class, a
- * follow-up could fold {@code engineServices} and {@code activeBonusStageProvider}
- * onto {@link GameplayModeContext} and let {@link RuntimeManager} track the
- * mode context directly — making this façade redundant. That elimination is
+ * follow-up could fold {@code engineServices} onto {@link GameplayModeContext}
+ * and let {@link RuntimeManager} track the mode context directly — making this
+ * façade redundant. That elimination is
  * deferred because the 50+ call sites that read managers via
  * {@code RuntimeManager.getCurrent().getX()} would need to be migrated to
  * {@code SessionManager.getCurrentGameplayMode().getX()} (or moved through
@@ -65,8 +66,6 @@ public final class GameRuntime {
     private final EngineServices engineServices;
     private final WorldSession worldSession;
     private GameplayModeContext gameplayMode;
-
-    private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
     /**
      * Package-private constructor — only {@link RuntimeManager} creates these.
@@ -144,10 +143,20 @@ public final class GameRuntime {
 
     public ZoneLayoutMutationPipeline getZoneLayoutMutationPipeline() { return gameplayMode.getZoneLayoutMutationPipeline(); }
 
-    public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
+    /**
+     * Delegates to {@link GameplayModeContext#getActiveBonusStageProvider()}.
+     * The provider lives on the gameplay mode context (gameplay-scoped lifetime);
+     * this façade method is kept for source compatibility with existing callers.
+     */
+    public BonusStageProvider getActiveBonusStageProvider() {
+        return gameplayMode.getActiveBonusStageProvider();
+    }
 
+    /**
+     * Delegates to {@link GameplayModeContext#setActiveBonusStageProvider(BonusStageProvider)}.
+     */
     public void setActiveBonusStageProvider(BonusStageProvider provider) {
-        this.activeBonusStageProvider = provider != null ? provider : NoOpBonusStageProvider.INSTANCE;
+        gameplayMode.setActiveBonusStageProvider(provider);
     }
 
     /**

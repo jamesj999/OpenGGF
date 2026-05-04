@@ -129,33 +129,39 @@ class TestObjectServicesExpansion {
 
     @Test
     void defaultObjectServices_bonusStageActionsUseInjectedRuntimeProviderNotActiveRuntime() {
+        // After the activeBonusStageProvider migration to GameplayModeContext,
+        // the provider is gameplay-scoped (not per-runtime). DefaultObjectServices
+        // captures the provider snapshot at construction time. This test verifies
+        // that the captured snapshot is used by bonus-stage forwarding methods,
+        // even after the active runtime's provider is changed afterwards.
         com.openggf.game.GameRuntime runtimeA = RuntimeManager.getCurrent();
         CountingBonusStageProvider providerA = new CountingBonusStageProvider();
         runtimeA.setActiveBonusStageProvider(providerA);
+
+        // Capture providerA into the services BEFORE switching the active runtime.
+        DefaultObjectServices servicesFromRuntimeA = new DefaultObjectServices(runtimeA);
 
         com.openggf.game.GameRuntime runtimeB = RuntimeManager.createGameplay();
         CountingBonusStageProvider providerB = new CountingBonusStageProvider();
         runtimeB.setActiveBonusStageProvider(providerB);
 
         try {
-            DefaultObjectServices servicesFromRuntimeA = new DefaultObjectServices(runtimeA);
-
             servicesFromRuntimeA.requestBonusStageExit();
             servicesFromRuntimeA.addBonusStageRings(7);
             servicesFromRuntimeA.setBonusStageShield(com.openggf.game.ShieldType.LIGHTNING);
 
             assertEquals(1, providerA.requestExitCount,
-                    "requestBonusStageExit should call provider on the injected runtime");
+                    "requestBonusStageExit should call provider captured at construction");
             assertEquals(7, providerA.ringsAdded,
-                    "addBonusStageRings should add rings on the injected runtime provider");
+                    "addBonusStageRings should add rings on the captured provider");
             assertEquals(1, providerA.shieldsSet,
-                    "setBonusStageShield should forward to the injected runtime provider");
+                    "setBonusStageShield should forward to the captured provider");
             assertEquals(0, providerB.requestExitCount,
-                    "active runtime provider should not be used when runtime is injected");
+                    "later-swapped runtime provider must not receive captured-services calls");
             assertEquals(0, providerB.ringsAdded,
-                    "active runtime provider should not receive injected runtime calls");
+                    "later-swapped runtime provider must not receive captured-services calls");
             assertEquals(0, providerB.shieldsSet,
-                    "active runtime provider should not receive injected runtime calls");
+                    "later-swapped runtime provider must not receive captured-services calls");
         } finally {
             RuntimeManager.destroyCurrent();
             RuntimeManager.setCurrent(runtimeA);

@@ -54,6 +54,16 @@ public final class GameServices {
         return mode;
     }
 
+    /**
+     * @deprecated No production callers remain; gameplay-scoped state has moved
+     * to {@link GameplayModeContext}. Prefer {@link #requireGameplayMode(String)}
+     * which avoids the {@link RuntimeManager#getCurrent()} mode-transition side
+     * effect (silent runtime destroy on mode mismatch). Kept for source
+     * compatibility; do not introduce new callers.
+     */
+    // Still used by: (none — all GameServices callers migrated). Kept private
+    // and deprecated until ready to delete.
+    @Deprecated
     private static GameRuntime requireRuntime(String accessor) {
         GameRuntime rt = RuntimeManager.getCurrent();
         if (rt == null) {
@@ -64,8 +74,16 @@ public final class GameServices {
         return rt;
     }
 
+    /**
+     * Returns {@code true} when a gameplay mode is active and core managers are
+     * attached. Unified with {@link #gameplayModeOrNull()} so callers that guard
+     * on {@code hasRuntime()} and read via {@code gameplayModeOrNull()} (or any
+     * of the {@code *OrNull()} accessors) see consistent results across
+     * {@link RuntimeManager#parkCurrent()} (which clears the runtime but leaves
+     * the gameplay mode live in {@link com.openggf.game.session.SessionManager}).
+     */
     public static boolean hasRuntime() {
-        return RuntimeManager.getActiveRuntime() != null;
+        return gameplayModeOrNull() != null;
     }
 
     public static GameRuntime runtimeOrNull() {
@@ -153,8 +171,8 @@ public final class GameServices {
     }
 
     public static BonusStageProvider bonusStageOrNull() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getActiveBonusStageProvider() : null;
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getActiveBonusStageProvider() : null;
     }
 
     public static SolidExecutionRegistry solidExecutionRegistryOrNull() {
@@ -252,7 +270,7 @@ public final class GameServices {
      * via {@link BonusStageProvider#requestExit()}.
      */
     public static BonusStageProvider bonusStage() {
-        return requireRuntime("bonusStage").getActiveBonusStageProvider();
+        return requireGameplayMode("bonusStage").getActiveBonusStageProvider();
     }
 
     public static SolidExecutionRegistry solidExecutionRegistry() {

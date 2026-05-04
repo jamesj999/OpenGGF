@@ -6,6 +6,36 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **GameServices: unified `hasRuntime()` predicate with `gameplayModeOrNull()`,
+  migrated `bonusStage()` accessor off `RuntimeManager.getCurrent()`.**
+  `GameServices.hasRuntime()` previously checked
+  `RuntimeManager.getActiveRuntime() != null` while `gameplayModeOrNull()` and
+  every `*OrNull()` accessor checked
+  `SessionManager.getCurrentGameplayMode() != null && mode.getCamera() != null`.
+  After `RuntimeManager.parkCurrent()`, those two predicates disagreed:
+  `hasRuntime()` returned `false` while `gameplayModeOrNull()` could still
+  return non-null (the gameplay mode lives on past the runtime in
+  `SessionManager`). Code that guarded on `hasRuntime()` and then read via the
+  `*OrNull()` accessors could read parked-context state. Unified
+  `hasRuntime()` to delegate to `gameplayModeOrNull() != null` so both
+  predicates always agree.
+  Separately, `GameServices.bonusStage()` previously called
+  `requireRuntime()` -> `RuntimeManager.getCurrent()`, which has a side
+  effect: when the current runtime's `GameplayModeContext` no longer matches
+  `SessionManager.getCurrentGameplayMode()` it calls `current.destroy()` and
+  clears `current`. Calling `bonusStage()` during a mode transition could
+  silently destroy a live runtime. Migrated the active bonus-stage provider
+  field off `GameRuntime` onto `GameplayModeContext` (gameplay-scoped
+  lifetime, transferred across `parkCurrent`/`resumeParked`); `GameRuntime.
+  getActiveBonusStageProvider()` and `setActiveBonusStageProvider()` now
+  delegate to the mode context for source compatibility. `GameServices.
+  bonusStage()` and `bonusStageOrNull()` now resolve through
+  `requireGameplayMode(...)` / `gameplayModeOrNull()` and never call
+  `RuntimeManager.getCurrent()`. `requireRuntime(...)` is now unused inside
+  `GameServices`, marked `@Deprecated`. New tests cover the predicate-
+  equivalence invariant across no-runtime/active/parked/destroy transitions
+  and verify that repeated `bonusStage()` calls do not destroy the active
+  runtime. Architectural fix Task B1.
 - **Engine: reset GL state before post-fade `CREDITS_DEMO` sprite pass.**
   In `Engine.display()`, the credits-demo branch that re-renders sprites
   on top of the fade overlay (`shouldRenderDemoSpritesOverFade()`) now
