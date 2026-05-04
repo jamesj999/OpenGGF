@@ -89,6 +89,8 @@ public final class TraceCameraFocusController {
         boolean paused = pausedSupplier.get();
         if (!wasPaused && paused) {
             enterPause();
+        } else if (wasPaused && !paused) {
+            exitPause();
         }
         wasPaused = paused;
     }
@@ -98,6 +100,15 @@ public final class TraceCameraFocusController {
         savedCamX = cam.getX();
         savedCamY = cam.getY();
         buildAvailable();
+        activeIndex = 0;
+        reapplyAfterStep = null;
+    }
+
+    private void exitPause() {
+        Camera cam = cameraSupplier.get();
+        cam.setX(savedCamX);
+        cam.setY(savedCamY);
+        available.clear();
         activeIndex = 0;
         reapplyAfterStep = null;
     }

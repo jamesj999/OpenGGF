@@ -148,4 +148,33 @@ class TraceCameraFocusControllerTest {
         TraceCameraFocusController controller = newController();
         assertNull(controller.currentLabel());
     }
+
+    @Test
+    void unpauseRestoresCameraToSavedPosition() {
+        when(comparator.currentVisualFrame()).thenReturn(null);
+        TraceCameraFocusController controller = newController();
+
+        paused.set(true);
+        when(camera.getX()).thenReturn((short) 1234);
+        when(camera.getY()).thenReturn((short) 567);
+        controller.tick(input);  // pause-edge enter, snapshots 1234/567
+
+        paused.set(false);
+        controller.tick(input);  // pause-edge exit, must restore
+
+        org.mockito.Mockito.verify(camera).setX((short) 1234);
+        org.mockito.Mockito.verify(camera).setY((short) 567);
+    }
+
+    @Test
+    void labelClearedAfterUnpause() {
+        when(comparator.currentVisualFrame()).thenReturn(null);
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+        assertEquals("Default", controller.currentLabel());
+        paused.set(false);
+        controller.tick(input);
+        assertNull(controller.currentLabel());
+    }
 }
