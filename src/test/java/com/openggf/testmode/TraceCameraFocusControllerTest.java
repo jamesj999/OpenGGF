@@ -262,8 +262,9 @@ class TraceCameraFocusControllerTest {
         org.mockito.Mockito.verify(camera).setY((short) 200);
         org.mockito.Mockito.clearInvocations(camera);
 
-        // Next tick after step: re-apply MAIN_ENGINE focus.
-        controller.tick(input);
+        // Post-update (after gameplay update, before render): re-apply MAIN_ENGINE focus
+        // within the same frame so the rendered frame shows the focus camera (no flicker).
+        controller.postUpdate();
         org.mockito.Mockito.verify(camera).setX((short) 840);
         org.mockito.Mockito.verify(camera).setY((short) 388);
         assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
@@ -285,15 +286,20 @@ class TraceCameraFocusControllerTest {
         when(input.isKeyPressed(262)).thenReturn(false);
         assertEquals(FocusMode.SIDEKICK_ENGINE, controller.activeMode());
 
-        // Frame-step: sidekick despawns mid-step.
+        // Frame-step: pre-update tick restores savedCam, gameplay runs and the
+        // sidekick despawns during the update.
         when(input.isKeyPressed(70)).thenReturn(true);
         controller.tick(input);
         when(input.isKeyPressed(70)).thenReturn(false);
         sidekick.set(null);
 
-        // Next tick rebuilds available list; SIDEKICK_ENGINE is gone -> fall back to DEFAULT.
-        controller.tick(input);
+        // Post-update (same frame, after the update): rebuild available list;
+        // SIDEKICK_ENGINE is gone, fall back to DEFAULT before render.
+        controller.postUpdate();
         assertEquals(FocusMode.DEFAULT, controller.activeMode());
+        // wasPaused is still true from the pre-update tick, so the label reflects
+        // the new focus rather than the stale SIDEKICK_ENGINE value.
+        assertEquals("Default", controller.currentLabel());
     }
 
     @Test
@@ -317,5 +323,50 @@ class TraceCameraFocusControllerTest {
         org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).setShakeOffsets(
                 org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void postUpdateIsNoOpWhenNoFrameStepRanThisTick() {
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);  // enter pause
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to MAIN_ENGINE
+        when(input.isKeyPressed(262)).thenReturn(false);
+        org.mockito.Mockito.clearInvocations(camera);
+
+        controller.postUpdate();  // no frame-step happened -> nothing to do.
+
+        org.mockito.Mockito.verifyNoInteractions(camera);
+        assertEquals(FocusMode.MAIN_ENGINE, controller.activeMode());
+    }
+
+    @Test
+    void frameStepNoFlickerCameraEndsAtFocusBeforeRender() {
+        // Verifies the no-flicker invariant: by the time the post-update hook
+        // returns (i.e. just before the engine's draw() runs), the camera holds
+        // the focus position, NOT the saved-camera position. The saved-camera
+        // write was a transient that only existed during the gameplay update.
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(1000, 500, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);  // enter pause
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);  // cycle to MAIN_ENGINE -> camera at (840, 388)
+        when(input.isKeyPressed(262)).thenReturn(false);
+
+        when(input.isKeyPressed(70)).thenReturn(true);  // frame-step
+        controller.tick(input);  // pre-update: camera transiently restored to savedCam
+        when(input.isKeyPressed(70)).thenReturn(false);
+        controller.postUpdate();  // post-update: camera back to focus
+
+        // The LAST setX/setY observed must be the focus position, not the saved
+        // camera. Mockito InOrder lets us assert ordering on a single mock.
+        var inOrder = org.mockito.Mockito.inOrder(camera);
+        inOrder.verify(camera).setX((short) 100);  // savedCam restore (transient)
+        inOrder.verify(camera).setX((short) 840);  // focus re-applied (final)
     }
 }

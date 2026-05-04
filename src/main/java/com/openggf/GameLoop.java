@@ -240,6 +240,19 @@ public class GameLoop {
     private void refreshRuntimeBindings() {
         GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent(engineServices);
         if (currentRuntime == null) {
+            // Runtime has been torn down (e.g. trace teardown returning to
+            // master title). Clear cached references so resolveFadeManager()
+            // falls back to the graphics-owned bootstrap manager rather than
+            // a destroyed runtime FadeManager that the UI pipeline no longer
+            // ticks — which would otherwise leave fade callbacks orphaned.
+            this.runtime = null;
+            this.spriteManager = null;
+            this.camera = null;
+            this.timerManager = null;
+            this.levelManager = null;
+            this.gameState = null;
+            this.fadeManager = null;
+            this.waterSystem = null;
             return;
         }
         this.runtime = currentRuntime;
@@ -866,6 +879,15 @@ public class GameLoop {
             if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_INSERT)) {
                 com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugSourceFilter();
             }
+        }
+
+        // Post-update hook for the trace test-mode camera focus controller.
+        // Runs after gameplay updates but before the frame is rendered, so the
+        // controller can re-apply the chosen focus camera within the same frame
+        // a frame-step ran in. No flicker; sidekick despawns mid-step are handled
+        // here (rebuild + fall back to DEFAULT before render).
+        if (traceCameraFocusController != null) {
+            traceCameraFocusController.postUpdate();
         }
 
         inputHandler.update();

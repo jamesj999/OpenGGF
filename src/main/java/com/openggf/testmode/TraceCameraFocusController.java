@@ -94,17 +94,11 @@ public final class TraceCameraFocusController {
         } else if (paused) {
             int frameStepKey = configService.getInt(SonicConfiguration.FRAME_STEP_KEY);
             boolean frameStep = inputHandler.isKeyPressed(frameStepKey);
-            if (reapplyAfterStep != null) {
-                // The previous tick was a frame-step; gameplay has now advanced one step.
-                // Rebuild available list (spawn state may have changed) and re-apply the
-                // focus the user had selected, falling back to DEFAULT if it's gone.
-                FocusMode prev = reapplyAfterStep;
-                reapplyAfterStep = null;
-                buildAvailable();
-                int idx = available.indexOf(prev);
-                activeIndex = idx >= 0 ? idx : 0;
-                applyFocus(available.get(activeIndex));
-            } else if (frameStep) {
+            if (frameStep) {
+                // Restore saved camera so the upcoming gameplay update sees the
+                // original viewpoint (object placement windows etc.). The focus
+                // is re-applied in postUpdate(), which runs after the update but
+                // before render, so the user never sees a flicker to default.
                 reapplyAfterStep = available.get(activeIndex);
                 Camera cam = cameraSupplier.get();
                 cam.setX(savedCamX);
@@ -114,6 +108,25 @@ public final class TraceCameraFocusController {
             }
         }
         wasPaused = paused;
+    }
+
+    /**
+     * Called by {@link com.openggf.GameLoop} at the end of each {@code stepInternal}
+     * pass that ran a gameplay update. On the frame-step path, this rebuilds the
+     * available focus list (spawn state may have changed during the step) and
+     * re-applies the focus the user had selected, falling back to DEFAULT if it
+     * is no longer available. Doing this before render means the rendered frame
+     * already shows the focus camera, eliminating the flicker that a deferred
+     * (next-frame) re-apply would cause.
+     */
+    public void postUpdate() {
+        if (reapplyAfterStep == null) return;
+        FocusMode prev = reapplyAfterStep;
+        reapplyAfterStep = null;
+        buildAvailable();
+        int idx = available.indexOf(prev);
+        activeIndex = idx >= 0 ? idx : 0;
+        applyFocus(available.get(activeIndex));
     }
 
     private void handleCycleInput(InputHandler inputHandler) {
