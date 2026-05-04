@@ -1848,6 +1848,7 @@ public class ObjectManager {
                     }
                 }
                 inst.onUnload();
+                solidContacts.evictLatchForDestroyedInstance(inst);
                 iter.remove();
                 changed = true;
             }
@@ -1902,6 +1903,7 @@ public class ObjectManager {
             placement.removeFromActiveForUnload(spawn);
         } else {
             placement.removeFromActive(spawn);
+            solidContacts.evictLatchForDestroyedSpawn(spawn);
         }
     }
 
@@ -4203,6 +4205,42 @@ public class ObjectManager {
             }
             Object key = airUnseatLatchKeyFor(instance);
             return key != null && set.contains(key);
+        }
+
+        /**
+         * Drops latch entries for {@code key} from every per-player set.
+         * Called when an object is permanently destroyed (no respawn) so the
+         * key — typically an instance reference for spawnless dynamic objects
+         * — does not pin the slot in memory for the rest of the level.
+         * Out-of-range unloads must NOT call this: ROM's a0.d6 latch survives
+         * spawn reloads and the engine intentionally mirrors that.
+         */
+        private void evictLatchKey(Object key) {
+            if (key == null) {
+                return;
+            }
+            for (Set<Object> set : objectStandingBitSet.values()) {
+                set.remove(key);
+            }
+            for (Set<Object> set : objectPushingBitSet.values()) {
+                set.remove(key);
+            }
+            for (Set<Object> set : objectStandingBitSnapshot.values()) {
+                set.remove(key);
+            }
+        }
+
+        void evictLatchForDestroyedSpawn(ObjectSpawn spawn) {
+            evictLatchKey(spawn);
+        }
+
+        void evictLatchForDestroyedInstance(ObjectInstance instance) {
+            // Mirror airUnseatLatchKeyFor: spawn-backed instances were keyed
+            // by spawn (already evicted via evictLatchForDestroyedSpawn);
+            // spawnless dynamic objects were keyed by the instance reference.
+            if (instance != null && instance.getSpawn() == null) {
+                evictLatchKey(instance);
+            }
         }
         private PlayableEntity currentPlayer; // set during update() for internal use
 
