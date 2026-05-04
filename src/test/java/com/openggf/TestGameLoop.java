@@ -164,6 +164,31 @@ public class TestGameLoop {
         assertTrue(fadeManager.isActive(), "Bootstrap fade should start while no gameplay runtime exists");
     }
 
+    @Test
+    public void testSetRuntimeNullClearsCachedFadeManagerSoBootstrapTakesOver() throws Exception {
+        // Regression: trace test mode left GameLoop holding a reference to
+        // the destroyed runtime's FadeManager after teardown, so the next
+        // master-title fade-to-black ran on an orphaned manager that the UI
+        // pipeline never ticked — leaving the user stuck on the master title.
+        FadeManager runtimeFade = (FadeManager) getPrivateField(gameLoop, "fadeManager");
+        assertNotNull(runtimeFade, "Test setup binds a runtime, so fadeManager should be cached");
+
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        gameLoop.setRuntime(null);
+
+        assertNull(getPrivateField(gameLoop, "fadeManager"),
+                "After runtime teardown the cached FadeManager must be cleared");
+        assertNull(getPrivateField(gameLoop, "runtime"),
+                "After runtime teardown the cached runtime must be cleared");
+
+        FadeManager bootstrapFade = RuntimeManager.currentEngineServices().graphics().getFadeManager();
+        Method resolve = GameLoop.class.getDeclaredMethod("resolveFadeManager");
+        resolve.setAccessible(true);
+        assertSame(bootstrapFade, resolve.invoke(gameLoop),
+                "resolveFadeManager must fall back to the bootstrap FadeManager once the runtime is gone");
+    }
+
     // ==================== Game Mode Listener Tests ====================
 
     @Test
