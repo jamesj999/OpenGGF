@@ -6,6 +6,32 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Trace replay: hardened invariant guard and removed S1 credits-demo
+  hydration.** `AbstractCreditsDemoTraceReplayTest.applyFrameZeroPlayerSnapshot`
+  and `setupLzDemoState` previously read `TraceEvent.StateSnapshot.fields()`
+  and `TraceFrame.rings()/cameraX()/cameraY()` on frame 0 and wrote ~10
+  player/camera fields back into the engine — exactly the per-frame
+  comparison-only invariant violation that CLAUDE.md "Trace Replay Tests"
+  forbids. `TestTraceReplayInvariantGuard` did not catch this because its
+  forbidden-string list missed the new patterns. The two debug probes
+  (`DebugS1Credits03LzDoorProbe`, `DebugS1Credits05SbzJunctionProbe`)
+  inherited the same anti-pattern. Replaced the hydration with a
+  deterministic constants-only `Sonic1CreditsDemoBootstrap` helper that sets
+  the per-demo starting animation pose
+  (Demo 0 = WALK, demos 1-7 = WAIT) and the LZ Act 3 lamppost state from
+  `Sonic1CreditsDemoData` constants. The LZ ring count is set to 0 (matching
+  ROM `Lamp_LoadInfo` in `_incObj/79 Lamppost.asm`, which loads
+  `v_lamp_rings` then immediately clears `v_rings` to 0) instead of the
+  `LZ_LAMP_RINGS=13` table value that ROM loads but never keeps. The guard
+  now rejects: any `applyFrameZeroPlayerSnapshot(`/`applyCustomRadii(` call,
+  any `fields.get("...")` snapshot read, any `frameZero != null` /
+  `recordedRings = frameZero` / `recordedCamera...` local-variable binding
+  that downstream-feeds engine setters, and a generic regex
+  `\.set[A-Z]\w*\([^)]*\b(state|frame|snapshot|sn)\.\w+` that catches setter
+  calls reading directly from a trace-side identifier. All 8 S1 credits demo
+  trace replay tests retain their pre-existing pass/fail profile after the
+  cleanup (3 pass, 5 fail on long-standing engine divergences unrelated to
+  this task).
 - **S3K: HCZ object art now ROM-only — eliminated `docs/skdisasm/` runtime
   reads.** `Sonic3kObjectArtProvider` previously parsed three HCZ object
   mapping tables (`Map_HCZMiniboss`, `Map_HCZEndBoss`, `Map_HCZWaterWall`) by

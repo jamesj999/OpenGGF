@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -66,11 +67,29 @@ class TestTraceReplayInvariantGuard {
         return sources;
     }
 
+    /**
+     * Catches setter calls whose argument expression reads from a trace
+     * snapshot/frame field. The pattern below matches a leading dot then
+     * a setter, then anywhere inside the parenthesised argument list one of
+     * the well-known trace-side identifiers ({@code state}, {@code frame},
+     * {@code snapshot}, {@code sn}, {@code fields.get}). This is a conservative
+     * heuristic but it would have caught
+     * {@code applyFrameZeroPlayerSnapshot}'s
+     * {@code player.setControlLocked(controlLocked)} chain because each value
+     * is parsed via {@code parseBoolean(fields.get(...))} earlier in the same
+     * method, and the fields-derived locals are detected via the dedicated
+     * {@code fields.get(} check below.
+     */
+    private static final Pattern SETTER_FROM_TRACE_FIELD = Pattern.compile(
+            "\\.set[A-Z]\\w*\\([^)]*\\b(state|frame|snapshot|sn)\\.\\w+");
+
     private static boolean isForbiddenTraceHydration(String line) {
         return line.contains("applyRecordedFirstSidekickState(")
                 || line.contains("applyRecordedFrameState(")
                 || line.contains("applySeededFirstSidekickState(")
                 || line.contains("applySidekickFollowDelayOverride(")
+                || line.contains("applyFrameZeroPlayerSnapshot(")
+                || line.contains("applyCustomRadii(")
                 || line.contains("hydrateFromRomCpuStatePerFrame(")
                 || line.contains("hydrateRecordedHistory(")
                 || line.contains("sidekickFollowDelayOverrideForTraceReplay(")
@@ -82,6 +101,9 @@ class TestTraceReplayInvariantGuard {
                 || line.contains(".strictTraceIndex()")
                 || line.contains(".driveTraceIndex()")
                 || line.contains(".hydrateFromRomSnapshot(")
+                // Direct setter-from-snapshot patterns. Kept as fast-path
+                // string checks for readability; the regex below catches
+                // less obvious variants.
                 || line.contains("setCentreX(state.")
                 || line.contains("setCentreY(state.")
                 || line.contains("setXSpeed(state.")
@@ -95,6 +117,25 @@ class TestTraceReplayInvariantGuard {
                 || line.contains("setCentreX((short) snapshot.xPos())")
                 || line.contains("setCentreY((short) snapshot.yPos())")
                 || line.contains("setXSpeed((short) snapshot.xVel())")
-                || line.contains("setYSpeed((short) snapshot.yVel())");
+                || line.contains("setYSpeed((short) snapshot.yVel())")
+                // Snapshot-field reads used to derive a setter argument
+                // (e.g. parseBoolean(fields.get("control_locked"), false)).
+                // A {@code fields.get(} call only ever appears in trace-replay
+                // code when binding a {@link com.openggf.trace.TraceEvent.StateSnapshot}
+                // record's {@code fields()} map, so flag any line that pulls
+                // from it in committed test code.
+                || line.contains("fields.get(\"")
+                // Local variables that bind a frame-zero (or any trace
+                // frame) into engine setup. These names always feed
+                // setRingCount/camera.setX/.../engine state in the offending
+                // bootstrap path; comparison-only code reads frames straight
+                // into binder.compareFrame instead. Catching the assignment
+                // is more robust than chasing the downstream setters.
+                || line.contains("frameZero != null && frameZero.")
+                || line.contains("recordedRings = frameZero")
+                || line.contains("recordedCamera")
+                // Generic regex catch-all: setter on any reference where the
+                // argument expression directly reads a trace-side field.
+                || SETTER_FROM_TRACE_FIELD.matcher(line).find();
     }
 }

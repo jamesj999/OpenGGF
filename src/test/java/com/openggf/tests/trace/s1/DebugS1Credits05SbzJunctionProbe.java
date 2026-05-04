@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
+import com.openggf.game.sonic1.credits.Sonic1CreditsDemoBootstrap;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -15,14 +16,12 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.SonicGame;
 import com.openggf.trace.TraceData;
 import com.openggf.trace.TraceExecutionPhase;
-import com.openggf.trace.TraceEvent;
 import com.openggf.trace.TraceFrame;
 import com.openggf.trace.TraceReplayBootstrap;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.util.Map;
 
 @RequiresRom(SonicGame.SONIC_1)
 public class DebugS1Credits05SbzJunctionProbe {
@@ -59,7 +58,10 @@ public class DebugS1Credits05SbzJunctionProbe {
 
             initialiseDemoPlayerState(fixture.sprite());
             resetStreamingWindows(fixture);
-            applyFrameZeroPlayerSnapshot(trace, fixture.sprite());
+            // Trace-replay comparison-only invariant: pose comes from
+            // ROM-derived constants in Sonic1CreditsDemoBootstrap, not
+            // from trace.getEventsForFrame(0).
+            Sonic1CreditsDemoBootstrap.applyStartingPose(idx, fixture.sprite());
             GameServices.level().updateObjectPositionsWithoutTouches();
 
             for (int i = 0; i <= 380; i++) {
@@ -141,81 +143,6 @@ public class DebugS1Credits05SbzJunctionProbe {
         if (GameServices.level().getRingManager() != null) {
             GameServices.level().getRingManager().reset(cameraX);
         }
-    }
-
-    private void applyFrameZeroPlayerSnapshot(TraceData trace, AbstractPlayableSprite player) {
-        TraceEvent.StateSnapshot snapshot = trace.getEventsForFrame(0).stream()
-                .filter(TraceEvent.StateSnapshot.class::isInstance)
-                .map(TraceEvent.StateSnapshot.class::cast)
-                .findFirst()
-                .orElse(null);
-        if (snapshot == null) {
-            return;
-        }
-
-        Map<String, Object> fields = snapshot.fields();
-        int statusByte = parseInt(fields.get("status_byte"), 0);
-        boolean controlLocked = parseBoolean(fields.get("control_locked"), false);
-        boolean onObject = parseBoolean(fields.get("on_object"), (statusByte & 0x08) != 0);
-        boolean pushing = parseBoolean(fields.get("pushing"), (statusByte & 0x20) != 0);
-        boolean underwater = parseBoolean(fields.get("underwater"), (statusByte & 0x40) != 0);
-        boolean rollingJump = parseBoolean(fields.get("roll_jumping"), false);
-
-        player.setControlLocked(controlLocked);
-        player.setObjectControlled(controlLocked);
-        player.setAnimationId(parseInt(fields.get("anim_id"), player.getAnimationId()));
-        player.setDirection((statusByte & 0x01) != 0
-                ? com.openggf.physics.Direction.LEFT
-                : com.openggf.physics.Direction.RIGHT);
-        player.setAir((statusByte & 0x02) != 0);
-        player.setRolling((statusByte & 0x04) != 0);
-        player.setOnObject(onObject);
-        player.setPushing(pushing);
-        player.setRollingJump(rollingJump);
-        player.setInWater(underwater);
-
-        int xRadius = parseInt(fields.get("x_radius"), -1);
-        int yRadius = parseInt(fields.get("y_radius"), -1);
-        if (xRadius > 0 && yRadius > 0) {
-            player.applyCustomRadii(xRadius, yRadius);
-        }
-    }
-
-    private int parseInt(Object value, int defaultValue) {
-        if (value == null) {
-            return defaultValue;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value instanceof String text) {
-            try {
-                return Integer.decode(text);
-            } catch (NumberFormatException ignored) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
-    }
-
-    private boolean parseBoolean(Object value, boolean defaultValue) {
-        if (value instanceof Boolean bool) {
-            return bool;
-        }
-        if (value instanceof Number number) {
-            return number.intValue() != 0;
-        }
-        if (value instanceof String text) {
-            if ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text)) {
-                return Boolean.parseBoolean(text);
-            }
-            try {
-                return Integer.decode(text) != 0;
-            } catch (NumberFormatException ignored) {
-                return defaultValue;
-            }
-        }
-        return defaultValue;
     }
 
     private Sonic1JunctionObjectInstance findJunction() {
