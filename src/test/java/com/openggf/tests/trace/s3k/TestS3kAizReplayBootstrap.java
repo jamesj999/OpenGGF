@@ -1639,14 +1639,21 @@ public class TestS3kAizReplayBootstrap {
     }
 
     private static Integer resolveS3kTraceGameMode(boolean titleCardOverlayActive) {
+        boolean levelStarted = GameServices.camera() != null && GameServices.camera().isLevelStarted();
+        // Camera state is per-test rebuilt and authoritative for "level mode active".
+        // Trust it before consulting Engine.getInstance() — that singleton can leak
+        // a stale GameMode (e.g. MASTER_TITLE_SCREEN) from a prior test that
+        // constructed an Engine, which would silently misreport probe.gameMode().
+        if (levelStarted) {
+            return 0x0C;
+        }
         Engine engine = Engine.getInstance();
         GameMode currentMode = engine != null ? engine.getCurrentGameMode() : null;
-        boolean levelStarted = GameServices.camera() != null && GameServices.camera().isLevelStarted();
         if (currentMode == null) {
-            return levelStarted ? 0x0C : 0x04;
+            return 0x04;
         }
         return switch (currentMode) {
-            case LEVEL, TITLE_CARD -> levelStarted ? 0x0C : 0x04;
+            case LEVEL, TITLE_CARD -> 0x04;
             case SPECIAL_STAGE -> 0x10;
             case SPECIAL_STAGE_RESULTS -> 0x14;
             case TITLE_SCREEN, MASTER_TITLE_SCREEN -> 0x00;

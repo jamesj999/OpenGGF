@@ -42,6 +42,8 @@ class TestTraceReplayInvariantGuard {
         assertEquals(1, defaults.positionError(), "position delta of one must be an error");
         assertEquals(1, defaults.speedError(), "speed delta of one must be an error");
         assertEquals(1, defaults.angleError(), "angle delta of one must be an error");
+        assertEquals(ToleranceConfig.RingCountMode.FORCE_ERROR, defaults.ringCountMode(),
+                "ring count mismatch must default to error; opt into WARN_ONLY explicitly");
     }
 
     private static List<Path> replaySources() throws IOException {

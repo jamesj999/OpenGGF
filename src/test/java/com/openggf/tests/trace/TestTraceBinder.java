@@ -194,7 +194,7 @@ public class TestTraceBinder {
     }
 
     @Test
-    void testDefaultRingCountMismatchIsWarningOnly() {
+    void testDefaultRingCountMismatchIsError() {
         TraceFrame frame = new TraceFrame(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
@@ -209,7 +209,27 @@ public class TestTraceBinder {
             null, new EngineDiagnostics(0x02, -1, -1, 8, 0, 0,
                 -1, -1, -1, -1, "", 0, 0));
 
-        assertTrue(result.hasDivergence());
+        assertTrue(result.hasError());
+        assertEquals(Severity.ERROR, result.fields().get("rings").severity());
+    }
+
+    @Test
+    void testWithRingCountModeFactoryDowngradesToWarning() {
+        TraceFrame frame = new TraceFrame(0, 0x0000,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            0, 0, 0x02, 0, 0, 7, 0, 1, -1, -1, -1, null);
+
+        TraceBinder binder = new TraceBinder(
+            ToleranceConfig.DEFAULT.withRingCountMode(ToleranceConfig.RingCountMode.WARN_ONLY));
+        FrameComparison result = binder.compareFrame(frame,
+            (short) 0x0050, (short) 0x03B0,
+            (short) 0x0000, (short) 0x0000, (short) 0x0000,
+            (byte) 0x00, false, false, 0,
+            null, new EngineDiagnostics(0x02, -1, -1, 8, 0, 0,
+                -1, -1, -1, -1, "", 0, 0));
+
         assertFalse(result.hasError());
         assertEquals(Severity.WARNING, result.fields().get("rings").severity());
     }

@@ -728,8 +728,15 @@ public abstract class AbstractTraceReplayTest {
             standOnSlot = aoi.getSlotIndex();
             standOnType = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
         }
+        var cam = sidekick.currentCamera();
+        int camMinY = cam != null ? cam.getMinY() & 0xFFFF : -1;
+        int camMaxY = cam != null ? cam.getMaxY() & 0xFFFF : -1;
+        int camMaxYTarget = cam != null ? cam.getMaxYTarget() & 0xFFFF : -1;
+        int cpuMaxY = sidekick.getCpuController() != null
+                ? sidekick.getCpuController().getMaxYBound(camMaxY) & 0xFFFF
+                : -1;
         return String.format(
-                "eng-tails-state pos=(%04X,%04X) sub=(%04X,%04X) onObj=%s ride=s%d type=%02X st=%02X",
+                "eng-tails-state pos=(%04X,%04X) sub=(%04X,%04X) onObj=%s ride=s%d type=%02X st=%02X boundsY=%04X/%04X/%04X cpuMax=%04X",
                 sidekick.getCentreX() & 0xFFFF,
                 sidekick.getCentreY() & 0xFFFF,
                 sidekick.getXSubpixelRaw() & 0xFFFF,
@@ -737,7 +744,11 @@ public abstract class AbstractTraceReplayTest {
                 sidekick.isOnObject(),
                 standOnSlot,
                 standOnType & 0xFF,
-                buildStatusByte(sidekick));
+                buildStatusByte(sidekick),
+                camMinY,
+                camMaxY,
+                camMaxYTarget,
+                cpuMaxY);
     }
 
     private String summariseSidekickNearbyObjects(ObjectManager om) {
