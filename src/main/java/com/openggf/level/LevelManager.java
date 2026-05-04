@@ -1175,18 +1175,18 @@ public class LevelManager {
     /**
      * Returns true when the active module executes objects after player physics and
      * solid checkpoints are resolved during object execution. Driven by the
-     * {@link PhysicsFeatureSet#usesInlineObjectExecution()} flag — independent of
-     * collision model so S1 (UNIFIED) and S2/S3K (DUAL_PATH) can share the
+     * {@link PhysicsFeatureSet#objectsExecuteAfterPlayerPhysics()} flag — independent
+     * of collision model so S1 (UNIFIED) and S2/S3K (DUAL_PATH) can share the
      * post-physics ordering per the 2026-04-18-solid-ordering-rom-accuracy plan.
      */
-    public boolean usesInlineObjectSolidResolution() {
+    public boolean objectsExecuteAfterPlayerPhysics() {
         GameModule activeModule = activeGameModule();
         if (activeModule == null
                 || activeModule.getPhysicsProvider() == null
                 || activeModule.getPhysicsProvider().getFeatureSet() == null) {
             return false;
         }
-        return activeModule.getPhysicsProvider().getFeatureSet().usesInlineObjectExecution();
+        return activeModule.getPhysicsProvider().getFeatureSet().objectsExecuteAfterPlayerPhysics();
     }
 
     /**
@@ -1371,7 +1371,7 @@ public class LevelManager {
         // Inline-order modules run this immediately after the player slot in
         // LevelFrameStep, before ExecuteObjects, matching S3K's Sonic_Water /
         // Tails_Water ordering.
-        if (!usesInlineObjectSolidResolution()) {
+        if (!objectsExecuteAfterPlayerPhysics()) {
             updatePlayableWaterStatesForCurrentLevel();
         }
     }

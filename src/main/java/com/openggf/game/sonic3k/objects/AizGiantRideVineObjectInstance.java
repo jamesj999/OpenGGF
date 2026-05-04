@@ -266,7 +266,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance imple
         var sidekicks = services().sidekicks();
         AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         AizVineHandleLogic.updatePlayers(handle, services(), player, sidekick, parentAngle);
-        if (services().levelManager() != null && services().levelManager().usesInlineObjectSolidResolution()) {
+        if (services().levelManager() != null && services().levelManager().objectsExecuteAfterPlayerPhysics()) {
             AizVineHandleLogic.updatePostPlayer(handle, player, sidekick);
         }
     }

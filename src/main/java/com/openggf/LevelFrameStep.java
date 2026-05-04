@@ -78,7 +78,7 @@ public final class LevelFrameStep {
         //    ROM: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3042).
         levelManager.updateZoneFeaturesPrePhysics();
 
-        boolean inlineSolidResolution = levelManager.usesInlineObjectSolidResolution();
+        boolean inlineSolidResolution = levelManager.objectsExecuteAfterPlayerPhysics();
         if (inlineSolidResolution) {
             // 2. Inline-order modules need a frame-start snapshot of object touch
             //    state because player-slot ReactToItem runs before ExecuteObjects.

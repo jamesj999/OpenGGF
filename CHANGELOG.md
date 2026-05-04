@@ -11,13 +11,13 @@ All notable changes to the OpenGGF project are documented in this file.
   copies of `gameModule.getGameId() == GameId.S3K` to opt the S3K respawn-
   table latch in (line 917 in level load, line 4441 in act-transition
   rebind), and one `activeModule instanceof Sonic1GameModule` arm in
-  `usesInlineObjectSolidResolution()` that bridged S1 onto the post-physics
+  `objectsExecuteAfterPlayerPhysics()` that bridged S1 onto the post-physics
   object-execution path (its collisionModel is UNIFIED, so the prior
   `DUAL_PATH || instanceof S1` test added S1 explicitly). Per CLAUDE.md's
   "never use game-name if/else chains -- always use feature flags" rule,
   promoted both to `PhysicsFeatureSet` fields: `permanentRespawnTableLatch`
-  (true for S3K only, cite sonic3k.asm:20945 `bset #7,status(a1)` in
-  `Touch_EnemyNormal`) and `usesInlineObjectExecution` (true for S1/S2/S3K
+  (true for S3K only, cite sonic3k.asm:20953 `bset #7,status(a1)` in
+  `Touch_EnemyNormal`) and `objectsExecuteAfterPlayerPhysics` (true for S1/S2/S3K
   per the 2026-04-18-solid-ordering-rom-accuracy plan). `LevelManager` now
   reads both flags through `gameModule.getPhysicsProvider().getFeatureSet()`,
   the `Sonic1GameModule` import is gone, and the `getGameId()` count in

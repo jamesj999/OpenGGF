@@ -518,7 +518,7 @@ public record PhysicsFeatureSet(
          *  for the rest of the level.
          *
          *  <p>S3K: {@code true}. {@code Touch_EnemyNormal}
-         *  (sonic3k.asm:20945 {@code bset #7,status(a1)}) sets the
+         *  (sonic3k.asm:20953 {@code bset #7,status(a1)}) sets the
          *  destroyed bit on kill; the badnik is then converted to
          *  {@code Obj_Explosion} which never re-enters the alive-offscreen
          *  {@code Sprite_OnScreen_Test} clear path, so the bit persists
@@ -534,7 +534,7 @@ public record PhysicsFeatureSet(
          *  physics (with inline solid checkpoints visible to subsequent
          *  objects), instead of before.
          *
-         *  <p>This controls {@code LevelManager.usesInlineObjectSolidResolution()},
+         *  <p>This controls {@code LevelManager.objectsExecuteAfterPlayerPhysics()},
          *  which {@code LevelFrameStep} and {@code GameLoop} read to decide
          *  whether to run {@code physics} then {@code objects} (true) or
          *  {@code objects} then {@code physics} (false). It is independent
@@ -543,7 +543,7 @@ public record PhysicsFeatureSet(
          *  2026-04-18-solid-ordering-rom-accuracy plan.
          *
          *  <p>S1/S2/S3K: {@code true}. */
-        boolean usesInlineObjectExecution
+        boolean objectsExecuteAfterPlayerPhysics
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -625,7 +625,7 @@ public record PhysicsFeatureSet(
             false /* waterExitBoostSkipsFastUpwardVelocity: S1 exits water with unconditional asl.w obVelY(a0) */,
             false /* slopeResistAppliesAtZeroInertia: S1 Sonic_SlopeResist (s1disasm/_incObj/01 Sonic.asm:1243-1244) returns unconditionally when inertia=0 */,
             false /* permanentRespawnTableLatch: S1 ObjectsManager_Main only latches remembered spawns; non-remembered spawns re-trigger when cursor passes */,
-            true /* usesInlineObjectExecution: S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan */);
+            true /* objectsExecuteAfterPlayerPhysics: S1 uses post-physics object ordering per 2026-04-18-solid-ordering-rom-accuracy plan */);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -650,7 +650,7 @@ public record PhysicsFeatureSet(
             true /* waterExitBoostSkipsFastUpwardVelocity: S2 Sonic_Water skips asl y_vel when y_vel < -$400 (s2.asm:36120-36124) */,
             false /* slopeResistAppliesAtZeroInertia: S2 Sonic_SlopeResist/Tails_SlopeResist (s2.asm:37394-37395, 40249-40250) return unconditionally on tst.w inertia(a0)/beq when stationary. Required for EHZ trace F3644 Tails-on-loop divergence. */,
             false /* permanentRespawnTableLatch: S2 ObjectsManager_Main only latches remembered spawns (s2.asm:33402 tst.b 2(a0); bpl.s +); non-remembered spawns re-trigger when cursor passes */,
-            true /* usesInlineObjectExecution: S2 DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
+            true /* objectsExecuteAfterPlayerPhysics: S2 DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -678,8 +678,8 @@ public record PhysicsFeatureSet(
             true /* controlLockLatchesLogicalInput: S3K Sonic_Control (sonic3k.asm:21541-21545 loc_10760) skips move.w (Ctrl_1).w,(Ctrl_1_logical).w when Ctrl_1_locked != 0, latching the previous frame's logical pad state. Required so Sonic_RecordPos (sonic3k.asm:22132) writes the latched value into Stat_table for Tails_CPU_Control's $40-frame-delayed read (sonic3k.asm:26683-26689). */,
             true /* waterExitBoostSkipsFastUpwardVelocity: S3K Sonic_Water skips asl y_vel when y_vel < -$400 (sonic3k.asm:22267-22270) */,
             true /* slopeResistAppliesAtZeroInertia: S3K Player_SlopeResist (sonic3k.asm:23830-23856) branches to loc_11DDC on inertia=0 and applies slope force when |force| >= $D, kicking stationary player into motion */,
-            true /* permanentRespawnTableLatch: S3K Touch_EnemyNormal (sonic3k.asm:20945 bset #7,status(a1)) sets the destroyed bit on kill; badnik becomes Obj_Explosion which never re-enters Sprite_OnScreen_Test clear path, so bit persists until level reset */,
-            true /* usesInlineObjectExecution: S3K DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
+            true /* permanentRespawnTableLatch: S3K Touch_EnemyNormal (sonic3k.asm:20953 bset #7,status(a1)) sets the destroyed bit on kill; badnik becomes Obj_Explosion which never re-enters Sprite_OnScreen_Test clear path, so bit persists until level reset */,
+            true /* objectsExecuteAfterPlayerPhysics: S3K DUAL_PATH uses post-physics object ordering with inline solid checkpoints */);
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

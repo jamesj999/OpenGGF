@@ -238,7 +238,7 @@ public class TestPhysicsProfile {
     @Test
     public void testPermanentRespawnTableLatch_PerGame() {
         // S3K only: ROM Touch_EnemyNormal sets bit 7 of Object_respawn_table
-        // permanently after a player kill (sonic3k.asm:20945 bset #7,status(a1)).
+        // permanently after a player kill (sonic3k.asm:20953 bset #7,status(a1)).
         // S1/S2 ObjectsManager_Main only latches remembered spawns.
         assertFalse(PhysicsFeatureSet.SONIC_1.permanentRespawnTableLatch(),
                 "S1 does not permanently latch respawn-table bits");
@@ -249,15 +249,15 @@ public class TestPhysicsProfile {
     }
 
     @Test
-    public void testUsesInlineObjectExecution_PerGame() {
+    public void testObjectsExecuteAfterPlayerPhysics_PerGame() {
         // All three games use post-physics object execution per the
         // 2026-04-18-solid-ordering-rom-accuracy plan: S2/S3K via DUAL_PATH
         // collision model, S1 via the bridged inline-order path.
-        assertTrue(PhysicsFeatureSet.SONIC_1.usesInlineObjectExecution(),
+        assertTrue(PhysicsFeatureSet.SONIC_1.objectsExecuteAfterPlayerPhysics(),
                 "S1 uses post-physics object ordering");
-        assertTrue(PhysicsFeatureSet.SONIC_2.usesInlineObjectExecution(),
+        assertTrue(PhysicsFeatureSet.SONIC_2.objectsExecuteAfterPlayerPhysics(),
                 "S2 uses post-physics object ordering");
-        assertTrue(PhysicsFeatureSet.SONIC_3K.usesInlineObjectExecution(),
+        assertTrue(PhysicsFeatureSet.SONIC_3K.objectsExecuteAfterPlayerPhysics(),
                 "S3K uses post-physics object ordering");
     }
 

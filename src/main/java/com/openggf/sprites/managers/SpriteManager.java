@@ -1028,7 +1028,7 @@ public class SpriteManager {
 										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
 										   LevelManager levelManager, int frameCounter) {
 		boolean isUnified = requiresPostMovementSolidPass(playable);
-		boolean usesInlineSolidResolution = levelManager != null && levelManager.usesInlineObjectSolidResolution();
+		boolean usesInlineSolidResolution = levelManager != null && levelManager.objectsExecuteAfterPlayerPhysics();
 		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
 		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
 		// so only the post-movement pass is ROM-accurate. Running both creates

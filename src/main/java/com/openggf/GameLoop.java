@@ -623,7 +623,7 @@ public class GameLoop {
                 // starts like SBZ3, HCZ1, and LRZ1).
                 if (tcpCard.shouldRunPlayerPhysics()) {
                     spriteManager.updateWithoutInput();
-                    if (levelManager.usesInlineObjectSolidResolution()) {
+                    if (levelManager.objectsExecuteAfterPlayerPhysics()) {
                         levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
                     } else {
                         levelManager.updateObjectPositions();
@@ -3302,7 +3302,7 @@ public class GameLoop {
         // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
         // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
         levelManager.updateZoneFeaturesPrePhysics();
-        if (levelManager.usesInlineObjectSolidResolution()) {
+        if (levelManager.objectsExecuteAfterPlayerPhysics()) {
             spriteManager.update(inputHandler);
             levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
         } else {
