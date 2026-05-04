@@ -295,4 +295,27 @@ class TraceCameraFocusControllerTest {
         controller.tick(input);
         assertEquals(FocusMode.DEFAULT, controller.activeMode());
     }
+
+    @Test
+    void controllerOnlyMutatesSetXAndSetYOnCamera() {
+        mainSprite.set(spriteAt(1000, 500));
+        when(comparator.currentVisualFrame()).thenReturn(frameWith(2000, 600, null));
+        TraceCameraFocusController controller = newController();
+        paused.set(true);
+        controller.tick(input);
+        when(input.isKeyPressed(262)).thenReturn(true);
+        controller.tick(input);
+        when(input.isKeyPressed(262)).thenReturn(false);
+        controller.tick(input);
+        paused.set(false);
+        controller.tick(input);
+
+        // updatePosition must NEVER be called.
+        org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).updatePosition();
+        org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).updatePosition(
+                org.mockito.ArgumentMatchers.anyBoolean());
+        org.mockito.Mockito.verify(camera, org.mockito.Mockito.never()).setShakeOffsets(
+                org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt());
+    }
 }
