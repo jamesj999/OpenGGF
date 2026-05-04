@@ -496,3 +496,29 @@ S2's `Obj01_Control` ROM cite confirms the latch behaviour matches S3K, but S2's
 ### Removal Condition
 
 Remove this entry once the S2/S1 trace fixtures have been re-recorded against ROM-correct `Ctrl_1_logical` semantics, every existing `setControlLocked(true)` S2 call site has been audited to confirm post-lock animation correctness with the latch enabled, and the `controlLockLatchesLogicalInput` flag is flipped to `true` for `SONIC_2` and `SONIC_1`.
+
+---
+
+## Sonic 1 credits demo trace replay divergences (post-frame-0-hydration removal)
+
+**Source:** Removed in commit following `6ea9554`. Prior commit `6ea9554` removed `TraceEvent.StateSnapshot` hydration from `AbstractCreditsDemoTraceReplayTest` so the replay tests now exercise the engine without per-frame trace correction. The follow-up commit additionally removed the trace-derived per-demo `STARTING_ANIMATION_ID` / `setDirection(RIGHT)` overrides from `Sonic1CreditsDemoBootstrap.applyStartingPose` (now deleted) and let the engine's natural `Sonic_Animate` pass and post-spawn defaults drive the frame-zero pose. Removing those overrides did not change which credits demos pass or fail.
+
+### Status
+
+Out of 8 S1 credits-demo trace replay tests, 3 currently pass (00 GHZ1, 06 SBZ2, 07 GHZ1b) and 5 fail with first-divergence frames well into the demo (frame 221+). These are pre-existing engine bugs that the prior hydration was masking; they are NOT regressions caused by removing the trace-derived overrides.
+
+| Test | First divergence frame | First divergence | Total errors |
+|------|------------------------|------------------|--------------|
+| `TestS1Credits01Mz2TraceReplay` | 341 | x mismatch (expected 0x0E1A, actual 0x0E19) — 1px X drift | 8 |
+| `TestS1Credits02Syz3TraceReplay` | 253 | rings mismatch (expected 20, actual 21) — extra ring pickup | 1 |
+| `TestS1Credits03Lz3TraceReplay` | 221 | y mismatch (expected 0x0655, actual 0x0653) — 2px Y drift | 6 |
+| `TestS1Credits04Slz3TraceReplay` | 500 | y mismatch (expected 0x01F0, actual 0x01F2) — 2px Y drift | 2 |
+| `TestS1Credits05Sbz1TraceReplay` | 285 | y mismatch (expected 0x01A9, actual 0x01A8) — 1px Y drift | 58 |
+
+### Rationale for not patching from traces
+
+Per CLAUDE.md "Trace Replay Tests" the comparison-only invariant forbids hydrating engine state from `TraceEvent.StateSnapshot` events; trace data is read-only diagnostic input. Any per-credit override to mask these failures would be a spec violation. The bugs need to be diagnosed and fixed in the engine (likely physics, ring/object collision, or zone-specific systems such as LZ water/SBZ junction objects) and the failing tests turned green by ROM-accurate code paths, not bootstrap papering.
+
+### Removal Condition
+
+Remove this entry once each listed test has been diagnosed (root-cause identified in the engine), fixed at the source, and is consistently green against the recorded ROM trace.

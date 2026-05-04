@@ -6,6 +6,23 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S1 credits-demo bootstrap: removed trace-derived starting-pose override.**
+  `Sonic1CreditsDemoBootstrap.applyStartingPose` previously forced a
+  per-demo `setAnimationId` (WALK for demo 0, WAIT for demos 1-7) and
+  `setDirection(RIGHT)` whose values were derived from frame-zero trace
+  recordings rather than from the ROM. This was a spec violation of the
+  CLAUDE.md "Trace Replay Tests" comparison-only invariant — the bootstrap
+  must be ROM-derived only. `applyStartingPose` is deleted entirely; the
+  engine's natural post-spawn init and first `Sonic_Animate` pass now drive
+  the frame-zero pose. The credits-demo tests retain the same 3-pass /
+  5-fail profile (failures are pre-existing engine bugs at frame 221+, now
+  documented under "Sonic 1 credits demo trace replay divergences" in
+  `docs/KNOWN_DISCREPANCIES.md`). The class-level Javadoc citation in
+  `Sonic1CreditsDemoBootstrap` was also incorrect (pointed at
+  `Level_ChkDemo` at sonic.asm:2987-2990 — a timer/restart check, not the
+  demo bootstrap); corrected to `EndingDemoLoad` (sonic.asm:3827) and
+  `EndDemo_LampVar` (sonic.asm:3879). The same incorrect line numbers in
+  `Sonic1CreditsDemoData` (4171/4176) are corrected in step.
 - **Trace replay: hardened invariant guard and removed S1 credits-demo
   hydration.** `AbstractCreditsDemoTraceReplayTest.applyFrameZeroPlayerSnapshot`
   and `setupLzDemoState` previously read `TraceEvent.StateSnapshot.fields()`
@@ -16,10 +33,10 @@ All notable changes to the OpenGGF project are documented in this file.
   forbidden-string list missed the new patterns. The two debug probes
   (`DebugS1Credits03LzDoorProbe`, `DebugS1Credits05SbzJunctionProbe`)
   inherited the same anti-pattern. Replaced the hydration with a
-  deterministic constants-only `Sonic1CreditsDemoBootstrap` helper that sets
-  the per-demo starting animation pose
-  (Demo 0 = WALK, demos 1-7 = WAIT) and the LZ Act 3 lamppost state from
-  `Sonic1CreditsDemoData` constants. The LZ ring count is set to 0 (matching
+  deterministic constants-only `Sonic1CreditsDemoBootstrap` helper that
+  applies the LZ Act 3 lamppost state from `Sonic1CreditsDemoData`
+  constants. (The starting-pose override added in this commit was itself a
+  spec violation and has been removed in the follow-up bullet above.) The LZ ring count is set to 0 (matching
   ROM `Lamp_LoadInfo` in `_incObj/79 Lamppost.asm`, which loads
   `v_lamp_rings` then immediately clears `v_rings` to 0) instead of the
   `LZ_LAMP_RINGS=13` table value that ROM loads but never keeps. The guard

@@ -120,11 +120,11 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                         fixture.sprite(), fixture.camera());
             }
             resetStreamingWindows(fixture);
-            // Settle the per-demo starting animation pose deterministically
-            // from constants (NOT from trace.getEventsForFrame(0) — that
-            // would be hydration). All other player flags match the engine's
-            // post-init defaults already.
-            Sonic1CreditsDemoBootstrap.applyStartingPose(idx, fixture.sprite());
+            // Per-demo starting animation/direction are intentionally NOT
+            // forced here. The engine's normal post-spawn init + first
+            // Sonic_Animate pass should produce the ROM-correct pose from
+            // zero ground speed. Any divergence is a real engine bug per
+            // the trace-replay comparison-only invariant.
             primeFrameZeroObjectState();
 
             // 4. Determine frame limit: min of trace frames and demo timer

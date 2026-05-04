@@ -68,7 +68,10 @@ public class DebugS1Credits03LzDoorProbe {
             Sonic1CreditsDemoBootstrap.applyLzLampostState(
                     fixture.sprite(), fixture.camera());
             resetStreamingWindows(fixture);
-            Sonic1CreditsDemoBootstrap.applyStartingPose(idx, fixture.sprite());
+            // Per-demo starting animation/direction are intentionally NOT
+            // forced here — the engine's natural post-spawn init drives the
+            // pose. Trace-replay comparison-only invariant forbids
+            // trace-derived hydration.
             GameServices.level().updateObjectPositionsWithoutTouches();
 
             for (int i = 0; i <= 360; i++) {

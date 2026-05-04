@@ -5,7 +5,6 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
-import com.openggf.game.sonic1.credits.Sonic1CreditsDemoBootstrap;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
 import com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -58,10 +57,11 @@ public class DebugS1Credits05SbzJunctionProbe {
 
             initialiseDemoPlayerState(fixture.sprite());
             resetStreamingWindows(fixture);
-            // Trace-replay comparison-only invariant: pose comes from
-            // ROM-derived constants in Sonic1CreditsDemoBootstrap, not
-            // from trace.getEventsForFrame(0).
-            Sonic1CreditsDemoBootstrap.applyStartingPose(idx, fixture.sprite());
+            // Per-demo starting animation/direction are intentionally NOT
+            // forced here. The engine's normal post-spawn init + first
+            // Sonic_Animate pass should produce the ROM-correct pose from
+            // zero ground speed. Trace-replay comparison-only invariant
+            // forbids any trace-derived pose hydration.
             GameServices.level().updateObjectPositionsWithoutTouches();
 
             for (int i = 0; i <= 380; i++) {
