@@ -3,12 +3,12 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.GameServices;
+import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.Level;
-import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -218,31 +218,30 @@ public class RivetObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void modifyLevelLayout() {
-        Level level = services().currentLevel();
-        if (level == null) {
-            return;
-        }
-        Map map = level.getMap();
-        if (map == null) {
-            return;
-        }
-
-        try {
-            // Write row 0 blocks (Level_Layout+$850): 6 blocks starting at FG x=80, y=8
-            for (int i = 0; i < LAYOUT_ROW_0_BLOCKS.length; i++) {
-                map.setValue(0, LAYOUT_ROW_0_X + i, LAYOUT_ROW_0_Y, LAYOUT_ROW_0_BLOCKS[i]);
+        // ROM: move.l #$8A707172,(a1)+ / move.w #$7374,(a1)+ (row 0, Level_Layout+$850)
+        //      move.l #$6E787978,(a1)+ / move.w #$787A,(a1)+ (row 1, Level_Layout+$950)
+        // ROM: move.b #1,(Screen_redraw_flag).w — pipeline publishes redraw effects automatically.
+        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+            try {
+                MutationEffects effects = MutationEffects.NONE;
+                // Write row 0 blocks (Level_Layout+$850): 6 blocks starting at FG x=80, y=8
+                for (int i = 0; i < LAYOUT_ROW_0_BLOCKS.length; i++) {
+                    effects = context.surface().setBlockInMap(0,
+                            LAYOUT_ROW_0_X + i, LAYOUT_ROW_0_Y,
+                            LAYOUT_ROW_0_BLOCKS[i] & 0xFF);
+                }
+                // Write row 1 blocks (Level_Layout+$950): 6 blocks starting at FG x=80, y=9
+                for (int i = 0; i < LAYOUT_ROW_1_BLOCKS.length; i++) {
+                    effects = context.surface().setBlockInMap(0,
+                            LAYOUT_ROW_1_X + i, LAYOUT_ROW_1_Y,
+                            LAYOUT_ROW_1_BLOCKS[i] & 0xFF);
+                }
+                return effects;
+            } catch (IllegalArgumentException e) {
+                LOGGER.warning("Rivet layout modification failed: " + e.getMessage());
+                return MutationEffects.NONE;
             }
-
-            // Write row 1 blocks (Level_Layout+$950): 6 blocks starting at FG x=80, y=9
-            for (int i = 0; i < LAYOUT_ROW_1_BLOCKS.length; i++) {
-                map.setValue(0, LAYOUT_ROW_1_X + i, LAYOUT_ROW_1_Y, LAYOUT_ROW_1_BLOCKS[i]);
-            }
-
-            // ROM: move.b #1,(Screen_redraw_flag).w (s2.asm line 80615)
-            services().invalidateForegroundTilemap();
-        } catch (IllegalArgumentException e) {
-            LOGGER.warning("Rivet layout modification failed: " + e.getMessage());
-        }
+        });
     }
 
     /**
