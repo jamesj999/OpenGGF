@@ -16,4 +16,21 @@ public interface ZoneRuntimeState {
     default boolean requiresFullWidthBgTilemap() {
         return false;
     }
+
+    /**
+     * Captures gameplay-relevant per-zone runtime state as a byte buffer for
+     * rewind. Default returns an empty array (no state to capture).
+     * Implementations override and serialize their fields deterministically.
+     */
+    default byte[] captureBytes() {
+        return new byte[0];
+    }
+
+    /**
+     * Restores from a previously-captured byte buffer. Default no-op.
+     * Implementations override and deserialize deterministically.
+     */
+    default void restoreBytes(byte[] bytes) {
+        // no-op
+    }
 }
