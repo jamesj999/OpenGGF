@@ -91,6 +91,14 @@ public abstract class Sonic2ZoneEvents {
         this.eventRoutine = routine;
     }
 
+    public int getBossSpawnDelay() {
+        return bossSpawnDelay;
+    }
+
+    public void setBossSpawnDelay(int delay) {
+        this.bossSpawnDelay = delay;
+    }
+
     /** Spawn a dynamic object into the level. */
     protected void spawnObject(ObjectInstance object) {
         LevelManager lm = levelManager();

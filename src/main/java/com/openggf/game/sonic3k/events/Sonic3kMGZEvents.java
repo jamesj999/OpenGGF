@@ -1618,6 +1618,27 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
         levelManager.applyMutationEffects(intent.apply(context));
     }
 
+    /**
+     * Like {@link #applyImmediateMgzMutation} but strips all redraw hints from the
+     * published {@link MutationEffects}.  Use for snapshot-then-clear effects where
+     * the cleared tiles must remain invisible until an explicit redraw is triggered.
+     */
+    private void applyImmediateMgzMutationWithoutRedraw(LayoutMutationIntent intent) {
+        LevelManager levelManager = levelManager();
+        Level level = levelManager != null ? levelManager.getCurrentLevel() : null;
+        if (level == null) {
+            return;
+        }
+        LayoutMutationContext context = new LayoutMutationContext(
+                LevelMutationSurface.forLevel(level),
+                levelManager::applyMutationEffects);
+        if (hasRuntime()) {
+            zoneLayoutMutationPipeline().applyImmediatelyWithoutRedraw(intent, context);
+            return;
+        }
+        levelManager.applyMutationEffects(intent.apply(context).withoutRedrawHints());
+    }
+
     private static MutationEffects mergeEffects(MutationEffects... effects) {
         BitSet dirtyPatterns = new BitSet();
         boolean dirtyRegions = false;
@@ -1760,16 +1781,16 @@ public class Sonic3kMGZEvents extends Sonic3kZoneEvents {
     }
 
     private void clearForegroundRegionWithoutRedraw(int startX, int startY, int width, int height) {
-        LevelManager levelManager = levelManager();
-        Level level = levelManager != null ? levelManager.getCurrentLevel() : null;
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-        for (int y = startY; y < startY + height; y++) {
-            for (int x = startX; x < startX + width; x++) {
-                level.getMap().setValue(0, x, y, (byte) 0);
+        applyImmediateMgzMutationWithoutRedraw(context -> {
+            MutationEffects combined = MutationEffects.NONE;
+            for (int y = startY; y < startY + height; y++) {
+                for (int x = startX; x < startX + width; x++) {
+                    combined = mergeEffects(combined,
+                            context.surface().setBlockInMapWithoutRedraw(0, x, y, 0));
+                }
             }
-        }
+            return combined;
+        });
     }
 
     private void clearForegroundRegion(int startX, int startY, int width, int height) {

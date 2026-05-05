@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.sonic2.events.*;
 import com.openggf.game.sonic2.runtime.CnzRuntimeState;
+import java.nio.ByteBuffer;
 import com.openggf.game.sonic2.runtime.CnzRuntimeStateView;
 import com.openggf.game.sonic2.runtime.HtzRuntimeState;
 import com.openggf.game.sonic2.runtime.HtzRuntimeStateView;
@@ -199,4 +200,101 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         return htzEvents;
     }
 
+    /** Returns the EHZ event handler (test/diagnostic access). */
+    public Sonic2EHZEvents getEhzEventsForTest() {
+        return ehzEvents;
+    }
+
+    /** Returns the CPZ event handler (test/diagnostic access). */
+    public Sonic2CPZEvents getCpzEventsForTest() {
+        return cpzEvents;
+    }
+
+    /** Returns the CNZ event handler (test/diagnostic access). */
+    public Sonic2CNZEvents getCnzEventsForTest() {
+        return cnzEvents;
+    }
+
+    // =========================================================================
+    // RewindSnapshottable extra-state hooks (C.3)
+    // =========================================================================
+
+    /** Helper: write eventRoutine + bossSpawnDelay for one zone handler. */
+    private static void writeHandler(ByteBuffer buf, Sonic2ZoneEvents h) {
+        buf.putInt(h.getEventRoutine());
+        buf.putInt(h.getBossSpawnDelay());
+    }
+
+    /** Helper: restore eventRoutine + bossSpawnDelay for one zone handler. */
+    private static void readHandler(ByteBuffer buf, Sonic2ZoneEvents h) {
+        h.setEventRoutine(buf.getInt());
+        h.setBossSpawnDelay(buf.getInt());
+    }
+
+    @Override
+    protected byte[] captureExtra() {
+        // 11 handlers × 8 bytes + HTZ (22) + CPZ (1) + CNZ (16) = 127 bytes
+        ByteBuffer buf = ByteBuffer.allocate(11 * 8 + 22 + 1 + 16);
+        writeHandler(buf, ehzEvents);
+        writeHandler(buf, cpzEvents);
+        writeHandler(buf, htzEvents);
+        writeHandler(buf, mczEvents);
+        writeHandler(buf, arzEvents);
+        writeHandler(buf, cnzEvents);
+        writeHandler(buf, oozEvents);
+        writeHandler(buf, mtzEvents);
+        writeHandler(buf, wfzEvents);
+        writeHandler(buf, dezEvents);
+        writeHandler(buf, sczEvents);
+        // HTZ extra state
+        buf.putInt(htzEvents.getCameraBgYOffsetRaw());
+        buf.put((byte) (htzEvents.isHtzTerrainSinking() ? 1 : 0));
+        buf.putInt(htzEvents.getHtzTerrainDelay());
+        buf.put((byte) (htzEvents.isEarthquakeActiveRaw() ? 1 : 0));
+        buf.putInt(htzEvents.getHtzCurrentRisenLimit());
+        buf.putInt(htzEvents.getHtzCurrentSunkenLimit());
+        buf.putInt(htzEvents.getHtzCurrentBgXOffset());
+        // CPZ extra
+        buf.put((byte) (cpzEvents.isCpzWaterTriggered() ? 1 : 0));
+        // CNZ extra
+        buf.putInt(cnzEvents.getCnzLeftWallX());
+        buf.putInt(cnzEvents.getCnzLeftWallY());
+        buf.putInt(cnzEvents.getCnzRightWallX());
+        buf.putInt(cnzEvents.getCnzRightWallY());
+        return buf.array();
+    }
+
+    @Override
+    protected void restoreExtra(byte[] extra) {
+        if (extra == null || extra.length < 11 * 8 + 22 + 1 + 16) {
+            return;
+        }
+        ByteBuffer buf = ByteBuffer.wrap(extra);
+        readHandler(buf, ehzEvents);
+        readHandler(buf, cpzEvents);
+        readHandler(buf, htzEvents);
+        readHandler(buf, mczEvents);
+        readHandler(buf, arzEvents);
+        readHandler(buf, cnzEvents);
+        readHandler(buf, oozEvents);
+        readHandler(buf, mtzEvents);
+        readHandler(buf, wfzEvents);
+        readHandler(buf, dezEvents);
+        readHandler(buf, sczEvents);
+        // HTZ extra
+        htzEvents.setCameraBgYOffset(buf.getInt());
+        htzEvents.setHtzTerrainSinking(buf.get() != 0);
+        htzEvents.setHtzTerrainDelay(buf.getInt());
+        htzEvents.setEarthquakeActiveRaw(buf.get() != 0);
+        htzEvents.setHtzCurrentRisenLimit(buf.getInt());
+        htzEvents.setHtzCurrentSunkenLimit(buf.getInt());
+        htzEvents.setHtzCurrentBgXOffset(buf.getInt());
+        // CPZ extra
+        cpzEvents.setCpzWaterTriggered(buf.get() != 0);
+        // CNZ extra
+        cnzEvents.setCnzLeftWallX(buf.getInt());
+        cnzEvents.setCnzLeftWallY(buf.getInt());
+        cnzEvents.setCnzRightWallX(buf.getInt());
+        cnzEvents.setCnzRightWallY(buf.getInt());
+    }
 }

@@ -38,6 +38,9 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
         updateCPZBossEvents();
     }
 
+    public boolean isCpzWaterTriggered()       { return cpzWaterTriggered; }
+    public void setCpzWaterTriggered(boolean v){ cpzWaterTriggered = v; }
+
     private void updateCPZWaterRise() {
         if (cpzWaterTriggered) {
             return;

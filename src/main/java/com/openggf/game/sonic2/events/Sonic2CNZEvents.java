@@ -139,6 +139,17 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         removeCNZArenaWalls();
     }
 
+    // ---- Rewind accessors ----
+    public int getCnzLeftWallX()        { return cnzLeftWallX; }
+    public void setCnzLeftWallX(int v)  { cnzLeftWallX = v; }
+    public int getCnzLeftWallY()        { return cnzLeftWallY; }
+    public void setCnzLeftWallY(int v)  { cnzLeftWallY = v; }
+    public int getCnzRightWallX()       { return cnzRightWallX; }
+    public void setCnzRightWallX(int v) { cnzRightWallX = v; }
+    public int getCnzRightWallY()       { return cnzRightWallY; }
+    public void setCnzRightWallY(int v) { cnzRightWallY = v; }
+    // ---- end rewind accessors ----
+
     public boolean isBossArenaActive() {
         return eventRoutine >= 4;
     }

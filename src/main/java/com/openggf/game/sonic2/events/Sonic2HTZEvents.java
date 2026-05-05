@@ -212,6 +212,23 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * 0 = normal/risen position, positive = BG scrolled up (more lava visible).
      * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
      */
+    // ---- Rewind accessors ----
+    public int getCameraBgYOffsetRaw()    { return cameraBgYOffset; }
+    public void setCameraBgYOffset(int v) { cameraBgYOffset = v; }
+    public boolean isHtzTerrainSinking()  { return htzTerrainSinking; }
+    public void setHtzTerrainSinking(boolean v) { htzTerrainSinking = v; }
+    public int getHtzTerrainDelay()       { return htzTerrainDelay; }
+    public void setHtzTerrainDelay(int v) { htzTerrainDelay = v; }
+    public boolean isEarthquakeActiveRaw(){ return earthquakeActive; }
+    public void setEarthquakeActiveRaw(boolean v) { earthquakeActive = v; }
+    public int getHtzCurrentRisenLimit()  { return htzCurrentRisenLimit; }
+    public void setHtzCurrentRisenLimit(int v) { htzCurrentRisenLimit = v; }
+    public int getHtzCurrentSunkenLimit() { return htzCurrentSunkenLimit; }
+    public void setHtzCurrentSunkenLimit(int v){ htzCurrentSunkenLimit = v; }
+    public int getHtzCurrentBgXOffset()   { return htzCurrentBgXOffset; }
+    public void setHtzCurrentBgXOffset(int v) { htzCurrentBgXOffset = v; }
+    // ---- end rewind accessors ----
+
     public int getHtzBgVerticalShift() {
         if (!earthquakeActive) {
             return 0;

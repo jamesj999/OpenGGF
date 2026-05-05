@@ -46,13 +46,7 @@ class TestNoDirectMapMutationsInGameplay {
             "com/openggf/level/resources/commands/DeriveChunkFromPatternsCommand.java",
             "com/openggf/level/resources/commands/DeriveBlockFromChunksCommand.java",
             // Initial layout decoding from ROM (not a gameplay mutation)
-            "com/openggf/game/sonic3k/Sonic3kLevel.java",
-            // No-redraw semantics required for MGZ2 collapse snapshot-then-clear effect.
-            // The pipeline's automatic redraw publication breaks the ROM-faithful
-            // behaviour asserted by TestSonic3kMgz2CollapseEvents. Plan 2 will
-            // introduce a no-redraw mutation API on the pipeline to migrate
-            // clearForegroundRegionWithoutRedraw cleanly.
-            "com/openggf/game/sonic3k/events/Sonic3kMGZEvents.java"
+            "com/openggf/game/sonic3k/Sonic3kLevel.java"
     );
 
     @Test
