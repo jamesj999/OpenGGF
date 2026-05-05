@@ -1001,7 +1001,7 @@ public class Camera implements RewindSnapshottable<CameraSnapshot> {
 		if (sm == null) {
 			return;
 		}
-		String mainCode = SonicConfigurationService.getInstance()
+		String mainCode = GameServices.configuration()
 				.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 		if (mainCode == null || mainCode.isBlank()) {
 			mainCode = "sonic";
