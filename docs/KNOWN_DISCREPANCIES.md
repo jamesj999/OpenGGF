@@ -151,9 +151,26 @@ We use **extended pattern ID ranges** with fixed bases that don't overlap:
 | `0x20000` | Objects | Monitors, springs, badniks, zone-specific objects |
 | `0x28000` | HUD | Score, time, rings display (fixed base) |
 | `0x30000` | Water surface | Underwater palette transition patterns |
+| `0x34000` | S3K Dust | Spindash/skid dust art (`Sonic3kDustArt.DUST_PATTERN_BASE`) |
 | `0x38000+` | Sidekick DPLC banks | Extra banks for duplicate-character sidekicks (global running offset) |
 | `0x39000+` | Sidekick tail appendages | Extra banks for duplicate Tails tail sprites (Obj05) |
-| `0x40000` | Title Card | Zone/act title card patterns |
+| `0x40000` | Title Card / S1 SS Results / S3K AIZ Intro | Shared base; mutually-exclusive game contexts (see below) |
+| `0x50000` | Level Select / S1 Title Card / S3K Title Card / S3K Data Select | Shared base; mutually-exclusive game contexts (see below) |
+
+**Shared-base contexts** (`0x40000`):
+- S2 Title Card (`TitleCardManager.PATTERN_BASE`) — gameplay scope, not active during cutscenes
+- S2 Special Stage Results (`SpecialStageResultsScreenObjectInstance.PATTERN_BASE`)
+- S1 Special Stage Results Screen (`Sonic1SpecialStageResultsScreen.PATTERN_BASE`)
+- S3K AIZ Intro Art Loader (`AizIntroArtLoader.INTRO_PATTERN_BASE`) — only active during AIZ1 intro
+- S2 Title Screen (`TitleScreenDataLoader`) — only active before any gameplay
+
+**Shared-base contexts** (`0x50000`):
+- S1 Title Card (`Sonic1TitleCardManager.PATTERN_BASE`)
+- S3K Title Card (`Sonic3kTitleCardManager.PATTERN_BASE`)
+- S1/S2/S3K Level Select (`Sonic1LevelSelectConstants`, `LevelSelectConstants`, `Sonic3kLevelSelectConstants`)
+- S3K Data Select (`S3kDataSelectRenderer.DATA_SELECT_PATTERN_BASE`)
+
+These bases are reused across game-context-mutually-exclusive subsystems (e.g., title card vs. level select vs. data select are never active in the same frame). `PatternAtlas.registerRange(...)` provides a diagnostic collision detector but is not yet enforced at every call site — adding bootstrap-time `registerRange` calls in each owning subsystem is a follow-up.
 
 ```java
 // LevelManager.java

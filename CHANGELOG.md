@@ -6,6 +6,17 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **G2: fixed Y-coord mix in `DebugRenderer.renderPlayerPlaneState` and
+  expanded the pattern atlas range table.** The plane-state debug label
+  was computing `screenY` from `playable.getY()` (top-left) while every
+  other label used `getCentreY()`, producing a ~19px vertical drift.
+  Changed to `getCentreY()` to match the sensor-dot rendering. Also
+  documented `0x34000` (S3K dust art) and the shared-base contexts at
+  `0x40000` and `0x50000` (multiple mutually-exclusive game subsystems
+  reuse the same base) in `docs/KNOWN_DISCREPANCIES.md`. Note that
+  `PatternAtlas.registerRange(...)` exists as a diagnostic collision
+  detector but is not enforced at every call site; adding bootstrap-time
+  `registerRange` calls in each owning subsystem is a follow-up.
 - **G1: removed render-path allocation and scan hotspots in `PatternAtlas`
   and `GraphicsManager`.** `PatternAtlas.isSlotShared()` previously walked
   all 8192 fast entries plus the sparse map every time `removeEntry()` was
