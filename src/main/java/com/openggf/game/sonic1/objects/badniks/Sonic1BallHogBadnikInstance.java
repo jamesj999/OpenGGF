@@ -256,8 +256,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      */
     private void spawnCannonball() {
         ObjectServices svc = tryServices();
-        var objectManager = svc != null ? svc.objectManager() : null;
-        if (objectManager == null) {
+        if (svc == null || svc.objectManager() == null) {
             return;
         }
 
@@ -273,13 +272,13 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
             ballXVel = -ballXVel;   // neg.w obVelX(a1)
         }
 
-        int ballX = currentX + xOffset;
-        int ballY = currentY + CANNONBALL_Y_OFFSET;
-        int subtype = spawn.subtype();
+        final int ballX = currentX + xOffset;
+        final int ballY = currentY + CANNONBALL_Y_OFFSET;
+        final int subtype = spawn.subtype();
+        final int ballXVelFinal = ballXVel;
 
-        Sonic1CannonballInstance cannonball = new Sonic1CannonballInstance(
-                ballX, ballY, ballXVel, subtype);
-        objectManager.addDynamicObject(cannonball);
+        spawnFreeChild(() -> new Sonic1CannonballInstance(
+                ballX, ballY, ballXVelFinal, subtype));
     }
 
     /**

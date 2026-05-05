@@ -6,6 +6,32 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S1 badnik child spawn safety: migrated direct `objectManager.addDynamicObject()`
+  calls to `spawnFreeChild()` for `Sonic1BallHogBadnikInstance`,
+  `Sonic1BombBadnikInstance`, `Sonic1CaterkillerBadnikInstance`, and
+  `Sonic1OrbinautBadnikInstance`.** The four S1 badniks that ROM-spawn projectile,
+  fuse/explosion/shrapnel, body-segment, or orbiting-spike children were calling
+  `services().objectManager().addDynamicObject(child)` directly. That bypasses
+  `AbstractObjectInstance.CONSTRUCTION_CONTEXT`, so any child constructor that
+  invokes `services()` would throw `IllegalStateException` when reached through
+  these spawn paths. Routing through the inherited `spawnFreeChild(Supplier)`
+  helper sets the construction-time `ObjectServices` ThreadLocal before the child
+  factory runs, preserves the ROM-equivalent `FindFreeObj` (low-slot) allocation
+  semantics that the prior `addDynamicObject` call had, and keeps the existing
+  `allocateSlotAfter` chains for Bomb/Caterkiller/Orbinaut intact (the helper is
+  a no-op when a slot is already pre-assigned). Slot ordering, child types, and
+  spawn timing are byte-for-byte the same; the only behavioral difference is that
+  child constructors may now safely call `services()`. Per-object regression tests
+  (`TestSonic1CaterkillerBodyChaining`, `TestSonic1LabyrinthObjectsBasic`) and the
+  S1 trace replays (`TestS1Ghz1TraceReplay`, `TestS1Mz1TraceReplay`,
+  `TestS1Credits00Ghz1TraceReplay`, `TestS1Credits06Sbz2TraceReplay`,
+  `TestS1Credits07Ghz1bTraceReplay`) all stay green; the five pre-existing credits
+  trace failures (Mz2/Syz3/Lz3/Slz3/Sbz1) are unchanged in count and first-error
+  frame relative to the baseline. Other S1 object instances still call
+  `objectManager.addDynamicObject` directly and will be migrated in subsequent
+  passes; the listed badniks are the highest-risk subset because they are the
+  ones explicitly named in the F1b architectural-fix task and the ones whose
+  child types are most likely to gain `services()`-using constructors next.
 - **S1 badnik/object subpixel math: migrated to shared `SubpixelMotion` helper.**
   ~17 Sonic 1 badnik and object instances each maintained their own private
   `xSubpixel` / `ySubpixel` int fields and reimplemented 16:8 (`<<8`) or 16.16

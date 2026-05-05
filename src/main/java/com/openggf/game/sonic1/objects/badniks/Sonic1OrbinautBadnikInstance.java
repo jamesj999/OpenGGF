@@ -150,24 +150,28 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
         }
 
         spikes = new ArrayList<>(4);
-        spikes.add(new OrbSpikeObjectInstance(this, 0x00));
-        spikes.add(new OrbSpikeObjectInstance(this, 0x40));
-        spikes.add(new OrbSpikeObjectInstance(this, 0x80));
-        spikes.add(new OrbSpikeObjectInstance(this, 0xC0));
-
-        activeSpikes = spikes.size();
+        int[] angleOffsets = { 0x00, 0x40, 0x80, 0xC0 };
         // ROM: Orb_Loop uses FindNextFreeObj, allocating consecutive slots
         int prevSlot = getSlotIndex();
-        for (OrbSpikeObjectInstance spike : spikes) {
-            if (prevSlot >= 0) {
-                int spikeSlot = services().objectManager().allocateSlotAfter(prevSlot);
-                if (spikeSlot >= 0) {
-                    spike.setSlotIndex(spikeSlot);
-                    prevSlot = spikeSlot;
+        for (int angleOffset : angleOffsets) {
+            final int angle = angleOffset;
+            final int prevSlotFinal = prevSlot;
+            OrbSpikeObjectInstance spike = spawnFreeChild(() -> {
+                OrbSpikeObjectInstance s = new OrbSpikeObjectInstance(this, angle);
+                if (prevSlotFinal >= 0) {
+                    int spikeSlot = services().objectManager().allocateSlotAfter(prevSlotFinal);
+                    if (spikeSlot >= 0) {
+                        s.setSlotIndex(spikeSlot);
+                    }
                 }
+                return s;
+            });
+            spikes.add(spike);
+            if (spike.getSlotIndex() >= 0) {
+                prevSlot = spike.getSlotIndex();
             }
-            services().objectManager().addDynamicObject(spike);
         }
+        activeSpikes = spikes.size();
     }
 
     int getAnimationFrame() {

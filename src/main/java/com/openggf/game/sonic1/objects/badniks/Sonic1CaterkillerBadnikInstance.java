@@ -288,20 +288,30 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             segX += spacing;
 
-            Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                    this, parentState, segX, currentY, facingLeft,
-                    isAnimated[i], i, ringBufIdx);
-            bodySegments.add(body);
+            final int segXFinal = segX;
+            final boolean animated = isAnimated[i];
+            final int segmentIndex = i;
+            final int ringBufIdxFinal = ringBufIdx;
+            final CaterkillerParentState parentStateFinal = parentState;
+            final int prevSlotFinal = prevSlot;
 
-            // Allocate slot after previous segment (FindNextFreeObj parity)
-            if (prevSlot >= 0) {
-                int localSlot = objectManager.allocateSlotAfter(prevSlot);
-                if (localSlot >= 0) {
-                    body.setSlotIndex(localSlot);
-                    prevSlot = localSlot;
+            Sonic1CaterkillerBodyInstance body = spawnFreeChild(() -> {
+                Sonic1CaterkillerBodyInstance segment = new Sonic1CaterkillerBodyInstance(
+                        this, parentStateFinal, segXFinal, currentY, facingLeft,
+                        animated, segmentIndex, ringBufIdxFinal);
+                // Allocate slot after previous segment (FindNextFreeObj parity)
+                if (prevSlotFinal >= 0) {
+                    int localSlot = objectManager.allocateSlotAfter(prevSlotFinal);
+                    if (localSlot >= 0) {
+                        segment.setSlotIndex(localSlot);
+                    }
                 }
+                return segment;
+            });
+            bodySegments.add(body);
+            if (body.getSlotIndex() >= 0) {
+                prevSlot = body.getSlotIndex();
             }
-            objectManager.addDynamicObject(body);
             parentState = body;
 
             ringBufIdx += 4;
