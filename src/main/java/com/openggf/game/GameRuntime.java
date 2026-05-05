@@ -161,6 +161,15 @@ public final class GameRuntime {
     }
 
     /**
+     * Returns the installed {@link com.openggf.game.rewind.PlaybackController},
+     * or {@code null} if one has not been installed yet via
+     * {@link com.openggf.game.session.GameplayModeContext#installPlaybackController}.
+     */
+    public com.openggf.game.rewind.PlaybackController getPlaybackController() {
+        return gameplayMode != null ? gameplayMode.getPlaybackController() : null;
+    }
+
+    /**
      * Rebinds this runtime to a resumed gameplay mode context after an editor detour.
      * The new gameplay mode must already have the same gameplay-scoped managers
      * attached (transferred from the parked context by {@link RuntimeManager#resumeParked}).
