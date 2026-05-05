@@ -101,4 +101,38 @@ public final class SessionManager {
     public static synchronized EditorModeContext getCurrentEditorMode() {
         return currentEditorMode;
     }
+
+    /**
+     * Runs the supplied teardown action while preserving the world-scoped
+     * fields on the active {@link WorldSession} (loaded {@code Level}, zone
+     * index, act index, apparent act). The teardown is expected to destroy
+     * the gameplay runtime — which, today, transitively calls
+     * {@code LevelManager.resetState()} and write-throughs {@code null} to
+     * those same WorldSession fields. Capturing them here and republishing
+     * after the teardown isolates that implementation detail from callers
+     * (e.g. {@link com.openggf.Engine#enterEditorFromCurrentPlayer}). When
+     * {@code LevelManager.resetState()} is split into a gameplay-only reset
+     * and a full session reset, this helper can collapse to invoking the
+     * teardown directly.
+     *
+     * @param teardown an action that destroys the gameplay runtime; must not
+     *                 itself clear the session — the WorldSession is meant
+     *                 to survive the teardown
+     */
+    public static synchronized void runRuntimeTeardownPreservingWorld(Runnable teardown) {
+        WorldSession ws = currentWorldSession;
+        com.openggf.level.Level savedLevel = ws != null ? ws.getCurrentLevel() : null;
+        int savedZone = ws != null ? ws.getCurrentZone() : 0;
+        int savedAct = ws != null ? ws.getCurrentAct() : 0;
+        int savedApparentAct = ws != null ? ws.getApparentAct() : 0;
+
+        teardown.run();
+
+        if (ws != null) {
+            ws.setCurrentLevel(savedLevel);
+            ws.setCurrentZone(savedZone);
+            ws.setCurrentAct(savedAct);
+            ws.setApparentAct(savedApparentAct);
+        }
+    }
 }
