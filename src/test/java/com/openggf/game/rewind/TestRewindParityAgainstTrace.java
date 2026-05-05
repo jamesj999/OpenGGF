@@ -2,13 +2,25 @@ package com.openggf.game.rewind;
 
 import com.openggf.game.OscillationSnapshot;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.rewind.snapshot.AdvancedRenderModeSnapshot;
+import com.openggf.game.rewind.snapshot.AnimatedTileChannelSnapshot;
 import com.openggf.game.rewind.snapshot.CameraSnapshot;
 import com.openggf.game.rewind.snapshot.FadeManagerSnapshot;
 import com.openggf.game.rewind.snapshot.GameRngSnapshot;
 import com.openggf.game.rewind.snapshot.GameStateSnapshot;
+import com.openggf.game.rewind.snapshot.LevelEventSnapshot;
 import com.openggf.game.rewind.snapshot.LevelSnapshot;
+import com.openggf.game.rewind.snapshot.MutationPipelineSnapshot;
 import com.openggf.game.rewind.snapshot.ObjectManagerSnapshot;
+import com.openggf.game.rewind.snapshot.PaletteOwnershipSnapshot;
+import com.openggf.game.rewind.snapshot.ParallaxSnapshot;
+import com.openggf.game.rewind.snapshot.PlcProgressSnapshot;
+import com.openggf.game.rewind.snapshot.RingSnapshot;
+import com.openggf.game.rewind.snapshot.SolidExecutionSnapshot;
+import com.openggf.game.rewind.snapshot.SpecialRenderEffectSnapshot;
 import com.openggf.game.rewind.snapshot.TimerManagerSnapshot;
+import com.openggf.game.rewind.snapshot.WaterSystemSnapshot;
+import com.openggf.game.rewind.snapshot.ZoneRuntimeSnapshot;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.TestEnvironment;
@@ -28,24 +40,40 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Keystone parity test for the v1 rewind framework (Track G.1).
+ * Keystone parity test for the v1.5 rewind framework (Track J.1).
  *
  * <p>Strategy: boot S2 EHZ1 via BK2 trace, step forward N frames to produce
  * non-trivial engine state, capture a CompositeSnapshot, step forward M more
  * frames to diverge, restore the snapshot, capture again, then assert that
  * all covered keys round-trip cleanly.
  *
- * <p>Covered keys (6 atomic + 2 level-coupled):
+ * <p>Covered keys (Plan 2 atomics + composites + Plan 3 Track A–F additions):
  * <ul>
- *   <li>{@code camera}       — CameraSnapshot (record, primitive fields)</li>
- *   <li>{@code gamestate}    — GameStateSnapshot (record, defensive-copied arrays)</li>
- *   <li>{@code gamerng}      — GameRngSnapshot (record, primitive)</li>
- *   <li>{@code timermanager} — TimerManagerSnapshot (record, defensive-copied map)</li>
- *   <li>{@code fademanager}  — FadeManagerSnapshot (record, primitive)</li>
- *   <li>{@code oscillation}  — OscillationSnapshot (record, defensive-copied arrays)</li>
- *   <li>{@code level}        — LevelSnapshot (epoch + shallow-cloned arrays + CoW mapData)</li>
- *   <li>{@code object-manager} — ObjectManagerSnapshot (slot inventory + per-slot state)</li>
+ *   <li>{@code camera}               — CameraSnapshot</li>
+ *   <li>{@code gamestate}            — GameStateSnapshot (array fields)</li>
+ *   <li>{@code gamerng}              — GameRngSnapshot</li>
+ *   <li>{@code timermanager}         — TimerManagerSnapshot</li>
+ *   <li>{@code fademanager}          — FadeManagerSnapshot</li>
+ *   <li>{@code oscillation}          — OscillationSnapshot (array fields)</li>
+ *   <li>{@code level}                — LevelSnapshot (epoch + arrays + CoW mapData)</li>
+ *   <li>{@code object-manager}       — ObjectManagerSnapshot</li>
+ *   <li>{@code parallax}             — ParallaxSnapshot (array fields)</li>
+ *   <li>{@code water}                — WaterSystemSnapshot</li>
+ *   <li>{@code zone-runtime}         — ZoneRuntimeSnapshot (byte[] stateBytes)</li>
+ *   <li>{@code palette-ownership}    — PaletteOwnershipSnapshot (String[] owners)</li>
+ *   <li>{@code animated-tile-channels} — AnimatedTileChannelSnapshot</li>
+ *   <li>{@code special-render}       — SpecialRenderEffectSnapshot</li>
+ *   <li>{@code advanced-render-mode} — AdvancedRenderModeSnapshot</li>
+ *   <li>{@code mutation-pipeline}    — MutationPipelineSnapshot</li>
+ *   <li>{@code solid-execution}      — SolidExecutionSnapshot (empty sentinel)</li>
+ *   <li>{@code level-event}          — LevelEventSnapshot (array fields)</li>
+ *   <li>{@code rings}                — RingSnapshot (BitSet + arrays)</li>
+ *   <li>{@code s2-plc-art}           — PlcProgressSnapshot</li>
  * </ul>
+ *
+ * <p>Per-game animator keys ({@code sonic1-pattern-animator},
+ * {@code sonic3k-pattern-animator}, {@code aniplc-script-state}) are NOT
+ * asserted here — the S2 trace does not activate them.
  *
  * <p><strong>G.2 deferred:</strong> Act-boundary parity test is deferred to a
  * follow-up. Without Track F's PlaybackController integration, replaying forward
@@ -62,8 +90,21 @@ class TestRewindParityAgainstTrace {
     private static final int ADVANCE_AFTER_CAPTURE = 100;
 
     private static final Set<String> EXPECTED_KEYS = Set.of(
+            // Plan 2 atomics
             "camera", "gamestate", "gamerng", "timermanager",
-            "fademanager", "oscillation", "level", "object-manager");
+            "fademanager", "oscillation",
+            // Plan 2 composites
+            "level", "object-manager",
+            // Plan 3 Track A — 9 runtime-framework keys
+            "parallax", "water", "zone-runtime", "palette-ownership",
+            "animated-tile-channels", "special-render", "advanced-render-mode",
+            "mutation-pipeline", "solid-execution",
+            // Plan 3 Track C — level-event
+            "level-event",
+            // Plan 3 Track D — ring manager
+            "rings",
+            // Plan 3 Track F.1 — S2 PLC art
+            "s2-plc-art");
 
     @AfterEach
     void cleanup() {
@@ -105,8 +146,7 @@ class TestRewindParityAgainstTrace {
         List<String> missingKeys = new ArrayList<>(EXPECTED_KEYS);
         missingKeys.removeAll(snapA.entries().keySet());
         if (!missingKeys.isEmpty()) {
-            fail("RewindRegistry is missing expected keys after level load — " +
-                    "Track E (LevelManager wiring) may not have registered level/object-manager adapters. " +
+            fail("RewindRegistry is missing expected keys after level load. " +
                     "Missing: " + missingKeys +
                     ", present: " + snapA.entries().keySet());
         }
@@ -127,8 +167,8 @@ class TestRewindParityAgainstTrace {
         if (!failures.isEmpty()) {
             fail("Snapshot/restore round-trip diverged for covered keys:\n" +
                     String.join("\n", failures) +
-                    "\n\nThis indicates a real coverage gap in C/D/B.5 that must be " +
-                    "fixed before v1 ships. Investigate which subsystem's restore() " +
+                    "\n\nThis indicates a real coverage gap that must be " +
+                    "fixed before v1.5 ships. Investigate which subsystem's restore() " +
                     "does not fully reconstruct captured state.");
         }
     }
@@ -165,6 +205,50 @@ class TestRewindParityAgainstTrace {
 
         // ObjectManagerSnapshot: slot inventory bits + scalar counters + per-slot entries
         compareObjectManager(failures, snapA, snapB);
+
+        // --- Plan 3 Track A: runtime-framework keys ---
+
+        // ParallaxSnapshot: has int[] and short[] fields — need array-equals
+        compareParallax(failures, snapA, snapB);
+
+        // WaterSystemSnapshot: Map<String, DynamicWaterEntry> — record equality works
+        // (DynamicWaterEntry is a record with all-primitive fields)
+        compareAtomic(failures, "water", snapA, snapB, WaterSystemSnapshot.class);
+
+        // ZoneRuntimeSnapshot: has byte[] stateBytes
+        compareZoneRuntime(failures, snapA, snapB);
+
+        // PaletteOwnershipSnapshot: has String[] owners
+        comparePaletteOwnership(failures, snapA, snapB);
+
+        // AnimatedTileChannelSnapshot: Map<String, Integer> — copyOf, equals works
+        compareAtomic(failures, "animated-tile-channels", snapA, snapB,
+                AnimatedTileChannelSnapshot.class);
+
+        // SpecialRenderEffectSnapshot: captures effect refs by identity; list equality works
+        compareAtomic(failures, "special-render", snapA, snapB,
+                SpecialRenderEffectSnapshot.class);
+
+        // AdvancedRenderModeSnapshot: captures mode refs by identity; list equality works
+        compareAtomic(failures, "advanced-render-mode", snapA, snapB,
+                AdvancedRenderModeSnapshot.class);
+
+        // MutationPipelineSnapshot: List<LayoutMutationIntent> — queue is empty at frame boundary
+        compareAtomic(failures, "mutation-pipeline", snapA, snapB,
+                MutationPipelineSnapshot.class);
+
+        // SolidExecutionSnapshot: empty sentinel record — equality always true
+        compareAtomic(failures, "solid-execution", snapA, snapB, SolidExecutionSnapshot.class);
+
+        // --- Plan 3 Track C: level-event ---
+        compareLevelEvent(failures, snapA, snapB);
+
+        // --- Plan 3 Track D: ring manager ---
+        compareRings(failures, snapA, snapB);
+
+        // --- Plan 3 Track F.1: S2 PLC art (load-epoch sentinel) ---
+        // PlcProgressSnapshot is a record with a single int field — equals works
+        compareAtomic(failures, "s2-plc-art", snapA, snapB, PlcProgressSnapshot.class);
 
         return failures;
     }
@@ -332,6 +416,163 @@ class TestRewindParityAgainstTrace {
                 }
                 if (!Arrays.equals(ca.reservedSlots(), cb.reservedSlots())) {
                     failures.add("[object-manager] childSpawns[" + i + "] reservedSlots mismatch");
+                }
+            }
+        }
+    }
+
+    private static void compareParallax(List<String> failures,
+                                         CompositeSnapshot a, CompositeSnapshot b) {
+        ParallaxSnapshot pa = (ParallaxSnapshot) a.get("parallax");
+        ParallaxSnapshot pb = (ParallaxSnapshot) b.get("parallax");
+        if (pa == null) { failures.add("[parallax] missing from snapA"); return; }
+        if (pb == null) { failures.add("[parallax] missing from snapB"); return; }
+        if (pa.currentShakeOffsetX() != pb.currentShakeOffsetX())
+            failures.add("[parallax] currentShakeOffsetX: " + pa.currentShakeOffsetX()
+                    + " vs " + pb.currentShakeOffsetX());
+        if (pa.currentShakeOffsetY() != pb.currentShakeOffsetY())
+            failures.add("[parallax] currentShakeOffsetY: " + pa.currentShakeOffsetY()
+                    + " vs " + pb.currentShakeOffsetY());
+        if (pa.cachedBgCameraX() != pb.cachedBgCameraX())
+            failures.add("[parallax] cachedBgCameraX: " + pa.cachedBgCameraX()
+                    + " vs " + pb.cachedBgCameraX());
+        if (pa.cachedBgPeriodWidth() != pb.cachedBgPeriodWidth())
+            failures.add("[parallax] cachedBgPeriodWidth: " + pa.cachedBgPeriodWidth()
+                    + " vs " + pb.cachedBgPeriodWidth());
+        if (!Arrays.equals(pa.hScroll(), pb.hScroll()))
+            failures.add("[parallax] hScroll mismatch");
+        if (!Arrays.equals(pa.vScrollPerLineBG(), pb.vScrollPerLineBG()))
+            failures.add("[parallax] vScrollPerLineBG mismatch");
+        if (!Arrays.equals(pa.vScrollPerColumnBG(), pb.vScrollPerColumnBG()))
+            failures.add("[parallax] vScrollPerColumnBG mismatch");
+        if (!Arrays.equals(pa.vScrollPerColumnFG(), pb.vScrollPerColumnFG()))
+            failures.add("[parallax] vScrollPerColumnFG mismatch");
+        if (pa.hasPerLineVScrollBG() != pb.hasPerLineVScrollBG())
+            failures.add("[parallax] hasPerLineVScrollBG");
+        if (pa.hasPerColumnVScrollBG() != pb.hasPerColumnVScrollBG())
+            failures.add("[parallax] hasPerColumnVScrollBG");
+        if (pa.hasPerColumnVScrollFG() != pb.hasPerColumnVScrollFG())
+            failures.add("[parallax] hasPerColumnVScrollFG");
+        if (pa.minScroll() != pb.minScroll())
+            failures.add("[parallax] minScroll: " + pa.minScroll() + " vs " + pb.minScroll());
+        if (pa.maxScroll() != pb.maxScroll())
+            failures.add("[parallax] maxScroll: " + pa.maxScroll() + " vs " + pb.maxScroll());
+        if (pa.vscrollFactorFG() != pb.vscrollFactorFG())
+            failures.add("[parallax] vscrollFactorFG: " + pa.vscrollFactorFG()
+                    + " vs " + pb.vscrollFactorFG());
+        if (pa.vscrollFactorBG() != pb.vscrollFactorBG())
+            failures.add("[parallax] vscrollFactorBG: " + pa.vscrollFactorBG()
+                    + " vs " + pb.vscrollFactorBG());
+    }
+
+    private static void compareZoneRuntime(List<String> failures,
+                                            CompositeSnapshot a, CompositeSnapshot b) {
+        ZoneRuntimeSnapshot za = (ZoneRuntimeSnapshot) a.get("zone-runtime");
+        ZoneRuntimeSnapshot zb = (ZoneRuntimeSnapshot) b.get("zone-runtime");
+        if (za == null) { failures.add("[zone-runtime] missing from snapA"); return; }
+        if (zb == null) { failures.add("[zone-runtime] missing from snapB"); return; }
+        if (!Arrays.equals(za.stateBytes(), zb.stateBytes()))
+            failures.add("[zone-runtime] stateBytes mismatch (length A="
+                    + za.stateBytes().length + " B=" + zb.stateBytes().length + ")");
+    }
+
+    private static void comparePaletteOwnership(List<String> failures,
+                                                 CompositeSnapshot a, CompositeSnapshot b) {
+        PaletteOwnershipSnapshot pa = (PaletteOwnershipSnapshot) a.get("palette-ownership");
+        PaletteOwnershipSnapshot pb = (PaletteOwnershipSnapshot) b.get("palette-ownership");
+        if (pa == null) { failures.add("[palette-ownership] missing from snapA"); return; }
+        if (pb == null) { failures.add("[palette-ownership] missing from snapB"); return; }
+        if (!Arrays.equals(pa.owners(), pb.owners()))
+            failures.add("[palette-ownership] owners array mismatch");
+    }
+
+    private static void compareLevelEvent(List<String> failures,
+                                           CompositeSnapshot a, CompositeSnapshot b) {
+        LevelEventSnapshot la = (LevelEventSnapshot) a.get("level-event");
+        LevelEventSnapshot lb = (LevelEventSnapshot) b.get("level-event");
+        if (la == null) { failures.add("[level-event] missing from snapA"); return; }
+        if (lb == null) { failures.add("[level-event] missing from snapB"); return; }
+        if (la.currentZone() != lb.currentZone())
+            failures.add("[level-event] currentZone: " + la.currentZone() + " vs " + lb.currentZone());
+        if (la.currentAct() != lb.currentAct())
+            failures.add("[level-event] currentAct: " + la.currentAct() + " vs " + lb.currentAct());
+        if (la.eventRoutineFg() != lb.eventRoutineFg())
+            failures.add("[level-event] eventRoutineFg: " + la.eventRoutineFg()
+                    + " vs " + lb.eventRoutineFg());
+        if (la.eventRoutineBg() != lb.eventRoutineBg())
+            failures.add("[level-event] eventRoutineBg: " + la.eventRoutineBg()
+                    + " vs " + lb.eventRoutineBg());
+        if (la.frameCounter() != lb.frameCounter())
+            failures.add("[level-event] frameCounter: " + la.frameCounter()
+                    + " vs " + lb.frameCounter());
+        if (la.timerFrames() != lb.timerFrames())
+            failures.add("[level-event] timerFrames: " + la.timerFrames()
+                    + " vs " + lb.timerFrames());
+        if (la.bossActive() != lb.bossActive())
+            failures.add("[level-event] bossActive: " + la.bossActive() + " vs " + lb.bossActive());
+        if (!Arrays.equals(la.eventDataFg(), lb.eventDataFg()))
+            failures.add("[level-event] eventDataFg mismatch");
+        if (!Arrays.equals(la.eventDataBg(), lb.eventDataBg()))
+            failures.add("[level-event] eventDataBg mismatch");
+        if (!Arrays.equals(la.extra(), lb.extra()))
+            failures.add("[level-event] extra mismatch");
+    }
+
+    private static void compareRings(List<String> failures,
+                                      CompositeSnapshot a, CompositeSnapshot b) {
+        RingSnapshot ra = (RingSnapshot) a.get("rings");
+        RingSnapshot rb = (RingSnapshot) b.get("rings");
+        if (ra == null) { failures.add("[rings] missing from snapA"); return; }
+        if (rb == null) { failures.add("[rings] missing from snapB"); return; }
+
+        // BitSet equality
+        if (!ra.collected().equals(rb.collected()))
+            failures.add("[rings] collected BitSet mismatch");
+
+        if (!Arrays.equals(ra.sparkleStartFrames(), rb.sparkleStartFrames()))
+            failures.add("[rings] sparkleStartFrames mismatch");
+        if (ra.placementCursorIndex() != rb.placementCursorIndex())
+            failures.add("[rings] placementCursorIndex: " + ra.placementCursorIndex()
+                    + " vs " + rb.placementCursorIndex());
+        if (ra.placementLastCameraX() != rb.placementLastCameraX())
+            failures.add("[rings] placementLastCameraX: " + ra.placementLastCameraX()
+                    + " vs " + rb.placementLastCameraX());
+        if (ra.lostRingActiveCount() != rb.lostRingActiveCount())
+            failures.add("[rings] lostRingActiveCount: " + ra.lostRingActiveCount()
+                    + " vs " + rb.lostRingActiveCount());
+        if (ra.spillAnimCounter() != rb.spillAnimCounter())
+            failures.add("[rings] spillAnimCounter: " + ra.spillAnimCounter()
+                    + " vs " + rb.spillAnimCounter());
+        if (ra.spillAnimAccum() != rb.spillAnimAccum())
+            failures.add("[rings] spillAnimAccum: " + ra.spillAnimAccum()
+                    + " vs " + rb.spillAnimAccum());
+        if (ra.spillAnimFrame() != rb.spillAnimFrame())
+            failures.add("[rings] spillAnimFrame: " + ra.spillAnimFrame()
+                    + " vs " + rb.spillAnimFrame());
+        if (ra.lostRingFrameCounter() != rb.lostRingFrameCounter())
+            failures.add("[rings] lostRingFrameCounter: " + ra.lostRingFrameCounter()
+                    + " vs " + rb.lostRingFrameCounter());
+
+        // LostRingEntry[] — records with all-primitive fields, equals works per-element
+        if (ra.lostRings().length != rb.lostRings().length) {
+            failures.add("[rings] lostRings length: A=" + ra.lostRings().length
+                    + " B=" + rb.lostRings().length);
+        } else {
+            for (int i = 0; i < ra.lostRings().length; i++) {
+                if (!ra.lostRings()[i].equals(rb.lostRings()[i])) {
+                    failures.add("[rings] lostRings[" + i + "] mismatch");
+                }
+            }
+        }
+
+        // AttractedRingEntry[] — records with all-primitive fields, equals works per-element
+        if (ra.attractedRings().length != rb.attractedRings().length) {
+            failures.add("[rings] attractedRings length: A=" + ra.attractedRings().length
+                    + " B=" + rb.attractedRings().length);
+        } else {
+            for (int i = 0; i < ra.attractedRings().length; i++) {
+                if (!ra.attractedRings()[i].equals(rb.attractedRings()[i])) {
+                    failures.add("[rings] attractedRings[" + i + "] mismatch");
                 }
             }
         }
