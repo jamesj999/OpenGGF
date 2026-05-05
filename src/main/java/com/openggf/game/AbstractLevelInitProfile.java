@@ -158,12 +158,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         steps.add(new InitStep("InitAnimatedContent",
                 "Pattern animation scripts and palette cycling",
                 () -> GameServices.level().initAnimatedContent()));
-        steps.add(ioStep("InitObjectManager",
-                "Spawn players, create ObjectManager, wire CollisionSystem",
-                () -> GameServices.level().initObjectManager()));
-        steps.add(new InitStep("InitCameraBounds",
-                "Reset camera bounds from level geometry",
-                () -> GameServices.level().initCameraBounds()));
+        steps.add(ioStep("InitObjectSystem",
+                "Create ObjectManager, wire CollisionSystem, reset camera bounds, register rewind adapters",
+                () -> GameServices.level().initObjectSystem()));
         steps.add(new InitStep("InitGameplayState",
                 "OscillateNumInit, clear game state, HUD update flags",
                 () -> GameServices.level().initGameplayState()));

@@ -76,8 +76,7 @@ public class TestSonic3kLevelInitProfile {
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitAudio")), "Should include InitAudio");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("LoadLevelData")), "Should include LoadLevelData");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitAnimatedContent")), "Should include InitAnimatedContent");
-        assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitObjectManager")), "Should include InitObjectManager");
-        assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitCameraBounds")), "Should include InitCameraBounds");
+        assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitObjectSystem")), "Should include InitObjectSystem");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitGameplayState")), "Should include InitGameplayState");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitRings")), "Should include InitRings");
         assertTrue(steps.stream().anyMatch(s -> s.name().equals("InitZoneFeatures")), "Should include InitZoneFeatures");
