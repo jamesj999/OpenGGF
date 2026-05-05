@@ -7,7 +7,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageProvider;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.GameStateManager;
@@ -70,7 +70,7 @@ class TestObjectServicesExpansion {
     @Test
     void defaultObjectServices_processServices_returnRuntimeEngineServicesMembers() {
         DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
-        EngineServices engineServices = RuntimeManager.currentEngineServices();
+        EngineContext engineServices = RuntimeManager.currentEngineServices();
 
         assertSame(engineServices, services.engineServices());
         assertSame(engineServices.configuration(), services.configuration());

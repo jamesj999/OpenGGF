@@ -1,6 +1,6 @@
 package com.openggf.tests;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
@@ -25,7 +25,7 @@ public class TestSonic3kZoneFeatureProvider {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

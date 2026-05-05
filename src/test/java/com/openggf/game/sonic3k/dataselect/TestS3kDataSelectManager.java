@@ -5,7 +5,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.RomDetectionService;
 import com.openggf.game.dataselect.DataSelectAction;
@@ -49,7 +49,7 @@ class TestS3kDataSelectManager {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         config = SonicConfigurationService.getInstance();
         config.resetToDefaults();
         config.setConfigValue(SonicConfiguration.DATA_SELECT_EXTRA_PLAYER_COMBOS, "");
@@ -250,7 +250,7 @@ class TestS3kDataSelectManager {
     @Test
     void donatedHostRoutesMenuMusicThroughS3kDonorAudio() {
         AudioManager audio = mock(AudioManager.class);
-        RuntimeManager.configureEngineServices(new EngineServices(
+        RuntimeManager.configureEngineServices(new EngineContext(
                 config,
                 GraphicsManager.getInstance(),
                 audio,
@@ -272,7 +272,7 @@ class TestS3kDataSelectManager {
     @Test
     void donatedHostRoutesMenuSfxThroughS3kDonorAudio() {
         AudioManager audio = mock(AudioManager.class);
-        RuntimeManager.configureEngineServices(new EngineServices(
+        RuntimeManager.configureEngineServices(new EngineContext(
                 config,
                 GraphicsManager.getInstance(),
                 audio,

@@ -1,6 +1,6 @@
 package com.openggf.sprites.playable;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +18,7 @@ class TestSidekickCpuControllerFlightAutoRecovery {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

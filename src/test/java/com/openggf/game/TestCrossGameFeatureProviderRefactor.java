@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Palette;
@@ -24,7 +25,7 @@ class TestCrossGameFeatureProviderRefactor {
         // default that this fixture configures via setCurrent().
         RuntimeManager.destroyCurrent();
         com.openggf.game.session.SessionManager.clear();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @AfterEach
@@ -33,7 +34,7 @@ class TestCrossGameFeatureProviderRefactor {
         com.openggf.game.session.SessionManager.clear();
         CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test

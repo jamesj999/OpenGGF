@@ -7,7 +7,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RomDetectionService;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.animation.ChannelContext;
@@ -35,7 +35,7 @@ class TestScriptFramesApplyStrategyGraphicsRebind {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test
@@ -43,7 +43,7 @@ class TestScriptFramesApplyStrategyGraphicsRebind {
         RecordingGraphicsManager installGraphics = new RecordingGraphicsManager();
         RecordingGraphicsManager currentGraphics = new RecordingGraphicsManager();
 
-        RuntimeManager.configureEngineServices(new EngineServices(
+        RuntimeManager.configureEngineServices(new EngineContext(
                 SonicConfigurationService.getInstance(),
                 currentGraphics,
                 AudioManager.getInstance(),

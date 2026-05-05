@@ -1,7 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -19,7 +19,7 @@ public class TestGameStateManager {
 
     @BeforeAll
     static void configureEngineServices() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @BeforeEach

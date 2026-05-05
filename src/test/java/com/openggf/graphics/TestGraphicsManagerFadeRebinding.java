@@ -1,7 +1,7 @@
 package com.openggf.graphics;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
@@ -17,15 +17,15 @@ public class TestGraphicsManagerFadeRebinding {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
-        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = EngineContext.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();
         setPrivateField(graphicsManager, "uiRenderPipeline", null);
     }
@@ -33,7 +33,7 @@ public class TestGraphicsManagerFadeRebinding {
     @Test
     public void testGetFadeManagerRebindsRuntimeManagedReferences() throws Exception {
         RuntimeManager.destroyCurrent();
-        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = EngineContext.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();
 
         FadeManager bootstrapFade = graphicsManager.getFadeManager();
@@ -57,7 +57,7 @@ public class TestGraphicsManagerFadeRebinding {
     @Test
     public void testGetFadeManagerProvidesBootstrapDependenciesBeforeRuntime() throws Exception {
         RuntimeManager.destroyCurrent();
-        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = EngineContext.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();
 
         FadeManager resolvedFade = graphicsManager.getFadeManager();

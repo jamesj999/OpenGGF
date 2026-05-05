@@ -2,7 +2,7 @@ package com.openggf.tests.rules;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -24,7 +24,7 @@ class TestRequiresRomConditionParity {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RomManager.getInstance().setRom(null);
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
@@ -33,7 +33,7 @@ class TestRequiresRomConditionParity {
 
     @Test
     void requiresRomExtensionMatchesSharedFixtureForNonDefaultRomRuntimeState() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
         TestTarget target = selectAvailableNonDefaultTarget();
         Assumptions.assumeTrue(target != null, "No Sonic 1 or Sonic 3K ROM available");

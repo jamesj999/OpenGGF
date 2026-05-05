@@ -6,7 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.GameplayTeamBootstrap;
@@ -107,7 +107,7 @@ public final class SharedLevel {
     }
 
     private static void bootstrapRuntimeForSharedLevel(SonicGame game) throws IOException {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
         File romFile = switch (game) {
             case SONIC_1 -> RomTestUtils.ensureSonic1RomAvailable();

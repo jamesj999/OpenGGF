@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.LevelFrameStep;
 import com.openggf.game.mutation.DirectLevelMutationSurface;
 import com.openggf.game.mutation.LayoutMutationContext;
@@ -47,7 +48,7 @@ class TestZoneLayoutMutationPipeline {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
@@ -55,7 +56,7 @@ class TestZoneLayoutMutationPipeline {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();

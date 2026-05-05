@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.RuntimeManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +24,7 @@ public class TestObjectManagerLifecycle {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

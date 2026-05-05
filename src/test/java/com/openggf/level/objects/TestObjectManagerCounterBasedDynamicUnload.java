@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RuntimeManager;
@@ -24,7 +24,7 @@ public class TestObjectManagerCounterBasedDynamicUnload {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         GameServices.camera().setX((short) 0);

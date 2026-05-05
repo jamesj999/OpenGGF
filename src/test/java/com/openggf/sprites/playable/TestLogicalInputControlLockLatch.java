@@ -1,6 +1,6 @@
 package com.openggf.sprites.playable;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.RuntimeManager;
@@ -40,7 +40,7 @@ class TestLogicalInputControlLockLatch {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         module = new Sonic2GameModule();
         GameModuleRegistry.setCurrent(module);
         RuntimeManager.createGameplay();

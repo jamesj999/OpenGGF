@@ -3,7 +3,7 @@ package com.openggf.sprites.playable;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Sensor;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +29,7 @@ class TestOnObjectAtFrameStartSnapshot {
 
     @BeforeEach
     void configureRuntime() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test

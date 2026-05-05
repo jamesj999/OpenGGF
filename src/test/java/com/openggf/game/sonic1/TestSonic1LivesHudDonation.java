@@ -3,7 +3,7 @@ package com.openggf.game.sonic1;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.save.SaveSessionContext;
@@ -35,7 +35,7 @@ class TestSonic1LivesHudDonation {
 
     @BeforeEach
     void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         SonicConfigurationService.getInstance().resetToDefaults();
     }
 
@@ -43,7 +43,7 @@ class TestSonic1LivesHudDonation {
     void tearDown() {
         SessionManager.clear();
         RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test

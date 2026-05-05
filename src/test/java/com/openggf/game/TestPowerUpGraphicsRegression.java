@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -61,7 +62,7 @@ class TestPowerUpGraphicsRegression {
         config.setConfigValue(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED, crossGame);
         config.setConfigValue(SonicConfiguration.CROSS_GAME_SOURCE, "s3k");
 
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.setCurrent(new Sonic2GameModule());

@@ -138,7 +138,13 @@ Per `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`, g
 - **`GameplayModeContext`** (`com.openggf.game.session`) — disposable, rebuilt on each gameplay session entry. Owns all gameplay-scoped managers: `Camera`, `TimerManager`, `GameStateManager`, `FadeManager`, `GameRng`, `SolidExecutionRegistry`, `WaterSystem`, `ParallaxManager`, `TerrainCollisionManager`, `CollisionSystem`, `SpriteManager`, `LevelManager`, plus the runtime-shared registries listed below. Provides `initializeFreshGameplayState()` for editor-exit counter reset.
 - **`SessionManager`** (`com.openggf.game.session`) — manages `WorldSession` and `ModeContext` lifecycle (`openGameplaySession`, `enterEditorMode`, `resumeGameplayFromEditor`).
 
-`GameRuntime` (`com.openggf.game`) is now a thin coordinator façade — it holds engine services + a reference to the active `WorldSession` and `GameplayModeContext`, and exposes manager getters that delegate to the gameplay mode context. New code should prefer resolving managers from `GameplayModeContext` directly. `RuntimeManager` still manages the `GameRuntime` lifecycle. The future direction is to fold `RuntimeManager`'s remaining responsibilities into `SessionManager` and eliminate the façade.
+`GameRuntime` (`com.openggf.game`) is now a thin coordinator façade — it holds engine services + a reference to the active `WorldSession` and `GameplayModeContext`, and exposes manager getters that delegate to the gameplay mode context. New code should prefer resolving managers from `GameplayModeContext` directly. `RuntimeManager` still manages the `GameRuntime` lifecycle (`createGameplay`/`destroyCurrent`/`getCurrent`); `getCurrent` no longer lazy-creates — explicit `createGameplay(...)` is required to build a runtime.
+
+**Editor mode entry/exit** uses proper teardown+rebuild (no parking):
+- Entry: `Engine.enterEditorFromCurrentPlayer` captures world-scoped state (loaded `Level`, zone/act, camera bounds), calls `RuntimeManager.destroyCurrent()` to tear down gameplay-mode managers, then re-publishes the captured state on `WorldSession` before `SessionManager.enterEditorMode`. The world data lives on `WorldSession` and survives.
+- Exit: `Engine.resumePlaytestFromEditor` calls `initializeGameplayRuntime` (fresh runtime) plus `LevelManager.restoreInheritedLevel()` (re-runs the standard load over the surviving `Level`, then setLevel-restores any `MutableLevel` mutations made in editor). `GameplayModeContext.initializeFreshGameplayState()` resets the design's "non-preserved" counters (score, timer, checkpoint).
+
+The future direction is to fold `RuntimeManager`'s remaining responsibilities into `SessionManager` and eliminate the `GameRuntime` façade.
 
 ### Runtime-Shared Framework Stack
 

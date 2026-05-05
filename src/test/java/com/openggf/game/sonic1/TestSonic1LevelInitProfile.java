@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.InitStep;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.LevelLoadContext;
 import com.openggf.game.LevelLoadMode;
 import com.openggf.game.RuntimeManager;
@@ -22,7 +22,7 @@ public class TestSonic1LevelInitProfile {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
     }
 

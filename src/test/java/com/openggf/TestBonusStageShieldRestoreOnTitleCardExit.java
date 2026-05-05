@@ -1,6 +1,6 @@
 package com.openggf;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.ShieldType;
 import com.openggf.tests.TestablePlayableSprite;
@@ -14,7 +14,7 @@ class TestBonusStageShieldRestoreOnTitleCardExit {
 
     @Test
     void applyPendingBonusStageShieldRestore_grantsAndClearsPendingShield() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         GameLoop loop = new GameLoop();
         TestablePlayableSprite player = new TestablePlayableSprite("sonic", (short) 0, (short) 0);
 

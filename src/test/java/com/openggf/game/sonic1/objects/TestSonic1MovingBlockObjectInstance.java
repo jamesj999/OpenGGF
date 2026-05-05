@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.solid.DefaultSolidExecutionRegistry;
@@ -28,7 +28,7 @@ class TestSonic1MovingBlockObjectInstance {
     @BeforeEach
     void setUp() {
         RuntimeManager.destroyCurrent();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.createGameplay();
         OscillationManager.resetForSonic1();
     }

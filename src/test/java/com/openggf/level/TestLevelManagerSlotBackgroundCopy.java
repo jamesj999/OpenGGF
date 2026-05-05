@@ -1,6 +1,6 @@
 package com.openggf.level;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -19,7 +19,7 @@ public class TestLevelManagerSlotBackgroundCopy {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         runtime = RuntimeManager.createGameplay();
     }
 

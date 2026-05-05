@@ -1,6 +1,6 @@
 package com.openggf.tests.rules;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.session.SessionManager;
@@ -17,7 +17,7 @@ class TestRequiresGameModuleCondition {
 
     @AfterEach
     void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();

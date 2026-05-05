@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.camera.Camera;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
@@ -63,7 +64,7 @@ import java.util.Objects;
  */
 public final class GameRuntime {
 
-    private final EngineServices engineServices;
+    private final EngineContext engineServices;
     private final WorldSession worldSession;
     private GameplayModeContext gameplayMode;
 
@@ -72,7 +73,7 @@ public final class GameRuntime {
      * Both the disposable managers and the shared registries must already be
      * attached to {@code gameplayMode}.
      */
-    GameRuntime(EngineServices engineServices,
+    GameRuntime(EngineContext engineServices,
                 WorldSession worldSession,
                 GameplayModeContext gameplayMode) {
         this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
@@ -98,7 +99,7 @@ public final class GameRuntime {
 
     // ── Getters ──────────────────────────────────────────────────────────
 
-    public EngineServices getEngineServices() { return engineServices; }
+    public EngineContext getEngineServices() { return engineServices; }
     public WorldSession getWorldSession() { return worldSession; }
     public GameplayModeContext getGameplayModeContext() { return gameplayMode; }
 

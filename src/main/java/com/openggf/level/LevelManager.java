@@ -1,5 +1,6 @@
 package com.openggf.level;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.*;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
@@ -219,7 +220,7 @@ public class LevelManager {
     public LevelManager(Camera camera, SpriteManager spriteManager,
                         ParallaxManager parallaxManager, CollisionSystem collisionSystem,
                         WaterSystem waterSystem, GameStateManager gameState,
-                        EngineServices engineServices, WorldSession worldSession) {
+                        EngineContext engineServices, WorldSession worldSession) {
         this.camera = camera;
         this.spriteManager = spriteManager;
         this.parallaxManager = parallaxManager;

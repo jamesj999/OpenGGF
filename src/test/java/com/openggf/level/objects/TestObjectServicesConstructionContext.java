@@ -1,5 +1,6 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.session.EngineContext;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -41,7 +42,7 @@ class TestObjectServicesConstructionContext {
         @Override public com.openggf.sprites.managers.SpriteManager spriteManager() { return null; }
         @Override public com.openggf.graphics.GraphicsManager graphicsManager() { return null; }
         @Override public com.openggf.graphics.FadeManager fadeManager() { return null; }
-        @Override public com.openggf.game.EngineServices engineServices() { return null; }
+        @Override public com.openggf.game.session.EngineContext engineServices() { return null; }
         @Override public com.openggf.configuration.SonicConfigurationService configuration() { return null; }
         @Override public com.openggf.debug.DebugOverlayManager debugOverlay() { return null; }
         @Override public com.openggf.data.RomManager romManager() { return null; }

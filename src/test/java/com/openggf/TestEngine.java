@@ -2,7 +2,7 @@ package com.openggf;
 
 import com.openggf.game.GameId;
 import com.openggf.game.GameModule;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
@@ -76,12 +76,12 @@ class TestEngine {
     void tearDown() {
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @Test
     void drawMasterTitleScreenDoesNotRequireGameplayCamera() throws Exception {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         Engine engine = new Engine();
         MasterTitleScreen masterTitleScreen = mock(MasterTitleScreen.class);
 
@@ -135,7 +135,7 @@ class TestEngine {
 
     @Test
     void sonic1GameModule_exposesWarmupCapableImageCacheManager() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         Sonic1GameModule module = new Sonic1GameModule();
 
         S1DataSelectImageCacheManager manager = module.getGameService(S1DataSelectImageCacheManager.class);
@@ -148,7 +148,7 @@ class TestEngine {
 
     @Test
     void sonic2GameModule_exposesWarmupCapableImageCacheManager() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         Sonic2GameModule module = new Sonic2GameModule();
 
         S2DataSelectImageCacheManager manager = module.getGameService(S2DataSelectImageCacheManager.class);
@@ -237,7 +237,7 @@ class TestEngine {
 
     @Test
     void resolveMainPlayableSprite_prefersSelectedTeamOverConfigDuringGameplay() throws Exception {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         SonicConfigurationService config = SonicConfigurationService.getInstance();
         config.resetToDefaults();
         config.setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
@@ -317,7 +317,7 @@ class TestEngine {
         PlaybackDebugManager playbackDebugManager = mock(PlaybackDebugManager.class);
         RomDetectionService romDetectionService = mock(RomDetectionService.class);
         CrossGameFeatureProvider crossGameFeatureProvider = mock(CrossGameFeatureProvider.class);
-        EngineServices services = new EngineServices(config, graphics, audioManager, romManager, profiler,
+        EngineContext services = new EngineContext(config, graphics, audioManager, romManager, profiler,
                 debugOverlayManager, playbackDebugManager, romDetectionService, crossGameFeatureProvider);
 
         TrackingS1ImageCacheManager cacheManager = new TrackingS1ImageCacheManager(tempDir, graphics);

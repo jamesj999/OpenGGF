@@ -1,5 +1,6 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.session.EngineContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -298,7 +299,7 @@ class TestObjectServicesMigrationGuard {
                                 }
                                 String content = Files.readString(path);
                                 if (content.contains("RuntimeManager.getCurrent()")
-                                        || content.contains("EngineServices.fromLegacySingletonsForBootstrap()")) {
+                                        || content.contains("EngineContext.fromLegacySingletonsForBootstrap()")) {
                                     violations.add(className);
                                 }
                             } catch (IOException ignored) {

@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.camera.Camera;
 import com.openggf.game.animation.AnimatedTileChannelGraph;
 import com.openggf.game.mutation.ZoneLayoutMutationPipeline;
@@ -40,19 +41,19 @@ import java.util.Objects;
 public final class RuntimeManager {
 
     private static GameRuntime current;
-    private static EngineServices engineServices;
+    private static EngineContext engineServices;
 
     private RuntimeManager() {}
 
-    public static synchronized void configureEngineServices(EngineServices services) {
+    public static synchronized void configureEngineServices(EngineContext services) {
         engineServices = Objects.requireNonNull(services, "services");
     }
 
-    public static synchronized EngineServices getEngineServices() {
+    public static synchronized EngineContext getEngineServices() {
         return requireConfiguredEngineServices();
     }
 
-    public static synchronized EngineServices currentEngineServices() {
+    public static synchronized EngineContext currentEngineServices() {
         return requireConfiguredEngineServices();
     }
 
@@ -64,7 +65,7 @@ public final class RuntimeManager {
         return getCurrent(requireConfiguredEngineServices());
     }
 
-    public static synchronized GameRuntime getCurrent(EngineServices services) {
+    public static synchronized GameRuntime getCurrent(EngineContext services) {
         Objects.requireNonNull(services, "services");
         // If the active gameplay mode has changed under us (e.g. session was
         // re-opened), drop the now-stale runtime. Otherwise return what's
@@ -123,7 +124,7 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay() {
-        EngineServices services = requireConfiguredEngineServices();
+        EngineContext services = requireConfiguredEngineServices();
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (gameplayMode == null) {
             GameModule defaultModule = GameModuleRegistry.getCurrent();
@@ -143,7 +144,7 @@ public final class RuntimeManager {
         return createGameplay(gameplayMode, requireConfiguredEngineServices());
     }
 
-    public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineServices services) {
+    public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineContext services) {
         Objects.requireNonNull(services, "services");
         if (gameplayMode == null) {
             throw new NullPointerException("gameplayMode");
@@ -218,10 +219,10 @@ public final class RuntimeManager {
         return null;
     }
 
-    private static EngineServices requireConfiguredEngineServices() {
+    private static EngineContext requireConfiguredEngineServices() {
         if (engineServices == null) {
             throw new IllegalStateException(
-                    "EngineServices have not been configured. Configure RuntimeManager before using default runtime accessors.");
+                    "EngineContext have not been configured. Configure RuntimeManager before using default runtime accessors.");
         }
         return engineServices;
     }

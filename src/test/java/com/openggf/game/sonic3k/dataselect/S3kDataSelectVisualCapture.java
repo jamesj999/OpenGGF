@@ -7,7 +7,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -72,7 +72,7 @@ public final class S3kDataSelectVisualCapture {
     }
 
     public static void main(String[] args) throws Exception {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
         long window = NULL;
         try {
@@ -104,7 +104,7 @@ public final class S3kDataSelectVisualCapture {
             GL.createCapabilities();
 
             GraphicsManager.destroyForReinit();
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
 
             GraphicsManager graphics = GraphicsManager.getInstance();
             graphics.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);

@@ -3,7 +3,7 @@ package com.openggf;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.dataselect.S1DataSelectImageCacheManager;
@@ -30,7 +30,7 @@ class TestEngineRequiresSonic1Rom {
     void sonic1GameModuleWarmupStartsGenerationThroughRealManager() throws Exception {
         GraphicsManager originalGraphicsManager = replaceGraphicsManagerSingleton(mock(GraphicsManager.class));
         try {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
             SonicConfigurationService.getInstance().setConfigValue(
                     SonicConfiguration.CROSS_GAME_S1_DATA_SELECT_IMAGE_GEN_OVERRIDE, true);
             Sonic1GameModule module = new Sonic1GameModule();

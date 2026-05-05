@@ -9,7 +9,7 @@ import com.openggf.game.solid.PreContactState;
 import com.openggf.game.solid.SolidCheckpointBatch;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.save.SaveReason;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -52,7 +52,7 @@ public class TestTornadoObjectInstance {
     public void setUp() {
         previousModule = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         SessionManager.openGameplaySession(GameModuleRegistry.getCurrent());
         RuntimeManager.createGameplay();
         GameServices.camera().resetState();

@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -59,8 +60,8 @@ public class TestProductionSingletonClosureGuard {
     );
 
     private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
-            "com/openggf/game/EngineServices.java";
-    private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineServices.fromLegacySingletonsForBootstrap(";
+            "com/openggf/game/EngineContext.java";
+    private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineContext.fromLegacySingletonsForBootstrap(";
     private static final String ENGINE_SERVICES_LOCATOR = "RuntimeManager.getEngineServices(";
     private static final String ENGINE_SERVICES_LOCATOR_ALIAS = "RuntimeManager.currentEngineServices(";
     private static final String RUNTIME_CURRENT_LOCATOR = "RuntimeManager.getCurrent(";
@@ -188,7 +189,7 @@ public class TestProductionSingletonClosureGuard {
             "com/openggf/data/RomManager.java"
     );
     private static final List<String> LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST = List.of(
-            "com/openggf/game/EngineServices.java",
+            "com/openggf/game/EngineContext.java",
             "com/openggf/Engine.java"
     );
 
@@ -246,7 +247,7 @@ public class TestProductionSingletonClosureGuard {
                 .forEach(path -> scanRawPattern(srcMain, path, violations, rawGetInstancePattern, ".getInstance("));
 
         if (!violations.isEmpty()) {
-            fail("Found raw .getInstance() usage outside EngineServices bootstrap bridge:\n  "
+            fail("Found raw .getInstance() usage outside EngineContext bootstrap bridge:\n  "
                     + String.join("\n  ", violations));
         }
     }
@@ -820,7 +821,7 @@ public class TestProductionSingletonClosureGuard {
 
                 class Bootstrap {
                     void wire() {
-                        EngineServices
+                        EngineContext
                                 .fromLegacySingletonsForBootstrap();
                     }
                 }

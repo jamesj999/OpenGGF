@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -23,7 +23,7 @@ public class TestPlayableSprite extends AbstractPlayableSprite {
         try {
             RuntimeManager.currentEngineServices();
         } catch (IllegalStateException ex) {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         }
     }
 

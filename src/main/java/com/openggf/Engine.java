@@ -1,5 +1,6 @@
 package com.openggf;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.*;
 import com.openggf.graphics.*;
 import com.openggf.version.AppVersion;
@@ -175,7 +176,7 @@ public class Engine {
 		this(RuntimeManager.currentEngineServices());
 	}
 
-	public Engine(EngineServices engineServices) {
+	public Engine(EngineContext engineServices) {
 		engineServices = Objects.requireNonNull(engineServices, "engineServices");
 		RuntimeManager.configureEngineServices(engineServices);
 		this.configService = engineServices.configuration();
@@ -1562,7 +1563,7 @@ public class Engine {
 				System.setProperty("org.lwjgl.librarypath", libPath);
 			}
 		}
-		EngineServices services = EngineServices.fromLegacySingletonsForBootstrap();
+		EngineContext services = EngineContext.fromLegacySingletonsForBootstrap();
 		services.configuration().ensureConfigFileExists();
 		new Engine(services).run();
 	}

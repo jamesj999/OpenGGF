@@ -10,7 +10,7 @@ import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -140,7 +140,7 @@ public interface ObjectServices {
     FadeManager fadeManager();
 
     /** Returns the active engine-level service bundle backing process-wide services. */
-    EngineServices engineServices();
+    EngineContext engineServices();
 
     /** Returns the configuration service. */
     SonicConfigurationService configuration();

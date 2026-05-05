@@ -1,4 +1,4 @@
-package com.openggf.game;
+package com.openggf.game.session;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfigurationService;
@@ -6,11 +6,13 @@ import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.RomDetectionService;
 import com.openggf.graphics.GraphicsManager;
 
 import java.util.Objects;
 
-public final class EngineServices {
+public final class EngineContext {
     private final SonicConfigurationService configuration;
     private final GraphicsManager graphics;
     private final AudioManager audio;
@@ -21,7 +23,7 @@ public final class EngineServices {
     private final RomDetectionService romDetection;
     private final CrossGameFeatureProvider crossGameFeatures;
 
-    public EngineServices(SonicConfigurationService configuration, GraphicsManager graphics,
+    public EngineContext(SonicConfigurationService configuration, GraphicsManager graphics,
                           AudioManager audio, RomManager roms, PerformanceProfiler profiler,
                           DebugOverlayManager debugOverlay, PlaybackDebugManager playbackDebug,
                           RomDetectionService romDetection, CrossGameFeatureProvider crossGameFeatures) {
@@ -36,8 +38,8 @@ public final class EngineServices {
         this.crossGameFeatures = Objects.requireNonNull(crossGameFeatures, "crossGameFeatures");
     }
 
-    public static EngineServices fromLegacySingletonsForBootstrap() {
-        return new EngineServices(SonicConfigurationService.getInstance(), GraphicsManager.getInstance(),
+    public static EngineContext fromLegacySingletonsForBootstrap() {
+        return new EngineContext(SonicConfigurationService.getInstance(), GraphicsManager.getInstance(),
                 AudioManager.getInstance(), RomManager.getInstance(), PerformanceProfiler.getInstance(),
                 DebugOverlayManager.getInstance(), PlaybackDebugManager.getInstance(),
                 RomDetectionService.getInstance(), CrossGameFeatureProvider.getInstance());

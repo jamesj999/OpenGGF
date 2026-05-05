@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.Engine;
 import com.openggf.LevelFrameStep;
 import com.openggf.camera.Camera;
@@ -91,7 +92,7 @@ public class TestInstaShieldVisual {
     @BeforeAll
     static void setUpClass() {
         try {
-            RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+            RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
             RuntimeManager.destroyCurrent();
 
             GLFWErrorCallback.createPrint(System.err).set();
@@ -142,7 +143,7 @@ public class TestInstaShieldVisual {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         gm.setViewport(0, 0, W, H);
 
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         RuntimeManager.createGameplay();
         assertSame(gm, GameServices.graphics(),

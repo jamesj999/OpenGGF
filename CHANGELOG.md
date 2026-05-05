@@ -6,6 +6,18 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Architecture cleanup: renamed `EngineServices` → `EngineContext`.**
+  Aligns with the design vocabulary in
+  `docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md`,
+  which calls the engine-globals container `EngineContext`. Mechanical
+  rename across 113 Java files (~419 token occurrences); the test class
+  `TestEngineServices` moved to `TestEngineContext`. Method names on
+  `RuntimeManager` (`getEngineServices`/`currentEngineServices`/
+  `configureEngineServices`) and `GameRuntime` (`getEngineServices`) were
+  intentionally left alone — they're stable API; only the return type
+  changed. The class file moved from `com.openggf.game.EngineServices` to
+  `com.openggf.game.session.EngineContext`. CLAUDE.md and AGENTS.md
+  updated to reflect the rename + the parking removal.
 - **Architecture cleanup: dropped `RuntimeManager.parkCurrent` /
   `resumeParked` editor parking flow.** Per the runtime ownership migration
   design, world data lives on `WorldSession` (durable across mode swaps) and

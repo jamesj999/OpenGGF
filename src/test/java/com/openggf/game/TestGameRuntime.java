@@ -1,5 +1,6 @@
 package com.openggf.game;
 
+import com.openggf.game.session.EngineContext;
 import com.openggf.camera.Camera;
 import com.openggf.game.animation.AnimatedTileChannel;
 import com.openggf.game.animation.AnimatedTileCachePolicy;
@@ -34,7 +35,7 @@ public class TestGameRuntime {
 
     @BeforeEach
     public void setUp() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         com.openggf.game.session.SessionManager.clear();
         GameModuleRegistry.reset();
@@ -42,7 +43,7 @@ public class TestGameRuntime {
 
     @AfterEach
     public void tearDown() {
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         com.openggf.game.session.SessionManager.clear();
         GameModuleRegistry.reset();
@@ -124,7 +125,7 @@ public class TestGameRuntime {
         try {
             engineServicesField.set(null, null);
             IllegalStateException ex = assertThrows(IllegalStateException.class, RuntimeManager::getCurrent);
-            assertTrue(ex.getMessage().contains("EngineServices have not been configured."));
+            assertTrue(ex.getMessage().contains("EngineContext have not been configured."));
         } finally {
             engineServicesField.set(null, configuredRoot);
         }

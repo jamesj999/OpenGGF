@@ -1,7 +1,7 @@
 package com.openggf.physics;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.level.scroll.ZoneScrollHandler;
@@ -41,7 +41,7 @@ public class TestGroundSensor {
         fgChunkMap = new ChunkDesc[20][20];
         bgChunkMap = new ChunkDesc[20][20];
 
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
         RuntimeManager.destroyCurrent();
         RuntimeManager.createGameplay();
 

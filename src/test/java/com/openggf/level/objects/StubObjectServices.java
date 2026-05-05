@@ -9,7 +9,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
@@ -70,7 +70,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public SpriteManager spriteManager() { return null; }
     @Override public GraphicsManager graphicsManager() { return null; }
     @Override public FadeManager fadeManager() { return null; }
-    @Override public EngineServices engineServices() { return null; }
+    @Override public EngineContext engineServices() { return null; }
     @Override public SonicConfigurationService configuration() { return null; }
     @Override public DebugOverlayManager debugOverlay() { return null; }
     @Override public RomManager romManager() { return null; }

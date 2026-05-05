@@ -6,7 +6,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
-import com.openggf.game.EngineServices;
+import com.openggf.game.session.EngineContext;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
@@ -118,7 +118,7 @@ class TestEditorToggleIntegration {
     @BeforeEach
     void setUp() {
         SonicConfigurationService.getInstance().resetToDefaults();
-        RuntimeManager.configureEngineServices(EngineServices.fromLegacySingletonsForBootstrap());
+        RuntimeManager.configureEngineServices(EngineContext.fromLegacySingletonsForBootstrap());
     }
 
     @AfterEach
