@@ -489,11 +489,13 @@ public class RewindBenchmark {
             }
             if (!keyEquals(key, av, bv)) {
                 divergent.add(key);
-                // Print details for camera so we can see which exact field differs.
-                if (key.equals("camera")) {
-                    System.out.println("  Camera diff:");
-                    System.out.println("    A: " + av);
-                    System.out.println("    B: " + bv);
+                // Print details for the still-divergent keys so we can see which fields differ.
+                if (key.equals("camera") || key.equals("gamestate")
+                        || key.equals("oscillation") || key.equals("rings")
+                        || key.equals("sprites") || key.equals("object-manager")) {
+                    System.out.println("  " + key + " diff:");
+                    System.out.println("    A: " + recordContentString(av));
+                    System.out.println("    B: " + recordContentString(bv));
                 }
             }
         }
@@ -505,15 +507,103 @@ public class RewindBenchmark {
     }
 
     /**
-     * Per-key equality. Defaults to .equals(); custom comparators for keys
-     * whose snapshot records contain arrays or non-content-equal references.
+     * Per-key equality. Custom comparators for keys whose snapshot records
+     * contain non-content-equal references; default uses a record-aware deep
+     * equality that handles array fields via Arrays.equals (Java records
+     * auto-generate .equals() with array reference equality, which makes
+     * naive .equals() report false negatives for any record with array
+     * fields).
      */
     private static boolean keyEquals(String key, Object a, Object b) {
         return switch (key) {
             case "level" -> compareLevel(a, b);
             case "object-manager" -> compareObjectManager(a, b);
-            default -> java.util.Objects.equals(a, b);
+            default -> recordsContentEqual(a, b);
         };
+    }
+
+    /**
+     * Deep content-equality for arbitrary records, with proper handling for
+     * primitive arrays, object arrays (deep-equals), and nested records.
+     */
+    private static boolean recordsContentEqual(Object a, Object b) {
+        if (a == b) return true;
+        if (a == null || b == null) return false;
+        if (a.getClass() != b.getClass()) return false;
+        Class<?> cls = a.getClass();
+        if (!cls.isRecord()) return java.util.Objects.equals(a, b);
+        for (var component : cls.getRecordComponents()) {
+            try {
+                Object av = component.getAccessor().invoke(a);
+                Object bv = component.getAccessor().invoke(b);
+                if (!fieldContentEqual(av, bv)) return false;
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(
+                        "Failed to read record component " + component.getName(), e);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Renders an object's content with proper array formatting (so diff dumps
+     * can be visually compared). For records, walks components and formats
+     * each value via fieldContentString.
+     */
+    private static String recordContentString(Object o) {
+        if (o == null) return "null";
+        Class<?> cls = o.getClass();
+        if (!cls.isRecord()) return fieldContentString(o);
+        StringBuilder sb = new StringBuilder(cls.getSimpleName()).append('[');
+        boolean first = true;
+        for (var component : cls.getRecordComponents()) {
+            try {
+                Object v = component.getAccessor().invoke(o);
+                if (!first) sb.append(", ");
+                first = false;
+                sb.append(component.getName()).append('=').append(fieldContentString(v));
+            } catch (ReflectiveOperationException ignored) {}
+        }
+        return sb.append(']').toString();
+    }
+
+    private static String fieldContentString(Object v) {
+        if (v == null) return "null";
+        Class<?> cls = v.getClass();
+        if (cls.isArray()) {
+            Class<?> elem = cls.getComponentType();
+            if (elem == byte.class)    return Arrays.toString((byte[]) v);
+            if (elem == short.class)   return Arrays.toString((short[]) v);
+            if (elem == int.class)     return Arrays.toString((int[]) v);
+            if (elem == long.class)    return Arrays.toString((long[]) v);
+            if (elem == float.class)   return Arrays.toString((float[]) v);
+            if (elem == double.class)  return Arrays.toString((double[]) v);
+            if (elem == char.class)    return Arrays.toString((char[]) v);
+            if (elem == boolean.class) return Arrays.toString((boolean[]) v);
+            return Arrays.deepToString((Object[]) v);
+        }
+        if (cls.isRecord()) return recordContentString(v);
+        return v.toString();
+    }
+
+    private static boolean fieldContentEqual(Object av, Object bv) {
+        if (av == bv) return true;
+        if (av == null || bv == null) return false;
+        Class<?> cls = av.getClass();
+        if (cls.isArray()) {
+            Class<?> elem = cls.getComponentType();
+            if (elem == byte.class)    return Arrays.equals((byte[]) av,    (byte[]) bv);
+            if (elem == short.class)   return Arrays.equals((short[]) av,   (short[]) bv);
+            if (elem == int.class)     return Arrays.equals((int[]) av,     (int[]) bv);
+            if (elem == long.class)    return Arrays.equals((long[]) av,    (long[]) bv);
+            if (elem == float.class)   return Arrays.equals((float[]) av,   (float[]) bv);
+            if (elem == double.class)  return Arrays.equals((double[]) av,  (double[]) bv);
+            if (elem == char.class)    return Arrays.equals((char[]) av,    (char[]) bv);
+            if (elem == boolean.class) return Arrays.equals((boolean[]) av, (boolean[]) bv);
+            return Arrays.deepEquals((Object[]) av, (Object[]) bv);
+        }
+        if (cls.isRecord()) return recordsContentEqual(av, bv);
+        return java.util.Objects.equals(av, bv);
     }
 
     private static boolean compareLevel(Object a, Object b) {
