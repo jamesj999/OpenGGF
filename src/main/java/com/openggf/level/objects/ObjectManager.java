@@ -2188,6 +2188,158 @@ public class ObjectManager {
         return PlaneSwitchers.formatPriority(highPriority);
     }
 
+    // -------------------------------------------------------------------------
+    // Rewind snapshot adapter
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns a {@link com.openggf.game.rewind.RewindSnapshottable} adapter for
+     * this ObjectManager.
+     *
+     * <p><strong>Capture</strong> records the current slot inventory ({@code usedSlots}
+     * BitSet as {@code long[]}), per-instance state for every active placement-managed
+     * object (via {@link AbstractObjectInstance#captureRewindState()}), scalar counters
+     * ({@code frameCounter}, {@code vblaCounter}, {@code currentExecSlot},
+     * {@code peakSlotCount}), the render-cache dirty flag, and reserved child-slot entries.
+     *
+     * <p><strong>Restore</strong>:
+     * <ol>
+     *   <li>Clears the current active object table (without triggering placement state
+     *       side-effects).</li>
+     *   <li>Restores scalar counters and {@code usedSlots}.</li>
+     *   <li>Re-instantiates each captured object from its {@link ObjectSpawn} using the
+     *       same {@link ObjectRegistry#create} pipeline used by {@code syncActiveSpawnsLoad},
+     *       with the slot pre-assigned from the snapshot.</li>
+     *   <li>Calls {@link AbstractObjectInstance#restoreRewindState} on each new instance
+     *       to hydrate the captured field surface.</li>
+     *   <li>Restores {@code reservedChildSlots} entries.</li>
+     * </ol>
+     *
+     * <p><strong>Holder re-resolution contract:</strong> Holders of direct
+     * {@link ObjectInstance} references (Camera target, {@code LevelEventManager} boss
+     * reference, etc.) <em>must</em> re-resolve their references after restore — the
+     * instances are fresh Java objects even though they represent the same logical slot.
+     * Camera already re-resolves its target via {@code SpriteManager} on each snapshot
+     * restore (Track C). Other subsystems should do the same.
+     *
+     * <p><strong>v1 limitation:</strong> Only placement-managed objects (those in
+     * {@code activeObjects}) are captured. Non-placement dynamic objects (projectiles,
+     * explosion effects) are not snapshotted; they simply disappear on restore. Full
+     * coverage is deferred to a follow-up plan.
+     */
+    public com.openggf.game.rewind.RewindSnapshottable<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot> rewindSnapshottable() {
+        return new com.openggf.game.rewind.RewindSnapshottable<>() {
+            @Override
+            public String key() {
+                return "object-manager";
+            }
+
+            @Override
+            public com.openggf.game.rewind.snapshot.ObjectManagerSnapshot capture() {
+                // Capture usedSlots
+                long[] bits = usedSlots.toLongArray();
+
+                // Capture per-active-slot state
+                List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry> slots = new ArrayList<>();
+                for (Map.Entry<ObjectSpawn, ObjectInstance> entry : activeObjects.entrySet()) {
+                    ObjectSpawn spawn = entry.getKey();
+                    ObjectInstance inst = entry.getValue();
+                    if (inst instanceof AbstractObjectInstance aoi) {
+                        slots.add(new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry(
+                                aoi.getSlotIndex(),
+                                spawn,
+                                aoi.captureRewindState()
+                        ));
+                    }
+                }
+
+                // Capture reservedChildSlots
+                List<com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.ChildSpawnEntry> childSpawns = new ArrayList<>();
+                for (Map.Entry<ObjectSpawn, int[]> entry : reservedChildSlots.entrySet()) {
+                    int[] slotArray = entry.getValue();
+                    childSpawns.add(new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.ChildSpawnEntry(
+                            entry.getKey(),
+                            Arrays.copyOf(slotArray, slotArray.length)
+                    ));
+                }
+
+                return new com.openggf.game.rewind.snapshot.ObjectManagerSnapshot(
+                        bits,
+                        List.copyOf(slots),
+                        frameCounter,
+                        vblaCounter,
+                        currentExecSlot,
+                        peakSlotCount,
+                        bucketsDirty,
+                        List.copyOf(childSpawns)
+                );
+            }
+
+            @Override
+            public void restore(com.openggf.game.rewind.snapshot.ObjectManagerSnapshot s) {
+                // 1. Clear current active objects (without mutating placement state)
+                clearActiveObjects();
+                dynamicObjects.clear();
+                Arrays.fill(execOrder, null);
+
+                // 2. Restore scalar counters and usedSlots
+                usedSlots.clear();
+                long[] bits = s.usedSlotsBits();
+                BitSet restoredBits = BitSet.valueOf(bits);
+                for (int i = restoredBits.nextSetBit(0); i >= 0; i = restoredBits.nextSetBit(i + 1)) {
+                    usedSlots.set(i);
+                }
+                frameCounter = s.frameCounter();
+                vblaCounter = s.vblaCounter();
+                currentExecSlot = s.currentExecSlot();
+                peakSlotCount = s.peakSlotCount();
+                bucketsDirty = s.bucketsDirty();
+                activeObjectsCacheDirty = true;
+
+                // 3. Re-instantiate each captured object from its spawn
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.PerSlotEntry entry : s.slots()) {
+                    ObjectSpawn spawn = entry.spawn();
+                    int targetSlot = entry.slotIndex();
+                    // Use PRE_ALLOCATED_SLOT so the constructor picks up the correct slot
+                    AbstractObjectInstance.PRE_ALLOCATED_SLOT.set(targetSlot >= 0 ? targetSlot : null);
+                    AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(objectServices);
+                    try {
+                        ObjectInstance inst = registry != null ? registry.create(spawn) : null;
+                        if (inst instanceof AbstractObjectInstance aoi) {
+                            aoi.setServices(objectServices);
+                            if (aoi.getSlotIndex() < 0 && targetSlot >= 0) {
+                                aoi.setSlotIndex(targetSlot);
+                            }
+                            // 4. Restore per-instance state
+                            aoi.restoreRewindState(entry.state());
+                            registerActiveObject(spawn, inst);
+                            // Wire into execOrder if within the managed slot window
+                            int execIdx = execIndexForSlot(aoi.getSlotIndex());
+                            if (execIdx >= 0 && execIdx < execOrder.length) {
+                                execOrder[execIdx] = aoi;
+                            }
+                        } else if (inst != null) {
+                            registerActiveObject(spawn, inst);
+                        }
+                    } finally {
+                        AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+                        AbstractObjectInstance.PRE_ALLOCATED_SLOT.remove();
+                    }
+                }
+
+                // 5. Restore reservedChildSlots
+                reservedChildSlots.clear();
+                for (com.openggf.game.rewind.snapshot.ObjectManagerSnapshot.ChildSpawnEntry ce : s.childSpawns()) {
+                    reservedChildSlots.put(ce.parentSpawn(),
+                            Arrays.copyOf(ce.reservedSlots(), ce.reservedSlots().length));
+                }
+
+                bucketsDirty = true;
+                activeObjectsCacheDirty = true;
+            }
+        };
+    }
+
     static final class Placement extends AbstractPlacementManager<ObjectSpawn> {
         private static final Logger LOGGER = Logger.getLogger(Placement.class.getName());
         // ROM: ObjectsManager_GoingForward (s2.asm) uses addi.w #$280,d6 for forward load range.
