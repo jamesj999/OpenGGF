@@ -94,6 +94,18 @@ public class AniPlcScriptState {
         applyFrame(level, graphicsManager, frameTileIds[0]);
     }
 
+    /** Returns the current countdown timer (rewind-restore access). */
+    public int getTimer() { return timer; }
+
+    /** Returns the current frame index (rewind-restore access). */
+    public int getFrameIndex() { return frameIndex; }
+
+    /** Restores playback counters from a snapshot (rewind-restore path). */
+    public void restoreCounters(int timer, int frameIndex) {
+        this.timer = timer;
+        this.frameIndex = frameIndex;
+    }
+
     public void applyFrame(Level level, GraphicsManager graphicsManager, int tileId) {
         int maxPatterns = level.getPatternCount();
         boolean canUpdateTextures = graphicsManager.isGlInitialized();
