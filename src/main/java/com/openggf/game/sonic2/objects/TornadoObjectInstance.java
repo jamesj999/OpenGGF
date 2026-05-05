@@ -14,8 +14,9 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.game.GameServices;
+import com.openggf.game.mutation.MutationEffects;
 import com.openggf.level.Level;
-import com.openggf.level.Map;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -1110,34 +1111,25 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (level == null) {
             return;
         }
-        Map map = level.getMap();
-        if (map == null) {
-            return;
-        }
-
-        boolean wroteAny = false;
-        for (int i = 0; i < LAYOUT_PATCH_OFFSETS.length; i++) {
-            int baseOffset = LAYOUT_PATCH_OFFSETS[i];
-            int[] bytes = LAYOUT_PATCH_BYTES[i];
-            for (int j = 0; j < bytes.length; j++) {
-                int offset = baseOffset + j;
-                int x = offset % LAYOUT_WIDTH;
-                int y = offset / LAYOUT_WIDTH;
-                try {
-                    map.setValue(0, x, y, (byte) bytes[j]);
-                    wroteAny = true;
-                } catch (IllegalArgumentException ignored) {
-                    // Some layouts may differ; keep behavior best-effort.
+        levelLayoutPatched = true;
+        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+            MutationEffects effects = MutationEffects.NONE;
+            for (int i = 0; i < LAYOUT_PATCH_OFFSETS.length; i++) {
+                final int baseOffset = LAYOUT_PATCH_OFFSETS[i];
+                final int[] patchBytes = LAYOUT_PATCH_BYTES[i];
+                for (int j = 0; j < patchBytes.length; j++) {
+                    final int offset = baseOffset + j;
+                    final int x = offset % LAYOUT_WIDTH;
+                    final int y = offset / LAYOUT_WIDTH;
+                    try {
+                        effects = context.surface().setBlockInMap(0, x, y, patchBytes[j] & 0xFF);
+                    } catch (IllegalArgumentException ignored) {
+                        // Some layouts may differ; keep behavior best-effort.
+                    }
                 }
             }
-        }
-
-        if (wroteAny) {
-            services().invalidateForegroundTilemap();
-        }
-        if (wroteAny) {
-            levelLayoutPatched = true;
-        }
+            return effects;
+        });
     }
 
     private AbstractPlayableSprite getMainPlayer() {
