@@ -2140,10 +2140,10 @@ public class LevelManager {
         renderHighPriorityTilesToFBO(camera);
         profiler.endSection("render.fg.priority");
 
-        // HTZ earthquake uses BG high-priority cave tiles as a visual overlay.
-        // These render between FG-low and FG-high (in front of FG terrain but
-        // behind FG high-pri tiles). HTZ has no sprites that need to be covered.
-        renderHtzEarthquakeBgHighOverlay();
+        // The HTZ earthquake BG high-priority cave-ceiling overlay used to render
+        // here. It now runs as a SpecialRenderEffect at AFTER_FOREGROUND stage
+        // (registered by Sonic2ZoneFeatureProvider) and dispatches above with the
+        // CNZ slot overlay and other AFTER_FOREGROUND effects.
 
         // Draw Foreground (Layer 0) high-priority pass to screen
         enqueueForegroundTilemapPass(camera, 1);
@@ -2684,79 +2684,6 @@ public class LevelManager {
             pendingFgUnderwaterPaletteId_high = underwaterPaletteId;
             graphicsManager.registerCommand(fgTilemapPassHighCommand);
         }
-    }
-
-    /**
-     * Render BG high-priority tiles as an overlay during HTZ earthquake mode.
-     *
-     * On real hardware the VDP layer order is BG-low → FG-low → BG-high → FG-high.
-     * Our main BG pass renders all priorities behind FG, so this method draws only
-     * BG high-priority tiles (cave ceiling terrain) between FG-low and FG-high to
-     * match hardware layering.
-     *
-     * In earthquake mode, HTZ horizontal scroll is flat (same for every scanline),
-     * so a single tilemap render call with the BG scroll offset suffices.
-     */
-    private void renderHtzEarthquakeBgHighOverlay() {
-        if (!gameState.isHtzScreenShakeActive()) {
-            return;
-        }
-
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer == null) {
-            return;
-        }
-
-        Integer atlasId = graphicsManager.getPatternAtlasTextureId();
-        Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
-        if (atlasId == null || paletteId == null) {
-            return;
-        }
-
-        int[] hScrollData = parallaxManager.getHScrollForShader();
-        if (hScrollData == null || hScrollData.length == 0) {
-            return;
-        }
-
-        short bgScroll = (short) (hScrollData[hScrollData.length - 1] & 0xFFFF);
-        float bgWorldOffsetX = -bgScroll;
-        float bgWorldOffsetY = parallaxManager.getVscrollFactorBG();
-        int screenW = cachedScreenWidth;
-        int screenH = cachedScreenHeight;
-
-        graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
-            TilemapGpuRenderer tilemapRenderer = graphicsManager.getTilemapGpuRenderer();
-            if (tilemapRenderer == null) {
-                return;
-            }
-            int[] viewport = new int[4];
-            glGetIntegerv(GL_VIEWPORT, viewport);
-            // Disable VDP wrap height for the overlay — earthquake priority tiles are
-            // at tilemap rows 48+ (outside the 0-31 range that normal BG wrapping uses).
-            float savedWrapHeight = tilemapRenderer.getBgVdpWrapHeight();
-            tilemapRenderer.setBgVdpWrapHeight(0.0f);
-            tilemapRenderer.render(
-                    TilemapGpuRenderer.Layer.BACKGROUND,
-                    screenW,
-                    screenH,
-                    viewport[0],
-                    viewport[1],
-                    viewport[2],
-                    viewport[3],
-                    bgWorldOffsetX,
-                    bgWorldOffsetY,
-                    graphicsManager.getPatternAtlasWidth(),
-                    graphicsManager.getPatternAtlasHeight(),
-                    atlasId,
-                    paletteId,
-                    0,
-                    1,      // priorityPass=1: HIGH-PRIORITY TILES ONLY
-                    false,
-                    false,
-                    false,
-                    0.0f);
-            tilemapRenderer.setBgVdpWrapHeight(savedWrapHeight);
-        }));
     }
 
     /**

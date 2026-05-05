@@ -1,7 +1,10 @@
 package com.openggf.level;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.zone.ZoneRuntimeRegistry;
+import com.openggf.game.zone.ZoneRuntimeState;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternAtlas;
 import com.openggf.graphics.TilemapGpuRenderer;
@@ -90,9 +93,8 @@ public class LevelTilemapManager {
      *
      * @param geometry        level geometry snapshot (dimensions, level reference)
      * @param graphicsManager graphics manager for pattern atlas access
-     * @param gameState       gameplay-mode game state (consulted for HTZ
-     *                        screen-shake state in background tilemap upload
-     *                        decisions); may be null
+     * @param gameState       gameplay-mode game state; reserved for future
+     *                        cross-zone tilemap-upload decisions, may be null
      */
     public LevelTilemapManager(LevelGeometry geometry, GraphicsManager graphicsManager, GameStateManager gameState) {
         this.geometry = geometry;
@@ -303,6 +305,15 @@ public class LevelTilemapManager {
         foregroundTilemapHeightTiles = data.heightTiles;
     }
 
+    private static boolean zoneRuntimeRequiresFullWidthBgTilemap() {
+        ZoneRuntimeRegistry registry = GameServices.zoneRuntimeRegistryOrNull();
+        if (registry == null) {
+            return false;
+        }
+        ZoneRuntimeState state = registry.current();
+        return state != null && state.requiresFullWidthBgTilemap();
+    }
+
     private TilemapData buildTilemapData(byte layerIndex, BlockLookup blockLookup,
                                          ZoneFeatureProvider zoneFeatureProvider,
                                          int currentZone,
@@ -321,7 +332,7 @@ public class LevelTilemapManager {
         boolean bgWrap = layerIndex == 1
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
-                && (gameState == null || !gameState.isHtzScreenShakeActive());
+                && !zoneRuntimeRequiresFullWidthBgTilemap();
         // Use the currently selected BG period width. LevelManager may widen this
         // beyond the scroll handler's nominal period when the renderer needs the
         // full BG strip instead of a 64-cell wrapped cache (for example MGZ2

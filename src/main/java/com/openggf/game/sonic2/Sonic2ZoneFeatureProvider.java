@@ -11,6 +11,7 @@ import com.openggf.game.render.SpecialRenderEffectRegistry;
 import com.openggf.game.render.SpecialRenderEffectStage;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.CPZPylonObjectInstance;
+import com.openggf.game.sonic2.render.HtzEarthquakeBgOverlayEffect;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.ShaderProgram;
@@ -76,6 +77,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
             renderCnzSlotOverlay(context.camera());
         }
     };
+    private final SpecialRenderEffect htzEarthquakeBgOverlayEffect = new HtzEarthquakeBgOverlayEffect();
     private final SpecialRenderEffect waterSurfaceEffect = new SpecialRenderEffect() {
         @Override
         public SpecialRenderEffectStage stage() {
@@ -281,6 +283,9 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     public void registerSpecialRenderEffects(SpecialRenderEffectRegistry registry, int zoneIndex, int actIndex) {
         if (zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CNZ) {
             registry.register(cnzSlotOverlayEffect);
+        }
+        if (zoneIndex == Sonic2ZoneConstants.ROM_ZONE_HTZ) {
+            registry.register(htzEarthquakeBgOverlayEffect);
         }
         if ((zoneIndex == Sonic2ZoneConstants.ROM_ZONE_CPZ && actIndex == 1)
                 || zoneIndex == Sonic2ZoneConstants.ROM_ZONE_ARZ) {

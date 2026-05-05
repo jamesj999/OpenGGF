@@ -281,6 +281,11 @@ public final class GameServices {
         return requireGameplayMode("zoneRuntimeRegistry").getZoneRuntimeRegistry();
     }
 
+    public static ZoneRuntimeRegistry zoneRuntimeRegistryOrNull() {
+        GameplayModeContext mode = gameplayModeOrNull();
+        return mode != null ? mode.getZoneRuntimeRegistry() : null;
+    }
+
     public static ZoneRuntimeState zoneRuntimeState() {
         return zoneRuntimeRegistry().current();
     }

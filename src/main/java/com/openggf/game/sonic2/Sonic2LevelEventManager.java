@@ -190,4 +190,13 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
         }
     }
 
+    /**
+     * Returns the HTZ event handler (test/diagnostic access).
+     * The handler owns the canonical {@code earthquakeActive} flag previously
+     * stored on {@code GameStateManager}.
+     */
+    public Sonic2HTZEvents getHtzEvents() {
+        return htzEvents;
+    }
+
 }

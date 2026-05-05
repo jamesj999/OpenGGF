@@ -62,15 +62,6 @@ public class GameStateManager {
     private boolean bgHighPriorityOverlayActive;
 
     /**
-     * HTZ-specific screen shake flag (ROM: Screen_Shaking_Flag_HTZ at $FFFFF7C3).
-     * This is the master flag for HTZ earthquake sequences. Unlike the general
-     * Screen_Shaking_Flag which gets cleared during delay periods, this flag
-     * stays active for the entire earthquake sequence.
-     * Used by Obj30 (RisingLava) to determine if the platform should be solid.
-     */
-    private boolean htzScreenShakeActive;
-
-    /**
      * Giant Ring collected flag (S1 ROM: f_bigring at $FFFFF7AA).
      * Set when a Giant Ring flash triggers; prevents hidden bonuses from activating.
      * Reset on level load.
@@ -152,7 +143,6 @@ public class GameStateManager {
         this.screenShakeActive = false;
         this.backgroundCollisionFlag = false;
         this.bgHighPriorityOverlayActive = false;
-        this.htzScreenShakeActive = false;
         this.bigRingCollected = false;
         this.wfzFireToggle = false;
         this.itemBonus = 0;
@@ -504,34 +494,6 @@ public class GameStateManager {
 
     public void setBgHighPriorityOverlayActive(boolean active) {
         this.bgHighPriorityOverlayActive = active;
-    }
-
-    /**
-     * Gets the HTZ-specific screen shake flag.
-     * ROM: tst.b (Screen_Shaking_Flag_HTZ).w
-     *
-     * This is the master flag checked by Obj30 (RisingLava) to determine
-     * if the invisible solid platforms should be active. Unlike the general
-     * Screen_Shaking_Flag, this stays on during delay periods.
-     *
-     * @return true if HTZ earthquake sequence is active
-     */
-    public boolean isHtzScreenShakeActive() {
-        return htzScreenShakeActive;
-    }
-
-    /**
-     * Sets the HTZ-specific screen shake flag.
-     * ROM: move.b #1,(Screen_Shaking_Flag_HTZ).w to enable
-     * ROM: move.b #0,(Screen_Shaking_Flag_HTZ).w to disable
-     *
-     * This is set when entering an HTZ earthquake area and cleared when exiting.
-     * The flag persists through delay periods when the lava pauses at limits.
-     *
-     * @param active true to enable HTZ earthquake mode, false to disable
-     */
-    public void setHtzScreenShakeActive(boolean active) {
-        this.htzScreenShakeActive = active;
     }
 
     /**

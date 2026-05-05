@@ -6,6 +6,27 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **HTZ earthquake: migrated BG-high overlay render and active flag off
+  `LevelManager` / `GameStateManager`.** The HTZ-only inline render method
+  `LevelManager.renderHtzEarthquakeBgHighOverlay()` (and its caller in
+  `LevelManager.draw()`) and the matching `GameStateManager.htzScreenShakeActive`
+  field were a long-standing zone-specific leak in shared infrastructure. The
+  shared `SpecialRenderEffectRegistry` framework already exists for exactly
+  this case (CNZ slot overlay, AIZ battleship, water surface), so the overlay
+  was extracted into a new `HtzEarthquakeBgOverlayEffect`
+  (`com.openggf.game.sonic2.render`) that registers itself at the
+  `AFTER_FOREGROUND` stage from `Sonic2ZoneFeatureProvider`. The active flag
+  storage moved into `Sonic2HTZEvents.earthquakeActive` (now the canonical
+  source for `HtzRuntimeState.earthquakeActive()`); a new
+  `setEarthquakeActive(boolean)` setter encapsulates the screen-shake-active
+  + tilemap-invalidation side effects that previously lived in
+  `ParallaxManager.setHtzScreenShake`. `ParallaxManager.setHtzScreenShake` and
+  the `htzScreenShakeActive` getter/setter on `GameStateManager` are gone.
+  `LevelTilemapManager` now consults a generic
+  `ZoneRuntimeState.requiresFullWidthBgTilemap()` default method (overridden
+  by `HtzRuntimeStateView`) instead of reading the HTZ flag from
+  `GameStateManager`. Htz reference counts dropped from 7→0 in
+  `LevelManager.java` and from 5→0 in `GameStateManager.java`.
 - **WaterSystem: moved per-game visual oscillation behind `WaterDataProvider`.**
   `WaterSystem.getVisualWaterLevelY()` previously hard-coded
   `gameId == GameId.S2 && zoneId == ZONE_ID_CPZ` and `gameId == GameId.S1 &&

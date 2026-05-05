@@ -5,7 +5,7 @@ import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
-import com.openggf.level.ParallaxManager;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -51,6 +51,16 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * ROM: $FFFFF7C8 (word) - Counts down from $78 (120 frames) before direction toggles.
      */
     private int htzTerrainDelay;
+
+    /**
+     * Master HTZ earthquake-active flag (ROM: Screen_Shaking_Flag_HTZ at $FFFFF7C3).
+     *
+     * <p>Stays set for the entire earthquake sequence (including delay periods at
+     * the oscillation limits when the general {@code Screen_Shaking_Flag} is
+     * cleared). Owned exclusively by {@link Sonic2HTZEvents}; consumers read it
+     * via {@link com.openggf.game.sonic2.runtime.HtzRuntimeState#earthquakeActive()}.
+     */
+    private boolean earthquakeActive;
 
     /**
      * Active HTZ oscillation limits for the currently-entered earthquake mode.
@@ -136,6 +146,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         cameraBgYOffset = 0;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;
+        earthquakeActive = false;
         htzCurrentRisenLimit = (act == 0) ? HTZ1_LAVA_OFFSET_RISEN : HTZ2_LAVA_OFFSET_RISEN_TOP;
         htzCurrentSunkenLimit = (act == 0) ? HTZ1_LAVA_OFFSET_SUNKEN : HTZ2_LAVA_OFFSET_SUNKEN;
         htzCurrentBgXOffset = HTZ_BG_X_OFFSET_TOP;
@@ -165,7 +176,27 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
     }
 
     public boolean isEarthquakeActive() {
-        return gameState().isHtzScreenShakeActive();
+        return earthquakeActive;
+    }
+
+    /**
+     * Sets the HTZ earthquake-active flag.
+     * Mirrors ROM writes to {@code Screen_Shaking_Flag_HTZ} ($FFFFF7C3) and
+     * the general {@code Screen_Shaking_Flag} ($FFFFF7C2). Also dirties the
+     * BG tilemap so {@code LevelTilemapManager} rebuilds it with full-width
+     * BG data while the earthquake overlay is active.
+     */
+    public void setEarthquakeActive(boolean active) {
+        boolean wasActive = earthquakeActive;
+        boolean wasGeneralShake = gameState().isScreenShakeActive();
+        earthquakeActive = active;
+        gameState().setScreenShakeActive(active);
+        if (wasActive != active || wasGeneralShake != active) {
+            LevelManager lm = GameServices.levelOrNull();
+            if (lm != null) {
+                lm.invalidateAllTilemaps();
+            }
+        }
     }
 
     /**
@@ -182,7 +213,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
      */
     public int getHtzBgVerticalShift() {
-        if (!gameState().isHtzScreenShakeActive()) {
+        if (!earthquakeActive) {
             return 0;
         }
         return htzCurrentRisenLimit - cameraBgYOffset;
@@ -203,7 +234,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraX0 >= HTZ1_SHAKE_TRIGGER_X &&
                     cameraX0 < HTZ1_SHAKE_EXIT_X) {
                     // Enable screen shake and initialize earthquake
-                    parallax().setHtzScreenShake(true);
+                    setEarthquakeActive(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine += 2;
                 } else if (cameraX0 >= HTZ1_SHAKE_EXIT_X) {
@@ -211,7 +242,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     eventRoutine = 4;
                 } else {
                     // Before earthquake zone or Y not met
-                    if (gameState().isHtzScreenShakeActive()) {
+                    if (earthquakeActive) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -240,7 +271,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Post-shake area
                 // Check for re-entry into shake zone
                 if (camera().getX() < HTZ1_SHAKE_EXIT_X) {
-                    parallax().setHtzScreenShake(true);
+                    setEarthquakeActive(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;  // Go back to routine 2
                 }
@@ -275,13 +306,13 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     // If Camera_Y >= $380, jump to bottom area routines
                     if (camera().getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom area
-                        parallax().setHtzScreenShake(true);
+                        setEarthquakeActive(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                                 HTZ_BG_X_OFFSET_BOTTOM);
                         eventRoutine = 8;
                     } else {
                         // Top area
-                        parallax().setHtzScreenShake(true);
+                        setEarthquakeActive(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                         eventRoutine = 2;
                     }
@@ -300,7 +331,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     }
                 } else {
                     // Before earthquake zone
-                    if (gameState().isHtzScreenShakeActive()) {
+                    if (earthquakeActive) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -328,7 +359,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 2: Post-shake (top zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    parallax().setHtzScreenShake(true);
+                    setEarthquakeActive(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;
                 }
@@ -337,12 +368,12 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Wait for bottom area shake trigger
                 // This handles re-entry to earthquake zone in bottom area
                 if (camera().getX() >= HTZ2_SHAKE_TRIGGER_X) {
-                    parallax().setHtzScreenShake(true);
+                    setEarthquakeActive(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine += 2;
                 } else {
-                    if (gameState().isHtzScreenShakeActive()) {
+                    if (earthquakeActive) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -370,7 +401,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 10 -> {
                 // Routine 5: Post-shake (bottom zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    parallax().setHtzScreenShake(true);
+                    setEarthquakeActive(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine -= 2;
@@ -480,7 +511,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * ROM: LevEvents_HTZ_Routine1_Part2 lines 20714-20724
      */
     private void exitHtzEarthquakeArea() {
-        parallax().setHtzScreenShake(false);
+        setEarthquakeActive(false);
         cameraBgYOffset = 0;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;

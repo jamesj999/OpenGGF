@@ -115,7 +115,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         shakeOffsetY = 0;
 
         // ROM: SwScrl_HTZ branches on Screen_Shaking_Flag_HTZ, not Screen_Shaking_Flag.
-        if (GameServices.gameState().isHtzScreenShakeActive()) {
+        if (htzRuntimeState().earthquakeActive()) {
             updateEarthquakeMode(horizScrollBuf, cameraX, cameraY, frameCounter);
         } else {
             updateNormal(horizScrollBuf, cameraX, cameraY, frameCounter);

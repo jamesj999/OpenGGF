@@ -88,6 +88,18 @@ class TestSonic2SpecialRenderEffectRegistration {
     }
 
     @Test
+    void htzRegistersEarthquakeBgOverlayAtAfterForeground() {
+        Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
+        SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();
+
+        provider.registerSpecialRenderEffects(registry, Sonic2ZoneConstants.ROM_ZONE_HTZ, 0);
+
+        assertEquals(1, registry.size(SpecialRenderEffectStage.AFTER_FOREGROUND));
+        assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_BACKGROUND));
+        assertEquals(0, registry.size(SpecialRenderEffectStage.AFTER_SPRITES));
+    }
+
+    @Test
     void cpzAct1DoesNotRegisterWaterSurfaceEffect() {
         Sonic2ZoneFeatureProvider provider = new Sonic2ZoneFeatureProvider();
         SpecialRenderEffectRegistry registry = new SpecialRenderEffectRegistry();

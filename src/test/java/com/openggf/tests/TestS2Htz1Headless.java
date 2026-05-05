@@ -525,7 +525,7 @@ public class TestS2Htz1Headless {
         boolean enteredZone = false;
         for (int i = 0; i < 10 && !enteredZone; i++) {
             fixture.stepFrame(false, false, false, false, false);
-            if (GameServices.gameState().isHtzScreenShakeActive()) {
+            if (htzState().earthquakeActive()) {
                 enteredZone = true;
                 System.out.println("Earthquake triggered at frame " + i);
             }
@@ -534,14 +534,15 @@ public class TestS2Htz1Headless {
         System.out.println("After settling:");
         System.out.println("  Camera: (" + camera.getX() + ", " + camera.getY() + ")");
         System.out.println("  Sonic: (" + sprite.getX() + ", " + sprite.getY() + ")");
-        System.out.println("  HTZ shake active: " + GameServices.gameState().isHtzScreenShakeActive());
+        System.out.println("  HTZ shake active: " + htzState().earthquakeActive());
         System.out.println("  Screen shake active: " + GameServices.gameState().isScreenShakeActive());
         System.out.println("  cameraBgYOffset: " + htzState().cameraBgYOffset());
 
         if (!enteredZone) {
             // Try forcing the shake manually to test the offset logic
             System.out.println("\nManually enabling earthquake for offset testing...");
-            parallaxManager.setHtzScreenShake(true);
+            ((Sonic2LevelEventManager) GameServices.module().getLevelEventProvider())
+                    .getHtzEvents().setEarthquakeActive(true);
         }
 
         System.out.println("\n=== Verifying offset values during earthquake ===");
@@ -631,7 +632,7 @@ public class TestS2Htz1Headless {
                     System.out.println("This indicates an invisible wall!");
 
                     // Log earthquake state
-                    boolean htzShake = GameServices.gameState().isHtzScreenShakeActive();
+                    boolean htzShake = htzState().earthquakeActive();
                     boolean screenShake = GameServices.gameState().isScreenShakeActive();
                     int bgYOffset = htzState().cameraBgYOffset();
                     int shakeY = GameServices.parallax().getShakeOffsetY();

@@ -31,6 +31,11 @@ public final class HtzRuntimeStateView implements HtzRuntimeState {
     }
 
     @Override
+    public boolean requiresFullWidthBgTilemap() {
+        return events.isEarthquakeActive();
+    }
+
+    @Override
     public int cameraBgYOffset() {
         return events.getCameraBgYOffset();
     }
