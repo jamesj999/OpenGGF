@@ -763,6 +763,79 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         return false;
     }
 
+    // -------------------------------------------------------------------------
+    // Rewind snapshot support
+    // -------------------------------------------------------------------------
+
+    /**
+     * Captures this object's standard mutable gameplay state for a rewind snapshot.
+     *
+     * <p>The default implementation covers every field declared on
+     * {@code AbstractObjectInstance}: destruction flags, dynamic spawn position,
+     * pre-update position cache, touch/solid-contact gating flags, slot index,
+     * and respawn state index.
+     *
+     * <p><strong>Subclass contract:</strong> Subclasses that hold private
+     * gameplay-relevant state (boss phase counters, badnik AI timers, sub-state
+     * machine indices, etc.) <em>must</em> override this method (and the matching
+     * {@link #restoreRewindState}) to include their own fields — otherwise that
+     * state will silently fail to round-trip across a rewind.
+     *
+     * <p>Known subclasses likely to require overrides (non-exhaustive):
+     * <ul>
+     *   <li>Any boss instance — phase counters, arena/boundary flags, hit counters</li>
+     *   <li>{@code AbstractBadnikInstance} subclasses with multi-phase AI — per-frame
+     *       timers beyond {@code animTimer}, direction change state</li>
+     *   <li>CNZ bumper — reload timer</li>
+     *   <li>HTZ earthquake object — oscillation accumulator</li>
+     *   <li>Any object that uses {@code objoff_*} scratch fields for state machines</li>
+     * </ul>
+     *
+     * @return immutable snapshot of this object's standard mutable field surface
+     */
+    public PerObjectRewindSnapshot captureRewindState() {
+        return new PerObjectRewindSnapshot(
+                destroyed,
+                destroyedRespawnable,
+                dynamicSpawn != null,
+                dynamicSpawn != null ? dynamicSpawn.x() : 0,
+                dynamicSpawn != null ? dynamicSpawn.y() : 0,
+                preUpdateX,
+                preUpdateY,
+                preUpdateValid,
+                preUpdateCollisionFlags,
+                skipTouchThisFrame,
+                solidContactFirstFrame,
+                slotIndex,
+                respawnStateIndex
+        );
+    }
+
+    /**
+     * Restores this object's standard mutable gameplay state from a rewind snapshot.
+     *
+     * <p>See {@link #captureRewindState()} for the subclass contract.
+     *
+     * @param s the snapshot to restore from
+     */
+    public void restoreRewindState(PerObjectRewindSnapshot s) {
+        this.destroyed = s.destroyed();
+        this.destroyedRespawnable = s.destroyedRespawnable();
+        if (s.hasDynamicSpawn()) {
+            updateDynamicSpawn(s.dynamicSpawnX(), s.dynamicSpawnY());
+        } else {
+            this.dynamicSpawn = null;
+        }
+        this.preUpdateX = s.preUpdateX();
+        this.preUpdateY = s.preUpdateY();
+        this.preUpdateValid = s.preUpdateValid();
+        this.preUpdateCollisionFlags = s.preUpdateCollisionFlags();
+        this.skipTouchThisFrame = s.skipTouchThisFrame();
+        this.solidContactFirstFrame = s.solidContactFirstFrame();
+        this.slotIndex = s.slotIndex();
+        this.respawnStateIndex = s.respawnStateIndex();
+    }
+
     /**
      * Returns the ObjectRenderManager, or null if not available.
      */

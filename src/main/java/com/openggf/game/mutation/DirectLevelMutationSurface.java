@@ -1,5 +1,6 @@
 package com.openggf.game.mutation;
 
+import com.openggf.level.AbstractLevel;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
 import com.openggf.level.Level;
@@ -51,6 +52,10 @@ public final class DirectLevelMutationSurface implements LevelMutationSurface {
     @Override
     public MutationEffects setBlockInMap(int layer, int blockX, int blockY, int blockIndex) {
         Map map = Objects.requireNonNull(level.getMap(), "level.map");
+        // Ensure the map's data array is writable for CoW snapshot protection.
+        if (level instanceof AbstractLevel) {
+            map.cowEnsureWritable(((AbstractLevel) level).currentEpoch());
+        }
         map.setValue(layer, blockX, blockY, (byte) blockIndex);
         return layer == 0 ? MutationEffects.foregroundRedraw() : MutationEffects.redrawAllTilemaps();
     }
