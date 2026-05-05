@@ -1,11 +1,15 @@
 package com.openggf.game.sonic2.audio;
 
 public final class Sonic2SmpsConstants {
-    public static final int MUSIC_FLAGS_ADDR = 0x0ECF36;
-    public static final int MUSIC_FLAGS_ID_BASE = 0x81;
-    public static final int MUSIC_PTR_TABLE_ADDR = 0x0EC810;
-    public static final int MUSIC_PTR_BANK0 = 0x0F0000;
-    public static final int MUSIC_PTR_BANK1 = 0x0F8000;
+    // Note: the previous {@code MUSIC_FLAGS_ADDR} / {@code MUSIC_PTR_TABLE_ADDR}
+    // constants pointed inside the Saxman-compressed Z80 driver blob in 68K
+    // ROM, where {@code zMasterPlaylist} only exists in compressed form. They
+    // were removed when {@code Sonic2SmpsLoader#resolveMusicOffsetFromRom}
+    // (which read those bytes as if they were uncompressed) was retired in
+    // favour of the hardcoded REV01 musicMap. Reintroduce ROM-driven music
+    // resolution only after the Z80 driver is decompressed first and the
+    // engine's {@code Sonic2Music} ID scheme is reconciled with the driver's
+    // {@code zMasterPlaylist} entry order.
 
     public static final int Z80_COMPRESSED_LOAD_ADDR = 0x1380;
     public static final int Z80_UNCOMPRESSED_LOAD_ADDR = 0x1C00;

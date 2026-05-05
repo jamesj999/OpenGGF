@@ -215,33 +215,30 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
     }
 
     /**
-     * Returns the ROM offset for a given music ID using the hard map first,
-     * then the flag table.
+     * Returns the ROM offset for a given music ID using the hardcoded
+     * REV01 {@link #musicMap}. Exposed for debug tools (sound test).
      * <p>
-     * <b>Priority note:</b> ROM-resolution priority inversion is desirable
-     * for non-REV01 ROM compatibility but is currently blocked: the existing
-     * {@link #resolveMusicOffsetFromRom} produces wrong-but-non-negative
-     * offsets for several REV01 IDs (verified by TestRomAudioIntegration
-     * failing when ROM resolution was tried first). Fixing the endianness
-     * inside that method is a separate audio-engine change requiring its own
-     * verification; the priority inversion is gated on that fix.
-     * Exposed for debug tools (sound test).
+     * <b>Why ROM-driven resolution is not used here.</b> The S2 driver's
+     * {@code zMasterPlaylist} flag table (and the per-bank pointer tables it
+     * references) lives inside the <em>Saxman-compressed</em> Z80 driver
+     * blob in 68K ROM — the structure only exists, in readable form, after
+     * the driver has been decompressed into Z80 RAM at runtime. Reading
+     * {@code zMasterPlaylist} bytes directly from 68K ROM (the previous
+     * implementation's approach) parses compressed bytes and cannot yield
+     * correct offsets. On top of that, the engine's {@code Sonic2Music} IDs
+     * are systematically shifted relative to the disassembly's
+     * {@code zMasterPlaylist} entry order (e.g. {@code EMERALD_HILL.id == 0x81}
+     * loads the EHZ track, but {@code zMasterPlaylist[0]} (disasm id 0x81) is
+     * {@code Mus_2PResult}), so even a properly Z80-decompressed lookup would
+     * disagree with the engine's intended track for most IDs. Until both
+     * problems are solved, the hardcoded REV01 map is authoritative.
      */
     public int findMusicOffset(int musicId) {
-        // TODO(G4-followup): invert priority so resolveMusicOffsetFromRom is
-        // tried before the hardcoded musicMap (needed for non-REV01 ROMs).
-        // Currently deferred: resolveMusicOffsetFromRom has an endianness bug
-        // that yields wrong-but-non-negative offsets for several REV01 IDs —
-        // notably Metropolis (0x82) and Chemical Plant (0x83) — so flipping
-        // the priority breaks TestRomAudioIntegration / TestSmpsDriver. Fix
-        // the byte-order in resolveMusicOffsetFromRom (lo/hi swap on the
-        // pointer-table read), re-verify against REV01, then invert here.
         Integer mapped = musicMap.get(musicId);
         if (mapped != null) {
             return mapped;
         }
-        int romOffset = resolveMusicOffsetFromRom(musicId);
-        return romOffset;
+        return -1;
     }
 
     @Override
@@ -382,50 +379,6 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
             offset = ptr - start;
         }
         return offset >= 0 && offset < len;
-    }
-
-    /**
-     * Sonic 2 final: music flags list at MUSIC_FLAGS_ADDR, pointer banks at
-     * MUSIC_PTR_BANK0/MUSIC_PTR_BANK1.
-     * Flag bits: 0-4 = pointer index, bit5 = uncompressed (1=uncompressed), bit7 =
-     * bank (0=MUSIC_PTR_BANK0,1=MUSIC_PTR_BANK1).
-     */
-    private int resolveMusicOffsetFromRom(int musicId) {
-        // Known music IDs start at MUSIC_FLAGS_ID_BASE; map ID to flag index by
-        // subtracting it.
-        if (musicId < MUSIC_FLAGS_ID_BASE)
-            return -1;
-        int flagIndex = musicId - MUSIC_FLAGS_ID_BASE;
-        int flagsAddr = MUSIC_FLAGS_ADDR + flagIndex;
-        try {
-            int flags = rom.readByte(flagsAddr) & 0xFF;
-            int ptrId = flags & 0x1F;
-            boolean uncompressed = (flags & 0x20) != 0;
-            int bankBase = ((flags & 0x80) != 0) ? MUSIC_PTR_BANK1 : MUSIC_PTR_BANK0;
-            // Pointer-to-pointer table at MUSIC_PTR_TABLE_ADDR (driver relocates this in
-            // RAM); treat as
-            // ROM address here.
-            int ptrToPtrLo = rom.readByte(MUSIC_PTR_TABLE_ADDR) & 0xFF;
-            int ptrToPtrHi = rom.readByte(MUSIC_PTR_TABLE_ADDR + 1) & 0xFF;
-            int ptrTableBase = (ptrToPtrLo << 8) | ptrToPtrHi;
-            if (ptrTableBase == 0)
-                return -1;
-            int ptrTableEntry = ptrTableBase + (ptrId * 2);
-            int lo = rom.readByte(ptrTableEntry) & 0xFF;
-            int hi = rom.readByte(ptrTableEntry + 1) & 0xFF;
-            int ptr = (lo << 8) | hi;
-            int offset = bankBase + ptr;
-            if (ptr == 0)
-                return -1;
-            if (uncompressed) {
-                // We assume compressed; fallback to hard map if needed
-                LOGGER.fine("Music " + Integer.toHexString(musicId) + " flagged uncompressed; using raw offset "
-                        + Integer.toHexString(offset));
-            }
-            return offset;
-        } catch (IOException | RuntimeException e) {
-            return -1;
-        }
     }
 
     public AbstractSmpsData loadSmps(int offset) {

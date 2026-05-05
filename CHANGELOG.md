@@ -6,6 +6,29 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **G4 follow-up: retired the broken
+  `Sonic2SmpsLoader.resolveMusicOffsetFromRom` and removed the deferred
+  priority-inversion TODO.** Investigation showed the function's premise
+  was wrong, not just its byte order: the S2 driver's `zMasterPlaylist`
+  flag table and per-bank pointer tables (`MusicPoint1`/`MusicPoint2`)
+  live inside the **Saxman-compressed** Z80 driver blob in 68K ROM, so
+  reading them as if they were uncompressed yields garbage regardless
+  of endianness. The previous implementation also indirected through a
+  stray pointer-to-pointer-table address (`MUSIC_PTR_TABLE_ADDR`,
+  pointing into mid-driver code) and decoded the resulting Z80
+  little-endian pointers as big-endian. On top of the compression
+  problem, the engine's `Sonic2Music` IDs are systematically shifted
+  relative to the disassembly's `zMasterPlaylist` entry order
+  (`EMERALD_HILL.id == 0x81` loads the EHZ track, but
+  `zMasterPlaylist[0]` is `Mus_2PResult`), so even a fully Z80-decompressed
+  lookup would disagree with the engine's intended track for most IDs
+  — `testChemicalPlantNoiseChannelEmitsVolume` confirmed this when the
+  prototype ROM-first priority was tried. `findMusicOffset` is now a
+  thin lookup over the hardcoded REV01 `musicMap` (returns -1 on miss);
+  `resolveMusicOffsetFromRom` and the misleading `MUSIC_FLAGS_ADDR` /
+  `MUSIC_PTR_TABLE_ADDR` constants were removed. The Javadoc captures
+  the two prerequisites for a future ROM-driven path (decompress the
+  Z80 driver first; reconcile engine-vs-disasm music ID schemes).
 - **Architecture cleanup: removed game-id branching from
   `DefaultPowerUpSpawner`; documented G4 priority-inversion deferral in
   code.** `DefaultPowerUpSpawner.spawnInvincibilityStars` no longer
