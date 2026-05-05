@@ -52,13 +52,7 @@ class TestNoDirectMapMutationsInGameplay {
             // behaviour asserted by TestSonic3kMgz2CollapseEvents. Plan 2 will
             // introduce a no-redraw mutation API on the pipeline to migrate
             // clearForegroundRegionWithoutRedraw cleanly.
-            "com/openggf/game/sonic3k/events/Sonic3kMGZEvents.java",
-            // AIZ seamless terrain swaps need direct map.setValue to preserve
-            // ROM-faithful effect-publication timing — TestSonic3kAIZEvents and
-            // TestAizFireCurtainRendererRom break when routed through
-            // ZoneLayoutMutationPipeline. Plan 2's no-redraw mutation API will
-            // unblock migrating this.
-            "com/openggf/game/sonic3k/events/S3kSeamlessMutationExecutor.java"
+            "com/openggf/game/sonic3k/events/Sonic3kMGZEvents.java"
     );
 
     @Test
