@@ -8,6 +8,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -100,8 +101,8 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
     private final boolean isType1;         // true if subtype != 0 (missile-firing variant)
     private int secondaryState;
     private int fallVelocity;              // obVelY during falling phase
-    private int xSubpixel;                 // Fractional X for SpeedToPos
-    private int ySubpixel;                 // Fractional Y for ObjectFall
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int collisionSizeIndex;        // Current collision type (changes between phases)
     private boolean collisionEnabled;      // obColType set after appearing
 
@@ -123,8 +124,6 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
         this.isType1 = spawn.subtype() != 0;
         this.secondaryState = STATE_CHECK_DISTANCE;
         this.fallVelocity = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.collisionSizeIndex = COLLISION_SIZE_FALLING;
         this.collisionEnabled = false;
 
@@ -226,11 +225,13 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
         // during the falling phase; collision type $D is only set upon landing.
 
         // ObjectFall: apply velocity to position, then add gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += fallVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-        fallVelocity += GRAVITY;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = 0;
+        motion.yVel = fallVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentY = motion.y;
+        fallVelocity = motion.yVel;
 
         // ObjFloorDist: check floor from feet
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -272,10 +273,10 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
      */
     private void updateMatchFloor() {
         // SpeedToPos: apply velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // ObjFloorDist
         TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
@@ -301,10 +302,10 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
      */
     private void updateSpeed() {
         // SpeedToPos: apply velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
     }
 
     /**

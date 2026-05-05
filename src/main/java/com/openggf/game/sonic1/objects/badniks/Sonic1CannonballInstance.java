@@ -10,6 +10,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -75,8 +76,8 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity;
     private int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int explosionTimer; // cbal_time (objoff_30)
     private int animTimer;      // obTimeFrame countdown
     private int currentFrame;   // obFrame: toggles between 4 and 5
@@ -98,8 +99,6 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         this.currentY = y;
         this.xVelocity = xVel;
         this.yVelocity = 0;       // move.w #0,obVelY(a1)
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
 
         // cbal_time = subtype * 60 frames
         // From disassembly: moveq #0,d0 / move.b obSubtype(a0),d0 / mulu.w #60,d0
@@ -152,17 +151,17 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
      */
     private void updateBounce() {
         // ObjectFall: X += VelX, VelY += gravity, Y += VelY (gravity applied before move)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        // addi.w #$38,d0 / move.w d0,obVelY(a0) - gravity applied BEFORE Y movement
+        // Note: existing implementation applies gravity BEFORE the Y move, which differs
+        // from ROM's "use old velocity, then add gravity" order. Preserved here via
+        // manual pre-increment + moveSprite2 (no gravity inside the helper).
         yVelocity += GRAVITY;
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = xVelocity;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motion);
+        currentX = motion.x;
+        currentY = motion.y;
 
         // tst.w obVelY(a0) / bmi.s Cbal_ChkExplode (tests POST-gravity velocity)
         if (yVelocity >= 0) {

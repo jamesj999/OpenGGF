@@ -12,6 +12,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -167,8 +168,8 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     /** X velocity in subpixels (signed 16-bit). */
     private int velX;
 
-    /** X subpixel accumulator for SpeedToPos. */
-    private int xSubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16.16 SpeedToPos integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     /**
      * Flag to start wall moving (lwall_flag = objoff_36).
@@ -414,11 +415,13 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applySpeedToPosX() {
-        int xPos32 = (currentX << 16) | (xSubpixel & 0xFFFF);
-        int vel32 = (int) (short) velX;
-        xPos32 += vel32 << 8;
-        currentX = xPos32 >> 16;
-        xSubpixel = xPos32 & 0xFFFF;
+        // SpeedToPos (X-only, 16.16 fixed-point). Use the helper directly so unused Y
+        // accumulator state is left untouched.
+        int xVel32 = (int) (short) velX;
+        int x32 = (currentX << 16) | (motion.xSub & 0xFFFF);
+        x32 += xVel32 << 8;
+        currentX = x32 >> 16;
+        motion.xSub = x32 & 0xFFFF;
     }
 
     /**

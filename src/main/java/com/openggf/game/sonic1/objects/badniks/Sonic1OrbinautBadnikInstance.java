@@ -11,6 +11,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -39,7 +40,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     private static final int ROUTINE_MOVE = 4;
 
     private int routine;
-    private int xSubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     private int animationId;
     private int animationFrame;
@@ -68,7 +70,6 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
         this.activeSpikes = 0;
         this.initialized = false;
-        this.xSubpixel = 0;
     }
 
     @Override
@@ -114,10 +115,10 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applySpeedToPos() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = xVelocity;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
     }
 
     @Override
@@ -250,7 +251,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
         private boolean launched;
         private int xVelocity;
-        private int xSubpixel;
+        /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+        private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
         OrbSpikeObjectInstance(Sonic1OrbinautBadnikInstance parent, int startAngle) {
             super(new ObjectSpawn(parent.currentX, parent.currentY, parent.spawn.objectId(), 0, 0, false, 0),
@@ -261,7 +263,6 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
             this.y = parent.currentY;
             this.launched = false;
             this.xVelocity = 0;
-            this.xSubpixel = 0;
         }
 
         @Override
@@ -292,10 +293,10 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
             }
 
             if (launched) {
-                int xPos24 = (x << 8) | (xSubpixel & 0xFF);
-                xPos24 += xVelocity;
-                x = xPos24 >> 8;
-                xSubpixel = xPos24 & 0xFF;
+                motion.x = x;
+                motion.xVel = xVelocity;
+                SubpixelMotion.moveX(motion);
+                x = motion.x;
 
                 if (!isOnScreen(256)) {
                     setDestroyed(true);

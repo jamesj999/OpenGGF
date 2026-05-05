@@ -19,6 +19,7 @@ import com.openggf.level.objects.SolidExecutionMode;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -133,9 +134,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Push momentum (objoff_30) - stored when block decelerates on 16px grid
     private int pushMomentum;
 
-    // 16.16 fixed-point sub-pixel accumulators for SpeedToPos
-    private int xSubpixel;
-    private int ySubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16.16 SpeedToPos integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Solid collision state machine (obSolid): 0/2/4/6
     // 0 = idle (Solid_ChkEnter), 2 = riding, 4 = falling, 6 = aligning
@@ -339,7 +339,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
                 // Floor hit: snap to surface, clear airborne
                 // add.w d1,obY(a0)
                 y += result.distance();
-                ySubpixel = 0;
+                motion.ySub = 0;
                 // bclr #1,obStatus(a0)
                 airborne = false;
                 // clr.w obVelY(a0)
@@ -369,13 +369,15 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             }
         } else {
             // loc_C0D6: slow sink - addi.l #$2001,obY(a0)
-            int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
+            // This is a direct 16.16 add (not a velocity-driven move), so update the
+            // accumulator on the State directly.
+            int yPos32 = (y << 16) | (motion.ySub & 0xFFFF);
             yPos32 += SLOW_SINK_INCREMENT;
             y = yPos32 >> 16;
-            ySubpixel = yPos32 & 0xFFFF;
+            motion.ySub = yPos32 & 0xFFFF;
 
             // cmpi.b #$A0,obY+3(a0) / bhs.s loc_C104
-            if ((ySubpixel & 0xFF) >= SLOW_SINK_DELETE_THRESHOLD) {
+            if ((motion.ySub & 0xFF) >= SLOW_SINK_DELETE_THRESHOLD) {
                 // loc_C104: unlink player and go to out-of-range
                 if (player != null) {
                     player.setOnObject(false);
@@ -417,7 +419,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // andi.w #-$10,obX(a0) — force-align to 16px grid
         x &= ~0xF;
-        xSubpixel = 0;
+        motion.xSub = 0;
 
         // move.w obVelX(a0),objoff_30(a0) — save velocity as push momentum
         pushMomentum = xVelocity;
@@ -466,7 +468,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // Floor hit: add.w d1,obY(a0) — snap to surface
         y += result.distance();
-        ySubpixel = 0;
+        motion.ySub = 0;
 
         // clr.w obVelY(a0)
         yVelocity = 0;
@@ -483,7 +485,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             // move.b #1,objoff_32(a0) — THIS is the only place objoff_32 gets set
             inMotion = true;
             // clr.w obY+2(a0)
-            ySubpixel = 0;
+            motion.ySub = 0;
         }
     }
 
@@ -571,8 +573,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         solidState = 0;
         xVelocity = 0;
         yVelocity = 0;
-        xSubpixel = 0;
-        ySubpixel = 0;
+        motion.xSub = 0;
+        motion.ySub = 0;
         pushMomentum = 0;
         lastGeyserSpawnX = Integer.MIN_VALUE;
         updateDynamicSpawn(x, y);
@@ -841,11 +843,12 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
      */
     private void applySpeedToPosX() {
         if (xVelocity == 0) return;
-        int xPos32 = (x << 16) | (xSubpixel & 0xFFFF);
-        int vel32 = (int) (short) xVelocity;
-        xPos32 += vel32 << 8;
-        x = xPos32 >> 16;
-        xSubpixel = xPos32 & 0xFFFF;
+        // SpeedToPos (X-only, 16.16 fixed-point). Inlined to avoid touching ySub/yVel.
+        int xVel32 = (int) (short) xVelocity;
+        int x32 = (x << 16) | (motion.xSub & 0xFFFF);
+        x32 += xVel32 << 8;
+        x = x32 >> 16;
+        motion.xSub = x32 & 0xFFFF;
     }
 
     /**
@@ -853,11 +856,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
      */
     private void applySpeedToPosY() {
         if (yVelocity == 0) return;
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
+        // SpeedToPos (Y-only, 16.16 fixed-point) using shared helper.
+        motion.y = y;
+        motion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(motion);
+        y = motion.y;
     }
 
     @Override

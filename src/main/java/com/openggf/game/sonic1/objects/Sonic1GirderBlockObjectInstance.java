@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -81,9 +82,8 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     private int x;
     private int y;
 
-    // Sub-pixel accumulators for SpeedToPos (16.8 fixed-point: velocity << 8 added to 24-bit pos)
-    private int xSubpixel;
-    private int ySubpixel;
+    /** Subpixel accumulators for ROM-accurate 16.16 SpeedToPos integration (velocity << 8 added to 32-bit position). */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Original position for out-of-range deletion check (gird_origX = objoff_32, gird_origY = objoff_30)
     private final int origX;
@@ -110,8 +110,6 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
         this.y = spawn.y();
         this.origX = spawn.x();
         this.origY = spawn.y();
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
 
         // Gird_Main calls Gird_ChgMove to initialize first movement phase
         this.movePhase = 0;
@@ -275,22 +273,30 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applySpeedToPos() {
-        // X axis
-        if (velX != 0) {
-            long xPos32 = ((long) x << 16) | (xSubpixel & 0xFFFF);
-            long xVel32 = (long) (short) velX << 8;
-            xPos32 += xVel32;
-            x = (int) (xPos32 >> 16);
-            xSubpixel = (int) (xPos32 & 0xFFFF);
-        }
-
-        // Y axis
-        if (velY != 0) {
-            long yPos32 = ((long) y << 16) | (ySubpixel & 0xFFFF);
-            long yVel32 = (long) (short) velY << 8;
-            yPos32 += yVel32;
-            y = (int) (yPos32 >> 16);
-            ySubpixel = (int) (yPos32 & 0xFFFF);
+        // SpeedToPos (16.16 fixed-point): only update each axis when its velocity is non-zero,
+        // matching the original implementation's behaviour (preserves sub-pixel state otherwise).
+        if (velX != 0 || velY != 0) {
+            motion.x = x;
+            motion.y = y;
+            motion.xVel = velX;
+            motion.yVel = velY;
+            if (velX != 0 && velY != 0) {
+                SubpixelMotion.speedToPos(motion);
+                x = motion.x;
+                y = motion.y;
+            } else if (velX != 0) {
+                // X-only: avoid touching y/ySub when velY == 0
+                int xVel32 = (int) (short) motion.xVel;
+                int x32 = (motion.x << 16) | (motion.xSub & 0xFFFF);
+                x32 += xVel32 << 8;
+                motion.x = x32 >> 16;
+                motion.xSub = x32 & 0xFFFF;
+                x = motion.x;
+            } else {
+                // Y-only: avoid touching x/xSub when velX == 0
+                SubpixelMotion.speedToPosY(motion);
+                y = motion.y;
+            }
         }
     }
 

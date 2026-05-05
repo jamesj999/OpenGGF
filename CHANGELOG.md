@@ -6,6 +6,24 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S1 badnik/object subpixel math: migrated to shared `SubpixelMotion` helper.**
+  ~17 Sonic 1 badnik and object instances each maintained their own private
+  `xSubpixel` / `ySubpixel` int fields and reimplemented 16:8 (`<<8`) or 16.16
+  (`<<16`) ROM fixed-point integration inline (`pos = (px << 8) | sub; pos +=
+  vel; ...`). All occurrences in `game.sonic1.objects` (Crabmeat, Caterkiller
+  head + body, Cannonball, Chopper, Motobug, Newtron, Roller, Yadrin, Orbinaut
+  + spike, BallHog, Gargoyle fireball, GirderBlock, LavaBall, LavaGeyser,
+  LavaWall, PushBlock) now consolidate the accumulators into a single
+  `SubpixelMotion.State motion` field per class and call
+  `SubpixelMotion.moveSprite` / `moveSprite2` / `moveX` / `speedToPos` /
+  `speedToPosY` for the integration. Existing (sometimes ROM-divergent)
+  semantics are preserved verbatim -- e.g. Cannonball/BallHog still apply
+  gravity *before* the Y move via a manual pre-increment + `moveSprite2`,
+  Gargoyle's fireball X-only path remains numerically identical for its
+  `±$200` velocity, and PushBlock's slow-sink direct 16.16 add and per-axis
+  velocity guards stay byte-for-byte the same. Pre-existing baseline test
+  failures (S1 trace replays, S3K trace replays, etc.) are unchanged in count
+  and first-error frame, confirming zero regression.
 - **HCZ wall chase: migrated BG-high overlay render and active flag off
   `LevelManager` / `GameStateManager`.** The S3K-only inline render method
   `LevelManager.renderBgHighPriorityOverlay()` (and its caller in

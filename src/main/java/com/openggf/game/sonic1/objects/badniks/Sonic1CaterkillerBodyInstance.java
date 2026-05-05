@@ -7,6 +7,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
@@ -69,7 +70,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
 
     int currentX;
     int currentY;
-    private int xSubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16:8 fixed-point integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private boolean facingLeft;
     private boolean deleting;
     private boolean destroyed;
@@ -93,7 +95,6 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     // Velocity state
     private int xVelocity;
     private int yVelocity;
-    private int ySubpixel;
     private int inertia;
 
     // Animation state (for BodySeg2 only)
@@ -135,8 +136,6 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
         this.deleting = false;
         this.destroyed = false;
         this.fragmenting = false;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
         this.xVelocity = 0;
         this.yVelocity = 0;
         this.inertia = 0;
@@ -250,11 +249,11 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             effectiveVel = -effectiveVel;
         }
 
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
         int oldXWhole = currentX;
-        xPos24 += effectiveVel;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motion.x = currentX;
+        motion.xVel = effectiveVel;
+        SubpixelMotion.moveX(motion);
+        currentX = motion.x;
 
         // swap d3 / cmp.w obX(a0),d3 / beq.s loc_16C64
         // If X didn't change, skip terrain following
@@ -270,8 +269,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             // Direction change marker ($80): reverse direction and advance ring buffer
             // REV01: neg.w obX+2(a0) / beq.s / btst #0 / beq.s / cmpi.w #-$C0 / bne.s
             writeRingBuffer(bufferIndex, yDelta);
-            xSubpixel = (-xSubpixel) & 0xFFFF;
-            if (xSubpixel != 0 && !facingLeft && xVelocity == -0xC0) {
+            motion.xSub = (-motion.xSub) & 0xFFFF;
+            if (motion.xSub != 0 && !facingLeft && xVelocity == -0xC0) {
                 // subq.w #1,obX(a0) - adjust when bit 0 = 1 (facing right)
                 currentX--;
                 ringBufferIndex = (ringBufferIndex + 1) & 0x0F;
@@ -320,18 +319,15 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
      * From loc_16CC0 in disassembly.
      */
     private void updateFragment() {
-        // ObjectFall: apply velocity + gravity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
-
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        yVelocity += GRAVITY;
+        // ObjectFall: apply velocity, then gravity (uses pre-gravity velocity for movement).
+        motion.x = currentX;
+        motion.y = currentY;
+        motion.xVel = xVelocity;
+        motion.yVel = yVelocity;
+        SubpixelMotion.moveSprite(motion, GRAVITY);
+        currentX = motion.x;
+        currentY = motion.y;
+        yVelocity = motion.yVel;
 
         // Floor bounce when falling (tst.w obVelY(a0) / bmi.s .nofloor)
         if (yVelocity >= 0) {

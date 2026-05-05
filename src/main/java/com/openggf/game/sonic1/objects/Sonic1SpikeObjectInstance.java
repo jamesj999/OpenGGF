@@ -156,7 +156,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         //   move.l d3,obY(a0)
         // ROM rewind: sub.l d0,d3 where d3=obY_full, d0=obVelY<<8
         // This operates on the top-left Y (obY), not centre Y.
-        // The engine stores yPixel (top-left) + ySubpixel separately.
+        // The engine stores yPixel (top-left) + sub-pixel accumulator separately.
         // Combine, subtract, split back. Use move() with negative velocity
         // to replicate sub.l: move(-velX, -velY) reverses SpeedToPos.
         if (player instanceof AbstractPlayableSprite aps) {

@@ -9,6 +9,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -120,8 +121,8 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
     /** Y velocity (subpixels, signed 16-bit). */
     private int velY;
 
-    /** Y subpixel accumulator. */
-    private int ySubpixel;
+    /** Subpixel accumulators (xSub / ySub) for ROM-accurate 16.16 SpeedToPos integration. */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     /** Origin Y (objoff_30): used for deletion check and body column height. */
     private int originY;
@@ -317,12 +318,11 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
             updateType01();
         }
 
-        // bsr.w SpeedToPos — ROM-accurate 16.16 fixed-point arithmetic
-        int yVel32 = (int) (short) velY;
-        int y32 = (currentY << 16) | (ySubpixel & 0xFFFF);
-        y32 += yVel32 << 8;
-        currentY = y32 >> 16;
-        ySubpixel = y32 & 0xFFFF;
+        // bsr.w SpeedToPos — ROM-accurate 16.16 fixed-point arithmetic (Y-only)
+        motion.y = currentY;
+        motion.yVel = velY;
+        SubpixelMotion.speedToPosY(motion);
+        currentY = motion.y;
 
         // AnimateSprite (head animation)
         updateHeadAnimation();
