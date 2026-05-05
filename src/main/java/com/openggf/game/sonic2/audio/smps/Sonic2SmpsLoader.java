@@ -58,10 +58,10 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
         musicMap.put(Sonic2Music.ACT_CLEAR.id, 0x0FD35E); // Stage Clear
         musicMap.put(Sonic2Music.INVINCIBILITY.id, 0x0F8359); // Invincibility
         musicMap.put(Sonic2Music.HIDDEN_PALACE.id, 0x0F803C); // Hidden Palace
-        musicMap.put(Sonic2Music.EXTRA_LIFE.id, 0x0FD48D); // 1-Up
-        musicMap.put(Sonic2Music.GAME_OVER.id, 0x0FD57A); // Game Over
-        musicMap.put(Sonic2Music.GOT_EMERALD.id, 0x0FD6C9); // Got an Emerald
-        musicMap.put(Sonic2Music.CREDITS.id, 0x0FD797); // Credits
+        musicMap.put(Sonic2Music.EXTRA_LIFE.id, UNCOMPRESSED_EXTRA_LIFE_ADDR); // 1-Up
+        musicMap.put(Sonic2Music.GAME_OVER.id, UNCOMPRESSED_GAME_OVER_ADDR); // Game Over
+        musicMap.put(Sonic2Music.GOT_EMERALD.id, UNCOMPRESSED_GOT_EMERALD_ADDR); // Got an Emerald
+        musicMap.put(Sonic2Music.CREDITS.id, UNCOMPRESSED_CREDITS_ADDR); // Credits
         musicMap.put(Sonic2Music.UNDERWATER.id, 0x0F823B); // Underwater Timing
         // SFX Map (Populate with discovered offsets)
         // Potential candidate for SFX: 0xFFEAD (FM=1)
@@ -215,13 +215,25 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
     }
 
     /**
-     * Returns the ROM offset for a given music ID using the hard map first, then
-     * the flag table.
+     * Returns the ROM offset for a given music ID using the hard map first,
+     * then the flag table.
+     * <p>
+     * <b>Priority note:</b> ROM-resolution priority inversion is desirable
+     * for non-REV01 ROM compatibility but is currently blocked: the existing
+     * {@link #resolveMusicOffsetFromRom} produces wrong-but-non-negative
+     * offsets for several REV01 IDs (verified by TestRomAudioIntegration
+     * failing when ROM resolution was tried first). Fixing the endianness
+     * inside that method is a separate audio-engine change requiring its own
+     * verification; the priority inversion is gated on that fix.
      * Exposed for debug tools (sound test).
      */
     public int findMusicOffset(int musicId) {
         Integer mapped = musicMap.get(musicId);
-        return mapped != null ? mapped : resolveMusicOffset(musicId);
+        if (mapped != null) {
+            return mapped;
+        }
+        int romOffset = resolveMusicOffsetFromRom(musicId);
+        return romOffset;
     }
 
     @Override
@@ -370,19 +382,6 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
      * Flag bits: 0-4 = pointer index, bit5 = uncompressed (1=uncompressed), bit7 =
      * bank (0=MUSIC_PTR_BANK0,1=MUSIC_PTR_BANK1).
      */
-    private int resolveMusicOffset(int musicId) {
-        // Prefer deriving from ROM.
-        int romOffset = resolveMusicOffsetFromRom(musicId);
-        if (romOffset != -1)
-            return romOffset;
-
-        // Fallback to legacy map
-        Integer mapped = musicMap.get(musicId);
-        if (mapped != null)
-            return mapped;
-        return -1;
-    }
-
     private int resolveMusicOffsetFromRom(int musicId) {
         // Known music IDs start at MUSIC_FLAGS_ID_BASE; map ID to flag index by
         // subtracting it.
@@ -490,19 +489,18 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
      */
     private int calculateUncompressedSize(int offset) {
         // Explicit sizes for uncompressed tracks (calculated from Sonic Retro ROM
-        // pointer table)
-        // These are the exact distances between consecutive uncompressed song pointers
+        // pointer table). These are the exact distances between consecutive
+        // uncompressed song pointers; consolidated as named constants in
+        // Sonic2SmpsConstants so musicMap and this switch share one source.
         switch (offset) {
-            case 0x0FD48D: // 1-Up → Game Over (0xFD57A - 0xFD48D)
-                return 0xED; // 237 bytes
-            case 0x0FD57A: // Game Over → Emerald (0xFD6C9 - 0xFD57A)
-                return 0x14F; // 335 bytes
-            case 0x0FD6C9: // Emerald → Credits (0xFD797 - 0xFD6C9)
-                return 0xCE; // 206 bytes
-            case 0x0FD797: // Credits (massive medley song, ~37 voices + 9 tracks)
-                // Estimated actual size: ~5-6KB based on 925 bytes of voices + ~4-5KB of track
-                // data
-                return 0x2000; // 8KB buffer - safe upper bound
+            case UNCOMPRESSED_EXTRA_LIFE_ADDR:
+                return UNCOMPRESSED_EXTRA_LIFE_SIZE;
+            case UNCOMPRESSED_GAME_OVER_ADDR:
+                return UNCOMPRESSED_GAME_OVER_SIZE;
+            case UNCOMPRESSED_GOT_EMERALD_ADDR:
+                return UNCOMPRESSED_GOT_EMERALD_SIZE;
+            case UNCOMPRESSED_CREDITS_ADDR:
+                return UNCOMPRESSED_CREDITS_SIZE;
             default:
                 // Fallback: find next offset or use reasonable max
                 int nextOffset = Integer.MAX_VALUE;

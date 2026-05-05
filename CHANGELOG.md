@@ -6,6 +6,22 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **G4: consolidated S2 uncompressed-track constants; documented why
+  ROM-resolution priority inversion is deferred.** The four uncompressed
+  track ROM addresses (1-Up, Game Over, Got Emerald, Credits) and their
+  explicit byte sizes are now named constants in `Sonic2SmpsConstants`
+  (`UNCOMPRESSED_*_ADDR` / `_SIZE`), shared between
+  `Sonic2SmpsLoader.musicMap` and `calculateUncompressedSize`. The
+  intended priority inversion in `findMusicOffset` (try
+  `resolveMusicOffsetFromRom` first, fall back to the empirical map)
+  could not be applied — the existing ROM-resolution path produces
+  wrong-but-non-negative offsets for several REV01 IDs (Metropolis 0x82,
+  Chemical Plant 0x83), as confirmed by TestRomAudioIntegration failing
+  when ROM resolution ran first. The endianness fix inside
+  `resolveMusicOffsetFromRom` is a separate audio-engine change requiring
+  independent verification; once that lands, the priority inversion
+  becomes a one-line follow-up. A deferral note is in `findMusicOffset`'s
+  Javadoc.
 - **G3: residual cleanup of the runtime-ownership migration.**
   `StubObjectServices` now overrides `zoneRuntimeRegistry()` and
   `zoneRuntimeState()` so unit tests using the stub get a deterministic
