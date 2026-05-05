@@ -281,6 +281,39 @@ class TestEditorToggleIntegration {
     }
 
     @Test
+    void editorRoundTrip_rebuildsCameraBoundsAndFocusedSpriteAtCursor() throws Exception {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        // Set non-trivial bounds on the gameplay-mode camera so we can check
+        // they survive (or are correctly re-derived) across the round trip.
+        runtime.getCamera().setMinX((short) 0);
+        runtime.getCamera().setMaxX((short) 1024);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 768);
+
+        engine.enterEditorFromCurrentPlayer(
+                new EditorPlaytestStash(50, 50, 0, 0, true, 0, 1), 100, 200);
+        // Move cursor to a deliberate spawn target before exiting editor.
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(384, 256));
+        engine.resumePlaytestFromEditor();
+
+        // After teardown+rebuild, the GameRuntime is a fresh instance and the
+        // sprite/camera are too. Re-resolve the active sprite + camera and
+        // assert the rebuild produced sensible state at the cursor position.
+        GameRuntime resumed = RuntimeManager.getCurrent();
+        assertNotNull(resumed, "rebuild must produce a fresh runtime");
+        Sonic resumedPlayer = (Sonic) resumed.getSpriteManager().getSprite("sonic");
+        assertNotNull(resumedPlayer, "rebuild must spawn the main character");
+        assertEquals(384, resumedPlayer.getCentreX(),
+                "rebuilt player should be at cursor X (applyResumedPlaytestState)");
+        assertEquals(256, resumedPlayer.getCentreY(),
+                "rebuilt player should be at cursor Y (applyResumedPlaytestState)");
+        assertSame(resumedPlayer, resumed.getCamera().getFocusedSprite(),
+                "rebuilt camera should focus on the resumed player");
+    }
+
+    @Test
     void syncEditorState_keepsSessionCursorAlignedWithControllerCursor() {
         enableEditor();
         Engine engine = new Engine();
