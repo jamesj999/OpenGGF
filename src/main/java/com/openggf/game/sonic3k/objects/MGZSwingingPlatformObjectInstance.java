@@ -214,6 +214,12 @@ public class MGZSwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public int getOutOfRangeReferenceX() {
+        // ROM: move.w $30(a0),d0 before Sprite_OnScreen_Test2.
+        return pivotX;
+    }
+
+    @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY_BUCKET);
     }
