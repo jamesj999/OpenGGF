@@ -1,5 +1,7 @@
 package com.openggf.game.palette;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.PaletteOwnershipSnapshot;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 
@@ -7,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-public final class PaletteOwnershipRegistry {
+public final class PaletteOwnershipRegistry implements RewindSnapshottable<PaletteOwnershipSnapshot> {
     private static final String NO_OWNER = "none";
 
     private final List<PaletteWrite> writes = new ArrayList<>();
@@ -104,6 +106,43 @@ public final class PaletteOwnershipRegistry {
             for (int line = 0; line < owners[surface].length; line++) {
                 for (int color = 0; color < owners[surface][line].length; color++) {
                     owners[surface][line][color] = NO_OWNER;
+                }
+            }
+        }
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    /** Total cells: 2 surfaces × 4 lines × 16 colors = 128. */
+    private static final int OWNER_FLAT_SIZE = 2 * 4 * 16;
+
+    @Override
+    public String key() {
+        return "palette-ownership";
+    }
+
+    @Override
+    public PaletteOwnershipSnapshot capture() {
+        String[] flat = new String[OWNER_FLAT_SIZE];
+        int idx = 0;
+        for (int s = 0; s < owners.length; s++) {
+            for (int l = 0; l < owners[s].length; l++) {
+                for (int c = 0; c < owners[s][l].length; c++) {
+                    flat[idx++] = owners[s][l][c];
+                }
+            }
+        }
+        return new PaletteOwnershipSnapshot(flat);
+    }
+
+    @Override
+    public void restore(PaletteOwnershipSnapshot snap) {
+        String[] flat = snap.owners();
+        int idx = 0;
+        for (int s = 0; s < owners.length; s++) {
+            for (int l = 0; l < owners[s].length; l++) {
+                for (int c = 0; c < owners[s][l].length; c++) {
+                    owners[s][l][c] = flat[idx++];
                 }
             }
         }
