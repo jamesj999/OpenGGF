@@ -923,4 +923,34 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
     private void setWallChaseBgOverlayActive(boolean active) {
         this.wallChaseBgOverlayActive = active;
     }
+
+    // =========================================================================
+    // Rewind accessors (C.4)
+    // =========================================================================
+
+    public int     getBgRoutine()                  { return bgRoutine; }
+    public void    setBgRoutine(int v)             { bgRoutine = v; }
+    public boolean isTransitionRequested()         { return transitionRequested; }
+    public void    setTransitionRequested(boolean v){ transitionRequested = v; }
+    public int     getAct2BgRoutine()              { return act2BgRoutine; }
+    public void    setAct2BgRoutine(int v)         { act2BgRoutine = v; }
+    public int     getWallOffsetFixed()            { return wallOffsetFixed; }
+    public void    setWallOffsetFixed(int v)       { wallOffsetFixed = v; }
+    public int     getWallOffsetPixels()           { return wallOffsetPixels; }
+    public void    setWallOffsetPixels(int v)      { wallOffsetPixels = v; }
+    public boolean isWallMoving()                  { return wallMoving; }
+    public void    setWallMoving(boolean v)        { wallMoving = v; }
+    public boolean isWallStopped()                 { return wallStopped; }
+    public void    setWallStopped(boolean v)       { wallStopped = v; }
+    public int     getShakeTimer()                 { return shakeTimer; }
+    public void    setShakeTimer(int v)            { shakeTimer = v; }
+    public boolean isCutsceneActive()              { return cutsceneActive; }
+    public void    setCutsceneActive(boolean v)    { cutsceneActive = v; }
+    public int     getCutsceneFrame()              { return cutsceneFrame; }
+    public void    setCutsceneFrame(int v)         { cutsceneFrame = v; }
+    public int     getCutsceneCenterX()            { return cutsceneCenterX; }
+    public void    setCutsceneCenterX(int v)       { cutsceneCenterX = v; }
+    public int     getCutsceneCurrentY()           { return cutsceneCurrentY; }
+    public void    setCutsceneCurrentY(int v)      { cutsceneCurrentY = v; }
+    public void    setWallChaseBgOverlayActiveRaw(boolean v){ wallChaseBgOverlayActive = v; }
 }

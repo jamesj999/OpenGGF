@@ -2007,6 +2007,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void setTransitionControlLock(boolean locked) {
+        // Guard: skip when called outside an active gameplay session (e.g. snapshot-restore
+        // or unit tests that call initLevel() without a live RuntimeManager).
+        if (!hasRuntime()) {
+            return;
+        }
         if (camera().getFocusedSprite() instanceof AbstractPlayableSprite player) {
             player.setControlLocked(locked);
         }
@@ -2154,4 +2159,79 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         int y = cam.getFocusedSprite().getCentreY() & 0xFFFF;
         checkpoint.saveCheckpoint(0, x, y, false);
     }
+
+    // =========================================================================
+    // Rewind accessors (C.4)
+    // =========================================================================
+
+    public boolean isIntroSpawned()                         { return introSpawned; }
+    public void    setIntroSpawned(boolean v)               { introSpawned = v; }
+    public boolean isIntroMinXLocked()                      { return introMinXLocked; }
+    public void    setIntroMinXLocked(boolean v)            { introMinXLocked = v; }
+    public boolean isIntroNormalRefreshPending()             { return introNormalRefreshPending; }
+    public void    setIntroNormalRefreshPending(boolean v)  { introNormalRefreshPending = v; }
+    public boolean isPaletteSwapped()                       { return paletteSwapped; }
+    public void    setPaletteSwapped(boolean v)             { paletteSwapped = v; }
+    public boolean isBoundariesUnlocked()                   { return boundariesUnlocked; }
+    public void    setBoundariesUnlocked(boolean v)         { boundariesUnlocked = v; }
+    public boolean isFireMinXLockReached()                  { return fireMinXLockReached; }
+    public void    setFireMinXLockReached(boolean v)        { fireMinXLockReached = v; }
+    public int     getAppliedTreeRevealChunkCopiesMask()    { return appliedTreeRevealChunkCopiesMask; }
+    public void    setAppliedTreeRevealChunkCopiesMask(int v){ appliedTreeRevealChunkCopiesMask = v; }
+    public int     getAiz2ResizeRoutine()                   { return aiz2ResizeRoutine; }
+    public void    setAiz2ResizeRoutine(int v)              { aiz2ResizeRoutine = v; }
+    public boolean isMinibossSpawned()                      { return minibossSpawned; }
+    public void    setMinibossSpawned(boolean v)            { minibossSpawned = v; }
+    public boolean isEventsFg4Raw()                         { return eventsFg4; }
+    public void    setEventsFg4Raw(boolean v)               { eventsFg4 = v; }
+    public boolean isBattleshipAutoScrollActiveRaw()        { return battleshipAutoScrollActive; }
+    public void    setBattleshipAutoScrollActiveRaw(boolean v){ battleshipAutoScrollActive = v; }
+    public boolean isBattleshipSpawned()                    { return battleshipSpawned; }
+    public void    setBattleshipSpawned(boolean v)          { battleshipSpawned = v; }
+    public boolean isEndBossSpawned()                       { return endBossSpawned; }
+    public void    setEndBossSpawned(boolean v)             { endBossSpawned = v; }
+    public boolean isBattleshipTerrainLoaded()              { return battleshipTerrainLoaded; }
+    public void    setBattleshipTerrainLoaded(boolean v)    { battleshipTerrainLoaded = v; }
+    public int     getBattleshipWrapX()                     { return battleshipWrapX; }
+    public void    setBattleshipWrapX(int v)                { battleshipWrapX = v; }
+    public int     getScreenShakeTimer()                    { return screenShakeTimer; }
+    public void    setScreenShakeTimer(int v)               { screenShakeTimer = v; }
+    public int     getLevelRepeatOffsetRaw()                { return levelRepeatOffset; }
+    public void    setLevelRepeatOffsetRaw(int v)           { levelRepeatOffset = v; }
+    public int     getBattleshipBgYOffsetRaw()              { return battleshipBgYOffset; }
+    public void    setBattleshipBgYOffsetRaw(int v)         { battleshipBgYOffset = v; }
+    public int     getBattleshipSmoothScrollXRaw()          { return battleshipSmoothScrollX; }
+    public void    setBattleshipSmoothScrollXRaw(int v)     { battleshipSmoothScrollX = v; }
+    public int     getBattleshipPostScrollCameraX()         { return battleshipPostScrollCameraX; }
+    public void    setBattleshipPostScrollCameraX(int v)    { battleshipPostScrollCameraX = v; }
+    public int     getScreenShakeOffsetYRaw()               { return screenShakeOffsetY; }
+    public void    setScreenShakeOffsetYRaw(int v)          { screenShakeOffsetY = v; }
+    public boolean isAct2TransitionRequestedRaw()           { return act2TransitionRequested; }
+    public void    setAct2TransitionRequestedRaw(boolean v) { act2TransitionRequested = v; }
+    public boolean isFireTransitionMutationRequested()      { return fireTransitionMutationRequested; }
+    public void    setFireTransitionMutationRequested(boolean v){ fireTransitionMutationRequested = v; }
+    public boolean isPostFireHazeActiveRaw()                { return postFireHazeActive; }
+    public void    setPostFireHazeActiveRaw(boolean v)      { postFireHazeActive = v; }
+    public boolean isFireOverlayTilesLoaded()               { return fireOverlayTilesLoaded; }
+    public void    setFireOverlayTilesLoaded(boolean v)     { fireOverlayTilesLoaded = v; }
+    public int     getFireBgCopyFixed()                     { return fireBgCopyFixed; }
+    public void    setFireBgCopyFixed(int v)                { fireBgCopyFixed = v; }
+    public int     getFireRiseSpeed()                       { return fireRiseSpeed; }
+    public void    setFireRiseSpeed(int v)                  { fireRiseSpeed = v; }
+    public int     getFireWavePhase()                       { return fireWavePhase; }
+    public void    setFireWavePhase(int v)                  { fireWavePhase = v; }
+    public int     getFireTransitionFrames()                { return fireTransitionFrames; }
+    public void    setFireTransitionFrames(int v)           { fireTransitionFrames = v; }
+    public int     getFirePhaseFrames()                     { return firePhaseFrames; }
+    public void    setFirePhaseFrames(int v)                { firePhaseFrames = v; }
+    public boolean isAct2WaitFireDrawActive()               { return act2WaitFireDrawActive; }
+    public void    setAct2WaitFireDrawActive(boolean v)     { act2WaitFireDrawActive = v; }
+    public int     getFireSequencePhaseOrdinal()            { return fireSequencePhase.ordinal(); }
+    public void    setFireSequencePhaseOrdinal(int ordinal) {
+        FireSequencePhase[] values = FireSequencePhase.values();
+        fireSequencePhase = (ordinal >= 0 && ordinal < values.length)
+                ? values[ordinal] : FireSequencePhase.INACTIVE;
+    }
+    public int     getFireOverlayTileCount()                { return fireOverlayTileCount; }
+    public void    setFireOverlayTileCount(int v)           { fireOverlayTileCount = v; }
 }

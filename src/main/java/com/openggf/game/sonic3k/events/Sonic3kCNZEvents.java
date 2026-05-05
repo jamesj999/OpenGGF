@@ -557,6 +557,15 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
                 waterTargetY);
     }
 
+    /**
+     * Rewind-restore path: sets {@code waterTargetY} without touching the
+     * shared water system.  Use this only from snapshot restore code that
+     * runs outside an active gameplay session.
+     */
+    public void setWaterTargetYRaw(int waterTargetY) {
+        this.waterTargetY = waterTargetY;
+    }
+
     public boolean isWaterButtonArmed() {
         return waterButtonArmed;
     }
@@ -736,4 +745,35 @@ public class Sonic3kCNZEvents extends Sonic3kZoneEvents {
         cameraMinXClamp = KNUCKLES_ROUTE_MIN_X;
         cameraMaxXClamp = KNUCKLES_ROUTE_MAX_X;
     }
+
+    // =========================================================================
+    // Rewind accessors (C.4)
+    // =========================================================================
+
+    public void    setForegroundRoutine(int v)          { fgRoutine = v; }
+    public boolean isCameraClampsActive()               { return cameraClampsActive; }
+    public void    setCameraClampsActive(boolean v)     { cameraClampsActive = v; }
+    public boolean isBossFlagPrev()                     { return bossFlagPrev; }
+    public void    setBossFlagPrev(boolean v)           { bossFlagPrev = v; }
+    public short   getCameraStoredMaxXPos()             { return cameraStoredMaxXPos; }
+    public void    setCameraStoredMaxXPos(short v)      { cameraStoredMaxXPos = v; }
+    public short   getCameraStoredMinXPos()             { return cameraStoredMinXPos; }
+    public void    setCameraStoredMinXPos(short v)      { cameraStoredMinXPos = v; }
+    public short   getCameraStoredMinYPos()             { return cameraStoredMinYPos; }
+    public void    setCameraStoredMinYPos(short v)      { cameraStoredMinYPos = v; }
+    public short   getCameraStoredMaxYPos()             { return cameraStoredMaxYPos; }
+    public void    setCameraStoredMaxYPos(short v)      { cameraStoredMaxYPos = v; }
+    public void    setKnucklesTeleporterRouteActive(boolean v){ knucklesTeleporterRouteActive = v; }
+    public void    setTeleporterBeamSpawned(boolean v)  { teleporterBeamSpawned = v; }
+    public void    setAct2TransitionRequested(boolean v){ act2TransitionRequested = v; }
+    public void    setPendingZoneActWordRaw(int v)      { pendingZoneActWord = v; }
+    public void    setTransitionWorldOffsetX(int v)     { transitionWorldOffsetX = v; }
+    public void    setTransitionWorldOffsetY(int v)     { transitionWorldOffsetY = v; }
+    public void    setCameraMinXClamp(int v)            { cameraMinXClamp = v; }
+    public void    setCameraMaxXClamp(int v)            { cameraMaxXClamp = v; }
+    public void    setArenaChunkWorldX(int v)           { arenaChunkWorldX = v; }
+    public void    setArenaChunkWorldY(int v)           { arenaChunkWorldY = v; }
+    public void    setArenaChunkDestructionQueued(boolean v){ arenaChunkDestructionQueued = v; }
+    public void    setDestroyedArenaRows(int v)         { destroyedArenaRows = v; }
+    public void    setBossBackgroundMode(BossBackgroundMode v){ bossBackgroundMode = v; }
 }
