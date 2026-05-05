@@ -6,6 +6,27 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **S2 badnik child spawn safety: migrated direct `objectManager.addDynamicObject()`
+  calls to `spawnFreeChild()` for `BalkiryBadnikInstance`, `AsteronBadnikInstance`,
+  and `AquisBadnikInstance`.** Follow-up to the prior S1 badnik migration covering
+  the three S2 badniks explicitly named alongside the S1 ones in the F1b
+  architectural-fix review. Balkiry's jet-exhaust child, Asteron's
+  explosion + 5-spike-projectile burst, and Aquis's bullet projectile were all
+  calling `services().objectManager().addDynamicObject(child)` directly,
+  bypassing `AbstractObjectInstance.CONSTRUCTION_CONTEXT`. Routing through
+  `spawnFreeChild(Supplier)` sets the construction-time `ObjectServices`
+  ThreadLocal before the child factory runs and preserves the ROM-equivalent
+  `FindFreeObj` (low-slot) allocation semantics that the prior
+  `addDynamicObject` path had. Slot ordering, child types, and spawn timing are
+  byte-for-byte identical; the only behavioral difference is that child
+  constructors may now safely call `services()`. The full S2 test suite stays
+  on its prior baseline (4119 passed, 44 failed, 23 errors — pre-existing,
+  unrelated `TestSonic1SBZEvents` etc. configuration failures, identical
+  before and after the change). Other S1/S2 object instances still call
+  `objectManager.addDynamicObject` directly (~63 S1 callers plus several S2
+  badniks such as Octus/Slicer/Shellcracker/Sol/Turtloid) and will be migrated
+  in subsequent passes; this commit covers only the badniks explicitly listed
+  in the F1b architectural review.
 - **S1 badnik child spawn safety: migrated direct `objectManager.addDynamicObject()`
   calls to `spawnFreeChild()` for `Sonic1BallHogBadnikInstance`,
   `Sonic1BombBadnikInstance`, `Sonic1CaterkillerBadnikInstance`, and
