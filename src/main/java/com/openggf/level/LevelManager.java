@@ -568,10 +568,17 @@ public class LevelManager {
 
     /**
      * Phase G: Create ObjectManager, wire CollisionSystem, and reset camera bounds.
+     * Also registers level and object-manager rewind adapters with the active
+     * {@link com.openggf.game.session.GameplayModeContext} (if one exists).
      */
     public void initObjectSystem() throws IOException {
         initObjectManager();
         initCameraBounds();
+        com.openggf.game.session.GameplayModeContext gameplayMode =
+                com.openggf.game.session.SessionManager.getCurrentGameplayMode();
+        if (gameplayMode != null) {
+            gameplayMode.registerLevelAdapters(this);
+        }
     }
 
     /**
@@ -3431,6 +3438,12 @@ public class LevelManager {
      * Replaces the reflection-based tearDown hacks in test classes.
      */
     public void resetState() {
+        com.openggf.game.session.GameplayModeContext gameplayMode =
+                com.openggf.game.session.SessionManager.getCurrentGameplayMode();
+        if (gameplayMode != null && gameplayMode.getRewindRegistry() != null) {
+            gameplayMode.getRewindRegistry().deregister("level");
+            gameplayMode.getRewindRegistry().deregister("object-manager");
+        }
         writeCurrentLevel(null);
         game = null;
         gameModule = null;
