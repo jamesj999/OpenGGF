@@ -14,7 +14,6 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.game.GameServices;
 import com.openggf.game.mutation.MutationEffects;
 import com.openggf.level.Level;
 import com.openggf.level.ParallaxManager;
@@ -1112,7 +1111,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
         levelLayoutPatched = true;
-        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+        services().zoneLayoutMutationPipeline().queue(context -> {
             MutationEffects effects = MutationEffects.NONE;
             for (int i = 0; i < LAYOUT_PATCH_OFFSETS.length; i++) {
                 final int baseOffset = LAYOUT_PATCH_OFFSETS[i];

@@ -3,7 +3,6 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.mutation.MutationEffects;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -221,7 +220,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
         // ROM: move.l #$8A707172,(a1)+ / move.w #$7374,(a1)+ (row 0, Level_Layout+$850)
         //      move.l #$6E787978,(a1)+ / move.w #$787A,(a1)+ (row 1, Level_Layout+$950)
         // ROM: move.b #1,(Screen_redraw_flag).w — pipeline publishes redraw effects automatically.
-        GameServices.zoneLayoutMutationPipeline().queue(context -> {
+        services().zoneLayoutMutationPipeline().queue(context -> {
             try {
                 MutationEffects effects = MutationEffects.NONE;
                 // Write row 0 blocks (Level_Layout+$850): 6 blocks starting at FG x=80, y=8
