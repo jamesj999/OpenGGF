@@ -59,4 +59,15 @@ public final class DirectLevelMutationSurface implements LevelMutationSurface {
         map.setValue(layer, blockX, blockY, (byte) blockIndex);
         return layer == 0 ? MutationEffects.foregroundRedraw() : MutationEffects.redrawAllTilemaps();
     }
+
+    @Override
+    public MutationEffects setBlockInMapWithoutRedraw(int layer, int blockX, int blockY, int blockIndex) {
+        Map map = Objects.requireNonNull(level.getMap(), "level.map");
+        // Ensure the map's data array is writable for CoW snapshot protection.
+        if (level instanceof AbstractLevel) {
+            map.cowEnsureWritable(((AbstractLevel) level).currentEpoch());
+        }
+        map.setValue(layer, blockX, blockY, (byte) blockIndex);
+        return MutationEffects.NONE;
+    }
 }

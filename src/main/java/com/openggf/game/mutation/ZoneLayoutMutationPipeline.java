@@ -43,6 +43,23 @@ public final class ZoneLayoutMutationPipeline
         context.publish(intent.apply(context));
     }
 
+    /**
+     * Applies a single intent immediately, stripping all redraw hints from the
+     * published {@link MutationEffects} before forwarding them to the context sink.
+     *
+     * <p>Use when the caller controls its own redraw sequencing and the pipeline's
+     * automatic redraw publication would break the desired ordering (e.g. a
+     * snapshot-then-clear effect where the cleared tiles must remain invisible
+     * until an explicit flush).  Non-rendering side effects (dirty pattern uploads,
+     * object/ring resync) are still published.
+     */
+    public void applyImmediatelyWithoutRedraw(LayoutMutationIntent intent, LayoutMutationContext context) {
+        Objects.requireNonNull(intent, "intent");
+        Objects.requireNonNull(context, "context");
+        MutationEffects effects = intent.apply(context);
+        context.publish(effects != null ? effects.withoutRedrawHints() : MutationEffects.NONE);
+    }
+
     /** Drops all queued intents without applying them. */
     public void clear() {
         queued.clear();

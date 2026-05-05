@@ -75,4 +75,17 @@ public record MutationEffects(
                 && !objectResyncRequired
                 && !ringResyncRequired;
     }
+
+    /**
+     * Returns a copy of these effects with all redraw and dirty-region hints stripped.
+     *
+     * <p>Non-rendering side effects (dirty pattern uploads, object resync, ring resync)
+     * are preserved so that the caller can still react to structural data changes.
+     */
+    public MutationEffects withoutRedrawHints() {
+        if (!dirtyRegionProcessingRequired && !foregroundRedrawRequired && !allTilemapsRedrawRequired) {
+            return this;
+        }
+        return new MutationEffects(dirtyPatterns, false, false, false, objectResyncRequired, ringResyncRequired);
+    }
 }

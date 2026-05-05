@@ -36,6 +36,23 @@ public interface LevelMutationSurface {
     /** Replaces a map block reference on the requested layer. */
     MutationEffects setBlockInMap(int layer, int blockX, int blockY, int blockIndex);
 
+    /**
+     * Replaces a map block reference on the requested layer without signalling any redraw.
+     *
+     * <p>Use this when the caller manages its own redraw sequencing and the
+     * pipeline's automatic redraw publication would break the desired ordering
+     * (e.g. snapshot-then-clear effects where the clear must be invisible until
+     * the next explicit flush).  All non-rendering side effects (dirty patterns,
+     * object/ring resync) are still returned.
+     *
+     * <p>The default implementation delegates to {@link #setBlockInMap} and strips
+     * redraw hints via {@link MutationEffects#withoutRedrawHints()}. Implementations
+     * may override for efficiency.
+     */
+    default MutationEffects setBlockInMapWithoutRedraw(int layer, int blockX, int blockY, int blockIndex) {
+        return setBlockInMap(layer, blockX, blockY, blockIndex).withoutRedrawHints();
+    }
+
     /** Requests a foreground redraw without performing any direct data change. */
     default MutationEffects requestRedraw() {
         return MutationEffects.redraw();
