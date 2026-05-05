@@ -1,5 +1,8 @@
 package com.openggf.game.mutation;
 
+import com.openggf.game.rewind.RewindSnapshottable;
+import com.openggf.game.rewind.snapshot.MutationPipelineSnapshot;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -11,7 +14,8 @@ import java.util.Objects;
  * controlled point in the frame. If a batched mutation throws, the remaining
  * queued work is preserved so the caller can recover or retry.
  */
-public final class ZoneLayoutMutationPipeline {
+public final class ZoneLayoutMutationPipeline
+        implements RewindSnapshottable<MutationPipelineSnapshot> {
 
     private final List<LayoutMutationIntent> queued = new ArrayList<>();
 
@@ -61,5 +65,23 @@ public final class ZoneLayoutMutationPipeline {
             }
             context.publish(effects);
         }
+    }
+
+    // ── RewindSnapshottable ───────────────────────────────────────────────
+
+    @Override
+    public String key() {
+        return "mutation-pipeline";
+    }
+
+    @Override
+    public MutationPipelineSnapshot capture() {
+        return new MutationPipelineSnapshot(queued);
+    }
+
+    @Override
+    public void restore(MutationPipelineSnapshot s) {
+        queued.clear();
+        queued.addAll(s.queued());
     }
 }
