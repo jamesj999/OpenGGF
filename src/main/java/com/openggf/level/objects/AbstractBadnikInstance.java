@@ -210,4 +210,63 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         double angle = (frameCounter % period) * (2.0 * Math.PI / period);
         return baseY + (int) (amplitude * Math.sin(angle));
     }
+
+    /**
+     * Captures badnik movement state (position, velocity, animation cursor, facing)
+     * into a {@link PerObjectRewindSnapshot.BadnikRewindExtra} record for rewind snapshots.
+     * <p>
+     * Subclasses with additional per-frame timers or state machine fields (multi-phase AI)
+     * should override this method, call {@code super.captureRewindState()}, and wrap
+     * the result with their own extra fields using custom record nesting.
+     *
+     * @return snapshot with badnik extra populated
+     */
+    @Override
+    public PerObjectRewindSnapshot captureRewindState() {
+        PerObjectRewindSnapshot base = super.captureRewindState();
+        PerObjectRewindSnapshot.BadnikRewindExtra badnikExtra =
+                new PerObjectRewindSnapshot.BadnikRewindExtra(
+                        currentX, currentY, xVelocity, yVelocity,
+                        animTimer, animFrame, facingLeft);
+        // The record constructor with badnikExtra parameter
+        return new PerObjectRewindSnapshot(
+                base.destroyed(),
+                base.destroyedRespawnable(),
+                base.hasDynamicSpawn(),
+                base.dynamicSpawnX(),
+                base.dynamicSpawnY(),
+                base.preUpdateX(),
+                base.preUpdateY(),
+                base.preUpdateValid(),
+                base.preUpdateCollisionFlags(),
+                base.skipTouchThisFrame(),
+                base.solidContactFirstFrame(),
+                base.slotIndex(),
+                base.respawnStateIndex(),
+                badnikExtra
+        );
+    }
+
+    /**
+     * Restores badnik movement state from a rewind snapshot.
+     * <p>
+     * Subclasses with additional state should override, call {@code super.restoreRewindState()},
+     * and restore their own extra fields from the snapshot.
+     *
+     * @param s the snapshot to restore from
+     */
+    @Override
+    public void restoreRewindState(PerObjectRewindSnapshot s) {
+        super.restoreRewindState(s);
+        if (s.badnikExtra() != null) {
+            PerObjectRewindSnapshot.BadnikRewindExtra extra = s.badnikExtra();
+            this.currentX = extra.currentX();
+            this.currentY = extra.currentY();
+            this.xVelocity = extra.xVelocity();
+            this.yVelocity = extra.yVelocity();
+            this.animTimer = extra.animTimer();
+            this.animFrame = extra.animFrame();
+            this.facingLeft = extra.facingLeft();
+        }
+    }
 }

@@ -46,5 +46,23 @@ public record PerObjectRewindSnapshot(
         int slotIndex,
 
         // S1 counter-based respawn index (-1 when not used)
-        int respawnStateIndex
-) {}
+        int respawnStateIndex,
+
+        // Badnik movement state (nullable; only present when capturing
+        // AbstractBadnikInstance or subclass)
+        BadnikRewindExtra badnikExtra
+) {
+    /**
+     * Immutable capture of {@link AbstractBadnikInstance} movement-state fields
+     * (currentX, currentY, xVelocity, yVelocity, animTimer, animFrame, facingLeft).
+     */
+    public static record BadnikRewindExtra(
+            int currentX,
+            int currentY,
+            int xVelocity,
+            int yVelocity,
+            int animTimer,
+            int animFrame,
+            boolean facingLeft
+    ) {}
+}

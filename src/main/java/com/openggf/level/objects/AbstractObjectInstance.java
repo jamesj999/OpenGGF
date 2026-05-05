@@ -807,7 +807,8 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 skipTouchThisFrame,
                 solidContactFirstFrame,
                 slotIndex,
-                respawnStateIndex
+                respawnStateIndex,
+                null  // Base class does not capture badnik extra; subclass overrides if needed
         );
     }
 
@@ -834,6 +835,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         this.solidContactFirstFrame = s.solidContactFirstFrame();
         this.slotIndex = s.slotIndex();
         this.respawnStateIndex = s.respawnStateIndex();
+        // badnikExtra is handled by subclass overrides; base class does nothing
     }
 
     /**
