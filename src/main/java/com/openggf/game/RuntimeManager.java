@@ -40,8 +40,6 @@ import java.util.Objects;
 public final class RuntimeManager {
 
     private static GameRuntime current;
-    private static GameRuntime parked;
-    private static GameplayModeContext suppressedGameplayMode;
     private static EngineServices engineServices;
 
     private RuntimeManager() {}
@@ -68,18 +66,19 @@ public final class RuntimeManager {
 
     public static synchronized GameRuntime getCurrent(EngineServices services) {
         Objects.requireNonNull(services, "services");
+        // If the active gameplay mode has changed under us (e.g. session was
+        // re-opened), drop the now-stale runtime. Otherwise return what's
+        // there — callers must explicitly invoke createGameplay() to build
+        // a fresh runtime; we no longer lazy-create on read, since that
+        // mid-flow side effect can re-attach fresh managers (replacing
+        // camera/sprite/etc) to a still-referenced gameplay mode and
+        // surprise callers holding manager refs across the transition.
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
-        if (current != null) {
-            if (current.getGameplayModeContext() != gameplayMode
-                    || current.getEngineServices() != services) {
-                current.destroy();
-                current = null;
-            } else {
-                return current;
-            }
-        }
-        if (gameplayMode != null && gameplayMode != suppressedGameplayMode) {
-            return createGameplay(gameplayMode, services);
+        if (current != null
+                && (current.getGameplayModeContext() != gameplayMode
+                || current.getEngineServices() != services)) {
+            current.destroy();
+            current = null;
         }
         return current;
     }
@@ -114,9 +113,7 @@ public final class RuntimeManager {
      * production code should use {@link #createGameplay()}.
      */
     public static synchronized void setCurrent(GameRuntime runtime) {
-        destroyParkedRuntimeIfSupersededBy(runtime);
         current = runtime;
-        suppressedGameplayMode = runtime == null ? SessionManager.getCurrentGameplayMode() : null;
     }
 
     /**
@@ -151,8 +148,6 @@ public final class RuntimeManager {
         if (gameplayMode == null) {
             throw new NullPointerException("gameplayMode");
         }
-        destroyParkedRuntimeIfSupersededBy(null);
-        suppressedGameplayMode = null;
         Camera camera = new Camera();
         TimerManager timers = new TimerManager();
         GameStateManager gameState = new GameStateManager();
@@ -199,70 +194,6 @@ public final class RuntimeManager {
     }
 
     /**
-     * Detaches the active gameplay runtime without destroying it so editor mode can take over.
-     */
-    public static synchronized void parkCurrent() {
-        if (current == null) {
-            return;
-        }
-        current.clearTransientFrameState();
-        parked = current;
-        current = null;
-        suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
-    }
-
-    /**
-     * Rebinds a previously parked runtime to the resumed gameplay mode, or creates a fresh runtime
-     * if nothing is parked.
-     */
-    public static synchronized GameRuntime resumeParked(GameplayModeContext gameplayMode) {
-        if (parked == null) {
-            return createGameplay(gameplayMode);
-        }
-        if (parked.getWorldSession() != gameplayMode.getWorldSession()) {
-            destroyParkedRuntimeIfSupersededBy(null);
-            return createGameplay(gameplayMode);
-        }
-        // Transfer the disposable gameplay-scoped managers from the parked
-        // mode context to the resumed one. The parked runtime's managers
-        // remain alive across the editor detour; the new mode context just
-        // becomes their new owner.
-        GameplayModeContext parkedMode = parked.getGameplayModeContext();
-        gameplayMode.attachGameplayManagers(
-                parkedMode.getCamera(),
-                parkedMode.getTimerManager(),
-                parkedMode.getGameStateManager(),
-                parkedMode.getFadeManager(),
-                parkedMode.getRng(),
-                parkedMode.getSolidExecutionRegistry());
-        gameplayMode.attachLevelManagers(
-                parkedMode.getWaterSystem(),
-                parkedMode.getParallaxManager(),
-                parkedMode.getTerrainCollisionManager(),
-                parkedMode.getCollisionSystem(),
-                parkedMode.getSpriteManager(),
-                parkedMode.getLevelManager());
-        gameplayMode.attachSharedRegistries(
-                parkedMode.getZoneRuntimeRegistry(),
-                parkedMode.getPaletteOwnershipRegistry(),
-                parkedMode.getAnimatedTileChannelGraph(),
-                parkedMode.getSpecialRenderEffectRegistry(),
-                parkedMode.getAdvancedRenderModeController(),
-                parkedMode.getZoneLayoutMutationPipeline());
-        // Carry the bonus-stage provider across the editor detour. The
-        // provider lives on the gameplay mode context (per-mode lifetime)
-        // but should survive a parked->resumed handoff like other transferred
-        // managers.
-        gameplayMode.setActiveBonusStageProvider(parkedMode.getActiveBonusStageProvider());
-        parked.clearTransientFrameState();
-        parked.updateGameplayModeContext(gameplayMode);
-        current = parked;
-        parked = null;
-        suppressedGameplayMode = null;
-        return current;
-    }
-
-    /**
      * Destroys the current runtime (calling {@link GameRuntime#destroy()})
      * and sets the current reference to {@code null}.
      */
@@ -270,17 +201,6 @@ public final class RuntimeManager {
         if (current != null) {
             current.destroy();
             current = null;
-        }
-        destroyParkedRuntimeIfSupersededBy(null);
-        suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
-    }
-
-    private static void destroyParkedRuntimeIfSupersededBy(GameRuntime replacement) {
-        if (parked != null && parked != replacement) {
-            parked.destroy();
-        }
-        if (parked != replacement) {
-            parked = null;
         }
     }
 

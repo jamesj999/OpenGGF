@@ -21,6 +21,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class TestEngineServices {
@@ -54,8 +55,12 @@ class TestEngineServices {
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         new Engine(injectedRoot);
-
-        assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+        // After removing lazy-create-on-getCurrent, the runtime is built
+        // explicitly. Engine constructor reconfigures the root before any
+        // gameplay runtime exists; verify that downstream creation picks up
+        // the injected root.
+        com.openggf.game.GameRuntime runtime = RuntimeManager.createGameplay();
+        assertSame(injectedRoot, runtime.getEngineServices());
     }
 
     @Test
@@ -66,8 +71,11 @@ class TestEngineServices {
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         new GameLoop(injectedRoot);
-
-        assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+        // After removing lazy-create-on-getCurrent, runtime build is explicit;
+        // the GameLoop constructor reconfigures the root, and the next
+        // explicit createGameplay() picks it up.
+        com.openggf.game.GameRuntime runtime = RuntimeManager.createGameplay();
+        assertSame(injectedRoot, runtime.getEngineServices());
     }
 
     @Test
@@ -81,8 +89,12 @@ class TestEngineServices {
         assertSame(staleRoot, runtime.getEngineServices());
 
         RuntimeManager.configureEngineServices(injectedRoot);
-
-        com.openggf.game.GameRuntime rebound = RuntimeManager.getCurrent(injectedRoot);
+        // getCurrent with a different EngineServices root drops the stale
+        // runtime; an explicit createGameplay() builds a fresh one bound to
+        // the new root.
+        assertNull(RuntimeManager.getCurrent(injectedRoot),
+                "getCurrent should drop the runtime whose EngineServices no longer matches");
+        com.openggf.game.GameRuntime rebound = RuntimeManager.createGameplay();
 
         assertSame(injectedRoot, rebound.getEngineServices());
         assertNotSame(runtime, rebound);

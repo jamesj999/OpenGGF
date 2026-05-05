@@ -139,31 +139,12 @@ class TestZoneLayoutMutationPipeline {
         assertEquals("ABC", log.toString());
     }
 
-    @Test
-    void parkAndResumeClearsQueuedMutationState() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        ZoneLayoutMutationPipeline pipeline = runtime.getZoneLayoutMutationPipeline();
-        GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
-        StringBuilder log = new StringBuilder();
-
-        pipeline.queue(intent(log, "A"));
-
-        RuntimeManager.parkCurrent();
-
-        // Post-migration: GameServices accessors resolve through the gameplay
-        // mode context, which parking preserves — so the pipeline remains
-        // visible across parking. The interesting invariant is that queued
-        // mutations are discarded (asserted at the end of the test).
-        assertNull(RuntimeManager.getCurrent(),
-                "park should remove the runtime from the current slot");
-
-        GameRuntime resumed = RuntimeManager.resumeParked(gameplayMode);
-        assertSame(runtime, resumed);
-        assertSame(pipeline, resumed.getZoneLayoutMutationPipeline());
-
-        pipeline.flush(context());
-        assertEquals("", log.toString(), "park/resume should discard queued mutations from the parked frame");
-    }
+    // Removed: parkAndResumeClearsQueuedMutationState. Tested
+    // RuntimeManager.parkCurrent / resumeParked, which have been deleted
+    // in favor of proper teardown+rebuild (RuntimeManager.destroyCurrent +
+    // initializeGameplayRuntime + level restoration). Queued mutation
+    // discard at runtime teardown is exercised by
+    // runtimeDestroyClearsPendingMutationState below.
 
     @Test
     void mutableLevelSurfaceUsesDirtyTrackingAndRequestsSameFrameProcessing() {

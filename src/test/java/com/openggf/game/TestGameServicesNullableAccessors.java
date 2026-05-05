@@ -85,10 +85,10 @@ class TestGameServicesNullableAccessors {
     /**
      * Predicate-equivalence invariant: {@link GameServices#hasRuntime()} must
      * agree with the underlying {@code gameplayModeOrNull() != null} check
-     * across state transitions. Before the fix, {@code hasRuntime()} could
-     * return {@code false} (RuntimeManager.current cleared by parkCurrent)
-     * while gameplay-scoped accessors still returned non-null state from a
-     * still-live, suppressed gameplay mode context.
+     * across state transitions. Editor mode entry now does a proper teardown
+     * (RuntimeManager.destroyCurrent) rather than parking, so the parked-
+     * runtime case is no longer applicable; the invariant still holds across
+     * the remaining lifecycle states.
      */
     @Test
     void hasRuntimeAgreesWithGameplayModeAcrossLifecycle() {
@@ -106,22 +106,19 @@ class TestGameServicesNullableAccessors {
                 "active: hasRuntime() must match gameplay mode availability");
         assertTrue(GameServices.hasRuntime());
 
-        // 3. Parked runtime — the gameplay mode context can remain live in the
-        //    SessionManager while RuntimeManager.current is null. Without the
-        //    fix, hasRuntime() returns false but cameraOrNull() can return non-null.
-        RuntimeManager.parkCurrent();
-        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
-                "parked: hasRuntime() must match gameplay mode availability");
-
-        // 4. Resumed from editor — the most architecturally sensitive transition,
-        //    since RuntimeManager.resumeParked re-attaches gameplay managers
-        //    (including the migrated activeBonusStageProvider) and sets
-        //    current = parked. A bug specific to the resumed state (e.g., a
-        //    suppressed mode not cleared) would not be caught by the parked
-        //    case alone.
+        // 3. Editor mode active — the runtime is destroyed but the gameplay
+        //    mode context remains in SessionManager until enterEditorMode
+        //    swaps it out. After enterEditorMode, both runtime and gameplay
+        //    mode are gone (only the editor mode is current).
+        RuntimeManager.destroyCurrent();
         SessionManager.enterEditorMode(new EditorCursorState(0, 0));
+        assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
+                "editor: hasRuntime() must match gameplay mode availability");
+        assertFalse(GameServices.hasRuntime(), "editor: no gameplay mode is active");
+
+        // 4. Resumed from editor — fresh runtime + gameplay mode.
         GameplayModeContext resumedMode = SessionManager.resumeGameplayFromEditor();
-        RuntimeManager.resumeParked(resumedMode);
+        RuntimeManager.createGameplay(resumedMode);
         assertEquals(GameServices.cameraOrNull() != null, GameServices.hasRuntime(),
                 "post-resume: hasRuntime() must agree with gameplay mode availability");
         assertTrue(GameServices.hasRuntime(), "post-resume: gameplay should be active");

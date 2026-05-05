@@ -6,6 +6,28 @@ All notable changes to the OpenGGF project are documented in this file.
 
 ### v0.6.prerelease (Current development snapshot)
 
+- **Architecture cleanup: dropped `RuntimeManager.parkCurrent` /
+  `resumeParked` editor parking flow.** Per the runtime ownership migration
+  design, world data lives on `WorldSession` (durable across mode swaps) and
+  gameplay state lives on `GameplayModeContext` (disposable). With both in
+  place, the parking mechanism — which preserved the runtime intact across
+  editor mode entry — was redundant. `Engine.enterEditorFromCurrentPlayer`
+  now does a proper teardown via `RuntimeManager.destroyCurrent()`,
+  capturing/restoring the world-scoped state (loaded `Level`, zone/act,
+  camera bounds) on `WorldSession` since `LevelManager.resetState()`
+  write-throughs `null` during teardown. `Engine.resumePlaytestFromEditor`
+  uses `initializeGameplayRuntime` + `LevelManager.restoreInheritedLevel()`
+  to rebuild a fresh runtime over the surviving world. Removed
+  `parkCurrent` / `resumeParked` / `parked` field /
+  `suppressedGameplayMode` / `destroyParkedRuntimeIfSupersededBy` from
+  `RuntimeManager`. Removed lazy-create-on-`getCurrent`, since that
+  mid-flow side effect could re-attach fresh managers (replacing camera,
+  sprite, etc.) to a still-referenced gameplay mode and surprise callers
+  holding manager refs across the transition. Six parking-only tests
+  removed; four tests updated to call `createGameplay()` explicitly
+  instead of relying on auto-create. `TestEditorToggleIntegration`'s
+  editor round-trip tests still pass — proving world preservation +
+  gameplay counter reset on exit.
 - **`spawnChild` / `spawnFreeChild` migration sweep across S1 object
   code.** Replaced direct `objectManager.addDynamicObject(...)` calls
   in S1 instance classes with the inherited

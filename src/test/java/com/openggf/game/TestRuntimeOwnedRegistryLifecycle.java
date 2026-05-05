@@ -26,21 +26,11 @@ class TestRuntimeOwnedRegistryLifecycle {
         com.openggf.game.session.SessionManager.clear();
     }
 
-    @Test
-    void parkAndResumeClearsQueuedMutationsButKeepsRegisteredRenderState() {
-        GameRuntime runtime = RuntimeManager.createGameplay();
-        runtime.getZoneLayoutMutationPipeline().queue(context -> MutationEffects.redrawAllTilemaps());
-        runtime.getSpecialRenderEffectRegistry().register(noOpEffect());
-        runtime.getAdvancedRenderModeController().register(noOpMode());
-
-        RuntimeManager.parkCurrent();
-        GameRuntime resumed = RuntimeManager.resumeParked(runtime.getGameplayModeContext());
-
-        assertSame(runtime, resumed);
-        assertTrue(resumed.getZoneLayoutMutationPipeline().isEmpty());
-        assertFalse(resumed.getSpecialRenderEffectRegistry().isEmpty());
-        assertFalse(resumed.getAdvancedRenderModeController().isEmpty());
-    }
+    // Removed: parkAndResumeClearsQueuedMutationsButKeepsRegisteredRenderState.
+    // Tested RuntimeManager.parkCurrent / resumeParked, which have been deleted.
+    // Editor entry/exit now does proper teardown+rebuild (destroyCurrent +
+    // initializeGameplayRuntime + level restoration), so the parking-frame
+    // mutation-discard semantic is no longer applicable.
 
     private static SpecialRenderEffect noOpEffect() {
         return new SpecialRenderEffect() {

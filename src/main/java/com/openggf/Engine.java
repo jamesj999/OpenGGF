@@ -508,8 +508,40 @@ public class Engine {
 		prepareMutableEditorLevel();
 		primeEditorSelection(playerX, playerY);
 		levelEditorController.setWorldCursor(new EditorCursorState(playerX, playerY));
-		RuntimeManager.parkCurrent();
+		// World data (Level incl. MutableLevel mutations, zone/act metadata) lives
+		// on WorldSession and is meant to survive runtime teardown per
+		// docs/superpowers/specs/2026-04-07-runtime-ownership-migration-design.md.
+		// However, LevelManager.resetState() write-throughs `null` to WorldSession
+		// during destroyCurrent (intentional for end-of-session teardown so trace
+		// fixtures see a clean slate). Capture the world-scoped fields here and
+		// restore them on the surviving WorldSession after teardown so the editor
+		// operates over the same loaded level. Camera bounds (also world-derived
+		// but stored on the gameplay-mode camera) get the same capture+restore.
+		com.openggf.game.session.WorldSession worldSessionForEditor = SessionManager.getCurrentWorldSession();
+		Level savedLevel = worldSessionForEditor != null ? worldSessionForEditor.getCurrentLevel() : null;
+		int savedZone = worldSessionForEditor != null ? worldSessionForEditor.getCurrentZone() : 0;
+		int savedAct = worldSessionForEditor != null ? worldSessionForEditor.getCurrentAct() : 0;
+		int savedApparentAct = worldSessionForEditor != null ? worldSessionForEditor.getApparentAct() : 0;
+		short savedMinX = camera != null ? camera.getMinX() : 0;
+		short savedMaxX = camera != null ? camera.getMaxX() : 0;
+		short savedMinY = camera != null ? camera.getMinY() : 0;
+		short savedMaxY = camera != null ? camera.getMaxY() : 0;
+		RuntimeManager.destroyCurrent();
+		runtime = null;
+		gameLoop.setRuntime(null);
+		if (worldSessionForEditor != null) {
+			worldSessionForEditor.setCurrentLevel(savedLevel);
+			worldSessionForEditor.setCurrentZone(savedZone);
+			worldSessionForEditor.setCurrentAct(savedAct);
+			worldSessionForEditor.setApparentAct(savedApparentAct);
+		}
 		SessionManager.enterEditorMode(new EditorCursorState(playerX, playerY), stash);
+		if (camera != null) {
+			camera.setMinX(savedMinX);
+			camera.setMaxX(savedMaxX);
+			camera.setMinY(savedMinY);
+			camera.setMaxY(savedMaxY);
+		}
 		syncEditorState();
 		gameLoop.setGameMode(GameMode.EDITOR);
 	}
@@ -518,11 +550,19 @@ public class Engine {
 		repairEditorCursorForResume();
 		syncEditorState();
 		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
-		runtime = RuntimeManager.resumeParked(gameplay);
-		bindRuntime(runtime);
-		// Per the runtime ownership migration design, editor exit reinitializes
-		// gameplay session state as fresh — score/rings/lives/timer/checkpoint
-		// must not carry over from before the editor detour.
+		// Build a fresh gameplay runtime over the surviving WorldSession, then
+		// rehydrate the loaded level (preserving any MutableLevel mutations
+		// made in editor) via restoreInheritedLevel.
+		initializeGameplayRuntime(gameplay, false);
+		try {
+			runtime.getLevelManager().restoreInheritedLevel();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to restore inherited level on editor exit", e);
+		}
+		// Per the design, editor exit reinitializes gameplay session state as
+		// fresh — score/timer/checkpoint must not carry over from before the
+		// editor detour. (Counters that initializeGameplayRuntime already set —
+		// special-stage progress configuration — stay.)
 		gameplay.initializeFreshGameplayState();
 		applyResumedPlaytestState(gameplay);
 		gameLoop.setGameMode(GameMode.LEVEL);
